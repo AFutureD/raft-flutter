@@ -340,13 +340,18 @@ bridge_add('settings.bridge-error', 'Slack bridge: load failed', 'error')
 FB_HINT = 'packages/web/src/components/settings/AboutFeedbackDialog.tsx (+ @botiverse/hands-feedback-react)'
 FB_ID = '5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61'
 MROW = f"[data-parity-region='settings-panel'] li:has(button[data-ticket-id='{FB_ID}']) .hands-feedback-ticket-title"
-settings_add('settings.feedback-mobile', 'Feedback: inbox (mobile)', tab='feedback', platform='mobile', hint=FB_HINT)
+# Later fixture files (shell.json) also answer GET /product-feedback/tickets and,
+# registered after settings.json, win: restate the feedback reads in a route set.
+_settings = json.loads((here / 'fixtures/settings.json').read_text())
+fixture['routeSets']['wp6-feedback'] = {k: v for k, v in _settings['routes'].items() if 'product-feedback' in k}
+settings_add('settings.feedback-mobile', 'Feedback: inbox (mobile)', tab='feedback', platform='mobile', hint=FB_HINT,
+             route_set='wp6-feedback')
 settings_add('settings.feedback-new-mobile', 'Feedback: New feedback form (mobile)', tab='feedback',
-             platform='mobile', hint=FB_HINT,
+             platform='mobile', hint=FB_HINT, route_set='wp6-feedback',
              interactions=[{'type': 'click', 'target': btn('New feedback')}, {'type': 'wait', 'ms': 500}],
              android=[{'type': 'tap', 'key': 'feedback-new'}])
 settings_add('settings.feedback-ticket-mobile', 'Feedback: ticket conversation (mobile)', tab='feedback',
-             platform='mobile', hint=FB_HINT,
+             platform='mobile', hint=FB_HINT, route_set='wp6-feedback',
              interactions=[{'type': 'click', 'target': MROW}, {'type': 'wait', 'ms': 700}],
              android=[{'type': 'tap', 'key': f'feedback-ticket-{FB_ID}'}])
 

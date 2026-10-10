@@ -16,6 +16,7 @@ import 'package:flutter/rendering.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
@@ -274,7 +275,7 @@ class RaftModalBackdrop extends StatelessWidget {
             : t.colors['layer-backdrop']!,
         child: LayoutBuilder(
           builder: (context, box) {
-            Widget content = Center(child: child);
+            Widget content = _PixelCenter(child: child);
             if (onBackdrop != null) {
               // Presses inside [child] never reach the backdrop handler.
               content = GestureDetector(
@@ -282,7 +283,7 @@ class RaftModalBackdrop extends StatelessWidget {
                 onTap: onBackdrop,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Center(
+                  child: _PixelCenter(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () {},
@@ -308,6 +309,49 @@ class RaftModalBackdrop extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// `m-auto` centring as Chromium paints it: layout keeps the half-pixel
+/// (a 463px dialog in 800px sits at y = 168.5, which is also its screenshot
+/// origin) while painting rounds the half up (169), so edges and text land on
+/// whole pixels like Blink's snapped boxes.
+class _PixelCenter extends SingleChildRenderObjectWidget {
+  const _PixelCenter({required Widget child}) : super(child: child);
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderPixelCenter();
+}
+
+class _RenderPixelCenter extends RenderShiftedBox {
+  _RenderPixelCenter() : super(null);
+  Offset _snap = Offset.zero;
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    size = constraints.constrain(
+      Size(
+        constraints.hasBoundedWidth ? constraints.maxWidth : child.size.width,
+        constraints.hasBoundedHeight ? constraints.maxHeight : child.size.height,
+      ),
+    );
+    final at = Offset(
+      (size.width - child.size.width) / 2,
+      (size.height - child.size.height) / 2,
+    );
+    (child.parentData! as BoxParentData).offset = at;
+    // Half a pixel (only) rounds up.
+    double up(double v) => v - v.floorToDouble() == .5 ? .5 : 0;
+    _snap = Offset(up(at.dx), up(at.dy));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    final at = (child.parentData! as BoxParentData).offset;
+    context.paintChild(child, offset + at + _snap);
   }
 }
 
@@ -523,7 +567,7 @@ class RaftProductFormField extends StatelessWidget {
         if (error != null || hint != null)
           Padding(
             padding: EdgeInsets.only(top: 4 + gap),
-            child: Text(
+            child: RaftCssText(
               error ?? hint!,
               style: (error != null ? field.error : field.description)
                   .textStyle(tokens)
