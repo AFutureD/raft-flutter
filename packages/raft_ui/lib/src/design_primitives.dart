@@ -271,9 +271,9 @@ class RaftAttachmentRecipe {
         : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
-  TextStyle get title => RaftTypography.attachmentTitle(
-    tokens,
-  ).copyWith(fontWeight: FontWeight.w700);
+  TextStyle get title =>
+      RaftTypography.attachmentTitle(tokens)
+          .copyWith(fontWeight: FontWeight.w700);
   TextStyle get metadata => RaftTypography.attachmentMeta(tokens);
 }
 
@@ -378,6 +378,7 @@ abstract final class RaftTypography {
     letterSpacing: 0,
     color: color ?? t.strong,
   );
+
   /// Text that inherits the page's `font-family` (no `font-sans` class): the
   /// Web body resolves to the theme's heading family (Inter in elegant, Hanken
   /// Grotesk in brutal), while the `font-sans` utility ([body]) is Geist.
@@ -1745,12 +1746,11 @@ enum RaftDropdownSide { bottom, top, right }
 enum RaftDropdownAlign { start, end }
 
 /// The popup retains ownership of its trigger focus and dismissal callbacks.
-typedef RaftDropdownTriggerBuilder =
-    Widget Function(
-      BuildContext context,
-      FocusNode focusNode,
-      VoidCallback? onPressed,
-    );
+typedef RaftDropdownTriggerBuilder = Widget Function(
+  BuildContext context,
+  FocusNode focusNode,
+  VoidCallback? onPressed,
+);
 
 class RaftDropdownMenu extends StatefulWidget {
   const RaftDropdownMenu({

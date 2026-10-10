@@ -268,7 +268,12 @@ class RaftConnectedAppsSection extends StatelessWidget {
                   counts.installed,
                   'installed',
                 ),
-                (RaftConnectedAppsTab.myApps, 'My apps', counts.myApps, 'my-apps'),
+                (
+                  RaftConnectedAppsTab.myApps,
+                  'My apps',
+                  counts.myApps,
+                  'my-apps',
+                ),
               ])
                 RaftSegmentedOption(
                   value: value,
@@ -563,7 +568,13 @@ class _LayoutToggle extends StatelessWidget {
           'Grid view',
           'grid',
         ),
-        (RaftConnectedAppsLayout.list, RaftGlyph.list, 17.0, 'List view', 'list'),
+        (
+          RaftConnectedAppsLayout.list,
+          RaftGlyph.list,
+          17.0,
+          'List view',
+          'list',
+        ),
       ])
         RaftTooltip(
           message: raftText(context, label),
@@ -689,7 +700,9 @@ class RaftAppLogo extends StatelessWidget {
               size: 14,
               line: 20,
               weight: FontWeight.w700,
-            ).copyWith(color: placeholder.withValues(alpha: placeholder.a * .7)),
+            ).copyWith(
+              color: placeholder.withValues(alpha: placeholder.a * .7),
+            ),
           ),
         ),
       ),
@@ -760,8 +773,7 @@ class _MarketplaceCard extends StatelessWidget {
                       : t.muted,
                 ),
               ),
-              if (!grid && app.description != null)
-                _Summary(app.description!),
+              if (!grid && app.description != null) _Summary(app.description!),
             ],
           ),
         ),
@@ -1029,7 +1041,9 @@ class _AppRowCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: _relaxed(
                         t,
-                        t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
+                        t.brutal
+                            ? Colors.black.withValues(alpha: .55)
+                            : t.muted,
                       ),
                     ),
                   ),
@@ -1123,7 +1137,9 @@ class RaftConnectedAppDetailSection extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: RaftSettingsCard.decoration(t).copyWith(
         color: cream
-            ? (t.brutal ? t.product.brutalCream : t.colors['layer-canvas-muted'])
+            ? (t.brutal
+                  ? t.product.brutalCream
+                  : t.colors['layer-canvas-muted'])
             : null,
       ),
       child: Column(
@@ -1267,7 +1283,9 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
-    final soft = t.brutal ? Colors.black.withValues(alpha: .15) : t.colors['line-muted']!;
+    final soft = t.brutal
+        ? Colors.black.withValues(alpha: .15)
+        : t.colors['line-muted']!;
     final summary = RaftTypography.body(
       t,
       size: 12,
@@ -1322,7 +1340,9 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: t.brutal ? t.product.brutalCream : t.colors['layer-canvas-muted'],
+            color: t.brutal
+                ? t.product.brutalCream
+                : t.colors['layer-canvas-muted'],
             border: Border.all(color: soft, width: t.brutal ? 2 : 1),
           ),
           child: Column(
@@ -1569,7 +1589,9 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        RaftSectionEyebrow(raftText(context, 'App permissions')),
+                        RaftSectionEyebrow(
+                          raftText(context, 'App permissions'),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           description,
@@ -1766,7 +1788,10 @@ class RaftConnectedAppDangerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final copy = Text(description, style: _relaxedDialog(t, RaftSettingsText(t).muted));
+    final copy = Text(
+      description,
+      style: _relaxedDialog(t, RaftSettingsText(t).muted),
+    );
     return raftBreakpointWidth(context) >= 640
         ? Row(
             children: [

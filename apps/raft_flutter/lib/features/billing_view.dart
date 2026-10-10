@@ -28,9 +28,8 @@ abstract final class RaftBillingPlans {
       !now.isBefore(trialStart) && now.isBefore(trialEnd);
 
   /// `formatGlobalTrialCutoffDate`: the last instant of the trial in UTC-12.
-  static String trialCutoffDate(String locale) => DateFormat.yMMMd(
-    locale,
-  ).format(trialEnd.subtract(const Duration(milliseconds: 1, hours: 12)));
+  static String trialCutoffDate(String locale) => DateFormat.yMMMd(locale)
+      .format(trialEnd.subtract(const Duration(milliseconds: 1, hours: 12)));
 
   /// `getEffectiveLimits(plan)` for the free-plan limits DowngradeWarningCard
   /// compares against (`-1` = unlimited; the trial lifts every limit).
@@ -46,8 +45,7 @@ int billingLimitExcess(num usage, int limit) {
 }
 
 String _seats(int count) => count == 1 ? '1 seat' : '$count seats';
-String _plural(num count, String one, String other) =>
-    count == 1 ? one : other;
+String _plural(num count, String one, String other) => count == 1 ? one : other;
 
 /// `formatUsd`.
 String billingUsd(num value) => value == value.roundToDouble()
@@ -352,9 +350,7 @@ class _BillingState extends ManagementState<BillingView> {
     final humanCount = bUsage['humans'] is num ? n(bUsage['humans']) : null;
     final usesUniversal =
         b?['capacity'] is Map && n(capacity['maxUniversalSeats'], -1) != -1;
-    final universalLimit = usesUniversal
-        ? n(capacity['maxUniversalSeats'])
-        : 0;
+    final universalLimit = usesUniversal ? n(capacity['maxUniversalSeats']) : 0;
     final usedHuman = (humanCount ?? 0).clamp(0, double.infinity);
     final usedAgent = (agentCount * RaftBillingPlans.proAgentSeatFraction)
         .clamp(0, double.infinity);
@@ -395,9 +391,7 @@ class _BillingState extends ManagementState<BillingView> {
     final currentAgentSeats = n(provisioned['agents']).toInt();
     final currentSeatQuantity = n(provisioned['proPackQuantity']).toInt();
     final minimumUsageSeats = usedUniversal.ceil().clamp(1, 1 << 31);
-    final minimumSeats = isPro
-        ? currentSeatQuantity.clamp(1, 1 << 31)
-        : 1;
+    final minimumSeats = isPro ? currentSeatQuantity.clamp(1, 1 << 31) : 1;
     final checkoutMode = controls.canCheckout;
     final manageSeatMode = !checkoutMode && controls.canUpdatePacks && isPro;
     final showManage = checkoutMode || controls.canUpdatePacks;
@@ -491,10 +485,9 @@ class _BillingState extends ManagementState<BillingView> {
     final updateTooltip =
         disabledReason ??
         (belowCoverage
-            ? tr(
-                'Keep at least {min} seats to cover current server usage.',
-                {'min': minimumUsageSeats},
-              )
+            ? tr('Keep at least {min} seats to cover current server usage.', {
+                'min': minimumUsageSeats,
+              })
             : null) ??
         (cancelScheduled
             ? noSeatChange
@@ -505,8 +498,8 @@ class _BillingState extends ManagementState<BillingView> {
             : noSeatChange
             ? tr('Enter a different seat total.')
             : tr('Review the Pro seat update before confirming.'));
-    final updateLabel = pending == _BillingAction.update ||
-            pending == _BillingAction.preview
+    final updateLabel =
+        pending == _BillingAction.update || pending == _BillingAction.preview
         ? pending == _BillingAction.preview
               ? tr('Reviewing...')
               : cancelScheduled && noSeatChange
@@ -555,9 +548,7 @@ class _BillingState extends ManagementState<BillingView> {
             billable: tr('Billable seats'),
             capacity: tr('Capacity'),
           );
-    final totalLabel = manageSeatMode
-        ? tr('Total after update')
-        : tr('Total');
+    final totalLabel = manageSeatMode ? tr('Total after update') : tr('Total');
     final currentTotalLabel = manageSeatMode
         ? (currentInterval == 'annual'
               ? tr('Current yearly total')
@@ -609,12 +600,10 @@ class _BillingState extends ManagementState<BillingView> {
         'pending_payment' =>
           'Seat update is pending Stripe payment confirmation.',
         'unchanged' => 'Seat quantities are already up to date.',
-        'reactivated' =>
-          'Subscription reactivated. Your current Pro seat capacity stays active.',
+        'reactivated' => 'Subscription reactivated. Your current Pro seat capacity stays active.',
         _ when status == 'updated' || data['effectiveAt'] == 'current' =>
           'Seat update confirmed. Capacity has been refreshed from Stripe.',
-        _ =>
-          'Seat update requested. Capacity will update after Stripe confirms the subscription change.',
+        _ => 'Seat update requested. Capacity will update after Stripe confirms the subscription change.',
       });
       final notice = billingNotice;
       await reload();
@@ -801,7 +790,9 @@ class _BillingState extends ManagementState<BillingView> {
         machines: billingLimitExcess(machines, limits.machines),
         channels: billingLimitExcess(channels, limits.channels),
       );
-      final days = daysLeft == 1 ? tr('1 day') : tr('{n} days', {'n': daysLeft});
+      final days = daysLeft == 1
+          ? tr('1 day')
+          : tr('{n} days', {'n': daysLeft});
       notices.add(
         RaftBillingNotice(
           tone: RaftBillingNoticeTone.downgrade,
@@ -961,7 +952,8 @@ class _BillingState extends ManagementState<BillingView> {
                       monthlyLabel: tr('Monthly'),
                       yearlyLabel: tr('Yearly'),
                       saveLabel: tr('Save {percent}%', {
-                        'percent': RaftBillingPlans.proPackAnnualDiscountPercent,
+                        'percent':
+                            RaftBillingPlans.proPackAnnualDiscountPercent,
                       }),
                       onChanged: locked
                           ? null

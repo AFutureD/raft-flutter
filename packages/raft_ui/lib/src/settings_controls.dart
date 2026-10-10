@@ -280,11 +280,7 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
     final t = RaftTokens.of(context), tokens = RaftRecipeTokens(t);
     final s = RaftInputRecipe.resolve(
       theme: raftRecipeTheme(t),
-      states: _states(
-        t,
-        focused: focus.hasFocus,
-        disabled: !widget.enabled,
-      ),
+      states: _states(t, focused: focus.hasFocus, disabled: !widget.enabled),
       tokens: tokens,
     ).root;
     // Callsite `text-sm`.
@@ -800,13 +796,16 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
       }),
       tokens: tokens,
     ).root;
-    final text = _slotText(
-      t,
-      s,
-      base: RaftTypography.body(t, size: 10, line: 10),
-    ).copyWith(
-      fontFamily: RaftInheritedFontScope.active(context) ? t.headingFont : null,
-    );
+    final text =
+        _slotText(
+          t,
+          s,
+          base: RaftTypography.body(t, size: 10, line: 10),
+        ).copyWith(
+          fontFamily: RaftInheritedFontScope.active(context)
+              ? t.headingFont
+              : null,
+        );
     final value = raftText(context, label);
     return Container(
       height: s.height,

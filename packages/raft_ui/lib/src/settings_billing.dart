@@ -220,26 +220,26 @@ class RaftPlanBillingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return RaftInheritedFont(
       child: Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const RaftSettingsSectionHeader(
-            label: 'Current Plan',
-            glyph: RaftGlyph.creditCard,
-          ),
-          for (final notice in notices) _BillingNoticeCard(notice),
-          _PlanCard(section: this),
-          if (manage != null) ...[
-            RaftSettingsSectionHeader(
-              label: manage!.title,
-              glyph: manage!.checkout ? RaftGlyph.creditCard : RaftGlyph.plus,
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const RaftSettingsSectionHeader(
+              label: 'Current Plan',
+              glyph: RaftGlyph.creditCard,
             ),
-            _ManagePlanCard(manage!),
+            for (final notice in notices) _BillingNoticeCard(notice),
+            _PlanCard(section: this),
+            if (manage != null) ...[
+              RaftSettingsSectionHeader(
+                label: manage!.title,
+                glyph: manage!.checkout ? RaftGlyph.creditCard : RaftGlyph.plus,
+              ),
+              _ManagePlanCard(manage!),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
     );
   }
 }

@@ -114,7 +114,11 @@ Map<String, dynamic> _pro({bool cancelAtPeriodEnd = false}) => {
   'capacity': {'maxHumans': -1, 'maxAgents': -1, 'maxUniversalSeats': 3},
   'usage': {'humans': 2, 'agents': 5, 'universalSeats': 2.5},
   'provisioned': {'humans': 3, 'agents': 30, 'proPackQuantity': 3},
-  'price': {'billingInterval': 'annual', 'monthlyUsd': 26.4, 'annualUsd': 316.8},
+  'price': {
+    'billingInterval': 'annual',
+    'monthlyUsd': 26.4,
+    'annualUsd': 316.8,
+  },
   'subscription': {
     'status': 'active',
     'billingInterval': 'annual',
@@ -159,43 +163,50 @@ void main() {
       return (w, a, opened);
     }
 
-    testWidgets('Free plan: trial notice, features, usage and checkout summary', (
-      t,
-    ) async {
-      await mount(t, _free());
-      expect(find.text('CURRENT PLAN'), findsOneWidget);
-      expect(find.text('Final Trial Period'), findsOneWidget);
-      expect(
-        find.textContaining('remains active through Jun 22, 2026'),
-        findsOneWidget,
-      );
-      expect(find.text('Start building with agents.'), findsOneWidget);
-      expect(find.text('Unlimited message history'), findsOneWidget);
-      expect(find.text('180 MB / 500 MB this month'), findsOneWidget);
-      expect(find.text('30 days'), findsOneWidget);
-      expect(find.text('UPGRADE TO PRO'), findsOneWidget);
-      expect(find.text(r'$105.60 / year'), findsOneWidget);
-      expect(find.text(r'$120 / year'), findsOneWidget);
-      expect(find.text('up to 1 Human'), findsOneWidget);
-      expect(find.text('or 10 Agents'), findsOneWidget);
-      // Monthly: the struck annual original disappears.
-      await t.tap(find.text('Monthly'));
-      await t.pumpAndSettle();
-      expect(find.text(r'$10 / month'), findsOneWidget);
-      expect(find.text(r'$120 / year'), findsNothing);
-      // Seat input: 3 seats → 30 agents, $30 / month.
-      await t.enterText(find.byKey(const ValueKey('billing-seat-input')), '3');
-      await t.pumpAndSettle();
-      expect(find.text('or 30 Agents'), findsOneWidget);
-      expect(find.text(r'$30 / month'), findsOneWidget);
-      // Below coverage is clamped on blur (Web commitSeatInput).
-      await t.enterText(find.byKey(const ValueKey('billing-seat-input')), '0');
-      await t.pumpAndSettle();
-      expect(
-        find.text('Enter at least 1 seats to cover current server usage.'),
-        findsOneWidget,
-      );
-    });
+    testWidgets(
+      'Free plan: trial notice, features, usage and checkout summary',
+      (t) async {
+        await mount(t, _free());
+        expect(find.text('CURRENT PLAN'), findsOneWidget);
+        expect(find.text('Final Trial Period'), findsOneWidget);
+        expect(
+          find.textContaining('remains active through Jun 22, 2026'),
+          findsOneWidget,
+        );
+        expect(find.text('Start building with agents.'), findsOneWidget);
+        expect(find.text('Unlimited message history'), findsOneWidget);
+        expect(find.text('180 MB / 500 MB this month'), findsOneWidget);
+        expect(find.text('30 days'), findsOneWidget);
+        expect(find.text('UPGRADE TO PRO'), findsOneWidget);
+        expect(find.text(r'$105.60 / year'), findsOneWidget);
+        expect(find.text(r'$120 / year'), findsOneWidget);
+        expect(find.text('up to 1 Human'), findsOneWidget);
+        expect(find.text('or 10 Agents'), findsOneWidget);
+        // Monthly: the struck annual original disappears.
+        await t.tap(find.text('Monthly'));
+        await t.pumpAndSettle();
+        expect(find.text(r'$10 / month'), findsOneWidget);
+        expect(find.text(r'$120 / year'), findsNothing);
+        // Seat input: 3 seats → 30 agents, $30 / month.
+        await t.enterText(
+          find.byKey(const ValueKey('billing-seat-input')),
+          '3',
+        );
+        await t.pumpAndSettle();
+        expect(find.text('or 30 Agents'), findsOneWidget);
+        expect(find.text(r'$30 / month'), findsOneWidget);
+        // Below coverage is clamped on blur (Web commitSeatInput).
+        await t.enterText(
+          find.byKey(const ValueKey('billing-seat-input')),
+          '0',
+        );
+        await t.pumpAndSettle();
+        expect(
+          find.text('Enter at least 1 seats to cover current server usage.'),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('checkout confirms, posts the Web payload and opens Stripe', (
       t,
@@ -235,7 +246,9 @@ void main() {
     ) async {
       final (_, a, opened) = await mount(t, _pro());
       expect(
-        find.text('3 seats purchased. Each human uses 1 seat; each agent uses 0.1 seat.'),
+        find.text(
+          '3 seats purchased. Each human uses 1 seat; each agent uses 0.1 seat.',
+        ),
         findsOneWidget,
       );
       expect(find.text('2.5 / 3 used'), findsOneWidget);
@@ -251,7 +264,10 @@ void main() {
       // No change: the review button stays disabled.
       await t.tap(find.byKey(const ValueKey('billing-update-seats')));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('billing-confirm-dialog')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('billing-confirm-dialog')),
+        findsNothing,
+      );
       await t.enterText(find.byKey(const ValueKey('billing-seat-input')), '4');
       await t.pumpAndSettle();
       expect(find.text('ADDED CAPACITY'), findsNothing);
@@ -329,8 +345,16 @@ void main() {
       expect(find.text('Only server owners can change billing.'), findsWidgets);
       await t.tap(find.byKey(const ValueKey('billing-upgrade')));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('billing-confirm-dialog')), findsNothing);
-      expect(a.calls.where((c) => c.method == 'POST' && c.path.startsWith('/billing')), isEmpty);
+      expect(
+        find.byKey(const ValueKey('billing-confirm-dialog')),
+        findsNothing,
+      );
+      expect(
+        a.calls.where(
+          (c) => c.method == 'POST' && c.path.startsWith('/billing'),
+        ),
+        isEmpty,
+      );
     });
 
     testWidgets('cold load shows the skeleton; a revisit is final at once', (
@@ -411,7 +435,11 @@ void main() {
       final (w, a) = (await t.runAsync(() => _fixture(role)))!;
       addTearDown(w.dispose);
       a.routes['GET /integrations/marketplace'] = (_) => [
-        listing('slack', 'Slack Bridge', badge: {'kind': 'bucket', 'bucket': '100_plus'}),
+        listing(
+          'slack',
+          'Slack Bridge',
+          badge: {'kind': 'bucket', 'bucket': '100_plus'},
+        ),
         listing(
           'github',
           'GitHub Issues',
@@ -473,11 +501,8 @@ void main() {
       expect(find.text('Shared App'), findsNothing);
       expect(find.text('100+ installs'), findsOneWidget);
       expect(find.text('Install'), findsOneWidget);
-      expect(find.text('INSTALLED'), findsOneWidget);
-      expect(
-        find.text('Developer Tools · by Raft Labs'),
-        findsOneWidget,
-      );
+      expect(find.text('Installed'), findsNWidgets(2)); // tab + state badge
+      expect(find.text('Developer Tools · by Raft Labs'), findsOneWidget);
       await t.enterText(
         find.byKey(const ValueKey('connected-apps-search')),
         'github',
@@ -485,7 +510,10 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Slack Bridge'), findsNothing);
       expect(find.text('GitHub Issues'), findsOneWidget);
-      await t.enterText(find.byKey(const ValueKey('connected-apps-search')), '');
+      await t.enterText(
+        find.byKey(const ValueKey('connected-apps-search')),
+        '',
+      );
       await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey('connected-apps-category-filter')));
       await t.pumpAndSettle();
@@ -504,11 +532,16 @@ void main() {
       };
       await t.tap(find.byKey(const ValueKey('connected-app-slack')));
       await t.pumpAndSettle();
-      expect(find.byKey(const ValueKey('connected-app-detail')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('connected-app-detail')),
+        findsOneWidget,
+      );
       expect(find.text('APP DETAIL'), findsOneWidget);
       expect(find.text('example.com'), findsOneWidget);
       expect(find.text('Install to this server'), findsOneWidget);
-      final before = a.calls.where((c) => c.path == '/integrations/marketplace').length;
+      final before = a.calls
+          .where((c) => c.path == '/integrations/marketplace')
+          .length;
       await t.tap(find.byKey(const ValueKey('connected-app-install')));
       await t.pumpAndSettle();
       expect(a.posts('/integrations/marketplace/slack/install'), hasLength(1));
@@ -526,10 +559,8 @@ void main() {
       await t.tap(find.byKey(const ValueKey('connected-apps-tab-installed')));
       await t.pumpAndSettle();
       expect(find.text('Local Tool'), findsOneWidget);
-      expect(find.text('THIS SERVER'), findsOneWidget);
-      await t.tap(
-        find.byKey(const ValueKey('connected-app-installed-github')),
-      );
+      expect(find.text('This server'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('connected-app-installed-github')));
       await t.pumpAndSettle();
       expect(find.text('INSTALLED APP'), findsOneWidget);
       expect(find.text('No data access'), findsOneWidget);
@@ -557,8 +588,11 @@ void main() {
 
     testWidgets('members browse read-only', (t) async {
       final (_, a) = await mount(t, role: 'member');
-      expect(find.byKey(const ValueKey('connected-apps-register')), findsNothing);
-      expect(find.text('AVAILABLE'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('connected-apps-register')),
+        findsNothing,
+      );
+      expect(find.text('Available'), findsOneWidget);
       expect(
         find.text(
           'Only server owners and admins can install, edit, or remove apps.',
@@ -568,7 +602,10 @@ void main() {
       await t.tap(find.byKey(const ValueKey('connected-app-slack')));
       await t.pumpAndSettle();
       expect(find.text('Install to this server'), findsNothing);
-      expect(a.calls.where((c) => c.method != 'GET' && !c.path.startsWith('/auth')), isEmpty);
+      expect(
+        a.calls.where((c) => c.method != 'GET' && !c.path.startsWith('/auth')),
+        isEmpty,
+      );
     });
 
     testWidgets('list layout shows summaries', (t) async {

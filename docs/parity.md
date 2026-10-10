@@ -667,6 +667,24 @@ Result (`cindy/parity-settings`):
 | Plan & Billing, Administration, Applications (18) | 2 passing | 0 passing, mean 0.79 (not ported) |
 | total (120) | 17 passing, 18 capture failures | 64 passing, 0 capture failures |
 
+Plan & Billing and Applications (`cindy/settings-billing-apps`, 24 surfaces
+x 3 themes = 72 ext cases, desktop + 390px mobile): Web `PlanSection` and
+`IntegrationsSection` are ported (`settings_billing.dart`,
+`settings_applications.dart`, app `billing_view.dart` / `integrations_views.dart`).
+Before (WIP snapshot): 15 / 72 at >= 0.96, mean 0.916, 6 capture failures
+(mobile Applications). After: 24 / 72 at >= 0.96, mean 0.936 (brutal 0.951,
+elegant 0.936, elegant-dark 0.920), no capture failures. Measured Web facts
+the port encodes: unadorned text in a Settings panel inherits Inter (the
+heading family) while `font-sans` controls (buttons, selects) and every
+Dialog portal render Geist (`RaftInheritedFont`); the recipe `Badge` and
+`SegmentedControl` labels are Inter inside a panel; `Badge uppercase` only
+transforms Brutal; Tailwind `space-y-*` keeps the margin of an empty grid
+(empty marketplace / installed lists); `<details>` shows Blink's painted
+triangle marker; translucent fills (`bg-primary-soft`, `bg-accent-soft` in
+dark) must be composited over the panel because Flutter paints the outer
+shadow under a translucent fill. Remaining delta is text rasterisation and
+1px Blink baseline / border snapping.
+
 The "before" Workspace tab numbers predate the fixture alignment (Flutter
 then answered 404 where React had data), so they are not comparable to the
 "after" column; Billing, Administration and Applications still render the

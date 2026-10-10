@@ -48,16 +48,11 @@ const integrationVisibleScopes = [
   'agent:notification:write',
 ];
 const integrationScopeCopy = <String, String>{
-  'openid':
-      'Signs you in with Raft and issues a stable identity token. Authentication only.',
-  'profile':
-      'Reads your basic profile fields (display name and similar). No access to messages, files, or agents.',
-  'email':
-      'Reads your verified Raft account email address. No access to messages, files, or agents.',
-  'identity':
-      "Reads who you are — human or agent, your Raft subject, and which server/principal you're acting as. No content access.",
-  'agent:read':
-      'Read the IDs, handles, display names and avatars of agents in the Server you authorize. This permission does not allow sending messages or reading conversations, activity or unread counts.',
+  'openid': 'Signs you in with Raft and issues a stable identity token. Authentication only.',
+  'profile': 'Reads your basic profile fields (display name and similar). No access to messages, files, or agents.',
+  'email': 'Reads your verified Raft account email address. No access to messages, files, or agents.',
+  'identity': "Reads who you are — human or agent, your Raft subject, and which server/principal you're acting as. No content access.",
+  'agent:read': 'Read the IDs, handles, display names and avatars of agents in the Server you authorize. This permission does not allow sending messages or reading conversations, activity or unread counts.',
   'agent:event:write':
       'Sends structured event messages to the one agent you authorize.',
   'agent:notification:write':
@@ -110,15 +105,16 @@ bool _canEditSourceOwned(String? status) => const {
 
 /// `sourceOwnedConnectedAppStatusHint`.
 String? _statusHint(String? status) => switch (status) {
-  'publish_requested' || 'in_review' =>
-    'Marketplace review is pending. You can edit this app while it waits, or delete it to withdraw the request.',
-  'unpublish_requested' =>
-    'Marketplace offline review is pending. The app stays listed and installable until App Admin approves removal; approval revokes existing server installs and access.',
+  'publish_requested' || 'in_review' => 'Marketplace review is pending. You can edit this app while it waits, or delete it to withdraw the request.',
+  'unpublish_requested' => 'Marketplace offline review is pending. The app stays listed and installable until App Admin approves removal; approval revokes existing server installs and access.',
   _ => null,
 };
 
 /// ConnectedAppDistributionBadge.
-RaftConnectedAppBadge? _distributionBadge(BuildContext context, String? status) {
+RaftConnectedAppBadge? _distributionBadge(
+  BuildContext context,
+  String? status,
+) {
   if (status == null) return null;
   String tr(String s) => raftText(context, s);
   return switch (status) {
@@ -465,7 +461,9 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
               key: const ValueKey('connected-app-detail'),
               eyebrow: 'App detail',
               name: '${listing['name'] ?? ''}',
-              initials: integrationInitials('${listing['name'] ?? listing['clientId'] ?? ''}'),
+              initials: integrationInitials(
+                '${listing['name'] ?? listing['clientId'] ?? ''}',
+              ),
               logoUrl: listing['logoUrl'] as String?,
               badge: _installBadge(modal, listing['marketplaceInstallBadge']),
               byline: raftFormat(modal, '{category} · by {developer}', {
@@ -758,9 +756,10 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
   ) {
     if (category != 'all' && categoryValue != category) return false;
     if (query.isEmpty) return true;
-    return [name, ...fields].any(
-      (v) => v is String && v.toLowerCase().contains(query),
-    );
+    return [
+      name,
+      ...fields,
+    ].any((v) => v is String && v.toLowerCase().contains(query));
   }
 
   @override
@@ -768,12 +767,13 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     String tr(String s) => raftText(context, s);
     final p = projection;
     final query = search.text.trim().toLowerCase();
-    String byline(Map<String, dynamic> app) =>
-        raftFormat(context, '{category} · by {developer}', {
-          'category': tr(integrationCategoryLabel(app['category'])),
-          'developer':
-              '${app['publisherServerName'] ?? app['publisherName'] ?? tr('Third-party developer')}',
-        });
+    String byline(
+      Map<String, dynamic> app,
+    ) => raftFormat(context, '{category} · by {developer}', {
+      'category': tr(integrationCategoryLabel(app['category'])),
+      'developer':
+          '${app['publisherServerName'] ?? app['publisherName'] ?? tr('Third-party developer')}',
+    });
     final listings = [
       for (final app in p.listings)
         if (matches(query, '${app['name'] ?? ''}', app['category'], [
