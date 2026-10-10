@@ -55,6 +55,9 @@ void main() {
         await t.pumpAndSettle();
         final base = w.location;
         final pages = mobilePageEntries(w.navigation).length;
+        final rosterReads = api.calls
+            .where((r) => r.path == '/channels/c1/members')
+            .length;
         await t.tap(find.byTooltip('Channel details and settings'));
         await t.pump();
         expect(
@@ -68,7 +71,16 @@ void main() {
         expect(w.location.channelPage?.kind, RaftChannelPage.settings);
         expect(mobilePageEntries(w.navigation), hasLength(pages + 1));
         expect(find.text('Alice'), findsOneWidget);
-        expect(find.text('Conversation settings'), findsOneWidget);
+        expect(find.text('Direct message'), findsOneWidget);
+        expect(find.byType(RaftOverflowSheet), findsOneWidget);
+        expect(find.byType(RaftChannelSettingsSheet), findsNothing);
+        expect(find.byType(RaftChannelInfoForm), findsNothing);
+        expect(find.byType(RaftMembersStrip), findsNothing);
+        expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+        expect(
+          api.calls.where((r) => r.path == '/channels/c1/members'),
+          hasLength(rosterReads),
+        );
         expect(
           find.byKey(const ValueKey('channel-settings-edit')),
           findsNothing,

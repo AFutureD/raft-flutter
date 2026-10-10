@@ -19,7 +19,7 @@ void main() {
     (RaftFamily.elegant, true),
   ]) {
     testWidgets(
-      'Mobile channel pages preserve history, explicit editing and keyboard focus $family/$dark',
+      'Mobile channel pages share current settings content, preserve history and keyboard focus $family/$dark',
       (t) async {
         t.view.physicalSize = const Size(390, 844);
         t.view.devicePixelRatio = 1;
@@ -70,7 +70,9 @@ void main() {
           await t.pumpAndSettle();
           expect(w.location.channelPage?.kind, RaftChannelPage.settings);
           expect(mobilePageEntries(w.navigation), hasLength(pages + 1));
-          expect(find.byType(TextField), findsNothing);
+          expect(find.byType(RaftOverflowSheet), findsOneWidget);
+          expect(find.byType(RaftChannelSettingsSheet), findsNothing);
+          expect(find.byType(RaftChannelInfoForm), findsOneWidget);
           expect(t.testTextInput.isVisible, isFalse);
           expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
           expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
@@ -78,9 +80,14 @@ void main() {
             t.getSemantics(find.text('#test')).flagsCollection.isHeader,
             isTrue,
           );
-          expect(find.text('Opening channel description'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('channel-overflow-identity-desc')),
+            findsOneWidget,
+          );
 
-          await t.tap(find.byKey(const ValueKey('channel-settings-members')));
+          await t.tap(
+            find.byKey(const ValueKey('channel-overflow-members-entry')),
+          );
           await flush(t);
           await t.pumpAndSettle();
           expect(w.location.channelPage?.kind, RaftChannelPage.members);
@@ -117,14 +124,25 @@ void main() {
         await t.tap(find.byTooltip('Channel details and settings'));
         await flush(t);
         await t.pumpAndSettle();
-        await t.tap(find.byKey(const ValueKey('channel-settings-edit')));
-        await t.pumpAndSettle();
-        expect(find.byType(RaftFormDialog), findsOneWidget);
-        await t.enterText(find.byType(TextFormField).first, 'renamed');
-        await t.tap(find.widgetWithText(RaftButton, 'Save'));
+        await t.enterText(
+          find.byKey(const ValueKey('channel-settings-name')),
+          'renamed',
+        );
+        await t.pump();
+        expect(
+          t
+              .widget<RaftSettingsRecipeButton>(
+                find.byKey(const ValueKey('channel-settings-save-inline')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+        await t.ensureVisible(
+          find.byKey(const ValueKey('channel-settings-save-inline')),
+        );
+        await t.tap(find.byKey(const ValueKey('channel-settings-save-inline')));
         await flush(t);
         await t.pumpAndSettle();
-        expect(find.byType(RaftFormDialog), findsNothing);
         expect(find.byType(ChannelSettings), findsOneWidget);
         expect(find.text('#renamed'), findsOneWidget);
         expect(
@@ -133,10 +151,31 @@ void main() {
           ),
           hasLength(1),
         );
-        expect(t.testTextInput.isVisible, isFalse);
-        // A lost membership retires both the page and any open edit dialog.
-        await t.tap(find.byKey(const ValueKey('channel-settings-edit')));
+        FocusManager.instance.primaryFocus?.unfocus();
         await t.pumpAndSettle();
+        // Both the button and Android system back guard an unsaved draft.
+        await t.enterText(
+          find.byKey(const ValueKey('channel-settings-name')),
+          'draft',
+        );
+        await t.pump();
+        await t.binding.handlePopRoute();
+        await t.pumpAndSettle();
+        expect(find.byType(RaftUnsavedChangesPrompt), findsOneWidget);
+        await t.tap(find.text('Keep editing'));
+        await t.pumpAndSettle();
+        expect(find.byType(RaftUnsavedChangesPrompt), findsNothing);
+        expect(w.location.channelPage?.kind, RaftChannelPage.settings);
+        await t.tap(find.byType(RaftMobileBackButton));
+        await t.pumpAndSettle();
+        expect(find.byType(RaftUnsavedChangesPrompt), findsOneWidget);
+        await t.tap(find.text('Discard changes'));
+        await t.pumpAndSettle();
+        expect(w.location.uri, base.uri);
+        await t.tap(find.byTooltip('Channel details and settings'));
+        await flush(t);
+        await t.pumpAndSettle();
+        // A lost membership retires the settings route.
         w.channel = RaftChannel({...w.channel!.json, 'joined': false});
         w.channels = [w.channel!];
         w.notifyListeners();

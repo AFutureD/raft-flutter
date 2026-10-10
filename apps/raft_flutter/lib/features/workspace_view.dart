@@ -1317,9 +1317,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         threadResizeLabel: tr('Resize thread'),
                         sidebarVisible:
                             gridActive ||
-                            DesktopNavigationPolicy.forSection(
-                              route,
-                            ).usesConversationSidebar,
+                            DesktopNavigationPolicy.forSection(route)
+                                .usesConversationSidebar,
                         sidebar: sidebar(),
                         rail: workspaceRail(),
                         mobileNavigationFloating: !t.brutal,
@@ -1553,9 +1552,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     t,
                     MediaQuery.sizeOf(context).height,
                   ) +
-                  (DesktopNavigationPolicy.forSection(
-                        route,
-                      ).usesConversationSidebar
+                  (DesktopNavigationPolicy.forSection(route)
+                          .usesConversationSidebar
                       ? sidebarWidth
                       : 0)
             : 0,
@@ -3237,8 +3235,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           // ds-allow: Native page Scaffold owns keyboard insets; raft_ui owns its content/header.
           Scaffold(
             body: RaftSystemBarSurface(
-              statusBarBackground: RaftTokens.of(context).panel,
-              navigationBarBackground: RaftTokens.of(context).panel,
+              statusBarBackground: page.kind == RaftChannelPage.settings
+                  ? RaftTokens.of(context).brutal
+                        ? RaftTokens.of(context).colors['color-soft-signal']!
+                        : RaftTokens.of(context).colors['layer-panel']!
+                  : RaftTokens.of(context).panel,
+              navigationBarBackground: page.kind == RaftChannelPage.settings
+                  ? RaftTokens.of(context).brutal
+                        ? RaftTokens.of(context).colors['color-brutal-cream']!
+                        : RaftTokens.of(context).colors['layer-panel']!
+                  : RaftTokens.of(context).panel,
               child: SafeArea(
                 child: !available
                     ? Column(
@@ -3256,6 +3262,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         channel: channel,
                         isPanel: true,
                         page: true,
+                        dmName: channel.type == 'dm'
+                            ? dmPeer(channel, requestSize: 36).name
+                            : null,
                         onClose: dismissPanel,
                         onMembers: () =>
                             openChannelPage(RaftChannelPage.members, channel),

@@ -115,9 +115,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     }
     // The channel roster the composer read on opening shows at the first
     // frame (Source ChatPanel prefetches it); the load below revalidates it.
-    final roster = drawer
-        ? cachedChannelRoster(w, widget.channel.id)
-        : null;
+    final roster = drawer ? cachedChannelRoster(w, widget.channel.id) : null;
     if (roster != null) {
       members = rosterRows(roster.humans, roster.agents);
       known.add('members');
@@ -447,9 +445,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     if (mounted && identity == pageIdentity(w)) setState(() {});
   }
 
-  /// The OverflowSheet drawer; the mobile page keeps the legacy sheet layout
-  /// (it only borrows `isPanel` for the panel-only preferences).
-  bool get drawer => widget.isPanel && !widget.page;
+  /// Page and drawer hosts share the mounted product's settings content.
+  bool get drawer => widget.isPanel;
 
   @override
   Widget build(BuildContext context) =>
@@ -599,8 +596,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                   display.containsKey('collapseLongMessages')))
             RaftSheetSwitchRow(
               title: 'Collapse long messages',
-              description:
-                  'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
+              description: 'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
               value: display['collapseLongMessages'] != false,
               pending: !known.contains('display'),
               onChanged: (v) => run(() async {
@@ -804,26 +800,32 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   /// Pops the drawer route itself: every caller has already decided to close
   /// (a clean draft, a discard, a finished action), so PopScope must not ask.
   void closeSheet() {
+    if (widget.onClose != null) {
+      widget.onClose!();
+      return;
+    }
     final navigator = Navigator.of(context);
     if (navigator.canPop()) navigator.pop();
   }
 
   /// OverflowSheet `closeGuardRef`: with an unsaved name / description draft
   /// every dismissal (back, outside press, Escape) asks first.
-  Future<void> guardedClose() async {
-    if (!dirty) return closeSheet();
+  Future<void> guardedClose() => guardedTransition(closeSheet);
+
+  Future<void> guardedTransition(VoidCallback transition) async {
+    if (!dirty) return transition();
     var busy = false;
     await showRaftModal<void>(
       context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialog) => RaftUnsavedChangesPrompt(
-          message:
-              'The channel name or description has unsaved edits. Save them before closing?',
+          message: 'The channel name or description has unsaved edits. Save them before closing?',
           busy: busy,
           onKeepEditing: () => Navigator.of(dialogContext).pop(),
           onDiscard: () {
             Navigator.of(dialogContext).pop();
-            closeSheet();
+            resetDraft();
+            transition();
           },
           onSaveAndClose: () async {
             setDialog(() => busy = true);
@@ -832,7 +834,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
             setDialog(() => busy = false);
             if (!saved) return;
             Navigator.of(dialogContext).pop();
-            closeSheet();
+            transition();
           },
         ),
       ),
@@ -1043,6 +1045,10 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   }
 
   Future<void> openMembers({bool add = false}) async {
+    if (widget.page && !add && widget.onMembers != null) {
+      await guardedTransition(widget.onMembers!);
+      return;
+    }
     await ChannelMembers.show(
       context,
       controller: w,
@@ -1195,8 +1201,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         RaftSheetSwitchRow(
           key: const ValueKey('channel-settings-collapse-switch'),
           title: 'Collapse long messages',
-          description:
-              'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
+          description: 'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
           value: display['collapseLongMessages'] != false,
           pending: !known.contains('display'),
           onChanged: (v) => run(() async {
@@ -1324,16 +1329,14 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                         t,
                         RaftSheetSection(
                           'Guest access',
-                          description:
-                              'Choose whether Guests can discover this channel and join it themselves.',
+                          description: 'Choose whether Guests can discover this channel and join it themselves.',
                           [
                             RaftSheetSwitchRow(
                               key: const ValueKey(
                                 'channel-settings-guest-visible-switch',
                               ),
                               title: 'Visible to Guests',
-                              description:
-                                  'Guests can discover and read this channel without joining.',
+                              description: 'Guests can discover and read this channel without joining.',
                               value: c.flag('guestVisible'),
                               onChanged: (v) => updateGuestPolicy(
                                 v
@@ -1350,8 +1353,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                                   'channel-settings-guest-joinable-switch',
                                 ),
                                 title: 'Guests can join',
-                                description:
-                                    'Guests can join to keep this channel in their sidebar and follow updates. Guest access remains read-only.',
+                                description: 'Guests can join to keep this channel in their sidebar and follow updates. Guest access remains read-only.',
                                 value: c.flag('guestJoinable'),
                                 onChanged: (v) => updateGuestPolicy(
                                   v
@@ -1397,6 +1399,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         : const SizedBox.shrink();
 
     final sheet = RaftOverflowSheet(
+      page: widget.page,
       title: dm ? (widget.dmName ?? c.name) : '#${c.name}',
       badge: dm
           ? 'Direct message'
@@ -1426,18 +1429,20 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) guardedClose();
       },
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              key: const ValueKey('channel-overflow-scrim'),
-              behavior: HitTestBehavior.opaque,
-              onTap: guardedClose,
+      child: widget.page
+          ? sheet
+          : Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    key: const ValueKey('channel-overflow-scrim'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: guardedClose,
+                  ),
+                ),
+                sheet,
+              ],
             ),
-          ),
-          sheet,
-        ],
-      ),
     );
   }
 

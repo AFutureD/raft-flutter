@@ -15,6 +15,7 @@ import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
 import 'mounted_avatar_recipe.dart';
+import 'mobile_page_header.dart';
 import 'tooltip.dart';
 import 'recipes/button_variants.g.dart';
 import 'settings_controls.dart' show RaftSettingsRecipeButton;
@@ -36,6 +37,7 @@ class RaftOverflowSheet extends StatelessWidget {
     this.subtitle,
     this.closeLabel = 'Close channel details and settings',
     this.bodyKey,
+    this.page = false,
   });
 
   /// The visible sheet title (`#general`, a DM peer's name).
@@ -50,6 +52,9 @@ class RaftOverflowSheet extends StatelessWidget {
   final String closeLabel;
   final VoidCallback onClose;
   final Key? bodyKey;
+
+  /// Full-width route content with the shared mobile navigation geometry.
+  final bool page;
   final List<Widget> children;
 
   /// Width of the drawer for a viewport: `max-w-[min(100vw,34rem)]`.
@@ -81,98 +86,104 @@ class RaftOverflowSheet extends StatelessWidget {
     final subtitleColor = (t.brutal ? Colors.black : t.strong).withValues(
       alpha: .85,
     );
-    final header = Container(
-      height: headerHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: headerColor,
-        border: Border(
-          bottom: BorderSide(color: edge, width: t.brutal ? 2 : 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (mobile) ...[
-            RaftSettingsRecipeButton(
-              key: const ValueKey('channel-overflow-back'),
-              label: '',
-              variant: RaftButtonRecipeVariant.default_,
-              glyph: RaftGlyph.arrowLeft,
-              glyphSize: 16,
-              size: RaftButtonRecipeSize.iconSm,
-              semanticLabel: raftText(context, closeLabel),
-              onPressed: onClose,
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          key: const ValueKey('channel-overflow-title-text'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: titleStyle,
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
-                        RaftBadge(
-                          key: const ValueKey(
-                            'channel-overflow-visibility-badge',
-                          ),
-                          label: raftText(context, badge!),
-                          appearance: RaftBadgeRecipeAppearance.soft,
-                          variant: badgeTone,
-                          fontFamily: t.bodyFont,
-                        ),
-                      ],
-                    ],
-                  ),
+    final identity = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          header: true,
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  key: const ValueKey('channel-overflow-title-text'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: titleStyle,
                 ),
-                if (subtitle != null && subtitle!.isNotEmpty)
-                  Text(
-                    raftCollapseWhitespace(subtitle!),
-                    key: const ValueKey('channel-overflow-identity-desc'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: raftCssTextStyle(
-                      family: t.monoFont,
-                      step: RaftTextSteps.xs,
-                      color: subtitleColor,
-                    ),
-                  ),
+              ),
+              if (badge != null) ...[
+                const SizedBox(width: 8),
+                RaftBadge(
+                  key: const ValueKey('channel-overflow-visibility-badge'),
+                  label: raftText(context, badge!),
+                  appearance: RaftBadgeRecipeAppearance.soft,
+                  variant: badgeTone,
+                  fontFamily: t.bodyFont,
+                ),
               ],
+            ],
+          ),
+        ),
+        if (subtitle != null && subtitle!.isNotEmpty)
+          Text(
+            raftCollapseWhitespace(subtitle!),
+            key: const ValueKey('channel-overflow-identity-desc'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: raftCssTextStyle(
+              family: t.monoFont,
+              step: RaftTextSteps.xs,
+              color: subtitleColor,
             ),
           ),
-        ],
-      ),
+      ],
     );
+    final header = page
+        ? RaftMobilePageHeader(
+            title: identity,
+            onBack: onClose,
+            backKey: const ValueKey('channel-overflow-back'),
+            backLabel: closeLabel,
+            background: headerColor,
+            border: BorderSide(color: edge, width: t.brutal ? 2 : 1),
+          )
+        : Container(
+            height: headerHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: headerColor,
+              border: Border(
+                bottom: BorderSide(color: edge, width: t.brutal ? 2 : 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                if (mobile) ...[
+                  RaftSettingsRecipeButton(
+                    key: const ValueKey('channel-overflow-back'),
+                    label: '',
+                    variant: RaftButtonRecipeVariant.default_,
+                    glyph: RaftGlyph.arrowLeft,
+                    glyphSize: 16,
+                    size: RaftButtonRecipeSize.iconSm,
+                    semanticLabel: raftText(context, closeLabel),
+                    onPressed: onClose,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: identity),
+              ],
+            ),
+          );
 
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
         key: const ValueKey('channel-overflow-sheet'),
-        width: widthFor(size.width, brutal: t.brutal),
+        width: page ? size.width : widthFor(size.width, brutal: t.brutal),
         height: double.infinity,
         child: Material(
           color: paper,
           // Elegant: the drawer is a `rounded-xl` card; brutal `rounded-none`.
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(t.brutal ? 0 : 12),
+            borderRadius: BorderRadius.circular(page || t.brutal ? 0 : 12),
           ),
           clipBehavior: Clip.antiAlias,
           child: Container(
             decoration: BoxDecoration(
-              border: t.brutal
+              border: t.brutal && !page
                   ? Border(
                       left: BorderSide(
                         color: t.colors['line-strong']!,
@@ -821,44 +832,76 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
                 ),
               ),
             ),
-            // `flex justify-end gap-3` (no wrap): the row may be a hair wider
-            // than the card, like the unwrapped CSS flex.
-            SizedBox(
-              height: 28,
-              child: OverflowBox(
-                maxWidth: double.infinity,
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+            if (MediaQuery.sizeOf(context).width <
+                RaftLayoutMetrics.desktopBreakpoint)
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  RaftSettingsRecipeButton(
+                    label: 'Keep editing',
+                    variant: RaftButtonRecipeVariant.outline,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: busy ? null : onKeepEditing,
+                  ),
+                  RaftSettingsRecipeButton(
+                    key: const ValueKey('channel-overflow-unsaved-discard'),
+                    label: 'Discard changes',
+                    variant: RaftButtonRecipeVariant.warning,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: busy ? null : onDiscard,
+                  ),
+                  if (onSaveAndClose != null) ...[
                     RaftSettingsRecipeButton(
-                      label: 'Keep editing',
-                      variant: RaftButtonRecipeVariant.outline,
+                      key: const ValueKey('channel-overflow-unsaved-save'),
+                      label: busy ? 'Saving…' : 'Save and close',
+                      variant: RaftButtonRecipeVariant.accent,
                       size: RaftButtonRecipeSize.sm,
-                      onPressed: busy ? null : onKeepEditing,
+                      onPressed: busy ? null : onSaveAndClose,
                     ),
-                    const SizedBox(width: 12),
-                    RaftSettingsRecipeButton(
-                      key: const ValueKey('channel-overflow-unsaved-discard'),
-                      label: 'Discard changes',
-                      variant: RaftButtonRecipeVariant.warning,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: busy ? null : onDiscard,
-                    ),
-                    if (onSaveAndClose != null) ...[
+                  ],
+                ],
+              )
+            else
+              // `flex justify-end gap-3` (no wrap): the row may be a hair wider
+              // than the card, like the unwrapped CSS flex.
+              SizedBox(
+                height: 28,
+                child: OverflowBox(
+                  maxWidth: double.infinity,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RaftSettingsRecipeButton(
+                        label: 'Keep editing',
+                        variant: RaftButtonRecipeVariant.outline,
+                        size: RaftButtonRecipeSize.sm,
+                        onPressed: busy ? null : onKeepEditing,
+                      ),
                       const SizedBox(width: 12),
                       RaftSettingsRecipeButton(
-                        key: const ValueKey('channel-overflow-unsaved-save'),
-                        label: busy ? 'Saving…' : 'Save and close',
-                        variant: RaftButtonRecipeVariant.accent,
+                        key: const ValueKey('channel-overflow-unsaved-discard'),
+                        label: 'Discard changes',
+                        variant: RaftButtonRecipeVariant.warning,
                         size: RaftButtonRecipeSize.sm,
-                        onPressed: busy ? null : onSaveAndClose,
+                        onPressed: busy ? null : onDiscard,
                       ),
+                      if (onSaveAndClose != null) ...[
+                        const SizedBox(width: 12),
+                        RaftSettingsRecipeButton(
+                          key: const ValueKey('channel-overflow-unsaved-save'),
+                          label: busy ? 'Saving…' : 'Save and close',
+                          variant: RaftButtonRecipeVariant.accent,
+                          size: RaftButtonRecipeSize.sm,
+                          onPressed: busy ? null : onSaveAndClose,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -944,7 +987,6 @@ class RaftOverflowLoading extends StatelessWidget {
     child: Center(child: RaftSpinner()),
   );
 }
-
 
 /// The form's `Banner intent="warning"` (`space-y-5`: 20px below it).
 class RaftOverflowFormError extends StatelessWidget {
