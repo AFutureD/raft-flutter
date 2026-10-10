@@ -104,8 +104,9 @@ class _Client extends RaftClient {
     if (path.endsWith('/machines')) return {'machines': []};
     if (path == '/messages/search') {
       searchQueries.add(Map<String, dynamic>.from(query ?? const {}));
-      if (failSearch)
+      if (failSearch) {
         throw const RaftApiException('Search failed', status: 500);
+      }
       return {
         'results': [
           {

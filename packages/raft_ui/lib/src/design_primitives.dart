@@ -1699,6 +1699,18 @@ class RaftMenuEntry {
 /// Original dropdown composition with one owner for popup and keyboard focus.
 enum RaftDropdownTriggerStyle { button, picker }
 
+/// The 16px indicator slot of a PickerTriggerButton (`combobox-trigger-indicator`)
+/// around its 12px chevron.
+class RaftPickerIndicator extends StatelessWidget {
+  const RaftPickerIndicator({super.key, this.glyph = RaftGlyph.chevronDown});
+  final RaftGlyph glyph;
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 16,
+    child: Center(child: RaftIcon(glyph, size: 12)),
+  );
+}
+
 enum RaftDropdownSide { bottom, top, right }
 
 enum RaftDropdownAlign { start, end }
@@ -2158,15 +2170,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                           if (widget.triggerStyle ==
                               RaftDropdownTriggerStyle.picker)
                             // The picker's indicator slot is 16px wide.
-                            SizedBox.square(
-                              dimension: 16,
-                              child: Center(
-                                child: RaftIcon(
-                                  widget.trailingGlyph!,
-                                  size: 12,
-                                ),
-                              ),
-                            )
+                            RaftPickerIndicator(glyph: widget.trailingGlyph!)
                           else
                             RaftIcon(widget.trailingGlyph!, size: 12),
                         ],

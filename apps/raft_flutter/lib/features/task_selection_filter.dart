@@ -263,7 +263,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                     },
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      spacing: 6,
+                      spacing: RaftResourceMetrics.gap1_5,
                       children: [
                         RaftIcon(
                           widget.glyph ??
@@ -279,12 +279,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                               '${raftText(context, widget.field)}${widget.selection.isEmpty ? '' : ' (${widget.selection.length})'}',
                         ),
                         // The picker's indicator slot is 16px wide.
-                        const SizedBox.square(
-                          dimension: 16,
-                          child: Center(
-                            child: RaftIcon(RaftGlyph.chevronDown, size: 12),
-                          ),
-                        ),
+                        const RaftPickerIndicator(),
                       ],
                     ),
                   ),

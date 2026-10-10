@@ -74,3 +74,55 @@ class _QuickSwitcherPreviewState extends State<_QuickSwitcherPreview> {
     );
   }
 }
+
+@RaftPreviews('Quick switcher results', size: Size(720, 900))
+Widget quickSwitcherResultsPreview() => Builder(
+  builder: (context) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      const RaftQuickSwitcherFilterRow(
+        child: RaftSearchFilterWrap(children: [Text('From'), Text('Scope')]),
+      ),
+      const SizedBox(height: 16),
+      RaftQuickSwitcherThreadGroup(
+        badge: 'Thread',
+        where: '#product',
+        hits: '2 hits',
+        time: '25 minutes ago',
+        title: 'Parity plan for the extension suite',
+        selected: true,
+        children: [
+          for (final (i, who) in ['Cindy', 'Designer'].indexed)
+            RaftQuickSwitcherHit(
+              where: '#product',
+              threadLabel: 'thread',
+              sender: who,
+              time: '1 hour ago',
+              snippet: const Text('Parity captures for the overlay'),
+              selected: i == 0,
+              nested: true,
+              first: i == 0,
+              onPressed: () {},
+            ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      const RaftQuickSwitcherSkeleton(),
+      const SizedBox(height: 16),
+      RaftQuickSwitcherErrorCard(
+        title: 'Search failed',
+        body: 'The last search request failed.',
+        actionLabel: 'Retry',
+        onAction: () {},
+      ),
+      const SizedBox(height: 16),
+      const SizedBox(
+        height: 160,
+        child: RaftQuickSwitcherEmpty(
+          title: 'Search everything',
+          detail: 'Search channels, DMs, people, agents, and message history.',
+        ),
+      ),
+    ],
+  ),
+);

@@ -676,6 +676,29 @@ one channel level everywhere in the `bg-fill-strong/80` hover fill (Chromium
 quantises the alpha before blending, see the Computers result). Official
 set: 98 values unchanged; `components.settings.root.page` (shared rail rows)
 0.9743 -> 0.9905.
+### Search overlay cases (10 states x 3 themes = 30)
+
+Derived from Web `SearchOverlay.tsx` + the overlay mode of `MessageSearchPage.tsx`
+(raft-source 26f77ef): the desktop shell opens the same overlay from the rail Search
+button and from Cmd/Ctrl+K. Host `tool/parity-ext/host/SearchOverlayCases.tsx`, fixture
+`tool/parity-ext/fixtures/search-overlay.json`, generator
+`tool/parity-ext/build-search-overlay-cases.py` (appends `components.search-overlay.*`,
+every other id kept), Flutter builders `test/parity/cases/ext_search_overlay.dart`
+(real `QuickSwitcherHost` over a fixture workspace; the harness gained the
+`enterText` and `key` interactions). States: home (recent conversations), home-empty,
+query, query-exact, query-selected, query-no-results, query-loading, query-error,
+query-thread-group, filters-sender. Crop = the 720x640 card at 1280x800.
+
+`tool/parity-ext/run dom-dump` writes the Web element rects and computed styles to
+`build/parity-ext/react-dom/<id>.json` (`tool/parity-ext/dom-summary.py` prints an
+outline); `PARITY_GEOMETRY_DUMP=1` does the same for Flutter. Box-for-box comparison
+of the two replaced eyeballing: header/footer borders count in the box, the results
+sit on the `SearchShellRoot` frame, hairline borders paint 1px at DSF 1, picker chips
+use a 12px icon / 6px gap / 16px indicator slot, thread cards nest hits with their own
+padding, the messages card paints without a heading while an error shows.
+
+Remaining difference is text rasterisation and Chromium's truncating blend arithmetic
+(1-2 level steps on every shadow/ring line, worst in elegant-dark), not geometry.
 
 ### Announcement modal cases (13 surfaces x 3 themes = 39)
 
