@@ -2,7 +2,6 @@
 // reply, Close ticket (conversation and inbox row), failures and the
 // first-frame preview of an opened ticket.
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -121,6 +120,7 @@ void main() {
     await tester.tap(_key('feedback-new'));
     await tester.pumpAndSettle();
     await tester.enterText(_key('feedback-new-message'), 'Idea');
+    await tester.pump();
     await tester.tap(_key('feedback-new-submit'));
     await tester.pumpAndSettle();
     expect(find.text('Check the feedback details and try again.'), findsOne);
@@ -227,6 +227,7 @@ void main() {
     await tester.tap(_key('feedback-ticket-${fx.first}'));
     await tester.pumpAndSettle();
     await tester.enterText(_key('feedback-reply-input'), 'Hello');
+    await tester.pump();
     await tester.tap(_key('feedback-reply-send'));
     await tester.pumpAndSettle();
     expect(
