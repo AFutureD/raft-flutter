@@ -69,11 +69,14 @@ const raftChinese = <String, String>{
   "Closing…": "正在关闭…",
   "Closed as {reason}": "关闭原因：{reason}",
   "Issue resolved — close this ticket?": "问题已解决，关闭工单？",
-  "You won’t be able to reply after closing. If the issue comes back, submit new feedback.": "关闭后将无法继续回复。如果问题再次出现，可以重新提交反馈。",
+  "You won’t be able to reply after closing. If the issue comes back, submit new feedback.":
+      "关闭后将无法继续回复。如果问题再次出现，可以重新提交反馈。",
   "No longer need help — close this ticket?": "不再需要处理，关闭工单？",
-  "This will close the ticket even if the issue isn’t resolved. If you still need help, submit new feedback.": "即使问题尚未解决，也会直接关闭工单。如果仍需帮助，可以重新提交反馈。",
+  "This will close the ticket even if the issue isn’t resolved. If you still need help, submit new feedback.":
+      "即使问题尚未解决，也会直接关闭工单。如果仍需帮助，可以重新提交反馈。",
   "No feedback yet": "还没有反馈",
-  "Share an idea or report a bug — team replies will show up here.": "分享想法或报告问题，团队回复会显示在这里。",
+  "Share an idea or report a bug — team replies will show up here.":
+      "分享想法或报告问题，团队回复会显示在这里。",
   "Nothing in progress": "没有进行中的反馈",
   "Resolved or closed feedback lives under “Ended”.": "已解决或已关闭的反馈在「已结束」里。",
   "Nothing ended yet": "还没有已结束的反馈",
@@ -82,7 +85,8 @@ const raftChinese = <String, String>{
   "Check the feedback details and try again.": "请检查反馈内容后重试。",
   "This feedback ticket is no longer available.": "该反馈工单已不可用。",
   "Too many feedback requests. Try again later.": "请求过于频繁，请稍后重试。",
-  "Your feedback session expired. Reopen feedback and try again.": "反馈会话已过期，请重新打开后重试。",
+  "Your feedback session expired. Reopen feedback and try again.":
+      "反馈会话已过期，请重新打开后重试。",
   "Couldn't load feedback. Try again.": "反馈加载失败，请重试。",
   "{name} is larger than 10 MB.": "{name} 超过 10 MB。",
   "Choose no more than {count} screenshots.": "最多选择 {count} 张截图。",
@@ -118,18 +122,23 @@ const raftChinese = <String, String>{
   "Notifications from {serverName} are muted.": "已静音来自 {serverName} 的通知。",
   "Notifications from {serverName} are unmuted.": "已恢复来自 {serverName} 的通知。",
   "Comments · {filename}": "评论 · {filename}",
-  "Comments here are pinned to {filename}. For general discussion, reply in the thread.": "这里的评论仅关联 {filename}。如需一般性讨论，请在消息列中回复。",
+  "Comments here are pinned to {filename}. For general discussion, reply in the thread.":
+      "这里的评论仅关联 {filename}。如需一般性讨论，请在消息列中回复。",
   "Comment on {filename}…": "评论 {filename}…",
   "Row {n}": "第 {n} 行",
   "{count} new update": "{count} 条新更新",
   "{count} new updates": "{count} 条新更新",
   "Row {start}–{end}": "第 {start}–{end} 行",
-  "Only {max} attachments per message. {extra} extra files skipped.": "每条消息最多 {max} 个附件。已跳过 {extra} 个多余文件。",
+  "Only {max} attachments per message. {extra} extra files skipped.":
+      "每条消息最多 {max} 个附件。已跳过 {extra} 个多余文件。",
   "{count} empty files skipped.": "已跳过 {count} 个空文件。",
-  "Max {maxSize} per file. Current largest file is {largest}.": "每个文件最大 {maxSize}。当前最大文件为 {largest}。",
+  "Max {maxSize} per file. Current largest file is {largest}.":
+      "每个文件最大 {maxSize}。当前最大文件为 {largest}。",
   "{target} was added to {channel}": "{target} 已加入 {channel}",
-  "Notification queued for {target} · still not in {channel}": "已为 {target} 排队通知 · 仍不在 {channel}",
-  "{target} was not notified because they are not in {channel}": "{target} 未收到通知，因为他们不在 {channel}",
+  "Notification queued for {target} · still not in {channel}":
+      "已为 {target} 排队通知 · 仍不在 {channel}",
+  "{target} was not notified because they are not in {channel}":
+      "{target} 未收到通知，因为他们不在 {channel}",
   "{count} selected from {source}": "已从 {source} 选择 {count} 条",
   "React with {emoji}": "用 {emoji} 回应",
   "#{channel} will become read-only": "#{channel} 即将变为只读",
@@ -394,8 +403,10 @@ const raftChinese = <String, String>{
   "The system notification could not be delivered.": "系统通知发送失败。",
   "Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.":
       "这些通知是否显示由系统决定,而不是 Raft:{path}。首次发出通知时系统可能会询问权限。若开启了专注模式或勿扰,系统可能延迟或静默横幅。",
-  "macOS → System Settings → Notifications → {app}": "macOS → 系统设置 → 通知 → {app}",
-  "Linux → your desktop environment's notification settings": "Linux → 桌面环境的通知设置",
+  "macOS → System Settings → Notifications → {app}":
+      "macOS → 系统设置 → 通知 → {app}",
+  "Linux → your desktop environment's notification settings":
+      "Linux → 桌面环境的通知设置",
   "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
   "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
       "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
@@ -412,7 +423,8 @@ const raftChinese = <String, String>{
       "通知是否显示由系统决定：iOS 在“设置 → 通知 → Raft”。开启了勿扰或专注模式时，系统可能延迟或静默通知。",
   "Test notification sent. If no banner appeared, check Raft's notification settings in the system settings, then try again.":
       "测试通知已发出。如果没有看到横幅，请在系统设置中检查 Raft 的通知设置后再试。",
-  "System notifications are enabled. Tap to return to Raft.": "系统通知已开启。点按即可回到 Raft。",
+  "System notifications are enabled. Tap to return to Raft.":
+      "系统通知已开启。点按即可回到 Raft。",
   " (coming soon)": "（即将推出）",
   " (deprecated)": "（已弃用）",
   " (installed)": "（已安装）",
@@ -717,7 +729,8 @@ const raftChinese = <String, String>{
   "At least one invited person is required": "至少需要邀请一位成员",
   "At least one task title is required": "至少需要填写一个任务标题",
   "Attach at most 3 screenshots.": "最多添加 3 张截图。",
-  "Only {max} attachments per message. {extra} extra file skipped.": "每条消息最多 {max} 个附件。已跳过 {extra} 个多余文件。",
+  "Only {max} attachments per message. {extra} extra file skipped.":
+      "每条消息最多 {max} 个附件。已跳过 {extra} 个多余文件。",
   "{count} empty file skipped.": "已跳过 {count} 个空文件。",
   "Preview {file}": "预览 {file}",
   "Remove {file}": "移除 {file}",
@@ -903,6 +916,31 @@ const raftChinese = <String, String>{
   "Check that both computers are online, then try again.": "请确认两台计算机都在线，然后重试。",
   "Check your connection and try again.": "请检查连接后重试。",
   "Check your email": "请查收邮件",
+  "Bring {computer} back online": "让 {computer} 重新上线",
+  "Copy {command}": "复制 {command}",
+  "Found on {computer}. It is ready to use.": "在 {computer} 上找到了，可以直接使用。",
+  "Found on {computer}. This is the best-tested path - nothing to configure.":
+      "在 {computer} 上找到了。这是测试最充分的方式，无需任何配置。",
+  "Install {runtime}, then restart Raft Computer to detect it.":
+      "安装 {runtime}，然后重启 Raft Computer 来检测它。",
+  "Offline · last seen {when}": "离线 · 最后在线 {when}",
+  "This computer is set up on /{server} but isn't connected right now. Run this on the machine to bring it back:":
+      "这台计算机已在 /{server} 上完成设置，但现在没有连接。在那台机器上运行以下命令让它恢复：",
+  "Waiting for {computer} to come online…": "等待 {computer} 上线…",
+  "{computer} is connected.": "{computer} 已连接。",
+  "Runtime detected.": "已检测到运行时。",
+  "Runtimes detected.": "已检测到运行时。",
+  "Runtime detected: {names}.": "已检测到运行时：{names}。",
+  "Runtimes detected: {names}.": "已检测到运行时：{names}。",
+  "Required": "必填",
+
+  "{agentName} takes it from here": "{agentName} 将从这里接手",
+  "Tell {agentName} about you": "告诉 {agentName} 关于你的事",
+  "Your server is set up. {agentName} is waiting in your channel. She'll show you around Raft and get you working for real.":
+      "你的服务器已设置完成。{agentName} 正在频道里等你。她会带你熟悉 Raft，并帮你真正开始工作。",
+  "If an account exists with {email}, we've sent a password reset link.":
+      "如果 {email} 已注册，我们已发送密码重置链接。",
+  "Enter a password reset link or code.": "请输入密码重置链接或验证码。",
   "Check, read, search, and resolve messages (slock message check / read / search / resolve).":
       "检查、读取、搜索并 resolve 消息（slock message check / read / search / resolve）。",
   "Checking attachments": "正在检查附件",

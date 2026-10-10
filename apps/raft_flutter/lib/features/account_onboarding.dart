@@ -108,19 +108,22 @@ class AccountOnboardingView extends StatefulWidget {
   State<AccountOnboardingView> createState() => _OnboardingState();
 }
 
-class _OnboardingState extends State<AccountOnboardingView> {
+class _OnboardingState extends State<AccountOnboardingView>
+    with WidgetsBindingObserver {
   final form = GlobalKey<FormState>();
   final username = TextEditingController(),
       displayName = TextEditingController(),
       token = TextEditingController();
   StreamSubscription<RaftEvent>? events;
   bool busy = false, displayNameEdited = false;
+  bool manualOpen = false, resending = false, verifying = false, resent = false;
   String? error, notice, handleError, displayNameError;
   final usernameFocus = FocusNode();
   RaftClient get client => widget.client;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     events = client.events.listen((event) {
       if (event.name == 'account:updated' && mounted) setState(() {});
     });
@@ -163,8 +166,59 @@ class _OnboardingState extends State<AccountOnboardingView> {
     }
   }
 
+  /// The verification link is opened in the browser; coming back to the app
+  /// re-reads the account (Web reloads the page after the link).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        client.user?.json['emailVerified'] != true) {
+      unawaited(run(client.reloadUser).catchError((_) {}));
+    }
+  }
+
+  Future<void> resend() async {
+    if (resending) return;
+    setState(() {
+      resending = true;
+      error = null;
+      resent = false;
+    });
+    try {
+      await client.post('/auth/resend-verification');
+      if (mounted) setState(() => resent = true);
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => resending = false);
+    }
+  }
+
+  Future<void> verifyManual() async {
+    if (verifying || token.text.trim().isEmpty) return;
+    final generation = client.generation;
+    setState(() {
+      verifying = true;
+      error = null;
+      resent = false;
+    });
+    try {
+      await verify();
+      if (client.generation == generation &&
+          !accountNeedsOnboarding(client.user)) {
+        await widget.onComplete();
+      }
+    } catch (e) {
+      if (mounted && client.generation == generation) {
+        setState(() => error = '$e');
+      }
+    } finally {
+      if (mounted) setState(() => verifying = false);
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     events?.cancel();
     username.dispose();
     displayName.dispose();
@@ -250,13 +304,37 @@ class _OnboardingState extends State<AccountOnboardingView> {
     final t = RaftTokens.of(context);
     final user = client.user;
     final avatarUrl = user?.string('avatarUrl') ?? '';
+    if (!verified) {
+      // EmailVerificationPage (CenteredCardFrame), not the onboarding shell.
+      return RaftAuthVerifyPage(
+        email: user?.string('email') ?? '',
+        resending: resending,
+        verifying: verifying,
+        manualOpen: manualOpen,
+        canVerify: token.text.trim().isNotEmpty,
+        error: error,
+        resent: resent,
+        tokenField: RaftTextInput(
+          key: const Key('verification-token'),
+          controller: token,
+          hintText: tr('Paste verification token'),
+          semanticLabel: tr('Verification link or code'),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => verifyManual(),
+        ),
+        onResend: resend,
+        onToggleManual: () => setState(() => manualOpen = !manualOpen),
+        onVerify: verifyManual,
+        onLogOut: () => unawaited(widget.onSignOut()),
+      );
+    }
     final footerName = (user?.string('displayName') ?? '').isNotEmpty
         ? user!.string('displayName')
         : user?.string('email') ?? '';
     return Form(
       key: form,
       child: RaftOnboardingPage(
-        title: tr(verified ? 'Set up your account' : 'Verify your email'),
+        title: tr('Set up your account'),
         banner: error,
         notice: notice == null ? null : tr(notice!),
         footer: widget.showSessionFooter
@@ -266,46 +344,7 @@ class _OnboardingState extends State<AccountOnboardingView> {
               )
             : null,
         children: [
-          if (!verified) ...[
-            RaftAuthNote(
-              '${tr('Check the verification email sent to')} ${user?.string('email') ?? ''}.',
-            ),
-            RaftAuthField(
-              label: tr('Verification link or code'),
-              child: TextField(
-                autofillHints: null,
-                key: const Key('verification-token'),
-                controller: token,
-                obscureText: true,
-                style: t.fieldStyle,
-                onSubmitted: (_) => run(verify),
-              ),
-            ),
-            RaftAuthWideButton(
-              variant: RaftControlVariant.accent,
-              onPressed: busy ? null : () => run(verify),
-              child: Text(tr('Verify email')),
-            ),
-            Center(
-              child: RaftAuthTextLink(
-                label: tr('Resend verification email'),
-                onTap: busy
-                    ? null
-                    : () => run(() async {
-                        await client.post('/auth/resend-verification');
-                        if (mounted) {
-                          setState(() => notice = 'Verification email sent.');
-                        }
-                      }),
-              ),
-            ),
-            Center(
-              child: RaftAuthTextLink(
-                label: tr('I have verified my email'),
-                onTap: busy ? null : () => run(client.reloadUser),
-              ),
-            ),
-          ] else if (profile)
+          if (profile)
             RaftAuthFormColumn(
               children: [
                 RaftAuthField(

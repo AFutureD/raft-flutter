@@ -4,12 +4,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'banner.dart';
 import 'brand.dart';
 import 'components.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
-import 'recipes/banner.g.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/checkbox.g.dart';
 import 'recipes/field.g.dart' as field_recipe;
@@ -31,22 +31,39 @@ class RaftAuthShell extends StatelessWidget {
     required this.child,
     this.server,
     this.onServer,
-    this.padding = const EdgeInsets.fromLTRB(20, 40, 20, 40),
+    this.padding,
+    this.formPanel = false,
+    this.overlayLink,
   });
+
+  /// OnboardingCreateShell's narrow form panel: `px-6 py-10 sm:px-10`.
+  final bool formPanel;
   final Widget child;
+
+  /// Native-only affordance pinned over the bottom of the page without taking
+  /// part in the layout, so the centred Web composition keeps its geometry.
+  final Widget? overlayLink;
   final String? server;
   final VoidCallback? onServer;
 
-  /// `px-5 pb-10 pt-10` (RaftAuthShell); OnboardingCreateShell's form panel
-  /// is `px-6 py-10`.
-  final EdgeInsets padding;
+  /// `px-5 pb-10 pt-10 sm:px-8 sm:pb-14 sm:pt-14` (AUTH_BRAND_CONTENT_CLASS,
+  /// the default); OnboardingCreateShell's form panel is `px-6 py-10
+  /// sm:px-10`.
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final safe = MediaQuery.paddingOf(context);
+    final wide = MediaQuery.sizeOf(context).width >= 640; // Tailwind `sm`
     final content = Padding(
-      padding: padding,
+      padding:
+          padding ??
+          (formPanel
+              ? EdgeInsets.symmetric(horizontal: wide ? 40 : 24, vertical: 40)
+              : wide
+              ? const EdgeInsets.fromLTRB(32, 56, 32, 56)
+              : const EdgeInsets.fromLTRB(20, 40, 20, 40)),
       child: Center(
         heightFactor: 1,
         child: ConstrainedBox(
@@ -55,7 +72,7 @@ class RaftAuthShell extends StatelessWidget {
         ),
       ),
     );
-    return Material(
+    final page = Material(
       color: t.canvas,
       child: DefaultTextStyle.merge(
         style: TextStyle(
@@ -75,9 +92,7 @@ class RaftAuthShell extends StatelessWidget {
                   children: [bar, content],
                 );
               }
-              final barHeight = t.brutal
-                  ? RaftMetrics.brutalPanelHeader
-                  : RaftMetrics.panelHeader;
+              const barHeight = RaftAuthTopBar.height;
               return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -101,6 +116,18 @@ class RaftAuthShell extends StatelessWidget {
         ),
       ),
     );
+    if (overlayLink == null) return page;
+    return Stack(
+      children: [
+        Positioned.fill(child: page),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: safe.bottom + 24,
+          child: Center(child: overlayLink),
+        ),
+      ],
+    );
   }
 }
 
@@ -114,15 +141,21 @@ class RaftAuthTopBar extends StatelessWidget {
   final String? server;
   final VoidCallback? onServer;
 
+  /// `h-panel-header` outside the app shell: `--shell-header-height` is only
+  /// set on `[data-slot="app-shell-root"]`, so the auth pages fall back to
+  /// 62px in every theme (border-box).
+  static const double height = 62;
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    final width = MediaQuery.sizeOf(context).width;
     return Container(
-      // --shell-header-height (62 brutal / 56 elegant); border-box.
-      height: t.brutal
-          ? RaftMetrics.brutalPanelHeader
-          : RaftMetrics.panelHeader,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: height,
+      // `px-4 sm:px-6 md:px-8`.
+      padding: EdgeInsets.symmetric(
+        horizontal: width >= 768 ? 32 : (width >= 640 ? 24 : 16),
+      ),
       decoration: BoxDecoration(
         color: t.brutal ? t.product.softSignal : t.panel,
         border: Border(
@@ -156,13 +189,31 @@ class RaftAuthTopBar extends StatelessWidget {
 /// AuthBrandIntro: `mb-5 text-center`; icon `mx-auto mb-4 size-9`; h1
 /// `text-xl font-bold`; description `mt-2 text-sm text-foreground-muted`.
 class RaftAuthIntro extends StatelessWidget {
-  const RaftAuthIntro({super.key, required this.title, this.description});
+  const RaftAuthIntro({
+    super.key,
+    required this.title,
+    this.description,
+    this.descriptionSpan,
+    this.children = const [],
+  });
   final String title;
   final String? description;
+
+  /// Rich description (`<strong>` runs); wins over [description].
+  final InlineSpan? descriptionSpan;
+
+  /// AuthBrandIntro `children`: rendered after the description.
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    final descriptionStyle = RaftTypography.heading(
+      t,
+      size: 14,
+      line: 20,
+      weight: FontWeight.w400,
+    ).copyWith(color: t.muted);
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -183,19 +234,22 @@ class RaftAuthIntro extends StatelessWidget {
               line: 28,
             ).copyWith(color: t.semantic.foreground),
           ),
-          if (description != null) ...[
+          if (descriptionSpan != null) ...[
+            const SizedBox(height: 8),
+            Text.rich(
+              descriptionSpan!,
+              textAlign: TextAlign.center,
+              style: descriptionStyle,
+            ),
+          ] else if (description != null) ...[
             const SizedBox(height: 8),
             Text(
               description!,
               textAlign: TextAlign.center,
-              style: RaftTypography.heading(
-                t,
-                size: 14,
-                line: 20,
-                weight: FontWeight.w400,
-              ).copyWith(color: t.muted),
+              style: descriptionStyle,
             ),
           ],
+          ...children,
         ],
       ),
     );
@@ -212,6 +266,7 @@ class RaftAuthField extends StatelessWidget {
     required this.child,
     this.helper,
     this.helperHint = false,
+    this.helperRecipe = false,
     this.error,
     this.surface = true,
   });
@@ -222,6 +277,10 @@ class RaftAuthField extends StatelessWidget {
   /// muted, or `text-foreground-hint` when [helperHint].
   final String? helper;
   final bool helperHint;
+
+  /// `FormField hint`: the raft-ui `FieldDescription` recipe text (no `text-xs`
+  /// override), e.g. the ServerSelector first-server form.
+  final bool helperRecipe;
 
   /// FieldError `mt-1` (field recipe error slot).
   final String? error;
@@ -249,7 +308,9 @@ class RaftAuthField extends StatelessWidget {
           SizedBox(height: (style.root.rowGap ?? 0) + 4), // gap-1 + mt-1
           Text(
             helper!,
-            style: _helper(t, helperHint ? t.semantic.foregroundHint : t.muted),
+            style: helperRecipe
+                ? style.description.textStyle(tokens)
+                : _helper(t, helperHint ? t.semantic.foregroundHint : t.muted),
           ),
         ],
         if (error != null) ...[
@@ -372,6 +433,14 @@ class RaftAuthSocialButton extends StatelessWidget {
       'github' => RaftBrandMarkKind.github,
       _ => RaftBrandMarkKind.apple,
     };
+    // The outline lg Button label (14/20 bold brutal, 16/24 medium elegant).
+    final tokens = RaftRecipeTokens(t);
+    final label = RaftButtonRecipe.resolve(
+      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      variant: RaftButtonRecipeVariant.outline,
+      size: RaftButtonRecipeSize.lg,
+      tokens: tokens,
+    ).root.textStyle(tokens);
     return RaftAuthWideButton(
       onPressed: onPressed,
       variant: RaftControlVariant.outline,
@@ -385,7 +454,7 @@ class RaftAuthSocialButton extends StatelessWidget {
             invert: t.dark && mark != RaftBrandMarkKind.google,
           ),
           const SizedBox(width: 12), // gap-3
-          Flexible(child: Text(label, maxLines: 1)),
+          Flexible(child: Text(this.label, maxLines: 1, style: label)),
         ],
       ),
     );
@@ -555,10 +624,19 @@ class RaftAuthTextLink extends StatelessWidget {
     required this.label,
     this.onTap,
     this.small = false,
+    this.primary = false,
+    this.bold = false,
   });
   final String label;
   final VoidCallback? onTap;
   final bool small;
+
+  /// Muted link with `font-bold` (ServerSelector "Log out": `text-sm
+  /// font-bold` over the muted variant).
+  final bool bold;
+
+  /// `font-bold text-accent-strong underline theme-brutal:text-brutal-pink`.
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
@@ -568,18 +646,31 @@ class RaftAuthTextLink extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Text(label, style: _linkStyle(t, size: small ? 12 : 14)),
+        child: Text(
+          label,
+          style: _linkStyle(
+            t,
+            primary: primary,
+            bold: bold,
+            size: small ? 12 : 14,
+          ),
+        ),
       ),
     );
   }
 }
 
-TextStyle _linkStyle(RaftTokens t, {bool primary = false, double size = 14}) =>
+TextStyle _linkStyle(
+  RaftTokens t, {
+  bool primary = false,
+  bool bold = false,
+  double size = 14,
+}) =>
     RaftTypography.heading(
       t,
       size: size,
       line: size == 14 ? 20 : 16,
-      weight: primary ? FontWeight.w700 : FontWeight.w400,
+      weight: primary || bold ? FontWeight.w700 : FontWeight.w400,
     ).copyWith(
       color: primary
           ? (t.brutal ? t.product.brutalPink : t.semantic.accentStrong)
@@ -641,33 +732,24 @@ class _RaftAuthPromptState extends State<RaftAuthPrompt> {
 
 /// `<Banner intent="warning" className="mb-4 font-bold">` (raft-ui banner).
 class RaftAuthBanner extends StatelessWidget {
-  const RaftAuthBanner({super.key, required this.text, this.info = false});
+  const RaftAuthBanner({
+    super.key,
+    required this.text,
+    this.info = false,
+    this.success = false,
+  });
   final String text;
-  final bool info;
+  final bool info, success;
 
   @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final tokens = RaftRecipeTokens(t);
-    final s = RaftBannerRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
-      status: info
-          ? RaftBannerRecipeStatus.info
-          : RaftBannerRecipeStatus.warning,
-      tokens: tokens,
-    );
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        padding: s.root.padding,
-        decoration: s.root.decoration(tokens),
-        child: Text(
-          text,
-          style: s.root.textStyle(tokens).copyWith(fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => RaftBanner(
+    description: text,
+    status: success
+        ? RaftBannerRecipeStatus.success
+        : info
+        ? RaftBannerRecipeStatus.info
+        : RaftBannerRecipeStatus.warning,
+  );
 }
 
 List<Widget> _gap16(List<Widget> children) => [
@@ -846,8 +928,9 @@ class RaftAuthProviderEntry {
   final String id, label;
 }
 
-/// The Web sign-in/register/reset page composition inside [RaftAuthShell].
-/// Fields are passed in so the app keeps validation and controllers.
+/// The Web sign-in/register/forgot/reset page composition inside
+/// [RaftAuthShell]. Fields are passed in so the app keeps controllers; the
+/// per-field `*Error` strings are the FormField error slot under each control.
 class RaftAuthPage extends StatelessWidget {
   const RaftAuthPage({
     super.key,
@@ -856,6 +939,11 @@ class RaftAuthPage extends StatelessWidget {
     this.emailField,
     this.tokenField,
     this.passwordField,
+    this.confirmField,
+    this.emailError,
+    this.tokenError,
+    this.passwordError,
+    this.confirmError,
     this.banner,
     this.notice,
     this.accepted = false,
@@ -873,7 +961,8 @@ class RaftAuthPage extends StatelessWidget {
   });
   final RaftAuthMode mode;
   final bool busy, accepted;
-  final Widget? emailField, tokenField, passwordField;
+  final Widget? emailField, tokenField, passwordField, confirmField;
+  final String? emailError, tokenError, passwordError, confirmError;
   final String? banner, notice;
   final ValueChanged<bool>? onAccepted;
   final VoidCallback? onSubmit;
@@ -930,19 +1019,38 @@ class RaftAuthPage extends StatelessWidget {
             ),
           // <form className="space-y-4">
           if (emailField != null)
-            RaftAuthField(label: tr('Email'), child: emailField!),
+            RaftAuthField(
+              label: tr('Email'),
+              surface: false,
+              error: emailError,
+              child: emailField!,
+            ),
           if (tokenField != null)
             RaftAuthField(
               label: tr('Password reset link or code'),
+              surface: false,
+              error: tokenError,
               child: tokenField!,
             ),
           if (passwordField != null) ...[
-            const SizedBox(height: 16),
+            if (emailField != null || tokenField != null)
+              const SizedBox(height: 16),
             RaftAuthField(
               label: tr(
                 mode == RaftAuthMode.reset ? 'New password' : 'Password',
               ),
+              surface: false,
+              error: passwordError,
               child: passwordField!,
+            ),
+          ],
+          if (confirmField != null) ...[
+            const SizedBox(height: 16),
+            RaftAuthField(
+              label: tr('Confirm password'),
+              surface: false,
+              error: confirmError,
+              child: confirmField!,
             ),
           ],
           if (mode == RaftAuthMode.register) ...[
@@ -962,17 +1070,24 @@ class RaftAuthPage extends StatelessWidget {
           ),
           if (providers.isNotEmpty && social) ...[
             RaftAuthOrDivider(label: tr('or')),
-            for (final (i, provider) in providers.indexed) ...[
-              if (i > 0) const SizedBox(height: 8), // space-y-2
-              RaftAuthSocialButton(
-                provider: provider.id,
-                label: tr('Continue with ${provider.label}'),
-                // Web only disables the submit button while loading.
-                onPressed: onProvider == null
-                    ? null
-                    : () => onProvider!(provider.id),
-              ),
-            ],
+            Column(
+              key: const ValueKey('auth-social-buttons'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, provider) in providers.indexed) ...[
+                  if (i > 0) const SizedBox(height: 8), // space-y-2
+                  RaftAuthSocialButton(
+                    key: ValueKey('auth-social-${provider.id}'),
+                    provider: provider.id,
+                    label: tr('Continue with ${provider.label}'),
+                    // Web only disables the submit button while loading.
+                    onPressed: onProvider == null
+                        ? null
+                        : () => onProvider!(provider.id),
+                  ),
+                ],
+              ],
+            ),
             if (onCancelBrowser != null) ...[
               const SizedBox(height: 8),
               Center(
@@ -1007,25 +1122,296 @@ class RaftAuthPage extends StatelessWidget {
               onTap: () => onMode(RaftAuthMode.login),
             ),
           ] else ...[
+            // `<p className="mt-4 text-center text-sm"><button font-bold
+            // underline accent>Back to sign in</button></p>`
             const SizedBox(height: 16),
-            if (mode == RaftAuthMode.forgot) ...[
-              Center(
-                child: RaftAuthTextLink(
-                  label: tr('I have a reset link'),
-                  onTap: busy ? null : () => onMode(RaftAuthMode.reset),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
             Center(
               child: RaftAuthTextLink(
                 label: tr('Back to sign in'),
+                primary: true,
                 onTap: busy ? null : () => onMode(RaftAuthMode.login),
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The result pages of the auth flow (forgot "Check your email", reset
+/// "Password reset", email "Email verified"): [RaftAuthIntro] followed by one
+/// full-width accent button, optionally led by an icon (`<ArrowLeft size=16/>`,
+/// `gap-2`).
+class RaftAuthResultPage extends StatelessWidget {
+  const RaftAuthResultPage({
+    super.key,
+    required this.title,
+    this.description,
+    this.descriptionSpan,
+    required this.buttonLabel,
+    this.buttonIcon,
+    this.onButton,
+    this.gapBeforeButton = 0,
+    this.below = const [],
+    this.overlayLink,
+    this.buttonKey,
+  });
+  final String title;
+  final String? description;
+  final InlineSpan? descriptionSpan;
+  final String buttonLabel;
+  final RaftGlyph? buttonIcon;
+  final VoidCallback? onButton;
+
+  /// `<div className="mb-6" />` between the intro and the button.
+  final double gapBeforeButton;
+  final List<Widget> below;
+
+  /// See [RaftAuthShell.overlayLink].
+  final Widget? overlayLink;
+  final Key? buttonKey;
+
+  @override
+  Widget build(BuildContext context) => RaftAuthShell(
+    overlayLink: overlayLink,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RaftAuthIntro(
+          title: title,
+          description: description,
+          descriptionSpan: descriptionSpan,
+        ),
+        if (gapBeforeButton > 0) SizedBox(height: gapBeforeButton),
+        RaftButton(
+          key: buttonKey,
+          label: buttonLabel,
+          glyph: buttonIcon,
+          variant: RaftControlVariant.accent,
+          size: RaftButtonRecipeSize.lg,
+          expand: true,
+          onPressed: onButton,
+        ),
+        ...below,
+      ],
+    ),
+  );
+}
+
+/// EmailVerificationPage (CenteredCardFrame): "Check your email" intro with
+/// the address, banners, then the `space-y-3` action column (Resend accent,
+/// "Enter code manually" toggle, optional code form, outline Log out).
+class RaftAuthVerifyPage extends StatelessWidget {
+  const RaftAuthVerifyPage({
+    super.key,
+    required this.email,
+    required this.resending,
+    required this.verifying,
+    required this.manualOpen,
+    required this.tokenField,
+    required this.canVerify,
+    this.error,
+    this.resent = false,
+    this.onResend,
+    this.onToggleManual,
+    this.onVerify,
+    this.onLogOut,
+  });
+  final String email;
+  final bool resending, verifying, manualOpen, canVerify, resent;
+  final Widget tokenField;
+  final String? error;
+  final VoidCallback? onResend, onToggleManual, onVerify, onLogOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    String tr(String s) => raftText(context, s);
+    final muted14 = RaftTypography.heading(
+      t,
+      size: 14,
+      line: 20,
+      weight: FontWeight.w400,
+    ).copyWith(color: t.muted);
+    final mono14 = TextStyle(
+      fontFamily: t.monoFont,
+      fontSize: 14,
+      height: 20 / 14,
+      fontWeight: FontWeight.w700,
+      color: t.semantic.foreground,
+    );
+    return RaftAuthShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RaftAuthIntro(
+            title: tr('Check your email'),
+            children: [
+              const SizedBox(height: 8),
+              Text(
+                tr('We sent a verification link to'),
+                textAlign: TextAlign.center,
+                style: muted14,
+              ),
+              const SizedBox(height: 4),
+              Text(email, textAlign: TextAlign.center, style: mono14),
+            ],
+          ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: RaftAuthBanner(text: error!),
+            ),
+          if (resent)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: RaftAuthBanner(
+                text: tr('Verification email resent! Check your inbox.'),
+                success: true,
+              ),
+            ),
+          if (verifying)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                tr('Verifying...'),
+                textAlign: TextAlign.center,
+                style: muted14,
+              ),
+            ),
+          RaftButton(
+            key: const Key('verify-resend'),
+            label: resending ? tr('Sending…') : tr('Resend Verification Email'),
+            glyph: RaftGlyph.refreshCw,
+            variant: RaftControlVariant.accent,
+            size: RaftButtonRecipeSize.lg,
+            expand: true,
+            onPressed: resending ? null : onResend,
+          ),
+          const SizedBox(height: 12), // space-y-3
+          // `<div className="text-center"><button …>`: the inline button sits
+          // in a 24px line (the block's `text-base` strut).
+          SizedBox(
+            height: 24,
+            child: Center(
+              child: GestureDetector(
+                key: const Key('verify-manual-toggle'),
+                onTap: onToggleManual,
+                behavior: HitTestBehavior.opaque,
+                child: Text.rich(
+                  TextSpan(
+                    style: _linkStyle(t),
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: RaftIcon(
+                            RaftGlyph.keyRound,
+                            size: 12,
+                            color: t.muted,
+                          ),
+                        ),
+                      ),
+                      TextSpan(
+                        text: manualOpen
+                            ? tr('Hide manual entry')
+                            : tr('Enter code manually'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (manualOpen) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: tokenField),
+                const SizedBox(width: 8), // gap-2
+                RaftButton(
+                  key: const Key('verify-submit'),
+                  label: verifying ? '…' : tr('Verify'),
+                  tone: RaftButtonRecipeVariant.success,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: verifying || !canVerify ? null : onVerify,
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          RaftButton(
+            key: const Key('verify-logout'),
+            label: tr('Log out'),
+            glyph: RaftGlyph.logOut,
+            variant: RaftControlVariant.outline,
+            size: RaftButtonRecipeSize.lg,
+            expand: true,
+            onPressed: onLogOut,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ServerSelector first-server heading: `font-mono text-[10px] font-bold
+/// uppercase tracking-[0.14em]` eyebrow, `mt-2 text-2xl font-bold
+/// leading-tight` title, `mt-2 text-sm leading-5` description (brutal uses the
+/// `black/50` and `black/65` text colours).
+class RaftOnboardingHeading extends StatelessWidget {
+  const RaftOnboardingHeading({
+    super.key,
+    required this.eyebrow,
+    required this.title,
+    required this.description,
+  });
+  final String eyebrow, title, description;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          eyebrow.toUpperCase(),
+          style: TextStyle(
+            fontFamily: t.monoFont,
+            fontSize: 10,
+            height: 1.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 10 * .14,
+            color: t.brutal ? const Color(0x80000000) : t.muted,
+            leadingDistribution: TextLeadingDistribution.even,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: RaftTypography.heading(t, size: 24, line: 30).copyWith(
+            color: t.brutal ? Colors.black : t.strong,
+            leadingDistribution: TextLeadingDistribution.even,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          description,
+          style:
+              RaftTypography.heading(
+                t,
+                size: 14,
+                line: 20,
+                weight: FontWeight.w400,
+              ).copyWith(
+                color: t.brutal ? const Color(0xA6000000) : t.muted,
+                leadingDistribution: TextLeadingDistribution.even,
+              ),
+        ),
+      ],
     );
   }
 }
@@ -1104,4 +1490,29 @@ InputDecoration raftAuthGroupedInputDecoration({String? hintText}) =>
       focusedBorder: InputBorder.none,
       errorBorder: InputBorder.none,
       focusedErrorBorder: InputBorder.none,
+    );
+
+/// SignedInAs: `{prefix} <strong>{email}</strong>` (the description of the
+/// choose-server page).
+InlineSpan raftAuthSignedInAsSpan(BuildContext context, String email) =>
+    TextSpan(
+      children: [
+        TextSpan(text: '${raftText(context, 'Signed in as')} '),
+        TextSpan(
+          text: email,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+
+/// `<strong className="font-mono text-sm">{text}</strong>` inside a muted
+/// description (the address of "Check your email").
+InlineSpan raftAuthMonoStrongSpan(BuildContext context, String text) =>
+    TextSpan(
+      text: text,
+      style: TextStyle(
+        fontFamily: RaftTokens.of(context).monoFont,
+        fontWeight: FontWeight.w700,
+        fontSize: 14,
+      ),
     );

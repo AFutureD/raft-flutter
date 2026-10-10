@@ -139,4 +139,129 @@ void main() {
     await tester.pumpAndSettle();
     expect(registered, 1);
   });
+
+  testWidgets('login validation shows the Web messages under the field', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: AuthView(
+          origin: 'https://example.invalid',
+          onLogin: (b, e, p) async => calls.add(e),
+          onRegister: (b, e, p, a) async {},
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('login-email')), 'nope');
+    await tester.enterText(find.byKey(const Key('login-password')), 'secret');
+    await tester.tap(find.byKey(const Key('login-submit')));
+    await tester.pumpAndSettle();
+    expect(find.text('Invalid email format'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('login-email')), 'a@b.co');
+    await tester.enterText(find.byKey(const Key('login-password')), '');
+    await tester.tap(find.byKey(const Key('login-submit')));
+    await tester.pumpAndSettle();
+    expect(find.text('Invalid email format'), findsNothing);
+    expect(find.text('Password is required'), findsOneWidget);
+    expect(calls, isEmpty);
+  });
+
+  testWidgets('forgot password ends on the check-your-email page', (
+    tester,
+  ) async {
+    final requests = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: AuthView(
+          origin: 'http://localhost:13041',
+          initialMode: 'forgot',
+          onLogin: (b, e, p) async {},
+          onRegister: (b, e, p, a) async {},
+          anonymousClientFactory: (origin) => _AnonymousClient(requests),
+        ),
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-email')),
+      'alice@example.invalid',
+    );
+    await tester.tap(find.byKey(const Key('login-submit')));
+    await tester.pumpAndSettle();
+    expect(requests, contains('POST /auth/forgot-password'));
+    expect(find.text('Check your email'), findsOneWidget);
+    expect(find.textContaining('alice@example.invalid'), findsOneWidget);
+    await tester.tap(find.text('Back to Sign In'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign In'), findsWidgets);
+    expect(find.byKey(const Key('login-password')), findsOneWidget);
+  });
+
+  testWidgets('reset with a link token asks for the new password twice', (
+    tester,
+  ) async {
+    final requests = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: AuthView(
+          origin: 'http://localhost:13041',
+          initialMode: 'reset',
+          resetToken: 'abc',
+          onLogin: (b, e, p) async {},
+          onRegister: (b, e, p, a) async {},
+          anonymousClientFactory: (origin) => _AnonymousClient(requests),
+        ),
+      ),
+    );
+    expect(find.byKey(const Key('reset-token')), findsNothing);
+    await tester.enterText(
+      find.byKey(const Key('reset-password')),
+      'longenough1',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reset-confirm')),
+      'different11',
+    );
+    await tester.tap(find.byKey(const Key('login-submit')));
+    await tester.pumpAndSettle();
+    expect(find.text('Passwords do not match'), findsOneWidget);
+    expect(requests, isEmpty);
+    await tester.enterText(
+      find.byKey(const Key('reset-confirm')),
+      'longenough1',
+    );
+    await tester.tap(find.byKey(const Key('login-submit')));
+    await tester.pumpAndSettle();
+    expect(requests, ['POST /auth/reset-password']);
+    expect(find.text('Password reset'), findsOneWidget);
+  });
+}
+
+class _AnonymousClient extends RaftClient {
+  _AnonymousClient(this.requests)
+    : super(
+        origin: 'https://example.invalid',
+        sessionStore: MemorySessionStore(),
+      );
+  final List<String> requests;
+  @override
+  Future<dynamic> request(
+    String method,
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? query,
+    bool authorized = true,
+    bool retried = false,
+    UploadCancellation? cancellation,
+    void Function(int, int)? onSendProgress,
+    Map<String, dynamic>? headers,
+    bool acceptServerExit = false,
+    Duration? receiveTimeout,
+  }) async {
+    requests.add('$method $path');
+    return <String, dynamic>{};
+  }
 }

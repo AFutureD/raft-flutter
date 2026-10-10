@@ -12,10 +12,10 @@ import 'package:raft_ui/raft_ui.dart';
 
 import 'management_support.dart';
 
+bool isValidAuthEmail(String value) =>
+    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value.trim());
 String? authEmailError(String value) =>
-    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value.trim())
-    ? null
-    : 'Enter a valid email address.';
+    isValidAuthEmail(value) ? null : 'Invalid email format';
 String? authOriginError(String value) {
   final uri = Uri.tryParse(value.trim());
   return uri != null &&
@@ -45,8 +45,20 @@ class AuthView extends StatefulWidget {
     this.bootError,
     this.onOAuth,
     this.anonymousClientFactory,
+    this.initialMode = 'login',
+    this.resetToken,
   });
   final Future<void> Function(String, String, String, bool)? onOAuth;
+
+  /// First mode shown: 'login', 'register', 'forgot' or 'reset' (a reset or
+  /// verification link opens straight into its page, like the Web query
+  /// params).
+  final String initialMode;
+
+  /// Token of a password-reset link that opened the app (`?reset=`); the
+  /// reset page then asks only for the new password, like Web. Without it the
+  /// page also asks for the link or code (native clients have no URL).
+  final String? resetToken;
   final RaftClient Function(String)? anonymousClientFactory;
   final String origin;
   final String? bootError;
@@ -57,12 +69,15 @@ class AuthView extends StatefulWidget {
 }
 
 class _AuthState extends State<AuthView> {
-  final form = GlobalKey<FormState>();
   late final base = TextEditingController(text: widget.origin);
   final email = TextEditingController(),
       password = TextEditingController(),
+      confirm = TextEditingController(),
       token = TextEditingController();
   bool busy = false, visible = false, accepted = false;
+  bool forgotSent = false, resetDone = false;
+  String sentEmail = '';
+  String? emailError, passwordError, confirmError, tokenError;
   List<Map<String, dynamic>> providers = [];
   NativeOAuthBroker? broker;
   Timer? providerDebounce;
@@ -158,7 +173,7 @@ class _AuthState extends State<AuthView> {
     }
   }
 
-  String mode = 'login';
+  late String mode = widget.initialMode;
   String? error, notice;
   @override
   void dispose() {
@@ -167,6 +182,7 @@ class _AuthState extends State<AuthView> {
     base.dispose();
     email.dispose();
     password.dispose();
+    confirm.dispose();
     token.dispose();
     super.dispose();
   }
@@ -187,8 +203,41 @@ class _AuthState extends State<AuthView> {
     }
   }
 
+  /// Web validation order (LoginPage / RegisterPage / ResetPasswordPage): the
+  /// first failing field shows its message under the control and nothing is
+  /// sent.
+  bool validate() {
+    String? email, pass, conf, tok;
+    if (mode != 'reset' && !isValidAuthEmail(this.email.text)) {
+      email = 'Invalid email format';
+    } else if (mode == 'reset' &&
+        widget.resetToken == null &&
+        token.text.trim().isEmpty) {
+      tok = 'Enter a password reset link or code.';
+    } else if (mode == 'login' && password.text.isEmpty) {
+      pass = 'Password is required';
+    } else if ((mode == 'register' || mode == 'reset') &&
+        password.text.length < 8) {
+      pass = 'Password must be at least 8 characters';
+    } else if (mode == 'reset' && password.text != confirm.text) {
+      conf = 'Passwords do not match';
+    }
+    setState(() {
+      emailError = email;
+      passwordError = pass;
+      confirmError = conf;
+      tokenError = tok;
+    });
+    return email == null && pass == null && conf == null && tok == null;
+  }
+
   Future<void> submit() async {
-    if (busy || !form.currentState!.validate()) return;
+    if (busy) return;
+    setState(() {
+      error = null;
+      notice = null;
+    });
+    if (!validate()) return;
     if (mode == 'register' && !accepted) {
       setState(
         () =>
@@ -196,11 +245,7 @@ class _AuthState extends State<AuthView> {
       );
       return;
     }
-    setState(() {
-      busy = true;
-      error = null;
-      notice = null;
-    });
+    setState(() => busy = true);
     try {
       switch (mode) {
         case 'login':
@@ -221,12 +266,13 @@ class _AuthState extends State<AuthView> {
             'email': email.text.trim(),
           });
           if (mounted) {
-            setState(
-              () => notice = 'If an account exists with that email, a reset link has been sent.',
-            );
+            setState(() {
+              forgotSent = true;
+              sentEmail = email.text.trim();
+            });
           }
         case 'reset':
-          final code = authLinkToken(token.text.trim());
+          final code = widget.resetToken ?? authLinkToken(token.text.trim());
           if (code.isEmpty) {
             throw const RaftApiException(
               'Enter a password reset link or code.',
@@ -236,17 +282,18 @@ class _AuthState extends State<AuthView> {
             'token': code,
             'password': password.text,
           });
-          if (mounted) {
-            setState(() {
-              mode = 'login';
-              password.clear();
-              token.clear();
-              notice = 'Password reset. Sign in with your new password.';
-            });
-          }
+          if (mounted) setState(() => resetDone = true);
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(
+          () => error =
+              e is RaftApiException &&
+                  e.details['code'] == 'AUTH_INVALID_CREDENTIALS'
+              ? 'Incorrect email or password.'
+              : '$e',
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -259,7 +306,11 @@ class _AuthState extends State<AuthView> {
       mode = next;
       error = null;
       notice = null;
+      emailError = passwordError = confirmError = tokenError = null;
+      forgotSent = false;
+      resetDone = false;
       password.clear();
+      confirm.clear();
       token.clear();
       accepted = false;
     });
@@ -318,92 +369,158 @@ class _AuthState extends State<AuthView> {
 
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
+    if (mode == 'forgot' && forgotSent) {
+      // ForgotPasswordPage `sent`: "Check your email" + Back to Sign In.
+      return RaftAuthResultPage(
+        title: tr('Check your email'),
+        descriptionSpan: _sentSpan(context),
+        // AuthBrandIntro `mb-5` and the `<div className="mb-6" />` that follows
+        // collapse to 24px: 4px on top of the intro's own 20.
+        gapBeforeButton: 4,
+        buttonLabel: tr('Back to Sign In'),
+        buttonIcon: RaftGlyph.arrowLeft,
+        onButton: () => switchMode('login'),
+        // Native only: Web opens the reset link in the browser; a native
+        // client takes the link or code here. Pinned over the page bottom so
+        // the Web composition keeps its geometry.
+        overlayLink: RaftAuthTextLink(
+          label: tr('I have a reset link'),
+          onTap: () => switchMode('reset'),
+        ),
+      );
+    }
+    if (mode == 'reset' && resetDone) {
+      return RaftAuthResultPage(
+        title: tr('Password reset'),
+        description: tr('Your password has been updated. You can now sign in.'),
+        buttonLabel: tr('Back to Sign In'),
+        buttonIcon: RaftGlyph.arrowLeft,
+        onButton: () => switchMode('login'),
+      );
+    }
+    final t = RaftTokens.of(context);
     return RaftSystemBarSurface(
       statusBarBackground: t.brutal ? t.product.softSignal : t.panel,
       navigationBarBackground: t.canvas,
-      child: Form(
-        key: form,
-        child: AutofillGroup(
-          key: ValueKey(mode),
-          onDisposeAction: mode == 'login'
-              ? AutofillContextAction.commit
-              : AutofillContextAction.cancel,
-          child: RaftAuthPage(
-            mode: authMode,
-            busy: busy,
-            server:
-                Uri.tryParse(base.text.trim())?.authority ?? base.text.trim(),
-            onServer: busy ? null : editServer,
-            banner: error ?? widget.bootError,
-            notice: notice,
-            emailField: mode == 'reset'
-                ? null
-                : TextFormField(
-                    key: const Key('login-email'),
-                    controller: email,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: mode == 'login'
-                        ? const [AutofillHints.username]
-                        : null,
-                    validator: (v) => authEmailError(v ?? ''),
-                    style: t.fieldStyle,
+      child: AutofillGroup(
+        key: ValueKey(mode),
+        onDisposeAction: mode == 'login'
+            ? AutofillContextAction.commit
+            : AutofillContextAction.cancel,
+        child: RaftAuthPage(
+          mode: authMode,
+          busy: busy,
+          server: Uri.tryParse(base.text.trim())?.authority ?? base.text.trim(),
+          onServer: busy ? null : editServer,
+          banner: error == null ? widget.bootError : tr(error!),
+          notice: notice,
+          emailError: emailError == null ? null : tr(emailError!),
+          tokenError: tokenError == null ? null : tr(tokenError!),
+          passwordError: passwordError == null ? null : tr(passwordError!),
+          confirmError: confirmError == null ? null : tr(confirmError!),
+          emailField: mode == 'reset'
+              ? null
+              : RaftTextInput(
+                  key: const Key('login-email'),
+                  controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: mode == 'login'
+                      ? const [AutofillHints.username]
+                      : null,
+                  invalid: emailError != null,
+                  semanticLabel: tr('Email'),
+                  onChanged: (_) {
+                    if (emailError != null) setState(() => emailError = null);
+                  },
+                ),
+          tokenField: mode != 'reset' || widget.resetToken != null
+              ? null
+              : RaftTextInput(
+                  key: const Key('reset-token'),
+                  controller: token,
+                  obscureText: true,
+                  invalid: tokenError != null,
+                  semanticLabel: tr('Password reset link or code'),
+                  onChanged: (_) {
+                    if (tokenError != null) setState(() => tokenError = null);
+                  },
+                ),
+          passwordField: mode == 'forgot'
+              ? null
+              : RaftTextInput(
+                  key: Key(
+                    mode == 'reset' ? 'reset-password' : 'login-password',
                   ),
-            tokenField: mode != 'reset'
-                ? null
-                : TextFormField(
-                    autofillHints: null,
-                    key: const Key('reset-token'),
-                    controller: token,
-                    obscureText: true,
-                    validator: (v) => v?.trim().isEmpty ?? true
-                        ? 'Enter a password reset link or code.'
-                        : null,
-                    style: t.fieldStyle,
+                  controller: password,
+                  // Web: plain Input type=password, no visibility toggle
+                  // (LoginPage.tsx, RegisterPage.tsx).
+                  obscureText: true,
+                  autofillHints: mode == 'login'
+                      ? const [AutofillHints.password]
+                      : null,
+                  invalid: passwordError != null,
+                  semanticLabel: tr(
+                    mode == 'reset' ? 'New password' : 'Password',
                   ),
-            passwordField: mode == 'forgot'
-                ? null
-                : TextFormField(
-                    key: const Key('login-password'),
-                    controller: password,
-                    // Web: plain Input type=password, no visibility toggle
-                    // (LoginPage.tsx:96-108, RegisterPage.tsx).
-                    obscureText: true,
-                    obscuringCharacter: '•',
-                    autofillHints: mode == 'login'
-                        ? const [AutofillHints.password]
-                        : null,
-                    validator: (v) => v == null || v.isEmpty
-                        ? 'Enter your password.'
-                        : mode != 'login' && v.length < 8
-                        ? 'Use at least 8 characters.'
-                        : null,
-                    onFieldSubmitted: (_) => submitChecked(),
-                    style: t.fieldStyle,
-                    decoration: InputDecoration(
-                      hintText: mode == 'login' ? null : tr('Min 8 characters'),
-                    ),
-                  ),
-            accepted: accepted,
-            onAccepted: (v) => setState(() => accepted = v),
-            submitKey: const Key('login-submit'),
-            // RegisterPage: disabled={loading || !acceptedLegal}.
-            onSubmit: busy || (mode == 'register' && !accepted)
-                ? null
-                : submitChecked,
-            providers: [
-              for (final p in providers)
-                RaftAuthProviderEntry('${p['id']}', '${p['label']}'),
-            ],
-            onProvider: (id) => social(id),
-            onCancelBrowser: broker == null ? null : () => broker!.cancel(),
-            onMode: (next) => switchMode(next.name),
-            onTerms: () => managementLaunch('https://raft.build/terms'),
-            onPrivacy: () => managementLaunch('https://raft.build/privacy'),
-          ),
+                  hintText: mode == 'login' ? null : tr('Min 8 characters'),
+                  onChanged: (_) {
+                    if (passwordError != null) {
+                      setState(() => passwordError = null);
+                    }
+                  },
+                  onSubmitted: mode == 'reset' ? null : (_) => submitChecked(),
+                ),
+          confirmField: mode != 'reset'
+              ? null
+              : RaftTextInput(
+                  key: const Key('reset-confirm'),
+                  controller: confirm,
+                  obscureText: true,
+                  invalid: confirmError != null,
+                  semanticLabel: tr('Confirm password'),
+                  onChanged: (_) {
+                    if (confirmError != null) {
+                      setState(() => confirmError = null);
+                    }
+                  },
+                  onSubmitted: (_) => submitChecked(),
+                ),
+          accepted: accepted,
+          onAccepted: (v) => setState(() => accepted = v),
+          submitKey: const Key('login-submit'),
+          // RegisterPage: disabled={loading || !acceptedLegal}.
+          onSubmit: busy || (mode == 'register' && !accepted)
+              ? null
+              : submitChecked,
+          providers: [
+            for (final p in providers)
+              RaftAuthProviderEntry('${p['id']}', '${p['label']}'),
+          ],
+          onProvider: (id) => social(id),
+          onCancelBrowser: broker == null ? null : () => broker!.cancel(),
+          onMode: (next) => switchMode(next.name),
+          onTerms: () => managementLaunch('https://raft.build/terms'),
+          onPrivacy: () => managementLaunch('https://raft.build/privacy'),
         ),
       ),
+    );
+  }
+
+  /// pages.forgotPassword.sentTo: the address in `<strong font-mono
+  /// text-sm>`.
+  InlineSpan _sentSpan(BuildContext context) {
+    final template = raftText(
+      context,
+      "If an account exists with {email}, we've sent a password reset link.",
+    );
+    final at = template.indexOf('{email}');
+    return TextSpan(
+      children: [
+        TextSpan(text: template.substring(0, at)),
+        raftAuthMonoStrongSpan(context, sentEmail),
+        TextSpan(text: template.substring(at + '{email}'.length)),
+      ],
     );
   }
 }

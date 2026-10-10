@@ -212,102 +212,16 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
   );
 
   Widget _waitingStep(RaftTokens t) {
-    final c = widget.commandsFor(platform == 'windows');
-    final windows = platform == 'windows';
-    // Tailwind `sm` (640px viewport).
-    final narrow = MediaQuery.sizeOf(context).width < 640;
-    final heading = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        RaftIcon(
-          RaftGlyph.terminal,
-          size: 16,
-          color: t.brutal ? Colors.black : t.colors['foreground-strong'],
-        ),
-        const SizedBox(width: 8),
-        const Flexible(child: RaftSectionEyebrow('Connect command')),
-      ],
-    );
-    final note = RaftTypography.body(
-      t,
-      size: 12,
-      line: 20,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .6)
-          : t.colors['foreground-muted'],
-    );
-    final label = RaftTypography.body(
-      t,
-      size: 12,
-      line: 16,
-      weight: FontWeight.w700,
-      color: t.brutal
-          ? Colors.black.withValues(alpha: .6)
-          : t.colors['foreground-muted'],
-    );
     return Column(
       key: const ValueKey('add-computer-waiting'),
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ComputerCommandGuide header: Terminal + "Connect command" and the
-        // platform SegmentedControl (`flex-col items-start gap-2
-        // sm:flex-row sm:items-center sm:justify-between`).
-        Flex(
-          direction: narrow ? Axis.vertical : Axis.horizontal,
-          crossAxisAlignment: narrow
-              ? CrossAxisAlignment.start
-              : CrossAxisAlignment.center,
-          children: [
-            if (narrow) heading else Expanded(child: heading),
-            SizedBox(width: narrow ? 0 : 12, height: narrow ? 8 : 0),
-            RaftRecipeSegmentedControl<String>(
-              value: platform,
-              onChanged: (v) => setState(() => platform = v),
-              items: const [
-                ('mac-linux', null, 'macOS / Linux'),
-                ('windows', null, 'Windows x64'),
-              ],
-            ),
-          ],
+        RaftComputerCommandGuide(
+          platform: platform,
+          onPlatform: (v) => setState(() => platform = v),
+          commands: widget.commandsFor(platform == 'windows'),
         ),
-        const SizedBox(height: 8),
-        Text(
-          windows
-              ? 'Install Raft Computer from PowerShell, then connect this Windows x64 machine to the server.'
-              : 'Install the Raft Computer CLI on this macOS or Linux machine, then connect it to this server.',
-          style: note,
-        ),
-        const SizedBox(height: 8),
-        if (windows) ...[
-          Row(
-            children: [
-              Text(
-                'RAFT COMPUTER · WINDOWS X64',
-                style: label.copyWith(letterSpacing: .3),
-              ),
-              const SizedBox(width: 8),
-              const RaftRecipeBadge(
-                'Experimental',
-                variant: RaftBadgeRecipeVariant.warning,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (c != null)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('1. Install', style: label),
-              const SizedBox(height: 4),
-              RaftCopyableCode(c.$1, copyLabel: 'Copy 1. install command'),
-              const SizedBox(height: 12),
-              Text('2. Setup', style: label),
-              const SizedBox(height: 4),
-              RaftCopyableCode(c.$2, copyLabel: 'Copy 2. setup command'),
-            ],
-          ),
         const SizedBox(height: 16),
         RaftBanner(
           status: RaftBannerRecipeStatus.info,
@@ -377,6 +291,123 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
             onPressed: done,
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// ComputerCommandGuide.tsx: "Connect command" header with the platform
+/// segmented control, the platform description, and the install / setup
+/// [RaftCopyableCode] rows. [commands] is (install, setup) of the selected
+/// platform; null renders the "generate a fresh command" notice.
+class RaftComputerCommandGuide extends StatelessWidget {
+  const RaftComputerCommandGuide({
+    super.key,
+    required this.platform,
+    required this.onPlatform,
+    required this.commands,
+  });
+  final String platform;
+  final ValueChanged<String> onPlatform;
+  final (String, String)? commands;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final c = commands;
+    final windows = platform == 'windows';
+    // Tailwind `sm` (640px viewport).
+    final narrow = MediaQuery.sizeOf(context).width < 640;
+    final heading = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RaftIcon(
+          RaftGlyph.terminal,
+          size: 16,
+          color: t.brutal ? Colors.black : t.colors['foreground-strong'],
+        ),
+        const SizedBox(width: 8),
+        const Flexible(child: RaftSectionEyebrow('Connect command')),
+      ],
+    );
+    final note = RaftTypography.body(
+      t,
+      size: 12,
+      line: 20,
+      color: t.brutal
+          ? Colors.black.withValues(alpha: .6)
+          : t.colors['foreground-muted'],
+    );
+    final label = RaftTypography.body(
+      t,
+      size: 12,
+      line: 16,
+      weight: FontWeight.w700,
+      color: t.brutal
+          ? Colors.black.withValues(alpha: .6)
+          : t.colors['foreground-muted'],
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header: `flex-col items-start gap-2 sm:flex-row sm:items-center
+        // sm:justify-between`.
+        Flex(
+          direction: narrow ? Axis.vertical : Axis.horizontal,
+          crossAxisAlignment: narrow
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
+          children: [
+            if (narrow) heading else Expanded(child: heading),
+            SizedBox(width: narrow ? 0 : 12, height: narrow ? 8 : 0),
+            RaftRecipeSegmentedControl<String>(
+              value: platform,
+              onChanged: onPlatform,
+              items: const [
+                ('mac-linux', null, 'macOS / Linux'),
+                ('windows', null, 'Windows x64'),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          windows
+              ? 'Install Raft Computer from PowerShell, then connect this Windows x64 machine to the server.'
+              : 'Install the Raft Computer CLI on this macOS or Linux machine, then connect it to this server.',
+          style: note,
+        ),
+        const SizedBox(height: 8),
+        if (windows) ...[
+          Row(
+            children: [
+              Text(
+                'RAFT COMPUTER · WINDOWS X64',
+                style: label.copyWith(letterSpacing: .3),
+              ),
+              const SizedBox(width: 8),
+              const RaftRecipeBadge(
+                'Experimental',
+                variant: RaftBadgeRecipeVariant.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (c != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('1. Install', style: label),
+              const SizedBox(height: 4),
+              RaftCopyableCode(c.$1, copyLabel: 'Copy 1. install command'),
+              const SizedBox(height: 12),
+              Text('2. Setup', style: label),
+              const SizedBox(height: 4),
+              RaftCopyableCode(c.$2, copyLabel: 'Copy 2. setup command'),
+            ],
+          ),
       ],
     );
   }

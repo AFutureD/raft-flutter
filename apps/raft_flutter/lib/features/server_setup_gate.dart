@@ -10,6 +10,7 @@ import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
 import 'create_agent_dialog.dart';
 import 'computer_setup_commands.dart';
+import 'resource_cards.dart';
 
 /// Settings and the setup surface of one workspace share an invalidation
 /// signal, never a verdict. It belongs to the controller (account / server
@@ -48,10 +49,14 @@ class ServerSetupGate extends StatefulWidget {
     required this.controller,
     required this.child,
     this.onSwitchServer,
+    this.now,
   });
   final WorkspaceController controller;
   final Widget child;
   final VoidCallback? onSwitchServer;
+
+  /// Clock of the relative "last seen" times (fixture captures freeze it).
+  final DateTime Function()? now;
   @override
   State<ServerSetupGate> createState() => _ServerSetupGateState();
 }
@@ -113,10 +118,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
 
   /// The directory's scoped counters for what setup reads: computers and
   /// agents. Members, presence and activity never move them.
-  (int, int) directoryRevisions() => (
-    w.entityDirectory.computerRevision,
-    w.entityDirectory.agentRevision,
-  );
+  (int, int) directoryRevisions() =>
+      (w.entityDirectory.computerRevision, w.entityDirectory.agentRevision);
 
   /// Source ServerSetupProjectionGate re-reads the projection when the
   /// machines' id/status/runtimes change. Agent creation moves the
@@ -194,6 +197,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     _directory?.removeListener(directoryChanged);
     poll?.cancel();
     debounce?.cancel();
+    surveyOther.dispose();
     super.dispose();
   }
 
@@ -240,7 +244,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     if (!accepts(generation, request)) return;
     projection = managementMap(result);
     _reportAnnouncementGate(serverId);
-    if (projection?['surface'] == 'create_agent' && createdAgentId == null) {
+    if ((projection?['surface'] == 'create_agent' && createdAgentId == null) ||
+        projection?['surface'] == 'computer_runtime') {
       try {
         final catalog = await w.client.get('$base/machines');
         if (!accepts(generation, request)) return;
@@ -345,45 +350,51 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     );
   }
 
-  Future<void> survey() async {
-    final saved = await form(
-      'Tell us about you',
-      [
-        const RaftFormField(
-          'signupRole',
-          'What best describes you?',
-          required: true,
-          choices: setupSurveyRoles,
-        ),
-        const RaftFormField(
-          'referralSource',
-          'How did you hear about Raft?',
-          required: true,
-          choices: setupSurveySources,
-        ),
-        const RaftFormField('referralSourceOther', 'Other source'),
-      ],
-      (v) async {
-        if (v['referralSource'] == 'other' &&
-            v['referralSourceOther']!.length > 200) {
-          throw StateError('Use at most 200 characters for the other source.');
-        }
+  String? surveyRole, surveySource, surveyError;
+  final surveyOther = TextEditingController();
+
+  /// ServerSetupSurveyStep.handleSubmit: one PATCH /auth/me carrying the role
+  /// and the referral source (the role is what closes the survey gate).
+  Future<void> submitSurvey() async {
+    final role = surveyRole, source = surveySource;
+    if (role == null || source == null || busy) return;
+    setState(() => surveyError = null);
+    await run(() async {
+      try {
         await w.client.request(
           'PATCH',
           '/auth/me',
           data: {
-            'signupRole': v['signupRole'],
-            'referralSource': v['referralSource'],
-            if (v['referralSource'] == 'other')
-              'referralSourceOther': v['referralSourceOther'],
+            'signupRole': role,
+            'referralSource': source,
+            if (source == 'other')
+              'referralSourceOther': surveyOther.text.trim(),
           },
         );
         await w.client.reloadUser();
-      },
-      submit: 'Continue',
-    );
-    if (saved) await reload();
+      } on RaftApiException {
+        if (mounted) {
+          setState(
+            () => surveyError = "Couldn't save your answers. Try again.",
+          );
+        }
+        return;
+      }
+      await reload();
+    }, refresh: false);
   }
+
+  /// ServerSetupProjectionGate `StepContainer`: `flex min-h-full w-full
+  /// overflow-y-auto p-4` around a `m-auto` step.
+  Widget stepPage(Widget step) => LayoutBuilder(
+    builder: (context, box) => SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: box.maxHeight - 32),
+        child: Center(child: step),
+      ),
+    ),
+  );
 
   Future<void> reset() async {
     if (!managementStrings(projection?['allowedExits']).contains('reset')) {
@@ -422,132 +433,162 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     }
     final post = managementMap(current['postSetup']);
     final completed = current['surface'] == 'complete';
+    if (completed && post['surveyPending'] == true) {
+      return stepPage(
+        RaftSetupSurveyCard(
+          key: const ValueKey('setup-survey'),
+          roles: setupSurveyRoles,
+          sources: setupSurveySources,
+          role: surveyRole,
+          source: surveySource,
+          error: surveyError,
+          saving: busy,
+          onRole: (id) => setState(() => surveyRole = id),
+          onSource: (id) => setState(() => surveySource = id),
+          otherController: surveyOther,
+          onContinue: submitSurvey,
+          onSwitchServer: busy ? null : widget.onSwitchServer,
+        ),
+      );
+    }
+    if (completed && post['handoffPending'] == true) {
+      return stepPage(
+        RaftSetupHandoffCard(
+          key: const ValueKey('setup-handoff'),
+          starting: busy,
+          onSwitchServer: busy ? null : widget.onSwitchServer,
+          onDone: () => run(() async {
+            final generation = w.client.generation, scope = authority;
+            final result = await w.client.post('$base/setup-handoff');
+            if (accepts(generation) && scope == authority) {
+              projection = managementMap(result);
+            }
+          }),
+        ),
+      );
+    }
+    return stepPage(computerStep(current));
+  }
+
+  /// packages/shared `getSetupRuntimeOptions()` (supported, not deprecated,
+  /// not the built-in): id, display name, abbreviation.
+  static const _setupRuntimes = <(String, String, String)>[
+    ('claude', 'Claude Code', 'CC'),
+    ('codex', 'Codex CLI', 'CX'),
+    ('grok', 'Grok Build', 'GK'),
+    ('kimi-sdk', 'Kimi Code', 'KC'),
+    ('copilot', 'Copilot CLI', 'CP'),
+    ('cursor', 'Cursor CLI', 'CU'),
+    ('opencode', 'OpenCode', 'OC'),
+    ('pi', 'Pi', 'PI'),
+  ];
+
+  /// ServerSetupComputerRuntimeStep fed by the server's projection (the
+  /// verdicts) and the machine list (the computer being connected).
+  Widget computerStep(Map<String, dynamic> current) {
+    final options = managementRows(current['runtimeOptions']);
+    final byId = {for (final o in options) '${o['runtimeId']}': o};
+    RaftSetupRuntime entry((String, String, String) r) => RaftSetupRuntime(
+      id: r.$1,
+      displayName: r.$2,
+      abbreviation: r.$3,
+      detected: byId[r.$1]?['capabilityStatus'] == 'available',
+      recommended: r.$1 == 'claude' || r.$1 == 'codex',
+    );
+    final visible = [
+      for (final r in _setupRuntimes)
+        if (byId.containsKey(r.$1)) r,
+    ];
+    final recommended = [
+      for (final r in visible)
+        if (r.$1 == 'claude' || r.$1 == 'codex') entry(r),
+    ];
+    final supported = [
+      for (final r in visible)
+        if (r.$1 != 'claude' && r.$1 != 'codex') entry(r),
+    ]..sort((a, b) => a.displayName.compareTo(b.displayName));
+    final detectedNames = [
+      for (final r in _setupRuntimes)
+        if (byId[r.$1]?['capabilityStatus'] == 'available') r.$2,
+    ];
+    final status = '${current['runtimeStatus'] ?? 'unknown'}';
+    final ready = status == 'ready_recommended' || status == 'ready_other';
+    final machines = setupMachines ?? const <Map<String, dynamic>>[];
+    final computers = [
+      for (final m in machines)
+        if (m['isComputer'] != false) m,
+    ];
+    final computer =
+        computers.where((m) => m['status'] == 'online').firstOrNull ??
+        computers.firstOrNull;
+    final online = computer != null
+        ? computer['status'] == 'online'
+        : current['computerStatus'] == 'online';
+    final offline = managementRows(current['offlineComputers']);
+    final recovering = !online && current['hasConnectedComputer'] == true;
+    final rows = offline.isNotEmpty
+        ? offline
+        : [
+            if (computer != null)
+              {
+                'name': computer['name'],
+                'lastHeartbeat': null,
+                'isComputer': computer['isComputer'],
+              },
+          ];
+    final chinese = Localizations.localeOf(context).languageCode == 'zh';
     final commands = ComputerSetupCommands.build(
       slug: w.server?.string('slug') ?? '',
       serverUrl: w.client.origin,
       windows: windowsCommands,
     );
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: RaftPanel(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  raftText(
-                    context,
-                    completed
-                        ? 'Finish setting up your workspace'
-                        : 'Set up your workspace',
+    return RaftSetupComputerCard(
+      key: const ValueKey('setup-computer'),
+      computerName: computer == null ? null : '${computer['name']}',
+      computerOnline: online,
+      waiting: computer != null && !online,
+      runtimeReady: ready,
+      runtimeNames: detectedNames,
+      runtimeAnswered: status == 'not_ready' || status == 'error',
+      recommendedRuntimes: recommended,
+      supportedRuntimes: supported,
+      offlineComputers: [
+        for (final m in rows)
+          RaftSetupOfflineComputer(
+            '${m['name']}',
+            lastSeen: m['lastHeartbeat'] == null
+                ? null
+                : resourceRelativeTime(
+                    '${m['lastHeartbeat']}',
+                    now: widget.now?.call(),
+                    chinese: chinese,
                   ),
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 16),
-                if (error != null)
-                  Semantics(liveRegion: true, child: Text(error!)),
-                if (notice != null)
-                  Semantics(liveRegion: true, child: Text(notice!)),
-                if (completed && post['surveyPending'] == true) ...[
-                  label('Tell Cindy about yourself before continuing.'),
-                  action('Tell us about you', survey),
-                ] else if (completed && post['handoffPending'] == true) ...[
-                  label('Cindy is ready to help you get started.'),
-                  action(
-                    "Let's Go",
-                    () => run(() async {
-                      final generation = w.client.generation, scope = authority;
-                      final result = await w.client.post('$base/setup-handoff');
-                      if (accepts(generation) && scope == authority) {
-                        projection = managementMap(result);
-                      }
-                    }),
-                  ),
-                ] else ...[
-                  label(
-                    current['hasConnectedComputer'] == true
-                        ? 'Turn on your connected Computer to continue setup.'
-                        : 'Connect a Raft Computer to run your agents.',
-                  ),
-                  for (final c in managementRows(current['offlineComputers']))
-                    Text('${c['name']} · ${raftText(context, 'Offline')}'),
-                  Text(
-                    '${raftText(context, 'Computer')}: ${current['computerStatus'] ?? 'unknown'}',
-                  ),
-                  Text(
-                    '${raftText(context, 'Runtime')}: ${current['runtimeStatus'] ?? 'unknown'}',
-                  ),
-                  const SizedBox(height: 12),
-                  label(
-                    'Install Raft Computer on the computer where your agents will run, then connect this workspace.',
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      ChoiceChip(
-                        label: label('macOS / Linux'),
-                        selected: !windowsCommands,
-                        onSelected: (_) =>
-                            setState(() => windowsCommands = false),
-                      ),
-                      ChoiceChip(
-                        label: label('Windows'),
-                        selected: windowsCommands,
-                        onSelected: (_) =>
-                            setState(() => windowsCommands = true),
-                      ),
-                    ],
-                  ),
-                  if (commands != null) ...[
-                    _command(commands.install),
-                    _command(commands.setup),
-                  ],
-                  if (current['phase'] == 'not_started' &&
-                      managementMap(
-                            current['sideEffectState'],
-                          )['transitions'] ==
-                          'enabled')
-                    action('Start setup', () => transition('start')),
-                ],
-                const SizedBox(height: 12),
-                label(
-                  'You can manage this workspace or switch workspaces from the sidebar while setup is unfinished.',
-                ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    action(
-                      'Refresh setup',
-                      () => run(() async {}, refresh: true),
-                    ),
-                    if (managementStrings(current['allowedExits'])
-                        .contains('reset'))
-                      action('Start over', reset),
-                  ],
-                ),
-              ],
-            ),
           ),
-        ),
-      ),
+      ],
+      recovering: recovering,
+      legacyDaemon: rows.any((m) => m['isComputer'] == false),
+      guidePlatform: windowsCommands ? 'windows' : 'mac-linux',
+      onGuidePlatform: (v) => setState(() => windowsCommands = v == 'windows'),
+      guideCommands: commands == null
+          ? null
+          : (commands.install, commands.setup),
+      serverSlug: w.server?.string('slug'),
+      canReset: managementStrings(current['allowedExits']).contains('reset'),
+      loading: busy,
+      error: error ?? setupMachinesError,
+      onStartOver: reset,
+      onNext: () {
+        if (current['phase'] == 'not_started' &&
+            managementMap(current['sideEffectState'])['transitions'] ==
+                'enabled') {
+          transition('start');
+        } else {
+          run(() async {});
+        }
+      },
+      onSwitchServer: busy ? null : widget.onSwitchServer,
+      onCopyInstallCommand: (id, command) =>
+          Clipboard.setData(ClipboardData(text: command)),
     );
   }
-
-  Widget _command(String command) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      children: [
-        Expanded(child: SelectableText(command)),
-        RaftTooltip(message: raftText(context, 'Copy command'), child: IconButton(
-          onPressed: () => Clipboard.setData(ClipboardData(text: command)),
-          // raft-ui CopyableCodeAction: lucide Copy, size-3, strokeWidth 1.75.
-          icon: const RaftIcon(RaftGlyph.copy, size: 12, strokeWidth: 1.75),
-        )),
-      ],
-    ),
-  );
 }

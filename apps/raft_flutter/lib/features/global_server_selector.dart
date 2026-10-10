@@ -75,126 +75,178 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
     }
     final first = widget.servers.isEmpty;
     final create = first || creating;
+    final serverField = FormField<String>(
+      initialValue: name.text,
+      validator: (value) =>
+          value == null || value.isEmpty ? tr('Required') : null,
+      builder: (field) => RaftAuthField(
+        label: tr('Server name'),
+        surface: false,
+        helper: first
+            ? tr('Shown in the sidebar, invites, and setup prompts.')
+            : null,
+        helperRecipe: first,
+        error: field.errorText,
+        child: RaftTextInput(
+          key: const ValueKey('global-server-name'),
+          controller: name,
+          autofocus: true,
+          enabled: !widget.loading,
+          invalid: field.hasError,
+          hintText: first ? 'Alex Chen Studio' : tr('My Team'),
+          semanticLabel: tr('Server name'),
+          onChanged: (value) {
+            field.didChange(value);
+            if (!slugTouched) {
+              slug.text = toSlug(value);
+              slugField.currentState?.didChange(slug.text);
+              setState(() {});
+            }
+          },
+        ),
+      ),
+    );
+    final urlField = FormField<String>(
+      key: slugField,
+      initialValue: slug.text,
+      validator: (value) =>
+          value == null || value.isEmpty ? tr('Required') : null,
+      builder: (field) => RaftAuthField(
+        label: tr(first ? 'Server URL' : 'URL slug'),
+        surface: false,
+        helper: first
+            ? tr(
+                'Used in links and setup commands. You can edit this before creating.',
+              )
+            : null,
+        helperRecipe: first,
+        error: field.errorText,
+        child: RaftSlugInput(
+          key: const ValueKey('global-server-slug'),
+          controller: slug,
+          enabled: !widget.loading,
+          invalid: field.hasError,
+          hintText: first ? 'alex-chen-studio' : 'my-team',
+          semanticLabel: tr(first ? 'Server URL' : 'URL slug'),
+          onChanged: (value) {
+            slugTouched = true;
+            final normalized = toSlug(value);
+            field.didChange(normalized);
+            if (normalized != value) {
+              slug.value = TextEditingValue(
+                text: normalized,
+                selection: TextSelection.collapsed(offset: normalized.length),
+              );
+            }
+          },
+          onSubmitted: (_) {
+            if (!widget.loading && form.currentState!.validate()) {
+              widget.onCreate(name.text, slug.text);
+            }
+          },
+        ),
+      ),
+    );
+    void submit() {
+      if (!widget.loading && form.currentState!.validate()) {
+        widget.onCreate(name.text, slug.text);
+      }
+    }
+
+    if (first) {
+      // OnboardingCreateShell (narrow): brand bar, then the form column
+      // `flex w-full max-w-md flex-col gap-4` with the session footer.
+      return RaftAuthShell(
+        formPanel: true,
+        child: Column(
+          key: const ValueKey('global-server-selector'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RaftOnboardingHeading(
+              eyebrow: tr('Create your first server'),
+              title: tr('Name the server where your agents will work.'),
+              description: tr(
+                'A server is the workspace for your people, agents, channels, and computers.',
+              ),
+            ),
+            const SizedBox(height: RaftSpace.x4),
+            Form(
+              key: form,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (widget.error != null) ...[
+                    RaftAuthBanner(text: widget.error!),
+                    const SizedBox(height: RaftSpace.x3),
+                  ],
+                  serverField,
+                  const SizedBox(height: RaftSpace.x3), // gap-3
+                  urlField,
+                  const SizedBox(height: RaftSpace.x3),
+                  RaftAuthSubmit(
+                    key: const ValueKey('global-server-create-submit'),
+                    label: tr('Create Server'),
+                    onPressed: widget.loading ? null : submit,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: RaftSpace.x4),
+            RaftAuthSessionFooter(
+              name: widget.user.string('email'),
+              onSignOut: widget.onLogout,
+            ),
+          ],
+        ),
+      );
+    }
     return RaftAuthShell(
       child: Column(
         key: const ValueKey('global-server-selector'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           RaftAuthIntro(
-            title: tr(
-              create
-                  ? (first ? 'Create your first server' : 'Create server')
-                  : 'Choose server',
-            ),
-            description: create
+            title: tr(create ? 'Create server' : 'Choose server'),
+            descriptionSpan: create
                 ? null
-                : '${tr('Signed in as')} ${widget.user.string('email')}',
+                : raftAuthSignedInAsSpan(context, widget.user.string('email')),
           ),
-          if (widget.error != null) ...[
-            RaftAuthBanner(text: widget.error!),
-            const SizedBox(height: RaftSpace.x3),
-          ],
           if (create)
             Form(
               key: form,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FormField<String>(
-                    initialValue: name.text,
-                    validator: (value) =>
-                        value == null || value.isEmpty ? tr('Required') : null,
-                    builder: (field) => RaftAuthField(
-                      label: tr('Server name'),
-                      surface: false,
-                      error: field.errorText,
-                      child: RaftTextInput(
-                        key: const ValueKey('global-server-name'),
-                        controller: name,
-                        autofocus: true,
-                        enabled: !widget.loading,
-                        invalid: field.hasError,
-                        hintText: 'My team',
-                        semanticLabel: tr('Server name'),
-                        onChanged: (value) {
-                          field.didChange(value);
-                          if (!slugTouched) {
-                            slug.text = toSlug(value);
-                            slugField.currentState?.didChange(slug.text);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: RaftSpace.x3),
-                  FormField<String>(
-                    key: slugField,
-                    initialValue: slug.text,
-                    validator: (value) =>
-                        value == null || value.isEmpty ? tr('Required') : null,
-                    builder: (field) => RaftAuthField(
-                      label: tr('URL slug'),
-                      surface: false,
-                      error: field.errorText,
-                      child: RaftSlugInput(
-                        key: const ValueKey('global-server-slug'),
-                        controller: slug,
-                        enabled: !widget.loading,
-                        invalid: field.hasError,
-                        hintText: 'my-team',
-                        semanticLabel: tr('URL slug'),
-                        onChanged: (value) {
-                          slugTouched = true;
-                          final normalized = toSlug(value);
-                          field.didChange(normalized);
-                          if (normalized != value) {
-                            slug.value = TextEditingValue(
-                              text: normalized,
-                              selection: TextSelection.collapsed(
-                                offset: normalized.length,
-                              ),
-                            );
-                          }
-                        },
-                        onSubmitted: (_) {
-                          if (!widget.loading &&
-                              form.currentState!.validate()) {
-                            widget.onCreate(name.text, slug.text);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: RaftSpace.x4),
+                  if (widget.error != null) ...[
+                    RaftAuthBanner(text: widget.error!),
+                    const SizedBox(height: RaftSpace.x3),
+                  ],
+                  serverField,
+                  const SizedBox(height: RaftSpace.x3), // space-y-3
+                  urlField,
+                  const SizedBox(height: RaftSpace.x4), // space-y-3 + pt-1
                   Row(
                     children: [
-                      if (!first) ...[
-                        Expanded(
-                          child: RaftAuthWideButton(
-                            variant: RaftControlVariant.outline,
-                            onPressed: widget.loading
-                                ? null
-                                : () => setState(() {
-                                    creating = false;
-                                    name.clear();
-                                    slug.clear();
-                                    slugTouched = false;
-                                  }),
-                            child: Text(tr('Cancel')),
-                          ),
-                        ),
-                        const SizedBox(width: RaftSpace.x2),
-                      ],
                       Expanded(
-                        child: RaftAuthSubmit(
-                          label: tr('Create server'),
+                        child: RaftAuthWideButton(
+                          variant: RaftControlVariant.outline,
                           onPressed: widget.loading
                               ? null
-                              : () {
-                                  if (form.currentState!.validate()) {
-                                    widget.onCreate(name.text, slug.text);
-                                  }
-                                },
+                              : () => setState(() {
+                                  creating = false;
+                                  name.clear();
+                                  slug.clear();
+                                  slugTouched = false;
+                                }),
+                          child: Text(tr('Cancel')),
+                        ),
+                      ),
+                      const SizedBox(width: RaftSpace.x2),
+                      Expanded(
+                        child: RaftAuthSubmit(
+                          key: const ValueKey('global-server-create-submit'),
+                          label: tr('Create Server'),
+                          onPressed: widget.loading ? null : submit,
                         ),
                       ),
                     ],
@@ -203,73 +255,102 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
               ),
             )
           else ...[
-            for (final server in widget.servers)
-              Padding(
-                padding: const EdgeInsets.only(bottom: RaftSpace.x2),
-                child: RaftInteractive(
-                  key: ValueKey('global-server-${server.id}'),
-                  onPressed: widget.loading
-                      ? null
-                      : () => widget.onSelect(server),
-                  semanticLabel: server.string('name'),
-                  builder: (context, state) => RaftRecipeBox(
-                    style: RaftCardRecipe.resolve(
-                      theme: t.recipeTheme,
-                      variant: RaftCardRecipeVariant.option,
-                      states: t.recipeStates(
-                        hovered: state.hovered,
-                        pressed: state.pressed,
-                        focusVisible: state.focusVisible,
-                        disabled: !state.enabled,
-                      ),
-                      tokens: t.recipeTokens,
-                    ).root,
-                    tokens: t.recipeTokens,
-                    padding: const EdgeInsets.all(RaftSpace.x3),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            server.string('name'),
-                            style: RaftTypography.heading(
-                              t,
-                              size: 16,
-                              line: 24,
-                            ),
-                          ),
-                          Text(
-                            '/${server.string('slug')}',
-                            style: RaftTypography.heading(
-                              t,
-                              size: 14,
-                              line: 20,
-                              weight: FontWeight.w400,
-                            ).copyWith(color: t.muted),
-                          ),
-                        ],
-                      ),
+            if (widget.servers.isNotEmpty) ...[
+              Column(
+                key: const ValueKey('server-selector-list'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (i, server) in widget.servers.indexed) ...[
+                    if (i > 0) const SizedBox(height: RaftSpace.x2),
+                    _ServerOption(
+                      server: server,
+                      onPressed: widget.loading
+                          ? null
+                          : () => widget.onSelect(server),
                     ),
-                  ),
-                ),
+                  ],
+                ],
               ),
-            const SizedBox(height: RaftSpace.x4),
+              const SizedBox(height: RaftSpace.x6), // mb-6
+            ],
+            if (widget.error != null) ...[
+              RaftAuthBanner(text: widget.error!),
+              const SizedBox(height: RaftSpace.x3), // mb-3
+            ],
             RaftAuthSubmit(
+              key: const ValueKey('global-server-create-new'),
               label: tr('+ Create New Server'),
               onPressed: widget.loading
                   ? null
                   : () => setState(() => creating = true),
             ),
           ],
-          const SizedBox(height: RaftSpace.x3),
-          Center(
-            child: RaftAuthTextLink(
-              label: tr('Log out'),
-              onTap: widget.onLogout,
+          if (!create) ...[
+            const SizedBox(height: RaftSpace.x3), // mt-3
+            Center(
+              child: RaftAuthTextLink(
+                label: tr('Log out'),
+                bold: true,
+                onTap: widget.onLogout,
+              ),
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// ServerSelector option: `Card variant="option" gap-0 p-3` with the server
+/// name (`font-bold text-foreground-strong`) over `/slug` (`text-sm
+/// font-normal text-foreground-muted`).
+class _ServerOption extends StatelessWidget {
+  const _ServerOption({required this.server, required this.onPressed});
+  final RaftRecord server;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return RaftInteractive(
+      key: ValueKey('global-server-${server.id}'),
+      onPressed: onPressed,
+      semanticLabel: server.string('name'),
+      builder: (context, state) => RaftRecipeBox(
+        style: RaftCardRecipe.resolve(
+          theme: t.recipeTheme,
+          variant: RaftCardRecipeVariant.option,
+          states: t.recipeStates(
+            hovered: state.hovered,
+            pressed: state.pressed,
+            focusVisible: state.focusVisible,
+            disabled: !state.enabled,
+          ),
+          tokens: t.recipeTokens,
+        ).root,
+        tokens: t.recipeTokens,
+        padding: const EdgeInsets.all(RaftSpace.x3),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                server.string('name'),
+                style: RaftTypography.heading(t, size: 16, line: 24),
+              ),
+              Text(
+                '/${server.string('slug')}',
+                style: RaftTypography.heading(
+                  t,
+                  size: 14,
+                  line: 20,
+                  weight: FontWeight.w400,
+                ).copyWith(color: t.muted),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

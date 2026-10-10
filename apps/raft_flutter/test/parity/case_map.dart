@@ -4,6 +4,7 @@
 // in [parityUncovered] carry the reason, everything else defaults to
 // "harnessTodo".
 import 'cases/ext_announcements.dart';
+import 'cases/ext_auth.dart';
 import 'cases/ext_channel_header.dart';
 import 'cases/ext_composer_attachments.dart';
 import 'cases/ext_channel_settings.dart';
@@ -51,6 +52,7 @@ final Map<String, ParityCase> parityCases = {
   ...extShellCases,
   ...extWp6Cases,
   ...extMemberCases,
+  ...extAuthCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {
