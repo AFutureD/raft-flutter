@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'avatar_content.dart';
+import 'components.dart' show RaftButton;
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart';
@@ -482,9 +483,9 @@ abstract final class RaftPanelText {
     fontStyle: FontStyle.italic,
     color: raftPanelInk(t, .4, t.colors['foreground-muted']!),
   );
-  static TextStyle muted(RaftTokens t) =>
-      value(t)
-          .copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
+  static TextStyle muted(RaftTokens t) => value(
+    t,
+  ).copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
   static TextStyle mono(RaftTokens t) =>
       value(t).copyWith(fontFamily: t.monoFont);
   static TextStyle monoSemibold(RaftTokens t) =>
@@ -999,6 +1000,175 @@ class RaftActivityLogView extends StatelessWidget {
   }
 }
 
+// ------------------------------------------------------------------- skills
+
+class RaftSkillItem {
+  const RaftSkillItem({
+    required this.name,
+    required this.displayName,
+    this.description = '',
+    this.sourcePath = '',
+    this.userInvocable = false,
+  });
+  final String name, displayName, description, sourcePath;
+  final bool userInvocable;
+}
+
+/// Web `AgentSkills embedded`: `SectionHeader` + count, then Global and
+/// Workspace sub-sections grouped by source path of `SurfaceListItem` cards.
+/// Loading / error(+Retry) replace the section body like Web.
+class RaftSkillsSection extends StatelessWidget {
+  const RaftSkillsSection({
+    super.key,
+    required this.global,
+    required this.workspace,
+    this.loading = false,
+    this.error,
+    this.onRetry,
+  });
+  final List<RaftSkillItem> global, workspace;
+  final bool loading;
+  final String? error;
+  final VoidCallback? onRetry;
+
+  Widget _group(
+    BuildContext context,
+    RaftTokens t,
+    String label,
+    RaftGlyph glyph,
+    List<RaftSkillItem> skills,
+    String empty,
+  ) {
+    final groups = <String, List<RaftSkillItem>>{};
+    for (final s in skills) {
+      (groups[s.sourcePath.isEmpty ? 'unknown' : s.sourcePath] ??= []).add(s);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RaftSectionHeader(
+          label: raftText(context, label),
+          icon: RaftIcon(glyph, size: 12),
+          count: skills.length,
+        ),
+        const SizedBox(height: 8),
+        if (skills.isEmpty)
+          RaftCssText(raftText(context, empty), style: RaftPanelText.muted(t))
+        else
+          RaftGapColumn(
+            gap: 16,
+            children: [
+              for (final g in groups.entries)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RaftCssText(
+                      '${g.key} (${g.value.length})',
+                      style: RaftPanelText.mono(t),
+                    ),
+                    const SizedBox(height: 8),
+                    RaftGapColumn(
+                      children: [for (final s in g.value) _card(t, s)],
+                    ),
+                  ],
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _card(RaftTokens t, RaftSkillItem s) => RaftSurfaceListItem(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Flexible(
+              child: RaftCssText(
+                s.displayName,
+                style: RaftPanelText.value(
+                  t,
+                ).copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            if (s.userInvocable) ...[
+              const SizedBox(width: 8),
+              RaftRecipeBadge(
+                '/${s.name}',
+                variant: RaftBadgeRecipeVariant.success,
+              ),
+            ],
+          ],
+        ),
+        if (s.description.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          RaftCssText(
+            s.description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: RaftPanelText.muted(t),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    if (loading) {
+      return RaftPanelSection(
+        children: [
+          RaftCssText(
+            raftText(context, 'Loading skills…'),
+            style: RaftPanelText.muted(t),
+          ),
+        ],
+      );
+    }
+    if (error != null) {
+      return RaftPanelSection(
+        children: [
+          RaftCssText(error!, style: RaftPanelText.muted(t)),
+          RaftButton(
+            label: raftText(context, 'Retry'),
+            glyph: RaftGlyph.refreshCw,
+            tone: RaftButtonRecipeVariant.outline,
+            size: RaftButtonRecipeSize.sm,
+            onPressed: onRetry,
+          ),
+        ],
+      );
+    }
+    final total = global.length + workspace.length;
+    return RaftPanelSection(
+      gap: 16,
+      children: [
+        RaftSectionHeader(label: raftText(context, 'Skills'), count: total),
+        if (total > 0) ...[
+          _group(
+            context,
+            t,
+            'Global',
+            RaftGlyph.globe,
+            global,
+            'No global skills installed on this computer',
+          ),
+          _group(
+            context,
+            t,
+            'Workspace',
+            RaftGlyph.folderOpen,
+            workspace,
+            "No skills in this agent's workspace",
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 // ----------------------------------------------------------------- reminders
 
 class RaftReminderItem {
@@ -1061,8 +1231,9 @@ class RaftReminderListView extends StatelessWidget {
                   const SizedBox(height: 12),
                   RaftCssText(
                     raftText(context, 'No reminders'),
-                    style: RaftPanelText.value(t)
-                        .copyWith(fontWeight: FontWeight.w700),
+                    style: RaftPanelText.value(
+                      t,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),

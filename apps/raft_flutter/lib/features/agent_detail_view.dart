@@ -399,8 +399,9 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     final raw = a['createdAt'];
     final date = raw is String ? DateTime.tryParse(raw) : null;
     if (date == null) return '';
-    return DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
-        .format(agentTimeFormatter(context, widget.controller).wallTime(date));
+    return DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(agentTimeFormatter(context, widget.controller).wallTime(date));
   }
 
   Widget _profile(BuildContext context) {
@@ -678,6 +679,13 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
               ),
           ],
         ),
+        // Web AgentDetailPanel `{canViewPrivateAgentSurfaces && <AgentSkills
+        // embedded />}`, between the profile info and Actions.
+        if (widget.canViewPrivate)
+          AgentSkillsSection(
+            controller: widget.controller,
+            agentId: '${a['id']}',
+          ),
         if (canEdit && buttons.isNotEmpty)
           RaftPanelSection(
             children: [
@@ -691,6 +699,88 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
 }
 
 // ---------------------------------------------------------------- tabs
+
+class _SkillsSnapshot extends _AgentTabSnapshot {
+  List<Map<String, dynamic>> global = [], workspace = [];
+}
+
+/// Web AgentSkills `embedded`: `GET /agents/:id/skills` ({global, workspace})
+/// as a "Skills" section of the profile, grouped by source path.
+class AgentSkillsSection extends StatefulWidget {
+  const AgentSkillsSection({
+    super.key,
+    required this.controller,
+    required this.agentId,
+  });
+  final WorkspaceController controller;
+  final String agentId;
+  @override
+  State<AgentSkillsSection> createState() => _AgentSkillsSectionState();
+}
+
+class _AgentSkillsSectionState extends State<AgentSkillsSection>
+    with _AgentTabLoader {
+  @override
+  WorkspaceController get w => widget.controller;
+  late _SkillsSnapshot snapshot = _snapshot();
+  _SkillsSnapshot _snapshot() =>
+      w.agentTabCache.putIfAbsent(
+            'skills/${widget.agentId}',
+            _SkillsSnapshot.new,
+          )
+          as _SkillsSnapshot;
+  @override
+  bool get hasContent => snapshot.loaded;
+
+  @override
+  void initState() {
+    super.initState();
+    reload();
+  }
+
+  @override
+  void didUpdateWidget(AgentSkillsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.agentId != widget.agentId) {
+      snapshot = _snapshot();
+      reload();
+    }
+  }
+
+  List<Map<String, dynamic>> _rows(Object? v) => [
+    for (final r in (v is List ? v : const []))
+      if (r is Map) Map<String, dynamic>.from(r),
+  ];
+
+  @override
+  Future<void> fetch() async {
+    final result = await w.query('/agents/${widget.agentId}/skills');
+    final data = result is Map ? result : const {};
+    snapshot.global = _rows(data['global']);
+    snapshot.workspace = _rows(data['workspace']);
+    snapshot.loaded = true;
+  }
+
+  List<RaftSkillItem> _items(List<Map<String, dynamic>> rows) => [
+    for (final s in rows)
+      RaftSkillItem(
+        name: '${s['name'] ?? ''}',
+        displayName: '${s['displayName'] ?? s['name'] ?? ''}',
+        description: '${s['description'] ?? ''}',
+        sourcePath: '${s['sourcePath'] ?? ''}',
+        userInvocable: s['userInvocable'] == true,
+      ),
+  ];
+
+  @override
+  Widget build(BuildContext context) => RaftSkillsSection(
+    global: _items(snapshot.global),
+    workspace: _items(snapshot.workspace),
+    loading: loading,
+    error: loadError,
+    onRetry: reload,
+  );
+}
 
 /// Last accepted data of one agent tab, kept in the controller's
 /// server-identity-bound cache. A tab opens with it at its first frame, a
@@ -1007,8 +1097,9 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       emptyLabel: loading ? raftText(context, 'Loading…') : loadError,
       onCopy: () => Clipboard.setData(
         ClipboardData(
-          text: [for (final e in entries) '${e['timestamp']} ${e['entry']}']
-              .join('\n'),
+          text: [
+            for (final e in entries) '${e['timestamp']} ${e['entry']}',
+          ].join('\n'),
         ),
       ),
     );
@@ -1032,10 +1123,9 @@ class AgentChatTab extends StatefulWidget {
 class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _ChatSnapshot snapshot = w.agentTabCache.putIfAbsent(
-    'chat/${widget.agentId}',
-    _ChatSnapshot.new,
-  ) as _ChatSnapshot;
+  late final _ChatSnapshot snapshot =
+      w.agentTabCache.putIfAbsent('chat/${widget.agentId}', _ChatSnapshot.new)
+          as _ChatSnapshot;
   List<Map<String, dynamic>> get channels => snapshot.channels;
   List<Map<String, dynamic>> get dms => snapshot.dms;
   @override

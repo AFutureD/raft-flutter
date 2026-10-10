@@ -114,7 +114,15 @@ void main() {
         canViewPrivate: private,
       );
       await mount(t, panel(true));
-      expect(api.calls.where((r) => r.path.startsWith('/agents/a1/')), isEmpty);
+      // The profile's embedded Skills section loads eagerly (Web AgentSkills);
+      // no other tab fetches before it is visited.
+      expect(
+        api.calls.where(
+          (r) =>
+              r.path.startsWith('/agents/a1/') && r.path != '/agents/a1/skills',
+        ),
+        isEmpty,
+      );
       await swipe(t);
       expect(
         t
