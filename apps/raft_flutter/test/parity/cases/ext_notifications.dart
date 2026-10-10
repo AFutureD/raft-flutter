@@ -6,7 +6,6 @@
 // The real NotificationSettingsView is mounted with the desktop service
 // (macOS: Web's own hint names macOS, so the OS path matches). The capture is
 // the card block (`capture.androidKey` notification-settings-card).
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_flutter/features/notification_settings_view.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
