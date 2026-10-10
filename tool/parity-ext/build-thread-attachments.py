@@ -268,17 +268,13 @@ def add(surface, title, props, *, platform='desktop', selector=ROOT, crop='viewp
 WAIT = {'type': 'wait', 'ms': 600}
 OPEN_PREVIEW_COMMENTS = [{'type': 'click', 'target': '[data-message-affordance="attachment-preview-mode"]'}, WAIT]
 OPEN_PREVIEW_COMMENTS_ANDROID = [{'type': 'tap', 'key': 'attachment-preview-mode'}, {'type': 'wait', 'ms': 600}]
-OPEN_LIGHTBOX_COMMENTS = [{'type': 'click', 'target': '[data-message-affordance="attachment-comments-toggle"]'}, WAIT]
-OPEN_LIGHTBOX_COMMENTS_ANDROID = [{'type': 'tap', 'key': 'attachment-comments-toggle'}, {'type': 'wait', 'ms': 600}]
 
 # image lightbox (ImageLightbox.tsx) -------------------------------------------
 IMG = 'packages/web/src/components/ImageLightbox.tsx'
-add('image.single', 'single image, comments affordance', {'host': 'image', 'images': '1', 'index': '0'}, hint=IMG)
+add('image.single', 'single image', {'host': 'image', 'images': '1', 'index': '0'}, hint=IMG)
 add('image.gallery', 'gallery 2/3 with arrows and thumbnails', {'host': 'image', 'images': '3', 'index': '1'}, hint=IMG)
-add('image.header', 'title bar, long file name in a gallery', {'host': 'image', 'images': '3', 'index': '1'},
+add('image.header', 'title bar, long file name and counter in a gallery', {'host': 'image', 'images': '3', 'index': '1'},
     selector=HEADER, crop='element', contract='component-bounds', hint=IMG)
-add('image.comments', 'comments panel open', {'host': 'image', 'images': '1', 'index': '0'},
-    interactions=OPEN_LIGHTBOX_COMMENTS, android=OPEN_LIGHTBOX_COMMENTS_ANDROID, hint=IMG)
 add('image.loading', 'full image still loading', {'host': 'image', 'images': '1', 'index': '0', 'routeSet': 'image-pending'},
     hint=IMG)
 add('image.error', 'full image failed to load', {'host': 'image', 'images': '1', 'index': '0', 'routeSet': 'image-error'},

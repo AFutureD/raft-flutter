@@ -1,15 +1,247 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'design_primitives.dart';
+import 'attachment_tokens.dart';
+import 'design_primitives.dart' show RaftInteractive, RaftSpinner;
+import 'indicators.dart';
+import 'dialog_card.dart';
 import 'icons.dart';
+import 'recipes/badge.g.dart' show RaftBadgeRecipeVariant;
+import 'recipes/button_variants.g.dart';
 import 'theme.dart';
+import 'tooltip.dart';
 
-/// Source Lightbox viewport shell. The caller owns route scope and private media.
-/// SafeArea keeps interactive controls above native system bars and gestures.
+/// Width of the comments aside (`w-80`).
+const raftLightboxAsideWidth = 320.0;
+
+/// Tailwind `sm`: below it the comments panel is a drawer / bottom sheet.
+const raftLightboxSmBreakpoint = 640.0;
+
+/// `h-14` header row of Web `ImageLightbox` / `AttachmentPreviewShell`.
+const raftLightboxHeaderRow = 56.0;
+
+/// Web `Lightbox` default backdrop, `bg-black/75`.
+const raftLightboxBackdrop = Color(0xBF000000);
+
+/// File-type chip of the preview header (Web `AttachmentTypeBadge` with the
+/// header's `!h-4 !w-8` override); null for extensions without a kind.
+class RaftFileTypeBadge extends StatelessWidget {
+  const RaftFileTypeBadge({
+    super.key,
+    required this.filename,
+    this.size = const Size(32, 16),
+  });
+  final String filename;
+  final Size size;
+  @override
+  Widget build(BuildContext context) {
+    final component = AttachmentComponentRecipe(RaftTokens.of(context));
+    final extension = filename.split('.').last.toUpperCase();
+    final background = component.semantics.badgeBackground(extension);
+    if (background == null) return const SizedBox.shrink();
+    return Container(
+      width: size.width,
+      height: size.height,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: background,
+        border: component.badgeBorder,
+        borderRadius: component.badgeRadius,
+        boxShadow: component.badgeShadows,
+      ),
+      child: Text(
+        extension,
+        maxLines: 1,
+        style: component.badgeLabel(extension),
+      ),
+    );
+  }
+}
+
+/// `Button size="icon-sm"` of the lightbox headers: `outline`, or `primary`
+/// while the control it toggles is on.
+class RaftLightboxIconAction extends StatelessWidget {
+  const RaftLightboxIconAction({
+    super.key,
+    required this.glyph,
+    required this.label,
+    required this.onPressed,
+    this.active = false,
+  });
+  final RaftGlyph glyph;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool active;
+  @override
+  Widget build(BuildContext context) => RaftTooltip(
+    message: label,
+    excludeFromSemantics: true,
+    child: RaftRecipeButton(
+      variant: active
+          ? RaftButtonRecipeVariant.primary
+          : RaftButtonRecipeVariant.outline,
+      size: RaftButtonRecipeSize.iconSm,
+      glyph: glyph,
+      glyphSize: 14,
+      tooltip: label,
+      onPressed: onPressed,
+    ),
+  );
+}
+
+/// The title bar both lightboxes share: `bg-layer-panel` (brutal white),
+/// `border-b`, then `flex h-14 items-center gap-3 px-4`.
+class RaftLightboxHeader extends StatelessWidget {
+  const RaftLightboxHeader({
+    super.key,
+    required this.title,
+    required this.onClose,
+    this.leading,
+    this.meta,
+    this.actions = const [],
+    this.titleBold = false,
+    this.borderWidth = 1,
+    this.closeLabel = 'Close preview',
+  });
+  final String title, closeLabel;
+  final Widget? leading, meta;
+  final List<Widget> actions;
+  final bool titleBold;
+
+  /// Elegant `border-b-2` (image lightbox) or `border-b` (preview shell);
+  /// brutal is always 2.
+  final double borderWidth;
+  final VoidCallback onClose;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final rule = t.brutal ? 2.0 : borderWidth;
+    return DefaultTextHeightBehavior(
+      textHeightBehavior: raftCssTextHeightBehavior,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: t.brutal ? Colors.white : t.panel,
+          border: Border(
+            bottom: BorderSide(
+              color: t.brutal ? Colors.black : t.colors['line-muted']!,
+              width: rule,
+            ),
+          ),
+        ),
+        child: SizedBox(
+          height: raftLightboxHeaderRow + rule,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, rule),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      if (leading != null) ...[
+                        leading!,
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: t.headingFont,
+                            fontSize: 14,
+                            height: 20 / 14,
+                            fontWeight: titleBold
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: t.brutal ? Colors.black : t.strong,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (meta != null) ...[const SizedBox(width: 12), meta!],
+                const SizedBox(width: 12),
+                for (final action in actions) ...[
+                  action,
+                  const SizedBox(width: 6),
+                ],
+                RaftTooltip(
+                  message: closeLabel,
+                  excludeFromSemantics: true,
+                  child: RaftCloseButton(onPressed: onClose, tooltip: closeLabel),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// `aside`: `w-80`, `border-l` (`-2` brutal / image lightbox), panel surface.
+/// The content is laid out at the full 320 and clipped by the border box, as
+/// the Web `h-full w-80` inner div is.
+class RaftLightboxAside extends StatelessWidget {
+  const RaftLightboxAside({
+    super.key,
+    required this.child,
+    this.borderWidth = 2,
+    this.topBorder = false,
+  });
+  final Widget child;
+  final double borderWidth;
+
+  /// The browser-find drawer also carries `border-t`.
+  final bool topBorder;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final rule = t.brutal ? 2.0 : borderWidth;
+    final color = t.brutal ? Colors.black : t.colors['line-muted']!;
+    return Container(
+      width: raftLightboxAsideWidth,
+      decoration: BoxDecoration(
+        color: t.brutal ? Colors.white : t.panel,
+        border: Border(
+          left: BorderSide(color: color, width: rule),
+          top: topBorder ? BorderSide(color: color, width: rule) : BorderSide.none,
+        ),
+      ),
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: raftLightboxAsideWidth,
+          maxWidth: raftLightboxAsideWidth,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Source Lightbox viewport shell (Web `ImageLightbox` frame): `bg-black/75`
+/// backdrop, the shared title bar, the stage and the optional comments
+/// aside. The caller owns route scope and private media. SafeArea keeps
+/// interactive controls above native system bars and gestures.
 class RaftAttachmentLightbox extends StatelessWidget {
-  const RaftAttachmentLightbox({super.key, required this.title, required this.child,
-    required this.onClose, this.actions = const [], this.footer, this.titleBold = false, this.closeLabel = 'Close preview', this.onResetZoom});
+  const RaftAttachmentLightbox({
+    super.key,
+    required this.title,
+    required this.child,
+    required this.onClose,
+    this.actions = const [],
+    this.footer,
+    this.titleBold = false,
+    this.closeLabel = 'Close preview',
+    this.onResetZoom,
+    this.meta,
+    this.aside,
+    this.asideOpen = false,
+    this.overlay,
+  });
   final String title, closeLabel;
   final Widget child;
   final VoidCallback onClose;
@@ -17,37 +249,286 @@ class RaftAttachmentLightbox extends StatelessWidget {
   final Widget? footer;
   final bool titleBold;
 
+  /// Header chip after the title (Web gallery counter badge).
+  final Widget? meta;
+
+  /// Comments panel; shown beside the stage from `sm` up, as a drawer over
+  /// it below. Collapsed (`asideOpen` false) it takes no space.
+  final Widget? aside;
+  final bool asideOpen;
+
+  /// Painted over the stage (gallery arrows, thumbnail strip).
+  final Widget? overlay;
+
   /// Source ImageLightbox: the 0 key resets zoom and pan.
   final VoidCallback? onResetZoom;
   @override
   Widget build(BuildContext context) {
-    final recipe = RaftLightboxRecipe(RaftTokens.of(context));
-    return Dialog.fullscreen(backgroundColor: recipe.backdrop,
-      child: CallbackShortcuts(bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): onClose,
-        const SingleActivator(LogicalKeyboardKey.keyW, control: true): onClose,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true): onClose,
-        if (onResetZoom != null) ...{
-          const SingleActivator(LogicalKeyboardKey.digit0): onResetZoom!,
-          const SingleActivator(LogicalKeyboardKey.numpad0): onResetZoom!,
+    final t = RaftTokens.of(context);
+    final wide = MediaQuery.sizeOf(context).width >= raftLightboxSmBreakpoint;
+    Widget stage = Stack(
+      children: [
+        Positioned.fill(child: child),
+        if (overlay != null) Positioned.fill(child: overlay!),
+      ],
+    );
+    final Widget body;
+    if (aside == null) {
+      body = stage;
+    } else if (wide) {
+      body = Row(
+        children: [
+          Expanded(child: stage),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            width: asideOpen ? raftLightboxAsideWidth : 0,
+            child: asideOpen
+                ? RaftLightboxAside(child: aside!)
+                : Offstage(child: RaftLightboxAside(child: aside!)),
+          ),
+        ],
+      );
+    } else {
+      body = Stack(
+        children: [
+          Positioned.fill(child: stage),
+          if (asideOpen)
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: t.brutal ? Colors.white : t.panel,
+                  border: Border(
+                    left: BorderSide(
+                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                      width: 2,
+                    ),
+                    top: BorderSide(
+                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: aside!,
+              ),
+            ),
+        ],
+      );
+    }
+    return Dialog.fullscreen(
+      backgroundColor: raftLightboxBackdrop,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): onClose,
+          const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+              onClose,
+          const SingleActivator(LogicalKeyboardKey.keyW, meta: true): onClose,
+          if (onResetZoom != null) ...{
+            const SingleActivator(LogicalKeyboardKey.digit0): onResetZoom!,
+            const SingleActivator(LogicalKeyboardKey.numpad0): onResetZoom!,
+          },
         },
-      }, child: Focus(autofocus: true, child: SafeArea(child: Column(children: [
-        DecoratedBox(decoration: BoxDecoration(color: recipe.surface,
-          border: Border(bottom: recipe.navigationBorder)),
-          child: SizedBox(height: recipe.toolbarHeight, child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: recipe.headerInset.left),
-            child: Row(children: [
-              Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: recipe.title.copyWith(fontWeight: titleBold ? FontWeight.w700 : FontWeight.w400))),
-              for (final action in actions) ...[SizedBox(width: recipe.actionsGap), action],
-              SizedBox(width: recipe.actionsGap),
-              RaftIconButton(glyph: RaftGlyph.x, tooltip: closeLabel, visualSize: 32,
-                minimumTargetSize: 48, variant: RaftControlVariant.ghost, onPressed: onClose),
-            ]),
-          )),
+        child: Focus(
+          autofocus: true,
+          child: SafeArea(
+            child: Column(
+              children: [
+                RaftLightboxHeader(
+                  title: title,
+                  titleBold: titleBold,
+                  meta: meta,
+                  actions: actions,
+                  borderWidth: 2,
+                  closeLabel: closeLabel,
+                  onClose: onClose,
+                ),
+                Expanded(child: body),
+                if (footer != null)
+                  ColoredBox(
+                    color: t.panel,
+                    child: SizedBox(width: double.infinity, child: footer!),
+                  ),
+              ],
+            ),
+          ),
         ),
-        Expanded(child: child),
-        if (footer != null) ColoredBox(color: recipe.surface, child: SizedBox(width: double.infinity, child: footer!)),
-      ])))));
+      ),
+    );
+  }
+}
+
+/// Gallery counter chip of the header (`<Badge variant="primary">2 / 3`).
+class RaftLightboxCounter extends StatelessWidget {
+  const RaftLightboxCounter({super.key, required this.index, required this.count});
+  final int index, count;
+  @override
+  Widget build(BuildContext context) => RaftBadge(
+    label: '${index + 1} / $count',
+    variant: RaftBadgeRecipeVariant.primary,
+  );
+}
+
+/// Previous / next arrows of the gallery stage (`absolute left-8 / right-8`,
+/// `Button size="icon-lg"`, vertically centred in the stage).
+class RaftLightboxArrows extends StatelessWidget {
+  const RaftLightboxArrows({
+    super.key,
+    required this.index,
+    required this.count,
+    required this.onSelect,
+  });
+  final int index, count;
+  final ValueChanged<int> onSelect;
+  @override
+  Widget build(BuildContext context) {
+    Widget arrow(RaftGlyph glyph, String label, bool enabled, int target) =>
+        RaftRecipeButton(
+          key: ValueKey('lightbox-${glyph == RaftGlyph.chevronLeft ? 'previous' : 'next'}'),
+          size: RaftButtonRecipeSize.iconLg,
+          glyph: glyph,
+          tooltip: label,
+          disabled: !enabled,
+          onPressed: () => onSelect(target),
+        );
+    return Stack(
+      children: [
+        Positioned(
+          left: 32,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: arrow(RaftGlyph.chevronLeft, 'Previous image', index > 0, index - 1),
+          ),
+        ),
+        Positioned(
+          right: 32,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: arrow(RaftGlyph.chevronRight, 'Next image', index < count - 1, index + 1),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Thumbnail strip (`absolute bottom-4 flex gap-1.5`, `size-12 border-2`).
+class RaftLightboxThumbnails extends StatelessWidget {
+  const RaftLightboxThumbnails({
+    super.key,
+    required this.thumbnails,
+    required this.index,
+    required this.onSelect,
+  });
+  final List<ImageProvider?> thumbnails;
+  final int index;
+  final ValueChanged<int> onSelect;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    Widget thumb(int i) {
+      final active = i == index;
+      final border = active
+          ? (t.brutal ? t.product.softSignal : t.colors['accent-strong']!)
+          : Colors.white.withValues(alpha: .3);
+      final image = thumbnails[i];
+      Widget box = Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          border: Border.all(color: border, width: 2),
+          boxShadow: !active
+              ? null
+              : t.brutal
+              ? RaftShadowSet.brutalSm
+              : t.themeShadows.sm.outer,
+        ),
+        child: image != null
+            ? Image(image: image, fit: BoxFit.cover)
+            : ColoredBox(
+                color: Colors.white.withValues(alpha: .2),
+                child: Center(
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      fontFamily: t.headingFont,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: .5),
+                    ),
+                  ),
+                ),
+              ),
+      );
+      if (!active) box = Opacity(opacity: .6, child: box);
+      return RaftInteractive(
+        key: ValueKey('lightbox-thumbnail-$i'),
+        onPressed: () => onSelect(i),
+        semanticLabel: 'Image ${i + 1}',
+        builder: (_, _) => box,
+      );
+    }
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < thumbnails.length; i++) ...[
+              if (i > 0) const SizedBox(width: 6),
+              thumb(i),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Stage placeholder while the original loads and nothing else can stand in
+/// (`size-64` box, inverse `lg` spinner).
+class RaftLightboxLoading extends StatelessWidget {
+  const RaftLightboxLoading({super.key});
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: SizedBox.square(
+      dimension: 256,
+      child: Center(child: RaftSpinner(inverse: true, size: 32)),
+    ),
+  );
+}
+
+/// Stage failure card (`size-64`, ImageOff, name, message, `text-white/40`).
+class RaftLightboxFailure extends StatelessWidget {
+  const RaftLightboxFailure({super.key, required this.title, required this.message});
+  final String title, message;
+  @override
+  Widget build(BuildContext context) {
+    final muted = Colors.white.withValues(alpha: .4);
+    return Center(
+      child: SizedBox.square(
+        dimension: 256,
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: muted),
+          textAlign: TextAlign.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              RaftIcon(RaftGlyph.imageOff, size: 48, color: muted),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(title, style: const TextStyle(fontSize: 14)),
+              ),
+              const SizedBox(height: 12),
+              Text(message, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

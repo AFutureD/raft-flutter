@@ -5,7 +5,10 @@
 // pairs are cited per element).
 import 'package:flutter/material.dart';
 
+import 'attachment_preview_shell.dart' show RaftCommentsSheetControls;
+import 'dialog_card.dart' show RaftRecipeButton;
 import 'icons.dart';
+import 'recipes/button_variants.g.dart';
 import 'design_primitives.dart';
 import 'localization.dart';
 import 'message_body.dart';
@@ -121,8 +124,17 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
     this.loading = false,
     this.error,
     this.blockedMessage,
+    this.sheet,
+    this.collapsedBody = false,
   });
   final String filename;
+
+  /// Mobile bottom sheet: the header row carries the expand / collapse
+  /// chevron (Web `sheetControls`).
+  final RaftCommentsSheetControls? sheet;
+
+  /// Hides the list and composer while the sheet is collapsed to its header.
+  final bool collapsedBody;
 
   /// Sorted cards; null while loading.
   final List<RaftAttachmentCommentView>? comments;
@@ -150,26 +162,48 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // `border-b-2 px-3 py-2`, title `text-xs font-bold truncate`.
+            // `border-b-2 px-3 py-2 gap-2`, title `text-xs font-bold truncate`.
             Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               decoration: BoxDecoration(border: Border(bottom: rule)),
-              child: Text(
-                raftFormat(context, 'Comments · {filename}', {
-                  'filename': filename,
-                }),
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: t.headingFont,
-                  fontSize: 12,
-                  height: 16 / 12,
-                  fontWeight: FontWeight.w700,
-                  color: strong,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      raftFormat(context, 'Comments · {filename}', {
+                        'filename': filename,
+                      }),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: t.headingFont,
+                        fontSize: 12,
+                        height: 16 / 12,
+                        fontWeight: FontWeight.w700,
+                        color: strong,
+                      ),
+                    ),
+                  ),
+                  if (sheet != null) ...[
+                    const SizedBox(width: 8),
+                    RaftRecipeButton(
+                      key: const ValueKey('attachment-comments-sheet-toggle'),
+                      variant: RaftButtonRecipeVariant.outline,
+                      size: RaftButtonRecipeSize.sm,
+                      padding: const EdgeInsets.all(2),
+                      glyph: sheet!.expanded
+                          ? RaftGlyph.chevronDown
+                          : RaftGlyph.chevronUp,
+                      glyphSize: 10,
+                      tooltip: sheet!.expanded ? 'Collapse comments' : 'Expand comments',
+                      onPressed: sheet!.onToggle,
+                    ),
+                  ],
+                ],
               ),
             ),
+            if (!collapsedBody)
             Expanded(
               child: list == null || loading
                   ? Center(
@@ -214,6 +248,7 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
                     ),
             ),
             // `border-t-2 p-2`.
+            if (!collapsedBody)
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(border: Border(top: rule)),

@@ -32,7 +32,7 @@ type ParityExtAttProps = {
   doc: string;
 };
 
-const PARITY_EXT_ATT_HTML_URL = "data:text/html;charset=utf-8,%3C!doctype%20html%3E%3Cbody%3E";
+const PARITY_EXT_ATT_HTML_URL = "data:text/html;charset=utf-8,%3C!doctype%20html%3E%3Cbody%3E%3C!--";
 
 function parityExtAttProps(): ParityExtAttProps | null {
   const params = new URLSearchParams(window.location.search);
@@ -68,7 +68,9 @@ function parityExtAttPrime(p: ParityExtAttProps) {
       images,
       currentIndex: p.index,
       imageUrlCache: {},
-      commentContexts: Object.fromEntries(images.map((image) => [image.id, commentContext])),
+      // MessageItem opens the lightbox without comment contexts, so the
+      // message flow shows no comments toggle on images.
+      commentContexts: {},
     });
   } else if (p.host === "document") {
     const doc = fx.documents[p.doc];

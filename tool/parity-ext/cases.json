@@ -17012,7 +17012,7 @@
   },
   {
    "id": "components.thread-ext.attachment.image.single.brutal",
-   "title": "Attachment preview image.single desktop single image, comments affordance (brutal-light)",
+   "title": "Attachment preview image.single desktop single image (brutal-light)",
    "captureType": "component-fixture",
    "surface": "attachment-preview",
    "category": "extension/thread-attachments",
@@ -17056,7 +17056,7 @@
   },
   {
    "id": "components.thread-ext.attachment.image.single.elegant",
-   "title": "Attachment preview image.single desktop single image, comments affordance (elegant-light)",
+   "title": "Attachment preview image.single desktop single image (elegant-light)",
    "captureType": "component-fixture",
    "surface": "attachment-preview",
    "category": "extension/thread-attachments",
@@ -17100,7 +17100,7 @@
   },
   {
    "id": "components.thread-ext.attachment.image.single.elegant-dark",
-   "title": "Attachment preview image.single desktop single image, comments affordance (elegant-dark)",
+   "title": "Attachment preview image.single desktop single image (elegant-dark)",
    "captureType": "component-fixture",
    "surface": "attachment-preview",
    "category": "extension/thread-attachments",
@@ -17276,7 +17276,7 @@
   },
   {
    "id": "components.thread-ext.attachment.image.header.brutal",
-   "title": "Attachment preview image.header desktop title bar, long file name in a gallery (brutal-light)",
+   "title": "Attachment preview image.header desktop title bar, long file name and counter in a gallery (brutal-light)",
    "captureType": "component-fixture",
    "surface": "attachment-preview",
    "category": "extension/thread-attachments",
@@ -17320,7 +17320,7 @@
   },
   {
    "id": "components.thread-ext.attachment.image.header.elegant",
-   "title": "Attachment preview image.header desktop title bar, long file name in a gallery (elegant-light)",
+   "title": "Attachment preview image.header desktop title bar, long file name and counter in a gallery (elegant-light)",
    "captureType": "component-fixture",
    "surface": "attachment-preview",
    "category": "extension/thread-attachments",
@@ -17364,7 +17364,7 @@
   },
   {
    "id": "components.thread-ext.attachment.image.header.elegant-dark",
-   "title": "Attachment preview image.header desktop title bar, long file name in a gallery (elegant-dark)",
+   "title": "Attachment preview image.header desktop title bar, long file name and counter in a gallery (elegant-dark)",
    "captureType": "component-fixture",
    "surface": "attachment-preview",
    "category": "extension/thread-attachments",
@@ -17400,192 +17400,6 @@
    },
    "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
    "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.header'",
-   "tolerance": {
-    "pixelRatio": 0.02,
-    "layoutDp": 1,
-    "ignoreAntialiasing": true
-   }
-  },
-  {
-   "id": "components.thread-ext.attachment.image.comments.brutal",
-   "title": "Attachment preview image.comments desktop comments panel open (brutal-light)",
-   "captureType": "component-fixture",
-   "surface": "attachment-preview",
-   "category": "extension/thread-attachments",
-   "suite": "raft-flutter-extension",
-   "viewport": {
-    "width": 1280,
-    "height": 800,
-    "density": 1
-   },
-   "theme": "brutal-light",
-   "locale": "en",
-   "variants": [
-    {
-     "id": "default",
-     "name": "Default",
-     "props": {
-      "extCase": "image.comments",
-      "extKind": "threadattachment",
-      "parityTheme": "brutal-light",
-      "platform": "desktop",
-      "host": "image",
-      "images": "1",
-      "index": "0"
-     }
-    }
-   ],
-   "capture": {
-    "selector": "body > div[tabindex='-1']",
-    "crop": "viewport",
-    "contract": "viewport-with-portal",
-    "interactions": [
-     {
-      "type": "click",
-      "target": "[data-message-affordance=\"attachment-comments-toggle\"]"
-     },
-     {
-      "type": "wait",
-      "ms": 600
-     }
-    ],
-    "androidInteractions": [
-     {
-      "type": "tap",
-      "key": "attachment-comments-toggle"
-     },
-     {
-      "type": "wait",
-      "ms": 600
-     }
-    ]
-   },
-   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
-   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.comments'",
-   "tolerance": {
-    "pixelRatio": 0.02,
-    "layoutDp": 1,
-    "ignoreAntialiasing": true
-   }
-  },
-  {
-   "id": "components.thread-ext.attachment.image.comments.elegant",
-   "title": "Attachment preview image.comments desktop comments panel open (elegant-light)",
-   "captureType": "component-fixture",
-   "surface": "attachment-preview",
-   "category": "extension/thread-attachments",
-   "suite": "raft-flutter-extension",
-   "viewport": {
-    "width": 1280,
-    "height": 800,
-    "density": 1
-   },
-   "theme": "elegant-light",
-   "locale": "en",
-   "variants": [
-    {
-     "id": "default",
-     "name": "Default",
-     "props": {
-      "extCase": "image.comments",
-      "extKind": "threadattachment",
-      "parityTheme": "elegant-light",
-      "platform": "desktop",
-      "host": "image",
-      "images": "1",
-      "index": "0"
-     }
-    }
-   ],
-   "capture": {
-    "selector": "body > div[tabindex='-1']",
-    "crop": "viewport",
-    "contract": "viewport-with-portal",
-    "interactions": [
-     {
-      "type": "click",
-      "target": "[data-message-affordance=\"attachment-comments-toggle\"]"
-     },
-     {
-      "type": "wait",
-      "ms": 600
-     }
-    ],
-    "androidInteractions": [
-     {
-      "type": "tap",
-      "key": "attachment-comments-toggle"
-     },
-     {
-      "type": "wait",
-      "ms": 600
-     }
-    ]
-   },
-   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
-   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.comments'",
-   "tolerance": {
-    "pixelRatio": 0.02,
-    "layoutDp": 1,
-    "ignoreAntialiasing": true
-   }
-  },
-  {
-   "id": "components.thread-ext.attachment.image.comments.elegant-dark",
-   "title": "Attachment preview image.comments desktop comments panel open (elegant-dark)",
-   "captureType": "component-fixture",
-   "surface": "attachment-preview",
-   "category": "extension/thread-attachments",
-   "suite": "raft-flutter-extension",
-   "viewport": {
-    "width": 1280,
-    "height": 800,
-    "density": 1
-   },
-   "theme": "elegant-dark",
-   "locale": "en",
-   "variants": [
-    {
-     "id": "default",
-     "name": "Default",
-     "props": {
-      "extCase": "image.comments",
-      "extKind": "threadattachment",
-      "parityTheme": "elegant-dark",
-      "platform": "desktop",
-      "host": "image",
-      "images": "1",
-      "index": "0"
-     }
-    }
-   ],
-   "capture": {
-    "selector": "body > div[tabindex='-1']",
-    "crop": "viewport",
-    "contract": "viewport-with-portal",
-    "interactions": [
-     {
-      "type": "click",
-      "target": "[data-message-affordance=\"attachment-comments-toggle\"]"
-     },
-     {
-      "type": "wait",
-      "ms": 600
-     }
-    ],
-    "androidInteractions": [
-     {
-      "type": "tap",
-      "key": "attachment-comments-toggle"
-     },
-     {
-      "type": "wait",
-      "ms": 600
-     }
-    ]
-   },
-   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
-   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.comments'",
    "tolerance": {
     "pixelRatio": 0.02,
     "layoutDp": 1,

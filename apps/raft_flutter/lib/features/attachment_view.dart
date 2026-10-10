@@ -655,6 +655,7 @@ class _AttachmentViewState extends State<AttachmentView> {
               ),
               placeholder: imageProvider,
               previewFailed: error != null,
+              title: name,
             );
           },
         ),

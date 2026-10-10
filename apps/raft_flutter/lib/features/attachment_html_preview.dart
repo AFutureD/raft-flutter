@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/attachment_html.dart';
+import 'attachment_comments_view.dart';
 
 class HtmlAttachmentPreviewDialog extends StatefulWidget {
   const HtmlAttachmentPreviewDialog({
@@ -162,19 +163,19 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => RaftAttachmentLightbox(
-    title: '${widget.metadata['filename'] ?? 'HTML'}',
+  Widget build(BuildContext context) => RaftAttachmentPreviewShell(
+    filename: '${widget.metadata['filename'] ?? 'HTML'}',
     onClose: widget.onClose,
-    actions: [
-      RaftIconButton(
-        glyph: RaftGlyph.download,
-        tooltip: 'Download',
-        visualSize: 28,
-        minimumTargetSize: 48,
-        variant: RaftControlVariant.ghost,
-        onPressed: current ? widget.onDownload : null,
-      ),
-    ],
+    onDownload: current ? widget.onDownload : null,
+    commentsBuilder: current && widget.metadata['id'] is String
+        ? (_, sheet) => AttachmentCommentsView(
+            controller: widget.controller,
+            attachmentId: widget.metadata['id'] as String,
+            filename: '${widget.metadata['filename'] ?? 'HTML'}',
+            authorized: () => current,
+            sheet: sheet,
+          )
+        : null,
     child: Column(
       children: [
         if (error != null)
@@ -187,7 +188,7 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
           ),
         Expanded(
           child: loading
-              ? const Center(child: RaftSpinner())
+              ? const RaftPreviewPreparing()
               : html == null
               ? Center(
                   child: Wrap(

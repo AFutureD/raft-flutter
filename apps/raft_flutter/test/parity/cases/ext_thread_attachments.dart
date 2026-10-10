@@ -26,6 +26,7 @@ import 'package:raft_flutter/features/attachment_html_preview.dart';
 import 'package:raft_flutter/features/attachment_image_lightbox.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/platform/attachment_html.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftFamily;
 
 import '../parity_harness.dart';
 import 'thread_composer/fake_workspace.dart';
@@ -131,9 +132,12 @@ WorkspaceController _workspace(ParityContext ctx) {
 Map<String, dynamic> _doc(ParityContext ctx) =>
     _map(_map(_fx(ctx)['documents'])[ctx.props['doc'] ?? 'text']);
 
-MemoryImage _image(Map<String, dynamic> image) => MemoryImage(
-  base64Decode((image['url'] as String).split(',').last),
-);
+MemoryImage _dataImage(String url) =>
+    MemoryImage(base64Decode(url.split(',').last));
+MemoryImage _image(Map<String, dynamic> image) =>
+    _dataImage(image['url'] as String);
+MemoryImage _thumbnail(Map<String, dynamic> image) =>
+    _dataImage(image['thumbnailUrl'] as String);
 
 /// Window clip like the React host's header selector: the top-left `size` of
 /// the full-viewport lightbox.
@@ -163,8 +167,10 @@ Widget _viewport(ParityContext ctx, Widget child) => Align(
   ),
 );
 
-/// Header strip height (`h-14` + `border-b-2`).
-const _headerHeight = 58.0;
+/// Header strip height: `h-14` plus the border (`border-b-2` always on the
+/// image lightbox; the preview shell has `border-b`, `-2` only in brutal).
+double _headerHeight(ParityContext ctx) =>
+    56 + (ctx.family == RaftFamily.brutal || ctx.props['host'] == 'image' ? 2 : 1);
 
 class _NeverHtmlLoader extends AttachmentHtmlLoader {
   @override
@@ -180,7 +186,7 @@ Widget _surface(ParityContext ctx) {
   final fx = _fx(ctx);
   final headerOnly = (ctx.caseJson['capture'] as Map)['crop'] == 'element';
   Widget framed(Widget child) => headerOnly
-      ? _clip(ctx, Size(ctx.width, _headerHeight), child)
+      ? _clip(ctx, Size(ctx.width, _headerHeight(ctx)), child)
       : _viewport(ctx, child);
   switch (host) {
     case 'image':
@@ -190,20 +196,29 @@ Widget _surface(ParityContext ctx) {
           .toList();
       final current = images[int.parse('${ctx.props['index'] ?? 0}')];
       final routeSet = ctx.props['routeSet'] as String?;
+      final index = int.parse('${ctx.props['index'] ?? 0}');
       return framed(
         AttachmentImageLightbox(
           title: current['filename'] as String,
           zoom: TransformationController(),
           onClose: () {},
           onDownload: () async {},
+          gallery: AttachmentLightboxGallery(
+            index: index,
+            thumbnails: [for (final image in images) _thumbnail(image)],
+            onSelect: (_) {},
+          ),
           child: AttachmentLightboxImage(
             imageKey: ValueKey('attachment-image-${current['id']}'),
             zoom: TransformationController(),
             image: routeSet == null || routeSet.isEmpty
                 ? _image(current)
                 : null,
-            placeholder: null,
+            // Web falls back to the thumbnail while the original loads or
+            // when it fails.
+            placeholder: _thumbnail(current),
             previewFailed: routeSet == 'image-error',
+            title: current['filename'] as String,
           ),
         ),
       );
@@ -273,6 +288,7 @@ final ParityCase _case = ParityCase(
     final context = t.element(find.byType(AttachmentLightboxImage).first);
     for (final image in (fx['images'] as List).map(_map)) {
       await t.runAsync(() => precacheImage(_image(image), context));
+      await t.runAsync(() => precacheImage(_thumbnail(image), context));
     }
     await t.pump();
   },
@@ -282,7 +298,6 @@ const _desktop = [
   'image.single',
   'image.gallery',
   'image.header',
-  'image.comments',
   'image.loading',
   'image.error',
   'doc.text',
