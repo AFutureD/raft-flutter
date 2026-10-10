@@ -9,6 +9,7 @@ import 'package:raft_flutter/features/create_task_dialog.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../parity_harness.dart';
+import 'ext_settings.dart';
 import 'ext_task_detail.dart';
 
 Map<String, dynamic> _fx(ParityContext ctx) =>
@@ -109,8 +110,30 @@ const _taskKeys = [
   'tasks.empty-lanes-mobile',
 ];
 
+final ParityCase _settingsCase = ParityCase(
+  widgets: const ['raft_flutter:WorkspaceSettings'],
+  notes: 'Extension suite (not official). WP6 settings.',
+  settle: const Duration(milliseconds: 800),
+  build: extSettingsPage,
+);
+
+const _settingsKeys = [
+  'settings.language',
+  'settings.language-off',
+  'settings.language-manual',
+  'settings.language-provider-missing',
+  'settings.language-server-off',
+  'settings.language-mobile',
+  'settings.language-off-mobile',
+  'settings.workspace-mode',
+  'settings.usage-data',
+  'settings.workspace-mode-mobile',
+  'settings.usage-data-mobile',
+];
+
 final Map<String, ParityCase> extWp6Cases = {
   for (final theme in const ['brutal', 'elegant', 'elegant-dark']) ...{
     for (final key in _taskKeys) 'components.wp6.$key.$theme': _tasksCase,
+    for (final key in _settingsKeys) 'components.wp6.$key.$theme': _settingsCase,
   },
 };

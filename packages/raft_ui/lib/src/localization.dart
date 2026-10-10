@@ -529,6 +529,7 @@ const raftChinese = <String, String>{
   "Create Tasks": "创建任务",
   "Create {count} Tasks": "创建 {count} 个任务",
   "Task {n}": "任务 {n}",
+  "Browser language resolves to {language} for this browser.": "浏览器语言在此浏览器解析为 {language}。",
   "No {status} tasks.": "没有{status}的任务。",
   "Add Computer": "添加 Computer",
   "Add Header": "添加请求头",

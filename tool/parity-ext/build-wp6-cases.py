@@ -59,7 +59,7 @@ def add(key, title, *, surface, platform='desktop', selector, android_key=None, 
              'state': state or key.split('.')[-1], **(props or {})}
         if route_set:
             p['routeSet'] = route_set
-        capture = {'selector': selector, 'crop': crop, 'contract': contract,
+        capture = {'selector': selector or f"[data-visual-case='{cid}']", 'crop': crop, 'contract': contract,
                    'interactions': list(interactions), 'androidInteractions': list(android)}
         if android_key:
             capture['androidKey'] = android_key
@@ -133,6 +133,68 @@ add('tasks.empty-lanes-expanded', 'Tasks board with empty lanes, Done and Closed
 add('tasks.empty-lanes-mobile', 'Tasks page with empty lanes (mobile list)', surface='tasks-board',
     platform='mobile', selector='body', crop='viewport', contract='viewport-with-portal', state='empty-lanes',
     route_set='wp6-board-empty-lanes', hint=BOARD_HINT)
+
+# ------------------------------------------------------------- settings
+SETTINGS_HINT = 'packages/web/src/components/settings/SettingsPanel.tsx'
+PANEL = "[data-parity-region='settings-panel']"
+WAIT = {'type': 'wait', 'ms': 800}
+
+
+def settings_add(key, title, *, tab, platform='desktop', selector=None, android_key=None, flags='', role='owner',
+                 route_set=None, prefs=None, interactions=(), android=(), hint=SETTINGS_HINT, notes=None,
+                 viewport=None):
+    mobile = platform == 'mobile'
+    props = {'tab': tab, 'role': role}
+    if flags:
+        props['flags'] = flags
+    if prefs:
+        props['prefs'] = prefs
+    if selector is None and not mobile:
+        # Desktop crops the 976px panel column; mobile the whole 390px frame.
+        selector, android_key = PANEL, 'settings-panel'
+    add(key, title, surface='settings', platform=platform, selector=selector, android_key=android_key,
+        route_set=route_set, interactions=[WAIT, *interactions], android=android, hint=hint, notes=notes,
+        viewport=viewport, props=props, state=key.split('.')[-1])
+
+
+# Language & Region (SettingsPanel.tsx LanguageRegionSection): display
+# language, translation mode (+ target and default view unless Off) and the
+# Date & time card.
+LANG = SETTINGS_HINT + '#LanguageRegionSection'
+fixture['routeSets']['wp6-translation-provider-missing'] = {
+    f'GET /servers/{taskdetail["serverId"]}/translation-settings': {
+        'translationEnabled': True, 'translationAvailable': False, 'canManageTranslation': True}}
+fixture['routeSets']['wp6-translation-server-off'] = {
+    f'GET /servers/{taskdetail["serverId"]}/translation-settings': {
+        'translationEnabled': False, 'translationAvailable': True, 'canManageTranslation': True}}
+for plat in ('desktop', 'mobile'):
+    sfx = '' if plat == 'desktop' else '-mobile'
+    settings_add(f'settings.language{sfx}', f'Language & Region ({plat})', tab='language-region', platform=plat,
+                 hint=LANG)
+    settings_add(f'settings.language-off{sfx}', f'Language & Region, translation off ({plat})',
+                 tab='language-region', platform=plat, prefs='translation-off', hint=LANG)
+settings_add('settings.language-manual', 'Language & Region, manual translation, bilingual', tab='language-region',
+             prefs='translation-manual', hint=LANG)
+settings_add('settings.language-provider-missing', 'Language & Region, no translation provider',
+             tab='language-region', route_set='wp6-translation-provider-missing', hint=LANG)
+settings_add('settings.language-server-off', 'Language & Region, translation off for the server (admin)',
+             tab='language-region', route_set='wp6-translation-server-off', hint=LANG)
+
+# Account tab cards: WorkspaceModeSettingsCard and UsageDataSettingsCard.
+# The account tab's content column (`flex-1 overflow-y-auto`): the workspace
+# mode card is its first child, the usage data card sits in a `mt-6` wrapper.
+CONTENT = "[data-parity-region='settings-panel'] > section > div.overflow-y-auto"
+WM_SEL = f'{CONTENT} > label:first-child'
+UD_SEL = f'{CONTENT} > div.mt-6 > [data-slot="card"]'
+for plat in ('desktop', 'mobile'):
+    sfx = '' if plat == 'desktop' else '-mobile'
+    settings_add(f'settings.workspace-mode{sfx}', f'Account: workspace mode card ({plat})', tab='account',
+                 platform=plat, selector=WM_SEL, android_key='workspace-mode-card',
+                 hint=SETTINGS_HINT + '#WorkspaceModeSettingsCard')
+    settings_add(f'settings.usage-data{sfx}', f'Account: usage data card ({plat})', tab='account', platform=plat,
+                 flags='analytics', selector=UD_SEL, android_key='usage-data-card',
+                 android=[{'type': 'reveal', 'key': 'usage-data-card'}],
+                 hint='packages/web/src/components/settings/UsageDataSettings.tsx')
 
 manifest_path = here / 'cases.json'
 manifest = json.loads(manifest_path.read_text())

@@ -78,6 +78,20 @@
      }
     ]
    }
+  },
+  "wp6-translation-provider-missing": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": true,
+    "translationAvailable": false,
+    "canManageTranslation": true
+   }
+  },
+  "wp6-translation-server-off": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": false,
+    "translationAvailable": true,
+    "canManageTranslation": true
+   }
   }
  },
  "boards": {

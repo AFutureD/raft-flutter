@@ -1639,12 +1639,19 @@ class RaftAdminSwitchCard extends StatelessWidget {
     this.onChanged,
     this.error,
     this.switchKey,
+    this.descriptionLink,
+    this.onDescriptionLink,
   });
   final String title, description;
   final bool checked;
   final ValueChanged<bool>? onChanged;
   final String? error;
   final Key? switchKey;
+
+  /// Trailing `<a class="font-bold underline underline-offset-2">` after the
+  /// description (UsageDataSettingsCard's "Learn more").
+  final String? descriptionLink;
+  final VoidCallback? onDescriptionLink;
 
   @override
   Widget build(BuildContext context) {
@@ -1665,14 +1672,47 @@ class RaftAdminSwitchCard extends StatelessWidget {
                       style: text.title.copyWith(color: t.strong),
                     ),
                     const SizedBox(height: 2),
-                    RaftCssText(
-                      raftText(context, description),
-                      style: raftSettingsBody(
-                        t,
-                        size: 12,
-                        line: 20,
-                        color: t.muted,
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final body = raftSettingsBody(
+                          t,
+                          size: 12,
+                          line: 20,
+                          color: t.muted,
+                        );
+                        final link = descriptionLink;
+                        if (link == null) {
+                          return RaftCssText(
+                            raftText(context, description),
+                            style: body,
+                          );
+                        }
+                        return RaftCssText.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: '${raftText(context, description)} '),
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.baseline,
+                                baseline: TextBaseline.alphabetic,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: onDescriptionLink,
+                                  child: Text(
+                                    raftText(context, link),
+                                    style: body.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: body.color,
+                                      color: body.color,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: body,
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1684,6 +1724,9 @@ class RaftAdminSwitchCard extends StatelessWidget {
                   key: switchKey,
                   value: checked,
                   size: RaftSwitchSize.md,
+                  // Web: the 44x24 Switch is the whole target (no touch
+                  // padding), so the card layout matches at phone width.
+                  minimumTargetSize: 0,
                   enabled: onChanged != null,
                   semanticLabel: raftText(context, title),
                   onChanged: onChanged,

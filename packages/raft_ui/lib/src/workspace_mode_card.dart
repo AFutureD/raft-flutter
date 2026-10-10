@@ -20,8 +20,10 @@ class RaftWorkspaceModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final inherited = DefaultTextStyle.of(context).style;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+      key: const ValueKey('workspace-mode-card'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: t.brutal
@@ -74,6 +76,7 @@ class RaftWorkspaceModeCard extends StatelessWidget {
             semanticLabel: raftText(context, 'Workspace mode'),
           ),
         ],
+      ),
       ),
     );
   }
