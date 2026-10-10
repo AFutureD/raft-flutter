@@ -73,6 +73,7 @@ class RaftSystemBarSurface extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          child,
           if (padding.top > 0)
             Positioned(
               top: 0,
@@ -93,7 +94,6 @@ class RaftSystemBarSurface extends StatelessWidget {
                 child: ColoredBox(color: navigationBarBackground!),
               ),
             ),
-          child,
         ],
       ),
     );

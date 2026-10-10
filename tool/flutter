@@ -6,6 +6,13 @@ from pathlib import Path
 import subprocess
 import sys
 
+from android_app import SafetyError, flutter_guard
+
+try:
+    flutter_guard(sys.argv[1:])
+except SafetyError as error:
+    sys.exit(f'STOP: {error}')
+
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / '.fvmrc').read_text())['flutter']
 candidates = [Path(os.environ['RAFT_FLUTTER_BIN'])] if os.environ.get('RAFT_FLUTTER_BIN') else [

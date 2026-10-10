@@ -35,6 +35,8 @@ python3 tool/performance/lab.py summarize .local/performance/lab/<name>         
 
 ### Run safeguards
 
+- **Android isolation.** Android runs require a prebuilt APK whose aapt package identity is `app.raft.raft_flutter.linkperf`; the runner forces `--keep-app-running`. It refuses source-only drive or the official App APK. See [installation workflow](android-installation.md). Merely changing applicationId while retaining the official namespace is not safe for Flutter drive cleanup.
+
 - **Single instance.** The app allows one instance per display. Before each launch, `run` waits for any other `bundle/raft_flutter` to exit (`--wait`). It retries a launch that lost the race.
 - **Host load.** `run` refuses to start while the 1-minute load average is above 0.35 × CPUs (`--max-load`, `--wait-quiet`).
   - Contention distorts these numbers badly. One run taken at load 13–25, while other agents' test suites were running, measured 2–5× slower frames, including raster.

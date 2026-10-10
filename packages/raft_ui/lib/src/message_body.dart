@@ -14,8 +14,10 @@ import 'package:mermaid_flutter/mermaid_flutter.dart';
 import 'package:mermaid_core/mermaid_core.dart' as core;
 
 import 'package:re_highlight/re_highlight.dart';
+
 import 'panel_layout.dart' show raftTextMetricsCache;
 import 'viewport_breakpoints.dart';
+
 import 'package:re_highlight/styles/github.dart';
 import 'package:re_highlight/styles/github-dark.dart';
 import 'package:re_highlight/languages/bash.dart';
@@ -53,6 +55,7 @@ import 'icons.dart';
 import 'lru_cache.dart';
 import 'message_list_marker.dart';
 import 'message_content_tokens.dart';
+import 'message_link_underline.dart';
 import 'attachment_lightbox.dart';
 import 'diagram_theme.dart';
 import 'design_primitives.dart';
@@ -619,7 +622,14 @@ class _RaftMarkdownState extends State<MarkdownWidget>
       imageBuilder: null,
       checkboxBuilder: null,
       bulletBuilder: widget.bulletBuilder,
-      builders: widget.builders,
+      builders: {
+        for (final entry in widget.builders.entries)
+          entry.key: entry.value is _MessageLinkBuilder
+              ? (entry.value as _MessageLinkBuilder).withRecognizers(
+                  recognizers,
+                )
+              : entry.value,
+      },
       paddingBuilders: markdown.paddingBuilderFactory(),
       fitContent: true,
       listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
@@ -644,13 +654,28 @@ class _RaftMarkdownState extends State<MarkdownWidget>
   );
 
   @override
-  Widget build(BuildContext context) => children!.length == 1
-      ? children!.single
-      : Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children!,
-        );
+  Widget build(BuildContext context) {
+    final body = children!.length == 1
+        ? children!.single
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children!,
+          );
+    // Ordinary prose has no extra render object or paint work. Link geometry
+    // is cached until layout or Markdown output changes, never on scrolling.
+    return recognizers.any((r) => r is MessageLinkRecognizer)
+        ? NotificationListener<ScrollNotification>(
+            // A table's horizontal viewport owns a repaint boundary. Its
+            // scrolling changes link transforms, but never their text layout.
+            onNotification: (_) {
+              context.findRenderObject()?.markNeedsPaint();
+              return false;
+            },
+            child: MessageLinkUnderlines(child: body),
+          )
+        : body;
+  }
 }
 
 class RaftMermaidBlock extends StatefulWidget {
@@ -1213,9 +1238,13 @@ class _MessageInlineCodeBuilder extends MarkdownElementBuilder {
 }
 
 class _MessageLinkBuilder extends MarkdownElementBuilder {
-  _MessageLinkBuilder(this.onLink, this.appearanceOf);
+  _MessageLinkBuilder(this.onLink, this.appearanceOf, [this.recognizers]);
   final ValueChanged<String>? onLink;
   final RaftReferenceAppearance? Function(String href)? appearanceOf;
+  final List<GestureRecognizer>? recognizers;
+
+  _MessageLinkBuilder withRecognizers(List<GestureRecognizer> owned) =>
+      _MessageLinkBuilder(onLink, appearanceOf, owned);
 
   InlineSpan _reference(
     BuildContext context,
@@ -1257,9 +1286,9 @@ class _MessageLinkBuilder extends MarkdownElementBuilder {
       );
     }
     final linkStyle = base.merge(preferredStyle);
-    final recognizer = onLink == null
-        ? null
-        : (TapGestureRecognizer()..onTap = () => onLink!(href));
+    final recognizer = MessageLinkRecognizer()
+      ..onTap = onLink == null ? null : () => onLink!(href);
+    recognizers?.add(recognizer);
     final children = (element.children as List?) ?? const [];
     return Text.rich(
       TextSpan(
@@ -1276,7 +1305,7 @@ class _MessageLinkBuilder extends MarkdownElementBuilder {
             else
               TextSpan(
                 text: (child as md.Node).textContent,
-                style: linkStyle,
+                style: linkStyle.copyWith(decoration: TextDecoration.none),
                 recognizer: recognizer,
                 mouseCursor: SystemMouseCursors.click,
                 semanticsLabel: child.textContent,

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../platform/oauth_broker.dart';
 import '../platform/local_network_access.dart';
+import '../platform/system_bars.dart';
 
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -319,83 +320,88 @@ class _AuthState extends State<AuthView> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
-    return Form(
-      key: form,
-      child: AutofillGroup(
-        key: ValueKey(mode),
-        onDisposeAction: mode == 'login'
-            ? AutofillContextAction.commit
-            : AutofillContextAction.cancel,
-        child: RaftAuthPage(
-          mode: authMode,
-          busy: busy,
-          server: Uri.tryParse(base.text.trim())?.authority ?? base.text.trim(),
-          onServer: busy ? null : editServer,
-          banner: error ?? widget.bootError,
-          notice: notice,
-          emailField: mode == 'reset'
-              ? null
-              : TextFormField(
-                  key: const Key('login-email'),
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: mode == 'login'
-                      ? const [AutofillHints.username]
-                      : null,
-                  validator: (v) => authEmailError(v ?? ''),
-                  style: t.fieldStyle,
-                ),
-          tokenField: mode != 'reset'
-              ? null
-              : TextFormField(
-                  autofillHints: null,
-                  key: const Key('reset-token'),
-                  controller: token,
-                  obscureText: true,
-                  validator: (v) => v?.trim().isEmpty ?? true
-                      ? 'Enter a password reset link or code.'
-                      : null,
-                  style: t.fieldStyle,
-                ),
-          passwordField: mode == 'forgot'
-              ? null
-              : TextFormField(
-                  key: const Key('login-password'),
-                  controller: password,
-                  // Web: plain Input type=password, no visibility toggle
-                  // (LoginPage.tsx:96-108, RegisterPage.tsx).
-                  obscureText: true,
-                  obscuringCharacter: '•',
-                  autofillHints: mode == 'login'
-                      ? const [AutofillHints.password]
-                      : null,
-                  validator: (v) => v == null || v.isEmpty
-                      ? 'Enter your password.'
-                      : mode != 'login' && v.length < 8
-                      ? 'Use at least 8 characters.'
-                      : null,
-                  onFieldSubmitted: (_) => submitChecked(),
-                  style: t.fieldStyle,
-                  decoration: InputDecoration(
-                    hintText: mode == 'login' ? null : tr('Min 8 characters'),
+    return RaftSystemBarSurface(
+      statusBarBackground: t.brutal ? t.product.softSignal : t.panel,
+      navigationBarBackground: t.canvas,
+      child: Form(
+        key: form,
+        child: AutofillGroup(
+          key: ValueKey(mode),
+          onDisposeAction: mode == 'login'
+              ? AutofillContextAction.commit
+              : AutofillContextAction.cancel,
+          child: RaftAuthPage(
+            mode: authMode,
+            busy: busy,
+            server:
+                Uri.tryParse(base.text.trim())?.authority ?? base.text.trim(),
+            onServer: busy ? null : editServer,
+            banner: error ?? widget.bootError,
+            notice: notice,
+            emailField: mode == 'reset'
+                ? null
+                : TextFormField(
+                    key: const Key('login-email'),
+                    controller: email,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: mode == 'login'
+                        ? const [AutofillHints.username]
+                        : null,
+                    validator: (v) => authEmailError(v ?? ''),
+                    style: t.fieldStyle,
                   ),
-                ),
-          accepted: accepted,
-          onAccepted: (v) => setState(() => accepted = v),
-          submitKey: const Key('login-submit'),
-          // RegisterPage: disabled={loading || !acceptedLegal}.
-          onSubmit: busy || (mode == 'register' && !accepted)
-              ? null
-              : submitChecked,
-          providers: [
-            for (final p in providers)
-              RaftAuthProviderEntry('${p['id']}', '${p['label']}'),
-          ],
-          onProvider: (id) => social(id),
-          onCancelBrowser: broker == null ? null : () => broker!.cancel(),
-          onMode: (next) => switchMode(next.name),
-          onTerms: () => managementLaunch('https://raft.build/terms'),
-          onPrivacy: () => managementLaunch('https://raft.build/privacy'),
+            tokenField: mode != 'reset'
+                ? null
+                : TextFormField(
+                    autofillHints: null,
+                    key: const Key('reset-token'),
+                    controller: token,
+                    obscureText: true,
+                    validator: (v) => v?.trim().isEmpty ?? true
+                        ? 'Enter a password reset link or code.'
+                        : null,
+                    style: t.fieldStyle,
+                  ),
+            passwordField: mode == 'forgot'
+                ? null
+                : TextFormField(
+                    key: const Key('login-password'),
+                    controller: password,
+                    // Web: plain Input type=password, no visibility toggle
+                    // (LoginPage.tsx:96-108, RegisterPage.tsx).
+                    obscureText: true,
+                    obscuringCharacter: '•',
+                    autofillHints: mode == 'login'
+                        ? const [AutofillHints.password]
+                        : null,
+                    validator: (v) => v == null || v.isEmpty
+                        ? 'Enter your password.'
+                        : mode != 'login' && v.length < 8
+                        ? 'Use at least 8 characters.'
+                        : null,
+                    onFieldSubmitted: (_) => submitChecked(),
+                    style: t.fieldStyle,
+                    decoration: InputDecoration(
+                      hintText: mode == 'login' ? null : tr('Min 8 characters'),
+                    ),
+                  ),
+            accepted: accepted,
+            onAccepted: (v) => setState(() => accepted = v),
+            submitKey: const Key('login-submit'),
+            // RegisterPage: disabled={loading || !acceptedLegal}.
+            onSubmit: busy || (mode == 'register' && !accepted)
+                ? null
+                : submitChecked,
+            providers: [
+              for (final p in providers)
+                RaftAuthProviderEntry('${p['id']}', '${p['label']}'),
+            ],
+            onProvider: (id) => social(id),
+            onCancelBrowser: broker == null ? null : () => broker!.cancel(),
+            onMode: (next) => switchMode(next.name),
+            onTerms: () => managementLaunch('https://raft.build/terms'),
+            onPrivacy: () => managementLaunch('https://raft.build/privacy'),
+          ),
         ),
       ),
     );

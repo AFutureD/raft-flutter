@@ -1,8 +1,12 @@
 import importlib.util
+import argparse
+import contextlib
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('lab', ROOT / 'tool/performance/lab.py')
@@ -70,6 +74,50 @@ class SummaryTest(unittest.TestCase):
             text = (run / 'summary.md').read_text()
             self.assertIn('fontFallback 80.0%', text)
             self.assertIn('| steady-scroll | brutal-light | 3 |', text)
+
+
+class AndroidRunSafetyTest(unittest.TestCase):
+    def test_changed_official_app_fails_even_when_metric_comparison_passes(self):
+        with tempfile.TemporaryDirectory(prefix='raft-lab-safety-') as directory:
+            base = Path(directory)
+            original = base / 'profile.apk'
+            original.write_bytes(b'original test artifact')
+            output = base / 'run'
+            args = argparse.Namespace(out=output, device='owned-test-device',
+                flutter_args=[f'--use-application-binary={original}'], themes='elegant-light',
+                scenarios='steady-scroll', seconds=8, semantics='platform', no_trace=True,
+                reference=base / 'reference', max_load=None)
+            before = {'version': 4001, 'ceDataInode': '123'}
+            after = {'version': 4001, 'ceDataInode': '789'}
+
+            def harness(argv, **kwargs):
+                # Simulate a concurrent build replacing the source path. The
+                # runner must install its frozen artifact instead.
+                original.write_bytes(b'replaced by a different build')
+                binary_arg = next(arg for arg in argv if arg.startswith('--use-application-binary='))
+                binary = Path(binary_arg.split('=', 1)[1])
+                self.assertEqual(binary, (output / 'test-profile.apk').resolve())
+                self.assertEqual(binary.read_bytes(), b'original test artifact')
+                self.assertIn('--keep-app-running', argv)
+                return argparse.Namespace(returncode=0)
+
+            def summary(out):
+                (out / 'summary.md').write_text('fake metrics')
+                return {}
+
+            with patch.object(lab, 'flutter_guard') as guard, \
+                 patch.object(lab, 'protected_state', side_effect=[before, after]), \
+                 patch.object(lab, 'environment', return_value={'loadavg': [0, 0, 0]}), \
+                 patch.object(lab, 'wait_for_display'), patch.object(lab, 'wait_for_quiet_host'), \
+                 patch.object(lab.subprocess, 'run', side_effect=harness), \
+                 patch.object(lab, 'summarize', side_effect=summary), \
+                 patch.object(lab, 'compare_cmd', return_value=0), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lab.run(args), 1)
+            self.assertEqual(guard.call_count, 2)
+            env = json.loads((output / 'env.json').read_text())
+            self.assertEqual(env['exitCode'], 1)
+            self.assertIn('protectedAppError', env)
 
 
 if __name__ == '__main__':

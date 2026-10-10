@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -25,6 +26,8 @@ ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / 'apps/raft_flutter'
 TARGET = 'integration_test/perf_lab_test.dart'
 DRIVER = 'test_driver/perf_lab_driver.dart'
+sys.path.insert(0, str(ROOT / 'tool'))
+from android_app import SafetyError, flutter_guard, protected_state
 BUDGET_120 = 1e6 / 120  # 8333 us
 BUDGET_60 = 1e6 / 60    # 16667 us
 SCENARIO_ORDER = ['steady-scroll', 'fling', 'image-scroll', 'older-drag', 'scrollbar-drag', 'scrollbar-sweep', 'arrival-scrolled-up', 'resize',
@@ -398,20 +401,51 @@ def run(args):
     if out.exists():
         sys.exit(f'{out} exists; use a new output directory so earlier runs stay unchanged')
     device = args.device or ('macos' if platform.system() == 'Darwin' else 'linux')
+    argv = [str(ROOT / 'tool/flutter'), 'drive', '--profile', f'--driver={DRIVER}', f'--target={TARGET}', '-d', device, '--no-pub',
+            *args.flutter_args]
+    android = device not in ('macos', 'linux', 'windows', 'chrome', 'edge', 'web-server')
+    if android:
+        argv.append('--keep-app-running')
+    try:
+        flutter_guard(argv[1:], cwd=APP)
+        protected_before = protected_state(device) if android else None
+    except SafetyError as error:
+        sys.exit(f'STOP: {error}')
     if device == 'linux' and not os.environ.get('DISPLAY'):
         sys.exit('DISPLAY must name the real X11 display (see docs/performance-lab.md)')
     wait_for_display(args)
     wait_for_quiet_host(args)
     out.mkdir(parents=True)
+    if android:
+        # Freeze the verified test artifact; a concurrent Gradle build must not
+        # replace the path that Flutter will later install.
+        for index, argument in enumerate(argv):
+            if argument.startswith('--use-application-binary='):
+                source = argument.split('=', 1)[1]
+                value_index = index
+                break
+            if argument == '--use-application-binary':
+                source = argv[index + 1]
+                value_index = index + 1
+                break
+        binary = out / 'test-profile.apk'
+        shutil.copyfile((APP / source).resolve(), binary)
+        binary.chmod(0o444)
+        argv[value_index] = f'--use-application-binary={binary}' if argv[value_index].startswith('--use-application-binary=') else str(binary)
+        try:
+            flutter_guard(argv[1:], cwd=APP)
+        except SafetyError as error:
+            sys.exit(f'STOP: staged test APK verification failed: {error}')
     env = environment(device)
+    if android:
+        env['protectedAppBefore'] = protected_before
     (out / 'env.json').write_text(json.dumps(env, indent=1) + '\n')
     defines = {'RAFT_LAB_THEMES': args.themes, 'RAFT_LAB_SCENARIOS': args.scenarios or '', 'RAFT_LAB_SECONDS': str(args.seconds),
                'RAFT_LAB_SEMANTICS': args.semantics, 'RAFT_LAB_PHASES': str(not args.no_trace).lower()}
     child = dict(os.environ, RAFT_PERF_OUT=str(out), RAFT_LAB_ROOT=str(ROOT), **defines)
     if device == 'linux':
         child['GDK_BACKEND'] = 'x11'
-    argv = [str(ROOT / 'tool/flutter'), 'drive', '--profile', f'--driver={DRIVER}', f'--target={TARGET}', '-d', device, '--no-pub',
-            *[f'--dart-define={k}={v}' for k, v in defines.items()], *args.flutter_args]
+    argv += [f'--dart-define={k}={v}' for k, v in defines.items()]
     print('Running:', ' '.join(argv), flush=True)
     for attempt in range(1, 4):
         wait_for_display(args)
@@ -425,6 +459,15 @@ def run(args):
         (out / 'runner.log').rename(out / f'runner-failed-start-{attempt}.log')
         time.sleep(20)
     impeller = re.search(r'Using the Impeller rendering backend \(([^)]+)\)', text)
+    if android:
+        try:
+            env['protectedAppAfter'] = protected_state(device)
+            if env['protectedAppAfter'] != protected_before:
+                raise SafetyError('Official App identity changed during the benchmark.')
+        except SafetyError as error:
+            status = 1
+            env['protectedAppError'] = str(error)
+            print(f'STOP: {error} No reinstall/restore attempt will be made.', flush=True)
     env['renderer'] = f'Impeller ({impeller.group(1)})' if impeller else 'unknown (derived from raster events in summarize)'
     env['exitCode'] = status
     env['endedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -435,7 +478,8 @@ def run(args):
     summary = summarize(out)
     print((out / 'summary.md').read_text())
     if args.reference:
-        return compare_cmd(argparse.Namespace(base=args.reference, candidate=out, out=None, no_fail=False))
+        comparison_status = compare_cmd(argparse.Namespace(base=args.reference, candidate=out, out=None, no_fail=False))
+        return 1 if status else comparison_status
     return 0 if status == 0 else 1
 
 

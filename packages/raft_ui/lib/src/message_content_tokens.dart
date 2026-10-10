@@ -11,6 +11,7 @@ import 'tokens/tokens.dart';
 abstract final class MessageContentPrimitive {
   // Tailwind 4 `text-blue-700` / `dark:text-blue-300` (oklch, sRGB-clamped).
   static const linkLight = Color(0xff1447e6), linkDark = Color(0xff8ec5ff);
+  static const linkUnderlineBottomInset = 1.0, linkUnderlineWidth = 2.0;
   static const compactGap = 4.0, documentGap = 12.0;
   static const compactListIndent = 20.0, documentListIndent = 24.0;
   static const tableInset = EdgeInsets.symmetric(horizontal: 8, vertical: 4);

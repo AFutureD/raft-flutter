@@ -162,7 +162,7 @@ class _RichFixtureState extends State<_RichFixture> {
     'sequence': 'sequenceDiagram\n  participant Alice\n  participant Bob\n  Alice->>Bob: Review draft\n  Bob-->>Alice: Approved',
     'pie': 'pie title Work\n  "Draft" : 3\n  "Review" : 2\n  "Ship" : 5',
     'code': '```typescript\nconst count = 3;\nfunction greet(name: string) {\n  return `Hello \${name}`;\n}\n```',
-    'markdown': '# Release notes\n\nA **bold** plan with `inline code` and a [link](https://example.com).\n\n> Review before shipping.\n\n- Draft\n- Ship\n\n| Status | Count |\n| --- | --- |\n| Ready | 3 |',
+    'markdown': '# Release notes\n\nA **bold** plan with `inline code` and a [link](https://example.com).\n\n[Quest Machine 官方手册](https://example.com/manual) · [Smart Variables](https://example.com/variables)\n\n> Review before shipping.\n\n- Draft\n- Ship\n\n| Status | Count |\n| --- | --- |\n| Ready | 3 |',
   };
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
