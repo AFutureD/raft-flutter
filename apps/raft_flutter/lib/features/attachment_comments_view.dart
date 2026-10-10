@@ -69,11 +69,15 @@ class AttachmentCommentsView extends StatefulWidget {
     required this.filename,
     this.pendingAnchor,
     this.authorized,
+    this.sheet,
   });
   final WorkspaceController controller;
   final String attachmentId, filename;
   final Map<String, dynamic>? pendingAnchor;
   final bool Function()? authorized;
+
+  /// Mobile bottom sheet header controls (Web `sheetControls`).
+  final RaftCommentsSheetControls? sheet;
   @override
   State<AttachmentCommentsView> createState() => _AttachmentCommentsViewState();
 }
@@ -292,6 +296,8 @@ class _AttachmentCommentsViewState extends State<AttachmentCommentsView> {
     final anchor = activeAnchor;
     return RaftAttachmentCommentsPanel(
       filename: widget.filename,
+      sheet: widget.sheet,
+      collapsedBody: widget.sheet != null && !widget.sheet!.expanded,
       error: error,
       blockedMessage: blocked,
       comments: sorted == null

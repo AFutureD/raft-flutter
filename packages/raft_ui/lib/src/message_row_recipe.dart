@@ -10,6 +10,7 @@ import 'localization.dart';
 import 'message_semantics.dart';
 import 'viewport_breakpoints.dart';
 import 'tokens/tokens.dart';
+import 'css_border.dart';
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
@@ -31,9 +32,13 @@ class RaftMessageRowRecipe {
     this.focused = false,
     this.popupOpen = false,
     this.highlighted = false,
+    this.devicePixelRatio = 1,
   });
   final RaftTokens tokens;
   final double viewportWidth;
+
+  /// For Blink's whole-device-pixel border widths ([raftCssBorderWidth]).
+  final double devicePixelRatio;
   final RaftMessageRowContext rowContext;
   final bool continuation, nextContinuation, hovered, focused, popupOpen;
   final bool highlighted;
@@ -161,7 +166,7 @@ class RaftMessageRowRecipe {
           : tokens.dark
           ? Colors.transparent
           : tokens.colors['line-muted']!,
-      width: tokens.brutal ? 2 : .5,
+      width: tokens.brutal ? 2 : raftCssBorderWidth(.5, devicePixelRatio),
     ),
     borderRadius: BorderRadius.circular(tokens.brutal ? 0 : 8),
     boxShadow: tokens.brutal || tokens.dark
@@ -797,6 +802,7 @@ class RaftMessageToolbar extends StatelessWidget {
     final recipe = RaftMessageRowRecipe(
       RaftTokens.of(context),
       viewportWidth: raftBreakpointWidth(context),
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
     return Container(
       decoration: recipe.toolbarDecoration,

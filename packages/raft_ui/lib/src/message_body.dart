@@ -919,6 +919,7 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
             children: [
               if (!widget.exportMode)
                 _MermaidToolbar(
+                  key: const ValueKey('mermaid-toolbar'),
                   showSource: showSource,
                   copied: copied,
                   valid: scene != null,
@@ -979,6 +980,7 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
 
 class _MermaidToolbar extends StatelessWidget {
   const _MermaidToolbar({
+    super.key,
     required this.showSource,
     required this.copied,
     required this.valid,

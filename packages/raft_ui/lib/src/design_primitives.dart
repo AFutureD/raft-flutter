@@ -2251,19 +2251,24 @@ class RaftMenuPanel extends StatelessWidget {
         policy: ReadingOrderTraversalPolicy(),
         child: Semantics(
           role: SemanticsRole.menu,
-          child: Container(
-            width: width,
-            padding: padding ?? recipe.inset,
-            decoration: BoxDecoration(
-              color: recipe.background,
-              borderRadius: recipe.radius,
-              border: Border.fromBorderSide(recipe.border),
-              boxShadow: recipe.shadows,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: children,
+          // Menus open in the root Overlay, outside any Material: keep the
+          // debug "no Material" underline style off the items.
+          child: DefaultTextStyle.merge(
+            style: const TextStyle(decoration: TextDecoration.none),
+            child: Container(
+              width: width,
+              padding: padding ?? recipe.inset,
+              decoration: BoxDecoration(
+                color: recipe.background,
+                borderRadius: recipe.radius,
+                border: Border.fromBorderSide(recipe.border),
+                boxShadow: recipe.shadows,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
             ),
           ),
         ),

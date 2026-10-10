@@ -276,13 +276,21 @@ class DocumentAttachmentRecipe {
     vertical: viewportWidth >= 768 ? 48 : 32,
   );
   EdgeInsets get textInset => const EdgeInsets.all(16);
+
+  /// The pane surface: `bg-layer-canvas-muted` / brutal `bg-brutal-cream/45`,
+  /// over the shell's own canvas (brutal cream), so the same cream.
   Color get background => tokens.brutal
-      ? tokens.product.brutalCream.withValues(alpha: .45)
+      ? tokens.components.brutalCream
       : tokens.colors['layer-canvas-muted']!;
   Color get paper => tokens.panel;
   double get maxColumnWidth => 220;
-  TextStyle get tableText =>
-      RaftTypography.mono(tokens, size: 11, line: 20, color: tokens.strong);
+  // `text-[11px]` inherits the root's `line-height: 1.5`: 16.5px.
+  TextStyle get tableText => RaftTypography.mono(
+    tokens,
+    size: 11,
+    line: 16.5,
+    color: tokens.brutal ? RaftPrimitiveColors.black : tokens.strong,
+  );
   TextStyle get text =>
       RaftTypography.mono(tokens, size: 12, line: 20, color: tokens.strong);
   TextStyle get heading => RaftTypography.body(
@@ -293,7 +301,7 @@ class DocumentAttachmentRecipe {
     color: tokens.brutal ? tokens.strong.withValues(alpha: .55) : tokens.muted,
   );
   Color get tableHeader => tokens.brutal
-      ? tokens.product.brutalCream
+      ? tokens.components.brutalCream
       : tokens.colors['layer-canvas-muted']!;
   Color get rowStripe => RaftPrimitiveColors.black.withValues(alpha: .03);
   BorderSide get border => BorderSide(
@@ -302,7 +310,16 @@ class DocumentAttachmentRecipe {
         : tokens.colors['line-muted']!,
     width: tokens.border,
   );
-  EdgeInsets get cellInset => MessageContentPrimitive.tableInset;
+  // Collapsed 1px borders add 0.5px to each side of a cell's row.
+  EdgeInsets get cellInset => const EdgeInsets.symmetric(horizontal: 8, vertical: 4.25);
+
+  /// Inner cell grid: `border border-line-muted theme-brutal:border-black/40`.
+  BorderSide get cellBorder => BorderSide(
+    color: tokens.brutal
+        ? RaftPrimitiveColors.black.withValues(alpha: .4)
+        : tokens.colors['line-muted']!,
+    width: 1,
+  );
 }
 
 /// Per-build heading padding, never cached across account/content changes.

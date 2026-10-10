@@ -807,6 +807,60 @@ rasterisation (Chromium's glyphs are darker, see "Text rendering"), which
 keeps text-dense cards at 89–96 %. Not covered: the failed-write error
 notice (Web `toast.error`; Flutter uses a SnackBar), hover states.
 
+### Thread, timeline, attachment and message-surface cases (`components.thread-ext.*`, 240 cases)
+
+Three builders append to `cases.json` (run after the others, in this order):
+`build-thread-cases.py` (thread panel, channel timeline states, inline replies,
+Threads inbox; React `host/ThreadCases.tsx`, Flutter `cases/ext_thread.dart`,
+data `fixtures/thread.json`), `build-thread-attachments.py` (preview hosts,
+lightbox, comments panel; `host/ThreadAttachmentCases.tsx`,
+`cases/ext_thread_attachments.dart`) and `build-thread-messages.py` (hover
+toolbar, reaction picker, forwarded bundle, mermaid, notification banner, SOS;
+`host/ThreadMessageCases.tsx`, `cases/ext_thread_messages.dart`).
+
+* Thread / timeline: React mounts the real `ThreadPanel` (side) or `ChatPanel`
+  in a column-sized box and clips `(winY, winH)`; the box is a CSS-transformed
+  column so the mobile page's `fixed` header cannot leak into a bottom window.
+  Flutter mounts the real `WorkspaceView`. Both providers answer the same
+  `routes` / `routeSets` (messages, thread context); `{"$pending": true}` keeps
+  a read open (loading states). Ids: `thread.<platform>.{panel,empty,loading,
+  history-limited,composer,overflow-menu}`, `timeline.<platform>.{dates,empty,
+  loading,history-limited,history-top,system-collapsed,system-expanded,
+  back-to-bottom}`, `inline.<platform>.preview`, `inbox.desktop.empty`.
+* Clock: the React provider pins `page.clock` to the fixture instant
+  (2026-06-19T12:30Z). Flutter reads the same instant through
+  `sourceTimeNow` (set by the builders); `props.clockIso` overrides both per
+  case (the history-limit cases use 2026-06-24, after the Free trial, where
+  the cutoff is 30 days). New interaction `scroll` (React wheel over the
+  target, Flutter drag of a keyed list; `dy` is 20px larger than `y` because
+  Flutter's drag consumes the touch slop).
+* Product gaps found and fixed in Flutter: Web `HistoryLimitBanner` (plan days
+  + "View Billing") for channels and for a thread whose replies all sit behind
+  the cutoff (was a lock chip); thread history copy ("Older replies are
+  limited by the current plan", "Loading older replies..."); an empty or
+  history-limited thread has no history-top line or reply count; adjacent
+  system messages collapse into the `SystemMessageGroup` disclosure
+  (`systemMessageGrouping.ts` port, task / reminder / system summaries);
+  thread overflow labels ("Search in thread", "Follow Thread"); menu panels
+  no longer inherit the debug no-Material underline.
+
+| family | cases | before (passing >96 %, mean) | after |
+| --- | --- | --- | --- |
+| thread panel (6 states x 2 platforms) | 36 | 14, 92.5 % | 15, 94.3 % |
+| timeline (8 x 2) | 48 | 23, 83.5 % | 36, 97.0 % |
+| inline replies | 6 | 6, 97.8 % | 6, 97.8 % |
+| Threads inbox (empty) | 3 | n/a | 0, 93.8 % |
+| attachments | 78 | 7, 54.7 % | 35, 94.7 % |
+| message surfaces | 69 | n/a (see branch notes) | 4, 80.7 % |
+
+What remains in the thread / timeline families is the text bucket (Skia vs
+Chromium glyph rasterisation) plus: the elegant composer send button fill
+(one channel level), a 1px header / overflow-menu vertical offset in the
+elegant theme, the empty-thread history-limit banner sitting 13px higher than
+Web's centred slot, and the narrow-row agent description ("K" before the time
+on 390px rows). Not covered: thread agent followers popover, the "N new
+updates" pill (needs a live update while scrolled), the quoted-permalink card
+(no Flutter widget).
 ### Desktop notifications card cases (2 states x 3 themes = 6)
 
 Derived from Web `SettingsPanel.tsx` `NotificationsSection` ->

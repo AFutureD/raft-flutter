@@ -11,6 +11,9 @@ import 'cases/ext_computers.dart';
 import 'cases/ext_live_activity.dart';
 import 'cases/ext_settings.dart';
 import 'cases/ext_search_overlay.dart';
+import 'cases/ext_thread.dart';
+import 'cases/ext_thread_attachments.dart';
+import 'cases/ext_thread_messages.dart';
 import 'cases/ext_notifications.dart';
 import 'cases/ext_task_detail.dart';
 import 'cases/home_tasks.dart';
@@ -35,6 +38,9 @@ final Map<String, ParityCase> parityCases = {
   ...extSettingsCases,
   ...extAnnouncementCases,
   ...extSearchOverlayCases,
+  ...extThreadCases,
+  ...extThreadAttachmentCases,
+  ...extThreadMessageCases,
   ...extNotificationCases,
   ...extTaskDetailCases,
   ...extComposerAttachmentCases,

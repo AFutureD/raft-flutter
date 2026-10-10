@@ -166,7 +166,7 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
   }
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context), recipe = ForwardedSnapshotRecipe(RaftTokens.of(context));
+    final t = RaftTokens.of(context), recipe = ForwardedSnapshotRecipe(RaftTokens.of(context), devicePixelRatio: MediaQuery.devicePixelRatioOf(context));
     final items = raftForwardedItems(widget.metadata);
     if (items.isEmpty) return Text(raftText(context, 'Forwarded messages unavailable.'));
     final foldable = bodyHeights.length == items.length && bodyHeights.values.fold<double>(0, (a, b) => a + b) > recipe.collapsedHeight + 1;

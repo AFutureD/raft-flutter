@@ -29,6 +29,18 @@ String raftFormat(
 }
 
 const raftChinese = <String, String>{
+  "{count} task update": "{count} 条任务更新",
+  "{count} task updates": "{count} 条任务更新",
+  "{count} reminder update": "{count} 条提醒更新",
+  "{count} reminder updates": "{count} 条提醒更新",
+  "{count} system message": "{count} 条系统消息",
+  "{count} system messages": "{count} 条系统消息",
+  "There is {part}": "有 {part}",
+  "There are {part}": "有 {part}",
+  "There are {parts}": "有 {parts}",
+  "There are {count} system updates: {parts}": "有 {count} 条系统更新：{parts}",
+  "Message history is limited to {days} days on the {plan} plan.":
+      "消息历史在 {plan} 套餐下仅保留 {days} 天。",
   // Settings > Feedback (hands-feedback-react 0.4.1 locale.ts zh-CN).
   "Submit": "提交",
   "Close ticket": "关闭工单",

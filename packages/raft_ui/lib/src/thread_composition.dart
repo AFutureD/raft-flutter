@@ -63,9 +63,9 @@ class RaftThreadCompositionRecipe {
       ? const BorderSide(color: Colors.black, width: 2)
       // Mounted ThreadPanelRoot gives its AppPanelHeader a bottom rule.
       : BorderSide(color: tokens.colors['line-muted']!);
-  Color get parentBackground =>
-      RaftConversationSurfaceRecipe(tokens)
-          .background(RaftConversationSurfaceRole.threadParent);
+  Color get parentBackground => RaftConversationSurfaceRecipe(
+    tokens,
+  ).background(RaftConversationSurfaceRole.threadParent);
   EdgeInsets get parentInset => const EdgeInsets.all(12);
   BorderSide get parentBorder => BorderSide(
     color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
@@ -431,6 +431,7 @@ class RaftThreadTimelineTopSliver extends StatelessWidget {
     this.parentKey,
     this.showSummary = true,
   });
+
   final bool hasMore, historyLimited, loadingOlder;
   final String loadingOlderLabel, historyLimitedLabel, beginningLabel;
 
