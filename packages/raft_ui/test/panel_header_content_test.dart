@@ -75,12 +75,26 @@ void main() {
             ('design', 'Product and UI decisions'),
             ('Designer', '@designer'),
           ]) {
-            final heading = css(title), subtitle = css(meta);
+            // Below the 768 desktop breakpoint RaftPanelHeaderBar is the shared
+            // RaftMobilePageHeader (owner's mobile header unification, 7f2a95b):
+            // plain Text, a stacked 16/20 title over 12/16 meta in every
+            // family, instead of Web's RaftCssText title/meta flow.
+            final mobileBar = width < 768 && title == 'Designer';
+            Finder textOf(String value) => mobileBar
+                ? find.text(value, findRichText: true)
+                : css(value);
+            final heading = textOf(title), subtitle = textOf(meta);
             expect(heading, findsOneWidget);
             expect(subtitle, findsOneWidget);
             final head = t.getRect(heading), sub = t.getRect(subtitle);
             final inline = family == RaftFamily.elegant && width >= 768;
-            if (inline) {
+            if (mobileBar) {
+              expect(find.byType(RaftMobilePageHeader), findsNWidgets(2));
+              expect(sub.left, head.left);
+              expect(sub.top, head.bottom);
+              expect(head.height, 20);
+              expect(sub.height, 16);
+            } else if (inline) {
               expect(sub.left - head.right, closeTo(8, .02));
               expect(
                 baseline(t, heading),

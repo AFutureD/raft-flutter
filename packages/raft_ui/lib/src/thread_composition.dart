@@ -171,6 +171,7 @@ class RaftThreadHeader extends StatelessWidget {
       return RaftMobilePageHeader(
         title: interactiveTitle && onJumpToStart != null
             ? TextButton(
+                key: jumpKey,
                 onPressed: onJumpToStart,
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,

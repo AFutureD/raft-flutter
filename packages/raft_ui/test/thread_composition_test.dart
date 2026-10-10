@@ -150,8 +150,11 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('thread-close')));
         expect(close, 1);
         await mount(tester, header(RaftThreadPresentation.modal, 390));
+        // Below the 768 desktop breakpoint the thread covers the channel as a
+        // page (RaftMobilePageHeader, 7f2a95b): Back is the only dismissal and
+        // Close is not drawn, even for a modal presentation.
         expect(find.byKey(const ValueKey('thread-back')), findsOneWidget);
-        expect(find.byKey(const ValueKey('thread-close')), findsOneWidget);
+        expect(find.byKey(const ValueKey('thread-close')), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -286,10 +289,9 @@ void main() {
         final titleRect = tester.getRect(
           find.byKey(const ValueKey('title-target')),
         );
-        // Back is the source-sized PanelAction (as AppPanelHeader); its
-        // touch target extends past the painted box without moving the
-        // title, like the channel header's actions.
-        expect(backRect.height, lessThan(48));
+        // Mobile headers (RaftMobilePageHeader, 7f2a95b) give Back its own
+        // full 48px slot, separate from the title's touch target.
+        expect(backRect.size, const Size.square(48));
         expect(titleRect.height, greaterThanOrEqualTo(48));
         expect(backRect.overlaps(titleRect), false);
         final semantics = tester.ensureSemantics();
