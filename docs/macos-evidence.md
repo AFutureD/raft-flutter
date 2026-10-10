@@ -60,3 +60,9 @@ Debug / Profile 与 Release 均启用 App Sandbox，权限位于 `macos/Runner/D
 媒体插件当前通过 CocoaPods 接入，其尚未支持 Swift Package Manager；构建有上游弃用/宏定义警告，但最终编译通过。此记录不代表 macOS 完整功能轮次通过。
 
 权限配置依据 [Flutter macOS 宿主说明](https://docs.flutter.dev/platform-integration/macos/building)；Keychain 配置依据 [flutter_secure_storage 11.2.0 官方说明](https://pub.dev/packages/flutter_secure_storage)。
+
+## 品牌图标（2026-10-11）
+
+macOS AppIcon 已替换 Flutter 默认图标，使用 Android 前景与设计系统相同的 Raft 标记：品牌黄 `#FFD440` 圆角底、黑色标记、纸色 `#FFFAEF` 镂空填充。1024px 画布保留外部透明边距，提供 16–1024px 七套 PNG，映射现有 1x/2x 资源槽。`tool/gen-macos-icon` 从现有品牌矢量生成这些资源，无新增 Flutter 包或运行时图像加载。
+
+使用 FVM Flutter 3.47.6 更新 Release 配置，再通过 Xcode 指定 `ARCHS=arm64`、`ONLY_ACTIVE_ARCH=YES` 构建成功。主程序及 Dart App.framework 为 arm64；bundle 引用已生成的 `AppIcon.icns`，签名校验通过。未启动或置前应用；Dock/Finder 图标刷新及实际窗口展示未验收。
