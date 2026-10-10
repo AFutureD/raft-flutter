@@ -3116,10 +3116,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     // selection. Its identity belongs to the channel that opened the sheet.
     final channel = w.channel;
     if (channel == null) return;
-    await showDialog(
-      context: context,
-      builder: (_) =>
-          ChannelSettings(controller: w, channel: channel, isPanel: true),
+    await ChannelSettings.show(
+      context,
+      controller: w,
+      channel: channel,
+      dmName: channel.type == 'dm' ? dmPeer(channel, requestSize: 36).name : null,
     );
   }
 

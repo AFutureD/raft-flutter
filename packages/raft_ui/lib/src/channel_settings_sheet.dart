@@ -23,8 +23,10 @@ class RaftSheetSwitchRow {
     required this.value,
     this.onChanged,
     this.pending = false,
+    this.key,
   });
   final String title, description;
+  final Key? key;
   final bool value;
   final ValueChanged<bool>? onChanged;
 
@@ -37,9 +39,22 @@ class RaftSheetSwitchRow {
 /// `mt-2 divide-y divide-black/10` rows.
 @immutable
 class RaftSheetSection {
-  const RaftSheetSection(this.title, this.rows);
+  const RaftSheetSection(
+    this.title,
+    this.rows, {
+    this.description,
+    this.usage,
+    this.key,
+  });
   final String title;
   final List<RaftSheetSwitchRow> rows;
+
+  /// `mt-1 text-xs font-normal text-foreground-muted` under the heading.
+  final String? description;
+
+  /// `mt-2 text-xs font-semibold text-foreground-muted` (already formatted).
+  final String? usage;
+  final Key? key;
 }
 
 /// Sheet action button: `Button size="sm"` with `flex w-full items-center
@@ -92,89 +107,6 @@ class RaftChannelSettingsSheet extends StatelessWidget {
   /// Footer Save; omitted when null (no edit capability).
   final VoidCallback? onSave;
   final bool saveDisabled;
-
-  Widget _switchRow(
-    BuildContext context,
-    RaftTokens t,
-    RaftSheetSwitchRow row,
-  ) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                raftText(context, row.title),
-                style: raftCssTextStyle(
-                  family: t.headingFont,
-                  step: RaftTextSteps.sm,
-                  weight: FontWeight.w500,
-                  color: t.strong,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                raftText(context, row.description),
-                style: raftCssTextStyle(
-                  family: t.headingFont,
-                  step: RaftTextSteps.xs,
-                  color: t.colors['foreground-muted'],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Visibility(
-          visible: !row.pending,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: RaftSwitch(
-            value: row.value,
-            size: RaftSwitchSize.md,
-            semanticLabel: raftText(context, row.title),
-            // The row keeps CSS geometry; the switch is its own tap target.
-            minimumTargetSize: 0,
-            onChanged: busy || row.pending ? null : row.onChanged,
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _section(BuildContext context, RaftTokens t, RaftSheetSection s) {
-    final divider = t.brutal
-        ? Colors.black.withValues(alpha: .1)
-        : t.colors['line-muted']!;
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            raftText(context, s.title),
-            style: raftCssTextStyle(
-              family: t.headingFont,
-              step: RaftTextSteps.base,
-              weight: FontWeight.w700,
-              color: t.strong,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < s.rows.length; i++)
-            DecoratedBox(
-              decoration: BoxDecoration(
-                border: i == 0 ? null : Border(top: BorderSide(color: divider)),
-              ),
-              child: _switchRow(context, t, s.rows[i]),
-            ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +243,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
             ],
           ),
         ),
-      for (final s in sections) _section(context, t, s),
+      for (final s in sections) raftSheetSection(context, t, s, busy: busy),
       if (showActions)
         Padding(
           padding: const EdgeInsets.only(top: 20),
@@ -448,4 +380,123 @@ class RaftChannelSettingsSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// One `py-3` preference row (`flex items-center justify-between gap-3`).
+Widget raftSheetSwitchRow(
+  BuildContext context,
+  RaftTokens t,
+  RaftSheetSwitchRow row, {
+  bool busy = false,
+}) => Padding(
+  padding: const EdgeInsets.symmetric(vertical: 12),
+  child: Row(
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              raftText(context, row.title),
+              style: raftCssTextStyle(
+                family: t.headingFont,
+                step: RaftTextSteps.sm,
+                weight: FontWeight.w500,
+                color: t.strong,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              raftText(context, row.description),
+              style: raftCssTextStyle(
+                family: t.headingFont,
+                step: RaftTextSteps.xs,
+                color: t.colors['foreground-muted'],
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 12),
+      Visibility(
+        visible: !row.pending,
+        maintainSize: true,
+        maintainAnimation: true,
+        maintainState: true,
+        child: RaftSwitch(
+          key: row.key,
+          value: row.value,
+          size: RaftSwitchSize.md,
+          semanticLabel: raftText(context, row.title),
+          // The row keeps CSS geometry; the switch is its own tap target.
+          minimumTargetSize: 0,
+          onChanged: busy || row.pending ? null : row.onChanged,
+        ),
+      ),
+    ],
+  ),
+);
+
+/// `<section className="mt-5">`: `h3 text-base font-bold`, optional
+/// description / usage paragraphs, then `mt-2 divide-y divide-black/10` rows.
+Widget raftSheetSection(
+  BuildContext context,
+  RaftTokens t,
+  RaftSheetSection s, {
+  bool busy = false,
+}) {
+  final divider = t.brutal
+      ? Colors.black.withValues(alpha: .1)
+      : t.colors['line-muted']!;
+  final muted = t.colors['foreground-muted'];
+  return Padding(
+    key: s.key,
+    padding: const EdgeInsets.only(top: 20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          raftText(context, s.title),
+          style: raftCssTextStyle(
+            family: t.headingFont,
+            step: RaftTextSteps.base,
+            weight: FontWeight.w700,
+            color: t.strong,
+          ),
+        ),
+        if (s.description != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            raftText(context, s.description!),
+            style: raftCssTextStyle(
+              family: t.headingFont,
+              step: RaftTextSteps.xs,
+              color: muted,
+            ),
+          ),
+        ],
+        if (s.usage != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            s.usage!,
+            style: raftCssTextStyle(
+              family: t.headingFont,
+              step: RaftTextSteps.xs,
+              weight: FontWeight.w600,
+              color: muted,
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        for (var i = 0; i < s.rows.length; i++)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: i == 0 ? null : Border(top: BorderSide(color: divider)),
+            ),
+            child: raftSheetSwitchRow(context, t, s.rows[i], busy: busy),
+          ),
+      ],
+    ),
+  );
 }
