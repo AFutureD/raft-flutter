@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Append the Settings -> Notifications desktop card cases to
-tool/parity-ext/cases.json.
+the run-time manifest ($PARITY_EXT_MANIFEST).
 
 Run after build-cases.py and build-live-activity.py (build-cases.py rewrites
-cases.json from scratch); idempotent: every `components.notifications.*` case
+the manifest from scratch); idempotent: every `components.notifications.*` case
 is replaced, all other cases are kept, and new ids are appended after them.
 
 Derivation (raft-source packages/web/src):
@@ -17,8 +17,11 @@ The capture is the SectionHeader + card block of the 640px settings column.
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 VIEWPORT = {'width': 640, 'height': 600, 'density': 1}
 SELECTOR = 'div:has(> [data-testid="desktop-notifications-card"])'
@@ -50,7 +53,7 @@ for kind, available in [('available', True), ('unavailable', False)]:
             'tolerance': {'pixelRatio': 0.02, 'layoutDp': 1, 'ignoreAntialiasing': True},
         })
 
-path = here / 'cases.json'
+path = manifest_path()
 manifest = json.loads(path.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith('components.notifications.')] + cases
 path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')

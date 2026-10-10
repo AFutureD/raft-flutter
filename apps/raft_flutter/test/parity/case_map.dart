@@ -32,7 +32,7 @@ final Map<String, ParityCase> parityCases = {
   ...homeTaskCases,
   ...membersSettingsCases,
   ...screenCases,
-  // Extension suite (tool/parity-ext/cases.json), not official cases.
+  // Extension suite (manifest generated at run time by tool/parity-ext/run), not official cases.
   ...extComputerCases,
   ...extLiveActivityCases,
   ...extChannelHeaderCases,

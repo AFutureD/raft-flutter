@@ -262,7 +262,7 @@
     "id": "N19",
     "title_zh": "手机底部标签无论点当前还是别的，都回到该标签首页并新增一条历史，不恢复之前的子页面。",
     "web_source": "mobile tab E2E:155–204 [T18]",
-    "audit_note": "apps/raft_flutter/test/mobile_workspace_navigation_test.dart:433–441 断言点当前 Settings 回根且 index+1；切到别的标签时的 PUSH 和清子页未断言（代码 lib/features/workspace_view.dart:139–157 无标签记忆，应能满足）。",
+    "audit_note": "apps/raft_flutter/test/mobile_workspace_navigation_test.dart:433–441 断言点当前 Settings 回根且 index+1；切到别的标签时的 PUSH 和清子页未断言（代码 lib/features/workspace_view.dart:139–157 无标签记忆，应能满足）。 有意差异（产品负责人决定 2026-10-11）：Web 在标签根页按 Back 会回退已访问的标签根页；手机 App 在标签根页的系统 Back 交还系统（Android 退到后台），不回退。mobile_tab_bar_root_test.dart 的 [N19] 据此断言 handlePopRoute() 返回 false，其余断言（点标签总是 PUSH 根页、不恢复子页）不变。",
     "checks": [
       {
         "id": "N19",

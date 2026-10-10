@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append the thread / timeline cases to tool/parity-ext/cases.json and write
+"""Append the thread / timeline cases to the run-time manifest ($PARITY_EXT_MANIFEST) and write
 tool/parity-ext/fixtures/thread.json.
 
 Run after build-cases.py, build-live-activity.py, build-channel-header.py,
@@ -33,8 +33,11 @@ the fixture instant (fixtureData locale.nowEpochMillis = 2026-06-19T12:30Z, i.e.
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 DESKTOP = {'width': 1280, 'height': 800, 'density': 1}
 MOBILE = {'width': 390, 'height': 844, 'density': 3}
@@ -285,11 +288,11 @@ for platform, win in (('desktop', (0, 240)), ('mobile', (0, 240))):
         interactions=[{'type': 'click', 'target': '[data-testid="thread-overflow-trigger"]'}],
         android=[{'type': 'tap', 'key': 'thread-options'}])
 
-manifest_path = here / 'cases.json'
-manifest = json.loads(manifest_path.read_text())
+manifest_out = manifest_path()
+manifest = json.loads(manifest_out.read_text())
 own = tuple(PREFIX + s for s in OWN)
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith(own)] + cases
-manifest_path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
+manifest_out.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
 (here / 'fixtures/thread.json').write_text(json.dumps(fixture, indent=1, ensure_ascii=False) + '\n')
-print(f'{len(cases)} thread/timeline cases appended -> tool/parity-ext/cases.json; '
+print(f'{len(cases)} thread/timeline cases appended -> the run-time manifest ($PARITY_EXT_MANIFEST); '
       'fixture -> tool/parity-ext/fixtures/thread.json')

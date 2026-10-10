@@ -22,7 +22,8 @@ void main() {
   for (final theme in ['brutal', 'elegant-light']) {
     // tab-bar-sidebar.spec.ts:155–204 [T18] and useMobileNav.ts:89–109: every
     // tab tap, active or inactive, PUSHes that tab's root and drops its
-    // previously visited sub-page; Back still rewinds the visited surfaces.
+    // previously visited sub-page. Intended difference from Web (owner
+    // decision 2026-10-11): Back at a tab root is handed to the system.
     testWidgets(
       '[N19] actual RaftApp $theme tab taps always PUSH the tab root and never restore a sub-page',
       (t) async {
@@ -97,11 +98,15 @@ void main() {
         expect(find.byKey(const Key('mobile-settings-back')), findsNothing);
         expect(find.byKey(tabBar), findsOneWidget);
 
-        // Tab taps did not replace history: Back rewinds the visited roots.
-        expect(await t.binding.handlePopRoute(), isTrue);
+        // OWNER DECISION 2026-10-11 (intended difference from Web): at a
+        // mobile tab root system Back is handed to the system (Android moves
+        // the app to the background) instead of rewinding the visited tab
+        // roots. The app must not consume the pop or move the location.
+        final rootIndex = w.navigation.index;
+        expect(await t.binding.handlePopRoute(), isFalse);
         await f.flush(t);
-        expect(w.location.toString(), '/s/alpha');
-        expect(w.navigation.index, index);
+        expect(w.location.toString(), '/s/alpha/settings');
+        expect(w.navigation.index, rootIndex);
         await f.close(t);
       },
     );

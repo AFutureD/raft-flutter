@@ -41,9 +41,15 @@ void main() {
           of: find.text('首页专修'),
           matching: find.byType(RaftCssText),
         );
+        // Narrow widths use the shared 56px RaftMobilePageHeader in every
+        // family (owner's mobile header unification, 7f2a95b): the title and
+        // description column is centred in the header, no longer pinned to
+        // Web's 12px desktop padding.
+        expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
         if (family == RaftFamily.brutal) {
           expect(t.getSize(titleBox).height, 20);
-          expect(t.getTopLeft(titleBox).dy, 12);
+          // 56px header centring the 37px title + one-line description.
+          expect(t.getTopLeft(titleBox).dy, 9.5);
         }
         for (final label in ['Search this channel', 'Channel settings']) {
           expect(t.getSize(find.bySemanticsLabel(label)), const Size(28, 28));

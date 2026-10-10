@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate the raft-flutter EXTENSION suite for the official visual-testing
-framework: tool/parity-ext/cases.json (same schema as raft-source
+framework: the run-time manifest ($PARITY_EXT_MANIFEST) (same schema as raft-source
 packages/visual-testing/shared/sharedCases.json, so the official CLI runs it
 unmodified via --manifest) and tool/parity-ext/fixtures/computers.json (data
 both providers render).
@@ -22,8 +22,11 @@ MachineDetailPanel at raft-source 26f77ef -
 import copy
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 SID = 'visual-server'
 
@@ -924,7 +927,7 @@ manifest = {
                     'React provider spec (generated copy) and the Flutter provider, diffed/sited by the official CLI.'),
     'cases': cases,
 }
-(here / 'cases.json').write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
+manifest_path().write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
 (here / 'fixtures/computers.json').write_text(json.dumps(fixture, indent=1, ensure_ascii=False) + '\n')
 (here / 'fixtures/settings.json').write_text(json.dumps(settings_fixture, indent=1, ensure_ascii=False) + '\n')
-print(f"{len(cases)} extension cases -> tool/parity-ext/cases.json; fixtures -> tool/parity-ext/fixtures/{{computers,settings}}.json")
+print(f"{len(cases)} extension cases -> the run-time manifest ($PARITY_EXT_MANIFEST); fixtures -> tool/parity-ext/fixtures/{{computers,settings}}.json")

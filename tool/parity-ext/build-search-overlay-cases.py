@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate the SEARCH OVERLAY part of the raft-flutter parity EXTENSION suite:
 tool/parity-ext/fixtures/search-overlay.json (data both providers render) and
-the `components.search-overlay.<key>.<theme>` entries of tool/parity-ext/cases.json.
+the `components.search-overlay.<key>.<theme>` entries of the run-time manifest ($PARITY_EXT_MANIFEST).
 
-cases.json is append-only here: every existing entry stays byte-for-byte, only
+The manifest is append-only here: every existing entry stays byte-for-byte, only
 entries whose id starts with `components.search-overlay.` are replaced.
 build-cases.py keeps these entries when it regenerates the computers cases.
 
@@ -32,8 +32,11 @@ Fixture layout (every Flutter-needed datum):
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 SID = 'visual-server'
 USER = 'visual-user'
@@ -317,10 +320,10 @@ case('filters-sender', 'filters: From a person', props={'query': 'android', 'sen
 
 # --------------------------------------------------------------- write out
 (here / 'fixtures/search-overlay.json').write_text(json.dumps(fixture, indent=1, ensure_ascii=False) + '\n')
-manifest_path = here / 'cases.json'
-manifest = json.loads(manifest_path.read_text())
+manifest_out = manifest_path()
+manifest = json.loads(manifest_out.read_text())
 kept = [c for c in manifest['cases'] if not c['id'].startswith('components.search-overlay.')]
 manifest['cases'] = kept + cases
-manifest_path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
-print(f'{len(cases)} search overlay cases (+{len(kept)} existing) -> tool/parity-ext/cases.json; '
+manifest_out.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
+print(f'{len(cases)} search overlay cases (+{len(kept)} existing) -> the run-time manifest ($PARITY_EXT_MANIFEST); '
       'fixture -> tool/parity-ext/fixtures/search-overlay.json')

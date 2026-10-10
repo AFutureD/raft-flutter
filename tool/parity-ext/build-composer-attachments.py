@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append the composer attachment cases to tool/parity-ext/cases.json.
+"""Append the composer attachment cases to the run-time manifest ($PARITY_EXT_MANIFEST).
 
 Run after build-cases.py, build-live-activity.py, build-channel-header.py,
 build-announcements.py and build-search-overlay-cases.py; idempotent: every
@@ -16,8 +16,11 @@ fixtures/composer-attachments.json `kinds`; both providers read it.
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 # Desktop: the composer in the chat column (a 760px column of the 1280 window).
 # Mobile: the 390 phone viewport; `touch` makes the browser report
@@ -73,7 +76,7 @@ for platform, viewport, kinds in (('desktop', DESKTOP, DESKTOP_KINDS), ('mobile'
                 'tolerance': {'pixelRatio': 0.02, 'layoutDp': 1, 'ignoreAntialiasing': True},
             })
 
-path = here / 'cases.json'
+path = manifest_path()
 manifest = json.loads(path.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith('components.composerattachments.')] + cases
 path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')

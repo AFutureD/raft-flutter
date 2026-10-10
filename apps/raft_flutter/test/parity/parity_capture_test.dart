@@ -8,7 +8,7 @@
 //   PARITY_RUN_INFO     optional JSON merged into metadata.flutter
 //   PARITY_MANIFEST     optional case manifest (default: the official
 //                       sharedCases.json); tool/parity-ext points it at the
-//                       extension suite tool/parity-ext/cases.json
+//                       extension suite manifest it generates (build/parity-ext/cases.sampled.json)
 //   PARITY_EXT_FIXTURES optional dir of extension fixture JSON, loaded by stem
 //                       (tool/parity-ext/fixtures)
 import 'dart:convert';

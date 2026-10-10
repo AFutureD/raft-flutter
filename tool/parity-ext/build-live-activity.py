@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append the live agent activity bar cases to tool/parity-ext/cases.json.
+"""Append the live agent activity bar cases to the run-time manifest ($PARITY_EXT_MANIFEST).
 
 Run after build-cases.py (which regenerates the Computers cases); idempotent:
 every `components.liveactivity.*` case is replaced, all other cases are kept.
@@ -14,8 +14,11 @@ Ids: components.liveactivity.<platform>.<kind>.<theme>. Props `activity`,
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 DESKTOP = {'width': 240, 'height': 400, 'density': 1}
 MOBILE = {'width': 390, 'height': 844, 'density': 3}
@@ -62,7 +65,7 @@ for platform, (viewport, kinds) in PLATFORMS.items():
                 'tolerance': {'pixelRatio': 0.02, 'layoutDp': 1, 'ignoreAntialiasing': True},
             })
 
-path = here / 'cases.json'
+path = manifest_path()
 manifest = json.loads(path.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith('components.liveactivity.')] + cases
 path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
