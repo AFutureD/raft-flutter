@@ -60,7 +60,7 @@ void main() {
       expect(find.text('WELCOME'), findsOneWidget);
       expect(find.text('inline code'), findsOneWidget);
       expect(find.text('SECTION'), findsOneWidget);
-      expect(find.text('• '), findsNWidgets(2));
+      expect(find.text('First item'), findsOneWidget);
       expect(find.text('2. '), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       // max-w-xl
