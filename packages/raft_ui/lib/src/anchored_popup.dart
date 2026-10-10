@@ -17,12 +17,16 @@ class RaftAnchoredPopup extends StatefulWidget {
     this.toRight = false,
     this.gap = 4,
     this.collisionPadding = 5,
+    this.snapToPixel = false,
   });
   final GlobalKey anchorKey;
   final Widget child;
   final Listenable? movement;
   final bool above, alignRight, toRight;
   final double gap, collisionPadding;
+
+  /// floating-ui rounds the computed position to whole pixels.
+  final bool snapToPixel;
 
   @override
   State<RaftAnchoredPopup> createState() => _RaftAnchoredPopupState();
@@ -94,6 +98,7 @@ class _RaftAnchoredPopupState extends State<RaftAnchoredPopup> {
         toRight: widget.toRight,
         gap: widget.gap,
         gutter: widget.collisionPadding,
+        snap: widget.snapToPixel,
       ),
       child: SingleChildScrollView(child: widget.child),
     );
@@ -108,7 +113,9 @@ class _PopupLayout extends SingleChildLayoutDelegate {
     required this.toRight,
     required this.gap,
     required this.gutter,
+    this.snap = false,
   });
+  final bool snap;
   final Rect anchor;
   final bool above, alignRight, toRight;
   final double gap;
@@ -141,7 +148,7 @@ class _PopupLayout extends SingleChildLayoutDelegate {
       );
     }
     final right = math.max(gutter, size.width - gutter - childSize.width);
-    final left = (alignRight ? anchor.right - childSize.width : anchor.left)
+    final double left = (alignRight ? anchor.right - childSize.width : anchor.left)
         .clamp(gutter, right);
     final below = anchor.bottom + gap;
     final upper = anchor.top - gap - childSize.height;
@@ -150,13 +157,13 @@ class _PopupLayout extends SingleChildLayoutDelegate {
     final top = above
         ? (upperFits || !bottomFits ? upper : below)
         : (bottomFits ? below : upper);
-    return Offset(
-      left,
-      top.clamp(
-        gutter,
-        math.max(gutter, size.height - gutter - childSize.height),
-      ),
+    final double y = top.clamp(
+      gutter,
+      math.max(gutter, size.height - gutter - childSize.height),
     );
+    return snap
+        ? Offset(left.roundToDouble(), y.roundToDouble())
+        : Offset(left, y);
   }
 
   @override
@@ -166,5 +173,6 @@ class _PopupLayout extends SingleChildLayoutDelegate {
       alignRight != old.alignRight ||
       toRight != old.toRight ||
       gap != old.gap ||
-      gutter != old.gutter;
+      gutter != old.gutter ||
+      snap != old.snap;
 }

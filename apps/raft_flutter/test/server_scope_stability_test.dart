@@ -13,6 +13,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter;
+import 'source_feedback_store_test.dart' as fb;
 
 /// Server-level data (agents, members, Saved total, live activity) belongs to
 /// the server identity, not the open channel: switching or joining channels
@@ -405,6 +406,77 @@ void main() {
         });
       }
       expect(_reads(a, '/product-feedback/tickets'), reads);
+
+      await t.pumpWidget(const SizedBox());
+      await _settle(t);
+      await t.runAsync(client.stream.close);
+      expect(t.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'the feedback host sends Web multipart creates and JSON closes, and maps a failed reply to the closed error set',
+    (t) async {
+      final (w, a, client) = await _fixture(t);
+      final created = fb.first;
+      var closed = false;
+      a.routes['GET /product-feedback/tickets'] = (_) =>
+          fb.page([fb.ticket(fb.second, unread: false)], unread: 0);
+      a.routes['POST /product-feedback'] = (_) => {'id': created};
+      a.routes['GET /product-feedback/tickets/$created'] = (_) => {
+        ...fb.detail(created),
+        'ticket': fb.ticket(
+          created,
+          status: closed ? 'closed' : 'open',
+          unread: false,
+        ),
+      };
+      a.routes['POST /product-feedback/tickets/$created/close'] = (_) {
+        closed = true;
+        return {'ok': true};
+      };
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(body: SourceFeedbackView(controller: w)),
+        ),
+      );
+      await _settle(t);
+      await t.tap(find.byKey(const ValueKey('feedback-new')));
+      await _settle(t);
+      await t.enterText(
+        find.byKey(const ValueKey('feedback-new-message')),
+        'Pin channels',
+      );
+      await t.pump();
+      await t.tap(find.byKey(const ValueKey('feedback-new-submit')));
+      await _settle(t);
+      final create = a.calls.singleWhere(
+        (c) => c.method == 'POST' && c.path == '/product-feedback',
+      );
+      final form = create.data as FormData;
+      final fields = {for (final f in form.fields) f.key: f.value};
+      expect(fields['type'], 'idea');
+      expect(fields['message'], 'Pin channels');
+      expect(fields['submission_id'], isNotEmpty);
+      expect(form.files, isEmpty);
+      // A reply the server rejects without a Web error code is Unavailable.
+      await t.enterText(
+        find.byKey(const ValueKey('feedback-reply-input')),
+        'More detail',
+      );
+      await t.pump();
+      await t.tap(find.byKey(const ValueKey('feedback-reply-send')));
+      await _settle(t);
+      expect(find.text("Couldn't load feedback. Try again."), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('feedback-close-main')));
+      await _settle(t);
+      await t.tap(find.byKey(const ValueKey('feedback-close-confirm')));
+      await _settle(t);
+      final close = a.calls.singleWhere(
+        (c) => c.method == 'POST' && c.path.endsWith('/close'),
+      );
+      expect(close.data, {'reason': 'no_longer_needed'});
 
       await t.pumpWidget(const SizedBox());
       await _settle(t);

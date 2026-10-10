@@ -9,6 +9,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
+import 'package:flutter/rendering.dart' show RenderProxyBox;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -1170,6 +1171,7 @@ class _RaftFeedbackCloseSplitState extends State<RaftFeedbackCloseSplit> {
               RaftAnchoredPopup(
                 anchorKey: anchor,
                 alignRight: true,
+                snapToPixel: true,
                 gap: t.brutal ? 4 : 6,
                 child: Material(
                   type: MaterialType.transparency,
@@ -1352,33 +1354,61 @@ class RaftFeedbackCloseMenu extends StatelessWidget {
       },
       child: FocusScope(
         autofocus: true,
-        child: Semantics(
-          role: SemanticsRole.menu,
-          child: RaftRecipeBox(
-            key: const ValueKey('feedback-close-menu'),
-            style: content,
-            tokens: rt,
-            clip: true,
-            child: IntrinsicWidth(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (reason, label, description) in options)
-                    _CloseMenuItem(
-                      key: ValueKey('feedback-close-reason-${reason.name}'),
-                      label: raftText(context, label),
-                      description: raftText(context, description),
-                      checked: reason == defaultReason,
-                      onPressed: () => onChoose(reason),
-                    ),
-                ],
+        child: Focus(
+          autofocus: true,
+          child: Semantics(
+            role: SemanticsRole.menu,
+            child: RaftRecipeBox(
+              key: const ValueKey('feedback-close-menu'),
+              style: content,
+              tokens: rt,
+              clip: true,
+              child: _PixelSnappedIntrinsicWidth(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (reason, label, description) in options)
+                      _CloseMenuItem(
+                        key: ValueKey('feedback-close-reason-${reason.name}'),
+                        label: raftText(context, label),
+                        description: raftText(context, description),
+                        checked: reason == defaultReason,
+                        onPressed: () => onChoose(reason),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+/// `width: max-content` laid out like Chromium's pixel-snapped box: the
+/// intrinsic width rounds to a whole pixel, so a right-aligned popup keeps
+/// both edges (and the text inside) on the same pixel grid as Web.
+class _PixelSnappedIntrinsicWidth extends SingleChildRenderObjectWidget {
+  const _PixelSnappedIntrinsicWidth({required Widget super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderPixelSnappedIntrinsicWidth();
+}
+
+class _RenderPixelSnappedIntrinsicWidth extends RenderProxyBox {
+  @override
+  void performLayout() {
+    final c = child!;
+    final width = constraints
+        .constrainWidth(c.getMaxIntrinsicWidth(constraints.maxHeight))
+        .roundToDouble();
+    c.layout(
+      constraints.copyWith(minWidth: width, maxWidth: width),
+      parentUsesSize: true,
+    );
+    size = c.size;
   }
 }
 
@@ -1420,6 +1450,12 @@ class _CloseMenuItem extends StatelessWidget {
         );
         final svg = item.target('& > svg') ?? item.target('& svg');
         final glyph = t.brutal ? 14.0 : 16.0;
+        final caption = base.copyWith(
+          fontSize: 12,
+          height: 1.4,
+          fontWeight: FontWeight.w400,
+          color: t.colors['foreground-muted'],
+        );
         return RaftRecipeBox(
           style: item,
           tokens: rt,
@@ -1428,45 +1464,57 @@ class _CloseMenuItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: item.columnGap ?? 8,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: SizedBox.square(
-                  dimension: glyph,
-                  child: checked
-                      ? RaftIcon(
-                          RaftGlyph.check,
-                          size: glyph,
-                          strokeWidth: t.brutal ? 2 : 1.5,
-                          color:
-                              svg?.color?.resolve(rt) ??
-                              (t.brutal
-                                  ? base.color
-                                  : t.colors['foreground-muted']),
-                        )
-                      : null,
+              Transform.translate(
+                offset: t.brutal ? Offset.zero : const Offset(-1, 1),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: SizedBox.square(
+                    dimension: glyph,
+                    child: checked
+                        ? RaftIcon(
+                            RaftGlyph.check,
+                            size: glyph,
+                            strokeWidth: t.brutal ? 2 : 1.5,
+                            color: t.brutal
+                                ? (svg?.color?.resolve(rt) ?? base.color)
+                                : (state.hovered || state.focusVisible
+                                      ? t.colors['foreground']
+                                      : t.colors['foreground-muted']),
+                          )
+                        : null,
+                  ),
                 ),
               ),
               Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: base.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 20 / 14,
-                      ),
+                // `.hands-feedback-close-menu-item span`: the label span
+                // (`dropdown-menu-item-label`) and its description span are
+                // both 12px / 1.4 / muted with `margin-top: 2px`, so the
+                // `strong` title inherits 12px and the muted colour.
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Transform.translate(
+                    offset: const Offset(0, -1),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // The CSS line box (16.8px), not the ceiled paragraph.
+                        SizedBox(
+                          height: 16.8,
+                          child: Text(
+                            label,
+                            style: caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        SizedBox(
+                          height: 16.8,
+                          child: Text(description, style: caption),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      description,
-                      style: base.copyWith(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: t.colors['foreground-muted'],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],
