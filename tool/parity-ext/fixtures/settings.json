@@ -185,6 +185,72 @@
    "next_cursor": null,
    "unread_total": 2
   },
+  "GET /product-feedback/tickets/5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61": {
+   "ticket": {
+    "id": "5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+    "kind": "feedback",
+    "status": "in_progress",
+    "closure_reason": null,
+    "duplicate_of_ticket_id": null,
+    "message": "Let me keep the app open when I switch workspaces\nIt reloads every time.",
+    "created_at": 1790740800000,
+    "updated_at": 1790992800000,
+    "unread": false,
+    "unread_count": 0,
+    "attachment_count": 1,
+    "comment_count": 3
+   },
+   "comments": [
+    {
+     "id": "c-5b0e-1",
+     "author_type": "staff",
+     "body": "Thanks for the report! Which platform are you on?",
+     "created_at": 1790827200000
+    },
+    {
+     "id": "c-5b0e-2",
+     "author_type": "reporter",
+     "body": "macOS desktop, switching between two workspaces.",
+     "created_at": 1790830800000
+    },
+    {
+     "id": "c-5b0e-3",
+     "author_type": "staff",
+     "body": "We reproduced it and a fix is in progress.",
+     "created_at": 1790992800000
+    }
+   ],
+   "attachments": [],
+   "next_comment_cursor": null,
+   "unread_total": 0
+  },
+  "GET /product-feedback/tickets/9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34": {
+   "ticket": {
+    "id": "9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34",
+    "kind": "bug",
+    "status": "closed",
+    "closure_reason": "duplicate",
+    "duplicate_of_ticket_id": null,
+    "message": "Crash when pasting a very large image",
+    "created_at": 1789963200000,
+    "updated_at": 1790049600000,
+    "unread": false,
+    "unread_count": 0,
+    "attachment_count": 0,
+    "comment_count": 1
+   },
+   "comments": [
+    {
+     "id": "c-9e8d-1",
+     "author_type": "system",
+     "body": "Closed as a duplicate of an existing ticket.",
+     "created_at": 1790049600000
+    }
+   ],
+   "attachments": [],
+   "next_comment_cursor": null,
+   "unread_total": 2
+  },
   "GET /mcp/servers": {
    "servers": [
     {
@@ -373,9 +439,13 @@
    {
     "serverId": "visual-server",
     "publishRejectionReason": null,
-    "returnUrl": null,
+    "returnUrl": "https://example.com/slack/oauth/callback",
     "agentManifestUrl": null,
-    "allowedScopes": [],
+    "allowedScopes": [
+     "openid",
+     "profile",
+     "identity"
+    ],
     "logoUrl": null,
     "createdByUserId": "visual-user",
     "createdAt": "2026-06-18T00:00:00.000Z",
@@ -392,14 +462,23 @@
     "humanMarketplaceVisible": true,
     "installedAt": null,
     "publisherName": "Raft Labs",
-    "privateShared": false
+    "privateShared": false,
+    "official": true,
+    "marketplaceInstallBadge": {
+     "kind": "bucket",
+     "bucket": "100_plus"
+    }
    },
    {
     "serverId": "visual-server",
     "publishRejectionReason": null,
-    "returnUrl": null,
+    "returnUrl": "https://example.com/github/callback",
     "agentManifestUrl": null,
-    "allowedScopes": [],
+    "allowedScopes": [
+     "openid",
+     "profile",
+     "agent:read"
+    ],
     "logoUrl": null,
     "createdByUserId": "visual-user",
     "createdAt": "2026-06-18T00:00:00.000Z",
@@ -416,7 +495,40 @@
     "humanMarketplaceVisible": true,
     "installedAt": "2026-06-18T00:00:00.000Z",
     "publisherName": "Raft Labs",
-    "privateShared": false
+    "privateShared": false,
+    "official": false,
+    "marketplaceInstallBadge": {
+     "kind": "none"
+    }
+   },
+   {
+    "serverId": "visual-server",
+    "publishRejectionReason": null,
+    "returnUrl": null,
+    "agentManifestUrl": null,
+    "allowedScopes": [],
+    "logoUrl": null,
+    "createdByUserId": "visual-user",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "updatedAt": "2026-06-18T00:00:00.000Z",
+    "id": "market_linear",
+    "clientId": "client_linear_sync",
+    "appType": "third_party_global",
+    "publishStatus": "published",
+    "category": "Developer Tools",
+    "dataAccessSummary": "Tasks",
+    "name": "Linear Sync",
+    "description": "Keep Linear issues and Raft tasks in step: status, assignee and comments flow both ways, and agents can open issues from any thread when work needs tracking.",
+    "homepageUrl": null,
+    "humanMarketplaceVisible": true,
+    "installedAt": null,
+    "publisherName": "Linear",
+    "publisherServerName": "Linear Workspace",
+    "privateShared": false,
+    "official": false,
+    "marketplaceInstallBadge": {
+     "kind": "new"
+    }
    }
   ],
   "GET /integrations/clients": [
@@ -442,7 +554,22 @@
     "humanMarketplaceVisible": false
    }
   ],
-  "GET /integrations/overview": [],
+  "GET /integrations/overview": [
+   {
+    "id": "grant-github",
+    "type": "active",
+    "clientId": "market_github",
+    "clientKey": "client_github_issues",
+    "clientName": "GitHub Issues",
+    "agentName": "cindy",
+    "agentDisplayName": "Cindy",
+    "scopes": [
+     "openid",
+     "profile"
+    ],
+    "revokedAt": null
+   }
+  ],
   "GET /servers/visual-server/labs": {
    "serverId": "visual-server",
    "accessEnabled": true,
@@ -469,6 +596,34 @@
      "updatedAt": null
     }
    ]
+  },
+  "GET /servers/visual-server/settings": {
+   "settings": {
+    "onboardSettings": {
+     "onboardingAgentId": "agent-product-ux",
+     "agentAllChannelGreetingEnabled": true
+    },
+    "feedbackSettings": {
+     "enabled": false
+    }
+   }
+  },
+  "GET /servers/visual-server/setup-projection": {
+   "surface": "none",
+   "phase": "complete"
+  },
+  "GET /servers/visual-server/product-analytics-settings": {
+   "productAnalyticsEnabled": true,
+   "canManageProductAnalytics": true
+  },
+  "GET /integrations/marketplace/market_github/install/app-notifications": {
+   "requested_groups": [],
+   "approved_groups": [],
+   "subscribed_events": [],
+   "effective_groups": [],
+   "effective_events": [],
+   "app_review_pending": false,
+   "approval_required": false
   }
  },
  "fallback": {
@@ -509,6 +664,162 @@
    "GET /product-feedback/tickets": {
     "$status": 500
    }
+  },
+  "admin-empty": {
+   "GET /servers/visual-server/invites": [],
+   "GET /servers/visual-server/join-links": []
+  },
+  "admin-agreement-off": {
+   "GET /servers/visual-server/agreement": {
+    "enabled": false,
+    "agreement": null
+   }
+  },
+  "admin-setup-open": {
+   "GET /servers/visual-server/setup-projection": {
+    "surface": "create_agent",
+    "phase": "in_progress"
+   }
+  },
+  "admin-no-provider": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": true,
+    "translationAvailable": false,
+    "canManageTranslation": true
+   }
+  },
+  "admin-all-visible": {},
+  "admin-hide-humans": {},
+  "feedback-create-pending": {
+   "POST /product-feedback": {
+    "$pending": true
+   }
+  },
+  "feedback-create-error": {
+   "POST /product-feedback": {
+    "$status": 503
+   }
+  },
+  "feedback-reply-error": {
+   "POST /product-feedback/tickets/5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61/comments": {
+    "$status": 503
+   }
+  },
+  "feedback-close-error": {
+   "POST /product-feedback/tickets/5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61/close": {
+    "$status": 503
+   }
+  },
+  "billing-pro": {
+   "GET /billing/subscription": {
+    "plan": "pro",
+    "displayName": "Pro",
+    "serverPlan": "pro",
+    "source": "subscription",
+    "capacity": {
+     "maxHumans": -1,
+     "maxAgents": -1,
+     "maxUniversalSeats": 3
+    },
+    "usage": {
+     "humans": 2,
+     "agents": 5,
+     "universalSeats": 2.5
+    },
+    "provisioned": {
+     "humans": 3,
+     "agents": 30,
+     "proPackQuantity": 3,
+     "trialFreePackQuantity": 0,
+     "firstPackTrialEndsAt": null
+    },
+    "fileUploadQuota": {
+     "month": "2026-06",
+     "plan": "pro",
+     "limited": false,
+     "enforced": false,
+     "limitBytes": -1,
+     "usedBytes": 188743680,
+     "reservedBytes": 0,
+     "remainingBytes": -1
+    },
+    "price": {
+     "billingInterval": "annual",
+     "monthlyUsd": 26.4,
+     "annualUsd": 316.8,
+     "discountPercent": 12,
+     "baseMonthlyUsd": 26.4,
+     "overageMonthlyUsd": 0,
+     "seatQuantity": 3,
+     "packQuantity": 3,
+     "humanSeatQuantity": 3,
+     "agentSeatQuantity": 30,
+     "agentSeatBlockQuantity": 3
+    },
+    "subscription": {
+     "status": "active",
+     "billingInterval": "annual",
+     "currentPeriodStart": "2026-06-18T00:00:00.000Z",
+     "currentPeriodEnd": "2027-06-18T00:00:00.000Z",
+     "cancelAtPeriodEnd": false
+    },
+    "stripeConfigured": true,
+    "permissions": {
+     "canReadBillingSummary": true,
+     "canManageBilling": true
+    }
+   }
+  },
+  "billing-admin": {
+   "GET /billing/subscription": {
+    "plan": "free",
+    "displayName": "Free",
+    "serverPlan": "free",
+    "source": "server",
+    "capacity": {
+     "maxHumans": 1,
+     "maxAgents": 2,
+     "maxUniversalSeats": -1
+    },
+    "usage": {
+     "humans": 2,
+     "agents": 2,
+     "universalSeats": 0
+    },
+    "provisioned": {
+     "humans": 1,
+     "agents": 2,
+     "proPackQuantity": 0,
+     "trialFreePackQuantity": 0,
+     "firstPackTrialEndsAt": null
+    },
+    "fileUploadQuota": {
+     "month": "2026-06",
+     "plan": "free",
+     "limited": true,
+     "enforced": false,
+     "limitBytes": 524288000,
+     "usedBytes": 188743680,
+     "reservedBytes": 0,
+     "remainingBytes": 335544320
+    },
+    "price": null,
+    "subscription": null,
+    "stripeConfigured": true,
+    "permissions": {
+     "canReadBillingSummary": true,
+     "canManageBilling": false
+    }
+   }
+  },
+  "billing-loading": {
+   "GET /billing/subscription": {
+    "$pending": true
+   }
+  },
+  "apps-empty": {
+   "GET /integrations/marketplace": [],
+   "GET /integrations/clients": []
   }
  }
 }

@@ -33,6 +33,9 @@ abstract final class RaftWebPalette {
   /// `bg-gray-400` = oklch(70.7% 0.022 261.325).
   static const gray400 = Color(0xFF99A1AF);
 
+  /// `text-green-700` = oklch(52.7% 0.154 150.069) (billing Included checks).
+  static const green700 = Color(0xFF008236);
+
   /// `text-neutral-500` = oklch(55.6% 0 0).
   static const neutral500 = Color(0xFF737373);
 }

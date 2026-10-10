@@ -193,6 +193,13 @@ class SourceTimeFormatter {
     return '$day${_chinese ? ' ' : ', '} ${_clock(date)}'.replaceAll('  ', ' ');
   }
 
+  /// react-intl `formatDate(value, {month: 'short', day: 'numeric'})`.
+  String shortDate(Object? value) {
+    final date = _date(value);
+    if (date == null) return value?.toString() ?? '';
+    return DateFormat.MMMd(locale).format(wallTime(date));
+  }
+
   String dayLabel(Object? value, {DateTime? now}) {
     final date = _date(value);
     if (date == null) return '';

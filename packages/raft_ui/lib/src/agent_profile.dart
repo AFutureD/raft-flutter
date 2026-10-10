@@ -19,7 +19,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'recipes/token_binding.dart';
 import 'list_items.dart';
-import 'recipe_surface.dart' show raftCssText;
+import 'recipe_surface.dart' show RaftCssBoxDecoration, raftCssText;
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -173,6 +173,8 @@ enum RaftAvatarSlotContext {
   mentionCard(48, 2),
   panelHeader(36, 2),
   surfaceList(32, 2),
+  // AvatarSlot `compact-list`: `!size-5 !border` (SelectionPopover rows).
+  compactList(20, 1),
   creatorLink(22, 1),
   previewMini(14, 1);
 
@@ -550,7 +552,9 @@ class RaftProfileIdentity extends StatelessWidget {
         tokens: rt,
       ).root;
       avatar = DecoratedBox(
-        decoration: BoxDecoration(boxShadow: button.boxShadow.toBoxShadows(rt)),
+        decoration: RaftCssBoxDecoration(
+          boxShadow: button.boxShadow.toBoxShadows(rt),
+        ),
         child: avatar,
       );
     }

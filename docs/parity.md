@@ -100,7 +100,7 @@ React used production fonts and `--disable-lcd-text --font-render-hinting=none`
 | message-row.md-wrap-slice1 | 9.10 | 5.98 | 1.24 | 1.88 | 1.76 | list item gap 4px vs `mb-0.5`; fallback `。`/`→` |
 | composer.pending-mention-actions | 4.15 | 3.22 | 0.06 | 0.87 | 1.59 | composer keeps focus after button send (shadow-md); Source blurs on click send |
 | message-row.md-wrap-clarify | 11.15 | 5.24 | 1.98 | 3.93 | 4.84 | break after `（` before inline code (padding placeholders add break opportunities) |
-| settings.notifications.page | 6.79 | 1.08 | 0.44 | 5.27 | 6.21 | Android copy instead of Web push copy (platform content); panel left border height |
+| settings.notifications.page | 9.71 | n/a | n/a | n/a | n/a | intended difference: Web Web Push card vs Flutter phone card (see below) |
 | message-share.selection | 5.81 | 1.31 | 0.04 | 4.46 | 6.63 | bottom-anchored real chat with date divider; square vs circular select checkbox; no Owner badge |
 | message-row.md-wrap-status606 | 16.63 | 7.96 | 1.92 | 6.76 | 9.61 | long inline code breaks on the current line instead of moving down (`wrap-anywhere`); break after `/` |
 
@@ -156,7 +156,7 @@ were equal):
 | thread.message.row | 94.64 | 99.24 | 4.60 | text raster; 18.25px task chip border snap; `+` icon stroke |
 | thread.message-row.long-inline-code | 94.32 | 98.90 | 4.58 | text raster; unknown-task line box does not grow (strut); code break position |
 | thread.message-row.md-wrap-adjacent | 93.69 | 98.73 | 5.04 | text raster; `。` host fallback font |
-| settings.notifications.page | 93.21 | 94.73 | 1.52 | platform copy: Android notification text instead of Web push copy (by design: no fabricated browser permission); panel left border height |
+| settings.notifications.page | 90.29 | n/a | n/a | intended difference: the case mounts Web's browser Web Push card ("Push Notifications", Enable/Send Test Push); Flutter shows the phone card ("Phone notifications", permission-based, no server push). Desktop parity is covered by `components.notifications.desktop.*` in the extension suite |
 | thread.message-row.md-link-ref | 93.20 | 98.07 | 4.86 | text raster; link underline 2px at baseline+2 vs font metric |
 | ui.card.states.elegant | 93.17 | 99.94 | 6.78 | shadow blur and gradient dither +-1 level (4.3% of pixels differ by exactly 1); text raster |
 | thread.message-row.md-wrap-task607 | 92.66 | 98.19 | 5.53 | text raster; `→`/`。` fallback fonts |
@@ -622,7 +622,7 @@ similarity 0.798; the 3 hover cases had no keyed Search button), after
 Elegant text, sub-pixel baseline offsets (thread title, mobile meta line) and
 the tooltip surface of the hover case. All 99 official values are unchanged.
 
-### Settings cases (40 surfaces x 3 themes = 120)
+### Settings cases (52 surfaces x 3 themes = 156)
 
 `python3 tool/parity-ext/build-cases.py` also writes
 `components.ext-settings.<surface>.<theme>` and
@@ -667,6 +667,24 @@ Result (`cindy/parity-settings`):
 | Plan & Billing, Administration, Applications (18) | 2 passing | 0 passing, mean 0.79 (not ported) |
 | total (120) | 17 passing, 18 capture failures | 64 passing, 0 capture failures |
 
+Plan & Billing and Applications (`cindy/settings-billing-apps`, 24 surfaces
+x 3 themes = 72 ext cases, desktop + 390px mobile): Web `PlanSection` and
+`IntegrationsSection` are ported (`settings_billing.dart`,
+`settings_applications.dart`, app `billing_view.dart` / `integrations_views.dart`).
+Before (WIP snapshot): 15 / 72 at >= 0.96, mean 0.916, 6 capture failures
+(mobile Applications). After: 24 / 72 at >= 0.96, mean 0.936 (brutal 0.951,
+elegant 0.936, elegant-dark 0.920), no capture failures. Measured Web facts
+the port encodes: unadorned text in a Settings panel inherits Inter (the
+heading family) while `font-sans` controls (buttons, selects) and every
+Dialog portal render Geist (`RaftInheritedFont`); the recipe `Badge` and
+`SegmentedControl` labels are Inter inside a panel; `Badge uppercase` only
+transforms Brutal; Tailwind `space-y-*` keeps the margin of an empty grid
+(empty marketplace / installed lists); `<details>` shows Blink's painted
+triangle marker; translucent fills (`bg-primary-soft`, `bg-accent-soft` in
+dark) must be composited over the panel because Flutter paints the outer
+shadow under a translucent fill. Remaining delta is text rasterisation and
+1px Blink baseline / border snapping.
+
 The "before" Workspace tab numbers predate the fixture alignment (Flutter
 then answered 404 where React had data), so they are not comparable to the
 "after" column; Billing, Administration and Applications still render the
@@ -676,6 +694,34 @@ one channel level everywhere in the `bg-fill-strong/80` hover fill (Chromium
 quantises the alpha before blending, see the Computers result). Official
 set: 98 values unchanged; `components.settings.root.page` (shared rail rows)
 0.9743 -> 0.9905.
+
+#### Administration (28 keys x 3 themes = 84)
+
+`components.ext-settings.administration.<key>.<theme>`: the page and panel
+crops, every section crop (Owners & Admins with picker / selected / admin
+actor, System Channels, Pending Invites, Invite Links, Pre-join Agreement,
+Onboarding, Server Translation, Product Analytics, Member Permissions, their
+empty / disabled / warning states), the two ConfirmDialogs (revoke invite,
+revoke invite link) and four 390px mobile sections. `routeSet`
+`admin-hide-humans` / `admin-all-visible` prime the store-backed states
+(`hideHumansFromMembers`, `#all` in the channel list) in both providers.
+
+| | before | after |
+| --- | --- | --- |
+| page / panel (6) | 0 passing, mean 0.82 | 3 passing (brutal), mean 0.93 |
+| all 84 cases | not ported | 25 passing, mean 0.944 (brutal 0.96, elegant 0.94, elegant-dark 0.92) |
+
+Findings that apply to every Settings section:
+
+* The oracle host wraps the page in `main.font-display`, so text that sets no
+  family renders in the heading face (Inter in Elegant); `raftSettingsBody`
+  mirrors that (plain `RaftTypography.body` is Geist in Elegant and 4% narrower).
+* Blink keeps fractional layout but snaps box edges and baselines to device
+  pixels: `RaftCssText` (baseline) and `RaftCssPixelSnap` (section origin).
+* Elegant dark `shadow-raft-sm` carries inset highlights; `RaftSettingsCard.box`
+  paints them (Flutter's `BoxShadow` has none).
+* Remaining delta is text rasterisation (stem weight of Inter at 12-14px) and
+  the Chromium-native date indicator / textarea resize grip.
 ### Search overlay cases (10 states x 3 themes = 30)
 
 Derived from Web `SearchOverlay.tsx` + the overlay mode of `MessageSearchPage.tsx`
@@ -754,6 +800,125 @@ rasterisation (Chromium's glyphs are darker, see "Text rendering"), which
 keeps text-dense cards at 89–96 %. Not covered: the failed-write error
 notice (Web `toast.error`; Flutter uses a SnackBar), hover states.
 
+### Desktop notifications card cases (2 states x 3 themes = 6)
+
+Derived from Web `SettingsPanel.tsx` `NotificationsSection` ->
+`DesktopNativeNotificationsCard` (`settings.notifications.desktop.*`),
+`utils/notificationChannel.ts` and `desktopNativeNotifications.ts`.
+`python3 tool/parity-ext/build-notification-card.py` appends
+`components.notifications.desktop.<available|unavailable>.<theme>` (run it
+after the other builders; it keeps every other family). The card is private to
+`SettingsPanel.tsx`, so `host/NotificationCardCases.tsx` renders the real
+`SettingsPanel tab="notifications"` with the Electron marker
+`window.raftDesktop.isDesktop = true` (the product's own channel switch) and,
+for "unavailable", no `Notification` API. Flutter
+(`cases/ext_notifications.dart`) mounts `NotificationSettingsView` with a
+macOS desktop service (Web's hint names macOS). Capture: section header + card.
+
+Flutter now follows Web on desktop (macOS / Linux / Windows): Bell header,
+"Desktop notifications", system-managed pill, per-platform OS path hint,
+one success "Send a test notification" button, no server read and no mute
+form. Phones (Android / iOS) keep the same card with phone copy, an Enable
+notifications action (opens system settings once the OS stops asking) and the
+member mute form. The official `settings.notifications.page` compares Web's
+browser Web Push card against the phone card and stays an intended difference.
+
+| case | pixel-perfect |
+| --- | --- |
+| available brutal / elegant / elegant-dark | 89.8 / 84.7 / 83.6 % |
+| unavailable brutal / elegant / elegant-dark | 93.7 / 89.6 / 88.3 % |
+
+Sizes, colours, borders and spacing match. What remains is text: the macOS hint
+names "Raft" (the app's display name) where Web says "Raft Desktop"; the `→`
+glyph comes from a different fallback font in Chromium, which moves the hint's
+line breaks; the description wraps one word differently because Chromium and
+Skia advance widths differ by under 1px at the available width; and the usual
+Chromium vs Skia glyph rasterisation.
+
+#### Feedback write surfaces (`cindy/feedback-write`)
+
+Twelve surfaces x 3 themes = 36 cases cover the write half of the My Feedback
+workspace (`@botiverse/hands-feedback-react` 0.4.1 +
+`web/src/feedback/handsFeedbackTransport.ts`): `feedback.new`, `new-filled`,
+`new-submitting`, `new-error`, `ticket` (conversation + reply composer),
+`ticket-reply`, `ticket-reply-error`, `ticket-closed` (no composer),
+`close-menu` (the reason `DropdownMenuContent` crop), `close-confirm`,
+`close-confirm-resolved` (inbox row, `completed`) and `close-error`. The
+fixture adds the two ticket detail reads and per-case route sets whose
+`POST /product-feedback`, `.../comments` and `.../close` stay pending or
+fail with 503; no case reaches a server.
+
+| group | mean | note |
+| --- | --- | --- |
+| New feedback (12) | 0.975 | placeholder text is narrower in Chromium (about 5%) |
+| Ticket, reply, closed (12) | 0.964 | elegant-dark 0.927: the Web composer carries a wide soft shadow Flutter does not draw |
+| Close menu / confirm / error (12) | 0.903 | small crops of dense text, sub-pixel glyph rasterisation; the menu also has 1px AA differences on the check glyph |
+
+Known gaps: elegant-dark ticket composer shadow, the `In progress` chip and
+timestamp widths (2-3% wider in Flutter), the reply placeholder width.
+### Composer attachment cases (29 states x 3 themes = 87)
+
+Derived from Web `MessageInput.tsx` (`SortableAttachment`, `<ComposerAttachments>`,
+failed-upload alert rows, limit `Banner`, `isDraggingFiles` overlay, `addFiles`)
+and the raft-ui `composerAttachment` recipe. `tool/parity-ext/build-composer-attachments.py`
+appends `components.composerattachments.<platform>.<kind>.<theme>` (run it after
+`build-announcements.py` and `build-search-overlay-cases.py`); the state of each
+kind lives in `fixtures/composer-attachments.json` (`kinds`, `routeSets`), read
+by both providers. The React host (`host/ComposerAttachmentCases.tsx`) mounts the
+real `MessageInput`, puts the fixture files on the hidden file input (the same
+`change` the picker fires) and answers `upload-capabilities` / `POST
+/attachments/upload` from the fixture routes (ready, never answers, fails, quota,
+4 KB ceiling); `data-visual-case` appears once the expected state is rendered.
+Flutter (`cases/ext_composer_attachments.dart`) feeds the same bytes to the product
+`attachSelection` over a fixture client, so checking / uploading / failed / limit
+are produced by product code.
+
+* desktop (760px column): one image, three images, file, long names + unknown
+  type, mixed (wraps), checking, uploading (0 %, 42 %, 99 % "Finishing upload"),
+  failed (alert rows), quota failure (chip + banner), over-size, 11 files, empty
+  file, drag-over overlay, hover (remove badge), thread composer (no As Task);
+* mobile (390 wide, 3x, `viewport.touch` = CDP touch emulation so the browser
+  reports `(hover: none)` and the remove badge is always visible, 24px): the same
+  states except empty file, finishing, drag (touch never fires drag events) and hover.
+
+What changed in Flutter (all of it Web behaviour, none invented):
+
+* pending files sit inside the composer root below its rule (they used to float
+  above it as Material chips) with no "N attachments" label; `RaftComposerAttachments`
+  draws 64px image thumbnails and 176x64 file cards (name + MIME, `file` fallback)
+  from the recipe, checking / uploading / finishing / failed overlays, the 4px
+  progress bar and the remove badge (`top:-6 right:-6`, hover on desktop, always
+  on touch; its layout box carries the 6px overhang so hover and taps reach it);
+* failed uploads leave the chips for a warning alert row with "Tap to retry"
+  (not for the interrupted check) and remove; a billing-quota failure keeps its
+  chip and shows its banner;
+* `attachSelection` shows every file at once as a checking chip, decides on the
+  server ceiling in selection order, drops empty / oversize / extra files with
+  Web's singular and plural messages, uploads accepted files one at a time (each fenced by the authority of the selection), and
+  marks a check whose scope changed as interrupted (not retryable);
+* Send shows its spinner and tooltip while files are checked or uploaded, and a
+  blocked Ctrl+Enter reports "Wait for ..." / "Remove or retry ..." in the banner;
+* the media button is "Attach media" and picks images and videos
+  (`image/*,video/*`), the file button anything; local images open in the lightbox;
+* the drop overlay starts below the composer rule, uses Blink's dash fit and
+  8-bit alpha; the warning banner honours dark.
+
+Result (run `20261010T19*`, this branch): 87/87 captured, identical sizes, mean
+pixel-perfect 95.8 % (brutal 97.9 %, elegant-dark 95.7 %, elegant 94.0 %), 41/87
+above 96 %. Geometry, sizes, colours and spacing of the attachment surfaces match;
+what remains is (a) the shared elegant composer card (ring and `shadow-sm` differ by
+1-3 levels, rows y=86 and 177-181 of every elegant case; official brutal composer
+cases are unaffected), (b) Chromium's 8-bit truncating blend of the translucent
+overlays (1-level fills), (c) the frozen spinner frame and text rasterisation,
+(d) Blink's dash phase on the drag-over frame. Official `components.thread.composer.*`:
+all seven unchanged to four decimals (empty 98.40, states 97.22, pending-mention
+96.83, as-task 97.20, member-suggestions 97.83, channel-suggestions 98.57,
+image-preview 98.04).
+
+Not ported: drag-to-reorder of chips (dnd-kit), the "recoverable uploads" banner
+(needs the direct-upload session API), the billing link of the quota banner (no
+billing page in Flutter), multi-image lightbox navigation from the composer.
+
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 
 The official `pixelPerfectSimilarity` (visual-testing
@@ -817,3 +982,23 @@ which rounds single-channel 1-level differences to 0. Per-channel max delta
 * The React baseline was captured from a raft-source checkout at 26f77ef with
   pre-existing local edits (additive diagnostic cases in
   `VisualTestingCases.tsx`); see `build/parity/react-source.json`.
+
+### Tasks board and task detail cases (87 = 9 page + 78 detail, x 3 themes already counted)
+
+`python3 tool/parity-ext/build-task-detail.py` (run last in the chain) appends
+`components.taskspage.<platform>.<state>.<theme>` (states `board`, desktop-only
+`expanded`) and `components.taskdetail.<platform>.<state>.<theme>` (states empty,
+replies, replies-short, history-open, status-todo/in-progress/in-review/done/closed,
+unassigned, assigned, long-title, description; desktop 1280x800 and mobile 390x844 @3x).
+Data: `tool/parity-ext/fixtures/taskdetail.json` (board tasks, per-state detail tasks,
+replies, history; `routes` + `routeSets` answer the API on both providers).
+
+* React (`host/TaskDetailCases.tsx`) mounts the real `MainLayout` on `/s/visual/tasks`; a
+  detail case adds `?task=<channel>:<message>` and the `taskModal` store slot, so the real
+  RightPanel renders Modal + ThreadPanelWrapper (TaskModalBar, TaskModalHead, ThreadPanel).
+  Desktop page cases crop `thread-main-column`; detail cases capture the viewport.
+* Flutter (`cases/ext_task_detail.dart`) mounts the real `WorkspaceView` (section tasks;
+  detail via `navigateTask`) with a fixture client that honours `/tasks/server?status=`.
+* Web facts the cases pin: done/closed lanes start collapsed, mobile defaults to the list
+  view, and on mobile the floating tab bar stays above the task modal composer.
+* Mobile `expanded` is not covered (lazy Flutter list vs Playwright scroll offsets).

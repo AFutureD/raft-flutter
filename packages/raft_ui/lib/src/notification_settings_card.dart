@@ -1,46 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
 import 'components.dart';
-import 'settings_controls.dart' show RaftSettingsRecipeBadge;
 import 'settings_layout.dart';
 import 'theme.dart';
 import '../recipes.dart';
 
-/// SettingsPanel.tsx WebPushNotificationsCard mounted composition. Transport,
-/// permission facts, subscription state and member preference writes belong to
-/// the caller. Native hosts supply their actual delivery description/actions.
+/// SettingsPanel.tsx DesktopNativeNotificationsCard mounted composition: a
+/// SectionHeader (Bell) over a card holding the title, description and status
+/// pill, the system hint, an optional warning Banner or success message and
+/// one action button. The caller owns the copy, the permission facts and the
+/// server mute form (phones only; Web's desktop card has none).
 class RaftNotificationSettingsCard extends StatelessWidget {
   const RaftNotificationSettingsCard({
     super.key,
     required this.title,
     required this.description,
     required this.status,
-    required this.enableLabel,
+    required this.actionLabel,
     required this.muted,
-    this.availabilityHint,
+    this.sectionLabel = 'Notifications',
+    this.hint,
     this.error,
     this.message,
     this.muteDescription,
-    this.testLabel = 'Send test notification',
+    this.actionTone = RaftButtonRecipeVariant.success,
     this.saveLabel = 'Save',
-    this.showTest = false,
-    this.showSettings = false,
-    this.onEnable,
-    this.onTest,
-    this.onOpenSettings,
+    this.onAction,
     this.onRetry,
     this.onMutedChanged,
     this.onSave,
   });
-  final String title, description, status, enableLabel, testLabel, saveLabel;
-  final String? availabilityHint, error, message, muteDescription;
-  final bool muted, showTest, showSettings;
-  final VoidCallback? onEnable, onTest, onOpenSettings, onRetry, onSave;
+  final String sectionLabel, title, description, status, actionLabel, saveLabel;
+  final String? hint, error, message, muteDescription;
+  final bool muted;
+  final RaftButtonRecipeVariant actionTone;
+  final VoidCallback? onAction, onRetry, onSave;
   final ValueChanged<bool>? onMutedChanged;
+
+  /// `inline-flex shrink-0 border border-line-strong bg-primary-soft px-2 py-1
+  /// text-[10px] font-bold uppercase text-primary-strong theme-brutal:border-2
+  /// theme-brutal:border-black theme-brutal:bg-soft-signal theme-brutal:text-black`.
+  static Widget statusPill(BuildContext context, String label) {
+    final t = RaftTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: t.colors[t.brutal ? 'color-soft-signal' : 'primary-soft'],
+        border: Border.all(
+          color: t.brutal ? Colors.black : t.colors['line-strong']!,
+          width: t.brutal ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        raftText(context, label).toUpperCase(),
+        maxLines: 1,
+        softWrap: false,
+        // Web: `font-display` (Hanken Grotesk) at 10px bold, line-height 1.5.
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          fontFamilyFallback: t.fontFallback,
+          fontSize: 10,
+          height: 1.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+          color: t.brutal ? Colors.black : t.colors['primary-strong'],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -51,45 +84,48 @@ class RaftNotificationSettingsCard extends StatelessWidget {
       fontWeight: FontWeight.w700,
       color: RaftSettingsText(t).strong,
     );
-    final hint = inherited.copyWith(
+    final hintStyle = inherited.copyWith(
       fontSize: 12,
       height: 16 / 12,
       color: RaftSettingsText(t).muted,
     );
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const RaftSettingsSectionHeader(
-          label: 'Push Notifications',
-          glyph: RaftGlyph.bell,
-        ),
-        RaftSettingsCard(
+        RaftSettingsSectionHeader(label: sectionLabel, glyph: RaftGlyph.bell),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: RaftSettingsCard.decoration(t)
+              .copyWith(color: t.brutal ? Colors.white : t.card),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(raftText(context, title), style: titleStyle),
-                        const SizedBox(height: 2),
-                        Text(raftText(context, description), style: hint),
-                      ],
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(raftText(context, title), style: titleStyle),
+                          const SizedBox(height: 2),
+                          Text(
+                            raftText(context, description),
+                            style: hintStyle,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  RaftSettingsRecipeBadge(
-                    label: status,
-                    variant: RaftBadgeRecipeVariant.muted,
-                    uppercase: true,
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    _PixelCenter(child: statusPill(context, status)),
+                  ],
+                ),
               ),
-              if (availabilityHint != null) ...[
+              if (hint != null) ...[
                 const SizedBox(height: 12),
-                Text(raftText(context, availabilityHint!), style: hint),
+                Text(raftText(context, hint!), style: hintStyle),
               ],
               if (error != null) ...[
                 const SizedBox(height: 12),
@@ -110,24 +146,33 @@ class RaftNotificationSettingsCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onRetry != null)
-                  RaftButton(
-                    label: 'Retry',
-                    tone: RaftButtonRecipeVariant.outline,
-                    size: RaftButtonRecipeSize.sm,
-                    onPressed: onRetry,
+                if (onRetry != null) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: RaftButton(
+                      label: 'Retry',
+                      tone: RaftButtonRecipeVariant.outline,
+                      size: RaftButtonRecipeSize.sm,
+                      onPressed: onRetry,
+                    ),
                   ),
+                ],
               ],
               if (message != null) ...[
                 const SizedBox(height: 12),
                 Semantics(
                   liveRegion: true,
+                  // `border border-line-muted bg-success-soft p-2 text-xs
+                  // font-bold text-success-strong theme-brutal:border-2
+                  // theme-brutal:border-black theme-brutal:bg-brutal-lime/30
+                  // theme-brutal:text-black`.
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: t.colors['color-brutal-lime']!.withValues(
-                        alpha: .3,
-                      ),
+                      color: t.brutal
+                          ? t.colors['color-brutal-lime']!.withValues(alpha: .3)
+                          : t.colors['success-soft'],
                       border: Border.all(
                         color: t.brutal
                             ? Colors.black
@@ -137,37 +182,26 @@ class RaftNotificationSettingsCard extends StatelessWidget {
                     ),
                     child: Text(
                       message!,
-                      style: hint.copyWith(fontWeight: FontWeight.w700),
+                      style: hintStyle.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: t.brutal
+                            ? Colors.black
+                            : t.colors['success-strong'],
+                      ),
                     ),
                   ),
                 ),
               ],
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  RaftButton(
-                    label: enableLabel,
-                    tone: RaftButtonRecipeVariant.outline,
-                    size: RaftButtonRecipeSize.sm,
-                    onPressed: onEnable,
-                  ),
-                  if (showTest)
-                    RaftButton(
-                      label: testLabel,
-                      tone: RaftButtonRecipeVariant.success,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: onTest,
-                    ),
-                  if (showSettings)
-                    RaftButton(
-                      label: 'Open system settings',
-                      tone: RaftButtonRecipeVariant.outline,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: onOpenSettings,
-                    ),
-                ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: RaftButton(
+                  key: const ValueKey('notification-settings-action'),
+                  label: actionLabel,
+                  tone: actionTone,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: onAction,
+                ),
               ),
               if (muteDescription != null) ...[
                 const SizedBox(height: 12),
@@ -217,7 +251,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
                                     style: titleStyle,
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(muteDescription!, style: hint),
+                                  Text(muteDescription!, style: hintStyle),
                                 ],
                               ),
                             ),
@@ -243,6 +277,29 @@ class RaftNotificationSettingsCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// `items-center` for a bordered chip: Chromium snaps box edges to whole
+/// pixels, so the centred offset is rounded instead of blurring a 1px border
+/// across two pixel rows.
+class _PixelCenter extends SingleChildRenderObjectWidget {
+  const _PixelCenter({required Widget child}) : super(child: child);
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderPixelCenter();
+}
+
+class _RenderPixelCenter extends RenderShiftedBox {
+  _RenderPixelCenter() : super(null);
+  @override
+  void performLayout() {
+    final c = child!;
+    c.layout(constraints.loosen(), parentUsesSize: true);
+    size = constraints.constrain(c.size);
+    (c.parentData! as BoxParentData).offset = Offset(
+      ((size.width - c.size.width) / 2).roundToDouble(),
+      ((size.height - c.size.height) / 2).roundToDouble(),
     );
   }
 }

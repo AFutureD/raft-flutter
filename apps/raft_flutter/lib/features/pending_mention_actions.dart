@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import 'composer_attachments_view.dart';
 import 'public_avatar_url.dart';
 
 class PendingMentionActions extends StatefulWidget {
@@ -174,14 +175,25 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
 /// `Banner`, then the PendingMentionActionStrip.
 Widget? raftComposerAccessory(WorkspaceController w, {bool thread = false}) {
   final error = w.composerErrorFor(thread: thread);
+  // Web `billingUploadQuotaError`: the quota failure keeps its chip and
+  // leaves the message in its own banner.
+  final quota = w
+      .uploads(thread: thread)
+      .where((d) => isBillingUploadQuotaError(d.error))
+      .map((d) => d.error!)
+      .firstOrNull;
   final mentions = w.pendingMentionsFor(thread: thread).isNotEmpty;
-  if (error == null && !mentions) return null;
+  if (error == null && quota == null && !mentions) return null;
+  final banners = [?error, ?quota];
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     mainAxisSize: MainAxisSize.min,
     children: [
-      if (error != null) RaftComposerNotice(message: error),
-      if (error != null && mentions) const RaftComposerGap(),
+      for (var i = 0; i < banners.length; i++) ...[
+        if (i > 0) const RaftComposerGap(),
+        RaftComposerNotice(message: banners[i]),
+      ],
+      if (banners.isNotEmpty && mentions) const RaftComposerGap(),
       if (mentions) PendingMentionActions(controller: w, thread: thread),
     ],
   );

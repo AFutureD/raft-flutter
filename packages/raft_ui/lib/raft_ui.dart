@@ -68,8 +68,12 @@ export 'src/settings_layout.dart';
 export 'src/qr_code.dart';
 export 'src/settings_resources.dart';
 export 'src/feedback_inbox.dart';
+export 'src/feedback_workspace.dart';
 export 'src/settings_workspace.dart';
+export 'src/settings_billing.dart';
+export 'src/settings_applications.dart';
 export 'src/settings_controls.dart';
+export 'src/settings_administration.dart';
 export 'src/appearance_picker.dart';
 
 export 'src/notification_center.dart';
@@ -77,6 +81,7 @@ export 'src/notification_center.dart';
 export 'src/system_message.dart';
 
 export 'src/composer_recipe.dart';
+export 'src/composer_attachments.dart';
 export 'src/composer_drop_overlay.dart';
 export 'src/sos_dialog.dart';
 
@@ -116,6 +121,7 @@ export 'src/conversation_surface.dart';
 
 export 'src/timeline_composition.dart';
 export 'src/panel_layout.dart';
+export 'src/css_pixel_snap.dart';
 export 'src/agent_create_form.dart';
 export 'src/agent_profile.dart';
 export 'src/dialog_card.dart';
@@ -159,5 +165,6 @@ export 'src/page_recipes.dart';
 export 'src/sidebar_frame.dart';
 
 export 'src/sidebar_indicators.dart';
-
 export 'src/mobile_page_header.dart';
+export 'src/product_empty_state.dart';
+export 'src/task_timeline.dart';

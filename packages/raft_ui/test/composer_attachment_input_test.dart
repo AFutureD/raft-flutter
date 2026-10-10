@@ -202,9 +202,17 @@ void main() {
         ),
       );
       expect(find.text('Drop files to attach'), findsOneWidget);
+      // `absolute inset-0` of the composer root: its padding box, below the
+      // root's `border-t` (2px Brutal, 1px Elegant).
+      final composer = tester.getRect(find.byType(RaftComposer));
       expect(
         tester.getRect(find.byKey(const ValueKey('composer-drop-overlay'))),
-        tester.getRect(find.byType(RaftComposer)),
+        Rect.fromLTRB(
+          composer.left,
+          composer.top + (family == RaftFamily.brutal ? 2 : 1),
+          composer.right,
+          composer.bottom,
+        ),
       );
       final semantics = tester.ensureSemantics();
       expect(find.bySemanticsLabel('Drop files to attach'), findsNothing);

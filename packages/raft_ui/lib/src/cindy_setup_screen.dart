@@ -110,7 +110,7 @@ class RaftCindySetupScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               DecoratedBox(
-                decoration: BoxDecoration(
+                decoration: RaftCssBoxDecoration(
                   boxShadow: t.brutal
                       ? RaftProductShadows.shadowBrutalLg.outer
                       : null,

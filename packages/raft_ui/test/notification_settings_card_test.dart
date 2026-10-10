@@ -29,7 +29,7 @@ void main() {
                     title: 'DMs, direct mentions, and followed thread replies',
                     description: 'Delivery description',
                     status: 'Unavailable',
-                    enableLabel: 'Enable Push Notifications',
+                    actionLabel: 'Enable notifications',
                     muted: muted,
                     muteDescription: 'Stops web push notifications from Fixture for your account. Other servers are unchanged.',
                     onMutedChanged: (v) => setState(() => muted = v),
@@ -88,8 +88,9 @@ void main() {
       }
     });
     testWidgets(
-      'source status/error/success and truthful native actions $theme',
+      'desktop card: header, pill, hint, banner, message, one test button $theme',
       (t) async {
+        var sends = 0;
         await t.pumpWidget(
           MaterialApp(
             theme: raftTheme(theme.$1, dark: theme.$2),
@@ -98,19 +99,15 @@ void main() {
                 child: SizedBox(
                   width: 390,
                   child: RaftNotificationSettingsCard(
-                    title: 'System notifications',
+                    title: 'Desktop notifications',
                     description: 'Actual native delivery',
-                    status: 'Enabled',
-                    enableLabel: 'Disable Push Notifications',
+                    status: 'Managed by the system',
+                    hint: 'System hint',
+                    error: 'Could not post a test notification.',
+                    message: 'Test notification posted to the system.',
+                    actionLabel: 'Send a test notification',
                     muted: false,
-                    onEnable: () {},
-                    showTest: true,
-                    onTest: () {},
-                    showSettings: true,
-                    onOpenSettings: () {},
-                    availabilityHint: 'Actual availability',
-                    error: 'Failed to update server notification setting.',
-                    message: 'Saved current preference',
+                    onAction: () => sends++,
                   ),
                 ),
               ),
@@ -118,13 +115,54 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
-        expect(find.text('Saved current preference'), findsOneWidget);
-        expect(find.text('Send test notification'), findsOneWidget);
-        expect(find.text('Open system settings'), findsOneWidget);
+        expect(find.text('NOTIFICATIONS'), findsOneWidget);
+        expect(find.text('Desktop notifications'), findsOneWidget);
+        expect(find.text('MANAGED BY THE SYSTEM'), findsOneWidget);
+        expect(find.text('System hint'), findsOneWidget);
+        expect(
+          find.text('Test notification posted to the system.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Could not post a test notification.'),
+          findsOneWidget,
+        );
+        expect(find.byType(RaftButton), findsOneWidget);
         expect(find.text('Mute this server'), findsNothing);
-        expect(find.text('Permission denied'), findsNothing);
+        await t.tap(find.text('Send a test notification'));
+        expect(sends, 1);
         expect(t.takeException(), isNull);
       },
     );
+    testWidgets('card without a handler disables its only action $theme', (
+      t,
+    ) async {
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(theme.$1, dark: theme.$2),
+          home: Scaffold(
+            body: SizedBox(
+              width: 390,
+              child: RaftNotificationSettingsCard(
+                title: 'Desktop notifications',
+                description: 'd',
+                status: 'Unavailable',
+                hint: 'This desktop build cannot show system notifications.',
+                actionLabel: 'Send a test notification',
+                muted: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(
+        t
+            .widget<RaftButton>(
+              find.byKey(const ValueKey('notification-settings-action')),
+            )
+            .onPressed,
+        isNull,
+      );
+    });
   }
 }

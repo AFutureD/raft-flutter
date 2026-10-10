@@ -255,7 +255,7 @@ class _AvatarChoiceState extends State<_AvatarChoice> {
               child: Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(
+                decoration: RaftCssBoxDecoration(
                   color: fill,
                   borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
                   border: Border.all(

@@ -22,6 +22,7 @@ import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
+import 'upload_mime.dart';
 
 class WorkspaceAttachmentImageLease {
   WorkspaceAttachmentImageLease(this.lease, this._releaseAuthority);
@@ -49,12 +50,15 @@ class WorkspaceThreadIdentity {
 }
 
 class UploadDraft {
-  UploadDraft(this.filename, this.bytes) : local = null;
-  UploadDraft.shared(SharedDraftAttachment file)
+  UploadDraft(this.filename, this.bytes, {required this.key}) : local = null;
+  UploadDraft.shared(SharedDraftAttachment file, {required this.key})
     : filename = file.filename,
       bytes = Uint8List(0),
       local = file,
       queued = true;
+
+  /// Per-controller identity for presentation (rows, hover, tests).
+  final int key;
   final String filename;
   final Uint8List bytes;
   final SharedDraftAttachment? local;
@@ -63,6 +67,16 @@ class UploadDraft {
   var cancel = UploadCancellation();
   double progress = 0;
   String? id, error;
+
+  /// Web `uploadStatus: "validating"`: shown, but the selection check (size
+  /// ceiling, count, empty file) has not decided yet and nothing is sent.
+  bool checking = false;
+
+  /// Web `uploadCanRetry`: false once the selection check was interrupted.
+  bool canRetry = true;
+
+  /// Browser `File.type` of the picked name (file card meta, image preview).
+  String get mimeType => local?.mimeType ?? composerMimeType(filename);
 
   /// The accepted upload record (`POST /attachments/upload`), so an
   /// optimistic row can present the attachment before the message exists.
@@ -1166,7 +1180,9 @@ class WorkspaceController extends ChangeNotifier {
       throw const RaftApiException('Attach up to 10 files per message.');
     }
     final previous = drafts[scope] ?? '', generation = client.generation;
-    final staged = additions.map(UploadDraft.shared).toList();
+    final staged = additions
+        .map((file) => UploadDraft.shared(file, key: _uploadKeys++))
+        .toList();
     list.addAll(staged);
     final next = text.trim();
     if (next.isNotEmpty && previous.trim() != next) {
@@ -1241,7 +1257,7 @@ class WorkspaceController extends ChangeNotifier {
           )) {
             continue;
           }
-          final draft = UploadDraft.shared(file);
+          final draft = UploadDraft.shared(file, key: _uploadKeys++);
           if (row['id'] is String) {
             draft.id = row['id'];
             draft.queued = false;
@@ -1471,60 +1487,108 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  /// Web `decideMessageAttachmentSelection` + upload: an unknown ceiling
-  /// refuses the whole batch; empty, oversize and over-count files are
-  /// skipped with the Web messages. [text] localizes a message key.
+  /// Selections are decided in the order they were made (Web
+  /// `attachmentSelectionQueueRef`): a later batch counts the files an earlier
+  /// one accepted.
+  Future<void> _selectionQueue = Future.value();
+  int _uploadKeys = 0;
+
+  /// Web `addFiles` + `decideMessageAttachmentSelection` + upload. Every file
+  /// shows at once as a checking chip (Web `validating`); then an unknown
+  /// ceiling refuses the whole batch, and empty, oversize and over-count
+  /// files are dropped with the Web messages. Accepted files transfer
+  /// in turn. [text] localizes a message key.
   Future<void> attachSelection(
     List<({String name, Uint8List bytes})> files, {
     bool thread = false,
     required String Function(String key, Map<String, Object> args) text,
-  }) async {
+  }) {
     final scope = draftScope(thread: thread);
-    if (scope == null || files.isEmpty) return;
+    if (scope == null || files.isEmpty) return Future.value();
     final generation = ledger.generation;
-    final authority = jsonEncode([
-      client.generation,
-      client.user?.id,
-      client.serverId,
-      server?.id,
-      server?.string('role'),
-      channel?.joined,
-      channel?.archived,
-      channel?.json['channelCapabilities'],
-    ]);
+    final authority = _uploadAuthority();
     bool current() =>
         generation == ledger.generation &&
         scope == draftScope(thread: thread) &&
-        authority ==
-            jsonEncode([
-              client.generation,
-              client.user?.id,
-              client.serverId,
-              server?.id,
-              server?.string('role'),
-              channel?.joined,
-              channel?.archived,
-              channel?.json['channelCapabilities'],
-            ]);
+        authority == _uploadAuthority();
+    final batch = [
+      for (final file in files)
+        UploadDraft(file.name, file.bytes, key: _uploadKeys++)..checking = true,
+    ];
+    (_uploads[scope] ??= []).addAll(batch);
+    notifyListeners();
+    Future<void> decide() => _decideSelection(
+      scope,
+      batch,
+      thread: thread,
+      current: current,
+      text: text,
+    );
+    final run = _selectionQueue.then((_) => decide(), onError: (_) => decide());
+    _selectionQueue = run.catchError((Object _) {});
+    return run;
+  }
+
+  String _uploadAuthority() => jsonEncode([
+    client.generation,
+    client.user?.id,
+    client.serverId,
+    server?.id,
+    server?.string('role'),
+    channel?.joined,
+    channel?.archived,
+    channel?.json['channelCapabilities'],
+  ]);
+
+  Future<void> _decideSelection(
+    String scope,
+    List<UploadDraft> batch, {
+    required bool thread,
+    required bool Function() current,
+    required String Function(String key, Map<String, Object> args) text,
+  }) async {
     final limit = await uploadLimitBytes();
-    if (!current()) return;
-    final accepted = <({String name, Uint8List bytes})>[];
+    if (_disposed) return;
+    final list = _uploads[scope];
+    if (!current()) {
+      // Web markInterruptedUploads: the check never finished for this draft.
+      for (final draft in batch) {
+        if (!draft.checking) continue;
+        draft.checking = false;
+        draft.canRetry = false;
+        draft.error =
+            'File checking was interrupted. Remove it and attach again.';
+      }
+      notifyListeners();
+      return;
+    }
+    // Rows the user removed meanwhile release their slot.
+    final alive = [
+      for (final d in batch)
+        if (list?.contains(d) ?? false) d,
+    ];
+    if (alive.isEmpty) return;
+    final accepted = <UploadDraft>[];
     var count = 0, empty = 0;
     final oversize = <int>[];
-    var slots = (10 - uploads(thread: thread).length).clamp(0, 10);
+    var slots = (10 - list!.where((d) => !d.checking).length).clamp(0, 10);
     if (limit != null) {
-      for (final file in files) {
-        if (file.bytes.isEmpty) {
+      for (final draft in alive) {
+        if (draft.bytes.isEmpty) {
           empty++;
-        } else if (file.bytes.length > limit) {
-          oversize.add(file.bytes.length);
+        } else if (draft.bytes.length > limit) {
+          oversize.add(draft.bytes.length);
         } else if (slots <= 0) {
           count++;
         } else {
-          accepted.add(file);
+          accepted.add(draft);
           slots--;
         }
       }
+    }
+    for (final draft in alive) {
+      draft.checking = false;
+      if (!accepted.contains(draft)) list.remove(draft);
     }
     final parts = <String>[
       if (limit == null)
@@ -1532,12 +1596,21 @@ class WorkspaceController extends ChangeNotifier {
           'The upload size limit could not be checked. Try again in a moment.',
           const {},
         ),
+      // Web ICU plurals (`one` / `other`).
       if (count > 0)
         text(
-          'Only {max} attachments per message. {extra} extra files skipped.',
+          count == 1
+              ? 'Only {max} attachments per message. {extra} extra file skipped.'
+              : 'Only {max} attachments per message. {extra} extra files skipped.',
           {'max': 10, 'extra': count},
         ),
-      if (empty > 0) text('{count} empty files skipped.', {'count': empty}),
+      if (empty > 0)
+        text(
+          empty == 1
+              ? '{count} empty file skipped.'
+              : '{count} empty files skipped.',
+          {'count': empty},
+        ),
       if (oversize.isNotEmpty)
         text('Max {maxSize} per file. Current largest file is {largest}.', {
           'maxSize': _limitLabel(limit!),
@@ -1549,12 +1622,27 @@ class WorkspaceController extends ChangeNotifier {
     } else {
       composerErrors[scope] = parts.join(' ');
     }
+    if (list.isEmpty) _uploads.remove(scope);
     notifyListeners();
-    for (final file in accepted) {
-      if (!current()) return;
-      await attachUpload(file.name, file.bytes, thread: thread);
+    // One transfer at a time, each fenced by the authority the selection was
+    // made under: after a conversation, role or account change the files that
+    // have not started are dropped rather than sent under the new authority.
+    for (final draft in accepted) {
+      if (!current()) {
+        _uploads[scope]?.remove(draft);
+        if (_uploads[scope]?.isEmpty ?? false) _uploads.remove(scope);
+        notifyListeners();
+        continue;
+      }
+      await _transferUpload(draft, thread: thread);
     }
   }
+
+  /// Web `formatAttachmentUploadServerError`.
+  static String _uploadServerError(String message) =>
+      message == 'Attachment storage timed out'
+      ? 'The file reached Raft, but saving it timed out.'
+      : message;
 
   static String _limitLabel(int bytes) => bytes % (1024 * 1024) == 0
       ? '${bytes ~/ (1024 * 1024)}MB'
@@ -1585,13 +1673,17 @@ class WorkspaceController extends ChangeNotifier {
     if (uploads(thread: thread).length >= 10) {
       throw const RaftApiException('Attach up to 10 files per message.');
     }
-    final draft = UploadDraft(name, bytes);
+    final draft = UploadDraft(name, bytes, key: _uploadKeys++);
     (_uploads[scope] ??= []).add(draft);
     await _transferUpload(draft, thread: thread);
   }
 
   Future<void> retryUpload(UploadDraft draft, {bool thread = false}) async {
-    if (!uploads(thread: thread).contains(draft) || draft.error == null) return;
+    if (!uploads(thread: thread).contains(draft) ||
+        draft.error == null ||
+        !draft.canRetry) {
+      return;
+    }
     draft.cancel = UploadCancellation();
     draft.error = null;
     draft.progress = 0;
@@ -1665,8 +1757,8 @@ class WorkspaceController extends ChangeNotifier {
           generation == ledger.generation &&
           !_disposed) {
         draft.error = e is RaftApiException
-            ? e.message
-            : 'Upload failed. Retry the file.';
+            ? _uploadServerError(e.message)
+            : 'File no longer available or upload failed. Tap to retry.';
       }
     } finally {
       notifyListeners();

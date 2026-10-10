@@ -1700,7 +1700,11 @@ class RaftComposer extends StatefulWidget {
     this.canAutofocus,
     this.enabled = true,
     this.canSend = true,
-    this.pendingLabel,
+    this.onSendBlocked,
+    this.submitSpinner = false,
+    this.submitTooltip,
+    this.hasAttachments = false,
+    this.attachments,
     this.initialDraft = '',
     this.draftRevision = 0,
     this.onDraftChanged,
@@ -1737,7 +1741,25 @@ class RaftComposer extends StatefulWidget {
   final bool autofocus;
   final bool Function()? canAutofocus;
   final bool enabled, canSend;
-  final String? pendingLabel;
+
+  /// A send was attempted (Ctrl+Enter or Send) while [canSend] is false and
+  /// something is ready to send: Web `handleSubmit` explains why in the
+  /// banner.
+  final VoidCallback? onSendBlocked;
+
+  /// Web `showSubmitSpinner`: Send shows its spinner while files are being
+  /// checked or uploaded (it is disabled either way).
+  final bool submitSpinner;
+
+  /// Web `submitTitle` while the send action is blocked by files.
+  final String? submitTooltip;
+  /// Pending files exist (Web `pendingFiles.length > 0`): a message may then
+  /// be sent without text.
+  final bool hasAttachments;
+
+  /// Pending attachments and failed-upload rows (Web `ComposerAttachments`),
+  /// inside the composer root below the notices and above the card.
+  final Widget? attachments;
   final String initialDraft;
 
   /// Owner-initiated draft changes update the mounted editor without changing
@@ -2029,9 +2051,13 @@ class _RaftComposerState extends State<RaftComposer> {
         widget.submitBusy ||
         composing ||
         !widget.enabled ||
-        !widget.canSend ||
-        (text.isEmpty && widget.pendingLabel == null))
+        (text.isEmpty && !widget.hasAttachments)) {
       return;
+    }
+    if (!widget.canSend) {
+      widget.onSendBlocked?.call();
+      return;
+    }
     if (widget.clearOnSubmit) return handOff(draft, text, forceTask);
     setState(() => sending = true);
     updateSuggestionPortal();
@@ -2319,7 +2345,7 @@ class _RaftComposerState extends State<RaftComposer> {
         widget.canSend &&
         !busy &&
         !composing &&
-        (controller.text.trim().isNotEmpty || widget.pendingLabel != null);
+        (controller.text.trim().isNotEmpty || widget.hasAttachments);
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.hasBoundedWidth
@@ -2338,17 +2364,17 @@ class _RaftComposerState extends State<RaftComposer> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (widget.pendingLabel != null) ...[
-                    Text(
-                      widget.pendingLabel!,
-                      style: TextStyle(color: t.accent),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
                   if (widget.accessoryRow != null) ...[
                     KeyedSubtree(
                       key: const ValueKey('composer-accessory-slot'),
                       child: widget.accessoryRow!,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (widget.attachments != null) ...[
+                    KeyedSubtree(
+                      key: const ValueKey('composer-attachments-slot'),
+                      child: widget.attachments!,
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -2506,7 +2532,7 @@ class _RaftComposerState extends State<RaftComposer> {
                                           widget.onImagePick != null)
                                         RaftComposerAction(
                                           glyph: RaftGlyph.imagePlus,
-                                          tooltip: 'Attach image',
+                                          tooltip: 'Attach media',
                                           onPressed: busy || !widget.enabled
                                               ? null
                                               : widget.onImagePick,
@@ -2545,9 +2571,12 @@ class _RaftComposerState extends State<RaftComposer> {
                                         ],
                                         RaftComposerAction(
                                           glyph: RaftGlyph.send,
-                                          tooltip: 'Send message (Ctrl+Enter)',
+                                          tooltip:
+                                              widget.submitTooltip ??
+                                              'Send message (Ctrl+Enter)',
                                           submit: true,
                                           busy: busy,
+                                          spinner: widget.submitSpinner,
                                           // Source MessageInput only prevents the
                                           // pointer-down blur: an unfocused composer
                                           // stays unfocused after a Send tap (no
@@ -2987,69 +3016,6 @@ class RaftEmptyState extends StatelessWidget {
             Padding(padding: const EdgeInsets.only(top: 18), child: action),
         ],
       ),
-    ),
-  );
-}
-
-class RaftUploadChip extends StatelessWidget {
-  const RaftUploadChip({
-    super.key,
-    required this.name,
-    required this.onRemove,
-    this.progress = 0,
-    this.ready = false,
-    this.error,
-    this.onRetry,
-  });
-  final String name;
-  final VoidCallback onRemove;
-  final double progress;
-  final bool ready;
-  final String? error;
-  final VoidCallback? onRetry;
-  @override
-  Widget build(BuildContext context) => RaftPanel(
-    padding: const EdgeInsets.only(left: 12),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (error != null)
-          const Icon(Icons.error_outline, size: 18)
-        else if (ready)
-          const Icon(Icons.attach_file, size: 18)
-        else
-          SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              value: progress > 0 ? progress : null,
-              strokeWidth: 2,
-              semanticsLabel: 'Uploading $name',
-            ),
-          ),
-        const SizedBox(width: 8),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 180),
-          child: Text(
-            error == null ? name : '$name · Upload failed',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (error != null && onRetry != null)
-          IconButton(
-            tooltip: raftText(context, 'Retry upload'),
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 18),
-          ),
-        IconButton(
-          tooltip: ready || error != null
-              ? raftText(context, 'Remove attachment')
-              : raftText(context, 'Cancel upload'),
-          onPressed: onRemove,
-          icon: const Icon(Icons.close, size: 18),
-        ),
-      ],
     ),
   );
 }

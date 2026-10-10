@@ -1,0 +1,98 @@
+import 'package:flutter/material.dart';
+
+import 'panel_layout.dart' show RaftCssText;
+import 'recipe_surface.dart';
+import 'recipes/empty_state.g.dart';
+import 'theme.dart';
+
+/// Web `components/ui/EmptyState` (raft-ui `EmptyState` / `EmptyStateIcon` /
+/// `EmptyStateContent` / `EmptyStateTitle` / `EmptyStateDescription`),
+/// painted from the generated `emptyState` recipe: elegant shows a small
+/// rounded `bg-fill-muted` icon tile and a `text-sm font-medium` title,
+/// brutal a bare 36px icon and a muted `text-lg font-semibold` title. The
+/// recipe's `[&_svg]:size-*` wins over the call site's icon size attribute.
+///
+/// [icon] receives the recipe icon size and colour. The widget fills the
+/// space it is given and centres its content (`flex flex-1 flex-col
+/// items-center justify-center`).
+class RaftProductEmptyState extends StatelessWidget {
+  const RaftProductEmptyState({
+    super.key,
+    required this.title,
+    required this.icon,
+    this.description,
+    this.action,
+  });
+
+  final String title;
+  final String? description;
+  final Widget? action;
+  final Widget Function(BuildContext context, double size, Color color) icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final rt = t.recipeTokens;
+    final recipe = RaftEmptyStateRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
+    final base = DefaultTextStyle.of(context).style;
+    final iconSlot = recipe.icon;
+    final svg = iconSlot.target('& svg') ?? iconSlot.target('[&_svg]');
+    final iconColor =
+        iconSlot.textStyle(rt).color ?? t.colors['foreground-placeholder']!;
+    final iconSize = svg?.width ?? (t.brutal ? 36.0 : 18.0);
+    final content = recipe.content;
+    return Center(
+      child: Padding(
+        padding: recipe.root.padding,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: content.maxWidth ?? 384),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // The icon is a sibling of the content slot (not inside it), so
+              // the recipe's `mb-4` applies; `gap-2` only spaces title/text.
+              RaftRecipeBox(
+                key: const ValueKey('empty-state-icon'),
+                style: iconSlot,
+                tokens: rt,
+                applyText: false,
+                child: icon(context, iconSize, iconColor),
+              ),
+              SizedBox(height: iconSlot.margin.bottom),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                spacing: content.rowGap ?? 8,
+                children: [
+                  RaftCssText(
+                    title,
+                    key: const ValueKey('empty-state-title'),
+                    textAlign: TextAlign.center,
+                    style: recipe.title.text(rt, base: base),
+                  ),
+                  if (description != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 275),
+                      child: RaftCssText(
+                        description!,
+                        textAlign: TextAlign.center,
+                        style: recipe.description.text(rt, base: base),
+                      ),
+                    ),
+                ],
+              ),
+              if (action != null)
+                Padding(
+                  padding: EdgeInsets.only(top: recipe.actions.margin.top),
+                  child: action,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

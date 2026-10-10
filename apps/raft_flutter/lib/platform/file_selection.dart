@@ -14,16 +14,34 @@ Future<PickedUpload?> selectUpload() async {
   return PickedUpload(file.name, await file.readAsBytes());
 }
 
+/// Web MessageInput `MEDIA_PICKER_ACCEPT = "image/*,video/*"`: the media
+/// button opens images and videos, the file button anything.
+const mediaPickerTypeGroups = [
+  XTypeGroup(
+    label: 'Media',
+    extensions: [
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'bmp',
+      'avif',
+      'heic',
+      'heif',
+      'mp4',
+      'm4v',
+      'mov',
+      'webm',
+      'mkv',
+      'avi',
+    ],
+    mimeTypes: ['image/*', 'video/*'],
+  ),
+];
+
 /// Uses the host document picker, including Android's Storage Access Framework.
 /// Read one selected file at a time so large batches do not duplicate buffers.
-Future<List<XFile>> selectUploads({bool imagesOnly = false}) => openFiles(
-  acceptedTypeGroups: imagesOnly
-      ? const [
-          XTypeGroup(
-            label: 'Images',
-            extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
-            mimeTypes: ['image/*'],
-          ),
-        ]
-      : const [],
+Future<List<XFile>> selectUploads({bool mediaOnly = false}) => openFiles(
+  acceptedTypeGroups: mediaOnly ? mediaPickerTypeGroups : const [],
 );

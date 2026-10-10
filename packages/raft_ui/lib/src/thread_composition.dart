@@ -429,9 +429,15 @@ class RaftThreadTimelineTopSliver extends StatelessWidget {
     this.parent,
     this.parentSlot,
     this.parentKey,
+    this.showSummary = true,
   });
   final bool hasMore, historyLimited, loadingOlder;
   final String loadingOlderLabel, historyLimitedLabel, beginningLabel;
+
+  /// Web ThreadPanel renders the history state and the reply count only in
+  /// its timeline header; a thread with no replies (not loading) shows the
+  /// parent and the empty state instead.
+  final bool showSummary;
 
   /// Source ThreadPanel uses loaded messages.length, not total folded count.
   final String replyCountLabel;
@@ -460,36 +466,37 @@ class RaftThreadTimelineTopSliver extends StatelessWidget {
               ),
               child: parent!,
             ),
-          Padding(
-            padding: recipe.summaryInset,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                RaftThreadHistoryTopState(
-                  hasMore: hasMore,
-                  historyLimited: historyLimited,
-                  loadingOlder: loadingOlder,
-                  loadingOlderLabel: loadingOlderLabel,
-                  historyLimitedLabel: historyLimitedLabel,
-                  beginningLabel: beginningLabel,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Container(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      border: Border(bottom: recipe.summaryBorder),
-                    ),
-                    child: Text(
-                      replyCountLabel,
-                      style: recipe.replyCount,
-                      textAlign: TextAlign.center,
+          if (showSummary)
+            Padding(
+              padding: recipe.summaryInset,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  RaftThreadHistoryTopState(
+                    hasMore: hasMore,
+                    historyLimited: historyLimited,
+                    loadingOlder: loadingOlder,
+                    loadingOlderLabel: loadingOlderLabel,
+                    historyLimitedLabel: historyLimitedLabel,
+                    beginningLabel: beginningLabel,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Container(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: recipe.summaryBorder),
+                      ),
+                      child: Text(
+                        replyCountLabel,
+                        style: recipe.replyCount,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

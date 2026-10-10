@@ -14,7 +14,6 @@ import 'package:raft_flutter/features/fleet_views.dart';
 import 'package:raft_flutter/features/integrations_views.dart';
 import 'package:raft_flutter/features/joint_channel_views.dart';
 import 'package:raft_flutter/features/management_support.dart';
-import 'package:raft_flutter/features/server_views.dart';
 import 'package:raft_flutter/features/sidebar_preferences_view.dart';
 import 'package:raft_flutter/features/workspace_settings.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -145,6 +144,15 @@ void main() {
       a.routes['GET /integrations/overview'] = (_) => <dynamic>[];
     }
 
+    // Private (registered) apps live under the My apps tab.
+    Future<void> openMyApps(WidgetTester t) async {
+      await t.tap(find.byKey(const ValueKey('connected-apps-tab-my-apps')));
+      await t.pump();
+    }
+
+    // Web's cold Applications section shows its `Loading...` line.
+    final loadingLine = find.text('Loading...');
+
     testWidgets(
       'revisit renders the snapshot at the first frame and revalidates in place',
       (t) async {
@@ -152,18 +160,23 @@ void main() {
         addTearDown(w.dispose);
         appRoutes(a, 'Beta app');
         await t.pumpWidget(_host(IntegrationsView(controller: w)));
-        expect(_anySpinner, findsOneWidget, reason: 'true cold load');
+        expect(loadingLine, findsOneWidget, reason: 'true cold load');
         await t.pumpAndSettle();
+        expect(loadingLine, findsNothing);
         await _leave(t);
 
         appRoutes(a, 'Beta app v2');
         a.gate = Completer<void>();
         final before = _requests(a, '/integrations/clients');
         await t.pumpWidget(_host(IntegrationsView(controller: w)));
-        // First frame: accepted rows, no loading state, request in flight.
+        // First frame: accepted counts, no loading state, request in flight.
+        expect(loadingLine, findsNothing);
+        expect(_anySpinner, findsNothing);
+        await openMyApps(t);
         expect(find.text('Alpha app'), findsOneWidget);
         expect(find.text('Beta app'), findsOneWidget);
         expect(_anySpinner, findsNothing);
+        expect(loadingLine, findsNothing);
         for (
           var i = 0;
           i < 10 && _requests(a, '/integrations/clients') == before;
@@ -198,7 +211,10 @@ void main() {
               as List<Map<String, dynamic>>;
       final first = rows();
       appRoutes(a, 'Beta app v2');
-      await t.tap(find.byTooltip('Refresh'));
+      // Web's Applications section has no refresh control: a revisit
+      // revalidates in place.
+      await _leave(t);
+      await t.pumpWidget(_host(IntegrationsView(controller: w)));
       await t.pumpAndSettle();
       final second = rows();
       expect(second.first, same(first.first));
@@ -215,6 +231,7 @@ void main() {
       await _leave(t);
       a.statuses['GET /integrations/clients'] = 500;
       await t.pumpWidget(_host(IntegrationsView(controller: w)));
+      await openMyApps(t);
       expect(find.text('Alpha app'), findsOneWidget);
       await t.pumpAndSettle();
       expect(find.text('Alpha app'), findsOneWidget);
@@ -249,6 +266,7 @@ void main() {
         };
         await t.pumpWidget(_host(IntegrationsView(controller: w)));
         await t.pumpAndSettle();
+        await openMyApps(t);
         await t.tap(find.text('Register app'));
         await t.pumpAndSettle();
         await t.enterText(
@@ -267,6 +285,7 @@ void main() {
         expect(jsonEncode(snapshot.fields), isNot(contains('one-time-secret')));
         a.gate = Completer<void>();
         await t.pumpWidget(_host(IntegrationsView(controller: w)));
+        await openMyApps(t);
         expect(find.text('Created app'), findsOneWidget);
         expect(_anySpinner, findsNothing);
         a.gate!.complete();
@@ -296,7 +315,9 @@ void main() {
         a.gate = Completer<void>();
         await t.pumpWidget(_host(IntegrationsView(controller: w)));
         expect(find.text('Alpha app'), findsNothing);
-        expect(_anySpinner, findsOneWidget);
+        expect(loadingLine, findsOneWidget);
+        await openMyApps(t);
+        expect(find.text('Alpha app'), findsNothing);
         a.gate!.complete();
         await t.pumpAndSettle();
       });
@@ -316,7 +337,7 @@ void main() {
         w.notifyListeners();
         await t.pump();
         expect(find.text('Alpha app'), findsNothing);
-        expect(_anySpinner, findsOneWidget);
+        expect(loadingLine, findsOneWidget);
         expect(
           w.resourceSnapshots.read<FieldSnapshot>(
             'management:integrations',
@@ -453,25 +474,6 @@ void main() {
         find.text('Faster revisits'),
         // ReleaseNotesPanel's loading state is a status line, not a spinner.
         loading: find.text('Loading release notes…'),
-      );
-    });
-
-    testWidgets('workspace access', (t) async {
-      final (w, a) = (await t.runAsync(_fixture))!;
-      addTearDown(w.dispose);
-      a.routes['GET /servers/s1'] = (_) => {'id': 's1', 'name': 'Fixture'};
-      a.routes['GET /servers/s1/notification-settings'] = (_) => {
-        'serverPushMode': 'mentions',
-      };
-      a.routes['GET /servers/s1/invites'] = (_) => <dynamic>[];
-      a.routes['GET /servers/s1/join-links'] = (_) => <dynamic>[];
-      await revisit(
-        t,
-        a,
-        () => SingleChildScrollView(
-          child: WorkspaceAccessSettings(controller: w),
-        ),
-        find.text('Mentions only'),
       );
     });
 
