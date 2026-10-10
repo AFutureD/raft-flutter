@@ -19,7 +19,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'recipes/token_binding.dart';
 import 'list_items.dart';
-import 'recipe_surface.dart' show raftCssText;
+import 'recipe_surface.dart' show RaftCssBoxDecoration, raftCssText;
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -552,7 +552,9 @@ class RaftProfileIdentity extends StatelessWidget {
         tokens: rt,
       ).root;
       avatar = DecoratedBox(
-        decoration: BoxDecoration(boxShadow: button.boxShadow.toBoxShadows(rt)),
+        decoration: RaftCssBoxDecoration(
+          boxShadow: button.boxShadow.toBoxShadows(rt),
+        ),
         child: avatar,
       );
     }
