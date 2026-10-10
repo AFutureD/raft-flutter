@@ -40,8 +40,24 @@ class QuickSwitcherActions {
   openThread;
   final Future<void> Function(String channelId, String? messageId) openMessage;
 
-  /// The full Search page with the typed query.
+  /// The full Search page with the typed query; the host has saved the
+  /// switcher's query and filters, which the page restores.
   final void Function(String query) searchAll;
+}
+
+/// How the switcher was opened (Source: `state.searchEntry`, the entry that
+/// carried a `channelId`, and the plain Cmd/Ctrl+K navigation).
+enum QuickSwitcherEntry {
+  /// The rail's Search button: a fresh start; the saved query and filters
+  /// are replaced by an empty state.
+  rail,
+
+  /// Cmd/Ctrl+K: restores the saved query and filters, query selected.
+  shortcut,
+
+  /// "Search this channel": that channel as the filter, results wait for a
+  /// query.
+  channel,
 }
 
 /// Owns everything the Cmd/Ctrl+K switcher needs between openings: the visit
@@ -181,17 +197,47 @@ class QuickSwitcherHost {
       members: members,
       currentUser: w.client.user?.json,
       origin: w.client.origin,
+      channels: [for (final c in w.channels) c.json],
+      dms: [for (final c in w.dms) c.json],
+      plan: w.server?.string('plan', 'free') ?? 'free',
     );
   }
 
   bool get isOpen => route?.isActive ?? false;
 
-  /// Opens the switcher over the current page. A repeated Cmd/Ctrl+K while it
-  /// is open leaves it open (the field keeps focus).
-  void open(BuildContext context) {
+  /// The saved state a new opening starts from.
+  QuickSwitcherSeed seed(QuickSwitcherEntry entry, {String? channelId}) {
+    final scope = memoryScope;
+    switch (entry) {
+      case QuickSwitcherEntry.rail:
+        // Source: the empty /search URL replaces the saved state.
+        if (scope != null) {
+          searchMemory.saveState(scope, const SearchStateSnapshot());
+        }
+        return const QuickSwitcherSeed();
+      case QuickSwitcherEntry.channel:
+        final state = SearchStateSnapshot(channelId: channelId);
+        if (scope != null) searchMemory.saveState(scope, state);
+        return QuickSwitcherSeed(state: state, deferUntilQuery: true);
+      case QuickSwitcherEntry.shortcut:
+        final state = scope == null
+            ? const SearchStateSnapshot()
+            : searchMemory.loadSync(scope).state;
+        return QuickSwitcherSeed(state: state, selectQuery: true);
+    }
+  }
+
+  /// Opens the switcher over the current page. A repeated open while it is
+  /// already up leaves it open (the field keeps focus).
+  void open(
+    BuildContext context, {
+    QuickSwitcherEntry entry = QuickSwitcherEntry.shortcut,
+    String? channelId,
+  }) {
     if (isOpen || w.server == null) return;
     final navigator = Navigator.of(context, rootNavigator: true);
     openedAuthority = directoryAuthority(w);
+    final seeded = seed(entry, channelId: channelId);
     // Conversations the server-level lists have not delivered yet start now;
     // settled kinds are reused as they are.
     w.entityDirectory.ensureAuthors();
@@ -205,6 +251,11 @@ class QuickSwitcherHost {
           listenable: Listenable.merge([w, w.entityDirectory, recents]),
           data: data,
           clock: clock,
+          seed: seeded,
+          authority: openedAuthority!,
+          onStateChanged: saveState,
+          snapshot: () => lastSearch,
+          onSnapshot: (snapshot) => lastSearch = snapshot,
           onClose: close,
           onOpenEntity: openEntity,
           onOpenMessage: openMessage,
@@ -229,12 +280,20 @@ class QuickSwitcherHost {
     }
   }
 
-  Future<List<Map<String, dynamic>>> searchMessages(String query) async {
+  QuickSwitcherSnapshot? lastSearch;
+
+  /// Source persistSearchState: the committed query and filters are the saved
+  /// Search state, which the full page and the next Cmd/Ctrl+K restore.
+  void saveState(SearchStateSnapshot state) {
+    final scope = memoryScope;
+    if (scope != null && !_disposed) searchMemory.saveState(scope, state);
+  }
+
+  Future<List<Map<String, dynamic>>> searchMessages(
+    Map<String, dynamic> params,
+  ) async {
     final authority = directoryAuthority(w);
-    final value = await w.query(
-      '/messages/search',
-      query: {'q': query, 'limit': 10},
-    );
+    final value = await w.query('/messages/search', query: params);
     if (_disposed || authority != directoryAuthority(w)) return const [];
     final list = value is List
         ? value

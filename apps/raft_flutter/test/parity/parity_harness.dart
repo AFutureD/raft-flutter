@@ -466,7 +466,7 @@ Future<void> _androidInteractions(
   if (steps is! List) return;
   TestGesture? mouse;
   for (final raw in steps.cast<Map>()) {
-    final key = raw['key'] as String?;
+    final key = raw['type'] == 'key' ? null : raw['key'] as String?;
     final target = key == null ? null : find.byKey(ValueKey(key));
     // Like Playwright's actionability wait: the target may appear after the
     // fixture reads settle (up to 2s of fake time).
@@ -494,6 +494,24 @@ Future<void> _androidInteractions(
         await mouse.moveTo(t.getCenter(target!.first));
       case 'enter':
         await t.enterText(target!.first, raw['value'] as String);
+      case 'enterText':
+        // Types into the field under the keyed widget (a keyed search input).
+        await t.enterText(
+          find
+              .descendant(of: target!.first, matching: find.byType(EditableText))
+              .first,
+          raw['text'] as String,
+        );
+      case 'key':
+        final name = raw['key'] as String;
+        final logical = switch (name) {
+          'arrowDown' => LogicalKeyboardKey.arrowDown,
+          'arrowUp' => LogicalKeyboardKey.arrowUp,
+          'enter' => LogicalKeyboardKey.enter,
+          'escape' => LogicalKeyboardKey.escape,
+          _ => throw StateError('unknown androidInteraction key $name'),
+        };
+        await t.sendKeyEvent(logical);
       case 'wait':
         await t.pump(Duration(milliseconds: (raw['ms'] as num).toInt()));
       default:

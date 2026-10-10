@@ -23,6 +23,7 @@ import 'task_surface_controller.dart';
 import 'resource_filters.dart';
 import 'page_layout.dart';
 import 'resource_cards.dart';
+import 'search_filter_bar.dart';
 import 'task_selection_filter.dart';
 import 'sender_avatar_projection.dart';
 import 'message_reference_directory.dart';
@@ -2576,87 +2577,6 @@ class _ResourceViewState extends State<ResourceView> {
 
   Widget searchFilters() {
     final scope = authority;
-    final senderOptions = {
-      for (final sender in senders)
-        sender.key:
-            '${sender.label} · ${raftText(context, sender.type == 'user' ? 'Human' : 'Agent')}',
-    };
-    Widget picker(
-      String field,
-      String tooltip,
-      Map<String, String> options,
-      Set<String> selected,
-      void Function(String) toggle,
-      VoidCallback clear, {
-      String? label,
-      RaftGlyph? glyph,
-      bool single = false,
-    }) => TaskSelectionFilter(
-      key: ValueKey('$scope:$field'),
-      field: field,
-      tooltip: tooltip,
-      label: label,
-      glyph: glyph,
-      options: options,
-      selection: selected,
-      valid: () => accepts(scope),
-      closeOnSelect: single,
-      picker: true,
-      combobox: field == 'Channel',
-      onToggle: (key) {
-        if (!accepts(scope)) return;
-        toggle(key);
-        load();
-      },
-      onClear: () {
-        if (!accepts(scope)) return;
-        clear();
-        load();
-      },
-      beforeOpen: (menu) {
-        for (final other in filterMenus) {
-          if (!identical(menu, other) && other.isOpen) other.close();
-        }
-      },
-      onController: (menu, add) {
-        add ? filterMenus.add(menu) : filterMenus.remove(menu);
-      },
-    );
-    Widget dropdown(
-      String title,
-      String label,
-      Map<String, String> choices,
-      void Function(String) changed,
-    ) => RaftDropdownMenu(
-      key: ValueKey('$scope:$title'),
-      tooltip: title,
-      label: label,
-      glyph: title == 'Search date range'
-          ? RaftGlyph.calendarRange
-          : RaftGlyph.arrowDownUp,
-      trailingGlyph: RaftGlyph.chevronDown,
-      triggerStyle: RaftDropdownTriggerStyle.picker,
-      minimumTargetSize: RaftTokens.of(context).brutal
-          ? RaftMetrics.buttonMd
-          : RaftMetrics.buttonSm,
-      // activeFilterClass when the value differs from the default.
-      selected: title == 'Search date range'
-          ? advanced.timeRange != 'any'
-          : advanced.searchSort != 'relevance',
-      enabled: title != 'Sort search results' || query.text.trim().isNotEmpty,
-      entries: [
-        for (final entry in choices.entries)
-          RaftMenuEntry(
-            label: raftText(context, entry.value),
-            onPressed: () {
-              if (accepts(scope)) {
-                changed(entry.key);
-                load();
-              }
-            },
-          ),
-      ],
-    );
     // MessageSearchPage filters row: `px-4 py-3 border-b theme-brutal:border-b-2`.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2670,93 +2590,23 @@ class _ResourceViewState extends State<ResourceView> {
       ),
       child: SizedBox(
         width: double.infinity,
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            picker(
-              'From',
-              'Filter by sender',
-              senderOptions,
-              {if (advanced.sender != null) advanced.sender!.key},
-              (key) => advanced.selectSender(
-                senders.where((s) => s.key == key).firstOrNull,
-              ),
-              () => advanced.selectSender(null),
-              single: true,
-              label: advanced.sender == null
-                  ? raftText(context, 'From')
-                  : '${raftText(context, 'From')}: ${advanced.sender!.label}',
-              glyph: RaftGlyph.userCircle2,
-            ),
-            picker(
-              'Scope',
-              'Search scope',
-              const {
-                'mentioned': 'Mentions me',
-                'humans': 'Humans',
-                'agents': 'Agents',
-              },
-              advanced.scopes,
-              advanced.toggleScope,
-              advanced.scopes.clear,
-              glyph: RaftGlyph.atSign,
-            ),
-            picker(
-              'Channel',
-              'Filter by channel',
-              {
-                for (final c in [
-                  ...w.channels,
-                  ...w.dms,
-                ].where((c) => c.type != 'thread'))
-                  c.id: '${c.type == 'dm' ? '@' : '#'}${c.name}',
-              },
-              {if (advanced.channelId != null) advanced.channelId!},
-              (id) => advanced.channelId = id,
-              () => advanced.channelId = null,
-              single: true,
-              glyph: RaftGlyph.hash,
-            ),
-            dropdown(
-              'Search date range',
-              const {
-                'any': 'Any Time',
-                'today': 'Today',
-                '7d': 'Last 7 Days',
-                '30d': 'Last 30 Days',
-              }[advanced.timeRange]!,
-              const {
-                'any': 'Any Time',
-                'today': 'Today',
-                '7d': 'Last 7 Days',
-                '30d': 'Last 30 Days',
-              },
-              (value) => advanced.timeRange = value,
-            ),
-            dropdown(
-              'Sort search results',
-              advanced.searchSort == 'recent' ? 'Recent' : 'Relevant',
-              const {'relevance': 'Relevant', 'recent': 'Recent'},
-              (value) => advanced.searchSort = value,
-            ),
-            if (advanced.hasSearchFilter)
-              // Button ghost xs "Clear All".
-              RaftTextButton(
-                label: 'Clear All',
-                variant: RaftControlVariant.ghost,
-                visualHeight: RaftMetrics.buttonXs,
-                minimumTargetSize: RaftMetrics.buttonXs,
-                onPressed: () {
-                  if (accepts(scope)) {
-                    final sort = advanced.searchSort;
-                    advanced = ResourceFilters()..searchSort = sort;
-                    load();
-                  }
-                },
-              ),
-          ],
+        child: SearchFilterBar(
+          filters: advanced,
+          senders: senders,
+          conversations: {
+            for (final c in [
+              ...w.channels,
+              ...w.dms,
+            ].where((c) => c.type != 'thread'))
+              c.id: '${c.type == 'dm' ? '@' : '#'}${c.name}',
+          },
+          menus: filterMenus,
+          queryIsEmpty: query.text.trim().isEmpty,
+          scope: scope,
+          valid: () => accepts(scope),
+          onChanged: load,
+          channelLabel: (id) =>
+              '#${[...w.channels, ...w.dms].where((c) => c.id == id).firstOrNull?.name ?? raftText(context, 'Channel')}',
         ),
       ),
     );

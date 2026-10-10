@@ -210,6 +210,65 @@ class SearchHighlight extends StatelessWidget {
   }
 }
 
+/// The 14px sender avatar of a message hit (Source `AvatarSlot
+/// context="preview-mini"`), shared by the Search page and the quick switcher.
+Widget searchHitSenderAvatar({
+  required Map<String, dynamic> row,
+  required String sender,
+  required String origin,
+  List<Map<String, dynamic>> agents = const [],
+  List<Map<String, dynamic>> members = const [],
+  Map<String, dynamic>? currentUser,
+}) {
+  final type = '${row['senderType'] ?? 'user'}';
+  final projection = projectSenderAvatar(
+    origin: origin,
+    senderId: '${row['senderId']}',
+    senderType: type,
+    agents: agents,
+    members: members,
+    currentUser: currentUser,
+    externalAuthor: type == 'external_projection'
+        ? {...row, 'avatarUrl': row['senderAvatarUrl'] ?? row['avatarUrl']}
+        : null,
+    carriedAvatarUrl: row['senderAvatarUrl'] is String
+        ? row['senderAvatarUrl'] as String
+        : null,
+    requestSize: 14,
+  );
+  return RaftAvatar(
+    name: sender,
+    size: 14,
+    mountedContext: RaftMountedAvatarContext.previewMini,
+    kind: type == 'agent'
+        ? RaftAvatarKind.agent
+        : type == 'external_projection'
+        ? RaftAvatarKind.app
+        : RaftAvatarKind.human,
+    content: RaftAvatarContent(
+      name: sender,
+      kind: type == 'agent'
+          ? RaftAvatarContentKind.agent
+          : type == 'external_projection'
+          ? RaftAvatarContentKind.app
+          : RaftAvatarContentKind.human,
+      uploadedUrl: projection.uploadedUrl,
+      gravatarUrl: projection.gravatarUrl,
+      pixelKey: type == 'agent' ? projection.pixelKey ?? 'robot' : null,
+      fallback: RaftMountedAvatarFallback(
+        avatarContext: RaftMountedAvatarContext.previewMini,
+        identity: type == 'agent'
+            ? RaftMountedAvatarIdentity.agent
+            : type == 'external_projection'
+            ? RaftMountedAvatarIdentity.app
+            : RaftMountedAvatarIdentity.human,
+        gravatar: projection.gravatarUrl != null,
+        initials: sender,
+      ),
+    ),
+  );
+}
+
 /// Page composition of source SearchResultsSection/EntityResult/MessageResult.
 /// Transport, keyboard selection and authority are owned by ResourceView.
 class ResourceSearchResults extends StatelessWidget {
@@ -242,55 +301,15 @@ class ResourceSearchResults extends StatelessWidget {
   final bool hasMore;
   final VoidCallback onMore;
 
-  Widget _senderAvatar(Map<String, dynamic> row, String sender) {
-    final type = '${row['senderType'] ?? 'user'}';
-    final projection = projectSenderAvatar(
-      origin: origin,
-      senderId: '${row['senderId']}',
-      senderType: type,
-      agents: agents,
-      members: members,
-      currentUser: currentUser,
-      externalAuthor: type == 'external_projection'
-          ? {...row, 'avatarUrl': row['senderAvatarUrl'] ?? row['avatarUrl']}
-          : null,
-      carriedAvatarUrl: row['senderAvatarUrl'] is String
-          ? row['senderAvatarUrl'] as String
-          : null,
-      requestSize: 14,
-    );
-    return RaftAvatar(
-      name: sender,
-      size: 14,
-      mountedContext: RaftMountedAvatarContext.previewMini,
-      kind: type == 'agent'
-          ? RaftAvatarKind.agent
-          : type == 'external_projection'
-          ? RaftAvatarKind.app
-          : RaftAvatarKind.human,
-      content: RaftAvatarContent(
-        name: sender,
-        kind: type == 'agent'
-            ? RaftAvatarContentKind.agent
-            : type == 'external_projection'
-            ? RaftAvatarContentKind.app
-            : RaftAvatarContentKind.human,
-        uploadedUrl: projection.uploadedUrl,
-        gravatarUrl: projection.gravatarUrl,
-        pixelKey: type == 'agent' ? projection.pixelKey ?? 'robot' : null,
-        fallback: RaftMountedAvatarFallback(
-          avatarContext: RaftMountedAvatarContext.previewMini,
-          identity: type == 'agent'
-              ? RaftMountedAvatarIdentity.agent
-              : type == 'external_projection'
-              ? RaftMountedAvatarIdentity.app
-              : RaftMountedAvatarIdentity.human,
-          gravatar: projection.gravatarUrl != null,
-          initials: sender,
-        ),
-      ),
-    );
-  }
+  Widget _senderAvatar(Map<String, dynamic> row, String sender) =>
+      searchHitSenderAvatar(
+        row: row,
+        sender: sender,
+        origin: origin,
+        agents: agents,
+        members: members,
+        currentUser: currentUser,
+      );
 
   @override
   Widget build(BuildContext context) {

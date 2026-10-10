@@ -8,7 +8,9 @@ import 'page_recipes.dart';
 import 'popover_surface.dart';
 import 'recipe_surface.dart';
 import 'recipes/kbd.g.dart';
+import 'recipes/search.g.dart' as gen;
 import 'recipes/search_entity.g.dart';
+import 'dialog_card.dart';
 import 'search_input.dart';
 import 'search_result_surface.dart';
 import 'theme.dart';
@@ -81,8 +83,12 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
     required this.selectLabel,
     required this.openLabel,
     required this.semanticLabel,
+    this.filters,
   });
   final Widget field, body;
+
+  /// Filter chips under the field once there is something to filter.
+  final Widget? filters;
   final String selectLabel, openLabel, semanticLabel;
 
   @override
@@ -94,6 +100,12 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
       width: t.brutal ? 2 : 1,
     );
     final hint = recipe.metadata.copyWith(fontSize: 11);
+    final rt = t.recipeTokens;
+    final shell = gen.RaftSearchRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -108,7 +120,9 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DecoratedBox(
-                decoration: BoxDecoration(border: Border(bottom: line)),
+                decoration: shell.frame
+                    .decoration(rt)
+                    .copyWith(border: Border(bottom: line)),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -117,7 +131,13 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
                   child: field,
                 ),
               ),
-              Expanded(child: body),
+              ?filters,
+              Expanded(
+                child: DecoratedBox(
+                  decoration: shell.viewport.decoration(rt),
+                  child: body,
+                ),
+              ),
               DecoratedBox(
                 decoration: BoxDecoration(border: Border(top: line)),
                 child: Padding(
@@ -197,12 +217,22 @@ class RaftQuickSwitcherList extends StatelessWidget {
   final List<Widget> children;
   final bool compact;
   @override
-  Widget build(BuildContext context) => ListView(
-    controller: controller,
-    primary: false,
-    padding: EdgeInsets.all(compact ? 12 : 16),
-    children: children,
-  );
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final viewport = gen.RaftSearchRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: t.recipeTokens,
+    ).viewport;
+    // `SearchShellViewport` padding plus the results wrapper (`p-3` for the
+    // recent list, `p-4` for results).
+    return ListView(
+      controller: controller,
+      primary: false,
+      padding: viewport.padding.add(EdgeInsets.all(compact ? 12 : 16)),
+      children: children,
+    );
+  }
 }
 
 /// Exact destination then the "Search for" row.
@@ -220,7 +250,10 @@ class RaftQuickSwitcherHead extends StatelessWidget {
   );
 }
 
-/// A headed group of rows.
+/// A headed group of rows. With a [glyph] the heading is the Source
+/// `SectionEyebrow` (recent conversations: `mb-2 flex items-center gap-1.5
+/// px-1`); otherwise the search recipe's `SearchResultsSection` and
+/// `SearchResultsSectionHeading` slots, like the Search page.
 class RaftQuickSwitcherSection extends StatelessWidget {
   const RaftQuickSwitcherSection({
     super.key,
@@ -234,24 +267,57 @@ class RaftQuickSwitcherSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final recipe = RaftSearchRecipe(t, mobile: false);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: RaftQuickSwitcherMetrics.rowGap),
-      child: Column(
+    if (glyph != null) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: RaftQuickSwitcherMetrics.rowGap,
         children: [
           Padding(
             padding: RaftSearchHomeRecipe.headingInset,
             child: Row(
               spacing: 6,
               children: [
-                if (glyph != null) RaftIcon(glyph!, size: 12, color: t.muted),
-                Expanded(child: Text(heading, style: recipe.sectionTitle)),
+                RaftIcon(glyph!, size: 12, color: t.muted),
+                Expanded(child: RaftDialogSectionEyebrow(heading)),
               ],
             ),
           ),
-          ...children,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: RaftQuickSwitcherMetrics.rowGap,
+            children: children,
+          ),
+        ],
+      );
+    }
+    final rt = t.recipeTokens;
+    final slots = gen.RaftSearchRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
+    return Container(
+      margin: slots.section.margin,
+      padding: slots.section.padding,
+      decoration: slots.section.decoration(rt),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: slots.sectionHeading.padding,
+            child: Text(
+              slots.sectionHeading.textTransform == 'uppercase'
+                  ? heading.toUpperCase()
+                  : heading,
+              style: slots.sectionHeading
+                  .textStyle(rt)
+                  .copyWith(fontFamily: t.bodyFont),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: slots.list.rowGap ?? RaftQuickSwitcherMetrics.rowGap,
+            children: children,
+          ),
         ],
       ),
     );
@@ -273,7 +339,11 @@ class RaftQuickSwitcherIconBox extends StatelessWidget {
         theme: t.recipeTheme,
         tokens: rt,
       ).entityIcon.decoration(rt),
-      child: RaftIcon(glyph, size: 16),
+      child: RaftIcon(
+        glyph,
+        size: 14,
+        color: t.brutal ? t.strong : t.colors['foreground-icon'],
+      ),
     );
   }
 }
