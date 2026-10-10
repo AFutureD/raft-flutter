@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'css_border.dart';
+
 import 'design_primitives.dart';
 import 'tokens/tokens.dart';
 import 'theme.dart';
@@ -31,12 +33,16 @@ class RichCardSemantic {
 }
 
 class ForwardedSnapshotRecipe extends RaftMessageEmbedRecipe {
-  const ForwardedSnapshotRecipe(super.tokens);
+  const ForwardedSnapshotRecipe(super.tokens, {this.devicePixelRatio = 1});
+
+  /// For Blink's whole-device-pixel border widths ([raftCssBorderWidth]).
+  final double devicePixelRatio;
+  double get fine => raftCssBorderWidth(RichCardPrimitive.fineBorder, devicePixelRatio);
   RichCardSemantic get semantic => RichCardSemantic(tokens);
   @override
   BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : RichCardPrimitive.embedRadius);
   @override
-  BorderSide get border => BorderSide(color: tokens.brutal ? RaftPrimitiveColors.black.withValues(alpha: .2) : tokens.dark ? Colors.transparent : tokens.colors['line-muted']!, width: tokens.brutal ? 1 : RichCardPrimitive.fineBorder);
+  BorderSide get border => BorderSide(color: tokens.brutal ? RaftPrimitiveColors.black.withValues(alpha: .2) : tokens.dark ? Colors.transparent : tokens.colors['line-muted']!, width: tokens.brutal ? 1 : fine);
   @override
   EdgeInsets get inset => EdgeInsets.all(tokens.brutal ? 0 : RichCardPrimitive.embedInset);
   @override
@@ -45,7 +51,7 @@ class ForwardedSnapshotRecipe extends RaftMessageEmbedRecipe {
   EdgeInsets footerInset(double width) => EdgeInsets.symmetric(horizontal: tokens.brutal ? 12 : width >= 640 ? 14 : 12, vertical: RichCardPrimitive.footerVerticalInset);
   BoxDecoration get headerDecoration => tokens.brutal ? BoxDecoration(color: semantic.content, border: Border(bottom: BorderSide(color: semantic.divider))) : const BoxDecoration();
   BoxDecoration get footerDecoration => tokens.brutal ? BoxDecoration(color: semantic.content, border: Border(top: BorderSide(color: semantic.divider))) : const BoxDecoration();
-  BoxDecoration get contentDecoration => BoxDecoration(color: semantic.content, borderRadius: tokens.brutal ? null : BorderRadius.circular(RichCardPrimitive.contentRadius), border: tokens.brutal ? null : Border.all(color: tokens.dark ? RaftPrimitiveColors.black.withValues(alpha: .35) : tokens.colors['line-muted']!, width: RichCardPrimitive.fineBorder));
+  BoxDecoration get contentDecoration => BoxDecoration(color: semantic.content, borderRadius: tokens.brutal ? null : BorderRadius.circular(RichCardPrimitive.contentRadius), border: tokens.brutal ? null : Border.all(color: tokens.dark ? RaftPrimitiveColors.black.withValues(alpha: .35) : tokens.colors['line-muted']!, width: fine));
   @override
   TextStyle get header => super.header.copyWith(height: 1, fontWeight: tokens.brutal ? RaftTypography.black(tokens) : FontWeight.w500, color: tokens.brutal ? RaftPrimitiveColors.black.withValues(alpha: .7) : tokens.muted);
   @override
