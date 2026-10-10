@@ -341,67 +341,60 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     }
   }();
 
+  /// The text the pane shows when it is copyable (Web `copyText`).
+  String? get copyText {
+    final data = document;
+    if (data == null) return null;
+    return switch (data['kind']) {
+      'text' => '${data['text'] ?? ''}',
+      'markdown' => '${data['markdown'] ?? ''}',
+      _ => null,
+    };
+  }
+
+  Widget pager() => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      RaftIconButton(
+        glyph: RaftGlyph.chevronLeft,
+        tooltip: 'Previous page',
+        visualSize: 28,
+        minimumTargetSize: 48,
+        variant: RaftControlVariant.ghost,
+        onPressed: !loading && page > 0 ? () => loadPage(page - 1) : null,
+      ),
+      Text('${page + 1} / $pageCount'),
+      RaftIconButton(
+        glyph: RaftGlyph.chevronRight,
+        tooltip: 'Next page',
+        visualSize: 28,
+        minimumTargetSize: 48,
+        variant: RaftControlVariant.ghost,
+        onPressed: !loading && page + 1 < pageCount
+            ? () => loadPage(page + 1)
+            : null,
+      ),
+    ],
+  );
+
   @override
-  Widget build(BuildContext context) => RaftAttachmentLightbox(
-    title: '${widget.metadata['filename'] ?? ''}',
+  Widget build(BuildContext context) => RaftAttachmentPreviewShell(
+    filename: '${widget.metadata['filename'] ?? ''}',
     onClose: widget.onClose,
-    footer: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (current && kind == 'pdf' && pageCount > 0)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              RaftIconButton(
-                glyph: RaftGlyph.chevronLeft,
-                tooltip: 'Previous page',
-                visualSize: 28,
-                minimumTargetSize: 48,
-                variant: RaftControlVariant.ghost,
-                onPressed: !loading && page > 0
-                    ? () => loadPage(page - 1)
-                    : null,
-              ),
-              Text('${page + 1} / $pageCount'),
-              RaftIconButton(
-                glyph: RaftGlyph.chevronRight,
-                tooltip: 'Next page',
-                visualSize: 28,
-                minimumTargetSize: 48,
-                variant: RaftControlVariant.ghost,
-                onPressed: !loading && page + 1 < pageCount
-                    ? () => loadPage(page + 1)
-                    : null,
-              ),
-            ],
-          ),
-        // Web suppresses attachment comments for PDF and image surfaces.
-        if (current && kind != 'pdf' && widget.metadata['id'] is String)
-          RaftTextButton(
-            label: 'Comments',
-            glyph: RaftGlyph.messageSquare,
-            variant: RaftControlVariant.ghost,
-            onPressed: () => Navigator.of(context).push(
-              PageRouteBuilder<void>(
-                pageBuilder: (_, _, _) => RaftAttachmentCommentsPage(
-                  child: AttachmentCommentsView(
-                    controller: widget.controller,
-                    attachmentId: widget.metadata['id'] as String,
-                    filename: '${widget.metadata['filename'] ?? ''}',
-                    authorized: () => current,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        RaftTextButton(
-          label: 'Download original',
-          glyph: RaftGlyph.download,
-          onPressed: current ? widget.onDownload : null,
-          variant: RaftControlVariant.ghost,
-        ),
-      ],
-    ),
+    onDownload: current ? widget.onDownload : null,
+    copyText: copyText,
+    // Web lays text, csv, xlsx and markdown out on the canvas surface.
+    canvas: document != null,
+    // Web suppresses attachment comments for PDF and image surfaces.
+    commentsBuilder: current && kind != 'pdf' && widget.metadata['id'] is String
+        ? (_, sheet) => AttachmentCommentsView(
+            controller: widget.controller,
+            attachmentId: widget.metadata['id'] as String,
+            filename: '${widget.metadata['filename'] ?? ''}',
+            authorized: () => current,
+            sheet: sheet,
+          )
+        : null,
     child: Column(
       children: [
         Expanded(
@@ -421,6 +414,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               ? player!.video()
               : const Center(child: RaftIcon(RaftGlyph.music, size: 72)),
         ),
+        if (current && kind == 'pdf' && pageCount > 0) pager(),
         if (current && player != null && !loading && error == null)
           RaftMediaControls(
             playing: playback.playing,

@@ -57,6 +57,7 @@ export 'src/tokens/tokens.dart';
 
 export 'src/attachment_gallery.dart';
 export 'src/attachment_lightbox.dart';
+export 'src/attachment_preview_shell.dart';
 
 export 'src/switch.dart';
 
