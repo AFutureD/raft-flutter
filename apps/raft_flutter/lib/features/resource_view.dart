@@ -2250,6 +2250,7 @@ class _ResourceViewState extends State<ResourceView> {
               ? searchHome(scope)
               : widget.section == 'search'
               ? ResourceSearchResults(
+                  key: PageStorageKey(('search-results', listView)),
                   query: query.text,
                   rows: rows,
                   entities: currentSearchEntities,
@@ -2334,6 +2335,14 @@ class _ResourceViewState extends State<ResourceView> {
   Widget resourceList() {
     final shown = visibleRows;
     final list = ListView.separated(
+      key: snapshotted
+          ? null
+          : PageStorageKey((
+              'resource-list',
+              widget.section,
+              widget.channelId,
+              listView,
+            )),
       controller: listScroll,
       padding: const EdgeInsets.all(16),
       // SavedPanel loads the next page when its sentinel comes
@@ -4006,6 +4015,7 @@ class _ResourceViewState extends State<ResourceView> {
       (groups[id] ??= []).add(row);
     }
     return ListView(
+      key: const PageStorageKey('activity-grouped-list'),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         for (final group in groups.values) ...[
@@ -4577,6 +4587,11 @@ class _ResourceViewState extends State<ResourceView> {
                       }
                     },
                     body: SingleChildScrollView(
+                      key: PageStorageKey((
+                        'task-lane',
+                        snapshotSection,
+                        status,
+                      )),
                       primary: false,
                       child: Column(
                         spacing:

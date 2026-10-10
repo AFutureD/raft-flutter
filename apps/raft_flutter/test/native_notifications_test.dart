@@ -8,17 +8,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _Plugin implements FlutterLocalNotificationsPlugin {
   MacOSFlutterLocalNotificationsPlugin? mac;
+  AndroidFlutterLocalNotificationsPlugin? android;
   InitializationSettings? settings;
   @override
   T? resolvePlatformSpecificImplementation<
     T extends FlutterLocalNotificationsPlatform
-  >() => mac as T?;
+  >() => (T == AndroidFlutterLocalNotificationsPlugin ? android : mac) as T?;
   @override
   Future<NotificationAppLaunchDetails?>
   getNotificationAppLaunchDetails() async =>
       const NotificationAppLaunchDetails(false);
   int cancellations = 0;
   final sent = <String?>[];
+  final details = <NotificationDetails?>[];
   final initialized = Completer<bool?>();
   @override
   Future<bool?> initialize({
@@ -46,10 +48,19 @@ class _Plugin implements FlutterLocalNotificationsPlugin {
     String? payload,
   }) async {
     sent.add(payload);
+    details.add(notificationDetails);
   }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Android extends AndroidFlutterLocalNotificationsPlugin {
+  @override
+  Future<bool?> areNotificationsEnabled() async => true;
+
+  @override
+  Future<bool?> requestNotificationsPermission() async => true;
 }
 
 class _Mac extends MacOSFlutterLocalNotificationsPlugin {
@@ -85,6 +96,25 @@ class _Mac extends MacOSFlutterLocalNotificationsPlugin {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('Android message and test notifications deliver with the monochrome Raft drawable', () async {
+    final plugin = _Plugin()..android = _Android();
+    plugin.initialized.complete(true);
+    final service = NativeNotificationService(
+      plugin: plugin,
+      platform: TargetPlatform.android,
+    );
+    addTearDown(service.dispose);
+    await service.bind('alice');
+    expect(plugin.settings!.android!.defaultIcon, 'ic_notification');
+    await service.requestEnable(true);
+    await service.show(title: 'Raft', body: 'message', payload: 'target');
+    expect(await service.test(), true);
+    expect(plugin.sent, ['target', 'raft-notification-test']);
+    expect(plugin.details, hasLength(2));
+    for (final details in plugin.details) {
+      expect(details!.android!.icon, 'ic_notification');
+    }
+  });
   test(
     'macOS asks only on opt-in and stops delivery after OS revocation',
     () async {

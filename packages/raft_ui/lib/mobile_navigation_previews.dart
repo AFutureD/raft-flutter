@@ -14,6 +14,17 @@ Widget sourceMobileNavigationCompactPreview() => const _Navigation(height: 560);
 Widget sourceMobileNavigationTouchPreview() =>
     const _Navigation(height: 844, density: RaftDensity.touch);
 
+@RaftPreviews('Source mobile navigation system inset', size: Size(390, 844))
+Widget sourceMobileNavigationSystemInsetPreview() => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(
+      padding: const EdgeInsets.only(bottom: 34),
+      viewPadding: const EdgeInsets.only(bottom: 34),
+    ),
+    child: const _Navigation(height: 844, density: RaftDensity.touch),
+  ),
+);
+
 class _Navigation extends StatefulWidget {
   const _Navigation({required this.height, this.density = RaftDensity.desktop});
   final double height;
@@ -61,30 +72,39 @@ class _NavigationState extends State<_Navigation> {
             ),
           ),
         ),
-        RaftMobileNav(
-          viewportHeight: widget.height,
-          bottomInset: 0,
-          selectedId: selected,
-          onSelected: (id) => setState(() => selected = id),
-          items: const [
-            RaftMobileNavItem(id: 'chat', label: 'Home', glyph: RaftGlyph.home),
-            RaftMobileNavItem(
-              id: 'tasks',
-              label: 'Tasks',
-              glyph: RaftGlyph.squareCheck,
-            ),
-            RaftMobileNavItem(
-              id: 'members',
-              label: 'Members',
-              glyph: RaftGlyph.users,
-            ),
-            RaftMobileNavItem(
-              id: 'settings',
-              label: 'Settings',
-              glyph: RaftGlyph.settings,
-              attention: true,
-            ),
-          ],
+        SafeArea(
+          top: false,
+          left: false,
+          right: false,
+          child: RaftMobileNav(
+            viewportHeight: widget.height,
+            bottomInset: 0,
+            selectedId: selected,
+            onSelected: (id) => setState(() => selected = id),
+            items: const [
+              RaftMobileNavItem(
+                id: 'chat',
+                label: 'Home',
+                glyph: RaftGlyph.home,
+              ),
+              RaftMobileNavItem(
+                id: 'tasks',
+                label: 'Tasks',
+                glyph: RaftGlyph.squareCheck,
+              ),
+              RaftMobileNavItem(
+                id: 'members',
+                label: 'Members',
+                glyph: RaftGlyph.users,
+              ),
+              RaftMobileNavItem(
+                id: 'settings',
+                label: 'Settings',
+                glyph: RaftGlyph.settings,
+                attention: true,
+              ),
+            ],
+          ),
         ),
       ],
     ),

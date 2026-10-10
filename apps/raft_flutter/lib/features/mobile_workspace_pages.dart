@@ -94,6 +94,9 @@ class MobileWorkspacePages extends StatefulWidget {
 class _MobileWorkspacePagesState extends State<MobileWorkspacePages> {
   final navigator = GlobalKey<NavigatorState>();
   final live = GlobalKey();
+  // Route-owned buckets disappear on Back and tab switches. Keep only UI
+  // positions for this authority-bound workspace, below each platform route.
+  final pageStorage = PageStorageBucket();
   final changed = ValueNotifier<int>(0);
   final frames = <String, GlobalKey<_MobilePageFrameState>>{};
   int nextInstance = 0;
@@ -139,7 +142,10 @@ class _MobileWorkspacePagesState extends State<MobileWorkspacePages> {
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) {
-      return KeyedSubtree(key: live, child: widget.child);
+      return KeyedSubtree(
+        key: live,
+        child: PageStorage(bucket: pageStorage, child: widget.child),
+      );
     }
     // Android broadcasts predictive-back events to every route observer. A
     // nested route is still "current" in its Navigator under a root preview;
@@ -220,7 +226,10 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
             key: boundary,
             child: KeyedSubtree(
               key: widget.host.live,
-              child: widget.host.widget.child,
+              child: PageStorage(
+                bucket: widget.host.pageStorage,
+                child: widget.host.widget.child,
+              ),
             ),
           )
         : ExcludeSemantics(

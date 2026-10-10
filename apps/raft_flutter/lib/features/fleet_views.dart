@@ -314,7 +314,10 @@ class _FleetViewState extends State<FleetView> {
     final loading = !w.entityDirectory.settled(kind);
     final error =
         actionError ?? (state.error == null ? null : '${state.error}');
-    return fleetList(context, rows, loading, error);
+    return KeyedSubtree(
+      key: PageStorageKey('fleet-${widget.computers ? 'computers' : 'agents'}'),
+      child: fleetList(context, rows, loading, error),
+    );
   }
 
   Widget fleetList(

@@ -101,6 +101,78 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Scroll storage survives page, tab and layout changes but retires with authority',
+    (tester) async {
+      final navigation = WorkspaceNavigation();
+      navigation.bind('scroll-fixture', location(RaftRoute.home));
+      late StateSetter rebuild;
+      var authority = 'alice/server-one/owner';
+      var mobile = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return MobileWorkspacePages(
+                key: ValueKey(authority),
+                enabled: mobile,
+                navigation: navigation,
+                onBack: () => rebuild(() => backMobilePage(navigation)),
+                child: ListView.builder(
+                  key: PageStorageKey(navigation.location.route.name),
+                  primary: false,
+                  itemExtent: 60,
+                  itemCount: 80,
+                  itemBuilder: (_, i) => Text('Row $i'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      ScrollPosition scroll() =>
+          tester.state<ScrollableState>(find.byType(Scrollable)).position;
+      for (final (i, route) in [
+        RaftRoute.home,
+        RaftRoute.members,
+        RaftRoute.settings,
+      ].indexed) {
+        rebuild(() => navigation.navigate(location(route)));
+        await tester.pumpAndSettle();
+        expect(scroll().pixels, 0);
+        final offset = 300.0 + i * 200;
+        scroll().jumpTo(offset);
+        await tester.pump();
+        rebuild(
+          () => navigation.navigate(
+            location(RaftRoute.channel, id: 'channel-$i'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        scroll().jumpTo(120);
+        await tester.pump();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(scroll().pixels, offset);
+      }
+      rebuild(() => navigation.navigate(location(RaftRoute.home)));
+      await tester.pumpAndSettle();
+      expect(scroll().pixels, 300);
+      rebuild(() => mobile = false);
+      await tester.pumpAndSettle();
+      expect(scroll().pixels, 300);
+      rebuild(() => mobile = true);
+      await tester.pumpAndSettle();
+      expect(scroll().pixels, 300);
+      rebuild(() => authority = 'alice/server-two/member');
+      await tester.pumpAndSettle();
+      expect(scroll().pixels, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'Task pages preserve their underlying destination including cold links',
     () {

@@ -219,7 +219,7 @@ Future<bool> _runBackgroundInbox() async {
 }
 
 const notificationInitialization = InitializationSettings(
-  android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+  android: AndroidInitializationSettings('ic_notification'),
   iOS: DarwinInitializationSettings(
     requestAlertPermission: false,
     requestBadgePermission: false,
@@ -238,6 +238,7 @@ const notificationDetails = NotificationDetails(
     'raft_messages_v1',
     'Raft messages',
     channelDescription: 'Direct messages, mentions and followed conversations.',
+    icon: 'ic_notification',
     importance: Importance.high,
     priority: Priority.high,
     visibility: NotificationVisibility.private,

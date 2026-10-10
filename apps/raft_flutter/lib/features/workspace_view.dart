@@ -1026,6 +1026,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             )
           : route == 'billing'
           ? ListView(
+              key: const PageStorageKey('workspace-billing'),
               // PlanSection renders inside SettingsPanel's scrolling surface.
               padding: RaftSettingsPanelFrame.contentInset,
               children: [
@@ -1047,6 +1048,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             )
           : route == 'integrations'
           ? ListView(
+              key: const PageStorageKey('workspace-integrations'),
               // IntegrationsSection renders inside SettingsPanel's scrolling
               // surface.
               padding: RaftSettingsPanelFrame.contentInset,
@@ -2917,6 +2919,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         latest != null &&
         liveActivities.agent(latest.agentId) != null;
     return ColoredBox(
+      key: PageStorageKey(
+        mobileHome ? 'mobile-home-list' : 'channel-sidebar-list',
+      ),
       color: recipe.bodyBackground,
       child: SafeArea(
         // The list paints behind the floating bar through the gesture area.

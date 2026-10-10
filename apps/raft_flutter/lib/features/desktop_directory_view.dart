@@ -455,6 +455,11 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
               ],
             ),
     );
-    return widget.mobileRoot ? frame : RaftSidebarColumnEdge(child: frame);
+    return KeyedSubtree(
+      key: PageStorageKey(
+        'directory-${widget.computers ? 'computers' : 'members'}',
+      ),
+      child: widget.mobileRoot ? frame : RaftSidebarColumnEdge(child: frame),
+    );
   }
 }

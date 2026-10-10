@@ -82,6 +82,7 @@ class AdministrationView extends StatelessWidget {
     );
     return standalone
         ? ListView(
+            key: const PageStorageKey('administration-page'),
             padding: RaftSettingsPanelFrame.contentInset,
             children: [sections],
           )

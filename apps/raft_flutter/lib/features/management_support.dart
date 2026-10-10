@@ -509,7 +509,11 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
         ),
       if (loading) const LinearProgressIndicator(),
       Expanded(
-        child: ListView(padding: const EdgeInsets.all(16), children: children),
+        child: ListView(
+          key: PageStorageKey((widget.runtimeType, title)),
+          padding: const EdgeInsets.all(16),
+          children: children,
+        ),
       ),
     ],
   );

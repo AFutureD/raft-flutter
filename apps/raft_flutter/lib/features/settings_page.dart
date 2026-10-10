@@ -152,6 +152,7 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
     ];
     // Sidebar.tsx mobile root highlights nothing until a sub-page is open.
     Widget list(String? activeId) => ListView(
+      key: PageStorageKey(mobile ? 'settings-mobile-list' : 'settings-sidebar'),
       primary: false,
       padding: RaftSettingsSidebarList.inset(t),
       children: [RaftSettingsSidebarList(groups: groups, activeId: activeId)],
@@ -185,7 +186,7 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
     );
     Widget page() => active.scroll
         ? ListView(
-            key: ValueKey('settings-page-${active.id}'),
+            key: PageStorageKey('settings-page-${active.id}'),
             primary: false,
             padding: RaftSettingsPanelFrame.contentInset,
             children: [

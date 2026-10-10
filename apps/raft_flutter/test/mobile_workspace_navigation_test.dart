@@ -23,6 +23,7 @@ class _Client extends RaftClient {
   final stream = StreamController<RaftEvent>.broadcast(sync: true);
   final calls = <String>[];
   final removedMetadata = <String>{};
+  final agentRows = <Map<String, dynamic>>[];
   final pendingMetadata = <String, Completer<dynamic>>{};
   Completer<Map<String, dynamic>>? pendingMessages;
   final channelRows = [
@@ -69,6 +70,13 @@ class _Client extends RaftClient {
   @override
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
     calls.add('GET:$path');
+    if (path == '/agents') return agentRows;
+    if (path.startsWith('/agents/')) {
+      return agentRows
+              .where((row) => row['id'] == path.split('/').last)
+              .firstOrNull ??
+          {};
+    }
     if (pendingMetadata[path] case final pending?) return pending.future;
     if (removedMetadata.contains(path)) {
       throw const RaftApiException('Channel not found', status: 404);
@@ -297,6 +305,214 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
+    testWidgets(
+      'Members keeps its reading position after opening an agent $family/$dark',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final c = _Client()..selectServer('s');
+        c.agentRows.addAll([
+          for (var i = 0; i < 45; i++)
+            {
+              'id': 'agent-$i',
+              'name': 'Agent $i',
+              'displayName': 'Agent $i',
+              'status': 'active',
+              'runtime': 'codex',
+              'model': 'gpt-6',
+              'external': true,
+            },
+        ]);
+        final w = WorkspaceController(
+          c,
+          mobileNavigation: true,
+        )..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
+        w.setSection('members');
+        addTearDown(() async {
+          w.dispose();
+          await c.stream.close();
+        });
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            home: WorkspaceView(
+              controller: w,
+              appearance: RaftAppearance(
+                mode: dark ? ThemeMode.dark : ThemeMode.light,
+                light: family,
+              ),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final list = find.byKey(const Key('desktop-directory-list'));
+        final scrolling = find
+            .descendant(of: list, matching: find.byType(Scrollable))
+            .first;
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('desktop-directory-agent-agent-40')),
+          400,
+          scrollable: scrolling,
+        );
+        await tester.pumpAndSettle();
+        final offset = tester.state<ScrollableState>(scrolling).position.pixels;
+        expect(offset, greaterThan(300));
+        await tester.tap(
+          find.byKey(const ValueKey('desktop-directory-agent-agent-40')),
+        );
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          tester.state<ScrollableState>(scrolling).position.pixels,
+          closeTo(offset, .1),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
+      'Settings root and detail retain separate scroll positions $family/$dark',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(390, 560);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final c = _Client()..selectServer('s');
+        final w = WorkspaceController(
+          c,
+          mobileNavigation: true,
+        )..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
+        w.setSection('settings');
+        addTearDown(() async {
+          w.dispose();
+          await c.stream.close();
+        });
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            home: WorkspaceView(
+              controller: w,
+              appearance: RaftAppearance(
+                mode: dark ? ThemeMode.dark : ThemeMode.light,
+                light: family,
+              ),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final navigation = find.byKey(
+          const PageStorageKey('settings-mobile-list'),
+        );
+        final scrolling = find
+            .descendant(of: navigation, matching: find.byType(Scrollable))
+            .first;
+        final target = find.byKey(
+          const ValueKey('workspace-settings-nav-feedback'),
+        );
+        await tester.scrollUntilVisible(target, 200, scrollable: scrolling);
+        await tester.pumpAndSettle();
+        final offset = tester.state<ScrollableState>(scrolling).position.pixels;
+        expect(offset, greaterThan(0));
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(
+          tester.state<ScrollableState>(scrolling).position.pixels,
+          closeTo(offset, .1),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
+      'Home retains scroll after channel Back and tab switching $family/$dark',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final c = _Client()..selectServer('s');
+        c.channelRows.insertAll(0, [
+          for (var i = 0; i < 45; i++)
+            RaftChannel({
+              'id': 'list-$i',
+              'name': 'Channel $i',
+              'joined': true,
+            }),
+        ]);
+        final w = WorkspaceController(c, mobileNavigation: true)
+          ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'})
+          ..channels = [...c.channelRows]
+          ..channel = c.channelRows.last;
+        w.setSection('home');
+        addTearDown(() async {
+          w.dispose();
+          await c.stream.close();
+        });
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            home: WorkspaceView(
+              controller: w,
+              appearance: RaftAppearance(
+                mode: dark ? ThemeMode.dark : ThemeMode.light,
+                light: family,
+              ),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final home = find.byKey(const Key('workspace-mobile-home'));
+        final list = find.descendant(
+          of: home,
+          matching: find.byKey(const Key('workspace-sidebar')),
+        );
+        ScrollPosition position() => tester
+            .state<ScrollableState>(
+              find
+                  .descendant(of: list, matching: find.byType(Scrollable))
+                  .first,
+            )
+            .position;
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('sidebar-channel-c')),
+          400,
+          scrollable: find
+              .descendant(of: list, matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pumpAndSettle();
+        final offset = position().pixels;
+        expect(offset, greaterThan(300));
+        for (var i = 0; i < 2; i++) {
+          await tester.tap(find.byKey(const ValueKey('sidebar-channel-c')));
+          await tester.pumpAndSettle();
+          if (i == 0) {
+            await tester.binding.handlePopRoute();
+          } else {
+            await tester.tap(find.byKey(const Key('mobile-detail-back')));
+          }
+          await tester.pumpAndSettle();
+          expect(home, findsOneWidget);
+          expect(position().pixels, closeTo(offset, .1));
+          expect(tester.takeException(), isNull);
+        }
+        w.setSection('settings');
+        await tester.pumpAndSettle();
+        w.setSection('home');
+        await tester.pumpAndSettle();
+        expect(position().pixels, closeTo(offset, .1));
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final knownRevoked in [true, false]) {
       testWidgets(
         'actual mobile Back rejects a deleted channel $family/$dark known=$knownRevoked',

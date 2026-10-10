@@ -127,6 +127,7 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
       ),
     );
     return ListView(
+      key: const PageStorageKey('search-home'),
       primary: false,
       padding: RaftSearchHomeRecipe.inset,
       children: [

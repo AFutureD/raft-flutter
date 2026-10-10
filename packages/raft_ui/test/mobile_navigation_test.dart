@@ -208,7 +208,7 @@ void main() {
         );
         if (family == RaftFamily.brutal) {
           expect(find.text('Home'), findsOneWidget);
-          expect(tester.getSize(find.byType(RaftMobileNav)).height, 33);
+          expect(tester.getSize(find.byType(RaftMobileNav)).height, 35);
         } else {
           expect(tester.getSize(find.byType(RaftMobileNav)).height, 68);
         }
@@ -249,7 +249,7 @@ void main() {
       ),
     );
     expect(find.text('Members'), findsNothing);
-    expect(tester.getSize(find.byType(RaftMobileNav)).height, 87);
+    expect(tester.getSize(find.byType(RaftMobileNav)).height, 89);
     await tester.tapAt(
       tester.getCenter(find.widgetWithText(RaftControl, 'Tasks')),
     );

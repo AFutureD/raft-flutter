@@ -331,7 +331,10 @@ class RaftMobileNav extends StatelessWidget {
           decoration: BoxDecoration(
             color: recipe.background,
             border: t.brutal
-                ? const Border(top: BorderSide(color: Colors.black, width: 2))
+                ? const Border(
+                    top: BorderSide(color: Colors.black, width: 2),
+                    bottom: BorderSide(color: Colors.black, width: 2),
+                  )
                 : null,
             borderRadius: t.brutal ? null : BorderRadius.circular(1000),
             boxShadow: recipe.rootShadows,

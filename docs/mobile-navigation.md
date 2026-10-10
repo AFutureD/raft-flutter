@@ -106,3 +106,16 @@ FVM ARM64 Android Release 构建通过（`--target-platform android-arm64 --spli
 最终定向回归 81 项、host 检查 81 项、全工程静态分析通过。`tool/check-project` 首轮已执行并保留失败：除本次已修正的 key 复用/宽窄切换问题，仍有旧频道/线程导航高度、控件 key、返回后立即断言，以及桌面文件拖放失败；期间源码更新导致该轮 sourceChanged，因此不计为最终全工程通过。
 
 Android 17 Moto 实机安装 ARM64 Release（targetSdk 37、versionCode 4001，ABI 分包偏移 2000、Flutter build number 2001）。APK SHA-256 `f14115f3206a68d7e0f67ed9c27b4f77362b54d364effea53a40f2799030f043`。保留原数据目录和登录状态，未卸载或清数据。后台 Computer Use 六轮任务进出通过：同任务重复打开、另一任务、顶部返回、系统返回、边缘手势、切换设置 Tab 后重入，以及频道内任务的系统返回；随后频道返回 Home、切回 Task 根列表均正常。实机只验证当前主题；三主题与 legacy 任务由上述 Widget 回归覆盖。App 留在 Task 列表；私有截图/录屏只存本地忽略目录。
+
+
+## 列表返回后的滚动恢复（2026-10-11）
+
+主页频道列表原先只有普通 Key，没有 PageStorageKey；进入频道时列表卸载，返回后新 ScrollPosition 从 0 开始。平台路由各自拥有的 PageStorageBucket 还会随出栈或 Tab 根页面切换销毁，所以仅给列表加 Key 不足以覆盖重复进入与 Tab 切换。
+
+MobileWorkspacePages 现在在唯一 live 子树内提供随工作区状态存活的 Flutter PageStorageBucket，位于平台 route 的默认 bucket 下方；宽窄切换沿用它。宿主现有 authority key 包含 controller、账号 generation、用户、服务器、角色与频道权限修订，变化后销毁该 bucket。仅保存临时 UI 位置，不落盘，也不保留额外业务页面。
+
+主页与桌面频道侧栏、成员与电脑目录、移动 Fleet 列表、设置目录及各详情、搜索主页及各查询结果、独立 Billing / Applications / Administration、通用管理页各自有独立 PageStorageKey。任务看板各状态列也分别保存纵向位置；Activity、Saved、Tasks 的现有数据窗口和显式滚动 snapshot 继续负责原有恢复，消息窗口继续使用现有 viewport owner。
+
+定向 Widget 检查共 75 项通过。新增三主题真实 WorkspaceView 场景覆盖主页反复进入频道后的系统/顶部返回、Home/Settings Tab 切换、成员进入 Agent 后系统返回、设置目录进入详情后返回，以及搜索结果进入消息后返回。另验证各页位置不互相覆盖、宽窄切换保留位置、authority 更换清空位置；既有 Activity/Saved/Tasks/channel Tasks snapshot 与附件返回检查通过。修复前 Home 的三主题回归均失败，约 2000 的 offset 归零，原始日志保存在忽略的 .local/ 中。
+
+上述为组件及实际路由的 Widget 证据；本次没有跑全量测试，不据此声明 Android 手势、生命周期、无障碍或其他平台实机验收通过。
