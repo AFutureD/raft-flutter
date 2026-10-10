@@ -1329,7 +1329,7 @@ class WorkspaceController extends ChangeNotifier {
   /// shows at once as a checking chip (Web `validating`); then an unknown
   /// ceiling refuses the whole batch, and empty, oversize and over-count
   /// files are dropped with the Web messages. Accepted files transfer
-  /// concurrently. [text] localizes a message key.
+  /// in turn. [text] localizes a message key.
   Future<void> attachSelection(
     List<({String name, Uint8List bytes})> files, {
     bool thread = false,
@@ -1452,9 +1452,18 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (list.isEmpty) _uploads.remove(scope);
     notifyListeners();
-    await Future.wait([
-      for (final draft in accepted) _transferUpload(draft, thread: thread),
-    ]);
+    // One transfer at a time, each fenced by the authority the selection was
+    // made under: after a conversation, role or account change the files that
+    // have not started are dropped rather than sent under the new authority.
+    for (final draft in accepted) {
+      if (!current()) {
+        _uploads[scope]?.remove(draft);
+        if (_uploads[scope]?.isEmpty ?? false) _uploads.remove(scope);
+        notifyListeners();
+        continue;
+      }
+      await _transferUpload(draft, thread: thread);
+    }
   }
 
   /// Web `formatAttachmentUploadServerError`.

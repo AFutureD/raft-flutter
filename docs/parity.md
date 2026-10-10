@@ -792,7 +792,7 @@ What changed in Flutter (all of it Web behaviour, none invented):
   chip and shows its banner;
 * `attachSelection` shows every file at once as a checking chip, decides on the
   server ceiling in selection order, drops empty / oversize / extra files with
-  Web's singular and plural messages, uploads accepted files concurrently, and
+  Web's singular and plural messages, uploads accepted files one at a time (each fenced by the authority of the selection), and
   marks a check whose scope changed as interrupted (not retryable);
 * Send shows its spinner and tooltip while files are checked or uploaded, and a
   blocked Ctrl+Enter reports "Wait for ..." / "Remove or retry ..." in the banner;
@@ -802,7 +802,7 @@ What changed in Flutter (all of it Web behaviour, none invented):
   8-bit alpha; the warning banner honours dark.
 
 Result (run `20261010T19*`, this branch): 87/87 captured, identical sizes, mean
-pixel-perfect 95.9 % (brutal 97.9 %, elegant-dark 95.7 %, elegant 94.0 %), 41/87
+pixel-perfect 95.8 % (brutal 97.9 %, elegant-dark 95.7 %, elegant 94.0 %), 41/87
 above 96 %. Geometry, sizes, colours and spacing of the attachment surfaces match;
 what remains is (a) the shared elegant composer card (ring and `shadow-sm` differ by
 1-3 levels, rows y=86 and 177-181 of every elegant case; official brutal composer

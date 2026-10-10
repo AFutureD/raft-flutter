@@ -9,7 +9,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 
 // Web MessageInput `addFiles` + `decideMessageAttachmentSelection`: files show
 // at once as checking chips, the server ceiling decides, accepted files
-// upload concurrently.
+// upload in turn (each fenced by the authority of the selection).
 class _Client extends RaftClient {
   _Client()
     : super(
@@ -46,7 +46,7 @@ void main() {
   WorkspaceController controller(_Client client) => WorkspaceController(client)
     ..channel = RaftChannel({'id': 'channel', 'name': 'general'});
 
-  test('files are checking chips until the ceiling decides, then upload together', () async {
+  test('files are checking chips until the ceiling decides, then upload in turn', () async {
     final client = _Client();
     final w = controller(client);
     final done = w.attachSelection([
@@ -64,13 +64,17 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(w.uploads().every((d) => !d.checking), true);
-    // Both transfers started without waiting for each other.
-    expect(client.uploads.keys, containsAll(['a.png', 'b.pdf']));
-    for (final c in client.uploads.values) {
-      c.complete([
-        {'id': 'id'},
-      ]);
-    }
+    // The second file waits for the first and stays a plain (not checking) row.
+    expect(client.uploads.keys, ['a.png']);
+    client.uploads['a.png']!.complete([
+      {'id': 'id'},
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(client.uploads.keys, ['a.png', 'b.pdf']);
+    client.uploads['b.pdf']!.complete([
+      {'id': 'id'},
+    ]);
     await done;
     expect(w.uploadsReady(), true);
   });
@@ -102,10 +106,12 @@ void main() {
       w.composerErrorFor(),
       'Only 10 attachments per message. 1 extra file skipped.',
     );
-    for (final c in client.uploads.values) {
-      c.complete([
+    for (var i = 0; i < 10; i++) {
+      client.uploads['f$i.txt']!.complete([
         {'id': 'id'},
       ]);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
     }
     await done;
   });
