@@ -9,6 +9,7 @@ import 'cases/ext_computers.dart';
 import 'cases/ext_live_activity.dart';
 import 'cases/ext_settings.dart';
 import 'cases/ext_search_overlay.dart';
+import 'cases/ext_notifications.dart';
 import 'cases/home_tasks.dart';
 import 'cases/members_settings.dart';
 import 'cases/screens.dart';
@@ -31,6 +32,7 @@ final Map<String, ParityCase> parityCases = {
   ...extSettingsCases,
   ...extAnnouncementCases,
   ...extSearchOverlayCases,
+  ...extNotificationCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {

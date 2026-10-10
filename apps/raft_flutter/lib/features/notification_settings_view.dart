@@ -357,6 +357,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     final unavailable = service.initialized && !service.available;
     if (!phone) {
       return RaftNotificationSettingsCard(
+        key: const ValueKey('notification-settings-card'),
         title: 'Desktop notifications',
         description: 'Raft Desktop shows system notifications for new DMs, direct mentions, and followed thread replies while the window is in the background. Web push is not used on desktop.',
         status: unavailable ? 'Unavailable' : 'Managed by the system',
@@ -383,6 +384,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     }
     final chinese = Localizations.maybeLocaleOf(context)?.languageCode == 'zh';
     return RaftNotificationSettingsCard(
+      key: const ValueKey('notification-settings-card'),
       title: 'Phone notifications',
       description: 'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.',
       status: unavailable

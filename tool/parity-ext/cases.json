@@ -18869,6 +18869,264 @@
     "ignoreAntialiasing": true
    },
    "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
+  },
+  {
+   "id": "components.notifications.desktop.available.brutal",
+   "title": "Settings desktop notifications card available (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "notifications",
+   "category": "extension/notifications",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 640,
+    "height": 600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.available",
+      "extKind": "notification",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "available": true
+     }
+    }
+   ],
+   "capture": {
+    "selector": "div:has(> [data-testid=\"desktop-notifications-card\"])",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "notification-settings-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx #DesktopNativeNotificationsCard (rendered through SettingsPanel tab=notifications)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_notifications.dart 'desktop.available'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.notifications.desktop.available.elegant",
+   "title": "Settings desktop notifications card available (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "notifications",
+   "category": "extension/notifications",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 640,
+    "height": 600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.available",
+      "extKind": "notification",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "available": true
+     }
+    }
+   ],
+   "capture": {
+    "selector": "div:has(> [data-testid=\"desktop-notifications-card\"])",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "notification-settings-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx #DesktopNativeNotificationsCard (rendered through SettingsPanel tab=notifications)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_notifications.dart 'desktop.available'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.notifications.desktop.available.elegant-dark",
+   "title": "Settings desktop notifications card available (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "notifications",
+   "category": "extension/notifications",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 640,
+    "height": 600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.available",
+      "extKind": "notification",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "available": true
+     }
+    }
+   ],
+   "capture": {
+    "selector": "div:has(> [data-testid=\"desktop-notifications-card\"])",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "notification-settings-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx #DesktopNativeNotificationsCard (rendered through SettingsPanel tab=notifications)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_notifications.dart 'desktop.available'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.notifications.desktop.unavailable.brutal",
+   "title": "Settings desktop notifications card unavailable (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "notifications",
+   "category": "extension/notifications",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 640,
+    "height": 600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.unavailable",
+      "extKind": "notification",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "available": false
+     }
+    }
+   ],
+   "capture": {
+    "selector": "div:has(> [data-testid=\"desktop-notifications-card\"])",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "notification-settings-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx #DesktopNativeNotificationsCard (rendered through SettingsPanel tab=notifications)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_notifications.dart 'desktop.unavailable'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.notifications.desktop.unavailable.elegant",
+   "title": "Settings desktop notifications card unavailable (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "notifications",
+   "category": "extension/notifications",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 640,
+    "height": 600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.unavailable",
+      "extKind": "notification",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "available": false
+     }
+    }
+   ],
+   "capture": {
+    "selector": "div:has(> [data-testid=\"desktop-notifications-card\"])",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "notification-settings-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx #DesktopNativeNotificationsCard (rendered through SettingsPanel tab=notifications)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_notifications.dart 'desktop.unavailable'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.notifications.desktop.unavailable.elegant-dark",
+   "title": "Settings desktop notifications card unavailable (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "notifications",
+   "category": "extension/notifications",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 640,
+    "height": 600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.unavailable",
+      "extKind": "notification",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "available": false
+     }
+    }
+   ],
+   "capture": {
+    "selector": "div:has(> [data-testid=\"desktop-notifications-card\"])",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "notification-settings-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx #DesktopNativeNotificationsCard (rendered through SettingsPanel tab=notifications)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_notifications.dart 'desktop.unavailable'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
-import 'design_primitives.dart';
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
@@ -60,11 +60,14 @@ class RaftNotificationSettingsCard extends StatelessWidget {
         raftText(context, label).toUpperCase(),
         maxLines: 1,
         softWrap: false,
-        style: RaftTypography.body(
-          t,
-          size: 10,
-          line: 15,
-          weight: FontWeight.w700,
+        // Web: `font-display` (Hanken Grotesk) at 10px bold, line-height 1.5.
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          fontFamilyFallback: t.fontFallback,
+          fontSize: 10,
+          height: 1.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: t.brutal ? Colors.black : t.colors['primary-strong'],
         ),
       ),
@@ -87,6 +90,7 @@ class RaftNotificationSettingsCard extends StatelessWidget {
       color: RaftSettingsText(t).muted,
     );
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         RaftSettingsSectionHeader(label: sectionLabel, glyph: RaftGlyph.bell),
@@ -97,22 +101,27 @@ class RaftNotificationSettingsCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(raftText(context, title), style: titleStyle),
-                        const SizedBox(height: 2),
-                        Text(raftText(context, description), style: hintStyle),
-                      ],
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(raftText(context, title), style: titleStyle),
+                          const SizedBox(height: 2),
+                          Text(
+                            raftText(context, description),
+                            style: hintStyle,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  statusPill(context, status),
-                ],
+                    const SizedBox(width: 12),
+                    _PixelCenter(child: statusPill(context, status)),
+                  ],
+                ),
               ),
               if (hint != null) ...[
                 const SizedBox(height: 12),
@@ -268,6 +277,29 @@ class RaftNotificationSettingsCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// `items-center` for a bordered chip: Chromium snaps box edges to whole
+/// pixels, so the centred offset is rounded instead of blurring a 1px border
+/// across two pixel rows.
+class _PixelCenter extends SingleChildRenderObjectWidget {
+  const _PixelCenter({required Widget child}) : super(child: child);
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderPixelCenter();
+}
+
+class _RenderPixelCenter extends RenderShiftedBox {
+  _RenderPixelCenter() : super(null);
+  @override
+  void performLayout() {
+    final c = child!;
+    c.layout(constraints.loosen(), parentUsesSize: true);
+    size = constraints.constrain(c.size);
+    (c.parentData! as BoxParentData).offset = Offset(
+      ((size.width - c.size.width) / 2).roundToDouble(),
+      ((size.height - c.size.height) / 2).roundToDouble(),
     );
   }
 }
