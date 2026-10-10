@@ -6,14 +6,18 @@
 // Presentation and the modal's own keyboard contract only; loading, the
 // read-complete write and when it is shown belong to the app.
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import 'dialog_card.dart';
 import 'icons.dart';
+import 'panel_layout.dart'
+    show RaftCssText, raftCssBaseline, raftTextMetricsCache;
 import 'recipe_surface.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
@@ -247,22 +251,16 @@ class RaftAnnouncementCard extends StatelessWidget {
           Expanded(
             child: Semantics(
               header: true,
-              child: Text(
+              child: RaftCssText(
                 title.toUpperCase(),
                 key: const ValueKey('announcement-title'),
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
-                style: raftCssTextStyle(
-                  family: t.bodyFont,
-                  step: RaftTextSteps.lg,
-                  weight: FontWeight.w700,
-                  color: ink,
-                ).copyWith(fontFamilyFallback: t.fontFallback),
+                style: _titleStyle(t, ink),
               ),
             ),
           ),
-          const SizedBox(width: 12),
           RaftCloseButton(onPressed: onClose, tooltip: labels.dismiss),
         ],
       ),
@@ -286,14 +284,19 @@ class RaftAnnouncementCard extends StatelessWidget {
                 ? null
                 : RaftCssBlock(
                     marginBottom: 12,
-                    child: Text(
-                      pageTitle.toUpperCase(),
-                      style: raftCssTextStyle(
-                        family: t.bodyFont,
-                        step: RaftTextSteps.base,
-                        weight: FontWeight.w700,
-                        color: ink,
-                      ).copyWith(fontFamilyFallback: t.fontFallback),
+                    child: Builder(
+                      builder: (context) {
+                        final style = raftCssTextStyle(
+                          family: t.bodyFont,
+                          step: RaftTextSteps.base,
+                          weight: FontWeight.w700,
+                          color: ink,
+                        ).copyWith(fontFamilyFallback: t.fontFallback);
+                        return RaftCssText(
+                          pageTitle.toUpperCase(),
+                          style: style,
+                        );
+                      },
                     ),
                   ),
             onLink: onLink,
@@ -311,7 +314,7 @@ class RaftAnnouncementCard extends StatelessWidget {
       child: Row(
         children: [
           if (pageCount > 1)
-            Text(
+            RaftCssText(
               '${pageIndex + 1} / $pageCount',
               key: const ValueKey('announcement-page-indicator'),
               style: raftCssTextStyle(
@@ -354,32 +357,41 @@ class RaftAnnouncementCard extends StatelessWidget {
       child: ConstrainedBox(
         key: const ValueKey('announcement-modal'),
         constraints: const BoxConstraints(maxWidth: maxWidth),
-        child: RaftRecipeBox(
-          style: root,
-          tokens: tokens,
-          width: double.infinity,
-          padding: EdgeInsets.zero,
-          applyText: false,
-          // `overflow-hidden`: children are clipped to the padding box.
-          child: ClipRRect(
-            borderRadius: radius == null
-                ? BorderRadius.zero
-                : BorderRadius.only(
-                    topLeft: _inner(radius.topLeft, borderInsets),
-                    topRight: _inner(radius.topRight, borderInsets),
-                    bottomLeft: _inner(radius.bottomLeft, borderInsets),
-                    bottomRight: _inner(radius.bottomRight, borderInsets),
-                  ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [header, body, footer],
+        child: _CssPaintSnap(
+          child: RaftRecipeBox(
+            style: root,
+            tokens: tokens,
+            width: double.infinity,
+            padding: EdgeInsets.zero,
+            applyText: false,
+            // `overflow-hidden`: children are clipped to the padding box.
+            child: ClipRRect(
+              borderRadius: radius == null
+                  ? BorderRadius.zero
+                  : BorderRadius.only(
+                      topLeft: _inner(radius.topLeft, borderInsets),
+                      topRight: _inner(radius.topRight, borderInsets),
+                      bottomLeft: _inner(radius.bottomLeft, borderInsets),
+                      bottomRight: _inner(radius.bottomRight, borderInsets),
+                    ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [header, body, footer],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  static TextStyle _titleStyle(RaftTokens t, Color ink) => raftCssTextStyle(
+    family: t.bodyFont,
+    step: RaftTextSteps.lg,
+    weight: FontWeight.w700,
+    color: ink,
+  ).copyWith(fontFamilyFallback: t.fontFallback);
 
   static Radius _inner(Radius r, EdgeInsets border) => Radius.elliptical(
     math.max(0, r.x - border.left),
@@ -580,9 +592,9 @@ class _MarkdownBlocks {
     );
     for (final li in (e.children ?? const <md.Node>[])) {
       if (li is! md.Element || li.tag != 'li') continue;
-      // ::marker text ("• " / "1. "), outside: it ends where the item
-      // content starts (the list's `pl-5`).
-      final marker = ordered ? '${number++}. ' : '• ';
+      // Outside ::marker: "1. " ends where the item content starts (the
+      // list's `pl-5`); a disc is Blink's painted symbol.
+      final marker = ordered ? '${number++}. ' : '\u2022 ';
       final painter = TextPainter(
         text: TextSpan(text: marker, style: markerStyle),
         textDirection: TextDirection.ltr,
@@ -601,13 +613,20 @@ class _MarkdownBlocks {
             clipBehavior: Clip.none,
             children: [
               Padding(padding: const EdgeInsets.only(left: 20), child: column),
-              Positioned(
-                left: 20 - markerWidth,
-                top: 0,
-                child: ExcludeSemantics(
-                  child: Text(marker, style: markerStyle, softWrap: false),
-                ),
-              ),
+              if (ordered)
+                Positioned(
+                  left: 20 - markerWidth,
+                  top: 0,
+                  child: ExcludeSemantics(
+                    child: RaftCssText(
+                      marker,
+                      style: markerStyle,
+                      softWrap: false,
+                    ),
+                  ),
+                )
+              else
+                _disc(markerStyle),
             ],
           ),
         ),
@@ -616,8 +635,48 @@ class _MarkdownBlocks {
     return _container(items, marginBottom: 8);
   }
 
-  Widget _text(List<InlineSpan> spans, TextStyle style) =>
-      Text.rich(TextSpan(children: spans), style: style);
+  /// Blink `ListMarker` symbol geometry (integer font ascent A): a circle
+  /// `(A*2/3 + 1) / 2` wide, `3 * (A - A*2/3) / 2` below the marker's text
+  /// top, its box ending 11px before the item content (measured).
+  Widget _disc(TextStyle style) {
+    final scaled = style.copyWith(
+      fontSize: MediaQuery.textScalerOf(context).scale(style.fontSize ?? 14),
+    );
+    final ascent = raftCssContentMetrics(scaled).$1.round();
+    final twoThirds = ascent * 2 ~/ 3;
+    final size = ((twoThirds + 1) ~/ 2).toDouble();
+    final top =
+        raftCssBaseline(scaled) - ascent + (3 * (ascent - twoThirds) ~/ 2);
+    return Positioned(
+      left: 20 - size - 11,
+      top: top,
+      child: ExcludeSemantics(
+        child: SizedBox.square(
+          dimension: size,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: style.color,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _text(List<InlineSpan> spans, TextStyle style) {
+    final text = RaftCssText.rich(TextSpan(children: spans), style: style);
+    // Elegant InlineCode is `inline-flex` (an atomic box that can grow its
+    // line); brutal code is an inline box that never does.
+    final atomic = !t.brutal && _hasWidgetSpan(spans);
+    return atomic ? _CssAtomicLines(style: style, child: text) : text;
+  }
+
+  static bool _hasWidgetSpan(List<InlineSpan> spans) => spans.any(
+    (s) =>
+        s is WidgetSpan ||
+        (s is TextSpan && s.children != null && _hasWidgetSpan(s.children!)),
+  );
 
   /// Inline content with CSS white-space collapsing (soft breaks are spaces).
   List<InlineSpan> _inlineSpans(
@@ -727,10 +786,33 @@ class _MarkdownBlocks {
               : t.colors['layer-inset'],
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          text,
-          style: elegant ? style : style.copyWith(height: null),
-          softWrap: false,
+        // Blink: the content area is the rounded ascent + descent; the
+        // elegant `inline-flex` line box is the inherited line height with
+        // the floored half-leading above the rounded ascent.
+        child: Builder(
+          builder: (context) {
+            final scaled = style.copyWith(
+              fontSize: MediaQuery.textScalerOf(context).scale(size),
+            );
+            final (ascent, descent) = raftCssContentMetrics(scaled);
+            final box = elegant
+                ? scaled.fontSize! * (scaled.height ?? 1)
+                : ascent + descent;
+            return SizedBox(
+              height: box,
+              child: Baseline(
+                baseline: elegant
+                    ? ascent + ((box - (ascent + descent)) / 2).floorToDouble()
+                    : ascent,
+                baselineType: TextBaseline.alphabetic,
+                child: Text(
+                  text,
+                  style: style.copyWith(height: kTextHeightNone),
+                  softWrap: false,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -821,5 +903,148 @@ class _MarkdownBlocks {
           ),
       ],
     );
+  }
+}
+
+/// Blink content-area metrics of [style]: rounded ascent and descent.
+(double, double) raftCssContentMetrics(TextStyle style) =>
+    _cssContent.putIfAbsent(style, () {
+      final probe = TextPainter(
+        text: TextSpan(
+          text: 'Hg',
+          style: style.copyWith(height: kTextHeightNone),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      // Line metrics, not the painter height (rounded to whole pixels).
+      final m = probe.computeLineMetrics().first;
+      probe.dispose();
+      return (m.ascent.roundToDouble(), m.descent.roundToDouble());
+    });
+
+final _cssContent = raftTextMetricsCache<TextStyle, (double, double)>();
+
+/// Blink paints a box whose layout position is fractional (the modal card
+/// centred at e.g. y = 296.5) at the whole CSS pixel (round half up), while
+/// its layout rect (and so an element screenshot) keeps the fraction. Paint
+/// only; descendants that snap their own text see the snapped origin.
+class _CssPaintSnap extends SingleChildRenderObjectWidget {
+  const _CssPaintSnap({super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCssPaintSnap();
+}
+
+class _RenderCssPaintSnap extends RenderProxyBox {
+  Offset _delta = Offset.zero;
+
+  Offset _snap() {
+    final parent = this.parent;
+    if (parent is! RenderBox || !attached) return Offset.zero;
+    final origin =
+        parent.localToGlobal(Offset.zero) +
+        ((parentData is BoxParentData)
+            ? (parentData! as BoxParentData).offset
+            : Offset.zero);
+    double round(double v) => (v + .5).floorToDouble() - v;
+    return Offset(round(origin.dx), round(origin.dy));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _delta = _snap();
+    super.paint(context, offset + _delta);
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    transform.translateByDouble(_delta.dx, _delta.dy, 0, 1);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      result.addWithPaintOffset(
+        offset: _delta,
+        position: position,
+        hitTest: (result, transformed) =>
+            super.hitTestChildren(result, position: transformed),
+      );
+}
+
+/// Line boxes grown by atomic inline boxes. Flutter grows a line from its
+/// fractional strut descent, Blink from `line-height - css baseline`; each
+/// grown line is re-measured with Blink's descent and the box takes the sum
+/// (the [RaftCssText] inside sizes to whole strut lines only).
+class _CssAtomicLines extends SingleChildRenderObjectWidget {
+  const _CssAtomicLines({required this.style, super.child});
+  final TextStyle style;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCssAtomicLines(_metrics(context));
+  @override
+  void updateRenderObject(BuildContext context, _RenderCssAtomicLines r) =>
+      r.metrics = _metrics(context);
+
+  (double, double) _metrics(BuildContext context) {
+    final scaled = style.copyWith(
+      fontSize: MediaQuery.textScalerOf(context).scale(style.fontSize ?? 14),
+    );
+    final line = (scaled.fontSize ?? 14) * (scaled.height ?? 1.2);
+    final probe = TextPainter(
+      text: TextSpan(text: 'Hg', style: scaled),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final flutterBelow =
+        line - probe.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    probe.dispose();
+    return (line, (line - raftCssBaseline(scaled)) - flutterBelow);
+  }
+}
+
+class _RenderCssAtomicLines extends RenderProxyBox {
+  _RenderCssAtomicLines(this._metrics);
+
+  /// (line height, Blink descent - Flutter descent).
+  (double, double) _metrics;
+  set metrics((double, double) v) {
+    if (v == _metrics) return;
+    _metrics = v;
+    markNeedsLayout();
+  }
+
+  RenderParagraph? _paragraph(RenderObject? node) {
+    while (node != null && node is! RenderParagraph) {
+      node = node is RenderObjectWithChildMixin<RenderBox> ? node.child : null;
+    }
+    return node as RenderParagraph?;
+  }
+
+  @override
+  void performLayout() {
+    final c = child!;
+    c.layout(constraints, parentUsesSize: true);
+    var height = c.size.height;
+    final p = _paragraph(c);
+    if (p != null) {
+      final length = p.text.toPlainText(includeSemanticsLabels: false).length;
+      final boxes = length == 0
+          ? const <TextBox>[]
+          : p.getBoxesForSelection(
+              TextSelection(baseOffset: 0, extentOffset: length),
+              boxHeightStyle: ui.BoxHeightStyle.max,
+            );
+      final lines = <double, double>{};
+      for (final b in boxes) {
+        lines[b.top] = math.max(lines[b.top] ?? 0, b.bottom - b.top);
+      }
+      if (lines.isNotEmpty) {
+        final (line, descentDelta) = _metrics;
+        height = 0;
+        for (final h in lines.values) {
+          height += h > line + .01 ? math.max(line, h - descentDelta) : line;
+        }
+      }
+    }
+    size = constraints.constrain(Size(c.size.width, height));
   }
 }

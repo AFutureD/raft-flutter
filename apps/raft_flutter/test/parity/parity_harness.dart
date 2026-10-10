@@ -352,17 +352,25 @@ Future<Map<String, dynamic>> captureParityCase(
     if (rect != raw) targetNote = 'target clamped to viewport like React';
   }
   // Extension element crops (`capture.androidKey`) follow Playwright's
-  // element screenshot, which captures the pixel rect enclosing a
-  // fractional box (floor / ceil); official crops keep their rounding.
+  // element screenshot, which captures the CSS-pixel rect enclosing a
+  // fractional box (floor / ceil in CSS px, then scaled: a card at
+  // y = 296.5 on a 3x page starts at device row 888, not 889); official
+  // crops keep their rounding.
   final enclose = keyed != null;
-  double lo(double v) => enclose ? v.floorToDouble() : v.roundToDouble();
-  double hi(double v) => enclose ? v.ceilToDouble() : v.roundToDouble();
-  final pixelRect = Rect.fromLTRB(
-    lo(rect.left * ctx.density),
-    lo(rect.top * ctx.density),
-    hi(rect.right * ctx.density),
-    hi(rect.bottom * ctx.density),
-  );
+  final d = ctx.density;
+  final pixelRect = enclose
+      ? Rect.fromLTRB(
+          rect.left.floorToDouble() * d,
+          rect.top.floorToDouble() * d,
+          rect.right.ceilToDouble() * d,
+          rect.bottom.ceilToDouble() * d,
+        )
+      : Rect.fromLTRB(
+          (rect.left * d).roundToDouble(),
+          (rect.top * d).roundToDouble(),
+          (rect.right * d).roundToDouble(),
+          (rect.bottom * d).roundToDouble(),
+        );
 
   final png = await t.runAsync(() async {
     final full = await rootBox.toImage(pixelRatio: ctx.density);

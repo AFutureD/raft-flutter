@@ -3,6 +3,7 @@
 // [parityCases] counts as NOT COVERED in the parity percentage; cases listed
 // in [parityUncovered] carry the reason, everything else defaults to
 // "harnessTodo".
+import 'cases/ext_announcements.dart';
 import 'cases/ext_channel_header.dart';
 import 'cases/ext_computers.dart';
 import 'cases/ext_live_activity.dart';
@@ -27,6 +28,7 @@ final Map<String, ParityCase> parityCases = {
   ...extLiveActivityCases,
   ...extChannelHeaderCases,
   ...extSettingsCases,
+  ...extAnnouncementCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {
