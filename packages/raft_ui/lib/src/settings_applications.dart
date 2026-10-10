@@ -1309,7 +1309,8 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
       children: [
         RaftSectionEyebrow(widget.title),
         if (widget.description != null) ...[
-          const SizedBox(height: 8 + 8),
+          // `space-y-2` bottom margin collapses with the description's `mt-2`.
+          const SizedBox(height: 8),
           Text(widget.description!, style: _relaxedDialog(t, text.muted)),
         ],
         const SizedBox(height: 8),
@@ -1539,35 +1540,49 @@ class RaftAppPermissionsSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // `flex flex-wrap items-start justify-between gap-2`: the badge
+          // wraps below the description when the pair does not fit.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: RaftIcon(RaftGlyph.bell, size: 18, color: text.strong),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RaftSectionEyebrow(raftText(context, 'App permissions')),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: RaftTypography.body(
-                        t,
-                        size: 12,
-                        line: 16,
-                        color: t.brutal
-                            ? Colors.black.withValues(alpha: .55)
-                            : t.muted,
-                      ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: RaftIcon(
+                      RaftGlyph.bell,
+                      size: 18,
+                      color: text.strong,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RaftSectionEyebrow(raftText(context, 'App permissions')),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: RaftTypography.body(
+                            t,
+                            size: 12,
+                            line: 16,
+                            color: t.brutal
+                                ? Colors.black.withValues(alpha: .55)
+                                : t.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (badge != null) ...[const SizedBox(width: 8), _Badge(badge!)],
+              if (badge != null) _Badge(badge!),
             ],
           ),
           const SizedBox(height: 12),
