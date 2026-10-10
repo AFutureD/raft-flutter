@@ -469,6 +469,25 @@
      "updatedAt": null
     }
    ]
+  },
+  "GET /servers/visual-server/settings": {
+   "settings": {
+    "onboardSettings": {
+     "onboardingAgentId": "agent-product-ux",
+     "agentAllChannelGreetingEnabled": true
+    },
+    "feedbackSettings": {
+     "enabled": false
+    }
+   }
+  },
+  "GET /servers/visual-server/setup-projection": {
+   "surface": "none",
+   "phase": "complete"
+  },
+  "GET /servers/visual-server/product-analytics-settings": {
+   "productAnalyticsEnabled": true,
+   "canManageProductAnalytics": true
   }
  },
  "fallback": {
@@ -509,6 +528,31 @@
    "GET /product-feedback/tickets": {
     "$status": 500
    }
-  }
+  },
+  "admin-empty": {
+   "GET /servers/visual-server/invites": [],
+   "GET /servers/visual-server/join-links": []
+  },
+  "admin-agreement-off": {
+   "GET /servers/visual-server/agreement": {
+    "enabled": false,
+    "agreement": null
+   }
+  },
+  "admin-setup-open": {
+   "GET /servers/visual-server/setup-projection": {
+    "surface": "create_agent",
+    "phase": "in_progress"
+   }
+  },
+  "admin-no-provider": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": true,
+    "translationAvailable": false,
+    "canManageTranslation": true
+   }
+  },
+  "admin-all-visible": {},
+  "admin-hide-humans": {}
  }
 }

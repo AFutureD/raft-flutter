@@ -676,6 +676,34 @@ one channel level everywhere in the `bg-fill-strong/80` hover fill (Chromium
 quantises the alpha before blending, see the Computers result). Official
 set: 98 values unchanged; `components.settings.root.page` (shared rail rows)
 0.9743 -> 0.9905.
+
+#### Administration (28 keys x 3 themes = 84)
+
+`components.ext-settings.administration.<key>.<theme>`: the page and panel
+crops, every section crop (Owners & Admins with picker / selected / admin
+actor, System Channels, Pending Invites, Invite Links, Pre-join Agreement,
+Onboarding, Server Translation, Product Analytics, Member Permissions, their
+empty / disabled / warning states), the two ConfirmDialogs (revoke invite,
+revoke invite link) and four 390px mobile sections. `routeSet`
+`admin-hide-humans` / `admin-all-visible` prime the store-backed states
+(`hideHumansFromMembers`, `#all` in the channel list) in both providers.
+
+| | before | after |
+| --- | --- | --- |
+| page / panel (6) | 0 passing, mean 0.82 | 3 passing (brutal), mean 0.93 |
+| all 84 cases | not ported | 25 passing, mean 0.944 (brutal 0.96, elegant 0.94, elegant-dark 0.92) |
+
+Findings that apply to every Settings section:
+
+* The oracle host wraps the page in `main.font-display`, so text that sets no
+  family renders in the heading face (Inter in Elegant); `raftSettingsBody`
+  mirrors that (plain `RaftTypography.body` is Geist in Elegant and 4% narrower).
+* Blink keeps fractional layout but snaps box edges and baselines to device
+  pixels: `RaftCssText` (baseline) and `RaftCssPixelSnap` (section origin).
+* Elegant dark `shadow-raft-sm` carries inset highlights; `RaftSettingsCard.box`
+  paints them (Flutter's `BoxShadow` has none).
+* Remaining delta is text rasterisation (stem weight of Inter at 12-14px) and
+  the Chromium-native date indicator / textarea resize grip.
 ### Search overlay cases (10 states x 3 themes = 30)
 
 Derived from Web `SearchOverlay.tsx` + the overlay mode of `MessageSearchPage.tsx`

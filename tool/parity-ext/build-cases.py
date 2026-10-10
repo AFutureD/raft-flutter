@@ -504,6 +504,15 @@ settings_fixture = {
         'GET /integrations/clients': clients,
         'GET /integrations/overview': [],
         f'GET /servers/{SID}/labs': labs,
+        # Administration: OnboardingAgentSection (serverStore.loadSettings +
+        # setup projection) and the product-analytics switch.
+        f'GET /servers/{SID}/settings': {'settings': {
+            'onboardSettings': {'onboardingAgentId': OFFICIAL['agents']['productUx']['id'],
+                                'agentAllChannelGreetingEnabled': True},
+            'feedbackSettings': {'enabled': False}}},
+        f'GET /servers/{SID}/setup-projection': {'surface': 'none', 'phase': 'complete'},
+        f'GET /servers/{SID}/product-analytics-settings': {'productAnalyticsEnabled': True,
+                                                          'canManageProductAnalytics': True},
     },
     # Anything else answers the official spec's catch-all body (200) on both
     # providers.
@@ -517,6 +526,15 @@ settings_fixture = {
         'feedback-empty': {'GET /product-feedback/tickets': {'tickets': [], 'next_cursor': None, 'unread_total': 0}},
         'feedback-loading': {'GET /product-feedback/tickets': {'$pending': True}},
         'feedback-error': {'GET /product-feedback/tickets': {'$status': 500}},
+        'admin-empty': {f'GET /servers/{SID}/invites': [], f'GET /servers/{SID}/join-links': []},
+        'admin-agreement-off': {f'GET /servers/{SID}/agreement': {'enabled': False, 'agreement': None}},
+        'admin-setup-open': {f'GET /servers/{SID}/setup-projection': {'surface': 'create_agent',
+                                                                      'phase': 'in_progress'}},
+        'admin-no-provider': {f'GET /servers/{SID}/translation-settings': {
+            'translationEnabled': True, 'translationAvailable': False, 'canManageTranslation': True}},
+        # Store-primed states (host + Flutter builder read the routeSet name).
+        'admin-all-visible': {},
+        'admin-hide-humans': {},
     },
 }
 
@@ -527,8 +545,9 @@ PANEL = "[data-parity-region='settings-panel']"
 
 
 def settings_case(key, title, *, tab, region=None, selector=None, android_key=None, viewport=FRAME, role='owner',
-                  flags='', route_set='', interactions=(), android=(), hint=SETTINGS_HINT, notes=None):
-    props = {'tab': tab, 'role': role}
+                  flags='', route_set='', interactions=(), android=(), hint=SETTINGS_HINT, notes=None,
+                  platform='desktop'):
+    props = {'tab': tab, 'role': role, 'platform': platform}
     if flags:
         props['flags'] = flags
     if route_set:
@@ -600,6 +619,80 @@ for tab, title, flags in [
 ]:
     settings_case(f'{tab}.page', f'{title}: whole page', tab=tab, flags=flags)
     settings_case(f'{tab}.panel', f'{title}: panel', tab=tab, region='panel', flags=flags, viewport=FRAME_TALL)
+
+# Administration (SettingsPanel.tsx AdministrationTabContent) section by
+# section. Owner with the product-analytics flag on renders all nine sections
+# in ADMINISTRATION_VISUAL_SECTIONS order; each crop is one section's
+# `div.mb-6` (the Flutter key wraps the same box, bottom margin excluded).
+# The tall frame keeps every section inside the viewport.
+ADMIN_HINT = SETTINGS_HINT + '#AdministrationTabContent'
+ADMIN_SECTIONS = ['admins', 'system-channels', 'invites', 'join-links', 'pre-join-agreement', 'onboarding',
+                  'translation', 'product-analytics', 'member-permissions']
+FRAME_ADMIN = {'width': 1280, 'height': 2800, 'density': 1}
+MOBILE_ADMIN = {'width': 390, 'height': 3400, 'density': 3}
+ADMIN_CONTENT = f"{PANEL} div.overflow-y-auto"
+
+
+def admin_case(key, title, section, *, role='owner', flags='analytics', route_set='', interactions=(), android=(),
+               mobile=False, selector=None, android_key=None, viewport=None, notes=None):
+    sections = [s for s in ADMIN_SECTIONS if s != 'product-analytics' or 'analytics' in flags]
+    sel = selector or f'{ADMIN_CONTENT} > div:nth-child({sections.index(section) + 1})'
+    settings_case(key, title, tab='administration', role=role, flags=flags, route_set=route_set,
+                  selector=sel, android_key=android_key or f'admin-section-{section}',
+                  viewport=viewport or (MOBILE_ADMIN if mobile else FRAME_ADMIN),
+                  interactions=interactions, android=android, hint=ADMIN_HINT, notes=notes,
+                  platform='mobile' if mobile else 'desktop')
+
+
+settings_case('administration.all', 'Administration: panel, all nine sections', tab='administration',
+              region='panel', flags='analytics', viewport=FRAME_ADMIN, hint=ADMIN_HINT)
+for section in ADMIN_SECTIONS:
+    admin_case(f'administration.{section}', f'Administration section: {section}', section)
+# States.
+admin_case('administration.admins.picker-open', 'Administration: owner/admin picker open', 'admins',
+           selector=f"{ADMIN_CONTENT} > div:nth-child(1) div.relative:has(> [data-testid='admin-principal-picker'])",
+           android_key='admin-principal-picker-region',
+           notes='Trigger plus the open SelectionPopover (search + candidates).',
+           interactions=[{'type': 'click', 'target': "[data-testid='admin-principal-picker']"},
+                         {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-principal-picker'}, {'type': 'wait', 'ms': 300}])
+admin_case('administration.admins.selected', 'Administration: candidate picked (role + Update Role enabled)',
+           'admins',
+           interactions=[{'type': 'click', 'target': "[data-testid='admin-principal-picker']"},
+                         {'type': 'wait', 'ms': 300},
+                         {'type': 'click', 'target': f'{ADMIN_CONTENT} button:has-text("Designer · designer@slock.ai")'},
+                         {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-principal-picker'}, {'type': 'wait', 'ms': 300},
+                    {'type': 'tap', 'key': 'admin-candidate-human:visual-human-designer'}, {'type': 'wait', 'ms': 300}])
+admin_case('administration.admins.as-admin', 'Administration: Owners & Admins viewed by an admin', 'admins',
+           role='admin')
+admin_case('administration.invites.empty', 'Administration: no pending invites', 'invites',
+           route_set='admin-empty')
+admin_case('administration.join-links.empty', 'Administration: no invite links', 'join-links',
+           route_set='admin-empty')
+admin_case('administration.pre-join-agreement.disabled', 'Administration: agreement not required',
+           'pre-join-agreement', route_set='admin-agreement-off')
+admin_case('administration.onboarding.setup', 'Administration: onboarding with unfinished server setup',
+           'onboarding', route_set='admin-setup-open')
+admin_case('administration.translation.provider-warning', 'Administration: translation without a provider',
+           'translation', route_set='admin-no-provider')
+admin_case('administration.system-channels.visible', 'Administration: #all visible (unchecked)',
+           'system-channels', route_set='admin-all-visible')
+admin_case('administration.member-permissions.hidden', 'Administration: humans hidden from members',
+           'member-permissions', route_set='admin-hide-humans')
+# Confirmations (ConfirmDialog card).
+admin_case('administration.invites.confirm', 'Administration: revoke invite confirmation', 'invites',
+           selector=DIALOG, android_key='admin-confirm-dialog', viewport=FRAME,
+           interactions=[{'type': 'click', 'target': f"{btn('Revoke invite')} >> nth=0"}, {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-invite-revoke-invite-visual-designer'}, {'type': 'wait', 'ms': 300}])
+admin_case('administration.join-links.confirm', 'Administration: revoke invite link confirmation', 'join-links',
+           selector=DIALOG, android_key='admin-confirm-dialog', viewport=FRAME,
+           interactions=[{'type': 'click', 'target': btn('Revoke invite link')}, {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-join-link-revoke-join-link-visual'}, {'type': 'wait', 'ms': 300}])
+# Mobile (390 @3x): the `sm:` / `md:` breakpoints stack the picker row, the
+# onboarding rows and the invite-link form.
+for section in ['admins', 'join-links', 'onboarding', 'pre-join-agreement']:
+    admin_case(f'administration.mobile.{section}', f'Administration (mobile): {section}', section, mobile=True)
 
 manifest = {
     'version': 1,
