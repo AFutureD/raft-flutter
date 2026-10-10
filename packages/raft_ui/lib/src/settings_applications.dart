@@ -366,8 +366,8 @@ class RaftConnectedAppsSection extends StatelessWidget {
                 _MarketplaceCard(app: app, layout: layout),
             ],
           ),
-          if (marketplace.isNotEmpty && empty != null)
-            const SizedBox(height: 12),
+          // The (possibly empty) grid keeps its `space-y-3` bottom margin.
+          if (empty != null) const SizedBox(height: 12),
           ?empty,
           if (reviewNote != null) ...[
             const SizedBox(height: 12),
@@ -394,7 +394,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
               for (final row in rows) _AppRowCard(row: row, layout: layout),
             ],
           ),
-          if (rows.isNotEmpty && empty != null) const SizedBox(height: 8),
+          if (empty != null) const SizedBox(height: 8),
           ?empty,
         ],
       ),

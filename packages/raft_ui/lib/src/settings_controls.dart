@@ -804,6 +804,8 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
       t,
       s,
       base: RaftTypography.body(t, size: 10, line: 10),
+    ).copyWith(
+      fontFamily: RaftInheritedFontScope.active(context) ? t.headingFont : null,
     );
     final value = raftText(context, label);
     return Container(

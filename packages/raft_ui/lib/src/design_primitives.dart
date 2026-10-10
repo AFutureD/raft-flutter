@@ -279,6 +279,19 @@ class RaftAttachmentRecipe {
 
 enum RaftSansSize { large, body, small, caption }
 
+/// Marks a subtree that inherits the page's `font-family` (the theme's
+/// heading family) instead of Geist: recipe-driven `Badge` and
+/// `SegmentedControl` labels render Inter inside a Settings panel but Geist in
+/// a Dialog portal.
+class RaftInheritedFontScope extends InheritedWidget {
+  const RaftInheritedFontScope({super.key, required super.child});
+  static bool active(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RaftInheritedFontScope>() !=
+      null;
+  @override
+  bool updateShouldNotify(RaftInheritedFontScope old) => false;
+}
+
 abstract final class RaftTypography {
   /// CSS `font-black` (900). Web serves the raft-ui families with
   /// `wght@300..700` / `400..700` @font-face ranges, so Chromium clamps 900
@@ -3213,10 +3226,10 @@ class _SegmentedItem<T> extends StatelessWidget {
               Flexible(
                 child: Builder(
                   builder: (context) {
-                    final label = s.label.text(
-                      rt,
-                      base: DefaultTextStyle.of(context).style,
-                    );
+                    final inherited = RaftInheritedFontScope.active(context);
+                    final label = s.label
+                        .text(rt, base: DefaultTextStyle.of(context).style)
+                        .copyWith(fontFamily: inherited ? t.headingFont : null);
                     final text = Text(
                       option.label,
                       maxLines: 1,

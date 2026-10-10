@@ -567,12 +567,14 @@ class RaftInheritedFont extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return DefaultTextStyle.merge(
-      style: TextStyle(
-        fontFamily: t.headingFont,
-        fontFamilyFallback: t.fontFallback,
+    return RaftInheritedFontScope(
+      child: DefaultTextStyle.merge(
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          fontFamilyFallback: t.fontFallback,
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
 }
