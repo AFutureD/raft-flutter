@@ -5,6 +5,7 @@
 // "harnessTodo".
 import 'cases/ext_announcements.dart';
 import 'cases/ext_channel_header.dart';
+import 'cases/ext_composer_attachments.dart';
 import 'cases/ext_computers.dart';
 import 'cases/ext_live_activity.dart';
 import 'cases/ext_settings.dart';
@@ -35,6 +36,7 @@ final Map<String, ParityCase> parityCases = {
   ...extSearchOverlayCases,
   ...extNotificationCases,
   ...extTaskDetailCases,
+  ...extComposerAttachmentCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {

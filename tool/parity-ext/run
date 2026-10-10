@@ -86,6 +86,14 @@ SPEC_EXT_PATCHES = [
      '    } else if ((interaction.type as string) === "press" && interaction.target) {\n'
      '      await page.locator(interaction.target).first().press(String((interaction as any).key));\n'
      '    } else if (interaction.type === "fill" && interaction.target) {'),
+    ('    await page.setViewportSize({ width: viewport.width, height: viewport.height });',
+     '    await page.setViewportSize({ width: viewport.width, height: viewport.height });\n'
+     '    // Extension: `viewport.touch` reports a phone pointer, `(hover: none)`\n'
+     '    // and `(pointer: coarse)`, like Android Chrome.\n'
+     '    if ((viewport as { touch?: boolean }).touch) {\n'
+     '      const parityExtCdp = await page.context().newCDPSession(page);\n'
+     '      await parityExtCdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });\n'
+     '    }'),
     ('    await applyInteractions(page, visualCase);',
      '    await applyInteractions(page, visualCase);\n'
      '    // Extension: Flutter taps leave no hover; park the pointer off the\n'
@@ -163,13 +171,13 @@ async function parityExtRoutes(page: Page, visualCase: VisualCase) {
     }
     for (const [key, body] of Object.entries(routes)) {
       const [method, path] = key.split(" ");
-      const special = (body || {}) as { $pending?: boolean; $status?: number };
+      const special = (body || {}) as { $pending?: boolean; $status?: number; $body?: unknown };
       await page.route((url: URL) => url.pathname === `/api${path}`, (route: any) => {
         if (route.request().method() !== method) return route.fallback();
         if (special.$pending) return;
         if (special.$status) {
           return route.fulfill({ status: special.$status, contentType: "application/json",
-            body: JSON.stringify({ error: "fixture error" }) });
+            body: JSON.stringify(special.$body ?? { error: "fixture error" }) });
         }
         return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
       });

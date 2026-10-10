@@ -695,6 +695,12 @@ const raftChinese = <String, String>{
   "At least one invited person is required": "至少需要邀请一位成员",
   "At least one task title is required": "至少需要填写一个任务标题",
   "Attach at most 3 screenshots.": "最多添加 3 张截图。",
+  "Only {max} attachments per message. {extra} extra file skipped.": "每条消息最多 {max} 个附件。已跳过 {extra} 个多余文件。",
+  "{count} empty file skipped.": "已跳过 {count} 个空文件。",
+  "Preview {file}": "预览 {file}",
+  "Remove {file}": "移除 {file}",
+  "Retry uploading {file}": "重试上传 {file}",
+  "{progress}% sent": "已发送 {progress}%",
   "Attach file": "添加文件",
   "Attach image": "添加图片",
   "Attach files in Chat, or drag files into the message composer. They will appear here after the message is sent.":

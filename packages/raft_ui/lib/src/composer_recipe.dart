@@ -259,11 +259,16 @@ class RaftComposerAction extends StatefulWidget {
     required this.onPressed,
     this.submit = false,
     this.busy = false,
+    this.spinner = false,
   });
   final RaftGlyph glyph;
   final String tooltip;
   final VoidCallback? onPressed;
   final bool submit, busy;
+
+  /// Spinner glyph on an otherwise plain (disabled) action, Web `Send` while
+  /// files are checked or uploaded.
+  final bool spinner;
   @override
   State<RaftComposerAction> createState() => _RaftComposerActionState();
 }
@@ -303,7 +308,7 @@ class _RaftComposerActionState extends State<RaftComposerAction> {
         semanticLabel: raftText(context, widget.tooltip),
         tooltip: raftText(context, widget.tooltip),
         onPressed: widget.onPressed,
-        child: widget.busy
+        child: widget.busy || widget.spinner
             ? const RaftSpinner()
             : RaftIcon(widget.glyph, size: 14),
       ),
