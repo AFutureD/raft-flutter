@@ -42,7 +42,11 @@ class RaftSelectField<T> extends StatefulWidget {
     this.invalid = false,
     this.visualHeight = RaftMetrics.buttonMd,
     this.minimumTargetHeight,
+    this.height,
   });
+
+  /// Callsite trigger height (`SelectTrigger className="h-10"`).
+  final double? height;
   final T? value;
 
   /// Items: `value`, `child` (the item text) and `enabled`.
@@ -134,6 +138,7 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
           // `w-full` (brutal trigger slot); elegant stays content-sized but
           // these callers stretch it in a column.
           width: double.infinity,
+          height: widget.height,
           child: Row(
             children: [
               Expanded(
@@ -148,7 +153,7 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
                           ),
                     maxLines: 1,
                     softWrap: false,
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.clip,
                     child: selected?.child ?? Text(widget.placeholder),
                   ),
                 ),

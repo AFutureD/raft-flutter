@@ -116,6 +116,51 @@ void main() {
       expect(mac.requests, 1);
     },
   );
+  test('test notification does not need the opt-in; macOS asks, denial posts nothing', () async {
+    final mac = _Mac();
+    final plugin = _Plugin()..mac = mac;
+    plugin.initialized.complete(true);
+    final service = NativeNotificationService(
+      plugin: plugin,
+      platform: TargetPlatform.macOS,
+    );
+    await service.bind('alice');
+    expect(service.enabled, false);
+    mac.prompt = Completer<bool?>()..complete(false);
+    expect(await service.test(title: 'Raft Desktop', body: 'x'), false);
+    expect(plugin.sent, isEmpty);
+    mac.prompt = null;
+    expect(await service.test(title: 'Raft Desktop', body: 'x'), true);
+    expect(plugin.sent, ['raft-notification-test']);
+    expect(service.enabled, false);
+  });
+  test(
+    'a refusal with no time for a prompt means the system stopped asking',
+    () async {
+      final mac = _Mac();
+      final plugin = _Plugin()..mac = mac;
+      plugin.initialized.complete(true);
+      final service = NativeNotificationService(
+        plugin: plugin,
+        platform: TargetPlatform.macOS,
+      );
+      await service.bind('alice');
+      mac.prompt = Completer<bool?>()..complete(false);
+      await service.requestEnable(true);
+      expect(service.permissionPromptSkipped, true);
+      final slow = Completer<bool?>();
+      mac.prompt = slow;
+      final pending = service.requestEnable(true);
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      slow.complete(false);
+      await pending;
+      expect(service.permissionPromptSkipped, false);
+      mac.prompt = null;
+      await service.requestEnable(true);
+      expect(service.enabled, true);
+      expect(service.permissionPromptSkipped, false);
+    },
+  );
   test(
     'macOS denied permission stays disabled after a later OS grant',
     () async {

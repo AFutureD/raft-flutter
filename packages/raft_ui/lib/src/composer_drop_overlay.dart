@@ -30,10 +30,20 @@ class RaftComposerDropOverlay extends StatelessWidget {
     final frame = t.brutal ? pink : t.accent;
     final fill = t.brutal
         ? pink.withValues(alpha: .15)
-        : t.accentSoft.withValues(alpha: t.accentSoft.a * .5);
+        : t.accentSoft.withValues(
+            // Chromium quantises the `/50` alpha to 8 bits before blending:
+            // measured one level darker than float blending on white.
+            alpha: t.dark
+                ? t.accentSoft.a * .5
+                : (t.accentSoft.a * 255 * .5).ceilToDouble() / 255,
+          );
+    // `absolute inset-0` resolves against the composer root's padding box,
+    // below its `border-t` (2px Brutal, 1px Elegant).
     return IgnorePointer(
       child: ExcludeSemantics(
-        child: CustomPaint(
+        child: Padding(
+          padding: EdgeInsets.only(top: t.brutal ? 2 : 1),
+          child: CustomPaint(
           key: const ValueKey('composer-drop-overlay'),
           foregroundPainter: _DashedFramePainter(color: frame, width: 2),
           child: ColoredBox(
@@ -70,6 +80,7 @@ class RaftComposerDropOverlay extends StatelessWidget {
             ),
           ),
         ),
+        ),
       ),
     );
   }
@@ -85,18 +96,18 @@ class _DashedFramePainter extends CustomPainter {
       ..color = color
       ..strokeWidth = width
       ..style = PaintingStyle.stroke;
-    // CSS dashed: dash length = 2 * border width.
-    final dash = width * 2, inset = width / 2;
+    // Blink dashes a border side as 3*width dashes with a gap adjusted so
+    // the side starts and ends on a dash.
+    final dash = width * 3, inset = width / 2;
     void edge(Offset a, Offset b) {
       final length = (b - a).distance;
       if (length <= 0) return;
       final dir = (b - a) / length;
-      for (double d = 0; d < length; d += dash * 2) {
-        canvas.drawLine(
-          a + dir * d,
-          a + dir * (d + dash).clamp(0, length),
-          paint,
-        );
+      final count = ((length + width * 2) / (dash + width * 2)).floor();
+      final gap = count > 1 ? (length - count * dash) / (count - 1) : 0.0;
+      for (var i = 0; i < count; i++) {
+        final from = i * (dash + gap);
+        canvas.drawLine(a + dir * from, a + dir * (from + dash), paint);
       }
     }
 

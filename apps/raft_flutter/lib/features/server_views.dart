@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-import '../data/resource_snapshot_cache.dart' show stableValue;
 import '../data/workspace_controller.dart';
-import 'management_support.dart'
-    show pageIdentity, readPageSnapshot, writePageSnapshot;
+import '../platform/content_links.dart';
+import 'public_visibility_view.dart';
 
 class WorkspaceActions {
   static Future<void> create(
@@ -167,8 +165,8 @@ class WorkspaceActions {
 /// SettingsPanel.tsx ServerTabContent for the fixture capabilities:
 /// ProfileSection + DangerZoneSection. (PublicVisibilitySection and
 /// ArchivedChannelsSection render nothing without public visibility /
-/// archived channels.) Invitations and the workspace push mode live in
-/// [WorkspaceAccessSettings] under Administration.
+/// archived channels.) Invitations live under Administration and the
+/// workspace push mode under Notifications.
 class ServerSettingsView extends StatefulWidget {
   const ServerSettingsView({super.key, required this.controller});
   final WorkspaceController controller;
@@ -371,6 +369,12 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
           ),
         ),
         const SizedBox(height: RaftSpace.x6),
+        // PublicVisibilitySection (owner, public_server_v0); its own
+        // `mb-6` follows it.
+        PublicVisibilitySection(
+          controller: w,
+          webOrigin: ContentLinks.originFor(w.client.origin).origin,
+        ),
         const RaftSettingsSectionHeader(
           label: 'Danger Zone',
           glyph: RaftGlyph.triangleAlert,
@@ -487,331 +491,6 @@ class _DeleteServerConfirmState extends State<_DeleteServerConfirm> {
 }
 
 /// Workspace push mode and invitations (Administration).
-class WorkspaceAccessSettings extends StatefulWidget {
-  const WorkspaceAccessSettings({super.key, required this.controller});
-  final WorkspaceController controller;
-  @override
-  State<WorkspaceAccessSettings> createState() =>
-      _WorkspaceAccessSettingsState();
-}
-
-class _WorkspaceAccessSettingsState extends State<WorkspaceAccessSettings> {
-  WorkspaceController get w => widget.controller;
-  Map<String, dynamic> profile = {}, prefs = {};
-  List<Map<String, dynamic>> invites = [], links = [];
-  bool loading = true, busy = false;
-  String? error;
-  StreamSubscription<RaftEvent>? events;
-  Timer? refresh;
-  static const snapshotKey = 'workspace-access';
-  @override
-  void initState() {
-    super.initState();
-    // Revisit: the accepted settings render at once and revalidate quietly.
-    final snapshot = readPageSnapshot(w, snapshotKey);
-    if (snapshot != null) {
-      profile = snapshot['profile'] as Map<String, dynamic>;
-      prefs = snapshot['prefs'] as Map<String, dynamic>;
-      invites = snapshot['invites'] as List<Map<String, dynamic>>;
-      links = snapshot['links'] as List<Map<String, dynamic>>;
-      loading = false;
-    }
-    load();
-    events = w.client.events.listen((event) {
-      if (event.name == 'notification_prefs:updated' ||
-          event.name == 'server:member-added') {
-        refresh?.cancel();
-        refresh = Timer(const Duration(milliseconds: 150), () {
-          if (mounted) load();
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    refresh?.cancel();
-    events?.cancel();
-    super.dispose();
-  }
-
-  int request = 0;
-  Future<void> load() async {
-    final ticket = ++request;
-    final id = w.server?.id, generation = w.client.generation;
-    final identity = pageIdentity(w);
-    if (id == null) return;
-    try {
-      final values = await Future.wait([
-        w.query('/servers/$id'),
-        w.query('/servers/$id/notification-settings'),
-        if (w.can('inviteMembers')) w.query('/servers/$id/invites'),
-        if (w.can('inviteMembers')) w.query('/servers/$id/join-links'),
-      ]);
-      if (!mounted || ticket != request || generation != w.client.generation) {
-        return;
-      }
-      // Unchanged rows keep their accepted objects.
-      T stable<T>(T old, T next) => stableValue(old, next) as T;
-      setState(() {
-        profile = stable(profile, Map<String, dynamic>.from(values[0]));
-        prefs = stable(prefs, Map<String, dynamic>.from(values[1]));
-        if (values.length > 2) {
-          invites = stable(invites, [
-            for (final row in values[2]) Map<String, dynamic>.from(row),
-          ]);
-          links = stable(links, [
-            for (final row in values[3]) Map<String, dynamic>.from(row),
-          ]);
-        }
-        error = null;
-      });
-      writePageSnapshot(w, snapshotKey, identity, {
-        'profile': profile,
-        'prefs': prefs,
-        'invites': invites,
-        'links': links,
-      });
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  Future<void> run(Future<void> Function() action) async {
-    if (busy) return;
-    setState(() => busy = true);
-    try {
-      await action();
-      await load();
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> invite() async {
-    final id = w.server!.id;
-    await showDialog(
-      context: context,
-      builder: (_) => RaftFormDialog(
-        title: 'Invite member',
-        submitLabel: 'Send invitation',
-        fields: [
-          RaftFormField('email', 'Email', required: true),
-          RaftFormField(
-            'role',
-            'Role',
-            initial: 'member',
-            choices: {'member': 'Member', 'guest': 'Guest'},
-          ),
-        ],
-        onSubmit: (values) async {
-          await w.command('POST', '/servers/$id/invites', data: values);
-        },
-      ),
-    );
-    if (mounted) await load();
-  }
-
-  Future<void> createLink() async {
-    final id = w.server!.id;
-    String? token;
-    await showDialog(
-      context: context,
-      builder: (_) => RaftFormDialog(
-        title: 'Create invitation link',
-        submitLabel: 'Create link',
-        fields: [
-          RaftFormField(
-            'maxUses',
-            'Maximum uses',
-            help: 'Leave empty for unlimited uses.',
-            validator: (v) =>
-                v.isEmpty || int.tryParse(v) != null && int.parse(v) > 0
-                ? null
-                : 'Enter a positive integer.',
-          ),
-          RaftFormField(
-            'expiresAt',
-            'Expires at (ISO date)',
-            help: 'Leave empty for no expiry.',
-            validator: (v) => v.isEmpty || DateTime.tryParse(v) != null
-                ? null
-                : 'Enter an ISO date.',
-          ),
-        ],
-        onSubmit: (values) async {
-          final result = await w.command(
-            'POST',
-            '/servers/$id/join-links',
-            data: {
-              if (values['maxUses']!.isNotEmpty)
-                'maxUses': int.parse(values['maxUses']!),
-              if (values['expiresAt']!.isNotEmpty)
-                'expiresAt': DateTime.parse(values['expiresAt']!)
-                    .toUtc()
-                    .toIso8601String(),
-            },
-          );
-          token = result['token'];
-        },
-      ),
-    );
-    if (!mounted) return;
-    if (token != null) {
-      final link = '${w.client.origin}/join/$token';
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(raftText(context, 'Invitation link')),
-          content: SelectableText(link),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: link));
-              },
-              child: Text(raftText(context, 'Copy link')),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(raftText(context, 'Done')),
-            ),
-          ],
-        ),
-      );
-    }
-    if (mounted) await load();
-  }
-
-  @override
-  Widget build(BuildContext context) => loading
-      ? const Center(child: CircularProgressIndicator())
-      : Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (error != null)
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            Text(
-              raftText(context, 'Notifications'),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: RaftSpace.x3),
-            DropdownButtonFormField<String>(
-              // A background refresh that changes the mode replaces the field.
-              key: ValueKey('push-mode-${prefs['serverPushMode'] ?? 'all'}'),
-              initialValue: '${prefs['serverPushMode'] ?? 'all'}',
-              decoration: InputDecoration(
-                labelText: raftText(context, 'Workspace push notifications'),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: 'all',
-                  child: Text(raftText(context, 'All activity')),
-                ),
-                DropdownMenuItem(
-                  value: 'mentions',
-                  child: Text(raftText(context, 'Mentions only')),
-                ),
-                DropdownMenuItem(
-                  value: 'none',
-                  child: Text(raftText(context, 'None')),
-                ),
-              ],
-              onChanged: busy
-                  ? null
-                  : (mode) => run(() async {
-                      await w.command(
-                        'PATCH',
-                        '/servers/${w.server!.id}/notification-settings',
-                        data: {'serverPushMode': mode},
-                      );
-                    }),
-            ),
-            if (w.can('inviteMembers')) ...[
-              const SizedBox(height: 32),
-              Text(
-                raftText(context, 'Invitations'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: RaftSpace.x3),
-              Wrap(
-                spacing: RaftSpace.x3,
-                children: [
-                  RaftButton(
-                    label: 'Invite member',
-                    onPressed: busy ? null : invite,
-                  ),
-                  RaftButton(
-                    label: 'Create invitation link',
-                    secondary: true,
-                    onPressed: busy ? null : createLink,
-                  ),
-                ],
-              ),
-              for (final invite in invites)
-                ListTile(
-                  title: Text('${invite['email']}'),
-                  subtitle: Text(
-                    '${invite['role'] ?? 'member'} · Expires ${invite['expiresAt'] ?? '—'}',
-                  ),
-                  trailing: IconButton(
-                    tooltip: raftText(context, 'Revoke invitation'),
-                    icon: const RaftIcon(RaftGlyph.x, size: 12),
-                    onPressed: busy
-                        ? null
-                        : () => run(() async {
-                            await w.command(
-                              'DELETE',
-                              '/servers/${w.server!.id}/invites/${invite['id']}',
-                            );
-                          }),
-                  ),
-                ),
-              for (final link in links)
-                ListTile(
-                  title: Text(
-                    raftFormat(
-                      context,
-                      'Invitation link · {used}/{maximum} uses',
-                      {
-                        'used': link['useCount'] ?? 0,
-                        'maximum':
-                            link['maxUses'] ?? raftText(context, 'Unlimited'),
-                      },
-                    ),
-                  ),
-                  subtitle: Text(
-                    raftFormat(context, 'Expires {date}', {
-                      'date': link['expiresAt'] ?? raftText(context, 'Never'),
-                    }),
-                  ),
-                  trailing: IconButton(
-                    tooltip: raftText(context, 'Revoke invitation link'),
-                    icon: const RaftIcon(RaftGlyph.x, size: 14),
-                    onPressed: busy
-                        ? null
-                        : () => run(() async {
-                            await w.command(
-                              'DELETE',
-                              '/servers/${w.server!.id}/join-links/${link['id']}',
-                            );
-                          }),
-                  ),
-                ),
-            ],
-          ],
-        );
-}
-
 class MembersView extends StatefulWidget {
   const MembersView({
     super.key,

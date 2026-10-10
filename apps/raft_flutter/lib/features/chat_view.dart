@@ -33,6 +33,7 @@ import 'message_image_export.dart';
 import 'forward_messages_dialog.dart';
 import 'composer_directory.dart';
 import 'composer_attachment_input.dart';
+import 'composer_attachments_view.dart';
 import 'sender_avatar_projection.dart';
 import 'message_reaction_projection.dart';
 import 'message_agent_presentation.dart';
@@ -1037,11 +1038,35 @@ class _RaftChatViewState extends State<RaftChatView>
   Widget? composerAccessory() =>
       raftComposerAccessory(w, thread: widget.thread);
 
-  Future<void> attach({bool imagesOnly = false}) async {
+  /// Web `openDraftImagePreview`: the local picture of a ready image in the
+  /// lightbox.
+  Future<void> previewDraftImage(UploadDraft draft) async {
+    final zoom = TransformationController();
+    late final DialogRoute<void> route;
+    route = DialogRoute<void>(
+      context: context,
+      builder: (_) => RaftAttachmentLightbox(
+        title: draft.filename,
+        titleBold: true,
+        onResetZoom: () => zoom.value = Matrix4.identity(),
+        onClose: () {
+          if (route.isActive) route.navigator?.removeRoute(route);
+        },
+        child: InteractiveViewer(
+          transformationController: zoom,
+          child: Center(child: Image.memory(draft.bytes, fit: BoxFit.contain)),
+        ),
+      ),
+    );
+    await Navigator.of(context, rootNavigator: true).push(route);
+    zoom.dispose();
+  }
+
+  Future<void> attach({bool mediaOnly = false}) async {
     final scope = w.draftScope(thread: widget.thread),
         generation = w.ledger.generation;
     try {
-      final files = await selectUploads(imagesOnly: imagesOnly);
+      final files = await selectUploads(mediaOnly: mediaOnly);
       if (files.isEmpty || !mounted) return;
       if (generation != w.ledger.generation ||
           scope != w.draftScope(thread: widget.thread)) {
@@ -2395,8 +2420,7 @@ class _RaftChatViewState extends State<RaftChatView>
   }
 
   Widget tile(RaftMessage m, {bool parent = false, bool captureFocus = true}) {
-    final selectable =
-        selection.active && m.string('messageType') != 'system';
+    final selectable = selection.active && m.string('messageType') != 'system';
     final checked = selectable && selection.ids.contains(m.id);
     // Web MessageMultiSelectCheckbox: circle, size lg, primary variant, in the
     // row's flex line before the avatar (the row owns `mt-1.5` and the gap).
@@ -2456,9 +2480,10 @@ class _RaftChatViewState extends State<RaftChatView>
             // not empty (Web shows the banner instead of "No replies yet").
             child: w.threadHistoryLimited
                 ? Center(child: historyLimitBanner(inset: true))
-                : RaftEmptyState(
+                : RaftProductEmptyState(
                     title: raftText(context, 'No replies yet'),
-                    detail: raftText(context, 'Reply to start a thread.'),
+                    icon: (context, size, color) =>
+                        RaftThreadIcon(size: size, color: color),
                   ),
           ),
       ];
@@ -2694,29 +2719,6 @@ class _RaftChatViewState extends State<RaftChatView>
               ],
             ),
           ),
-          if (!selection.active && w.uploads(thread: widget.thread).isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: w
-                    .uploads(thread: widget.thread)
-                    .map(
-                      (draft) => RaftUploadChip(
-                        name: draft.filename,
-                        progress: draft.progress,
-                        ready: draft.id != null,
-                        error: draft.error,
-                        onRetry: () =>
-                            w.retryUpload(draft, thread: widget.thread),
-                        onRemove: () =>
-                            w.removeUpload(draft, thread: widget.thread),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
           if (selection.active)
             CallbackShortcuts(
               bindings: {
@@ -2793,14 +2795,30 @@ class _RaftChatViewState extends State<RaftChatView>
               },
               onImagePick: () {
                 if (presentationActive && currentComposer()) {
-                  attach(imagesOnly: true);
+                  attach(mediaOnly: true);
                 }
               },
-              pendingLabel: w.uploads(thread: widget.thread).isEmpty
-                  ? null
-                  : raftFormat(context, '{count} attachment(s)', {
-                      'count': w.uploads(thread: widget.thread).length,
-                    }),
+              hasAttachments: w.uploads(thread: widget.thread).isNotEmpty,
+              attachments: composerAttachmentsFor(
+                context,
+                w,
+                thread: widget.thread,
+                onPreview: previewDraftImage,
+              ),
+              submitSpinner: w
+                  .uploads(thread: widget.thread)
+                  .any((d) => d.checking || (d.error == null && d.id == null)),
+              submitTooltip: composerSendBlockTitle(
+                context,
+                w.uploads(thread: widget.thread),
+              ),
+              onSendBlocked: () => w.setComposerError(
+                composerSendBlockNotice(
+                  context,
+                  w.uploads(thread: widget.thread),
+                ),
+                thread: widget.thread,
+              ),
               hint: widget.thread
                   ? raftText(context, 'Message thread')
                   : raftFormat(context, 'Message #{name}', {

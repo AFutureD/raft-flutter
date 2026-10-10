@@ -65,19 +65,19 @@ Future<void> verifyAttachmentFlow(
     expect(w.uploadsReady(), false);
     for (
       var i = 0;
-      i < 100 && find.byTooltip('Retry upload').evaluate().isEmpty;
+      i < 100 && find.text('Tap to retry').evaluate().isEmpty;
       i++
     ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    if (find.byTooltip('Retry upload').evaluate().isEmpty) {
+    if (find.text('Tap to retry').evaluate().isEmpty) {
       await capture('linux-attachment-retry-failure');
       debugPrint(
-        'Attachment retry checkpoint: section=${w.section} loading=${w.loading} channelLoading=${w.channelLoading} uploadCount=${w.uploads().length} composerCount=${find.byType(RaftComposer).evaluate().length} chipCount=${find.byType(RaftUploadChip).evaluate().length} language=${w.client.user?.json['displayLanguage']} retryIconCount=${find.byIcon(Icons.refresh).evaluate().length} scaffoldCount=${find.byType(Scaffold).evaluate().length} setupText=${find.text('Set up your workspace').evaluate().length} chatWidgets=${find.byType(Chat).evaluate().length}',
+        'Attachment retry checkpoint: section=${w.section} loading=${w.loading} channelLoading=${w.channelLoading} uploadCount=${w.uploads().length} composerCount=${find.byType(RaftComposer).evaluate().length} chipCount=${find.byType(RaftComposerAttachments).evaluate().length} language=${w.client.user?.json['displayLanguage']} retryIconCount=${find.byIcon(Icons.refresh).evaluate().length} scaffoldCount=${find.byType(Scaffold).evaluate().length} setupText=${find.text('Set up your workspace').evaluate().length} chatWidgets=${find.byType(Chat).evaluate().length}',
       );
     }
-    expect(find.byTooltip('Retry upload'), findsOneWidget);
-    await tester.tap(find.byTooltip('Retry upload'));
+    expect(find.text('Tap to retry'), findsOneWidget);
+    await tester.tap(find.text('Tap to retry'));
     for (var i = 0; i < 150 && !w.uploadsReady(); i++) {
       await tester.pump(const Duration(milliseconds: 200));
     }

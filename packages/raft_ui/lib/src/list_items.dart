@@ -546,9 +546,13 @@ class RaftSelectionOption {
     this.italic = false,
     this.leading,
     this.reserveLeadingSlot = false,
+    this.rowKey,
   });
   final String label;
   final bool checked, disabled, italic, reserveLeadingSlot;
+
+  /// Key of the option row (tests and parity interactions).
+  final Key? rowKey;
   final VoidCallback onTap;
   final Widget? leading;
 }
@@ -576,10 +580,16 @@ class RaftSelectionPopover extends StatelessWidget {
     this.emptyLabel = 'No options',
     this.width,
     this.surfaceStyle,
+    this.brutalProductShadow = false,
   });
 
   final String title;
   final List<RaftSelectionOption> options;
+
+  /// A caller surface that names the product `theme-brutal:shadow-brutal`
+  /// utility (not a recipe class): brutal paints that shadow instead of the
+  /// recipe's.
+  final bool brutalProductShadow;
 
   /// Shows the Clear action when non-null (`showClear && onClear`).
   final VoidCallback? onClear;
@@ -699,6 +709,7 @@ class RaftSelectionPopover extends StatelessWidget {
                     children: [
                       for (var i = 0; i < options.length; i++)
                         _SelectionRow(
+                          key: options[i].rowKey,
                           option: options[i],
                           last: i == options.length - 1,
                         ),
@@ -720,7 +731,8 @@ class RaftSelectionPopover extends StatelessWidget {
         padding: EdgeInsets.zero,
         // Source's theme-brutal:shadow-brutal is a product utility. It replaces
         // the default recipe shadow; an explicit caller recipe owns its shadows.
-        decorationOverride: surfaceStyle == null && t.brutal
+        decorationOverride:
+            (surfaceStyle == null || brutalProductShadow) && t.brutal
             ? (decoration) => decoration.copyWith(
                 boxShadow: RaftProductShadows.shadowBrutal.paintOrder,
               )
@@ -839,7 +851,7 @@ class _SelectionFocusOutline extends CustomPainter {
 }
 
 class _SelectionRow extends StatefulWidget {
-  const _SelectionRow({required this.option, required this.last});
+  const _SelectionRow({super.key, required this.option, required this.last});
   final RaftSelectionOption option;
   final bool last;
   @override

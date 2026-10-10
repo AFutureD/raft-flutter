@@ -63,13 +63,23 @@ Widget _page(ParityContext ctx) {
     'labs': 'server_labs_ui_v0',
     'providers': 'provider_connections_v0',
     'bridge': 'slack_bridge_v0',
+    'analytics': 'product_analytics_settings_v0',
   };
   final enabled = {
     for (final MapEntry(:key, :value) in flagKeys.entries)
       if (flags.contains(key)) value,
   };
+  final routeSet = ctx.props['routeSet'] as String? ?? '';
+  // Store-primed Administration states (the React host patches the same).
+  final serverJson = {
+    ...fixture.server,
+    'role': role,
+    if (routeSet == 'admin-hide-humans') 'hideHumansFromMembers': true,
+  };
   final (w, _) = fixture.workspace({
-    'GET /servers/visual-server': (_) => {...fixture.server, 'role': role},
+    'GET /servers/visual-server': (_) => serverJson,
+    // The official spec's /api/agents rows (fxAgentDetailAgents).
+    'GET /agents': (_) => fixture.agents,
     'POST /feature-flags/evaluate': (data) => {
       'evaluations': [
         for (final key in (data is Map ? data['keys'] as List? : null) ?? [])
@@ -78,12 +88,30 @@ Widget _page(ParityContext ctx) {
     },
     ..._routes(ctx),
   }, fallback: (method, path, data) => _fx(ctx)['fallback']);
-  final server = RaftRecord({...fixture.server, 'role': role});
+  if (routeSet == 'admin-all-visible') {
+    w.channels = [
+      RaftChannel({
+        ...fixture.channel('design'),
+        'id': 'channel-all',
+        'name': 'all',
+      }),
+      ...w.channels,
+    ];
+  }
+  final server = RaftRecord(serverJson);
   w
     ..server = server
     ..servers = [server];
+  // Mobile cases: SettingsPanel fills the 390px viewport (the React host
+  // mounts it alone); desktop: the 1216px page beside the 64px rail.
+  final mobile = ctx.props['platform'] == 'mobile';
+  // The React provider freezes its clock at the fixture instant (the Free
+  // trial notice and relative dates read it).
+  final now = DateTime.fromMillisecondsSinceEpoch(
+    (ctx.fixtureData['locale']['nowEpochMillis'] as num).toInt(),
+  );
   return ctx.frame(
-    width: 1216,
+    width: mobile ? ctx.width : 1216,
     height: ctx.height,
     padding: EdgeInsets.zero,
     child: Material(
@@ -103,6 +131,7 @@ Widget _page(ParityContext ctx) {
         providerEnabled: flags.contains('providers'),
         bridgeEnabled: flags.contains('bridge'),
         labsEnabled: flags.contains('labs'),
+        now: () => now,
         appVersion: _fx(ctx)['appVersion'] as String,
         // The React render host's origin (the QR encodes `<origin>/download`).
         frontendOrigin: Uri.parse(
@@ -157,14 +186,72 @@ const _extSettingsKeys = [
   'feedback.empty',
   'feedback.loading',
   'feedback.error',
+  'feedback.new',
+  'feedback.new-filled',
+  'feedback.new-submitting',
+  'feedback.new-error',
+  'feedback.ticket',
+  'feedback.ticket-reply',
+  'feedback.ticket-reply-error',
+  'feedback.ticket-closed',
+  'feedback.close-menu',
+  'feedback.close-confirm',
+  'feedback.close-confirm-resolved',
+  'feedback.close-error',
   'server.page',
   'server.panel',
   'billing.page',
   'billing.panel',
+  'billing.current-plan',
+  'billing.summary',
+  'billing.pro',
+  'billing.pro-plan',
+  'billing.pro-summary',
+  'billing.admin',
+  'billing.loading',
+  'billing.confirm-checkout',
+  'billing.mobile',
+  'billing.mobile-pro',
   'administration.page',
   'administration.panel',
+  'administration.all',
+  'administration.admins',
+  'administration.system-channels',
+  'administration.invites',
+  'administration.join-links',
+  'administration.pre-join-agreement',
+  'administration.onboarding',
+  'administration.translation',
+  'administration.product-analytics',
+  'administration.member-permissions',
+  'administration.admins.picker-open',
+  'administration.admins.selected',
+  'administration.admins.as-admin',
+  'administration.invites.empty',
+  'administration.join-links.empty',
+  'administration.pre-join-agreement.disabled',
+  'administration.onboarding.setup',
+  'administration.translation.provider-warning',
+  'administration.system-channels.visible',
+  'administration.member-permissions.hidden',
+  'administration.invites.confirm',
+  'administration.join-links.confirm',
+  'administration.mobile.admins',
+  'administration.mobile.join-links',
+  'administration.mobile.onboarding',
+  'administration.mobile.pre-join-agreement',
   'integrations.page',
   'integrations.panel',
+  'integrations.installed',
+  'integrations.my-apps',
+  'integrations.list',
+  'integrations.member',
+  'integrations.empty',
+  'integrations.detail',
+  'integrations.detail-installed',
+  'integrations.installed-detail',
+  'integrations.mobile',
+  'integrations.mobile-detail',
   'mcp.page',
   'mcp.panel',
   'labs.page',

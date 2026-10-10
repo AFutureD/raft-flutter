@@ -28,6 +28,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/source_time_formatter.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/composer_attachments_view.dart';
 import 'package:raft_flutter/features/composer_directory.dart';
 import 'package:raft_flutter/features/pending_mention_actions.dart';
 import 'package:raft_flutter/features/source_channel_files_view.dart';
@@ -264,11 +265,13 @@ class _ComposerHostState extends State<_ComposerHost> {
           ),
           onAttach: () {},
           onImagePick: () {},
-          pendingLabel: w.uploads().isEmpty
-              ? null
-              : raftFormat(context, '{count} attachment(s)', {
-                  'count': w.uploads().length,
-                }),
+          hasAttachments: w.uploads().isNotEmpty,
+          attachments: composerAttachmentsFor(
+            context,
+            w,
+            thread: false,
+            onPreview: (_) {},
+          ),
           // ComposerVisualCaseView passes MessageInput an explicit
           // `placeholder` (fxMessages.composerPlaceholder); RaftComposer.hint
           // is the same override (the app default is "Message #name").

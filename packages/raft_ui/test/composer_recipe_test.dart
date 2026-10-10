@@ -59,7 +59,7 @@ void main() {
           of: find.byTooltip(label),
           matching: find.byType(RaftComposerAction),
         );
-        final image = tester.getRect(action('Attach image'));
+        final image = tester.getRect(action('Attach media'));
         final file = tester.getRect(action('Attach file'));
         final send = tester.getRect(action('Send message (Ctrl+Enter)'));
         final size = family == RaftFamily.brutal ? 26.0 : 28.0;
@@ -391,7 +391,7 @@ void main() {
         ),
       );
       await tester.tap(find.byType(TextField));
-      await tester.tap(find.byTooltip('Attach image'));
+      await tester.tap(find.byTooltip('Attach media'));
       expect(images, 1);
       expect(files, 0);
       expect(

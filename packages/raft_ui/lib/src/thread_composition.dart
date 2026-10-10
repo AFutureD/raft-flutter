@@ -408,12 +408,13 @@ class RaftThreadTimelineTopSliver extends StatelessWidget {
     this.showSummary = true,
   });
 
-  /// False for a thread without loaded replies: Web ThreadPanel's empty branch
-  /// renders the parent and the empty / history-limit notice only, without the
-  /// history-top line and the reply count.
-  final bool showSummary;
   final bool hasMore, historyLimited, loadingOlder;
   final String loadingOlderLabel, historyLimitedLabel, beginningLabel;
+
+  /// Web ThreadPanel renders the history state and the reply count only in
+  /// its timeline header; a thread with no replies (not loading) shows the
+  /// parent and the empty state instead.
+  final bool showSummary;
 
   /// Source ThreadPanel uses loaded messages.length, not total folded count.
   final String replyCountLabel;

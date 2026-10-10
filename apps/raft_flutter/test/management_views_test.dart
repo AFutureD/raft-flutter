@@ -10,7 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/integrations_views.dart';
 import 'package:raft_flutter/features/provider_views.dart';
-import 'package:raft_flutter/features/admin_views.dart';
+import 'package:raft_flutter/features/billing_view.dart';
 import 'package:raft_flutter/features/labs_view.dart';
 import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_flutter/features/account_connections_view.dart';
@@ -144,7 +144,13 @@ void main() {
         'error': 'Permission changed',
       };
       a.statuses['POST /integrations/clients'] = 403;
-      await tester.pumpWidget(host(IntegrationsView(controller: w)));
+      await tester.pumpWidget(
+        host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('connected-apps-tab-my-apps')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Private owned app'), findsOneWidget);
       await register(tester);
@@ -472,10 +478,15 @@ void main() {
     final (w, a) = (await tester.runAsync(() => _fixture('owner')))!;
     addTearDown(w.dispose);
     _appRoutes(a, (_) => <dynamic>[]);
-    await tester.pumpWidget(host(IntegrationsView(controller: w)));
+    await tester.pumpWidget(
+      host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Register app'), findsOneWidget);
-    expect(find.text('Install private app'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('connected-apps-tab-my-apps')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -619,14 +630,23 @@ void main() {
           {'id': 'private-app', 'name': 'Private app fixture'},
         ],
       );
-      await tester.pumpWidget(host(IntegrationsView(controller: w)));
+      await tester.pumpWidget(
+        host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('connected-apps-tab-my-apps')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Private app fixture'), findsOneWidget);
       a.statuses['GET /integrations/clients'] = 403;
       a.routes['GET /integrations/clients'] = (_) => {
         'error': 'Permission revoked',
       };
-      await tester.tap(find.byTooltip('Refresh'));
+      // A workspace switch re-reads the (now forbidden) registrations.
+      w.client.selectServer('s2');
+      w.server = RaftRecord({'id': 's2', 'role': 'owner'});
+      w.setError(null);
       await tester.pumpAndSettle();
       expect(find.text('Private app fixture'), findsNothing);
     },
@@ -865,11 +885,23 @@ void main() {
       'provisioned': {'humans': 3, 'agents': 10},
       'subscription': {'status': 'active'},
     };
-    await tester.pumpWidget(host(BillingView(controller: w)));
+    await tester.pumpWidget(
+      host(ListView(children: [BillingView(controller: w)])),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Pro'), findsOneWidget);
-    expect(find.text('Manage purchased seats'), findsNothing);
-    expect(find.text('Cancel subscription'), findsNothing);
+    // PlanSection: the portal / cancel / seat controls render disabled with
+    // the owner-only reason (canManageBilling is false).
+    expect(find.text('Only server owners can change billing.'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('billing-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('billing-confirm-dialog')), findsNothing);
+    expect(
+      a.calls.where(
+        (c) => c.path.startsWith('/billing/') && c.method == 'POST',
+      ),
+      isEmpty,
+    );
   });
   testWidgets(
     'app registration declares scopes and masks the one-time secret',
@@ -888,7 +920,9 @@ void main() {
         apps.add(app);
         return {'client': app, 'clientSecret': 'never-render-without-reveal'};
       };
-      await tester.pumpWidget(host(IntegrationsView(controller: w)));
+      await tester.pumpWidget(
+        host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+      );
       await tester.pumpAndSettle();
       await register(tester);
       expect(find.text('Credential hidden'), findsOneWidget);
@@ -916,7 +950,9 @@ void main() {
       'client': {'id': 'a'},
       'clientSecret': 'private-one-time',
     };
-    await tester.pumpWidget(host(IntegrationsView(controller: w)));
+    await tester.pumpWidget(
+      host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+    );
     await tester.pumpAndSettle();
     await register(tester);
     expect(find.byType(RaftSecretView), findsOneWidget);
@@ -937,7 +973,9 @@ void main() {
         'client': {'id': 'a'},
         'clientSecret': 'private-one-time',
       };
-      await tester.pumpWidget(host(IntegrationsView(controller: w)));
+      await tester.pumpWidget(
+        host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+      );
       await tester.pumpAndSettle();
       await register(tester);
       final generation = w.client.generation;
@@ -964,7 +1002,9 @@ void main() {
                 {'id': 'new', 'name': 'New workspace app'},
               ],
       );
-      await tester.pumpWidget(host(IntegrationsView(controller: w)));
+      await tester.pumpWidget(
+        host(SingleChildScrollView(child: IntegrationsView(controller: w))),
+      );
       await tester.pump();
       w.client.selectServer('s2');
       w.server = RaftRecord({'id': 's2', 'role': 'owner'});
@@ -973,6 +1013,10 @@ void main() {
       old.complete([
         {'id': 'old', 'name': 'Old private app'},
       ]);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('connected-apps-tab-my-apps')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('New workspace app'), findsOneWidget);
       expect(find.text('Old private app'), findsNothing);

@@ -4,9 +4,9 @@
  "about": "Ratchet for tool/ds-audit. Counts may only go down. Regenerate with `tool/ds-audit --update-baseline` after removing violations.",
  "totals": {
   "style.border_radius": 11,
-  "style.dimension": 48,
+  "style.dimension": 46,
   "style.duration": 2,
-  "style.edge_insets": 68,
+  "style.edge_insets": 67,
   "style.font_size": 1,
   "style.font_weight": 5,
   "style.material_colors": 27,
@@ -139,8 +139,8 @@
    "widget.dialog": 2
   },
   "apps/raft_flutter/lib/features/chat_view.dart": {
-   "style.dimension": 4,
-   "style.edge_insets": 3,
+   "style.dimension": 2,
+   "style.edge_insets": 2,
    "style.sized_box": 1,
    "widget.snackbar": 6
   },

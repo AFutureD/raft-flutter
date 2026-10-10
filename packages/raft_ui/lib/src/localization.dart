@@ -8,6 +8,13 @@ String raftText(BuildContext context, String source) {
   return raftChinese[source] ?? source;
 }
 
+/// Fixed UI copy whose Chinese differs per Web catalog key although the English
+/// source collides (for example `Unassigned`: the task property says 未指派,
+/// the board filter 未分配, the history detail 取消指派). The call site names
+/// the Web key's Chinese; non-Chinese locales show [source].
+String raftTextZh(BuildContext context, String source, String zh) =>
+    Localizations.maybeLocaleOf(context)?.languageCode == 'zh' ? zh : source;
+
 /// Localizes fixed UI copy before inserting untouched user-provided values.
 String raftFormat(
   BuildContext context,
@@ -34,6 +41,67 @@ const raftChinese = <String, String>{
   "There are {count} system updates: {parts}": "有 {count} 条系统更新：{parts}",
   "Message history is limited to {days} days on the {plan} plan.":
       "消息历史在 {plan} 套餐下仅保留 {days} 天。",
+  // Settings > Feedback (hands-feedback-react 0.4.1 locale.ts zh-CN).
+  "Submit": "提交",
+  "Close ticket": "关闭工单",
+  "Bug": "问题",
+  "Type": "类型",
+  "Load more replies": "加载更多回复",
+  "Resolved": "已解决",
+  "Ended": "已结束",
+  "Team": "团队",
+  "Update": "更新",
+  "New feedback": "新建反馈",
+  "Reply": "回复",
+  "Write a reply…": "写下回复…",
+  "Send reply": "发送回复",
+  "No longer needed": "不再需要处理",
+  "New replies": "有新回复",
+  "Feedback type": "反馈类型",
+  "Describe your idea or the bug you ran into…": "描述你的想法或遇到的问题…",
+  "Up to {count} images.": "最多添加 {count} 张图片。",
+  "Choose a close reason": "选择关闭原因",
+  "Confirm resolved and close.": "确认已解决并关闭。",
+  "Close — no further action needed.": "无需处理并关闭。",
+  "Not planned": "暂不处理",
+  "Cannot reproduce": "无法复现",
+  "Duplicate": "重复工单",
+  "Closing…": "正在关闭…",
+  "Closed as {reason}": "关闭原因：{reason}",
+  "Issue resolved — close this ticket?": "问题已解决，关闭工单？",
+  "You won’t be able to reply after closing. If the issue comes back, submit new feedback.": "关闭后将无法继续回复。如果问题再次出现，可以重新提交反馈。",
+  "No longer need help — close this ticket?": "不再需要处理，关闭工单？",
+  "This will close the ticket even if the issue isn’t resolved. If you still need help, submit new feedback.": "即使问题尚未解决，也会直接关闭工单。如果仍需帮助，可以重新提交反馈。",
+  "No feedback yet": "还没有反馈",
+  "Share an idea or report a bug — team replies will show up here.": "分享想法或报告问题，团队回复会显示在这里。",
+  "Nothing in progress": "没有进行中的反馈",
+  "Resolved or closed feedback lives under “Ended”.": "已解决或已关闭的反馈在「已结束」里。",
+  "Nothing ended yet": "还没有已结束的反馈",
+  "Feedback appears here once it’s resolved or closed.": "反馈被解决或关闭后，会出现在这里。",
+  "This retry no longer matches the original request.": "本次重试与原请求不一致。",
+  "Check the feedback details and try again.": "请检查反馈内容后重试。",
+  "This feedback ticket is no longer available.": "该反馈工单已不可用。",
+  "Too many feedback requests. Try again later.": "请求过于频繁，请稍后重试。",
+  "Your feedback session expired. Reopen feedback and try again.": "反馈会话已过期，请重新打开后重试。",
+  "Couldn't load feedback. Try again.": "反馈加载失败，请重试。",
+  "{name} is larger than 10 MB.": "{name} 超过 10 MB。",
+  "Choose no more than {count} screenshots.": "最多选择 {count} 张截图。",
+  "{name} is not a supported image.": "{name} 不是支持的图片格式。",
+  "Uploading {progress}%": "正在上传 {progress}%",
+  "{count} unread": "{count} 条未读",
+  "Status filter": "状态筛选",
+  "Loading feedback": "正在加载反馈",
+  "Feedback created": "反馈已创建",
+  "Reply sent": "回复已发送",
+  "Ticket closed": "工单已关闭",
+  "Upload canceled": "上传已取消",
+  "Open attachment {name}": "打开附件 {name}",
+  "Screenshots (up to {count})": "截图（最多 {count} 张）",
+  "Task #{taskNumber}": "任务 #{taskNumber}",
+  "Task #{taskNumber} · LEGACY": "任务 #{taskNumber} · LEGACY",
+  "Task #{taskNumber} · Status: {status}": "任务号：{taskNumber} · 状态：{status}",
+  "Assigned to {name}": "负责人：{name}",
+  "{field}: {from} → {to}": "{field}：{from} → {to}",
   // Hover cards (ExternalIdentityPreviewCard, reaction reactors, runtime usage).
   "From {workspace}": "来自 {workspace}",
   "+{count} more": "等 {count} 人",
@@ -319,11 +387,32 @@ const raftChinese = <String, String>{
       "Raft 运行并连接时会接收消息；尚未配置后台推送。",
   "This server does not send desktop message notifications. You can test system delivery.":
       "此服务器不发送桌面消息通知，你可以测试系统通知功能。",
-  "Send test notification": "发送测试通知",
+  "Send test notification": "发一条测试通知",
   "Open notification settings": "打开通知设置",
   "System notifications are unavailable on this device.": "此设备无法使用系统通知。",
   "Allow notifications in system settings to receive alerts.": "请在系统设置中允许通知。",
   "The system notification could not be delivered.": "系统通知发送失败。",
+  "Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.":
+      "这些通知是否显示由系统决定,而不是 Raft:{path}。首次发出通知时系统可能会询问权限。若开启了专注模式或勿扰,系统可能延迟或静默横幅。",
+  "macOS → System Settings → Notifications → {app}": "macOS → 系统设置 → 通知 → {app}",
+  "Linux → your desktop environment's notification settings": "Linux → 桌面环境的通知设置",
+  "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
+  "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
+      "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
+  "System Settings → Notifications": "系统设置 → 通知",
+  "your desktop environment's notification settings": "桌面环境的通知设置",
+  "Settings → System → Notifications": "设置 → 系统 → 通知",
+  "Phone notifications": "手机通知",
+  "Not enabled": "未开启",
+  "While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.":
+      "Raft 连接时，会对新私信、直接提及和已关注消息串的回复弹出系统通知。切到后台后会定期检查新消息，可能会晚一些到达。",
+  "Whether notifications appear is decided by the system: on Android, Settings → Apps → Raft → Notifications. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.":
+      "通知是否显示由系统决定：Android 在“设置 → 应用 → Raft → 通知”。开启了勿扰或专注模式时，系统可能延迟或静默通知。",
+  "Whether notifications appear is decided by the system: on iOS, Settings → Notifications → Raft. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.":
+      "通知是否显示由系统决定：iOS 在“设置 → 通知 → Raft”。开启了勿扰或专注模式时，系统可能延迟或静默通知。",
+  "Test notification sent. If no banner appeared, check Raft's notification settings in the system settings, then try again.":
+      "测试通知已发出。如果没有看到横幅，请在系统设置中检查 Raft 的通知设置后再试。",
+  "System notifications are enabled. Tap to return to Raft.": "系统通知已开启。点按即可回到 Raft。",
   " (coming soon)": "（即将推出）",
   " (deprecated)": "（已弃用）",
   " (installed)": "（已安装）",
@@ -618,6 +707,12 @@ const raftChinese = <String, String>{
   "At least one invited person is required": "至少需要邀请一位成员",
   "At least one task title is required": "至少需要填写一个任务标题",
   "Attach at most 3 screenshots.": "最多添加 3 张截图。",
+  "Only {max} attachments per message. {extra} extra file skipped.": "每条消息最多 {max} 个附件。已跳过 {extra} 个多余文件。",
+  "{count} empty file skipped.": "已跳过 {count} 个空文件。",
+  "Preview {file}": "预览 {file}",
+  "Remove {file}": "移除 {file}",
+  "Retry uploading {file}": "重试上传 {file}",
+  "{progress}% sent": "已发送 {progress}%",
   "Attach file": "添加文件",
   "Attach image": "添加图片",
   "Attach files in Chat, or drag files into the message composer. They will appear here after the message is sent.":

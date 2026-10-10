@@ -474,17 +474,21 @@ class RaftTaskSectionBadge extends StatelessWidget {
     super.key,
     required this.status,
     required this.label,
+    this.board = false,
   });
   final String status, label;
+
+  /// `TaskBoardColumnBadge` (taskBoardColumn recipe) instead of
+  /// `TaskSectionBadge`.
+  final bool board;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final rt = RaftRecipeTokens(t);
     final theme = t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant;
-    final badge = RaftTaskListSectionRecipe.resolve(
-      theme: theme,
-      tokens: rt,
-    ).badge;
+    final badge = board
+        ? RaftTaskBoardColumnRecipe.resolve(theme: theme, tokens: rt).badge
+        : RaftTaskListSectionRecipe.resolve(theme: theme, tokens: rt).badge;
     final statusStyle = RaftTaskStatusRecipe.resolve(
       theme: theme,
       status: _recipeStatus(status),
@@ -530,6 +534,106 @@ class RaftTaskSectionBadge extends StatelessWidget {
               letterSpacing: upper ? 0 : base.letterSpacing,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Web `TaskBoardColumn` (taskBoardColumn recipe): a 320px column whose
+/// trigger row shows the status badge and count (the whole row toggles the
+/// column), then `mb-3` and the [body]. [dropActive] is the allowed drop
+/// state (`border-line-strong bg-primary-soft shadow-raft-sm`).
+class RaftTaskBoardColumn extends StatelessWidget {
+  const RaftTaskBoardColumn({
+    super.key,
+    required this.status,
+    required this.count,
+    required this.collapsed,
+    required this.onToggle,
+    required this.body,
+    this.triggerKey,
+    this.dropActive = false,
+  });
+  final String status, count;
+  final bool collapsed, dropActive;
+  final VoidCallback onToggle;
+  final Widget body;
+  final Key? triggerKey;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final rt = RaftRecipeTokens(t);
+    final r = RaftTaskBoardColumnRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
+    final label = raftText(context, raftTaskStatusLabel(status));
+    final trigger = Semantics(
+      button: true,
+      expanded: !collapsed,
+      label:
+          '${collapsed ? raftText(context, 'Show') : raftText(context, 'Hide')} $label',
+      excludeSemantics: true,
+      onTap: onToggle,
+      child: GestureDetector(
+        key: triggerKey,
+        behavior: HitTestBehavior.opaque,
+        onTap: onToggle,
+        child: Padding(
+          padding: r.trigger.padding,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: r.heading.columnGap ?? 8,
+            children: [
+              RaftTaskSectionBadge(status: status, label: label, board: true),
+              Text(
+                count,
+                style: r.count
+                    .textStyle(rt)
+                    .copyWith(
+                      fontFamily: t.monoFont,
+                      fontSize: 12,
+                      height: 16 / 12,
+                      color: t.colors['foreground-muted'],
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return RaftRecipeBox(
+      style: r.root,
+      tokens: rt,
+      // TasksPanel className: `border border-line-muted bg-fill-muted/30`
+      // (brutal `border-2 border-black/20 bg-white/30`), drop-allowed
+      // `border-line-strong bg-primary-soft` (brutal black border).
+      decorationOverride: (d) => d.copyWith(
+        color: dropActive
+            ? t.colors['primary-soft']
+            : t.brutal
+            ? Colors.white.withValues(alpha: .3)
+            : t.colors['fill-muted']!.withValues(alpha: .3),
+        border: Border.all(
+          color: dropActive
+              ? (t.brutal ? Colors.black : t.colors['line-strong']!)
+              : t.brutal
+              ? Colors.black.withValues(alpha: .2)
+              : t.colors['line-muted']!,
+          width: t.brutal ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          trigger,
+          if (!collapsed) ...[
+            const SizedBox(height: 12),
+            Flexible(child: body),
+          ],
         ],
       ),
     );

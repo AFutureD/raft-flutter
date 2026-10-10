@@ -365,6 +365,7 @@ class RaftComposerNotice extends StatelessWidget {
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       status: RaftBannerRecipeStatus.warning,
       size: RaftBannerRecipeSize.sm,
+      states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: resolver,
     );
     return Semantics(

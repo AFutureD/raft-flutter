@@ -7,9 +7,11 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import '../platform/native_notifications.dart';
 
-/// Mounted NotificationsSection: source card and member-owned server mute form.
-/// The delivery actions describe the actual native service, never a fabricated
-/// browser permission or web-push subscription.
+/// Mounted NotificationsSection. Desktop (macOS / Linux / Windows) mirrors
+/// Web's DesktopNativeNotificationsCard: the system owns the switch, the card
+/// says so and offers one real test. Phones (Android / iOS) keep the same card
+/// but can read and request the permission, and add the member-owned server
+/// mute form. Neither describes a browser permission or web-push subscription.
 class NotificationSettingsView extends StatefulWidget {
   const NotificationSettingsView({
     super.key,
@@ -27,8 +29,12 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   int ticket = 0, version = -1;
   bool loading = false, busy = false, muted = false, savedMuted = false;
   bool verified = false;
-  String? error, message, nativeBusyLabel;
+  String? error, message;
+  bool testPosted = false, nativeBusy = false;
   WorkspaceController? get w => widget.controller;
+
+  /// Phones receive messages and own the member mute form; desktops do not.
+  bool get phone => widget.service.receivesMessages;
 
   /// Server-level identity only: switching channels or opening a thread keeps
   /// the accepted settings (Source useServerStore notification prefs).
@@ -94,13 +100,14 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     verified = false;
     muted = savedMuted = false;
     busy = loading = false;
-    error = message = nativeBusyLabel = null;
+    error = message = null;
+    testPosted = nativeBusy = false;
   }
 
   /// First frame from the server projection when it carries the prefs; the
   /// GET then revalidates in place without a loading state.
   void seed() {
-    final row = hasServer ? w?.server?.json : null;
+    final row = hasServer && phone ? w?.server?.json : null;
     final incoming = row?['notificationPrefsVersion'];
     if (incoming is int && row?['serverPushMuted'] is bool) {
       version = incoming;
@@ -119,6 +126,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       unawaited(load());
       return;
     }
+    if (!phone) return;
     final row = w?.server?.json;
     final incoming = row?['notificationPrefsVersion'];
     if (incoming is int &&
@@ -165,7 +173,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   }
 
   Future<void> load() async {
-    if (!hasServer) return;
+    if (!hasServer || !phone) return;
     final request = ++ticket, original = authority, controller = w!;
     // A seeded/accepted value revalidates silently and stays editable.
     final background = verified;
@@ -207,6 +215,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     setState(() {
       busy = true;
       error = message = null;
+      testPosted = false;
     });
     try {
       final response = await controller.client.request(
@@ -238,16 +247,15 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     }
   }
 
-  Future<void> nativeAction(
-    Future<void> Function() action,
-    String label,
-  ) async {
+  /// A system-notification action (permission request, settings, test). The
+  /// button stays labelled; it is only disabled while the action runs.
+  Future<void> nativeAction(Future<void> Function() action) async {
     if (busy) return;
     final request = ticket, original = authority;
     setState(() {
-      busy = true;
+      busy = nativeBusy = true;
       error = message = null;
-      nativeBusyLabel = label;
+      testPosted = false;
     });
     try {
       await action();
@@ -259,37 +267,138 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       }
     } finally {
       if (current(request, original)) {
-        setState(() {
-          busy = false;
-          nativeBusyLabel = null;
-        });
+        setState(() => busy = nativeBusy = false);
       }
     }
   }
 
+  /// Ask for the permission; once the system stops asking (permanently
+  /// denied), take the person to the system notification settings instead.
+  Future<void> enable() async {
+    final service = widget.service;
+    await service.requestEnable(true);
+    if (!service.enabled &&
+        !service.permitted &&
+        service.permissionPromptSkipped &&
+        service.canOpenSettings) {
+      await service.openSettings();
+    }
+  }
+
+  Future<void> sendTest(String title, String body) async {
+    final posted = await widget.service.test(title: title, body: body);
+    if (!mounted) return;
+    setState(() {
+      testPosted = posted;
+      error = posted ? null : 'Could not post a test notification.';
+    });
+  }
+
+  static const _app = 'Raft';
+
+  /// Web's `systemHint` with the OS settings path of the running platform.
+  String desktopHint(BuildContext context, TargetPlatform platform) {
+    final path = switch (platform) {
+      TargetPlatform.macOS => raftFormat(
+        context,
+        'macOS → System Settings → Notifications → {app}',
+        {'app': _app},
+      ),
+      TargetPlatform.windows => raftText(
+        context,
+        'Windows → Settings → System → Notifications',
+      ),
+      _ => raftText(
+        context,
+        "Linux → your desktop environment's notification settings",
+      ),
+    };
+    return raftFormat(
+      context,
+      'Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.',
+      {'path': path},
+    );
+  }
+
+  String testSentMessage(BuildContext context, TargetPlatform platform) {
+    if (phone) {
+      return raftText(
+        context,
+        "Test notification sent. If no banner appeared, check Raft's notification settings in the system settings, then try again.",
+      );
+    }
+    final path = raftText(context, switch (platform) {
+      TargetPlatform.macOS => 'System Settings → Notifications',
+      TargetPlatform.windows => 'Settings → System → Notifications',
+      _ => "your desktop environment's notification settings",
+    });
+    return raftFormat(
+      context,
+      'Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.',
+      {'app': _app, 'path': path},
+    );
+  }
+
+  String phoneHint(BuildContext context, TargetPlatform platform) => raftText(
+    context,
+    platform == TargetPlatform.iOS
+        ? 'Whether notifications appear is decided by the system: on iOS, Settings → Notifications → Raft. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.'
+        : 'Whether notifications appear is decided by the system: on Android, Settings → Apps → Raft → Notifications. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.',
+  );
+
   @override
   Widget build(BuildContext context) {
     final service = widget.service;
+    final platform = service.platform;
     final blocked = loading || busy;
+    // Availability is decided synchronously, like Web: until the service has
+    // initialised it is assumed available, so the card never shows a transient
+    // status.
+    final unavailable = service.initialized && !service.available;
+    if (!phone) {
+      return RaftNotificationSettingsCard(
+        key: const ValueKey('notification-settings-card'),
+        title: 'Desktop notifications',
+        description: 'Raft Desktop shows system notifications for new DMs, direct mentions, and followed thread replies while the window is in the background. Web push is not used on desktop.',
+        status: unavailable ? 'Unavailable' : 'Managed by the system',
+        hint: unavailable
+            ? 'This desktop build cannot show system notifications.'
+            : desktopHint(context, platform),
+        error: error,
+        message: testPosted ? testSentMessage(context, platform) : null,
+        actionLabel: 'Send a test notification',
+        actionTone: RaftButtonRecipeVariant.success,
+        onAction: blocked || unavailable
+            ? null
+            : () => nativeAction(
+                () => sendTest(
+                  raftText(context, 'Raft Desktop'),
+                  raftText(
+                    context,
+                    'Test notification — desktop notifications are working.',
+                  ),
+                ),
+              ),
+        muted: false,
+      );
+    }
+    final chinese = Localizations.maybeLocaleOf(context)?.languageCode == 'zh';
     return RaftNotificationSettingsCard(
-      title: service.receivesMessages
-          ? 'DMs, direct mentions, and followed thread replies'
-          : 'System notifications',
-      description: service.receivesMessages
-          ? 'Messages arrive while connected. Background inbox checks provide a fallback when the system allows them; delivery may be delayed.'
-          : 'This server does not send desktop message notifications. You can test system delivery.',
-      status: loading
-          ? 'Checking…'
-          : !service.available
+      key: const ValueKey('notification-settings-card'),
+      title: 'Phone notifications',
+      description: 'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.',
+      status: unavailable
           ? 'Unavailable'
           : service.enabled
-          ? 'Enabled'
-          : 'Disabled',
-      availabilityHint: service.available
-          ? null
-          : 'System notifications are unavailable on this device.',
+          ? (chinese ? '已开启' : 'Enabled')
+          : 'Not enabled',
+      hint: unavailable
+          ? 'System notifications are unavailable on this device.'
+          : phoneHint(context, platform),
       error: error ?? service.backgroundError ?? service.error,
-      message: message == null
+      message: testPosted
+          ? testSentMessage(context, platform)
+          : message == null
           ? null
           : raftFormat(context, message!, {
               'serverName': w?.server?.name ?? '',
@@ -297,27 +406,25 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       onRetry: !verified && !loading && !busy && hasServer
           ? () => unawaited(load())
           : null,
-      enableLabel:
-          nativeBusyLabel == 'Enabling…' || nativeBusyLabel == 'Disabling…'
-          ? nativeBusyLabel!
+      actionLabel: service.enabled
+          ? 'Send test notification'
+          : 'Enable notifications',
+      actionTone: service.enabled
+          ? RaftButtonRecipeVariant.success
+          : RaftButtonRecipeVariant.accent,
+      onAction: blocked || unavailable
+          ? null
           : service.enabled
-          ? 'Disable Push Notifications'
-          : 'Enable Push Notifications',
-      onEnable: blocked || !service.available
-          ? null
-          : () => nativeAction(
-              () => service.requestEnable(!service.enabled),
-              service.enabled ? 'Disabling…' : 'Enabling…',
-            ),
-      showTest: service.enabled,
-      testLabel: nativeBusyLabel == 'Sending…'
-          ? 'Sending…'
-          : 'Send test notification',
-      onTest: blocked ? null : () => nativeAction(service.test, 'Sending…'),
-      showSettings: service.canOpenSettings && service.available,
-      onOpenSettings: blocked
-          ? null
-          : () => nativeAction(service.openSettings, 'Opening…'),
+          ? () => nativeAction(
+              () => sendTest(
+                'Raft',
+                raftText(
+                  context,
+                  'System notifications are enabled. Tap to return to Raft.',
+                ),
+              ),
+            )
+          : () => nativeAction(enable),
       muted: muted,
       muteDescription: hasServer
           ? raftFormat(
@@ -331,8 +438,9 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
           : (value) => setState(() {
               muted = value;
               error = message = null;
+              testPosted = false;
             }),
-      saveLabel: busy && nativeBusyLabel == null ? 'Saving…' : 'Save',
+      saveLabel: busy && !nativeBusy ? 'Saving…' : 'Save',
       onSave: blocked || !verified || muted == savedMuted ? null : save,
     );
   }

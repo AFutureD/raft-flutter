@@ -397,6 +397,29 @@ tickets = [
     ticket('9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34', 'bug', 'closed', 'Crash when pasting a very large image',
            FB_NOW - 12 * DAY, FB_NOW - 11 * DAY, comments=1, closure='duplicate'),
 ]
+
+
+# Ticket detail reads (GET /product-feedback/tickets/:id, comment_limit=100):
+# the in-progress ticket with a staff/reporter conversation, and the closed
+# duplicate. Attachments stay empty: image previews would need blob reads.
+def comment(cid, author, body, created):
+    return {'id': cid, 'author_type': author, 'body': body, 'created_at': created}
+
+
+def detail(t, comments, unread_total):
+    return {'ticket': {**t, 'unread': False, 'unread_count': 0}, 'comments': comments, 'attachments': [],
+            'next_comment_cursor': None, 'unread_total': unread_total}
+
+
+FB_ACTIVE, FB_CLOSED = tickets[0], tickets[3]
+FB_ACTIVE_DETAIL = detail(FB_ACTIVE, [
+    comment('c-5b0e-1', 'staff', 'Thanks for the report! Which platform are you on?', FB_NOW - 2 * DAY),
+    comment('c-5b0e-2', 'reporter', 'macOS desktop, switching between two workspaces.', FB_NOW - 2 * DAY + 3_600_000),
+    comment('c-5b0e-3', 'staff', 'We reproduced it and a fix is in progress.', FB_NOW - 2 * 3_600_000),
+], 0)
+FB_CLOSED_DETAIL = detail(FB_CLOSED, [
+    comment('c-9e8d-1', 'system', 'Closed as a duplicate of an existing ticket.', FB_NOW - 11 * DAY),
+], 2)
 mcp_linear = {
     'id': 'mcp-linear', 'name': 'Linear', 'description': 'Issues and projects', 'provider': 'linear',
     'authMode': 'oauth', 'oauthStatus': 'connected', 'transport': 'streamable_http',
@@ -454,12 +477,26 @@ marketplace = [
               publishStatus='published', category='Productivity & Collaboration',
               dataAccessSummary='Messages and channel metadata', name='Slack Bridge',
               description='Mirror Slock activity into Slack channels.', homepageUrl='https://example.com/slack',
-              humanMarketplaceVisible=True, installedAt=None, publisherName='Raft Labs', privateShared=False),
+              returnUrl='https://example.com/slack/oauth/callback', allowedScopes=['openid', 'profile', 'identity'],
+              humanMarketplaceVisible=True, installedAt=None, publisherName='Raft Labs', privateShared=False,
+              official=True, marketplaceInstallBadge={'kind': 'bucket', 'bucket': '100_plus'}),
     oauth_app(id='market_github', clientId='client_github_issues', appType='third_party_global',
               publishStatus='published', category='Development', dataAccessSummary='Tasks and feedback',
               name='GitHub Issues', description='Create issues from tasks and feedback.',
-              homepageUrl='https://example.com/github', humanMarketplaceVisible=True,
-              installedAt=T['entityCreatedAtIso'], publisherName='Raft Labs', privateShared=False),
+              homepageUrl='https://example.com/github', returnUrl='https://example.com/github/callback',
+              allowedScopes=['openid', 'profile', 'agent:read'], humanMarketplaceVisible=True,
+              installedAt=T['entityCreatedAtIso'], publisherName='Raft Labs', privateShared=False,
+              official=False, marketplaceInstallBadge={'kind': 'none'}),
+    # Billing / Applications port: a third listing with the NEW badge, a
+    # publisher server name and a long description (two-line clamp in list view).
+    oauth_app(id='market_linear', clientId='client_linear_sync', appType='third_party_global',
+              publishStatus='published', category='Developer Tools', dataAccessSummary='Tasks',
+              name='Linear Sync',
+              description=('Keep Linear issues and Raft tasks in step: status, assignee and comments flow both '
+                           'ways, and agents can open issues from any thread when work needs tracking.'),
+              homepageUrl=None, humanMarketplaceVisible=True, installedAt=None, publisherName='Linear',
+              publisherServerName='Linear Workspace', privateShared=False, official=False,
+              marketplaceInstallBadge={'kind': 'new'}),
 ]
 clients = [oauth_app(id='client_1', clientId='client_slack_bridge', appType='server_local', publishStatus='private',
                      category='Productivity & Collaboration', dataAccessSummary='Messages and channel metadata',
@@ -486,6 +523,8 @@ settings_fixture = {
     'routes': {
         'GET /release-notes': {'items': releases, 'nextCursor': None},
         'GET /product-feedback/tickets': {'tickets': tickets, 'next_cursor': None, 'unread_total': 2},
+        f"GET /product-feedback/tickets/{FB_ACTIVE['id']}": FB_ACTIVE_DETAIL,
+        f"GET /product-feedback/tickets/{FB_CLOSED['id']}": FB_CLOSED_DETAIL,
         'GET /mcp/servers': {'servers': [mcp_linear], 'recommendations': [mcp_notion]},
         # Workspace tabs: the official react-provider.spec.ts payloads for
         # these endpoints (served to every case id there), restated so both
@@ -504,6 +543,15 @@ settings_fixture = {
         'GET /integrations/clients': clients,
         'GET /integrations/overview': [],
         f'GET /servers/{SID}/labs': labs,
+        # Administration: OnboardingAgentSection (serverStore.loadSettings +
+        # setup projection) and the product-analytics switch.
+        f'GET /servers/{SID}/settings': {'settings': {
+            'onboardSettings': {'onboardingAgentId': OFFICIAL['agents']['productUx']['id'],
+                                'agentAllChannelGreetingEnabled': True},
+            'feedbackSettings': {'enabled': False}}},
+        f'GET /servers/{SID}/setup-projection': {'surface': 'none', 'phase': 'complete'},
+        f'GET /servers/{SID}/product-analytics-settings': {'productAnalyticsEnabled': True,
+                                                          'canManageProductAnalytics': True},
     },
     # Anything else answers the official spec's catch-all body (200) on both
     # providers.
@@ -517,6 +565,21 @@ settings_fixture = {
         'feedback-empty': {'GET /product-feedback/tickets': {'tickets': [], 'next_cursor': None, 'unread_total': 0}},
         'feedback-loading': {'GET /product-feedback/tickets': {'$pending': True}},
         'feedback-error': {'GET /product-feedback/tickets': {'$status': 500}},
+        'admin-empty': {f'GET /servers/{SID}/invites': [], f'GET /servers/{SID}/join-links': []},
+        'admin-agreement-off': {f'GET /servers/{SID}/agreement': {'enabled': False, 'agreement': None}},
+        'admin-setup-open': {f'GET /servers/{SID}/setup-projection': {'surface': 'create_agent',
+                                                                      'phase': 'in_progress'}},
+        'admin-no-provider': {f'GET /servers/{SID}/translation-settings': {
+            'translationEnabled': True, 'translationAvailable': False, 'canManageTranslation': True}},
+        # Store-primed states (host + Flutter builder read the routeSet name).
+        'admin-all-visible': {},
+        'admin-hide-humans': {},
+        # Writes never reach a server: a submit/reply/close either stays in
+        # flight (busy state) or fails (error banner).
+        'feedback-create-pending': {'POST /product-feedback': {'$pending': True}},
+        'feedback-create-error': {'POST /product-feedback': {'$status': 503}},
+        'feedback-reply-error': {f"POST /product-feedback/tickets/{FB_ACTIVE['id']}/comments": {'$status': 503}},
+        'feedback-close-error': {f"POST /product-feedback/tickets/{FB_ACTIVE['id']}/close": {'$status': 503}},
     },
 }
 
@@ -527,8 +590,11 @@ PANEL = "[data-parity-region='settings-panel']"
 
 
 def settings_case(key, title, *, tab, region=None, selector=None, android_key=None, viewport=FRAME, role='owner',
-                  flags='', route_set='', interactions=(), android=(), hint=SETTINGS_HINT, notes=None):
+                  flags='', route_set='', interactions=(), android=(), hint=SETTINGS_HINT, notes=None,
+                  platform='desktop'):
     props = {'tab': tab, 'role': role}
+    if platform != 'desktop':
+        props['platform'] = platform
     if flags:
         props['flags'] = flags
     if route_set:
@@ -592,6 +658,78 @@ for state in ['empty', 'loading', 'error']:
     settings_case(f'feedback.{state}', f'Feedback: {state}', tab='feedback', region='panel',
                   route_set=f'feedback-{state}', hint=FB_HINT)
 
+# Feedback write surfaces (New feedback form, ticket detail with the reply
+# composer, Close ticket split button / reason menu / confirm dialog).
+FB_ROW = "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='{}']) .hands-feedback-ticket-title"
+FB_NEW = [{'type': 'click', 'target': btn('New feedback')}, {'type': 'wait', 'ms': 300}]
+F_FB_NEW = [{'type': 'tap', 'key': 'feedback-new'}]
+FB_MESSAGE = '#hands-feedback-message'
+FB_TEXT = 'Let me pin channels to the top of the sidebar.'
+FB_OPEN = [{'type': 'click', 'target': FB_ROW.format(FB_ACTIVE['id'])}, {'type': 'wait', 'ms': 500}]
+F_FB_OPEN = [{'type': 'tap', 'key': f"feedback-ticket-{FB_ACTIVE['id']}"}]
+FB_REPLY = f"#hands-feedback-reply-{FB_ACTIVE['id']}"
+FB_REPLY_TEXT = 'Thanks, happy to test a build.'
+FB_DETAIL = "[data-parity-region='settings-panel'] .hands-feedback-detail"
+FB_CLOSE_MAIN = f'{FB_DETAIL} .hands-feedback-close-main'
+ALERT = '[data-slot="alert-dialog-content"]'
+settings_case('feedback.new', 'Feedback: New feedback form', tab='feedback', region='panel', hint=FB_HINT,
+              interactions=FB_NEW, android=F_FB_NEW)
+settings_case('feedback.new-filled', 'Feedback: New feedback form, Bug + message typed', tab='feedback',
+              region='panel', hint=FB_HINT,
+              interactions=FB_NEW + [{'type': 'click', 'target': '.hands-feedback-kind-item >> nth=1'},
+                                     {'type': 'fill', 'target': FB_MESSAGE, 'value': FB_TEXT}],
+              android=F_FB_NEW + [{'type': 'tap', 'key': 'feedback-kind-bug'},
+                                  {'type': 'enter', 'key': 'feedback-new-message', 'value': FB_TEXT}])
+settings_case('feedback.new-submitting', 'Feedback: New feedback submitting', tab='feedback', region='panel',
+              hint=FB_HINT, route_set='feedback-create-pending',
+              interactions=FB_NEW + [{'type': 'fill', 'target': FB_MESSAGE, 'value': FB_TEXT},
+                                     {'type': 'click', 'target': btn('Submit')}, {'type': 'wait', 'ms': 300}],
+              android=F_FB_NEW + [{'type': 'enter', 'key': 'feedback-new-message', 'value': FB_TEXT},
+                                  {'type': 'tap', 'key': 'feedback-new-submit'}])
+settings_case('feedback.new-error', 'Feedback: New feedback submit failed', tab='feedback', region='panel',
+              hint=FB_HINT, route_set='feedback-create-error',
+              interactions=FB_NEW + [{'type': 'fill', 'target': FB_MESSAGE, 'value': FB_TEXT},
+                                     {'type': 'click', 'target': btn('Submit')}, {'type': 'wait', 'ms': 500}],
+              android=F_FB_NEW + [{'type': 'enter', 'key': 'feedback-new-message', 'value': FB_TEXT},
+                                  {'type': 'tap', 'key': 'feedback-new-submit'}])
+settings_case('feedback.ticket', 'Feedback: ticket conversation + reply composer', tab='feedback', region='panel',
+              hint=FB_HINT, interactions=FB_OPEN, android=F_FB_OPEN)
+settings_case('feedback.ticket-reply', 'Feedback: reply typed', tab='feedback', region='panel', hint=FB_HINT,
+              interactions=FB_OPEN + [{'type': 'fill', 'target': FB_REPLY, 'value': FB_REPLY_TEXT}],
+              android=F_FB_OPEN + [{'type': 'enter', 'key': 'feedback-reply-input', 'value': FB_REPLY_TEXT}])
+settings_case('feedback.ticket-reply-error', 'Feedback: reply failed', tab='feedback', region='panel',
+              hint=FB_HINT, route_set='feedback-reply-error',
+              interactions=FB_OPEN + [{'type': 'fill', 'target': FB_REPLY, 'value': FB_REPLY_TEXT},
+                                      {'type': 'click', 'target': btn('Send reply')}, {'type': 'wait', 'ms': 500}],
+              android=F_FB_OPEN + [{'type': 'enter', 'key': 'feedback-reply-input', 'value': FB_REPLY_TEXT},
+                                   {'type': 'tap', 'key': 'feedback-reply-send'}])
+settings_case('feedback.ticket-closed', 'Feedback: closed ticket (no composer)', tab='feedback', region='panel',
+              hint=FB_HINT,
+              interactions=[{'type': 'click', 'target': FB_ROW.format(FB_CLOSED['id'])}, {'type': 'wait', 'ms': 500}],
+              android=[{'type': 'tap', 'key': f"feedback-ticket-{FB_CLOSED['id']}"}])
+settings_case('feedback.close-menu', 'Feedback: close reason menu', tab='feedback', hint=FB_HINT,
+              selector='[data-slot="dropdown-menu-content"]', android_key='feedback-close-menu',
+              interactions=FB_OPEN + [{'type': 'click', 'target': f"{FB_DETAIL} >> {btn('Choose a close reason')}"},
+                                      {'type': 'wait', 'ms': 300}],
+              android=F_FB_OPEN + [{'type': 'tap', 'key': 'feedback-close-caret'}])
+settings_case('feedback.close-confirm', 'Feedback: close ticket confirm (no longer needed)', tab='feedback',
+              hint=FB_HINT, selector=ALERT, android_key='feedback-close-dialog',
+              interactions=FB_OPEN + [{'type': 'click', 'target': FB_CLOSE_MAIN}, {'type': 'wait', 'ms': 300}],
+              android=F_FB_OPEN + [{'type': 'tap', 'key': 'feedback-close-main'}])
+settings_case('feedback.close-confirm-resolved', 'Feedback: inbox row close (resolved -> completed)',
+              tab='feedback', hint=FB_HINT, selector=ALERT, android_key='feedback-close-dialog',
+              interactions=[{'type': 'click', 'target': "[data-parity-region='settings-panel'] "
+                             f"li:has(button[data-ticket-id='{tickets[2]['id']}']) .hands-feedback-close-main"},
+                            {'type': 'wait', 'ms': 300}],
+              android=[{'type': 'tap', 'key': f"feedback-close-main-{tickets[2]['id']}"}])
+settings_case('feedback.close-error', 'Feedback: close failed (error in dialog)', tab='feedback', hint=FB_HINT,
+              selector=ALERT, android_key='feedback-close-dialog', route_set='feedback-close-error',
+              interactions=FB_OPEN + [{'type': 'click', 'target': FB_CLOSE_MAIN}, {'type': 'wait', 'ms': 300},
+                                      {'type': 'click', 'target': f'{ALERT} >> {btn("Close ticket")}'},
+                                      {'type': 'wait', 'ms': 500}],
+              android=F_FB_OPEN + [{'type': 'tap', 'key': 'feedback-close-main'},
+                                   {'type': 'tap', 'key': 'feedback-close-confirm'}])
+
 # Workspace group pages (owner; flags on for the gated tabs).
 for tab, title, flags in [
     ('server', 'Server Profile', ''), ('billing', 'Plan & Billing', ''), ('administration', 'Administration', ''),
@@ -600,6 +738,183 @@ for tab, title, flags in [
 ]:
     settings_case(f'{tab}.page', f'{title}: whole page', tab=tab, flags=flags)
     settings_case(f'{tab}.panel', f'{title}: panel', tab=tab, region='panel', flags=flags, viewport=FRAME_TALL)
+
+# ---------------------------------------------- Plan & Billing + Applications
+# SettingsPanel.tsx PlanSection (+ PlanBillingLoadingSection, ConfirmDialog
+# checkout) and IntegrationsSection (marketplace / installed / my apps tabs,
+# grid / list views, listing + installed-app detail modals), desktop and the
+# 390px mobile page (SettingsPanel full width, PanelHeader mobile back).
+PLAN_HINT = SETTINGS_HINT + '#PlanSection'
+APPS_HINT = SETTINGS_HINT + '#IntegrationsSection'
+MOBILE_FRAME = {'width': 390, 'height': 844, 'density': 3}
+billing_pro = {
+    'plan': 'pro', 'displayName': 'Pro', 'serverPlan': 'pro', 'source': 'subscription',
+    'capacity': {'maxHumans': -1, 'maxAgents': -1, 'maxUniversalSeats': 3},
+    'usage': {'humans': 2, 'agents': 5, 'universalSeats': 2.5},
+    'provisioned': {'humans': 3, 'agents': 30, 'proPackQuantity': 3, 'trialFreePackQuantity': 0,
+                    'firstPackTrialEndsAt': None},
+    'fileUploadQuota': {'month': '2026-06', 'plan': 'pro', 'limited': False, 'enforced': False,
+                        'limitBytes': -1, 'usedBytes': 188_743_680, 'reservedBytes': 0, 'remainingBytes': -1},
+    'price': {'billingInterval': 'annual', 'monthlyUsd': 26.4, 'annualUsd': 316.8, 'discountPercent': 12,
+              'baseMonthlyUsd': 26.4, 'overageMonthlyUsd': 0, 'seatQuantity': 3, 'packQuantity': 3,
+              'humanSeatQuantity': 3, 'agentSeatQuantity': 30, 'agentSeatBlockQuantity': 3},
+    'subscription': {'status': 'active', 'billingInterval': 'annual', 'currentPeriodStart': '2026-06-18T00:00:00.000Z',
+                     'currentPeriodEnd': '2027-06-18T00:00:00.000Z', 'cancelAtPeriodEnd': False},
+    'stripeConfigured': True,
+    'permissions': {'canReadBillingSummary': True, 'canManageBilling': True},
+}
+settings_fixture['routeSets'].update({
+    'billing-pro': {'GET /billing/subscription': billing_pro},
+    'billing-admin': {'GET /billing/subscription': {
+        **billing_free, 'permissions': {'canReadBillingSummary': True, 'canManageBilling': False}}},
+    'billing-loading': {'GET /billing/subscription': {'$pending': True}},
+    'apps-empty': {'GET /integrations/marketplace': [], 'GET /integrations/clients': []},
+})
+settings_fixture['routes']['GET /integrations/overview'] = [
+    {'id': 'grant-github', 'type': 'active', 'clientId': 'market_github', 'clientKey': 'client_github_issues',
+     'clientName': 'GitHub Issues', 'agentName': 'cindy', 'agentDisplayName': 'Cindy',
+     'scopes': ['openid', 'profile'], 'revokedAt': None}]
+settings_fixture['routes']['GET /integrations/marketplace/market_github/install/app-notifications'] = {
+    'requested_groups': [], 'approved_groups': [], 'subscribed_events': [], 'effective_groups': [],
+    'effective_events': [], 'app_review_pending': False, 'approval_required': False}
+CURRENT_PLAN = "[data-testid='billing-current-plan-card']"
+SUMMARY = "[data-testid='billing-summary-card']"
+MODAL_CARD = "[data-slot='modal-backdrop'] [data-slot='card']"
+MARKET = "[data-testid='connected-apps-marketplace-collection'] > button"
+
+
+def apps_tab(name):
+    return {'type': 'click', 'target': f"[data-testid='connected-apps-tab-{name}']"}
+
+
+settings_case('billing.current-plan', 'Plan & Billing: current plan card (free, trial)', tab='billing',
+              selector=CURRENT_PLAN, android_key='billing-current-plan-card', hint=PLAN_HINT)
+settings_case('billing.summary', 'Plan & Billing: checkout summary card', tab='billing', viewport=FRAME_TALL,
+              selector=SUMMARY, android_key='billing-summary-card', hint=PLAN_HINT)
+settings_case('billing.pro', 'Plan & Billing: Pro subscription (seat usage, manage seats)', tab='billing',
+              region='panel', viewport=FRAME_TALL, route_set='billing-pro', hint=PLAN_HINT)
+settings_case('billing.pro-plan', 'Plan & Billing: Pro current plan card (seat bar, portal)', tab='billing',
+              selector=CURRENT_PLAN, android_key='billing-current-plan-card', route_set='billing-pro', hint=PLAN_HINT)
+settings_case('billing.pro-summary', 'Plan & Billing: manage seats summary card', tab='billing',
+              selector=SUMMARY, android_key='billing-summary-card', route_set='billing-pro', hint=PLAN_HINT)
+settings_case('billing.admin', 'Plan & Billing: admin (cannot change billing)', tab='billing', role='admin',
+              region='panel', viewport=FRAME_TALL, route_set='billing-admin', hint=PLAN_HINT)
+settings_case('billing.loading', 'Plan & Billing: loading skeleton', tab='billing', region='panel',
+              route_set='billing-loading', hint=SETTINGS_HINT + '#PlanBillingLoadingSection')
+settings_case('billing.confirm-checkout', 'Plan & Billing: confirm Pro checkout dialog', tab='billing',
+              selector=DIALOG, android_key='billing-confirm-dialog', hint=PLAN_HINT + ' + ConfirmDialog.tsx',
+              interactions=[{'type': 'click', 'target': btn('Upgrade to Pro')}],
+              android=[{'type': 'tap', 'key': 'billing-upgrade'}])
+settings_case('billing.mobile', 'Plan & Billing: mobile page', tab='billing', viewport=MOBILE_FRAME,
+              platform='mobile', hint=PLAN_HINT)
+settings_case('billing.mobile-pro', 'Plan & Billing: mobile page, Pro', tab='billing', viewport=MOBILE_FRAME,
+              platform='mobile', route_set='billing-pro', hint=PLAN_HINT)
+
+settings_case('integrations.installed', 'Applications: Installed tab', tab='integrations', region='panel',
+              hint=APPS_HINT, interactions=[apps_tab('installed')],
+              android=[{'type': 'tap', 'key': 'connected-apps-tab-installed'}])
+settings_case('integrations.my-apps', 'Applications: My apps tab', tab='integrations', region='panel',
+              hint=APPS_HINT, interactions=[apps_tab('my-apps')],
+              android=[{'type': 'tap', 'key': 'connected-apps-tab-my-apps'}])
+settings_case('integrations.list', 'Applications: marketplace list view', tab='integrations', region='panel',
+              hint=APPS_HINT, interactions=[{'type': 'click', 'target': "[data-testid='connected-apps-view-toggle'] [aria-label='List view']"}],
+              android=[{'type': 'tap', 'key': 'connected-apps-view-list'}])
+settings_case('integrations.member', 'Applications: member (read-only)', tab='integrations', role='member',
+              region='panel', hint=APPS_HINT)
+settings_case('integrations.empty', 'Applications: no marketplace apps', tab='integrations', region='panel',
+              route_set='apps-empty', hint=APPS_HINT)
+settings_case('integrations.detail', 'Applications: marketplace app detail', tab='integrations',
+              selector=MODAL_CARD, android_key='connected-app-detail', hint=APPS_HINT, viewport=FRAME_TALL,
+              interactions=[{'type': 'click', 'target': f'{MARKET} >> nth=0'}],
+              android=[{'type': 'tap', 'key': 'connected-app-market_slack'}])
+settings_case('integrations.detail-installed', 'Applications: installed marketplace app detail (danger zone)',
+              tab='integrations', selector=MODAL_CARD, android_key='connected-app-detail', hint=APPS_HINT,
+              viewport=FRAME_TALL, interactions=[{'type': 'click', 'target': f'{MARKET} >> nth=1'}],
+              android=[{'type': 'tap', 'key': 'connected-app-market_github'}])
+settings_case('integrations.installed-detail', 'Applications: installed app access detail', tab='integrations',
+              selector=MODAL_CARD, android_key='connected-app-installed-detail', hint=APPS_HINT,
+              interactions=[apps_tab('installed'), {'type': 'click', 'target': "role=button[name='GitHub Issues's]"}],
+              android=[{'type': 'tap', 'key': 'connected-apps-tab-installed'},
+                       {'type': 'tap', 'key': 'connected-app-installed-market_github'}])
+settings_case('integrations.mobile', 'Applications: mobile page', tab='integrations', viewport=MOBILE_FRAME,
+              platform='mobile', hint=APPS_HINT)
+settings_case('integrations.mobile-detail', 'Applications: mobile marketplace app detail', tab='integrations',
+              viewport=MOBILE_FRAME, platform='mobile', selector=MODAL_CARD, android_key='connected-app-detail',
+              hint=APPS_HINT, interactions=[{'type': 'click', 'target': f'{MARKET} >> nth=0'}],
+              android=[{'type': 'tap', 'key': 'connected-app-market_slack'}])
+# Administration (SettingsPanel.tsx AdministrationTabContent) section by
+# section. Owner with the product-analytics flag on renders all nine sections
+# in ADMINISTRATION_VISUAL_SECTIONS order; each crop is one section's
+# `div.mb-6` (the Flutter key wraps the same box, bottom margin excluded).
+# The tall frame keeps every section inside the viewport.
+ADMIN_HINT = SETTINGS_HINT + '#AdministrationTabContent'
+ADMIN_SECTIONS = ['admins', 'system-channels', 'invites', 'join-links', 'pre-join-agreement', 'onboarding',
+                  'translation', 'product-analytics', 'member-permissions']
+FRAME_ADMIN = {'width': 1280, 'height': 2800, 'density': 1}
+MOBILE_ADMIN = {'width': 390, 'height': 3400, 'density': 3}
+ADMIN_CONTENT = f"{PANEL} div.overflow-y-auto"
+
+
+def admin_case(key, title, section, *, role='owner', flags='analytics', route_set='', interactions=(), android=(),
+               mobile=False, selector=None, android_key=None, viewport=None, notes=None):
+    sections = [s for s in ADMIN_SECTIONS if s != 'product-analytics' or 'analytics' in flags]
+    sel = selector or f'{ADMIN_CONTENT} > div:nth-child({sections.index(section) + 1})'
+    settings_case(key, title, tab='administration', role=role, flags=flags, route_set=route_set,
+                  selector=sel, android_key=android_key or f'admin-section-{section}',
+                  viewport=viewport or (MOBILE_ADMIN if mobile else FRAME_ADMIN),
+                  interactions=interactions, android=android, hint=ADMIN_HINT, notes=notes,
+                  platform='mobile' if mobile else 'desktop')
+
+
+settings_case('administration.all', 'Administration: panel, all nine sections', tab='administration',
+              region='panel', flags='analytics', viewport=FRAME_ADMIN, hint=ADMIN_HINT)
+for section in ADMIN_SECTIONS:
+    admin_case(f'administration.{section}', f'Administration section: {section}', section)
+# States.
+admin_case('administration.admins.picker-open', 'Administration: owner/admin picker open', 'admins',
+           selector=f"{ADMIN_CONTENT} > div:nth-child(1) div.relative:has(> [data-testid='admin-principal-picker'])",
+           android_key='admin-principal-picker-region',
+           notes='Trigger plus the open SelectionPopover (search + candidates).',
+           interactions=[{'type': 'click', 'target': "[data-testid='admin-principal-picker']"},
+                         {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-principal-picker'}, {'type': 'wait', 'ms': 300}])
+admin_case('administration.admins.selected', 'Administration: candidate picked (role + Update Role enabled)',
+           'admins',
+           interactions=[{'type': 'click', 'target': "[data-testid='admin-principal-picker']"},
+                         {'type': 'wait', 'ms': 300},
+                         {'type': 'click', 'target': f'{ADMIN_CONTENT} button:has-text("Designer · designer@slock.ai")'},
+                         {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-principal-picker'}, {'type': 'wait', 'ms': 300},
+                    {'type': 'tap', 'key': 'admin-candidate-human:visual-human-designer'}, {'type': 'wait', 'ms': 300}])
+admin_case('administration.admins.as-admin', 'Administration: Owners & Admins viewed by an admin', 'admins',
+           role='admin')
+admin_case('administration.invites.empty', 'Administration: no pending invites', 'invites',
+           route_set='admin-empty')
+admin_case('administration.join-links.empty', 'Administration: no invite links', 'join-links',
+           route_set='admin-empty')
+admin_case('administration.pre-join-agreement.disabled', 'Administration: agreement not required',
+           'pre-join-agreement', route_set='admin-agreement-off')
+admin_case('administration.onboarding.setup', 'Administration: onboarding with unfinished server setup',
+           'onboarding', route_set='admin-setup-open')
+admin_case('administration.translation.provider-warning', 'Administration: translation without a provider',
+           'translation', route_set='admin-no-provider')
+admin_case('administration.system-channels.visible', 'Administration: #all visible (unchecked)',
+           'system-channels', route_set='admin-all-visible')
+admin_case('administration.member-permissions.hidden', 'Administration: humans hidden from members',
+           'member-permissions', route_set='admin-hide-humans')
+# Confirmations (ConfirmDialog card).
+admin_case('administration.invites.confirm', 'Administration: revoke invite confirmation', 'invites',
+           selector=DIALOG, android_key='admin-confirm-dialog', viewport=FRAME,
+           interactions=[{'type': 'click', 'target': f"{btn('Revoke invite')} >> nth=0"}, {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-invite-revoke-invite-visual-designer'}, {'type': 'wait', 'ms': 300}])
+admin_case('administration.join-links.confirm', 'Administration: revoke invite link confirmation', 'join-links',
+           selector=DIALOG, android_key='admin-confirm-dialog', viewport=FRAME,
+           interactions=[{'type': 'click', 'target': btn('Revoke invite link')}, {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'admin-join-link-revoke-join-link-visual'}, {'type': 'wait', 'ms': 300}])
+# Mobile (390 @3x): the `sm:` / `md:` breakpoints stack the picker row, the
+# onboarding rows and the invite-link form.
+for section in ['admins', 'join-links', 'onboarding', 'pre-join-agreement']:
+    admin_case(f'administration.mobile.{section}', f'Administration (mobile): {section}', section, mobile=True)
 
 manifest = {
     'version': 1,

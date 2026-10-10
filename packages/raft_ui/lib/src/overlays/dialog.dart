@@ -130,7 +130,11 @@ class RaftDialog extends StatelessWidget {
     this.kind = RaftDialogKind.dialog,
     this.showClose = true,
     this.semanticLabel,
+    this.contentKey,
   }) : assert(child != null || title != null || content != null);
+
+  /// Key of the content panel itself (the root fills the viewport).
+  final Key? contentKey;
 
   /// Full custom content (header/body/footer parts).
   final Widget? child;
@@ -208,6 +212,7 @@ class RaftDialog extends StatelessWidget {
                     type: MaterialType.transparency,
                     textStyle: base,
                     child: RaftRecipeBox(
+                      key: contentKey,
                       style: s.content,
                       tokens: rt,
                       width: width,

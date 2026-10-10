@@ -40,6 +40,9 @@ class NativeNotificationService extends ChangeNotifier {
   String? _scope;
   int _epoch = 0, _id = 0;
   bool enabled = false, permitted = false, available = false;
+
+  /// Set once [initialize] has finished; before that [available] is unknown.
+  bool initialized = false;
   bool _wanted = false;
   String? error, backgroundError;
   void setBackgroundError(String? value) {
@@ -49,6 +52,13 @@ class NativeNotificationService extends ChangeNotifier {
   }
 
   void Function(String)? onTap;
+  TargetPlatform get platform => _platform;
+
+  /// True once the latest permission request returned "denied" without the
+  /// system having had time to show a prompt: the OS no longer asks (Android
+  /// after two refusals, iOS after the first), so the only way forward is the
+  /// system notification settings.
+  bool permissionPromptSkipped = false;
   bool get receivesMessages =>
       _platform == TargetPlatform.android || _platform == TargetPlatform.iOS;
   bool get canOpenSettings =>
@@ -117,6 +127,7 @@ class NativeNotificationService extends ChangeNotifier {
     } catch (_) {
       error = 'System notifications are unavailable on this device.';
     }
+    initialized = true;
     // Drop previous-process OS alerts before restoring any principal. The
     // launch target above has already been captured in memory for fresh checks.
     if (available) {
@@ -177,9 +188,13 @@ class NativeNotificationService extends ChangeNotifier {
     await initialize();
     if (value && available && canOpenSettings) {
       try {
+        final asked = Stopwatch()..start();
         final permission = await _permission(request: true);
         if (!current()) return;
         permitted = permission;
+        // A person cannot answer a system prompt within this window.
+        permissionPromptSkipped =
+            !permission && asked.elapsed < const Duration(milliseconds: 400);
       } catch (_) {
         if (!current()) return;
         permitted = false;
@@ -293,11 +308,39 @@ class NativeNotificationService extends ChangeNotifier {
     }
   }
 
-  Future<void> test() => show(
-    title: 'Raft',
-    body: 'System notifications are enabled. Click to return to Raft.',
-    payload: 'raft-notification-test',
-  );
+  /// Posts one test notification and reports whether the system accepted it.
+  /// It does not depend on the member's opt-in: desktop notifications are owned
+  /// by the system, and a phone only needs the permission to be granted.
+  Future<bool> test({
+    String title = 'Raft',
+    String body = 'System notifications are enabled. Click to return to Raft.',
+  }) async {
+    await initialize();
+    if (!available) return false;
+    try {
+      if (canOpenSettings) {
+        // macOS asks the first time; phones re-check what the person changed
+        // in system settings.
+        permitted = await _permission() || await _permission(request: true);
+        if (!permitted) {
+          enabled = false;
+          notifyListeners();
+          return false;
+        }
+      }
+      await _plugin.show(
+        id: ++_id,
+        title: title,
+        body: body,
+        payload: 'raft-notification-test',
+        notificationDetails: notificationDetails,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> openSettings() async {
     if (_platform == TargetPlatform.iOS) {
       await launchUrl(Uri.parse('app-settings:'));
