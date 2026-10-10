@@ -23,7 +23,11 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:raft_flutter/data/search_memory.dart';
+import 'package:raft_flutter/features/resource_view.dart';
+
 import '../parity_harness.dart';
+import 'home_tasks/fixture_workspace.dart';
 import 'thread_composer/fake_workspace.dart';
 import 'thread_messages/chat_stage.dart' show ParityIdentities;
 
@@ -190,7 +194,35 @@ class _HostState extends State<_Host> {
   );
 }
 
+/// The Threads inbox in the official 342x620 activity box (ResourceView is the
+/// activity page; the fixture workspace answers `/channels/inbox` with no rows
+/// for every id except the official `components.home.activity.results`).
+Widget _buildInbox(ParityContext ctx) {
+  final w = parityWorkspace(ctx, section: 'activity');
+  final now = parityNow(ctx);
+  return ctx.frame(
+    width: 342,
+    height: 620,
+    padding: EdgeInsets.zero,
+    child: Scaffold(
+      body: ResourceView(
+        controller: w,
+        section: 'activity',
+        clock: () => now,
+        onBack: () {},
+        searchMemory: SearchMemoryStore(
+          storage: ParityMemorySearchStorage(),
+          clock: () => now,
+        ),
+        restoreSearchState: false,
+        onMessage: (_, _) async {},
+      ),
+    ),
+  );
+}
+
 Widget _build(ParityContext ctx) {
+  if (ctx.props['surface'] == 'inbox') return _buildInbox(ctx);
   final window = _window(ctx);
   return Align(
     alignment: Alignment.topLeft,
@@ -248,6 +280,10 @@ const _scenes = {
   'inline': ['preview'],
 };
 
+// Desktop only: the inbox is a fixed 342x620 box on both providers.
+const _inboxStates = ['empty'];
+
+
 /// Every extension thread / timeline case, keyed by id (3 themes each).
 final Map<String, ParityCase> extThreadCases = {
   for (final MapEntry(key: scene, value: states) in _scenes.entries)
@@ -255,4 +291,7 @@ final Map<String, ParityCase> extThreadCases = {
       for (final state in states)
         for (final theme in const ['brutal', 'elegant', 'elegant-dark'])
           'components.thread-ext.$scene.$platform.$state.$theme': _case,
+  for (final state in _inboxStates)
+    for (final theme in const ['brutal', 'elegant', 'elegant-dark'])
+      'components.thread-ext.inbox.desktop.$state.$theme': _case,
 };

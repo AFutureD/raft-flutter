@@ -2223,33 +2223,23 @@ class _RaftChatViewState extends State<RaftChatView>
 
   /// Web HistoryLimitBanner: the plan message-history cutoff notice with a
   /// billing link, shared by the channel list and the thread panel.
-  Widget historyLimitBanner() {
+  Widget historyLimitBanner({bool inset = false}) {
     final limit = planHistoryLimit(w.server?.string('plan'));
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 448),
-          child: RaftBanner(
-            key: const ValueKey('history-limit-banner'),
-            size: RaftBannerRecipeSize.sm,
-            textAlign: TextAlign.center,
-            description: raftFormat(
-              context,
-              'Message history is limited to {days} days on the {plan} plan.',
-              {'days': limit.days, 'plan': limit.plan},
-            ),
-            descriptionTail: (
-              label: 'View Billing',
-              onPressed: widget.onViewBilling ?? () {},
-            ),
-          ),
-        ),
+    return RaftHistoryLimitBanner(
+      inset: inset,
+      message: raftFormat(
+        context,
+        'Message history is limited to {days} days on the {plan} plan.',
+        {'days': limit.days, 'plan': limit.plan},
       ),
+      linkLabel: raftText(context, 'View Billing'),
+      onLink: widget.onViewBilling ?? () {},
     );
   }
 
-  Widget threadTopSliver({bool loading = false}) => RaftThreadTimelineTopSliver(
+  Widget threadTopSliver({bool loading = false, bool showSummary = true}) =>
+      RaftThreadTimelineTopSliver(
+    showSummary: showSummary,
     parentSlot: widget.threadParentSlot,
     parent: widget.hideThreadParent || w.presentedThreadParent == null
         ? null
@@ -2459,18 +2449,13 @@ class _RaftChatViewState extends State<RaftChatView>
     final List<Widget> header;
     if (widget.thread) {
       header = [
-        threadTopSliver(loading: loading),
+        threadTopSliver(loading: loading, showSummary: loading || !empty),
         if (!loading && empty)
           RaftTimelineSparseFill(
             // Every reply sits behind the plan cutoff: the thread is hidden,
             // not empty (Web shows the banner instead of "No replies yet").
             child: w.threadHistoryLimited
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: historyLimitBanner(),
-                    ),
-                  )
+                ? Center(child: historyLimitBanner(inset: true))
                 : RaftEmptyState(
                     title: raftText(context, 'No replies yet'),
                     detail: raftText(context, 'Reply to start a thread.'),

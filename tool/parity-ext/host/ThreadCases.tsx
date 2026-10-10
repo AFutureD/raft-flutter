@@ -12,7 +12,7 @@
 //                     side thread column (desktop) / the 390 page (mobile)
 //   surface=chat   -> message/ChatPanel in the desktop main column
 //                     (1280 - rail - 240 sidebar) or the 390 mobile page
-//   surface=inbox  -> thread/ThreadsInbox in the 240px sidebar column
+//   surface=inbox  -> thread/ThreadsInbox in the official 342x620 box
 // The window is (winY, winH) in column coordinates; winY < 0 counts from the
 // bottom. Data: tool/parity-ext/fixtures/thread.json (`routes` + `routeSets`
 // are answered by the provider spec for React and by the fake client for
@@ -71,10 +71,20 @@ function ParityExtThView({ props }: { props: ParityExtThProps }) {
   // Desktop main column: viewport - LeftRail (brutal 64 / elegant 56) - 240 sidebar.
   const width = mobile
     ? 390
-    : props.surface === "thread" ? 400 : props.surface === "inbox" ? 240 : 1280 - (brutal ? 64 : 56) - 240;
+    : props.surface === "thread" ? 400 : 1280 - (brutal ? 64 : 56) - 240;
   const channel = useChannelStore((s) => [...s.channels, ...s.dmChannels].find((c) => c.id === props.channel) ?? null);
   const t = parityExtThFixture.thread;
   const top = props.winY < 0 ? viewportHeight + props.winY : props.winY;
+  if (props.surface === "inbox") {
+    // The official activity-results box: the inbox in a 342x620 column.
+    return (
+      <main className="min-h-screen bg-white p-0 font-display text-black">
+        <div data-visual-case={caseId} style={{ width: 342, height: 620, overflow: "hidden" }}>
+          <ThreadsInbox />
+        </div>
+      </main>
+    );
+  }
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
       <div data-visual-case={caseId} style={{ ...shellVars, width, height: props.winH, overflow: "hidden", position: "relative" }}>
@@ -94,8 +104,6 @@ function ParityExtThView({ props }: { props: ParityExtThProps }) {
               threadIdentity={{ parentMessageId: t.parentMessageId, parentChannelId: t.parentChannelId, threadChannelId: t.threadChannelId }}
               onClose={() => undefined}
             />
-          ) : props.surface === "inbox" ? (
-            <ThreadsInbox />
           ) : (
             <ChatPanel channel={channel} />
           )}

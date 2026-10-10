@@ -6,7 +6,6 @@ import 'design_primitives.dart' show RaftInteractive, RaftSpinner;
 import 'indicators.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
-import 'recipes/badge.g.dart' show RaftBadgeRecipeVariant;
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
 import 'tooltip.dart';

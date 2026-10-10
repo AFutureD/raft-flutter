@@ -1,6 +1,5 @@
 import 'dart:ui' show SemanticsRole;
 
-import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/widgets.dart';
 
 import 'icons.dart';
@@ -193,7 +192,7 @@ class RaftBanner extends StatelessWidget {
   }
 }
 
-class _TailedDescription extends StatefulWidget {
+class _TailedDescription extends StatelessWidget {
   const _TailedDescription({
     required this.text,
     required this.tail,
@@ -204,41 +203,74 @@ class _TailedDescription extends StatefulWidget {
   final ({String label, VoidCallback onPressed}) tail;
   final TextStyle style;
   final TextAlign? textAlign;
+
+  /// The link is an atomic inline box (Web `<button className="ml-1">`): it
+  /// wraps to the next line whole instead of breaking inside its label.
   @override
-  State<_TailedDescription> createState() => _TailedDescriptionState();
+  Widget build(BuildContext context) => Text.rich(
+    TextSpan(
+      text: text,
+      children: [
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: tail.onPressed,
+                child: Text(
+                  raftText(context, tail.label),
+                  style: style.copyWith(decoration: TextDecoration.underline),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+    textAlign: textAlign,
+    style: style,
+  );
 }
 
-class _TailedDescriptionState extends State<_TailedDescription> {
-  final recognizer = TapGestureRecognizer();
-
-  @override
-  void dispose() {
-    recognizer.dispose();
-    super.dispose();
-  }
+/// Web HistoryLimitBanner.tsx: `Banner intent=warning density=sm` with
+/// `mx-auto mb-3 max-w-md text-center font-bold justify-center` and an
+/// underlined billing link. [inset] is the thread panel's `p-4` host.
+class RaftHistoryLimitBanner extends StatelessWidget {
+  const RaftHistoryLimitBanner({
+    super.key,
+    required this.message,
+    required this.linkLabel,
+    required this.onLink,
+    this.inset = false,
+  });
+  final String message, linkLabel;
+  final VoidCallback onLink;
+  final bool inset;
 
   @override
   Widget build(BuildContext context) {
-    recognizer.onTap = widget.tail.onPressed;
-    return Text.rich(
-      TextSpan(
-        text: widget.text,
-        children: [
-          const WidgetSpan(
-            alignment: PlaceholderAlignment.baseline,
-            baseline: TextBaseline.alphabetic,
-            child: SizedBox(width: 4),
+    final banner = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 448),
+          child: RaftBanner(
+            key: const ValueKey('history-limit-banner'),
+            size: RaftBannerRecipeSize.sm,
+            textAlign: TextAlign.center,
+            description: message,
+            descriptionTail: (label: linkLabel, onPressed: onLink),
           ),
-          TextSpan(
-            text: raftText(context, widget.tail.label),
-            recognizer: recognizer,
-            mouseCursor: SystemMouseCursors.click,
-            style: const TextStyle(decoration: TextDecoration.underline),
-          ),
-        ],
+        ),
       ),
-      textAlign: widget.textAlign,
-      style: widget.style,
     );
+    return inset
+        ? Padding(padding: const EdgeInsets.all(16), child: banner)
+        : banner;
   }
 }

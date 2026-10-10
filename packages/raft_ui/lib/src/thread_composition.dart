@@ -60,9 +60,9 @@ class RaftThreadCompositionRecipe {
       ? const BorderSide(color: Colors.black, width: 2)
       // Mounted ThreadPanelRoot gives its AppPanelHeader a bottom rule.
       : BorderSide(color: tokens.colors['line-muted']!);
-  Color get parentBackground =>
-      RaftConversationSurfaceRecipe(tokens)
-          .background(RaftConversationSurfaceRole.threadParent);
+  Color get parentBackground => RaftConversationSurfaceRecipe(
+    tokens,
+  ).background(RaftConversationSurfaceRole.threadParent);
   EdgeInsets get parentInset => const EdgeInsets.all(12);
   BorderSide get parentBorder => BorderSide(
     color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
@@ -405,7 +405,13 @@ class RaftThreadTimelineTopSliver extends StatelessWidget {
     this.parent,
     this.parentSlot,
     this.parentKey,
+    this.showSummary = true,
   });
+
+  /// False for a thread without loaded replies: Web ThreadPanel's empty branch
+  /// renders the parent and the empty / history-limit notice only, without the
+  /// history-top line and the reply count.
+  final bool showSummary;
   final bool hasMore, historyLimited, loadingOlder;
   final String loadingOlderLabel, historyLimitedLabel, beginningLabel;
 
@@ -436,36 +442,37 @@ class RaftThreadTimelineTopSliver extends StatelessWidget {
               ),
               child: parent!,
             ),
-          Padding(
-            padding: recipe.summaryInset,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                RaftThreadHistoryTopState(
-                  hasMore: hasMore,
-                  historyLimited: historyLimited,
-                  loadingOlder: loadingOlder,
-                  loadingOlderLabel: loadingOlderLabel,
-                  historyLimitedLabel: historyLimitedLabel,
-                  beginningLabel: beginningLabel,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Container(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      border: Border(bottom: recipe.summaryBorder),
-                    ),
-                    child: Text(
-                      replyCountLabel,
-                      style: recipe.replyCount,
-                      textAlign: TextAlign.center,
+          if (showSummary)
+            Padding(
+              padding: recipe.summaryInset,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  RaftThreadHistoryTopState(
+                    hasMore: hasMore,
+                    historyLimited: historyLimited,
+                    loadingOlder: loadingOlder,
+                    loadingOlderLabel: loadingOlderLabel,
+                    historyLimitedLabel: historyLimitedLabel,
+                    beginningLabel: beginningLabel,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Container(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: recipe.summaryBorder),
+                      ),
+                      child: Text(
+                        replyCountLabel,
+                        style: recipe.replyCount,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

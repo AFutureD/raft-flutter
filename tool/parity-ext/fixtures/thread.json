@@ -542,6 +542,14 @@
     "threadSummariesByParentMessageId": {}
    }
   },
+  "thext-inbox-empty": {
+   "GET /channels/inbox": {
+    "items": [],
+    "hasMore": false,
+    "totalCount": 0,
+    "totalUnreadCount": 0
+   }
+  },
   "thext-timeline-long": {
    "GET /messages/channel/channel-design": {
     "messages": [

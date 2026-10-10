@@ -181,6 +181,7 @@ route_sets = {
     'timeline-limited': {CHANNEL_ROUTE: page(long_history, history_limited=True)},
     'timeline-top': {CHANNEL_ROUTE: page(long_history)},
     'timeline-system': {CHANNEL_ROUTE: page(system_group)},
+    'inbox-empty': {'GET /channels/inbox': {'items': [], 'hasMore': False, 'totalCount': 0, 'totalUnreadCount': 0}},
     'timeline-long': {CHANNEL_ROUTE: page(long_list)},
     'inline': {
         CHANNEL_ROUTE: page([inline_parent], summaries={PARENT: inline_sum}),
@@ -253,7 +254,7 @@ for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
         props={'surface': 'thread'}, win=(-140, 140))
 
 SCROLL_UP = [{'type': 'wait', 'ms': 800}, {'type': 'scroll', 'target': '[data-testid="message-content-surface"]', 'y': -300}]
-SCROLL_UP_ANDROID = [{'type': 'wait', 'ms': 800}, {'type': 'scroll', 'key': 'chat-list-channel', 'dy': -300}]
+SCROLL_UP_ANDROID = [{'type': 'wait', 'ms': 800}, {'type': 'scroll', 'key': 'chat-list-channel', 'dy': -320}]
 for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
     ch = {'surface': 'chat', 'channel': CH}
     # ---- channel timeline states ---------------------------------------
@@ -273,6 +274,10 @@ for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
         props=ch, win=full, interactions=SCROLL_UP, android=SCROLL_UP_ANDROID)
     # ---- inline thread reply preview in the channel -----------------------
     add('inline', platform, 'preview', 'Inline thread replies preview', route_set='inline', props=ch, win=full)
+# ---- threads inbox (the official 342x620 activity box) ---------------------
+add('inbox', 'desktop', 'empty', 'Threads inbox empty', route_set='inbox-empty', props={'surface': 'inbox'},
+    win=(0, 620))
+
 # ---- thread overflow menu ---------------------------------------------------
 for platform, win in (('desktop', (0, 240)), ('mobile', (0, 240))):
     add('thread', platform, 'overflow-menu', 'Thread overflow menu', route_set='thread',
