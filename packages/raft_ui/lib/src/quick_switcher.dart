@@ -8,7 +8,9 @@ import 'page_recipes.dart';
 import 'popover_surface.dart';
 import 'recipe_surface.dart';
 import 'recipes/kbd.g.dart';
+import 'recipes/search.g.dart' as gen;
 import 'recipes/search_entity.g.dart';
+import 'dialog_card.dart';
 import 'search_input.dart';
 import 'search_result_surface.dart';
 import 'theme.dart';
@@ -53,19 +55,16 @@ class RaftKeyCap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), rt = t.recipeTokens;
+    final root = RaftKbdRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    ).root;
     return ExcludeSemantics(
       child: RaftRecipeBox(
-        style: RaftKbdRecipe.resolve(theme: t.recipeTheme, tokens: rt).root,
+        style: root,
         tokens: rt,
-        child: Text(
-          glyph,
-          style: TextStyle(
-            fontSize: 11,
-            height: 1.4,
-            fontWeight: FontWeight.w700,
-            color: t.muted,
-          ),
-        ),
+        child: Text(glyph, style: root.textStyle(rt)),
       ),
     );
   }
@@ -81,8 +80,12 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
     required this.selectLabel,
     required this.openLabel,
     required this.semanticLabel,
+    this.filters,
   });
   final Widget field, body;
+
+  /// Filter chips under the field once there is something to filter.
+  final Widget? filters;
   final String selectLabel, openLabel, semanticLabel;
 
   @override
@@ -94,6 +97,12 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
       width: t.brutal ? 2 : 1,
     );
     final hint = recipe.metadata.copyWith(fontSize: 11);
+    final rt = t.recipeTokens;
+    final shell = gen.RaftSearchRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
     return Semantics(
       container: true,
       explicitChildNodes: true,
@@ -107,18 +116,35 @@ class RaftQuickSwitcherFrame extends StatelessWidget {
             key: const Key('quick-switcher'),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(border: Border(bottom: line)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+              // `SearchShellRoot`: the frame fills header, chips and results.
+              Expanded(
+                child: DecoratedBox(
+                  decoration: shell.frame.decoration(rt),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(border: Border(bottom: line)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: field,
+                        ),
+                      ),
+                      ?filters,
+                      Expanded(
+                        child: DecoratedBox(
+                          decoration: shell.viewport.decoration(rt),
+                          child: body,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: field,
                 ),
               ),
-              Expanded(child: body),
-              DecoratedBox(
+              Container(
                 decoration: BoxDecoration(border: Border(top: line)),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -197,12 +223,22 @@ class RaftQuickSwitcherList extends StatelessWidget {
   final List<Widget> children;
   final bool compact;
   @override
-  Widget build(BuildContext context) => ListView(
-    controller: controller,
-    primary: false,
-    padding: EdgeInsets.all(compact ? 12 : 16),
-    children: children,
-  );
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final viewport = gen.RaftSearchRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: t.recipeTokens,
+    ).viewport;
+    // `SearchShellViewport` padding plus the results wrapper (`p-3` for the
+    // recent list, `p-4` for results).
+    return ListView(
+      controller: controller,
+      primary: false,
+      padding: viewport.padding.add(EdgeInsets.all(compact ? 12 : 16)),
+      children: children,
+    );
+  }
 }
 
 /// Exact destination then the "Search for" row.
@@ -220,39 +256,83 @@ class RaftQuickSwitcherHead extends StatelessWidget {
   );
 }
 
-/// A headed group of rows.
+/// A headed group of rows. With a [glyph] the heading is the Source
+/// `SectionEyebrow` (recent conversations: `mb-2 flex items-center gap-1.5
+/// px-1`); otherwise the search recipe's `SearchResultsSection` and
+/// `SearchResultsSectionHeading` slots, like the Search page.
 class RaftQuickSwitcherSection extends StatelessWidget {
   const RaftQuickSwitcherSection({
     super.key,
-    required this.heading,
     required this.children,
+    this.heading,
     this.glyph,
   });
-  final String heading;
+
+  /// Null leaves the heading out (the card still paints).
+  final String? heading;
   final RaftGlyph? glyph;
   final List<Widget> children;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final recipe = RaftSearchRecipe(t, mobile: false);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: RaftQuickSwitcherMetrics.rowGap),
-      child: Column(
+    final rt = t.recipeTokens;
+    final slots = gen.RaftSearchRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    );
+    final gap = slots.list.rowGap ?? RaftQuickSwitcherMetrics.rowGap;
+    if (glyph != null) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: RaftQuickSwitcherMetrics.rowGap,
         children: [
           Padding(
             padding: RaftSearchHomeRecipe.headingInset,
             child: Row(
               spacing: 6,
               children: [
-                if (glyph != null) RaftIcon(glyph!, size: 12, color: t.muted),
-                Expanded(child: Text(heading, style: recipe.sectionTitle)),
+                RaftIcon(glyph!, size: 12, color: t.muted),
+                Expanded(child: RaftDialogSectionEyebrow(heading!)),
               ],
             ),
           ),
-          ...children,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: gap,
+            children: children,
+          ),
         ],
+      );
+    }
+    // The recipe box paints Chromium's shadow rule (outer shadows never show
+    // through the translucent fill).
+    return Padding(
+      padding: slots.section.margin,
+      child: RaftRecipeBox(
+        style: slots.section,
+        tokens: rt,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (heading != null)
+              Padding(
+                padding: slots.sectionHeading.padding,
+                child: Text(
+                  slots.sectionHeading.textTransform == 'uppercase'
+                      ? heading!.toUpperCase()
+                      : heading!,
+                  style: slots.sectionHeading
+                      .textStyle(rt)
+                      .copyWith(fontFamily: t.bodyFont),
+                ),
+              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: gap,
+              children: children,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -273,7 +353,11 @@ class RaftQuickSwitcherIconBox extends StatelessWidget {
         theme: t.recipeTheme,
         tokens: rt,
       ).entityIcon.decoration(rt),
-      child: RaftIcon(glyph, size: 16),
+      child: RaftIcon(
+        glyph,
+        size: 14,
+        color: t.brutal ? t.strong : t.colors['foreground-icon'],
+      ),
     );
   }
 }
@@ -291,6 +375,7 @@ class RaftQuickSwitcherRow extends StatelessWidget {
     this.badges = const [],
     this.returnHint = false,
     this.alwaysHint = false,
+    this.boldTitle = true,
   });
   final Widget leading;
   final String title, subtitle;
@@ -299,6 +384,10 @@ class RaftQuickSwitcherRow extends StatelessWidget {
 
   /// Shows the Return hint on every state (the "Search for" row).
   final bool alwaysHint;
+
+  /// Destination rows set their title `font-bold`; the action row keeps the
+  /// recipe's title weight.
+  final bool boldTitle;
   final VoidCallback onPressed;
 
   /// A badge label marked warning (archived) is passed as `!label`.
@@ -330,9 +419,11 @@ class RaftQuickSwitcherRow extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: recipe.entityTitle.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: boldTitle
+                            ? recipe.entityTitle.copyWith(
+                                fontWeight: FontWeight.w700,
+                              )
+                            : recipe.entityTitle,
                       ),
                     ),
                     for (final badge in badges)
@@ -352,7 +443,13 @@ class RaftQuickSwitcherRow extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: recipe.metadata.copyWith(fontWeight: FontWeight.w400),
+                  // `text-black/50` (Brutal), `text-foreground-muted/70`.
+                  style: recipe.metadata.copyWith(
+                    fontWeight: FontWeight.w400,
+                    color: (t.brutal ? t.strong : t.muted).withValues(
+                      alpha: t.brutal ? .5 : .7,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -385,6 +482,7 @@ class RaftQuickSwitcherActionRow extends StatelessWidget {
     subtitle: subtitle,
     selected: selected,
     alwaysHint: true,
+    boldTitle: false,
     onPressed: onPressed,
   );
 }

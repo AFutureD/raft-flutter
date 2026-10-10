@@ -1,3 +1,4 @@
+import 'resource_filters.dart';
 import 'resource_search.dart';
 import 'search_ranking.dart';
 
@@ -146,3 +147,66 @@ String? _handleText(SearchEntity entity) {
     _ => null,
   };
 }
+
+/// Source `senderOptions`: every member, the signed-in user (first, even when
+/// the member list omits them) and each live agent, self first and then by
+/// label.
+List<ResourceSender> quickSwitcherSenders({
+  required List<Map<String, dynamic>> members,
+  required List<Map<String, dynamic>> agents,
+  Map<String, dynamic>? currentUser,
+}) {
+  String label(Map<String, dynamic> row) =>
+      '${row['displayName'] ?? ''}'.isNotEmpty
+      ? '${row['displayName']}'
+      : '${row['name'] ?? ''}';
+  final self = currentUser?['id'];
+  final people = <ResourceSender>[
+    for (final member in members)
+      if ((member['userId'] ?? member['id']) is String)
+        ResourceSender(
+          '${member['userId'] ?? member['id']}',
+          'user',
+          label(member),
+          handle: '${member['name'] ?? ''}',
+        ),
+  ];
+  if (self is String && !people.any((p) => p.id == self)) {
+    final name = [
+      currentUser?['displayName'],
+      currentUser?['name'],
+      currentUser?['email'],
+    ].firstWhere((v) => v is String && v.isNotEmpty, orElse: () => '');
+    people.insert(0, ResourceSender(self, 'user', '$name'));
+  }
+  final bots = <ResourceSender>[
+    for (final agent in agents)
+      if (agent['id'] is String && agent['deletedAt'] == null)
+        ResourceSender(
+          agent['id'] as String,
+          'agent',
+          label(agent),
+          handle: '${agent['name'] ?? ''}',
+        ),
+  ];
+  final all = [...people, ...bots];
+  all.sort((a, b) {
+    final aSelf = a.type == 'user' && a.id == self;
+    final bSelf = b.type == 'user' && b.id == self;
+    if (aSelf != bSelf) return aSelf ? -1 : 1;
+    return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+  });
+  return all;
+}
+
+/// Source `getSearchEntityUsage`-free helper for the channel filter: joined
+/// and public channels by id, `#name`.
+Map<String, String> quickSwitcherChannelOptions(
+  Iterable<Map<String, dynamic>> channels,
+) => {
+  for (final channel in channels)
+    if (channel['id'] is String &&
+        channel['type'] != 'dm' &&
+        channel['type'] != 'thread')
+      channel['id'] as String: '#${channel['name'] ?? ''}',
+};

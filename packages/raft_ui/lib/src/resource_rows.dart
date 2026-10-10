@@ -326,6 +326,9 @@ abstract final class RaftResourceMetrics {
   /// `gap-2` (flex/wrap rows of filter chips, trigger icon gaps).
   static const double gap2 = 8;
 
+  /// `gap-1.5` (picker trigger content: icon, label, indicator).
+  static const double gap1_5 = 6;
+
   /// `gap-2.5` (task card stacks).
   static const double gap2_5 = 10;
 

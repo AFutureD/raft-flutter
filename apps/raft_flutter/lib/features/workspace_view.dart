@@ -182,6 +182,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   Map<String, dynamic>? lastChannelAuthority;
   int channelAuthorityRevision = 0;
   int searchEntryRevision = 0;
+
+  /// The Search page opened from the quick switcher restores the query and
+  /// filters the switcher saved.
+  int restoreSavedSearchRevision = -1;
   String? channelSearchSeed, channelSearchAuthority;
   bool channelSearchRevoked = false;
 
@@ -201,6 +205,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   void searchThisChannel() {
     final channel = w.channel;
     if (channel == null || !w.can('viewChannel', resource: channel)) return;
+    if (wide && w.canVisitSection('search')) {
+      quickSwitcher.open(
+        context,
+        entry: QuickSwitcherEntry.channel,
+        channelId: channel.id,
+      );
+      return;
+    }
     select('search', searchChannelId: channel.id);
   }
 
@@ -269,7 +281,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       openDirectory: openQuickSwitcherDirectory,
       openThread: openQuickSwitcherThread,
       openMessage: openQuickSwitcherMessage,
-      searchAll: (query) => select('search', searchQuery: query),
+      searchAll: (query) => select('search', restoreSavedSearch: true),
     ),
   );
   final sortAnchors = <String, GlobalKey>{};
@@ -704,13 +716,21 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     setState(() {});
   }
 
-  void select(String section, {String? searchChannelId, String? searchQuery}) {
+  void select(
+    String section, {
+    String? searchChannelId,
+    String? searchQuery,
+    bool restoreSavedSearch = false,
+  }) {
     if (!w.canVisitSection(section)) return;
     desktopNavigation.bind(desktopAuthority);
     pendingDesktopSelection = false;
     if (section == 'search') {
       setState(() {
         searchEntryRevision++;
+        if (restoreSavedSearch) {
+          restoreSavedSearchRevision = searchEntryRevision;
+        }
         channelSearchSeed = searchChannelId;
         channelSearchAuthority = searchChannelId == null
             ? null
@@ -1101,9 +1121,15 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                       }
                     }
                   : null,
-              initialQuery: route == 'search' ? location.query('q') : null,
+              initialQuery:
+                  route == 'search' &&
+                      restoreSavedSearchRevision != searchEntryRevision
+                  ? location.query('q')
+                  : null,
               searchMemory: quickSwitcher.searchMemory,
-              restoreSearchState: searchEntryRevision == 0,
+              restoreSearchState:
+                  searchEntryRevision == 0 ||
+                  restoreSavedSearchRevision == searchEntryRevision,
               initialSearchDeferUntilQuery:
                   route == 'search' && channelSearchSeed != null,
               initialSearchChannelId: route == 'search'
@@ -1835,6 +1861,18 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     quickSwitcher.open(context);
   }
 
+  /// The rail's Search button. A desktop window floats the same overlay as
+  /// Cmd/Ctrl+K but starts fresh (Source `searchEntry: "rail"`); a narrow
+  /// window keeps the full Search page.
+  void openSearchFromRail() {
+    if (!w.canVisitSection('search')) return;
+    if (!wide) {
+      select('search');
+      return;
+    }
+    quickSwitcher.open(context, entry: QuickSwitcherEntry.rail);
+  }
+
   Future<void> openQuickSwitcherConversation(RaftChannel channel) async {
     if (!mounted) return;
     await chooseChannel(channel);
@@ -2119,7 +2157,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               w.location.route == RaftRoute.settings ? 'settings' : w.section,
             ).railMode
           : w.section,
-      onSelected: select,
+      onSelected: (id) =>
+          id == 'search' && wide ? openSearchFromRail() : select(id),
       workspaceName: w.server?.name ?? 'Raft',
       workspaceTooltip: tr('Switch workspace'),
       workspaceHeader: workspaceServerMenu(),

@@ -322,7 +322,8 @@ void main() {
           case 'search-results':
             await tap(find.byKey(const ValueKey('rail-search')));
             await until(() => find.byType(TextField).evaluate().isNotEmpty, 'search field');
-            await t.enterText(find.byType(TextField).first, 'visual');
+            // The rail Search opens the overlay, the topmost route's field.
+            await t.enterText(find.byType(TextField).last, 'visual');
             await t.pump(const Duration(milliseconds: 400));
             await frames(40);
           case 'activity':

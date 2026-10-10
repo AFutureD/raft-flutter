@@ -2791,6 +2791,8 @@ const raftChinese = <String, String>{
   "Retired": "已下线",
   "Retracted": "已撤回",
   "Retry": "重试",
+  "{count} hit": "{count} 条匹配",
+  "{count} hits": "{count} 条匹配",
   "Retry Joining This Channel": "重试加入本群",
   "Retry failed.": "重试失败。",
   "Retry or remove failed attachments": "重试或移除失败的附件",

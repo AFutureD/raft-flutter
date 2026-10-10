@@ -4,16 +4,15 @@
  "about": "Ratchet for tool/ds-audit. Counts may only go down. Regenerate with `tool/ds-audit --update-baseline` after removing violations.",
  "totals": {
   "style.border_radius": 11,
-  "style.color_literal": 1,
-  "style.dimension": 54,
+  "style.dimension": 48,
   "style.duration": 2,
-  "style.edge_insets": 69,
+  "style.edge_insets": 68,
   "style.font_size": 1,
   "style.font_weight": 5,
-  "style.material_colors": 28,
+  "style.material_colors": 27,
   "style.material_icons": 22,
   "style.material_theme": 35,
-  "style.sized_box": 76,
+  "style.sized_box": 71,
   "style.text_metrics": 1,
   "style.text_style": 13,
   "widget.app_bar": 6,
@@ -22,7 +21,7 @@
   "widget.dialog": 49,
   "widget.icon_button": 13,
   "widget.ink": 1,
-  "widget.list_tile": 41,
+  "widget.list_tile": 39,
   "widget.menu": 15,
   "widget.navigation": 1,
   "widget.other": 17,
@@ -30,9 +29,8 @@
   "widget.scaffold": 9,
   "widget.select": 8,
   "widget.snackbar": 34,
-  "widget.surface": 10,
+  "widget.surface": 9,
   "widget.text_field": 26,
-  "widget.toggle": 1,
   "widget.tooltip": 3
  },
  "files": {
@@ -65,7 +63,7 @@
   },
   "apps/raft_flutter/lib/features/admin_views.dart": {
    "style.material_theme": 1,
-   "widget.list_tile": 9
+   "widget.list_tile": 7
   },
   "apps/raft_flutter/lib/features/agent_apps_view.dart": {
    "style.sized_box": 1,
@@ -143,9 +141,8 @@
   "apps/raft_flutter/lib/features/chat_view.dart": {
    "style.dimension": 4,
    "style.edge_insets": 3,
-   "style.sized_box": 2,
-   "widget.snackbar": 6,
-   "widget.toggle": 1
+   "style.sized_box": 1,
+   "widget.snackbar": 6
   },
   "apps/raft_flutter/lib/features/desktop_master_detail.dart": {
    "style.dimension": 1
@@ -208,17 +205,10 @@
    "widget.list_tile": 6,
    "widget.text_field": 2
   },
-  "apps/raft_flutter/lib/features/live_agent_activity_bar.dart": {
-   "style.color_literal": 1,
-   "style.dimension": 2,
-   "style.edge_insets": 1,
-   "style.material_colors": 1,
-   "style.sized_box": 2
-  },
   "apps/raft_flutter/lib/features/locale_settings_page.dart": {
    "style.edge_insets": 2,
    "style.material_theme": 1,
-   "style.sized_box": 2,
+   "style.sized_box": 1,
    "style.text_style": 1,
    "widget.progress": 1,
    "widget.select": 1
@@ -278,8 +268,7 @@
    "widget.dialog": 3,
    "widget.icon_button": 1,
    "widget.list_tile": 2,
-   "widget.other": 2,
-   "widget.surface": 1
+   "widget.other": 2
   },
   "apps/raft_flutter/lib/features/resource_search.dart": {
    "style.border_radius": 1,
@@ -291,7 +280,7 @@
   },
   "apps/raft_flutter/lib/features/resource_view.dart": {
    "style.border_radius": 1,
-   "style.dimension": 11,
+   "style.dimension": 9,
    "style.edge_insets": 14,
    "style.font_size": 1,
    "style.font_weight": 1,
@@ -377,9 +366,9 @@
    "widget.menu": 2
   },
   "apps/raft_flutter/lib/features/source_feedback_view.dart": {
-   "style.dimension": 4,
+   "style.dimension": 2,
    "style.edge_insets": 1,
-   "style.sized_box": 3,
+   "style.sized_box": 2,
    "widget.other": 2,
    "widget.surface": 1
   },

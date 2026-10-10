@@ -83,6 +83,11 @@ class _RaftSearchInputState extends State<RaftSearchInput> {
         ],
       ),
     );
+    final kbd = RaftKbdRecipe.resolve(
+      theme: t.recipeTheme,
+      states: t.recipeStates(),
+      tokens: rt,
+    ).root;
     final style = g.control.text(rt, base: DefaultTextStyle.of(context).style);
     return MouseRegion(
       onEnter: (_) => setState(() => hovered = true),
@@ -152,19 +157,13 @@ class _RaftSearchInputState extends State<RaftSearchInput> {
                     ),
                   if (widget.showEscape)
                     RaftRecipeBox(
-                      style: RaftKbdRecipe.resolve(
-                        theme: t.recipeTheme,
-                        tokens: rt,
-                      ).root,
+                      style: kbd,
                       tokens: rt,
                       child: Text(
                         'ESC',
-                        style: TextStyle(
-                          fontSize: 10,
-                          height: 1.5,
-                          fontWeight: FontWeight.w700,
-                          color: t.muted,
-                        ),
+                        style: kbd
+                            .textStyle(rt)
+                            .copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                 ],

@@ -103,7 +103,9 @@ Widget host(
         },
         onOpenMessage: (row, q) => log.messages.add('${row['id']}'),
         onSearchAll: (q) => log.queries.add('all:$q'),
-        searchMessages: messages,
+        searchMessages: messages == null
+            ? null
+            : (params) => messages('${params['q']}'),
       ),
     ),
   ),
@@ -150,7 +152,7 @@ void main() {
           ),
         );
         // No pump after the first frame: the rows are already final.
-        expect(find.text('Recent conversations'), findsOneWidget);
+        expect(find.text('RECENT CONVERSATIONS'), findsOneWidget);
         final titles = [
           for (final w in t.widgetList<Text>(
             find.descendant(
@@ -252,7 +254,7 @@ void main() {
       await t.pump();
       await t.enterText(find.byType(TextField), 'design');
       await t.pump();
-      expect(find.text('Recent conversations'), findsNothing);
+      expect(find.text('RECENT CONVERSATIONS'), findsNothing);
       final order = t
           .widgetList<Widget>(
             find.byWidgetPredicate(
@@ -377,7 +379,7 @@ void main() {
       await t.enterText(find.byType(TextField), 'quarter');
       await t.pump(const Duration(milliseconds: 250));
       expect(calls, ['quarter']); // the first keystroke never queried
-      expect(find.byKey(const Key('quick-switcher-searching')), findsOneWidget);
+      expect(find.byKey(const Key('quick-switcher-skeleton')), findsOneWidget);
       pending['quarter']!.complete([
         for (var i = 0; i < 8; i++)
           {

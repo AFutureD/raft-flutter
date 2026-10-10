@@ -44,6 +44,15 @@ class ResourceFilters {
       sender != null ||
       scopes.isNotEmpty ||
       timeRange != 'any';
+
+  /// Source clearAllFilters: every filter but the sort.
+  void clearSearchFilters() {
+    channelId = null;
+    sender = null;
+    scopes.clear();
+    timeRange = 'any';
+  }
+
   String? get senderType =>
       scopes.contains('humans') == scopes.contains('agents')
       ? null

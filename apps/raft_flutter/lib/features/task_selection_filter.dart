@@ -263,7 +263,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                     },
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      spacing: RaftResourceMetrics.gap2,
+                      spacing: RaftResourceMetrics.gap1_5,
                       children: [
                         RaftIcon(
                           widget.glyph ??
@@ -272,16 +272,14 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                                 'Creator' || 'From' => RaftGlyph.userCircle2,
                                 _ => RaftGlyph.user,
                               },
-                          size: 14,
+                          size: t.brutal ? 14 : 12,
                         ),
                         Text(
                           widget.label ??
                               '${raftText(context, widget.field)}${widget.selection.isEmpty ? '' : ' (${widget.selection.length})'}',
                         ),
-                        RaftIcon(
-                          RaftGlyph.chevronDown,
-                          size: widget.picker ? 12 : 14,
-                        ),
+                        // The picker's indicator slot is 16px wide.
+                        const RaftPickerIndicator(),
                       ],
                     ),
                   ),

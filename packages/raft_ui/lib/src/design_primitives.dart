@@ -274,9 +274,9 @@ class RaftAttachmentRecipe {
         : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
-  TextStyle get title =>
-      RaftTypography.attachmentTitle(tokens)
-          .copyWith(fontWeight: FontWeight.w700);
+  TextStyle get title => RaftTypography.attachmentTitle(
+    tokens,
+  ).copyWith(fontWeight: FontWeight.w700);
   TextStyle get metadata => RaftTypography.attachmentMeta(tokens);
 }
 
@@ -1705,16 +1705,29 @@ class RaftMenuEntry {
 /// Original dropdown composition with one owner for popup and keyboard focus.
 enum RaftDropdownTriggerStyle { button, picker }
 
+/// The 16px indicator slot of a PickerTriggerButton (`combobox-trigger-indicator`)
+/// around its 12px chevron.
+class RaftPickerIndicator extends StatelessWidget {
+  const RaftPickerIndicator({super.key, this.glyph = RaftGlyph.chevronDown});
+  final RaftGlyph glyph;
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 16,
+    child: Center(child: RaftIcon(glyph, size: 12)),
+  );
+}
+
 enum RaftDropdownSide { bottom, top, right }
 
 enum RaftDropdownAlign { start, end }
 
 /// The popup retains ownership of its trigger focus and dismissal callbacks.
-typedef RaftDropdownTriggerBuilder = Widget Function(
-  BuildContext context,
-  FocusNode focusNode,
-  VoidCallback? onPressed,
-);
+typedef RaftDropdownTriggerBuilder =
+    Widget Function(
+      BuildContext context,
+      FocusNode focusNode,
+      VoidCallback? onPressed,
+    );
 
 class RaftDropdownMenu extends StatefulWidget {
   const RaftDropdownMenu({
@@ -2145,25 +2158,27 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (widget.glyph != null) ...[
-                          RaftIcon(widget.glyph!, size: 14),
-                          SizedBox(
-                            width:
+                          // PickerTriggerButton scales its leading icon
+                          // (`size-3` Elegant, 14px Brutal) and gaps 6px.
+                          RaftIcon(
+                            widget.glyph!,
+                            size:
                                 widget.triggerStyle ==
                                     RaftDropdownTriggerStyle.picker
-                                ? 8
-                                : 6,
+                                ? (t.brutal ? 14 : 12)
+                                : 14,
                           ),
+                          const SizedBox(width: 6),
                         ],
                         Text(widget.label),
                         if (widget.trailingGlyph != null) ...[
-                          SizedBox(
-                            width:
-                                widget.triggerStyle ==
-                                    RaftDropdownTriggerStyle.picker
-                                ? 8
-                                : 6,
-                          ),
-                          RaftIcon(widget.trailingGlyph!, size: 12),
+                          const SizedBox(width: 6),
+                          if (widget.triggerStyle ==
+                              RaftDropdownTriggerStyle.picker)
+                            // The picker's indicator slot is 16px wide.
+                            RaftPickerIndicator(glyph: widget.trailingGlyph!)
+                          else
+                            RaftIcon(widget.trailingGlyph!, size: 12),
                         ],
                       ],
                     ),

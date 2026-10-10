@@ -17009,6 +17009,1866 @@
     "layoutDp": 1,
     "ignoreAntialiasing": true
    }
+  },
+  {
+   "id": "components.search-overlay.home.brutal",
+   "title": "Search overlay home: empty query, recent conversations (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "home",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "recents": "default"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'home'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Empty query: \"Recent conversations\" rows (visit history padded from channel activity), first row selected with the return key cap. No filter row."
+  },
+  {
+   "id": "components.search-overlay.home.elegant",
+   "title": "Search overlay home: empty query, recent conversations (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "home",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "recents": "default"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'home'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Empty query: \"Recent conversations\" rows (visit history padded from channel activity), first row selected with the return key cap. No filter row."
+  },
+  {
+   "id": "components.search-overlay.home.elegant-dark",
+   "title": "Search overlay home: empty query, recent conversations (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "home",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "recents": "default"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'home'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Empty query: \"Recent conversations\" rows (visit history padded from channel activity), first row selected with the return key cap. No filter row."
+  },
+  {
+   "id": "components.search-overlay.home-empty.brutal",
+   "title": "Search overlay home: empty query, no recents (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "home-empty",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "recents": "empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'home-empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "No visit history and no channel activity: centered \"Search everything\" empty state."
+  },
+  {
+   "id": "components.search-overlay.home-empty.elegant",
+   "title": "Search overlay home: empty query, no recents (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "home-empty",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "recents": "empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'home-empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "No visit history and no channel activity: centered \"Search everything\" empty state."
+  },
+  {
+   "id": "components.search-overlay.home-empty.elegant-dark",
+   "title": "Search overlay home: empty query, no recents (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "home-empty",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "recents": "empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'home-empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "No visit history and no channel activity: centered \"Search everything\" empty state."
+  },
+  {
+   "id": "components.search-overlay.query.brutal",
+   "title": "Search overlay query: server entities + messages (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "android"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). \"android\" matches a channel and an agent (Server entities) and has 7 message hits (overlay caps at 5). Rows: Search for, Server entities, Messages."
+  },
+  {
+   "id": "components.search-overlay.query.elegant",
+   "title": "Search overlay query: server entities + messages (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "android"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). \"android\" matches a channel and an agent (Server entities) and has 7 message hits (overlay caps at 5). Rows: Search for, Server entities, Messages."
+  },
+  {
+   "id": "components.search-overlay.query.elegant-dark",
+   "title": "Search overlay query: server entities + messages (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "android"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). \"android\" matches a channel and an agent (Server entities) and has 7 message hits (overlay caps at 5). Rows: Search for, Server entities, Messages."
+  },
+  {
+   "id": "components.search-overlay.query-exact.brutal",
+   "title": "Search overlay query: exact destination row (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-exact",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "design"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "design"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-exact'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). \"design\" is exactly the channel #design: it is hoisted above the \"Search for\" row."
+  },
+  {
+   "id": "components.search-overlay.query-exact.elegant",
+   "title": "Search overlay query: exact destination row (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-exact",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "design"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "design"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-exact'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). \"design\" is exactly the channel #design: it is hoisted above the \"Search for\" row."
+  },
+  {
+   "id": "components.search-overlay.query-exact.elegant-dark",
+   "title": "Search overlay query: exact destination row (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-exact",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "design"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "design"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-exact'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). \"design\" is exactly the channel #design: it is hoisted above the \"Search for\" row."
+  },
+  {
+   "id": "components.search-overlay.query-selected.brutal",
+   "title": "Search overlay query: second row selected (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-selected",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "android"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     },
+     {
+      "type": "press",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "key": "ArrowDown"
+     },
+     {
+      "type": "wait",
+      "ms": 150
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     },
+     {
+      "type": "key",
+      "key": "arrowDown"
+     },
+     {
+      "type": "wait",
+      "ms": 150
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-selected'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). Then ArrowDown once: the first Server entities row becomes the selected row (the \"Search for\" row was selected by default)."
+  },
+  {
+   "id": "components.search-overlay.query-selected.elegant",
+   "title": "Search overlay query: second row selected (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-selected",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "android"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     },
+     {
+      "type": "press",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "key": "ArrowDown"
+     },
+     {
+      "type": "wait",
+      "ms": 150
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     },
+     {
+      "type": "key",
+      "key": "arrowDown"
+     },
+     {
+      "type": "wait",
+      "ms": 150
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-selected'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). Then ArrowDown once: the first Server entities row becomes the selected row (the \"Search for\" row was selected by default)."
+  },
+  {
+   "id": "components.search-overlay.query-selected.elegant-dark",
+   "title": "Search overlay query: second row selected (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-selected",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "android"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     },
+     {
+      "type": "press",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "key": "ArrowDown"
+     },
+     {
+      "type": "wait",
+      "ms": 150
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     },
+     {
+      "type": "key",
+      "key": "arrowDown"
+     },
+     {
+      "type": "wait",
+      "ms": 150
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-selected'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). Then ArrowDown once: the first Server entities row becomes the selected row (the \"Search for\" row was selected by default)."
+  },
+  {
+   "id": "components.search-overlay.query-no-results.brutal",
+   "title": "Search overlay query: no results (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-no-results",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "xyzzy"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "xyzzy"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "xyzzy"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-no-results'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). Nothing matches locally and /messages/search answers an empty list: \"Search for\" row + no-results state."
+  },
+  {
+   "id": "components.search-overlay.query-no-results.elegant",
+   "title": "Search overlay query: no results (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-no-results",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "xyzzy"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "xyzzy"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "xyzzy"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-no-results'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). Nothing matches locally and /messages/search answers an empty list: \"Search for\" row + no-results state."
+  },
+  {
+   "id": "components.search-overlay.query-no-results.elegant-dark",
+   "title": "Search overlay query: no results (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-no-results",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "xyzzy"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "xyzzy"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "xyzzy"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-no-results'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). Nothing matches locally and /messages/search answers an empty list: \"Search for\" row + no-results state."
+  },
+  {
+   "id": "components.search-overlay.query-loading.brutal",
+   "title": "Search overlay query: searching skeleton (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-loading",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "zq roadmap",
+      "searchMode": "pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). No local entity matches and /messages/search never answers (searchMode=pending): Messages heading + 5 skeleton cards."
+  },
+  {
+   "id": "components.search-overlay.query-loading.elegant",
+   "title": "Search overlay query: searching skeleton (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-loading",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "zq roadmap",
+      "searchMode": "pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). No local entity matches and /messages/search never answers (searchMode=pending): Messages heading + 5 skeleton cards."
+  },
+  {
+   "id": "components.search-overlay.query-loading.elegant-dark",
+   "title": "Search overlay query: searching skeleton (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-loading",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "zq roadmap",
+      "searchMode": "pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). No local entity matches and /messages/search never answers (searchMode=pending): Messages heading + 5 skeleton cards."
+  },
+  {
+   "id": "components.search-overlay.query-error.brutal",
+   "title": "Search overlay query: search failed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-error",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "zq roadmap",
+      "searchMode": "error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). /messages/search answers HTTP 500 (searchMode=error) and nothing matches locally: error card with Retry."
+  },
+  {
+   "id": "components.search-overlay.query-error.elegant",
+   "title": "Search overlay query: search failed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-error",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "zq roadmap",
+      "searchMode": "error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). /messages/search answers HTTP 500 (searchMode=error) and nothing matches locally: error card with Retry."
+  },
+  {
+   "id": "components.search-overlay.query-error.elegant-dark",
+   "title": "Search overlay query: search failed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-error",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "zq roadmap",
+      "searchMode": "error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "zq roadmap"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). /messages/search answers HTTP 500 (searchMode=error) and nothing matches locally: error card with Retry."
+  },
+  {
+   "id": "components.search-overlay.query-thread-group.brutal",
+   "title": "Search overlay query: thread reply group (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-thread-group",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "parity"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "parity"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "parity"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-thread-group'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). No local entity matches; /messages/search returns a 2-reply thread group, channel, DM and channel hits (6 total, capped at 5)."
+  },
+  {
+   "id": "components.search-overlay.query-thread-group.elegant",
+   "title": "Search overlay query: thread reply group (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-thread-group",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "parity"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "parity"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "parity"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-thread-group'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). No local entity matches; /messages/search returns a 2-reply thread group, channel, DM and channel hits (6 total, capped at 5)."
+  },
+  {
+   "id": "components.search-overlay.query-thread-group.elegant-dark",
+   "title": "Search overlay query: thread reply group (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "query-thread-group",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "parity"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "parity"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "parity"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'query-thread-group'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). No local entity matches; /messages/search returns a 2-reply thread group, channel, DM and channel hits (6 total, capped at 5)."
+  },
+  {
+   "id": "components.search-overlay.filters-sender.brutal",
+   "title": "Search overlay filters: From a person (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "filters-sender",
+      "extKind": "search-overlay",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "query": "android",
+      "senderId": "visual-human-jiacheng"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'filters-sender'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
+  },
+  {
+   "id": "components.search-overlay.filters-sender.elegant",
+   "title": "Search overlay filters: From a person (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "filters-sender",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "query": "android",
+      "senderId": "visual-human-jiacheng"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'filters-sender'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
+  },
+  {
+   "id": "components.search-overlay.filters-sender.elegant-dark",
+   "title": "Search overlay filters: From a person (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "search-overlay",
+   "category": "extension/search-overlay",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "filters-sender",
+      "extKind": "search-overlay",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "query": "android",
+      "senderId": "visual-human-jiacheng"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"desktop-search-overlay\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "search-overlay-card",
+    "interactions": [
+     {
+      "type": "fill",
+      "target": "[data-testid=\"desktop-search-overlay\"] input",
+      "value": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "enterText",
+      "key": "quick-switcher-input",
+      "text": "android"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/search/SearchOverlay.tsx + MessageSearchPage.tsx (overlayChrome)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_search_overlay.dart 'filters-sender'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
   }
  ]
 }

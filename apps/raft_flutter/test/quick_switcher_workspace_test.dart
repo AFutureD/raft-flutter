@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/data/recent_conversations.dart';
+import 'package:raft_flutter/data/search_memory.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/quick_switcher.dart';
 import 'package:raft_flutter/features/resource_view.dart';
@@ -23,6 +24,8 @@ class _Client extends RaftClient {
   }
   final stream = StreamController<RaftEvent>.broadcast(sync: true);
   final calls = <String>[];
+  final searchQueries = <Map<String, dynamic>>[];
+  bool failSearch = false;
   final channelRows = [
     RaftChannel({
       'id': 'c-general',
@@ -100,6 +103,10 @@ class _Client extends RaftClient {
     if (path == '/agents') return agents;
     if (path.endsWith('/machines')) return {'machines': []};
     if (path == '/messages/search') {
+      searchQueries.add(Map<String, dynamic>.from(query ?? const {}));
+      if (failSearch) {
+        throw const RaftApiException('Search failed', status: 500);
+      }
       return {
         'results': [
           {
@@ -287,7 +294,12 @@ void main() {
         'c-ops',
         'c-general',
       ]);
+      // Cmd/Ctrl+K restores the saved query; the rail starts fresh.
       await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+      await t.pump();
+      expect(find.byKey(const Key('quick-switcher-recent')), findsNothing);
+      await key(t, LogicalKeyboardKey.escape);
+      await t.tap(find.byKey(const ValueKey('rail-search')));
       await t.pump();
       // The conversation behind the overlay is never listed.
       expect(
@@ -442,6 +454,246 @@ void main() {
       expect(w.section, 'chat');
     },
   );
+
+  group('rail Search opens the desktop overlay', () {
+    final scope = SearchMemoryScope(
+      'https://public-fixture.invalid',
+      's',
+      'alice',
+    );
+    SearchStateSnapshot saved() => SearchMemoryStore().loadSync(scope).state;
+    Future<void> railSearch(WidgetTester t) async {
+      await t.tap(find.byKey(const ValueKey('rail-search')));
+      await t.pump();
+    }
+
+    Future<void> type(WidgetTester t, String text) async {
+      await t.enterText(find.byType(TextField).last, text);
+      await t.pump();
+    }
+
+    testWidgets(
+      '[N27] the rail Search button floats the switcher with a focused field, not the Search page',
+      (t) async {
+        final (client, w) = await mount(t);
+        final calls = client.calls.length;
+        await railSearch(t);
+        expect(find.byType(QuickSwitcher), findsOneWidget);
+        expect(find.byType(ResourceView), findsNothing);
+        expect(find.byKey(const Key('quick-switcher-recent')), findsOneWidget);
+        expect(w.section, 'chat');
+        expect(w.channel!.id, 'c-general');
+        expect(client.calls.length, calls);
+        // The field owns the keyboard from the first frame.
+        final editable = t.state<EditableTextState>(
+          find.descendant(
+            of: find.byType(QuickSwitcher),
+            matching: find.byType(EditableText),
+          ),
+        );
+        expect(editable.widget.focusNode.hasPrimaryFocus, isTrue);
+        // Escape dismisses; the page and its rail are untouched.
+        await key(t, LogicalKeyboardKey.escape);
+        expect(find.byType(QuickSwitcher), findsNothing);
+        expect(w.channel!.id, 'c-general');
+        expect(find.byKey(const ValueKey('rail-search')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      '[N27] a second click on the rail while open does not stack another switcher; the backdrop click closes it',
+      (t) async {
+        await mount(t);
+        await railSearch(t);
+        await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+        await t.pump();
+        expect(find.byType(QuickSwitcher), findsOneWidget);
+        // The rail sits under the transparent backdrop: a click there is a
+        // click outside the card.
+        await t.tap(
+          find.byKey(const ValueKey('rail-search')),
+          warnIfMissed: false,
+        );
+        await t.pumpAndSettle();
+        expect(find.byType(QuickSwitcher), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '[N27] Cmd/Ctrl+K restores the last query selected; the rail always starts empty and resets the saved state',
+      (t) async {
+        await mount(t);
+        await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+        await t.pump();
+        await type(t, 'ops');
+        expect(saved().query, 'ops');
+        await key(t, LogicalKeyboardKey.escape);
+        // Same overlay, restored: query back, fully selected.
+        await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+        await t.pump();
+        final field = t.widget<TextField>(find.byType(TextField).last);
+        expect(field.controller!.text, 'ops');
+        expect(
+          field.controller!.selection,
+          const TextSelection(baseOffset: 0, extentOffset: 3),
+        );
+        await key(t, LogicalKeyboardKey.escape);
+        // The rail entry does not restore, and replaces the saved state.
+        await railSearch(t);
+        expect(
+          t.widget<TextField>(find.byType(TextField).last).controller!.text,
+          isEmpty,
+        );
+        expect(find.byKey(const Key('quick-switcher-recent')), findsOneWidget);
+        expect(saved().query, isEmpty);
+        await key(t, LogicalKeyboardKey.escape);
+        await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+        await t.pump();
+        expect(
+          t.widget<TextField>(find.byType(TextField).last).controller!.text,
+          isEmpty,
+        );
+      },
+    );
+
+    testWidgets(
+      '[N27] filters appear with a query, narrow the preview request, persist, and travel to the full page',
+      (t) async {
+        final (client, w) = await mount(t);
+        await railSearch(t);
+        expect(find.byKey(const Key('quick-switcher-filters')), findsNothing);
+        await type(t, 'quarterly');
+        expect(find.byKey(const Key('quick-switcher-filters')), findsOneWidget);
+        expect(find.text('Clear All'), findsNothing);
+        // Pick "Last 7 Days" in the Time menu.
+        await t.tap(find.text('Any Time'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('Last 7 Days'));
+        await t.pumpAndSettle();
+        expect(saved().range, '7d');
+        expect(find.text('Clear All'), findsOneWidget);
+        await t.pump(const Duration(milliseconds: 300));
+        await t.pump();
+        // The preview request carries the filter and the query.
+        expect(client.searchQueries.last['q'], 'quarterly');
+        expect(client.searchQueries.last['after'], isNotNull);
+        // "Search for" opens the page with the same query and filter.
+        await key(t, LogicalKeyboardKey.enter);
+        await t.pumpAndSettle();
+        expect(w.section, 'search');
+        expect(find.byType(ResourceView), findsOneWidget);
+        expect(find.text('Last 7 Days'), findsOneWidget);
+        expect(w.location.query('q'), 'quarterly');
+      },
+    );
+
+    testWidgets(
+      '[N27] Escape closes the open filter menu first, then the switcher',
+      (t) async {
+        await mount(t);
+        await railSearch(t);
+        await type(t, 'quarterly');
+        await t.tap(find.text('Any Time'));
+        await t.pumpAndSettle();
+        expect(find.text('Last 30 Days'), findsOneWidget);
+        await key(t, LogicalKeyboardKey.escape);
+        await t.pumpAndSettle();
+        expect(find.text('Last 30 Days'), findsNothing);
+        expect(find.byType(QuickSwitcher), findsOneWidget);
+        await key(t, LogicalKeyboardKey.escape);
+        expect(find.byType(QuickSwitcher), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '[N27] the cursor starts on the first row, follows the arrows, and Return opens that row',
+      (t) async {
+        final (_, w) = await mount(t);
+        await railSearch(t);
+        await key(t, LogicalKeyboardKey.arrowDown);
+        await key(t, LogicalKeyboardKey.arrowDown); // stops at the last row
+        await key(t, LogicalKeyboardKey.arrowUp);
+        await key(t, LogicalKeyboardKey.arrowDown);
+        await key(t, LogicalKeyboardKey.enter);
+        await t.pumpAndSettle();
+        expect(find.byType(QuickSwitcher), findsNothing);
+        // Recent rows: design, ops (general is the current page).
+        expect(w.channel!.id, 'c-ops');
+      },
+    );
+
+    testWidgets(
+      '[N27] a failed preview request shows the error card with Retry; Retry asks again',
+      (t) async {
+        final (client, _) = await mount(t);
+        client.failSearch = true;
+        await railSearch(t);
+        await type(t, 'zq roadmap');
+        await t.pump(const Duration(milliseconds: 300));
+        await t.pump();
+        expect(find.byKey(const Key('quick-switcher-error')), findsOneWidget);
+        client.failSearch = false;
+        await t.tap(find.text('Retry'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 300));
+        await t.pump();
+        expect(find.byKey(const Key('quick-switcher-error')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '[N27] reopening with the same request shows the last answer in the first frame',
+      (t) async {
+        final (client, _) = await mount(t);
+        await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+        await t.pump();
+        await type(t, 'quarterly');
+        await t.pump(const Duration(milliseconds: 300));
+        await t.pump();
+        expect(
+          find.textContaining('quarterly plan', findRichText: true),
+          findsOneWidget,
+        );
+        await key(t, LogicalKeyboardKey.escape);
+        final requests = client.searchQueries.length;
+        await chord(t, LogicalKeyboardKey.controlLeft, LogicalKeyboardKey.keyK);
+        await t.pump();
+        expect(
+          find.textContaining('quarterly plan', findRichText: true),
+          findsOneWidget,
+        );
+        await t.pump(const Duration(milliseconds: 300));
+        expect(client.searchQueries.length, requests);
+      },
+    );
+
+    testWidgets(
+      '[N27] "Search this channel" opens the overlay with that channel as the filter and waits for a query',
+      (t) async {
+        final (client, w) = await mount(t);
+        await t.tap(find.byTooltip('Search this channel'));
+        await t.pump();
+        expect(find.byType(QuickSwitcher), findsOneWidget);
+        expect(find.byKey(const Key('quick-switcher-recent')), findsOneWidget);
+        expect(client.searchQueries, isEmpty);
+        await type(t, 'quarterly');
+        await t.pump(const Duration(milliseconds: 300));
+        await t.pump();
+        expect(find.text('#general'), findsOneWidget);
+        expect(client.searchQueries.last['channelId'], 'c-general');
+        expect(w.section, 'chat');
+      },
+    );
+
+    testWidgets(
+      '[N27] a narrow window keeps the rail Search on the full page',
+      (t) async {
+        final (_, w) = await mount(t, size: const Size(390, 844));
+        expect(find.byKey(const ValueKey('rail-search')), findsNothing);
+        expect(w.section, 'chat');
+      },
+    );
+  });
 }
 
 Future<void> key(WidgetTester t, LogicalKeyboardKey k) async {

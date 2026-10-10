@@ -2,6 +2,7 @@
 """raft-flutter parity EXTENSION suite on the official visual-testing framework.
 
   tool/parity-ext/run run [--cases <id|glob>[,...]] [--refresh-react] [--shards N] [--skip-flutter]
+  tool/parity-ext/run dom-dump [--cases <id|glob>[,...]] [--out DIR]   # diagnostic, writes no PNGs
   tool/parity-ext/run summary
   tool/parity-ext/run publish [--no-verify]
 
@@ -14,8 +15,9 @@ untouched. Differences from tool/parity, all generated, never edits to the
 Source checkout:
   * render host: tool/parity-ext-web.mjs (official host + appended
     tool/parity-ext/host/*.tsx + parityTheme root override);
-  * provider spec: answers tool/parity-ext/fixtures/*.json `routes`, supports a
-    `hover` interaction, and parks the pointer after click interactions
+  * provider spec: answers tool/parity-ext/fixtures/*.json `routes` (and the
+    search overlay's /messages/search `search` rules), supports `hover` and
+    `press` {target, key} interactions, and parks the pointer after click interactions
     (Flutter taps leave no hover);
   * deviceScaleFactor follows each case's viewport.density (desktop cases 1);
   * output build/parity-ext/ (PARITY_EXT_OUT); publish to
@@ -81,6 +83,8 @@ SPEC_EXT_PATCHES = [
     ('    } else if (interaction.type === "fill" && interaction.target) {',
      '    } else if ((interaction.type as string) === "hover" && interaction.target) {\n'
      '      await page.locator(interaction.target).first().hover();\n'
+     '    } else if ((interaction.type as string) === "press" && interaction.target) {\n'
+     '      await page.locator(interaction.target).first().press(String((interaction as any).key));\n'
      '    } else if (interaction.type === "fill" && interaction.target) {'),
     ('    await applyInteractions(page, visualCase);',
      '    await applyInteractions(page, visualCase);\n'
@@ -90,6 +94,15 @@ SPEC_EXT_PATCHES = [
      '    if (!parityExtSteps.some((s) => (s.type as string) === "hover")) {\n'
      '      await page.mouse.move(viewport.width - 1, viewport.height - 1);\n'
      '    }'),
+    # Diagnostic: PARITY_EXT_DOM_DUMP=<dir> writes the DOM geometry/style of the
+    # capture target to <dir>/<caseId>.json and ends the test before any PNG or
+    # metadata is written, so normal captures are unaffected.
+    ('    await parityPrepareRepairedNotification(page, visualCase.id);\n',
+     '    await parityPrepareRepairedNotification(page, visualCase.id);\n'
+     '    if (process.env.PARITY_EXT_DOM_DUMP) {\n'
+     '      await parityExtDomDump(page, selector, visualCase.id, process.env.PARITY_EXT_DOM_DUMP);\n'
+     '      return;\n'
+     '    }\n'),
 ]
 SPEC_EXT_APPENDIX = r'''
 
@@ -131,6 +144,23 @@ async function parityExtRoutes(page: Page, visualCase: VisualCase) {
     // props.routeSet selects per-case overrides from `routeSets`:
     // {"$pending": true} never answers (loading), {"$status": N} answers N.
     const routes = { ...(fixture.routes || {}), ...((fixture.routeSets || {})[props.routeSet] || {}) };
+    // Search overlay: GET /messages/search answered from fixture.search by the
+    // request's q (+ senderId); case prop searchMode "pending" never answers
+    // (skeleton), "error" answers HTTP 500.
+    if (fixture.search && props.extKind === "search-overlay") {
+      await page.route((url: URL) => url.pathname === "/api/messages/search", (route: any) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        if (props.searchMode === "pending") return;
+        if (props.searchMode === "error") {
+          return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Internal Server Error" }) });
+        }
+        const params = new URL(route.request().url()).searchParams;
+        const q = (params.get("q") || "").trim().toLowerCase();
+        const senderId = params.get("senderId") || "";
+        const rule = fixture.search.responses.find((r: any) => r.q === q && (r.senderId || "") === senderId);
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(rule ? rule.body : fixture.search.fallback) });
+      });
+    }
     for (const [key, body] of Object.entries(routes)) {
       const [method, path] = key.split(" ");
       const special = (body || {}) as { $pending?: boolean; $status?: number };
@@ -146,6 +176,54 @@ async function parityExtRoutes(page: Page, visualCase: VisualCase) {
     }
   }
 }
+
+// Diagnostic (PARITY_EXT_DOM_DUMP): depth-first dump of every element under the
+// capture target with its rect relative to the target's top-left and the
+// computed style that drives layout/paint. SVG internals are not descended.
+async function parityExtDomDump(page: Page, selector: string, caseId: string, dir: string) {
+  const dump = await page.locator(selector).first().evaluate((root: Element) => {
+    const r0 = root.getBoundingClientRect();
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const nodes: any[] = [];
+    const visit = (el: Element, depth: number) => {
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      const own = Array.from(el.childNodes).filter((n) => n.nodeType === 3)
+        .map((n) => (n.textContent || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
+      nodes.push({
+        depth,
+        tag: el.tagName.toLowerCase(),
+        testid: el.getAttribute("data-testid") || undefined,
+        slot: el.getAttribute("data-slot") || undefined,
+        cls: (typeof (el as any).className === "string" ? (el as any).className : el.getAttribute("class") || "").slice(0, 200),
+        text: own ? own.slice(0, 60) : undefined,
+        rect: { x: r2(r.x - r0.x), y: r2(r.y - r0.y), w: r2(r.width), h: r2(r.height) },
+        style: {
+          display: cs.display, position: cs.position, flexDirection: cs.flexDirection,
+          alignItems: cs.alignItems, justifyContent: cs.justifyContent, whiteSpace: cs.whiteSpace,
+          textOverflow: cs.textOverflow, overflow: cs.overflow, textAlign: cs.textAlign,
+          fontFamily: cs.fontFamily.split(",")[0].trim(), fontSize: cs.fontSize, lineHeight: cs.lineHeight,
+          fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing, textTransform: cs.textTransform,
+          color: cs.color, backgroundColor: cs.backgroundColor,
+          borderTopWidth: cs.borderTopWidth, borderBottomWidth: cs.borderBottomWidth,
+          borderLeftWidth: cs.borderLeftWidth, borderRightWidth: cs.borderRightWidth,
+          borderColor: cs.borderTopColor === cs.borderBottomColor ? cs.borderTopColor : `${cs.borderTopColor} / ${cs.borderBottomColor}`,
+          boxShadow: cs.boxShadow.slice(0, 120),
+          paddingTop: cs.paddingTop, paddingRight: cs.paddingRight, paddingBottom: cs.paddingBottom, paddingLeft: cs.paddingLeft,
+          marginTop: cs.marginTop, marginBottom: cs.marginBottom,
+          gap: cs.gap, borderRadius: cs.borderRadius, opacity: cs.opacity,
+        },
+      });
+      if (el.tagName.toLowerCase() === "svg") return;
+      for (const child of Array.from(el.children)) visit(child, depth + 1);
+    };
+    visit(root, 0);
+    return { card: { x: r2(r0.x), y: r2(r0.y), w: r2(r0.width), h: r2(r0.height) }, nodes };
+  });
+  const { mkdirSync: mk, writeFileSync: wf } = await import("node:fs");
+  mk(dir, { recursive: true });
+  wf(resolve(dir, `${caseId}.json`), JSON.stringify({ caseId, selector, viewport: page.viewportSize(), ...dump }, null, 1));
+}
 '''
 CONFIG_EXT_PATCHES = [
     ('    deviceScaleFactor: 3,', '    deviceScaleFactor: Number(process.env.PARITY_EXT_DSF || 3),'),
@@ -155,9 +233,9 @@ CONFIG_EXT_PATCHES = [
 ]
 
 
-def react_capture(cases, refresh):
+def react_capture(cases, refresh, dom_dump=None):
     react_dir = parity.RESULTS / 'react'
-    need = [c for c in cases if refresh or not (react_dir / f"{c['id']}.png").is_file()]
+    need = [c for c in cases if refresh or dom_dump or not (react_dir / f"{c['id']}.png").is_file()]
     if not need:
         print(f'react: cached captures for all {len(cases)} selected cases ({react_dir})')
         return
@@ -172,7 +250,7 @@ def react_capture(cases, refresh):
     for old, new in CONFIG_EXT_PATCHES:
         conf = parity.patch_exactly_once(conf, old, new, 'playwright.visual-testing.config.ts (extension)')
     config.write_text(conf)
-    log = OUT / 'react-capture.log'
+    log = OUT / ('react-dom-dump.log' if dom_dump else 'react-capture.log')
     log.write_text('')
     densities = sorted({(c.get('viewport') or {}).get('density', 1) for c in need})
     failed = 0
@@ -194,12 +272,20 @@ def react_capture(cases, refresh):
             'PARITY_EXT_HOST_OUT': str(OUT / 'host'),
             'PARITY_RAFT_SOURCE': str(parity.RAFT_SOURCE),
         })
+        if dom_dump:
+            env['PARITY_EXT_DOM_DUMP'] = str(dom_dump)
+        else:
+            env.pop('PARITY_EXT_DOM_DUMP', None)
         cmd = ['pnpm', 'exec', 'playwright', 'test', '--config', str(config), '--reporter=line']
         print('+', ' '.join(cmd), f'({len(ids)} case(s) at {density}x)', flush=True)
         with open(log, 'a') as sink:
             r = subprocess.run(cmd, cwd=parity.RAFT_SOURCE / 'packages/web', env=env,
                                stdout=sink, stderr=subprocess.STDOUT)
         failed += r.returncode != 0
+    if dom_dump:
+        count = len(list(pathlib.Path(dom_dump).glob('*.json')))
+        print(f'dom dump: {count} file(s) in {dom_dump}' + (f'; some runs failed, see {log}' if failed else ''))
+        return
     (OUT / 'react-source.json').write_text(json.dumps({
         'fonts': 'production', 'textRender': TEXT_RENDER, 'raftSource': str(parity.RAFT_SOURCE),
         'commit': parity.git(parity.RAFT_SOURCE, 'rev-parse', 'HEAD'),
@@ -256,6 +342,14 @@ def cmd_run(a):
     shutil.copy(OUT / 'summary.md', parity.SITE / 'flutter-parity-summary.md')
     t = summary['totals']
     print(f"extension {parity.PAIR}: {t['passing']}/{t['total']} passing = {t['percentage']}%")
+
+
+def cmd_dom_dump(a):
+    OUT.mkdir(parents=True, exist_ok=True)
+    chosen = parity.select(ext_cases(), a.cases)
+    if not chosen:
+        sys.exit(f'no extension cases match {a.cases!r}')
+    react_capture(chosen, False, dom_dump=pathlib.Path(a.out).resolve())
 
 
 def cmd_publish(a):
@@ -315,6 +409,10 @@ def main():
     r.add_argument('--shards', type=int, default=int(os.environ.get('PARITY_SHARDS', '4')))
     r.add_argument('--skip-flutter', action='store_true')
     r.set_defaults(fn=cmd_run)
+    d = sub.add_parser('dom-dump', help='diagnostic: dump the Web DOM geometry/style of the capture target per case')
+    d.add_argument('--cases', default='components.search-overlay.*', help='ids or globs (default: search overlay)')
+    d.add_argument('--out', default=str(OUT / 'react-dom'))
+    d.set_defaults(fn=cmd_dom_dump)
     s = sub.add_parser('summary')
     s.set_defaults(fn=lambda a: summarize())
     pub = sub.add_parser('publish')

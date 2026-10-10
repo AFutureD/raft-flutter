@@ -73,6 +73,14 @@ extension RaftSlotPaint on RaftSlotStyle {
     return RaftSlotStyle(used, targets, classes, tokens);
   }
 
+  /// This style without its top border (`first:border-t-0`).
+  RaftSlotStyle withoutTopBorder() => RaftSlotStyle(
+    {...properties, 'border-top-width': const CssNum(0, 'px')},
+    targets,
+    classes,
+    tokens,
+  );
+
   /// Resolved `color` (falls back to [inherited]).
   Color? foreground(RaftTokenResolver tokens, {Color? inherited}) =>
       color?.resolve(tokens, currentColor: inherited) ?? inherited;
