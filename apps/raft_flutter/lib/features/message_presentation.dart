@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../data/source_time_formatter.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -522,6 +523,22 @@ class MessagePresentation extends StatelessWidget {
     }
   }
 
+  String Function(DateTime) forwardedTimestamp(BuildContext context) {
+    final user = controller.client.user;
+    final formatter = SourceTimeFormatter(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+      preferredTimezone:
+          user?.string('preferredTimezone') ?? user?.string('timezone'),
+      preferredTimeFormat: sourceTimeFormatPreference(
+        user?.string('preferredTimeFormat') ?? user?.string('timeFormat'),
+      ),
+      systemTimeFormat: MediaQuery.alwaysUse24HourFormatOf(context)
+          ? SourceTimeFormat.twentyFourHour
+          : null,
+    );
+    return formatter.shortDateTime;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (message.json['actionMetadata'] is Map &&
@@ -538,6 +555,9 @@ class MessagePresentation extends StatelessWidget {
         key: ValueKey('forwarded-${message.id}'),
         metadata: Map<String, dynamic>.from(message.json['actionMetadata']),
         exportMode: exportMode,
+        // Web ForwardedBundleCard: useTimeFormatter().formatShortDateTime
+        // ("Jun 22, 10:30 AM") in the account's zone and hour cycle.
+        formatTimestamp: forwardedTimestamp(context),
         attachmentBuilder:
             exportAttachmentBuilder ??
             (metadata) => AttachmentView(
