@@ -24,10 +24,8 @@ import 'geometry_dump.dart';
 typedef ParityBuilder = Widget Function(ParityContext ctx);
 
 /// Optional post-pump interaction (tap a trigger, open a menu, type text).
-typedef ParityInteraction = Future<void> Function(
-  WidgetTester t,
-  ParityContext ctx,
-);
+typedef ParityInteraction =
+    Future<void> Function(WidgetTester t, ParityContext ctx);
 
 /// One mapped case: the real widget path the Flutter app uses for the
 /// surface the React render host shows under the same case id.
@@ -445,11 +443,13 @@ Future<Map<String, dynamic>> captureParityCase(
   };
   await t.runAsync(() async {
     await imageFile.writeAsBytes(png!);
-    await File('${outputDir.path}/$id.metadata.json')
-        .writeAsString(const JsonEncoder.withIndent('  ').convert(metadata));
+    await File(
+      '${outputDir.path}/$id.metadata.json',
+    ).writeAsString(const JsonEncoder.withIndent('  ').convert(metadata));
     if (parityGeometryDumpEnabled) {
-      await File('${outputDir.path}/$id.geometry.txt')
-          .writeAsString(parityGeometryDump(rootBox, rect, rootBox));
+      await File(
+        '${outputDir.path}/$id.geometry.txt',
+      ).writeAsString(parityGeometryDump(rootBox, rect, rootBox));
     }
   });
   return metadata;
@@ -485,9 +485,11 @@ Future<void> _androidInteractions(
         // Playwright scrolls a click target into view first (after the
         // page's reads settle, since late rows move it).
         await t.pump(const Duration(milliseconds: 300));
-        await t.ensureVisible(target!.first);
+        // `scroll: false`: the target is already on screen, where Playwright
+        // does not scroll either (ensureVisible would align it to the top).
+        if (raw['scroll'] != false) await t.ensureVisible(target!.first);
         await t.pump();
-        await t.tap(target.first, warnIfMissed: false);
+        await t.tap(target!.first, warnIfMissed: false);
       case 'hover':
         mouse ??= await t.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
@@ -498,7 +500,10 @@ Future<void> _androidInteractions(
         // Types into the field under the keyed widget (a keyed search input).
         await t.enterText(
           find
-              .descendant(of: target!.first, matching: find.byType(EditableText))
+              .descendant(
+                of: target!.first,
+                matching: find.byType(EditableText),
+              )
               .first,
           raw['text'] as String,
         );

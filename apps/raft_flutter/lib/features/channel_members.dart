@@ -15,7 +15,7 @@ import 'create_channel_dialog.dart';
 
 /// Agent activity for the compact-list badge: the row's `activity` when the
 /// payload carries one, else `agentStatusFallbackActivity(status)`.
-RaftAvatarPresence? _presence(Map<String, dynamic> json) {
+RaftAvatarPresence? channelMemberPresence(Map<String, dynamic> json) {
   final activity = json['activity'];
   final value = switch (activity) {
     'online' => RaftAvatarActivity.online,
@@ -91,16 +91,21 @@ class ChannelMembers extends StatefulWidget {
     required this.channel,
     this.page = false,
     this.onClose,
+    this.startInAdd = false,
   });
   final WorkspaceController controller;
   final RaftChannel channel;
   final bool page;
   final VoidCallback? onClose;
 
+  /// The settings drawer's dashed add tile lands directly in the add view.
+  final bool startInAdd;
+
   static Future<void> show(
     BuildContext context, {
     required WorkspaceController controller,
     required RaftChannel channel,
+    bool startInAdd = false,
   }) async {
     if (controller.mobileNavigation) {
       if (!controller.can('viewChannel', resource: channel)) return;
@@ -115,7 +120,11 @@ class ChannelMembers extends StatefulWidget {
     }
     await showRaftModal<void>(
       context,
-      builder: (_) => ChannelMembers(controller: controller, channel: channel),
+      builder: (_) => ChannelMembers(
+        controller: controller,
+        channel: channel,
+        startInAdd: startInAdd,
+      ),
     );
   }
 
@@ -134,7 +143,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
   List<Map<String, dynamic>> humans = [], agents = [];
   List<ChannelMemberCandidate> candidates = [];
   final Map<String, Map<String, dynamic>> agentRows = {};
-  bool loading = true, adding = false, addView = false;
+  bool loading = true, adding = false;
+  late bool addView = widget.startInAdd;
   String? error;
   final selected = <String>{};
   final search = TextEditingController();
@@ -285,7 +295,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
         avatarContext: RaftMountedAvatarContext.compactList,
         origin: origin,
         presence: c.kind == 'agent' && agentRows[c.id] != null
-            ? _presence(agentRows[c.id]!)
+            ? channelMemberPresence(agentRows[c.id]!)
             : null,
       ),
     );

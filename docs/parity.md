@@ -925,6 +925,49 @@ image-preview 98.04).
 Not ported: drag-to-reorder of chips (dnd-kit), the "recoverable uploads" banner
 (needs the direct-upload session API), the billing link of the quota banner (no
 billing page in Flutter), multi-image lightbox navigation from the composer.
+### Channel and DM settings drawer cases (45 states x 3 themes = 135)
+
+`python3 tool/parity-ext/build-channel-settings.py` appends
+`components.channelsettings.<platform>.<state>.<theme>` (run it last, after the
+search overlay builder) and writes `tool/parity-ext/fixtures/channelsettings.json`.
+Derived from Web `ChannelOverflowMenu.tsx` + `ui/OverflowSheet.tsx` (the drawer),
+`EditChannelDialog.tsx` (`presentation="panel"`), `ChannelPreferencesSection.tsx`,
+`ConfirmDialog.tsx` and `ChatPanel.tsx` (which props the drawer gets).
+
+**What the product shows.** Web mounts the settings only as the header gear's
+`OverflowSheet`: identity header (`#name` + visibility badge + one truncated mono
+description line), `MembersStrip`, then the flat panel (Info form with in-section
+Cancel/Save, Guest access, Preferences, an Actions group whose only filled row is
+Delete). The yellow "Channel / Settings / #name" sheet with filled orange action
+buttons is `EditChannelDialog`'s legacy `presentation="sheet"`, which no Web
+surface mounts; Flutter kept it only for the official `components.channel.settings.panel`
+case (`ChannelSettings(isPanel: false)`, unchanged: 97.95 % before and after).
+`ChannelSettings(isPanel: true)` is now the Web drawer (`RaftOverflowSheet`,
+`RaftMembersStrip`, `RaftChannelInfoForm`, `RaftOverflowActions` in `raft_ui`); a DM
+shows the same sheet with only the shared Preferences.
+
+* React mounts the real `ChatPanel` and clicks the gear; Flutter mounts the real
+  `WorkspaceView` and taps the keyed gear. Keys equal the Web `data-testid`s.
+  `capture.androidKey` is the sheet, the ConfirmDialog surface or the unsaved prompt.
+* Elegant drawer: 448 px, `rounded-xl`; brutal 544 px with a 2 px left border; phones
+  390. The header is 62 px in both themes (`--shell-header-height` is set on the
+  AppShell root, the portal falls back). Text is the sans face (portal outside
+  `font-display`): Geist in Elegant.
+* States: owner / admin / member / guest / not-joined / private / archived / #all,
+  newline / no / long description, Guest access, prefs on, dirty draft, members
+  overflow (+N) and loading, agent and human DM, four ConfirmDialogs + Hide #all, the
+  unsaved prompt, and `-full` variants that capture tall drawers (the actions group is
+  below the fold at 800/844).
+* Not covered: the joint-channel sections and the Slack bridge field (neither renders
+  in the fixtures), the members *page* inside the drawer (the strip opens the existing
+  members modal, add tile straight into its add view) and the SOS dialog.
+
+Result (`cindy/channel-settings`, 135 cases): before, the old sheet had no keyed
+drawer, so every capture failed; after, mean exact-pixel similarity 93.3 %
+(brutal 94.5, elegant 93.7, elegant-dark 91.7; DM 96.9-98.6, mobile 94-97). What is
+left is text rasterisation (>16-level differences cover ~3 % of a full drawer, all
+glyphs) plus 1-level colour noise on dark fills and the elegant button sheen, with the
+ConfirmDialog/unsaved cards at 85-90 (card text and 1 px dialog offsets).
 
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 

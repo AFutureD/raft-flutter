@@ -1694,7 +1694,7 @@ void main() {
       }
 
       Future<void> setting(String title) async {
-        final sheet = find.byType(RaftChannelSettingsSheet);
+        final sheet = find.byType(RaftOverflowSheet);
         final scroll = find.descendant(of: sheet, matching: find.byType(Scrollable)).first;
         final toggle = find.byWidgetPredicate((widget) => widget is RaftSwitch && widget.semanticLabel == title);
         final button = find.widgetWithText(RaftRecipeButton, title);
@@ -1751,22 +1751,32 @@ void main() {
         field('Description'),
         'Updated from native UI 中文 日本語',
       );
-      await tester.tap(find.widgetWithText(RaftRecipeButton, 'Save'));
+      await tester.tap(find.byKey(const ValueKey('channel-settings-save-inline')));
+      // The panel's inline Save keeps the drawer open (Web saveChanges).
       await until(
         tester,
-        () =>
-            find.byType(RaftChannelSettingsSheet).evaluate().isEmpty &&
-            w.channel?.description == 'Updated from native UI 中文 日本語',
+        () => w.channel?.description == 'Updated from native UI 中文 日本語',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('channel-overflow-scrim')));
+      await until(
+        tester,
+        () => find.byType(RaftOverflowSheet).evaluate().isEmpty,
       );
       await tester.pumpAndSettle();
       await screenshot(tester, 'linux-channel-settings');
       await openSettings();
       await setting('Archive Channel');
-      await tester.tap(find.widgetWithText(RaftButton, 'Confirm'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RaftConfirmDialog),
+          matching: find.text('Archive'),
+        ),
+      );
       await until(
         tester,
         () =>
-            find.byType(RaftFormDialog).evaluate().isEmpty &&
+            find.byType(RaftConfirmDialog).evaluate().isEmpty &&
             w.channel?.archived == true,
       );
       await tester.pumpAndSettle();
@@ -1783,16 +1793,21 @@ void main() {
       await until(
         tester,
         () =>
-            find.byType(RaftFormDialog).evaluate().isEmpty &&
+            find.byType(RaftConfirmDialog).evaluate().isEmpty &&
             w.channel?.archived == false,
       );
       await tester.pumpAndSettle();
       await setting('Delete Channel');
-      await tester.tap(find.widgetWithText(RaftButton, 'Delete'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RaftConfirmDialog),
+          matching: find.text('Delete'),
+        ),
+      );
       await until(
         tester,
         () =>
-            find.byType(RaftFormDialog).evaluate().isEmpty &&
+            find.byType(RaftConfirmDialog).evaluate().isEmpty &&
             !w.channels.any((c) => c.id == createdId),
       );
       await tester.pumpAndSettle();

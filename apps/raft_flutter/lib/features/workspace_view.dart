@@ -1300,8 +1300,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         threadResizeLabel: tr('Resize thread'),
                         sidebarVisible:
                             gridActive ||
-                            DesktopNavigationPolicy.forSection(route)
-                                .usesConversationSidebar,
+                            DesktopNavigationPolicy.forSection(
+                              route,
+                            ).usesConversationSidebar,
                         sidebar: sidebar(),
                         rail: workspaceRail(),
                         mobileNavigationFloating: !t.brutal,
@@ -1533,8 +1534,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     t,
                     MediaQuery.sizeOf(context).height,
                   ) +
-                  (DesktopNavigationPolicy.forSection(route)
-                          .usesConversationSidebar
+                  (DesktopNavigationPolicy.forSection(
+                        route,
+                      ).usesConversationSidebar
                       ? sidebarWidth
                       : 0)
             : 0,
@@ -3103,10 +3105,13 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       openChannelPage(RaftChannelPage.settings, channel);
       return;
     }
-    await showDialog(
-      context: context,
-      builder: (_) =>
-          ChannelSettings(controller: w, channel: channel, isPanel: true),
+    await ChannelSettings.show(
+      context,
+      controller: w,
+      channel: channel,
+      dmName: channel.type == 'dm'
+          ? dmPeer(channel, requestSize: 36).name
+          : null,
     );
   }
 

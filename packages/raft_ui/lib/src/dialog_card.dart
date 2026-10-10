@@ -450,12 +450,16 @@ class RaftProductFormField extends StatelessWidget {
     this.labelWeight,
     this.hint,
     this.error,
+    this.family,
   });
   final String label;
   final Widget child;
   final bool required, optional, uppercase;
   final FontWeight? labelWeight;
   final String? hint, error;
+
+  /// Label / hint face when the host is not under `font-display` (a portal).
+  final String? family;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -471,7 +475,7 @@ class RaftProductFormField extends StatelessWidget {
     );
     final labelBase = field.label.textStyle(tokens);
     final labelStyle = raftCssTextStyle(
-      family: t.headingFont,
+      family: family ?? t.headingFont,
       step: RaftTextSteps.sm,
       weight: labelWeight ?? labelBase.fontWeight ?? FontWeight.w700,
       color: labelBase.color,
@@ -521,7 +525,10 @@ class RaftProductFormField extends StatelessWidget {
               error ?? hint!,
               style: (error != null ? field.error : field.description)
                   .textStyle(tokens)
-                  .copyWith(leadingDistribution: TextLeadingDistribution.even),
+                  .copyWith(
+                    leadingDistribution: TextLeadingDistribution.even,
+                    fontFamily: family,
+                  ),
             ),
           ),
       ],
@@ -733,7 +740,11 @@ class RaftDialogTextInput extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       autofocus: autofocus,
-      style: t.fieldStyle,
+      // `disabled:` text: elegant foreground-disabled; brutal dims the whole
+      // Textarea (`disabled:opacity-60`, below), not the Input.
+      style: enabled || t.brutal
+          ? t.fieldStyle
+          : t.fieldStyle.copyWith(color: t.colors['foreground-disabled']),
       minLines: multiline ? null : 1,
       maxLines: multiline ? null : 1,
       expands: multiline,
@@ -766,7 +777,10 @@ class RaftDialogTextInput extends StatelessWidget {
         ],
       );
     }
-    return RaftFieldSurface(child: field);
+    final surface = RaftFieldSurface(child: field);
+    return !enabled && t.brutal && multiline
+        ? Opacity(opacity: .6, child: surface)
+        : surface;
   }
 }
 
