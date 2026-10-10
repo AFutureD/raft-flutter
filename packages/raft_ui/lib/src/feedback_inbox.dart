@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'banner.dart';
 import 'components.dart' show RaftButton;
 import 'design_primitives.dart' show RaftControlVariant;
+import 'feedback_workspace.dart'
+    show RaftFeedbackCloseReason, RaftFeedbackCloseSplit;
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
@@ -42,8 +44,12 @@ class RaftFeedbackTicketRow {
     required this.status,
     this.unreadLabel,
     this.unreadSemantics,
+    this.closeReason,
   });
   final String id, title, date;
+
+  /// The Close ticket split's default reason; null once closed (no split).
+  final RaftFeedbackCloseReason? closeReason;
 
   /// Accessible unread label (`{count} unread`).
   final String? unreadSemantics;
@@ -57,6 +63,16 @@ class RaftFeedbackTicketRow {
   /// Unread count badge (`99+` capped), null when read.
   final String? unreadLabel;
 }
+
+/// Text in the hands-feedback root face (`system-ui`); [line] defaults to
+/// the inherited CSS `line-height: 1.5`.
+TextStyle raftFeedbackText(
+  RaftTokens t, {
+  required double size,
+  double? line,
+  FontWeight weight = FontWeight.w400,
+  Color? color,
+}) => _system(t, size: size, line: line, weight: weight, color: color);
 
 TextStyle _system(
   RaftTokens t, {
@@ -73,6 +89,15 @@ TextStyle _system(
   color: color ?? t.colors['foreground'] ?? t.strong,
   leadingDistribution: TextLeadingDistribution.even,
 );
+
+/// `.hands-feedback-middle { scrollbar-gutter: stable }`: Chromium reserves
+/// its classic 15px scrollbar track on Linux and Windows (overlay
+/// scrollbars elsewhere reserve nothing).
+double raftFeedbackScrollGutter(BuildContext context) =>
+    switch (Theme.of(context).platform) {
+      TargetPlatform.linux || TargetPlatform.windows => 15,
+      _ => 0,
+    };
 
 /// The CSS line box, not Flutter's ceiled paragraph height.
 Widget _line(TextStyle style, Widget child) =>
@@ -96,7 +121,13 @@ class RaftFeedbackInbox extends StatelessWidget {
     this.onOpen,
     this.onLoadMore,
     this.headerAction,
+    this.onClose,
+    this.closeDisabled = false,
   });
+
+  /// A row's Close ticket split chose a reason (opens the confirmation).
+  final void Function(String id, RaftFeedbackCloseReason reason)? onClose;
+  final bool closeDisabled;
 
   /// Tickets visible under [filter].
   final List<RaftFeedbackTicketRow> tickets;
@@ -152,12 +183,22 @@ class RaftFeedbackInbox extends StatelessWidget {
                         child: showEmpty
                             ? Padding(
                                 // `[data-feedback-empty-scroll]`: 6px 2px 0.
-                                padding: const EdgeInsets.fromLTRB(2, 6, 2, 0),
+                                padding: EdgeInsets.fromLTRB(
+                                  2,
+                                  6,
+                                  2 + raftFeedbackScrollGutter(context),
+                                  0,
+                                ),
                                 child: RaftFeedbackEmptyState(kind: emptyKind),
                               )
                             : ListView(
                                 key: const ValueKey('feedback-inbox'),
-                                padding: const EdgeInsets.all(2),
+                                padding: EdgeInsets.fromLTRB(
+                                  2,
+                                  2,
+                                  2 + raftFeedbackScrollGutter(context),
+                                  2,
+                                ),
                                 children: [
                                   // The zero-height pull-to-refresh row is a
                                   // grid item: its `margin-bottom: -12px`
@@ -199,6 +240,11 @@ class RaftFeedbackInbox extends StatelessWidget {
                                       onOpen: onOpen == null
                                           ? null
                                           : () => onOpen!(ticket.id),
+                                      onClose: onClose == null
+                                          ? null
+                                          : (reason) =>
+                                                onClose!(ticket.id, reason),
+                                      closeDisabled: closeDisabled,
                                     ),
                                   ],
                                   if (onLoadMore != null) ...[
@@ -387,9 +433,17 @@ class _RaftFeedbackFilterTabsState extends State<RaftFeedbackFilterTabs> {
 /// `margin-top: 5px`: kind chip + status badge), and the trailing unread
 /// count (`Badge solid accent`, `min-width: 20px`, `rounded 6px`).
 class RaftFeedbackTicketCard extends StatefulWidget {
-  const RaftFeedbackTicketCard({super.key, required this.ticket, this.onOpen});
+  const RaftFeedbackTicketCard({
+    super.key,
+    required this.ticket,
+    this.onOpen,
+    this.onClose,
+    this.closeDisabled = false,
+  });
   final RaftFeedbackTicketRow ticket;
   final VoidCallback? onOpen;
+  final ValueChanged<RaftFeedbackCloseReason>? onClose;
+  final bool closeDisabled;
 
   @override
   State<RaftFeedbackTicketCard> createState() => _RaftFeedbackTicketCardState();
@@ -458,6 +512,13 @@ class _RaftFeedbackTicketCardState extends State<RaftFeedbackTicketCard> {
                   children: [
                     RaftFeedbackKindChip(problem: ticket.problem),
                     RaftFeedbackStatusBadge(status: ticket.status),
+                    if (ticket.closeReason != null && widget.onClose != null)
+                      RaftFeedbackCloseSplit(
+                        defaultReason: ticket.closeReason!,
+                        disabled: widget.closeDisabled,
+                        keySuffix: '-${ticket.id}',
+                        onChoose: widget.onClose!,
+                      ),
                   ],
                 ),
               ],
@@ -479,12 +540,12 @@ class _RaftFeedbackTicketCardState extends State<RaftFeedbackTicketCard> {
           : SystemMouseCursors.click,
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
-      // `.hands-feedback-ticket-open`: a transparent button over the whole
-      // card, labelled by the first line only; the card's text stays
-      // readable on its own.
+      // `.hands-feedback-ticket-open`: a transparent button under the whole
+      // card (z-index 0), labelled by the first line only; the card content
+      // (z-index 1) opens the ticket too unless a control inside it (the
+      // Close ticket split) took the tap.
       child: Stack(
         children: [
-          card,
           Positioned.fill(
             child: Semantics(
               container: true,
@@ -496,6 +557,12 @@ class _RaftFeedbackTicketCardState extends State<RaftFeedbackTicketCard> {
                 onTap: widget.onOpen,
               ),
             ),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: widget.onOpen,
+            child: card,
           ),
         ],
       ),
@@ -519,6 +586,7 @@ class RaftFeedbackKindChip extends StatelessWidget {
       variant: problem
           ? RaftMessageReferenceRecipeVariant.muted
           : RaftMessageReferenceRecipeVariant.info,
+      states: t.recipeStates(),
       tokens: rt,
     ).root;
     final decoration = s.decoration(rt);

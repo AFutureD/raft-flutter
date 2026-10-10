@@ -34,7 +34,7 @@ void main() {
         );
         String format(DateTime value) =>
             '${DateFormat.yMMMd('en').format(value)}, '
-            '${DateFormat.jm('en').format(value)}';
+            '${DateFormat.jm('en').format(value)}'.replaceAll('\u202f', ' ');
         expect(find.text(format(updated)), findsOneWidget);
         expect(find.text(format(created)), findsNothing);
         expect(find.text('First line 中文'), findsOneWidget);
@@ -83,10 +83,10 @@ void main() {
           find.byKey(const ValueKey('feedback-ticket-${fixture.first}')),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Feedback ticket'), findsOneWidget);
+        expect(find.text('My Feedback'), findsOneWidget);
         expect(find.text('团队回复 中文 日本語'), findsOneWidget);
         expect(counts, [2, 0]);
-        await tester.tap(find.byTooltip('Back'));
+        await tester.tap(find.byKey(const ValueKey('feedback-back')));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('feedback-inbox')), findsOneWidget);
         expect(

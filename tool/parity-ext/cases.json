@@ -9673,6 +9673,2676 @@
    }
   },
   {
+   "id": "components.ext-settings.feedback.new.brutal",
+   "title": "Settings Feedback: New feedback form (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new.elegant",
+   "title": "Settings Feedback: New feedback form (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new.elegant-dark",
+   "title": "Settings Feedback: New feedback form (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-filled.brutal",
+   "title": "Settings Feedback: New feedback form, Bug + message typed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-filled",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "click",
+      "target": ".hands-feedback-kind-item >> nth=1"
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-kind-bug"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-filled'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-filled.elegant",
+   "title": "Settings Feedback: New feedback form, Bug + message typed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-filled",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "click",
+      "target": ".hands-feedback-kind-item >> nth=1"
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-kind-bug"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-filled'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-filled.elegant-dark",
+   "title": "Settings Feedback: New feedback form, Bug + message typed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-filled",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "click",
+      "target": ".hands-feedback-kind-item >> nth=1"
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-kind-bug"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-filled'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-submitting.brutal",
+   "title": "Settings Feedback: New feedback submitting (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-submitting",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-create-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Submit\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-new-submit"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-submitting'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-submitting.elegant",
+   "title": "Settings Feedback: New feedback submitting (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-submitting",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-create-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Submit\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-new-submit"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-submitting'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-submitting.elegant-dark",
+   "title": "Settings Feedback: New feedback submitting (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-submitting",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-create-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Submit\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-new-submit"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-submitting'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-error.brutal",
+   "title": "Settings Feedback: New feedback submit failed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-error",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-create-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Submit\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-new-submit"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-error.elegant",
+   "title": "Settings Feedback: New feedback submit failed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-error",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-create-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Submit\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-new-submit"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.new-error.elegant-dark",
+   "title": "Settings Feedback: New feedback submit failed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.new-error",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-create-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"New feedback\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Submit\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-new"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-new-message",
+      "value": "Let me pin channels to the top of the sidebar."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-new-submit"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.new-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket.brutal",
+   "title": "Settings Feedback: ticket conversation + reply composer (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket.elegant",
+   "title": "Settings Feedback: ticket conversation + reply composer (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket.elegant-dark",
+   "title": "Settings Feedback: ticket conversation + reply composer (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-reply.brutal",
+   "title": "Settings Feedback: reply typed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-reply",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-reply-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+      "value": "Thanks, happy to test a build."
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-reply-input",
+      "value": "Thanks, happy to test a build."
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-reply'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-reply.elegant",
+   "title": "Settings Feedback: reply typed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-reply",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-reply-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+      "value": "Thanks, happy to test a build."
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-reply-input",
+      "value": "Thanks, happy to test a build."
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-reply'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-reply.elegant-dark",
+   "title": "Settings Feedback: reply typed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-reply",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-reply-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+      "value": "Thanks, happy to test a build."
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-reply-input",
+      "value": "Thanks, happy to test a build."
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-reply'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-reply-error.brutal",
+   "title": "Settings Feedback: reply failed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-reply-error",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-reply-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-reply-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+      "value": "Thanks, happy to test a build."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Send reply\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-reply-input",
+      "value": "Thanks, happy to test a build."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-reply-send"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-reply-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-reply-error.elegant",
+   "title": "Settings Feedback: reply failed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-reply-error",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-reply-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-reply-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+      "value": "Thanks, happy to test a build."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Send reply\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-reply-input",
+      "value": "Thanks, happy to test a build."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-reply-send"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-reply-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-reply-error.elegant-dark",
+   "title": "Settings Feedback: reply failed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-reply-error",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-reply-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "fill",
+      "target": "#hands-feedback-reply-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+      "value": "Thanks, happy to test a build."
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Send reply\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "enter",
+      "key": "feedback-reply-input",
+      "value": "Thanks, happy to test a build."
+     },
+     {
+      "type": "tap",
+      "key": "feedback-reply-send"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-reply-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-closed.brutal",
+   "title": "Settings Feedback: closed ticket (no composer) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-closed",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-closed.elegant",
+   "title": "Settings Feedback: closed ticket (no composer) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-closed",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.ticket-closed.elegant-dark",
+   "title": "Settings Feedback: closed ticket (no composer) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.ticket-closed",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.ticket-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-menu.brutal",
+   "title": "Settings Feedback: close reason menu (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-menu",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"dropdown-menu-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-menu",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail >> role=button[name=\"Choose a close reason\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-caret"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-menu.elegant",
+   "title": "Settings Feedback: close reason menu (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-menu",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"dropdown-menu-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-menu",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail >> role=button[name=\"Choose a close reason\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-caret"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-menu.elegant-dark",
+   "title": "Settings Feedback: close reason menu (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-menu",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"dropdown-menu-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-menu",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail >> role=button[name=\"Choose a close reason\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-caret"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-confirm.brutal",
+   "title": "Settings Feedback: close ticket confirm (no longer needed) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-confirm",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-main"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-confirm'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-confirm.elegant",
+   "title": "Settings Feedback: close ticket confirm (no longer needed) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-confirm",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-main"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-confirm'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-confirm.elegant-dark",
+   "title": "Settings Feedback: close ticket confirm (no longer needed) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-confirm",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-main"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-confirm'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-confirm-resolved.brutal",
+   "title": "Settings Feedback: inbox row close (resolved -> completed) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-confirm-resolved",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='1a3c5e7f-9b2d-4c6e-8f1a-3b5d7f9a1c23']) .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-close-main-1a3c5e7f-9b2d-4c6e-8f1a-3b5d7f9a1c23"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-confirm-resolved'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-confirm-resolved.elegant",
+   "title": "Settings Feedback: inbox row close (resolved -> completed) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-confirm-resolved",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='1a3c5e7f-9b2d-4c6e-8f1a-3b5d7f9a1c23']) .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-close-main-1a3c5e7f-9b2d-4c6e-8f1a-3b5d7f9a1c23"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-confirm-resolved'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-confirm-resolved.elegant-dark",
+   "title": "Settings Feedback: inbox row close (resolved -> completed) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-confirm-resolved",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='1a3c5e7f-9b2d-4c6e-8f1a-3b5d7f9a1c23']) .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-close-main-1a3c5e7f-9b2d-4c6e-8f1a-3b5d7f9a1c23"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-confirm-resolved'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-error.brutal",
+   "title": "Settings Feedback: close failed (error in dialog) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-error",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-close-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "click",
+      "target": "[data-slot=\"alert-dialog-content\"] >> role=button[name=\"Close ticket\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-main"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-confirm"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-error.elegant",
+   "title": "Settings Feedback: close failed (error in dialog) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-error",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-close-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "click",
+      "target": "[data-slot=\"alert-dialog-content\"] >> role=button[name=\"Close ticket\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-main"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-confirm"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.feedback.close-error.elegant-dark",
+   "title": "Settings Feedback: close failed (error in dialog) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "feedback.close-error",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "feedback",
+      "role": "owner",
+      "routeSet": "feedback-close-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"alert-dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "feedback-close-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61']) .hands-feedback-ticket-title"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     },
+     {
+      "type": "click",
+      "target": "[data-parity-region='settings-panel'] .hands-feedback-detail .hands-feedback-close-main"
+     },
+     {
+      "type": "wait",
+      "ms": 300
+     },
+     {
+      "type": "click",
+      "target": "[data-slot=\"alert-dialog-content\"] >> role=button[name=\"Close ticket\"s]"
+     },
+     {
+      "type": "wait",
+      "ms": 500
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "feedback-ticket-5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-main"
+     },
+     {
+      "type": "tap",
+      "key": "feedback-close-confirm"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/LazyAboutFeedbackDialog.tsx + AboutFeedbackDialog.tsx (@botiverse/hands-feedback-react FeedbackWorkspace)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'feedback.close-error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
    "id": "components.ext-settings.server.page.brutal",
    "title": "Settings Server Profile: whole page (brutal-light)",
    "captureType": "component-fixture",

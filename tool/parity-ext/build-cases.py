@@ -397,6 +397,29 @@ tickets = [
     ticket('9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34', 'bug', 'closed', 'Crash when pasting a very large image',
            FB_NOW - 12 * DAY, FB_NOW - 11 * DAY, comments=1, closure='duplicate'),
 ]
+
+
+# Ticket detail reads (GET /product-feedback/tickets/:id, comment_limit=100):
+# the in-progress ticket with a staff/reporter conversation, and the closed
+# duplicate. Attachments stay empty: image previews would need blob reads.
+def comment(cid, author, body, created):
+    return {'id': cid, 'author_type': author, 'body': body, 'created_at': created}
+
+
+def detail(t, comments, unread_total):
+    return {'ticket': {**t, 'unread': False, 'unread_count': 0}, 'comments': comments, 'attachments': [],
+            'next_comment_cursor': None, 'unread_total': unread_total}
+
+
+FB_ACTIVE, FB_CLOSED = tickets[0], tickets[3]
+FB_ACTIVE_DETAIL = detail(FB_ACTIVE, [
+    comment('c-5b0e-1', 'staff', 'Thanks for the report! Which platform are you on?', FB_NOW - 2 * DAY),
+    comment('c-5b0e-2', 'reporter', 'macOS desktop, switching between two workspaces.', FB_NOW - 2 * DAY + 3_600_000),
+    comment('c-5b0e-3', 'staff', 'We reproduced it and a fix is in progress.', FB_NOW - 2 * 3_600_000),
+], 0)
+FB_CLOSED_DETAIL = detail(FB_CLOSED, [
+    comment('c-9e8d-1', 'system', 'Closed as a duplicate of an existing ticket.', FB_NOW - 11 * DAY),
+], 2)
 mcp_linear = {
     'id': 'mcp-linear', 'name': 'Linear', 'description': 'Issues and projects', 'provider': 'linear',
     'authMode': 'oauth', 'oauthStatus': 'connected', 'transport': 'streamable_http',
@@ -500,6 +523,8 @@ settings_fixture = {
     'routes': {
         'GET /release-notes': {'items': releases, 'nextCursor': None},
         'GET /product-feedback/tickets': {'tickets': tickets, 'next_cursor': None, 'unread_total': 2},
+        f"GET /product-feedback/tickets/{FB_ACTIVE['id']}": FB_ACTIVE_DETAIL,
+        f"GET /product-feedback/tickets/{FB_CLOSED['id']}": FB_CLOSED_DETAIL,
         'GET /mcp/servers': {'servers': [mcp_linear], 'recommendations': [mcp_notion]},
         # Workspace tabs: the official react-provider.spec.ts payloads for
         # these endpoints (served to every case id there), restated so both
@@ -549,6 +574,12 @@ settings_fixture = {
         # Store-primed states (host + Flutter builder read the routeSet name).
         'admin-all-visible': {},
         'admin-hide-humans': {},
+        # Writes never reach a server: a submit/reply/close either stays in
+        # flight (busy state) or fails (error banner).
+        'feedback-create-pending': {'POST /product-feedback': {'$pending': True}},
+        'feedback-create-error': {'POST /product-feedback': {'$status': 503}},
+        'feedback-reply-error': {f"POST /product-feedback/tickets/{FB_ACTIVE['id']}/comments": {'$status': 503}},
+        'feedback-close-error': {f"POST /product-feedback/tickets/{FB_ACTIVE['id']}/close": {'$status': 503}},
     },
 }
 
@@ -626,6 +657,78 @@ settings_case('feedback.panel', 'Feedback: panel (inbox)', tab='feedback', regio
 for state in ['empty', 'loading', 'error']:
     settings_case(f'feedback.{state}', f'Feedback: {state}', tab='feedback', region='panel',
                   route_set=f'feedback-{state}', hint=FB_HINT)
+
+# Feedback write surfaces (New feedback form, ticket detail with the reply
+# composer, Close ticket split button / reason menu / confirm dialog).
+FB_ROW = "[data-parity-region='settings-panel'] li:has(button[data-ticket-id='{}']) .hands-feedback-ticket-title"
+FB_NEW = [{'type': 'click', 'target': btn('New feedback')}, {'type': 'wait', 'ms': 300}]
+F_FB_NEW = [{'type': 'tap', 'key': 'feedback-new'}]
+FB_MESSAGE = '#hands-feedback-message'
+FB_TEXT = 'Let me pin channels to the top of the sidebar.'
+FB_OPEN = [{'type': 'click', 'target': FB_ROW.format(FB_ACTIVE['id'])}, {'type': 'wait', 'ms': 500}]
+F_FB_OPEN = [{'type': 'tap', 'key': f"feedback-ticket-{FB_ACTIVE['id']}"}]
+FB_REPLY = f"#hands-feedback-reply-{FB_ACTIVE['id']}"
+FB_REPLY_TEXT = 'Thanks, happy to test a build.'
+FB_DETAIL = "[data-parity-region='settings-panel'] .hands-feedback-detail"
+FB_CLOSE_MAIN = f'{FB_DETAIL} .hands-feedback-close-main'
+ALERT = '[data-slot="alert-dialog-content"]'
+settings_case('feedback.new', 'Feedback: New feedback form', tab='feedback', region='panel', hint=FB_HINT,
+              interactions=FB_NEW, android=F_FB_NEW)
+settings_case('feedback.new-filled', 'Feedback: New feedback form, Bug + message typed', tab='feedback',
+              region='panel', hint=FB_HINT,
+              interactions=FB_NEW + [{'type': 'click', 'target': '.hands-feedback-kind-item >> nth=1'},
+                                     {'type': 'fill', 'target': FB_MESSAGE, 'value': FB_TEXT}],
+              android=F_FB_NEW + [{'type': 'tap', 'key': 'feedback-kind-bug'},
+                                  {'type': 'enter', 'key': 'feedback-new-message', 'value': FB_TEXT}])
+settings_case('feedback.new-submitting', 'Feedback: New feedback submitting', tab='feedback', region='panel',
+              hint=FB_HINT, route_set='feedback-create-pending',
+              interactions=FB_NEW + [{'type': 'fill', 'target': FB_MESSAGE, 'value': FB_TEXT},
+                                     {'type': 'click', 'target': btn('Submit')}, {'type': 'wait', 'ms': 300}],
+              android=F_FB_NEW + [{'type': 'enter', 'key': 'feedback-new-message', 'value': FB_TEXT},
+                                  {'type': 'tap', 'key': 'feedback-new-submit'}])
+settings_case('feedback.new-error', 'Feedback: New feedback submit failed', tab='feedback', region='panel',
+              hint=FB_HINT, route_set='feedback-create-error',
+              interactions=FB_NEW + [{'type': 'fill', 'target': FB_MESSAGE, 'value': FB_TEXT},
+                                     {'type': 'click', 'target': btn('Submit')}, {'type': 'wait', 'ms': 500}],
+              android=F_FB_NEW + [{'type': 'enter', 'key': 'feedback-new-message', 'value': FB_TEXT},
+                                  {'type': 'tap', 'key': 'feedback-new-submit'}])
+settings_case('feedback.ticket', 'Feedback: ticket conversation + reply composer', tab='feedback', region='panel',
+              hint=FB_HINT, interactions=FB_OPEN, android=F_FB_OPEN)
+settings_case('feedback.ticket-reply', 'Feedback: reply typed', tab='feedback', region='panel', hint=FB_HINT,
+              interactions=FB_OPEN + [{'type': 'fill', 'target': FB_REPLY, 'value': FB_REPLY_TEXT}],
+              android=F_FB_OPEN + [{'type': 'enter', 'key': 'feedback-reply-input', 'value': FB_REPLY_TEXT}])
+settings_case('feedback.ticket-reply-error', 'Feedback: reply failed', tab='feedback', region='panel',
+              hint=FB_HINT, route_set='feedback-reply-error',
+              interactions=FB_OPEN + [{'type': 'fill', 'target': FB_REPLY, 'value': FB_REPLY_TEXT},
+                                      {'type': 'click', 'target': btn('Send reply')}, {'type': 'wait', 'ms': 500}],
+              android=F_FB_OPEN + [{'type': 'enter', 'key': 'feedback-reply-input', 'value': FB_REPLY_TEXT},
+                                   {'type': 'tap', 'key': 'feedback-reply-send'}])
+settings_case('feedback.ticket-closed', 'Feedback: closed ticket (no composer)', tab='feedback', region='panel',
+              hint=FB_HINT,
+              interactions=[{'type': 'click', 'target': FB_ROW.format(FB_CLOSED['id'])}, {'type': 'wait', 'ms': 500}],
+              android=[{'type': 'tap', 'key': f"feedback-ticket-{FB_CLOSED['id']}"}])
+settings_case('feedback.close-menu', 'Feedback: close reason menu', tab='feedback', hint=FB_HINT,
+              selector='[data-slot="dropdown-menu-content"]', android_key='feedback-close-menu',
+              interactions=FB_OPEN + [{'type': 'click', 'target': f"{FB_DETAIL} >> {btn('Choose a close reason')}"},
+                                      {'type': 'wait', 'ms': 300}],
+              android=F_FB_OPEN + [{'type': 'tap', 'key': 'feedback-close-caret'}])
+settings_case('feedback.close-confirm', 'Feedback: close ticket confirm (no longer needed)', tab='feedback',
+              hint=FB_HINT, selector=ALERT, android_key='feedback-close-dialog',
+              interactions=FB_OPEN + [{'type': 'click', 'target': FB_CLOSE_MAIN}, {'type': 'wait', 'ms': 300}],
+              android=F_FB_OPEN + [{'type': 'tap', 'key': 'feedback-close-main'}])
+settings_case('feedback.close-confirm-resolved', 'Feedback: inbox row close (resolved -> completed)',
+              tab='feedback', hint=FB_HINT, selector=ALERT, android_key='feedback-close-dialog',
+              interactions=[{'type': 'click', 'target': "[data-parity-region='settings-panel'] "
+                             f"li:has(button[data-ticket-id='{tickets[2]['id']}']) .hands-feedback-close-main"},
+                            {'type': 'wait', 'ms': 300}],
+              android=[{'type': 'tap', 'key': f"feedback-close-main-{tickets[2]['id']}"}])
+settings_case('feedback.close-error', 'Feedback: close failed (error in dialog)', tab='feedback', hint=FB_HINT,
+              selector=ALERT, android_key='feedback-close-dialog', route_set='feedback-close-error',
+              interactions=FB_OPEN + [{'type': 'click', 'target': FB_CLOSE_MAIN}, {'type': 'wait', 'ms': 300},
+                                      {'type': 'click', 'target': f'{ALERT} >> {btn("Close ticket")}'},
+                                      {'type': 'wait', 'ms': 500}],
+              android=F_FB_OPEN + [{'type': 'tap', 'key': 'feedback-close-main'},
+                                   {'type': 'tap', 'key': 'feedback-close-confirm'}])
 
 # Workspace group pages (owner; flags on for the gated tabs).
 for tab, title, flags in [

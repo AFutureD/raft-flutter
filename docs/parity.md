@@ -622,7 +622,7 @@ similarity 0.798; the 3 hover cases had no keyed Search button), after
 Elegant text, sub-pixel baseline offsets (thread title, mobile meta line) and
 the tooltip surface of the hover case. All 99 official values are unchanged.
 
-### Settings cases (40 surfaces x 3 themes = 120)
+### Settings cases (52 surfaces x 3 themes = 156)
 
 `python3 tool/parity-ext/build-cases.py` also writes
 `components.ext-settings.<surface>.<theme>` and
@@ -834,6 +834,28 @@ glyph comes from a different fallback font in Chromium, which moves the hint's
 line breaks; the description wraps one word differently because Chromium and
 Skia advance widths differ by under 1px at the available width; and the usual
 Chromium vs Skia glyph rasterisation.
+
+#### Feedback write surfaces (`cindy/feedback-write`)
+
+Twelve surfaces x 3 themes = 36 cases cover the write half of the My Feedback
+workspace (`@botiverse/hands-feedback-react` 0.4.1 +
+`web/src/feedback/handsFeedbackTransport.ts`): `feedback.new`, `new-filled`,
+`new-submitting`, `new-error`, `ticket` (conversation + reply composer),
+`ticket-reply`, `ticket-reply-error`, `ticket-closed` (no composer),
+`close-menu` (the reason `DropdownMenuContent` crop), `close-confirm`,
+`close-confirm-resolved` (inbox row, `completed`) and `close-error`. The
+fixture adds the two ticket detail reads and per-case route sets whose
+`POST /product-feedback`, `.../comments` and `.../close` stay pending or
+fail with 503; no case reaches a server.
+
+| group | mean | note |
+| --- | --- | --- |
+| New feedback (12) | 0.975 | placeholder text is narrower in Chromium (about 5%) |
+| Ticket, reply, closed (12) | 0.964 | elegant-dark 0.927: the Web composer carries a wide soft shadow Flutter does not draw |
+| Close menu / confirm / error (12) | 0.903 | small crops of dense text, sub-pixel glyph rasterisation; the menu also has 1px AA differences on the check glyph |
+
+Known gaps: elegant-dark ticket composer shadow, the `In progress` chip and
+timestamp widths (2-3% wider in Flutter), the reply placeholder width.
 
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 
