@@ -429,7 +429,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       muteDescription: hasServer
           ? raftFormat(
               context,
-              'Stops web push notifications from {serverName} for your account. Other servers are unchanged.',
+              'Stops notifications from {serverName} for your account. Other servers are unchanged.',
               {'serverName': w!.server!.name},
             )
           : null,

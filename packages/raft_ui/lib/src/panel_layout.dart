@@ -1042,3 +1042,92 @@ class _RenderCssTopBorder extends RenderProxyBox {
     );
   }
 }
+
+/// A decorated box painted like Chromium's pixel-snapped border box: layout
+/// keeps its fractional geometry (a `leading-relaxed` line is 19.5px) while
+/// the background, border and shadow land on whole device pixels (each edge
+/// rounds half up). Children are not moved.
+class RaftSnappedDecoratedBox extends StatelessWidget {
+  const RaftSnappedDecoratedBox({
+    super.key,
+    required this.decoration,
+    this.padding = EdgeInsets.zero,
+    this.child,
+  });
+  final BoxDecoration decoration;
+  final EdgeInsetsGeometry padding;
+  final Widget? child;
+  @override
+  Widget build(BuildContext context) => _SnappedDecoration(
+    decoration: decoration,
+    devicePixelRatio: View.of(context).devicePixelRatio,
+    // Like Container: the border width is part of the content inset.
+    child: Padding(padding: padding.add(decoration.padding), child: child),
+  );
+}
+
+class _SnappedDecoration extends SingleChildRenderObjectWidget {
+  const _SnappedDecoration({
+    required this.decoration,
+    required this.devicePixelRatio,
+    super.child,
+  });
+  final BoxDecoration decoration;
+  final double devicePixelRatio;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSnappedDecoration(decoration, devicePixelRatio);
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSnappedDecoration object,
+  ) {
+    object
+      ..decoration = decoration
+      ..devicePixelRatio = devicePixelRatio;
+  }
+}
+
+class _RenderSnappedDecoration extends RenderProxyBox {
+  _RenderSnappedDecoration(this._decoration, this._dpr);
+  BoxDecoration _decoration;
+  double _dpr;
+  BoxPainter? _painter;
+  set decoration(BoxDecoration value) {
+    if (_decoration == value) return;
+    _decoration = value;
+    _painter?.dispose();
+    _painter = null;
+    markNeedsPaint();
+  }
+
+  set devicePixelRatio(double value) {
+    if (_dpr == value) return;
+    _dpr = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void detach() {
+    _painter?.dispose();
+    _painter = null;
+    super.detach();
+  }
+
+  double _snap(double v) => (v * _dpr + .5).floorToDouble() / _dpr;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final global = localToGlobal(Offset.zero);
+    final left = _snap(global.dx), top = _snap(global.dy);
+    final right = _snap(global.dx + size.width);
+    final bottom = _snap(global.dy + size.height);
+    _painter ??= _decoration.createBoxPainter(markNeedsPaint);
+    _painter!.paint(
+      context.canvas,
+      offset + Offset(left - global.dx, top - global.dy),
+      ImageConfiguration(size: Size(right - left, bottom - top)),
+    );
+    super.paint(context, offset);
+  }
+}

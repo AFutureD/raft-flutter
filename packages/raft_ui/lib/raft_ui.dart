@@ -139,6 +139,8 @@ export 'src/channel_settings_sheet.dart';
 export 'src/channel_overflow_sheet.dart';
 export 'src/create_channel_view.dart';
 export 'src/create_task_view.dart';
+export 'src/provider_edit_view.dart';
+export 'src/slack_bridge_wizard.dart';
 export 'src/task_filter_control.dart';
 export 'src/channel_members_view.dart';
 

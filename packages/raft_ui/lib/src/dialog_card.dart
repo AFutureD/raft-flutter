@@ -409,14 +409,15 @@ class RaftDialogCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(
+              // CardHeader `gap-4` between the title and the close button.
+              spacing: 16,
               children: [
                 Expanded(
                   child: Semantics(
                     header: true,
                     child: Text(
+                      // CardTitle has no `truncate`: a long title wraps.
                       raftText(context, title).toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: raftCssTextStyle(
                         family: titleSlot.fontFamily ?? t.headingFont,
                         step: RaftTextSteps.lg,
@@ -770,10 +771,11 @@ class RaftDialogTextInput extends StatelessWidget {
     this.leadingGlyph,
     this.onSubmitted,
     this.fieldKey,
+    this.obscure = false,
   });
   final TextEditingController controller;
   final String? placeholder;
-  final bool multiline, autofocus, enabled;
+  final bool multiline, autofocus, enabled, obscure;
   final RaftGlyph? leadingGlyph;
   final ValueChanged<String>? onSubmitted;
   final Key? fieldKey;
@@ -788,6 +790,7 @@ class RaftDialogTextInput extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       autofocus: autofocus,
+      obscureText: obscure,
       // `disabled:` text: elegant foreground-disabled; brutal dims the whole
       // Textarea (`disabled:opacity-60`, below), not the Input.
       style: enabled || t.brutal

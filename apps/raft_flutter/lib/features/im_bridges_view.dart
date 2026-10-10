@@ -26,11 +26,50 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
     startManagement();
   }
 
+  // Wizard state (SlackBridgeSetupWizard's reducer).
+  List<Map<String, String>> pairs = [];
+  String raftChannelId = '', slackChannelId = '';
+  bool disconnectConfirmed = false,
+      editingMappings = false,
+      partialFailure = false,
+      inviteHelp = false,
+      working = false;
+  SlackBridgeProjection? mappingBaseline;
+
   @override
   void clearData() {
     projection = null;
     enabled = false;
+    pairs = [];
+    raftChannelId = slackChannelId = '';
+    disconnectConfirmed = editingMappings = partialFailure = inviteHelp = false;
+    mappingBaseline = null;
   }
+
+  /// The reducer's `view` action: adopt [next] and reset the drafts.
+  void adopt(SlackBridgeProjection next) {
+    projection = next;
+    disconnectConfirmed = false;
+    editingMappings = false;
+    mappingBaseline = null;
+    partialFailure = false;
+    pairs = [
+      for (final p in next.rows('channelPairs'))
+        {
+          'raftChannelId': '${p['raftChannelId']}',
+          'slackChannelId': '${p['slackChannelId']}',
+        },
+    ];
+    if (next.stage == 'channels') {
+      raftChannelId = next.rows('raftChannels').firstOrNull?['id'] as String? ?? '';
+      slackChannelId = _firstMember(next);
+    }
+  }
+
+  String _firstMember(SlackBridgeProjection p) =>
+      p.rows('slackChannels').where((c) => c['isMember'] == true).firstOrNull?['id']
+          as String? ??
+      '';
 
   @override
   String get snapshotKey => 'im-bridges';
@@ -98,7 +137,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
     checkScope(scope);
     final next = SlackBridgeProjection.parse(await request());
     checkScope(scope);
-    setState(() => projection = next);
+    setState(() => adopt(next));
     return next;
   }
 
@@ -122,307 +161,383 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
     }
   }
 
-  Future<void> addPair() async {
+  // ------------------------------------------------------------ actions
+
+  Future<void> connectAndAuthorize() => run(() async {
     final scope = authority;
-    final current = await update(() => w.client.get(base), scope);
-    final raft = current
-        .rows('raftChannels')
-        .where(
-          (c) => !current
-              .rows('channelPairs')
-              .any((p) => p['raftChannelId'] == c['id']),
-        )
-        .toList();
-    final slack = current
-        .rows('slackChannels')
-        .where(
-          (c) =>
-              c['isMember'] == true &&
-              !current
-                  .rows('channelPairs')
-                  .any((p) => p['slackChannelId'] == c['id']),
-        )
-        .toList();
-    if (raft.isEmpty || slack.isEmpty) {
-      throw StateError(
-        'No unpaired channels are available. Invite @Raft to the Slack channel, then refresh.',
-      );
+    final next = await update(() => w.client.post('$base/connect'), scope);
+    if (next.stage == 'oauth') await authorize(scope);
+  }, refresh: false);
+
+  bool get _pairsValid {
+    final raft = <String>{}, slack = <String>{};
+    if (pairs.isEmpty) return false;
+    for (final p in pairs) {
+      if (p['raftChannelId']!.isEmpty || p['slackChannelId']!.isEmpty) return false;
+      if (!raft.add(p['raftChannelId']!) || !slack.add(p['slackChannelId']!)) {
+        return false;
+      }
     }
-    await form(
-      'Add channel pair',
-      [
-        RaftFormField(
-          'raftChannelId',
-          'Raft channel',
-          choices: {for (final c in raft) '${c['id']}': '${c['name']}'},
-        ),
-        RaftFormField(
-          'slackChannelId',
-          'Slack channel',
-          choices: {
-            for (final c in slack)
-              '${c['id']}': '${c['name']} (${c['privacyClass'] ?? 'unknown'})',
-          },
-        ),
-      ],
-      (v) async {
-        final fresh = await update(() => w.client.get(base), scope);
-        if (fresh
-                .rows('channelPairs')
-                .any(
-                  (p) =>
-                      p['raftChannelId'] == v['raftChannelId'] ||
-                      p['slackChannelId'] == v['slackChannelId'],
-                ) ||
-            !fresh
-                .rows('raftChannels')
-                .any((c) => c['id'] == v['raftChannelId']) ||
-            !fresh
-                .rows('slackChannels')
-                .any(
-                  (c) =>
-                      c['id'] == v['slackChannelId'] && c['isMember'] == true,
-                )) {
-          throw StateError(
-            'Channel availability changed. Refresh and choose again.',
-          );
-        }
-        await update(
-          () => w.client.request(
-            'PUT',
-            '$base/channel-pairs',
-            data: {
-              'pairs': [
-                for (final p in fresh.rows('channelPairs'))
-                  {
-                    'raftChannelId': p['raftChannelId'],
-                    'slackChannelId': p['slackChannelId'],
-                  },
-                {
-                  'raftChannelId': v['raftChannelId'],
-                  'slackChannelId': v['slackChannelId'],
-                },
-              ],
-            },
-          ),
-          scope,
-        );
-        await verifyAndEnable(scope);
-      },
-      submit: 'Save',
-    );
+    return true;
   }
 
-  Future<void> removePair(Map<String, dynamic> pair) async {
-    final scope = authority, epoch = pair['bindingEpoch'];
-    if (epoch is! int) {
-      throw StateError('Refresh before removing this channel pair.');
+  bool _isMember(SlackBridgeProjection p, String id) =>
+      p.rows('slackChannels').any((c) => c['id'] == id && c['isMember'] == true);
+
+  void addPair() {
+    final p = projection;
+    if (p == null || !_isMember(p, slackChannelId) || raftChannelId.isEmpty) {
+      return;
     }
-    await confirm(
-      'Remove channel pair?',
-      'Messages will stop bridging between these channels.',
-      () async {
+    final candidate = [
+      ...pairs,
+      {'raftChannelId': raftChannelId, 'slackChannelId': slackChannelId},
+    ];
+    final saved = pairs;
+    pairs = candidate;
+    if (!_pairsValid) pairs = saved;
+    setState(() {});
+  }
+
+  Future<void> refresh() => run(() async {
+    final scope = authority;
+    final next = SlackBridgeProjection.parse(await w.client.get(base));
+    checkScope(scope);
+    setState(() {
+      if (editingMappings && next.stage == 'health') {
+        projection = next;
+        mappingBaseline = next;
+        if (!next.rows('raftChannels').any((c) => c['id'] == raftChannelId)) {
+          raftChannelId = next.rows('raftChannels').firstOrNull?['id'] as String? ?? '';
+        }
+        if (!_isMember(next, slackChannelId)) slackChannelId = _firstMember(next);
+      } else {
+        adopt(next);
+      }
+    });
+  }, refresh: false);
+
+  Future<void> finish() => run(() async {
+    final scope = authority;
+    if (editingMappings && mappingBaseline != null) {
+      await applyManaged(scope);
+    } else {
+      await update(
+        () => w.client.request(
+          'PUT',
+          '$base/channel-pairs',
+          data: {'pairs': [for (final p in pairs) {...p}]},
+        ),
+        scope,
+      );
+      await verifyAndEnable(scope);
+    }
+  }, refresh: false);
+
+  /// `applyManagedSlackBridgeChannelPairs`: removals by exact binding epoch,
+  /// then the additions over the last response, then verify and enable.
+  Future<void> applyManaged(String scope) async {
+    final baseline = mappingBaseline!;
+    String key(Map<String, dynamic> p) => '${p['raftChannelId']}\u0000${p['slackChannelId']}';
+    final desired = {for (final p in pairs) key(p)};
+    final baselinePairs = baseline.rows('channelPairs');
+    final baselineKeys = baselinePairs.map(key).toSet();
+    final removed = baselinePairs.where((p) => !desired.contains(key(p))).toList();
+    final additions = pairs.where((p) => !baselineKeys.contains(key(p))).toList();
+    if (removed.isEmpty && additions.isEmpty) {
+      setState(() => adopt(baseline));
+      return;
+    }
+    for (final p in removed) {
+      if (p['bindingEpoch'] is! int) {
+        throw StateError('Refresh before removing this channel pair.');
+      }
+    }
+    var confirmed = 0;
+    var current = baseline;
+    try {
+      for (final p in removed) {
         final next = await update(
           () => w.client.delete(
             '$base/channel-pairs',
             data: {
               'pairs': [
                 {
-                  'raftChannelId': pair['raftChannelId'],
-                  'slackChannelId': pair['slackChannelId'],
-                  'expectedBindingEpoch': epoch,
+                  'raftChannelId': p['raftChannelId'],
+                  'slackChannelId': p['slackChannelId'],
+                  'expectedBindingEpoch': p['bindingEpoch'],
                 },
               ],
             },
           ),
           scope,
         );
-        if (next
-            .rows('channelPairs')
-            .any(
-              (p) =>
-                  p['raftChannelId'] == pair['raftChannelId'] &&
-                  p['slackChannelId'] == pair['slackChannelId'],
-            )) {
-          throw StateError(
-            'Removal was not confirmed. Refresh before retrying.',
-          );
+        if (next.rows('channelPairs').any((q) => key(q) == key(p))) {
+          throw StateError('Removal was not confirmed. Refresh before retrying.');
         }
-        if (next.rows('channelPairs').isNotEmpty) await verifyAndEnable(scope);
-      },
-      submit: 'Remove',
-      destructive: true,
+        current = next;
+        confirmed++;
+      }
+      if (additions.isEmpty) return;
+      final currentKeys = current.rows('channelPairs').map(key).toSet();
+      final fresh = [
+        for (final p in current.rows('channelPairs'))
+          {'raftChannelId': p['raftChannelId'], 'slackChannelId': p['slackChannelId']},
+        for (final p in pairs)
+          if (!currentKeys.contains(key(p))) {...p},
+      ];
+      await update(
+        () => w.client.request('PUT', '$base/channel-pairs', data: {'pairs': fresh}),
+        scope,
+      );
+      await verifyAndEnable(scope);
+      if (projection?.preflightPassed != true) {
+        throw StateError('slack_bridge_preflight_failed');
+      }
+    } catch (_) {
+      if (confirmed > 0) partialFailure = true;
+      rethrow;
+    }
+  }
+
+  Future<void> enable() => run(() async {
+    final scope = authority;
+    if (projection?.preflightPassed == true) {
+      await update(() => w.client.post('$base/enable'), scope);
+    } else {
+      await verifyAndEnable(scope);
+    }
+  }, refresh: false);
+
+  Future<void> verify() =>
+      run(() => verifyAndEnable(authority), refresh: false);
+
+  Future<void> disconnect() => run(() async {
+    final scope = authority;
+    await update(
+      () => w.client.post(
+        '$base/disconnect',
+        data: {'expectedConnectionEpoch': projection?.connectionEpoch},
+      ),
+      scope,
     );
+  }, refresh: false);
+
+  void manage() {
+    final p = projection;
+    if (p == null) return;
+    setState(() {
+      editingMappings = true;
+      pairs = [
+        for (final c in p.rows('channelPairs'))
+          {
+            'raftChannelId': '${c['raftChannelId']}',
+            'slackChannelId': '${c['slackChannelId']}',
+          },
+      ];
+      slackChannelId = _firstMember(p);
+      mappingBaseline = p;
+    });
+  }
+
+  // ------------------------------------------------------------ projection
+
+  /// `projectSlackBridgeHealth`: product state, reason copy and next action.
+  (String state, String reason, String action) health(SlackBridgeProjection p) {
+    final reason = p.healthReason;
+    return switch (reason) {
+      'install_missing' => ('disconnected', _reasons[reason]!, 'Connect Slack'),
+      'oauth_pending' => ('unverified', _reasons[reason]!, 'Finish OAuth'),
+      'reauth_required' => ('degraded', _reasons[reason]!, 'Reauthorize Slack'),
+      'disconnected' => (
+        'disconnected',
+        p.health['install']?['state'] == 'revoked'
+            ? 'The Slack install was revoked.'
+            : _reasons[reason]!,
+        'Reconnect Slack',
+      ),
+      'quarantined' => ('degraded', _reasons[reason]!, 'Ask an operator to resolve quarantine'),
+      'credential_missing' => ('unverified', _reasons[reason]!, 'Verify credential persistence'),
+      'credential_unverified' => ('unverified', _reasons[reason]!, 'Verify credential persistence'),
+      'credential_revoked' => ('disconnected', _reasons[reason]!, 'Reauthorize Slack'),
+      'binding_required' => ('unverified', _reasons[reason]!, 'Configure a channel pair'),
+      'binding_quarantined' => ('degraded', _reasons[reason]!, 'Ask an operator to resolve quarantine'),
+      'binding_revoked' => ('degraded', _reasons[reason]!, 'Repair the revoked binding'),
+      'binding_paused' => ('degraded', _reasons[reason]!, 'Resume the paused binding'),
+      'audience_mismatch' => ('degraded', _reasons[reason]!, 'Repair the channel audience'),
+      'audience_unverified' => ('unverified', 'The channel audience could not be read.', 'Retry verification'),
+      'connection_unverified' => ('degraded', 'The hosted connection check failed.', 'Reconnect Slack'),
+      'scope_unverified' => ('degraded', _reasons[reason]!, 'Reauthorize Slack'),
+      'verification_required' => ('unverified', 'The current bridge state has not been verified.', 'Retry verification'),
+      'healthy' => ('connected', _reasons[reason]!, 'No action needed'),
+      _ => ('unverified', 'The current bridge state has not been verified.', 'Retry verification'),
+    };
+  }
+
+  String _lastVerified(String iso) {
+    final t = DateTime.parse(iso).toUtc();
+    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[t.month - 1]} ${t.day}, ${t.year}, $hour:${t.minute.toString().padLeft(2, '0')} ${t.hour < 12 ? 'AM' : 'PM'}';
   }
 
   @override
   Widget build(BuildContext context) {
     final p = projection;
     final manage = enabled && w.can('manageIntegrations');
-    String channelName(String key, dynamic id) =>
-        p?.rows(key).where((c) => c['id'] == id).firstOrNull?['name']
-            as String? ??
-        '$id';
     // IMBridgesSettingsSection renders nothing while the flag is off.
     if (!loading && !enabled && error == null) {
       return const SizedBox.shrink();
     }
-    final body = <Widget>[
-      if (enabled && p != null) ...[
-        heading('Slack'),
-        if (p.snapshot['workspaceName'] != null)
-          Text('${p.snapshot['workspaceName']}'),
-        Text(
-          '${raftText(context, 'Setup stage')}: ${raftText(context, _stageLabels[p.stage] ?? p.stage)}',
-        ),
-        Text(
-          raftText(
-            context,
-            _healthLabels[p.healthReason] ??
-                'The current bridge state has not been verified.',
-          ),
-        ),
-        if (p.health['lastVerifiedAt'] != null)
-          Text(
-            '${raftText(context, 'Last verified')}: ${p.health['lastVerifiedAt']}',
-          ),
-        for (final b
-            in (p.health['bindings'] as List).cast<Map<String, dynamic>>())
-          if (b['recoveryAction'] != 'none')
-            Text(
-              raftText(
-                context,
-                _recoveryLabels[b['recoveryAction']] ?? 'Refresh and recheck',
-              ),
-            ),
-        if (p.snapshot['preflight'] != null) ...[
-          heading('Verification'),
-          for (final c in p.snapshot['preflight']['checks'])
-            Text(
-              '${raftText(context, _checkLabels[c['id']] ?? c['id'])}: ${raftText(context, _checkStates[c['state']] ?? c['state'])}',
+    final failedLoad = error != null && p == null;
+    Widget? wizard;
+    if (p != null && enabled) {
+      String name(String list, String id) =>
+          p.rows(list).where((c) => c['id'] == id).firstOrNull?['name'] as String? ?? id;
+      String pairLabel(Map<String, dynamic> pair) => raftFormat(
+        context,
+        '#{raftName} ↔ #{slackName}',
+        {
+          'raftName': name('raftChannels', '${pair['raftChannelId']}'),
+          'slackName': name('slackChannels', '${pair['slackChannelId']}'),
+        },
+      );
+      final slack = p.rows('slackChannels');
+      final stage = RaftSlackStage.values.byName(p.stage);
+      final (healthState, healthReason, healthAction) = health(p);
+      final bindingKeys = p.rows('channelPairs');
+      final membershipIssues = [
+        for (final pair in bindingKeys)
+          slack.where((c) => c['id'] == pair['slackChannelId']).firstOrNull,
+      ].where((c) => c == null || c['isMember'] != true).toList();
+      final missing = membershipIssues.whereType<Map<String, dynamic>>().where((c) => c['isMember'] == false).toList();
+      final unknown = membershipIssues.any((c) => c == null || c['isMember'] == null);
+      final recovery = healthReason == _reasons['audience_mismatch'] && membershipIssues.isNotEmpty;
+      final disconnectable = manage &&
+          p.stage != 'connect' &&
+          p.health['install']?['state'] != 'revoked' &&
+          p.connectionEpoch != null;
+      final checks = p.snapshot['preflight'] == null
+          ? const <RaftSlackCheck>[]
+          : [
+              for (final id in const ['oauth', 'endpoint', 'scope', 'audience'])
+                (
+                  label: _checkLabels[id]!,
+                  state: ((p.snapshot['preflight']['checks'] as List)
+                          .cast<Map<String, dynamic>>()
+                          .where((c) => c['id'] == id)
+                          .firstOrNull?['state'] as String?) ??
+                      'unverified',
+                ),
+            ];
+      final managedPairs = editingMappings || stage == RaftSlackStage.channels;
+      wizard = RaftSlackWizardView(
+        stage: editingMappings && stage == RaftSlackStage.health
+            ? RaftSlackStage.channels
+            : stage,
+        canManage: manage,
+        busy: busy,
+        workspaceName: p.snapshot['workspaceName'] as String?,
+        errorMessage: error == null
+            ? null
+            : partialFailure
+            ? 'Some channel mappings were removed, but the remaining bridge changes did not finish. Reload the current mappings before retrying.'
+            : 'The Slack bridge operation failed. No setup state was assumed.',
+        onConnect: connectAndAuthorize,
+        onAuthorize: () => run(() => authorize(authority), refresh: false),
+        availableCount: slack.where((c) => c['isMember'] == true).length,
+        inviteRequiredCount: slack.where((c) => c['isMember'] != true).length,
+        raftOptions: [
+          for (final c in p.rows('raftChannels'))
+            (value: '${c['id']}', label: '#${c['name']}', enabled: true),
+        ],
+        raftValue: raftChannelId,
+        onRaft: (v) => setState(() => raftChannelId = v),
+        slackOptions: [
+          for (final c in slack)
+            (
+              value: '${c['id']}',
+              label: c['isMember'] == true
+                  ? '#${c['name']}'
+                  : raftFormat(context, '#{name} — invite the Raft app in Slack', {'name': c['name']}),
+              enabled: c['isMember'] == true,
             ),
         ],
-        if (manage)
-          Wrap(
-            children: [
-              if (p.stage == 'connect')
-                action(
-                  'Connect Slack',
-                  () => run(() async {
-                    final scope = authority;
-                    final next = await update(
-                      () => w.client.post('$base/connect'),
-                      scope,
-                    );
-                    if (next.stage == 'oauth') await authorize(scope);
-                  }, refresh: false),
-                ),
-              if (p.stage == 'oauth')
-                action(
-                  'Authorize Slack',
-                  () => run(() => authorize(authority), refresh: false),
-                ),
-              if (!['connect', 'oauth'].contains(p.stage)) ...[
-                action('Add channel pair', () => run(addPair, refresh: false)),
-                action(
-                  'Verify and enable',
-                  () => run(() => verifyAndEnable(authority), refresh: false),
-                ),
-              ],
-              if (p.stage != 'connect' && p.connectionEpoch != null)
-                action(
-                  'Disconnect Slack',
-                  () => run(() async {
-                    final scope = authority, epoch = p.connectionEpoch;
-                    await confirm(
-                      'Disconnect Slack?',
-                      'Bridging will stop. You can reconnect later.',
-                      () async {
-                        await update(
-                          () => w.client.post(
-                            '$base/disconnect',
-                            data: {'expectedConnectionEpoch': epoch},
-                          ),
-                          scope,
-                        );
-                      },
-                      submit: 'Disconnect',
-                      destructive: true,
-                    );
-                  }, refresh: false),
-                ),
-            ],
-          ),
-        heading('Channel pairs'),
-        for (final pair in p.rows('channelPairs'))
-          ListTile(
-            title: Text(channelName('raftChannels', pair['raftChannelId'])),
-            subtitle: Text(
-              channelName('slackChannels', pair['slackChannelId']),
-            ),
-            trailing: manage && pair['bindingEpoch'] != null
-                ? action(
-                    'Remove',
-                    () => run(() => removePair(pair), refresh: false),
-                  )
-                : null,
-          ),
-        Text(
-          raftText(
-            context,
-            'Invite @Raft to each Slack channel before pairing. Refresh after completing authorization in your browser.',
-          ),
-        ),
-      ],
-    ];
+        slackValue: slackChannelId,
+        onSlack: (v) => setState(() => slackChannelId = v),
+        canAddPair: raftChannelId.isNotEmpty && slackChannelId.isNotEmpty && _isMember(p, slackChannelId),
+        onAddPair: addPair,
+        onRefresh: refresh,
+        pairLabels: [for (final pair in managedPairs ? pairs : p.rows('channelPairs')) pairLabel(pair)],
+        onRemovePair: (i) => setState(() => pairs = [...pairs]..removeAt(i)),
+        pairInvalid: !(editingMappings && pairs.isEmpty
+            ? true
+            : _pairsValid && pairs.every((pair) => _isMember(p, pair['slackChannelId']!))),
+        finishLabel: editingMappings ? 'Apply mapping changes' : 'Save mappings and enable',
+        finishEnabled: (editingMappings && pairs.isEmpty
+                ? true
+                : _pairsValid && pairs.every((pair) => _isMember(p, pair['slackChannelId']!))) &&
+            (!editingMappings || mappingBaseline != null),
+        onFinish: finish,
+        checks: checks,
+        preflightPassed: p.preflightPassed,
+        onVerify: verify,
+        onEnable: enable,
+        healthState: healthState,
+        healthReason: healthReason,
+        healthAction: healthAction,
+        lastVerified: p.health['lastVerifiedAt'] == null ? null : _lastVerified('${p.health['lastVerifiedAt']}'),
+        failingSurface: _surfaces['${p.health['failingSurface']}'],
+        recoveryTitle: recovery
+            ? (unknown ? 'Slack channel access needs attention' : 'Slack channel access was removed')
+            : null,
+        recoveryDescription: recovery
+            ? (unknown
+                  ? 'Message sync is paused because Raft could not verify access to a mapped Slack channel. Confirm that the Raft app is still in the channel, then refresh and recheck.'
+                  : raftFormat(context, 'Message sync is paused for {channels}. Invite the Raft app back to the affected channel, then refresh and recheck.', {
+                      'channels': missing.map((c) => '#${c['name']}').join(', '),
+                    }))
+            : null,
+        inviteStepsOpen: inviteHelp,
+        onToggleInviteSteps: () => setState(() => inviteHelp = !inviteHelp),
+        onManage: manage ? this.manage : null,
+        canDisconnect: disconnectable,
+        disconnectConfirming: disconnectConfirmed,
+        onDisconnect: () => setState(() => disconnectConfirmed = true),
+        onDisconnectCancel: () => setState(() => disconnectConfirmed = false),
+        onDisconnectConfirm: disconnect,
+      );
+    }
     return ListView(
       primary: false,
       padding: RaftSettingsPanelFrame.contentInset,
       children: [
         RaftMessagingBridgesSection(
-          // SlackBridgeSetupWizard: a failed load with no view.
-          failed: error != null && p == null,
+          failed: failedLoad,
           child: loading && p == null
               ? const RaftSkeleton(height: 48)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (error != null)
-                      RaftBanner(
-                        status: RaftBannerRecipeStatus.warning,
-                        size: RaftBannerRecipeSize.sm,
-                        glyph: RaftGlyph.circleAlert,
-                        description: 'The Slack bridge operation failed. No setup state was assumed.',
-                      ),
-                    ...body,
-                  ],
-                ),
+              : wizard,
         ),
       ],
     );
   }
 }
 
-const _stageLabels = {
-  'connect': 'Connect',
-  'oauth': 'OAuth',
-  'channels': 'Channels',
-  'preflight': 'Preflight',
-  'enable': 'Enable',
-  'health': 'Health',
-};
 const _checkLabels = {
-  'oauth': 'OAuth authorization',
+  'oauth': 'OAuth grant',
   'endpoint': 'Hosted endpoint',
-  'scope': 'OAuth scope',
+  'scope': 'Granted scopes',
   'audience': 'Channel audience',
 };
-const _checkStates = {
-  'passed': 'Passed',
-  'failed': 'Failed',
-  'unverified': 'Not verified yet',
+const _surfaces = {
+  'install': 'Install',
+  'credential': 'Credential',
+  'binding': 'Channel binding',
+  'audience': 'Channel audience',
+  'connection': 'Connection',
+  'scope': 'OAuth scope',
 };
-const _healthLabels = {
+const _reasons = {
   'healthy': 'The install, credential, bindings, and audience are verified.',
   'install_missing': 'No Slack install exists for this server.',
   'oauth_pending': 'Slack authorization has not completed.',
@@ -437,16 +552,5 @@ const _healthLabels = {
   'binding_revoked': 'A channel binding was revoked.',
   'binding_quarantined': 'A channel binding is quarantined.',
   'audience_mismatch': 'The Raft app is not in a mapped Slack channel, or the verified channel audience does not match the binding.',
-  'audience_unverified': 'The channel audience could not be read.',
-  'connection_unverified': 'The hosted connection check failed.',
-  'scope_unverified':
-      'The installed OAuth scopes do not match the required grant.',
-};
-const _recoveryLabels = {
-  'unarchive_slack_channel': 'Unarchive the Slack channel',
-  'select_replacement_slack_channel': 'Select a replacement Slack channel',
-  'reinstall_slack_app': 'Reinstall the Slack app',
-  'reauthorize_slack_app': 'Reauthorize Slack',
-  'migrate_slack_channel_audience': 'Repair the channel audience',
-  'review_and_resume_binding': 'Review and resume the channel binding',
+  'scope_unverified': 'The installed OAuth scopes do not match the required grant.',
 };

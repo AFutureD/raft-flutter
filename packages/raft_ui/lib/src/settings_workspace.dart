@@ -13,6 +13,7 @@ import 'icons.dart';
 import 'list_items.dart' show RaftSectionEyebrow, RaftSurfaceListItem;
 import 'settings_controls.dart' show RaftSettingsRecipeButton;
 import 'localization.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'recipes/button_variants.g.dart'
     show RaftButtonRecipeSize, RaftButtonRecipeVariant;
 import 'settings_layout.dart';
@@ -462,7 +463,7 @@ class RaftMessagingBridgesSection extends StatelessWidget {
               const SizedBox(height: 4),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 672),
-                child: Text(
+                child: RaftCssText(
                   raftText(
                     context,
                     'Manage connections between Raft and external messaging services.',

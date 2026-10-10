@@ -196,6 +196,141 @@ for plat in ('desktop', 'mobile'):
                  android=[{'type': 'reveal', 'key': 'usage-data-card'}],
                  hint='packages/web/src/components/settings/UsageDataSettings.tsx')
 
+# AI provider connections: EditProviderConnectionModal.
+PROV_HINT = 'packages/web/src/components/settings/EditProviderConnectionModal.tsx'
+GATEWAY = {
+    'id': 'conn-gateway', 'name': 'Team gateway', 'providerId': 'openai-compatible', 'authMethod': 'api_key',
+    'endpointUrl': 'https://llm.example.com/v1', 'supportsImageInput': True, 'enabled': True, 'status': 'ready',
+    'configVersion': 3, 'credentialVersion': 2, 'hasCredential': True, 'assignedAgentCount': 0,
+    'latestVerified': None, 'lastCheckedAt': '2026-06-20T08:00:00.000Z', 'lastErrorCategory': None,
+    'createdAt': '2026-06-01T08:00:00.000Z', 'updatedAt': '2026-06-20T08:00:00.000Z'}
+PRESET = {**GATEWAY, 'id': 'conn-anthropic', 'name': 'Anthropic production', 'providerId': 'anthropic',
+          'endpointUrl': None, 'supportsImageInput': False, 'configVersion': 1, 'credentialVersion': 1}
+CATALOG = {
+    'connections': [GATEWAY, PRESET],
+    'providerOptions': [
+        {'id': 'anthropic', 'label': 'Anthropic', 'providerKind': 'preset'},
+        {'id': 'openai-compatible', 'label': 'OpenAI-compatible', 'providerKind': 'gateway'},
+        {'id': 'anthropic-compatible', 'label': 'Anthropic-compatible', 'providerKind': 'gateway'}]}
+fixture['routeSets']['wp6-providers'] = {'GET /provider-connections': CATALOG}
+fixture['routeSets']['wp6-providers-save-error'] = {
+    'GET /provider-connections': CATALOG, 'PATCH /provider-connections/conn-gateway': {'$status': 500}}
+EDIT_BTN = f'role=button[name="Edit connection"s]'
+EDIT_DIALOG = '[data-testid="provider-connection-edit-dialog"]'
+for plat in ('desktop', 'mobile'):
+    sfx = '' if plat == 'desktop' else '-mobile'
+    settings_add(f'settings.provider-edit{sfx}', f'AI provider edit modal, gateway ({plat})', tab='providers',
+                 platform=plat, flags='providers', route_set='wp6-providers', selector=EDIT_DIALOG,
+                 android_key='provider-connection-edit-dialog', hint=PROV_HINT,
+                 interactions=[{'type': 'click', 'target': f'{EDIT_BTN} >> nth=0'}, {'type': 'wait', 'ms': 300}],
+                 android=[{'type': 'tap', 'key': 'provider-edit-conn-gateway'}])
+    settings_add(f'settings.provider-edit-preset{sfx}', f'AI provider edit modal, preset provider ({plat})',
+                 tab='providers', platform=plat, flags='providers', route_set='wp6-providers',
+                 selector=EDIT_DIALOG, android_key='provider-connection-edit-dialog', hint=PROV_HINT,
+                 interactions=[{'type': 'click', 'target': f'{EDIT_BTN} >> nth=1'}, {'type': 'wait', 'ms': 300}],
+                 android=[{'type': 'tap', 'key': 'provider-edit-conn-anthropic'}])
+settings_add('settings.provider-edit-error', 'AI provider edit modal, save failed', tab='providers',
+             flags='providers', route_set='wp6-providers-save-error', selector=EDIT_DIALOG,
+             android_key='provider-connection-edit-dialog', hint=PROV_HINT,
+             interactions=[{'type': 'click', 'target': f'{EDIT_BTN} >> nth=0'}, {'type': 'wait', 'ms': 300},
+                           {'type': 'click', 'target': f'{EDIT_DIALOG} >> role=button[name="Save changes"s]'},
+                           {'type': 'wait', 'ms': 500}],
+             android=[{'type': 'tap', 'key': 'provider-edit-conn-gateway'},
+                      {'type': 'tap', 'key': 'provider-edit-save'}])
+
+# Slack bridge setup wizard (IMBridgesSettingsSection + SlackBridgeSetupWizard).
+BRIDGE_HINT = 'packages/web/src/components/settings/SlackBridgeSetupWizard.tsx'
+UUID1 = '5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61'
+UUID2 = '9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34'
+RAFT_CH = [{'id': 'channel-design', 'name': 'design'}, {'id': 'channel-android', 'name': 'android-artifacts'},
+           {'id': 'channel-general', 'name': 'general'}]
+SLACK_CH = [{'id': 'C01ENG', 'name': 'eng', 'privacyClass': 'public', 'isMember': True},
+            {'id': 'C02REVIEWS', 'name': 'design-reviews', 'privacyClass': 'private', 'isMember': True},
+            {'id': 'C03RANDOM', 'name': 'random', 'privacyClass': 'public', 'isMember': False}]
+EPOCHS = {'grant': 'g1', 'connection': '4', 'scope': 's1', 'credential': 'c1'}
+ACTIVE_INSTALL = {'state': 'active', 'epochs': EPOCHS}
+
+
+def raw_health(**kw):
+    base = {'install': ACTIVE_INSTALL, 'credential': {'state': 'active'}, 'bindings': [], 'audiences': [],
+            'lastVerifiedAt': None, 'failingSurface': None}
+    base.update(kw)
+    return base
+
+
+def bridge(stage, *, workspace='Acme Workspace', pairs=(), slack=SLACK_CH, preflight=None, health=None, oauth=False):
+    return {'protocolVersion': 1, 'snapshot': {
+        'stage': stage, 'workspaceName': workspace, 'raftChannels': RAFT_CH, 'slackChannels': list(slack),
+        'channelPairs': list(pairs), 'preflight': preflight, 'rawHealth': health or raw_health()},
+        'oauthAuthority': ({'registrationId': UUID1, 'serverGrantId': UUID2, 'grantEpoch': 1} if oauth else None)}
+
+
+PAIRS = [{'raftChannelId': 'channel-design', 'slackChannelId': 'C02REVIEWS', 'bindingEpoch': 2},
+         {'raftChannelId': 'channel-android', 'slackChannelId': 'C01ENG', 'bindingEpoch': 3}]
+BINDINGS = [{'id': 'binding-1', 'state': 'active', 'bindingEpoch': 2, 'stateReason': None, 'recoveryAction': 'none'},
+            {'id': 'binding-2', 'state': 'active', 'bindingEpoch': 3, 'stateReason': None, 'recoveryAction': 'none'}]
+VERIFIED = '2026-06-20T08:30:00.000Z'
+PF_FAILED = {'state': 'failed', 'checks': [{'id': 'oauth', 'state': 'passed'}, {'id': 'endpoint', 'state': 'passed'},
+                                           {'id': 'scope', 'state': 'failed'}, {'id': 'audience', 'state': 'unverified'}]}
+PF_PASSED = {'state': 'passed', 'checks': [{'id': c, 'state': 'passed'} for c in ('oauth', 'endpoint', 'scope', 'audience')]}
+BRIDGE_STATES = {
+    'connect': bridge('connect', workspace=None, health=raw_health(install=None, credential=None)),
+    'oauth': bridge('oauth', workspace=None, oauth=True,
+                    health=raw_health(install={'state': 'pending', 'epochs': EPOCHS}, credential=None)),
+    'channels': bridge('channels'),
+    'channels-pairs': bridge('channels', pairs=[{'raftChannelId': 'channel-design', 'slackChannelId': 'C02REVIEWS'}]),
+    'preflight': bridge('preflight', pairs=PAIRS, preflight=PF_FAILED),
+    'enable': bridge('enable', pairs=PAIRS, preflight=PF_PASSED),
+    'health': bridge('health', pairs=PAIRS, health=raw_health(
+        bindings=BINDINGS, lastVerifiedAt=VERIFIED,
+        audiences=[{'bindingId': 'binding-1', 'status': 'matched'}, {'bindingId': 'binding-2', 'status': 'matched'}])),
+    'health-recovery': bridge(
+        'health', pairs=PAIRS,
+        slack=[SLACK_CH[0], {**SLACK_CH[1], 'isMember': False}, SLACK_CH[2]],
+        health=raw_health(bindings=BINDINGS, lastVerifiedAt=VERIFIED, failingSurface='audience', audiences=[
+            {'bindingId': 'binding-1', 'status': 'mismatch'}, {'bindingId': 'binding-2', 'status': 'matched'}])),
+    'health-unverified': bridge('health', pairs=PAIRS, health=raw_health(bindings=BINDINGS)),
+}
+for name, body in BRIDGE_STATES.items():
+    fixture['routeSets'][f'wp6-bridge-{name}'] = {'GET /slack-bridge/provisioning': body}
+
+
+def bridge_add(key, title, state, *, platform='desktop', role='owner', interactions=(), android=(),
+               selector=None, android_key=None, extra_routes=None):
+    route = f'wp6-bridge-{state}'
+    if extra_routes:
+        fixture['routeSets'][route] = {**fixture['routeSets'][route], **extra_routes}
+    settings_add(key, title, tab='im-bridges', platform=platform, flags='bridge', role=role,
+                 route_set=route, interactions=interactions, android=android, selector=selector,
+                 android_key=android_key, hint=BRIDGE_HINT)
+
+
+WIZ = "[data-testid='slack-bridge-setup-wizard']"
+for state, label in [('connect', 'connect stage'), ('oauth', 'OAuth stage'), ('channels', 'channel pairs, none chosen'),
+                     ('channels-pairs', 'channel pairs, one chosen'), ('preflight', 'preflight failed'),
+                     ('enable', 'enable stage'), ('health', 'health, connected'),
+                     ('health-recovery', 'health, Slack channel access removed'),
+                     ('health-unverified', 'health, not verified yet')]:
+    bridge_add(f'settings.bridge-{state}', f'Slack bridge wizard: {label}', state, selector=WIZ,
+               android_key='slack-bridge-wizard')
+for state in ('connect', 'channels-pairs', 'preflight', 'health-recovery'):
+    bridge_add(f'settings.bridge-{state}-mobile', f'Slack bridge wizard: {state} (mobile)', state,
+               platform='mobile', selector=WIZ, android_key='slack-bridge-wizard')
+bridge_add('settings.bridge-health-readonly', 'Slack bridge wizard: health, view only (member)', 'health',
+           role='member', selector=WIZ, android_key='slack-bridge-wizard')
+bridge_add('settings.bridge-manage', 'Slack bridge wizard: managing channel mappings', 'health',
+           selector=WIZ, android_key='slack-bridge-wizard',
+           interactions=[{'type': 'click', 'target': 'role=button[name="Manage channel mappings"s]'},
+                         {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'slack-bridge-manage'}])
+bridge_add('settings.bridge-disconnect', 'Slack bridge wizard: disconnect confirmation', 'health',
+           selector=WIZ, android_key='slack-bridge-wizard',
+           interactions=[{'type': 'click', 'target': 'role=button[name="Disconnect Slack workspace"s]'},
+                         {'type': 'wait', 'ms': 300}],
+           android=[{'type': 'tap', 'key': 'slack-bridge-disconnect'}])
+fixture['routeSets']['wp6-bridge-error'] = {'GET /slack-bridge/provisioning': {'$status': 500}}
+bridge_add('settings.bridge-error', 'Slack bridge: load failed', 'error')
+
 manifest_path = here / 'cases.json'
 manifest = json.loads(manifest_path.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith(PREFIX)] + cases

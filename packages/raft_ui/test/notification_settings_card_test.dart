@@ -31,7 +31,7 @@ void main() {
                     status: 'Unavailable',
                     actionLabel: 'Enable notifications',
                     muted: muted,
-                    muteDescription: 'Stops web push notifications from Fixture for your account. Other servers are unchanged.',
+                    muteDescription: 'Stops notifications from Fixture for your account. Other servers are unchanged.',
                     onMutedChanged: (v) => setState(() => muted = v),
                     onSave: muted == saved
                         ? null

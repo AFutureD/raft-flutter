@@ -113,8 +113,8 @@ const raftChinese = <String, String>{
   "{provider} runtime account usage": "{provider} 运行时账户用量",
   "Refresh again in ~{seconds}s": "约 {seconds} 秒后可再刷新",
   "Notification settings could not be loaded.": "无法加载通知设置。",
-  "Stops web push notifications from {serverName} for your account. Other servers are unchanged.":
-      "停止向你的账户推送来自 {serverName} 的网页通知。其他服务器不受影响。",
+  "Stops notifications from {serverName} for your account. Other servers are unchanged.":
+      "停止接收来自 {serverName} 的通知，其他服务器不受影响。",
   "Notifications from {serverName} are muted.": "已静音来自 {serverName} 的通知。",
   "Notifications from {serverName} are unmuted.": "已恢复来自 {serverName} 的通知。",
   "Comments · {filename}": "评论 · {filename}",
@@ -529,6 +529,10 @@ const raftChinese = <String, String>{
   "Create Tasks": "创建任务",
   "Create {count} Tasks": "创建 {count} 个任务",
   "Task {n}": "任务 {n}",
+  "#{name} — invite the Raft app in Slack": "#{name} — 请在 Slack 中邀请 Raft 应用",
+  "Message sync is paused for {channels}. Invite the Raft app back to the affected channel, then refresh and recheck.": "{channels} 的消息同步已暂停。请将 Raft 应用重新邀请到受影响的频道，然后刷新并重新检查。",
+  "Last verified {when}": "最近验证于 {when}",
+  "Edit {name}": "编辑 {name}",
   "Browser language resolves to {language} for this browser.": "浏览器语言在此浏览器解析为 {language}。",
   "No {status} tasks.": "没有{status}的任务。",
   "Add Computer": "添加 Computer",
