@@ -115,7 +115,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     }
     // The channel roster the composer read on opening shows at the first
     // frame (Source ChatPanel prefetches it); the load below revalidates it.
-    final roster = widget.isPanel
+    final roster = drawer
         ? cachedChannelRoster(w, widget.channel.id)
         : null;
     if (roster != null) {
@@ -194,7 +194,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       for (final part in parts)
         if ((part != 'notification' || channel.flag('activityMuteSupported')) &&
             // A 1:1 DM sheet has no members section (ChatPanel #1281).
-            !(part == 'members' && widget.isPanel && channel.type == 'dm'))
+            !(part == 'members' && drawer && channel.type == 'dm'))
           part,
     ];
     final tickets = {
@@ -447,9 +447,13 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     if (mounted && identity == pageIdentity(w)) setState(() {});
   }
 
+  /// The OverflowSheet drawer; the mobile page keeps the legacy sheet layout
+  /// (it only borrows `isPanel` for the panel-only preferences).
+  bool get drawer => widget.isPanel && !widget.page;
+
   @override
   Widget build(BuildContext context) =>
-      widget.isPanel ? panel(context) : sheet(context);
+      drawer ? panel(context) : sheet(context);
 
   Widget sheet(BuildContext context) {
     final c = channel;
