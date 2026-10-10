@@ -1269,8 +1269,8 @@ replies, history; `routes` + `routeSets` answer the API on both providers).
 
 ### WP6 task and settings leftovers (153 = 51 surfaces x 3 themes)
 
-`python3 tool/parity-ext/build-wp6-cases.py` (run after every other
-`build-*.py`) appends `components.wp6.<surface>.<state>.<theme>` and writes
+`tool/parity-ext/build-wp6-cases.py` (registered last in
+`tool/parity-ext/builders.txt`, run by `tool/parity-ext/run`) appends `components.wp6.<surface>.<state>.<theme>` and writes
 `tool/parity-ext/fixtures/wp6.json` (every route in a `routeSets` entry, so no
 other family sees it). React host: `host/Wp6Cases.tsx` (tasks surfaces mount the
 real `CreateTaskDialog` / `TaskFilterSegmentedControl` / `MainLayout`; the
