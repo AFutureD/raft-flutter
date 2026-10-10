@@ -13,6 +13,7 @@ import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
 import 'attachment_preview_dialog.dart';
 import 'attachment_html_preview.dart';
+import 'attachment_image_lightbox.dart';
 import 'private_route_guard.dart';
 
 class AttachmentView extends StatefulWidget {
@@ -630,27 +631,21 @@ class _AttachmentViewState extends State<AttachmentView> {
     final zoom = TransformationController();
     operationRoute = DialogRoute<void>(
       context: context,
-      builder: (dialogContext) => RaftAttachmentLightbox(
+      builder: (dialogContext) => AttachmentImageLightbox(
         title: name,
-        titleBold: true,
-        onResetZoom: () => zoom.value = Matrix4.identity(),
+        zoom: zoom,
         onClose: () {
           if (identical(previewRoute, operationRoute) &&
               operationRoute.isActive) {
             operationRoute.navigator?.removeRoute(operationRoute);
           }
         },
-        footer: RaftTextButton(
-          label: 'Download original',
-          glyph: RaftGlyph.download,
-          onPressed: current() ? download : null,
-          variant: RaftControlVariant.ghost,
-        ),
+        onDownload: current() ? download : null,
         child: ValueListenableBuilder<int>(
           valueListenable: imagePresentation,
           builder: (_, _, _) {
             if (!current()) return const SizedBox.shrink();
-            return _FullAttachmentImage(
+            return AttachmentLightboxImage(
               imageKey: ValueKey('attachment-image-${widget.metadata['id']}'),
               zoom: zoom,
               acquire: () => w.acquireAttachmentImage(
@@ -757,92 +752,6 @@ class _AttachmentViewState extends State<AttachmentView> {
       duration: AttachmentPrimitive.previewFade,
       builder: (_, opacity, child) => Opacity(opacity: opacity, child: child),
       child: image,
-    );
-  }
-}
-
-/// Lightbox body: the full-resolution original, decoded only while open.
-/// The list preview stands in until it is ready (Web shows the thumbnail).
-class _FullAttachmentImage extends StatefulWidget {
-  const _FullAttachmentImage({
-    required this.imageKey,
-    required this.zoom,
-    required this.acquire,
-    required this.placeholder,
-    required this.previewFailed,
-  });
-  final Key imageKey;
-  final TransformationController zoom;
-  final WorkspaceAttachmentImageLease Function() acquire;
-  final ImageProvider? placeholder;
-  final bool previewFailed;
-  @override
-  State<_FullAttachmentImage> createState() => _FullAttachmentImageState();
-}
-
-class _FullAttachmentImageState extends State<_FullAttachmentImage> {
-  WorkspaceAttachmentImageLease? lease;
-  ImageProvider? full;
-  bool failed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(load());
-  }
-
-  Future<void> load() async {
-    final WorkspaceAttachmentImageLease next;
-    try {
-      next = widget.acquire();
-    } catch (_) {
-      failed = true;
-      return;
-    }
-    lease = next;
-    final ready = next.lease.value;
-    if (ready != null) {
-      full = ready;
-      return;
-    }
-    try {
-      final provider = await next.lease.ready;
-      if (mounted && identical(lease, next)) setState(() => full = provider);
-    } catch (_) {
-      if (mounted && identical(lease, next)) setState(() => failed = true);
-    }
-  }
-
-  @override
-  void dispose() {
-    // The full-resolution bitmap is not kept once the lightbox closes; its
-    // bytes stay in the persistent store for the next open.
-    lease?.release(discard: true);
-    lease = null;
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = full ?? widget.placeholder;
-    const unavailable = Text(
-      'Preview unavailable. Download the original file.',
-    );
-    return Center(
-      child: provider == null
-          ? failed || widget.previewFailed
-                ? unavailable
-                : const RaftSpinner(inverse: true)
-          : InteractiveViewer(
-              transformationController: widget.zoom,
-              child: Image(
-                image: provider,
-                key: widget.imageKey,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => unavailable,
-              ),
-            ),
     );
   }
 }

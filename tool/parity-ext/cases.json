@@ -17009,6 +17009,3636 @@
     "layoutDp": 1,
     "ignoreAntialiasing": true
    }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.single.brutal",
+   "title": "Attachment preview image.single desktop single image, comments affordance (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.single",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.single.elegant",
+   "title": "Attachment preview image.single desktop single image, comments affordance (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.single",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.single.elegant-dark",
+   "title": "Attachment preview image.single desktop single image, comments affordance (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.single",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.gallery.brutal",
+   "title": "Attachment preview image.gallery desktop gallery 2/3 with arrows and thumbnails (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.gallery",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.gallery'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.gallery.elegant",
+   "title": "Attachment preview image.gallery desktop gallery 2/3 with arrows and thumbnails (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.gallery",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.gallery'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.gallery.elegant-dark",
+   "title": "Attachment preview image.gallery desktop gallery 2/3 with arrows and thumbnails (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.gallery",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.gallery'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.header.brutal",
+   "title": "Attachment preview image.header desktop title bar, long file name in a gallery (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.header",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.header.elegant",
+   "title": "Attachment preview image.header desktop title bar, long file name in a gallery (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.header",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.header.elegant-dark",
+   "title": "Attachment preview image.header desktop title bar, long file name in a gallery (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.header",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.comments.brutal",
+   "title": "Attachment preview image.comments desktop comments panel open (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.comments",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-message-affordance=\"attachment-comments-toggle\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "attachment-comments-toggle"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.comments'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.comments.elegant",
+   "title": "Attachment preview image.comments desktop comments panel open (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.comments",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-message-affordance=\"attachment-comments-toggle\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "attachment-comments-toggle"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.comments'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.comments.elegant-dark",
+   "title": "Attachment preview image.comments desktop comments panel open (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.comments",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-message-affordance=\"attachment-comments-toggle\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "attachment-comments-toggle"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.comments'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.loading.brutal",
+   "title": "Attachment preview image.loading desktop full image still loading (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.loading",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0",
+      "routeSet": "image-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.loading.elegant",
+   "title": "Attachment preview image.loading desktop full image still loading (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.loading",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0",
+      "routeSet": "image-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.loading.elegant-dark",
+   "title": "Attachment preview image.loading desktop full image still loading (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.loading",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0",
+      "routeSet": "image-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.error.brutal",
+   "title": "Attachment preview image.error desktop full image failed to load (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.error",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0",
+      "routeSet": "image-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.error.elegant",
+   "title": "Attachment preview image.error desktop full image failed to load (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.error",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0",
+      "routeSet": "image-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.error.elegant-dark",
+   "title": "Attachment preview image.error desktop full image failed to load (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.error",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "image",
+      "images": "1",
+      "index": "0",
+      "routeSet": "image-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.single.mobile.brutal",
+   "title": "Attachment preview image.single mobile single image (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.single.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.single.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.single.mobile.elegant",
+   "title": "Attachment preview image.single mobile single image (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.single.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.single.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.single.mobile.elegant-dark",
+   "title": "Attachment preview image.single mobile single image (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.single.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "host": "image",
+      "images": "1",
+      "index": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.single.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.gallery.mobile.brutal",
+   "title": "Attachment preview image.gallery mobile gallery 2/3 (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.gallery.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.gallery.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.gallery.mobile.elegant",
+   "title": "Attachment preview image.gallery mobile gallery 2/3 (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.gallery.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.gallery.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.image.gallery.mobile.elegant-dark",
+   "title": "Attachment preview image.gallery mobile gallery 2/3 (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "image.gallery.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "host": "image",
+      "images": "3",
+      "index": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/ImageLightbox.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'image.gallery.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.text.brutal",
+   "title": "Attachment preview doc.text desktop text preview (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.text",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.text'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.text.elegant",
+   "title": "Attachment preview doc.text desktop text preview (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.text",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.text'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.text.elegant-dark",
+   "title": "Attachment preview doc.text desktop text preview (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.text",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.text'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.csv.brutal",
+   "title": "Attachment preview doc.csv desktop csv preview (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.csv",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "csv"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.csv'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.csv.elegant",
+   "title": "Attachment preview doc.csv desktop csv preview (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.csv",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "csv"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.csv'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.csv.elegant-dark",
+   "title": "Attachment preview doc.csv desktop csv preview (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.csv",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "csv"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.csv'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.xlsx.brutal",
+   "title": "Attachment preview doc.xlsx desktop xlsx preview (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.xlsx",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "xlsx"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.xlsx'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.xlsx.elegant",
+   "title": "Attachment preview doc.xlsx desktop xlsx preview (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.xlsx",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "xlsx"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.xlsx'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.xlsx.elegant-dark",
+   "title": "Attachment preview doc.xlsx desktop xlsx preview (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.xlsx",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "xlsx"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.xlsx'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.markdown.brutal",
+   "title": "Attachment preview doc.markdown desktop markdown preview (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.markdown",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "markdown"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.markdown'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.markdown.elegant",
+   "title": "Attachment preview doc.markdown desktop markdown preview (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.markdown",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "markdown"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.markdown'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.markdown.elegant-dark",
+   "title": "Attachment preview doc.markdown desktop markdown preview (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.markdown",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "markdown"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.markdown'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header.brutal",
+   "title": "Attachment preview doc.header desktop header, copy action (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header.elegant",
+   "title": "Attachment preview doc.header desktop header, copy action (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header.elegant-dark",
+   "title": "Attachment preview doc.header desktop header, copy action (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header-long.brutal",
+   "title": "Attachment preview doc.header-long desktop header, long file name (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header-long",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "long"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header-long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header-long.elegant",
+   "title": "Attachment preview doc.header-long desktop header, long file name (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header-long",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "long"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header-long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header-long.elegant-dark",
+   "title": "Attachment preview doc.header-long desktop header, long file name (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header-long",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "long"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header-long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header-pdf.brutal",
+   "title": "Attachment preview doc.header-pdf desktop header, pdf (no copy, no comments) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header-pdf",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "pdf"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header-pdf'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header-pdf.elegant",
+   "title": "Attachment preview doc.header-pdf desktop header, pdf (no copy, no comments) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header-pdf",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "pdf"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header-pdf'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.header-pdf.elegant-dark",
+   "title": "Attachment preview doc.header-pdf desktop header, pdf (no copy, no comments) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.header-pdf",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "pdf"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.header-pdf'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.comments.brutal",
+   "title": "Attachment preview doc.comments desktop text preview with the comments panel (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.comments",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-message-affordance=\"attachment-preview-mode\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "attachment-preview-mode"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.comments'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.comments.elegant",
+   "title": "Attachment preview doc.comments desktop text preview with the comments panel (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.comments",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-message-affordance=\"attachment-preview-mode\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "attachment-preview-mode"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.comments'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.comments.elegant-dark",
+   "title": "Attachment preview doc.comments desktop text preview with the comments panel (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.comments",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-message-affordance=\"attachment-preview-mode\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "attachment-preview-mode"
+     },
+     {
+      "type": "wait",
+      "ms": 600
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.comments'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.text.mobile.brutal",
+   "title": "Attachment preview doc.text mobile text preview (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.text.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.text.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.text.mobile.elegant",
+   "title": "Attachment preview doc.text mobile text preview (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.text.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.text.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.text.mobile.elegant-dark",
+   "title": "Attachment preview doc.text mobile text preview (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.text.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "host": "document",
+      "doc": "text"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.text.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.csv.mobile.brutal",
+   "title": "Attachment preview doc.csv mobile csv preview (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.csv.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "host": "document",
+      "doc": "csv"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.csv.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.csv.mobile.elegant",
+   "title": "Attachment preview doc.csv mobile csv preview (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.csv.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "host": "document",
+      "doc": "csv"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.csv.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.doc.csv.mobile.elegant-dark",
+   "title": "Attachment preview doc.csv mobile csv preview (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "doc.csv.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "host": "document",
+      "doc": "csv"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/DocumentPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'doc.csv.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.preparing.brutal",
+   "title": "Attachment preview html.preparing desktop sandboxed preview still preparing (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.preparing",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.preparing'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.preparing.elegant",
+   "title": "Attachment preview html.preparing desktop sandboxed preview still preparing (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.preparing",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.preparing'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.preparing.elegant-dark",
+   "title": "Attachment preview html.preparing desktop sandboxed preview still preparing (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.preparing",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.preparing'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.header.brutal",
+   "title": "Attachment preview html.header desktop header with comments toggle (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.header",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.header.elegant",
+   "title": "Attachment preview html.header desktop header with comments toggle (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.header",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.header.elegant-dark",
+   "title": "Attachment preview html.header desktop header with comments toggle (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.header",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1'] > div:first-child",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.header'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.preparing.mobile.brutal",
+   "title": "Attachment preview html.preparing mobile sandboxed preview still preparing (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.preparing.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.preparing.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.preparing.mobile.elegant",
+   "title": "Attachment preview html.preparing mobile sandboxed preview still preparing (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.preparing.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.preparing.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.html.preparing.mobile.elegant-dark",
+   "title": "Attachment preview html.preparing mobile sandboxed preview still preparing (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "html.preparing.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "host": "html"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body > div[tabindex='-1']",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MediaPreviewHost.tsx + attachmentPreviewSurfaces.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'html.preparing.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.list.brutal",
+   "title": "Attachment preview comments.list desktop list (320px aside column) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.list",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": ""
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.list.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.list'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.list.elegant",
+   "title": "Attachment preview comments.list desktop list (320px aside column) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.list",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": ""
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.list.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.list'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.list.elegant-dark",
+   "title": "Attachment preview comments.list desktop list (320px aside column) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.list",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": ""
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.list.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.list'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.empty.brutal",
+   "title": "Attachment preview comments.empty desktop empty (320px aside column) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.empty",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.empty.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.empty.elegant",
+   "title": "Attachment preview comments.empty desktop empty (320px aside column) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.empty",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.empty.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.empty.elegant-dark",
+   "title": "Attachment preview comments.empty desktop empty (320px aside column) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.empty",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.empty.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.loading.brutal",
+   "title": "Attachment preview comments.loading desktop loading (320px aside column) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.loading",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.loading.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.loading.elegant",
+   "title": "Attachment preview comments.loading desktop loading (320px aside column) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.loading",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.loading.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.loading.elegant-dark",
+   "title": "Attachment preview comments.loading desktop loading (320px aside column) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.loading",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-pending"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.loading.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.blocked.brutal",
+   "title": "Attachment preview comments.blocked desktop blocked (320px aside column) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.blocked",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-blocked"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.blocked.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.blocked'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.blocked.elegant",
+   "title": "Attachment preview comments.blocked desktop blocked (320px aside column) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.blocked",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-blocked"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.blocked.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.blocked'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.blocked.elegant-dark",
+   "title": "Attachment preview comments.blocked desktop blocked (320px aside column) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.blocked",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-blocked"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.blocked.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.blocked'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.error.brutal",
+   "title": "Attachment preview comments.error desktop error (320px aside column) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.error",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.error.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.error.elegant",
+   "title": "Attachment preview comments.error desktop error (320px aside column) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.error",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.error.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.error.elegant-dark",
+   "title": "Attachment preview comments.error desktop error (320px aside column) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.error",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": "comments-error"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.error.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.error'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.list.mobile.brutal",
+   "title": "Attachment preview comments.list mobile list (full-width sheet) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.list.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": ""
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.list.mobile.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.list.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.list.mobile.elegant",
+   "title": "Attachment preview comments.list mobile list (full-width sheet) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.list.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": ""
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.list.mobile.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.list.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.attachment.comments.list.mobile.elegant-dark",
+   "title": "Attachment preview comments.list mobile list (full-width sheet) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "attachment-preview",
+   "category": "extension/thread-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "comments.list.mobile",
+      "extKind": "threadattachment",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "host": "panel",
+      "doc": "text",
+      "routeSet": ""
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.attachment.comments.list.mobile.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/AttachmentCommentsPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_attachments.dart 'comments.list.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }
