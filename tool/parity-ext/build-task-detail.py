@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Append the Tasks board page and task detail modal cases to
-tool/parity-ext/cases.json and write tool/parity-ext/fixtures/taskdetail.json.
+the run-time manifest ($PARITY_EXT_MANIFEST) and write tool/parity-ext/fixtures/taskdetail.json.
 
 Run last of the chain (build-cases.py -> build-live-activity.py ->
 build-channel-header.py -> build-announcements.py -> this); idempotent: every
@@ -33,8 +33,11 @@ data (section tasks, navigateTask for the detail).
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 DESKTOP = {'width': 1280, 'height': 800, 'density': 1}
 MOBILE = {'width': 390, 'height': 844, 'density': 3}
@@ -357,11 +360,11 @@ for platform in ['desktop', 'mobile']:
         android = [{'type': 'tap', 'key': 'task-properties-history'}] if state == 'history-open' else []
         add_detail(platform, state, key, title, interactions=interactions, android=android)
 
-manifest_path = here / 'cases.json'
-manifest = json.loads(manifest_path.read_text())
+manifest_out = manifest_path()
+manifest = json.loads(manifest_out.read_text())
 manifest['cases'] = [c for c in manifest['cases']
                      if not c['id'].startswith((PAGE_PREFIX, DETAIL_PREFIX))] + cases
-manifest_path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
+manifest_out.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')
 (here / 'fixtures/taskdetail.json').write_text(json.dumps(fixture, indent=1, ensure_ascii=False) + '\n')
-print(f'{len(cases)} task board / detail cases appended -> tool/parity-ext/cases.json; '
+print(f'{len(cases)} task board / detail cases appended -> the run-time manifest ($PARITY_EXT_MANIFEST); '
       'fixture -> tool/parity-ext/fixtures/taskdetail.json')

@@ -14,3 +14,6 @@ __pycache__/
 *.pyc
 
 .fvm/
+
+# parity-ext manifest is generated into build/parity-ext/ at run time (tool/parity-ext/builders.py)
+tool/parity-ext/cases.json

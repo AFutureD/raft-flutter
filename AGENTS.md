@@ -7,6 +7,7 @@
 - 测试使用命名隔离本地环境，Web与Flutter共用fixture。保护其他服务/dirty files；不提交登录资料、token、私有URL或本地seed输出。
 - Android 真机更新统一使用 `python3 tool/android-install --device <serial> --apk <arm64.apk> [--launch]`；先用 `--check-only` 验证制品。禁止用 `fvm flutter run/drive/test/install` 隐式安装正式 App，禁止卸载、清数据、降级或安装失败后的卸载重试。脚本核对实际 APK 的身份/架构/版本/签名与安装前后数据目录；任何失败立即停止。
 - Android profile 测试只通过 `tool/performance/lab.py`，只接受预编译且实际包名为 `app.raft.raft_flutter.linkperf` 的 APK，并强制 `--keep-app-running`。只改 `applicationId` 不足以隔离：Flutter drive 的 source 包名可能取 namespace，结束时自动卸载。测试前后检查正式 App 仍在，不得把“找不到包”当成正常状态继续安装。
+- 视觉对齐扩展套件（tool/parity-ext）的新增 / 修复流程见 docs/parity-ext-quickstart.md。
 - 按功能矩阵报告实际覆盖；Widget Preview 不能替代Linux/Android平台无障碍、输入法、生命周期或通知测试。
 
 - 原生流程遇到等待超时、点击未生效或未命中时，先用实际可见控件和真实指针输入复现，区分产品丢事件/延迟反馈与测试尚未完成布局，再决定修改产品或测试；保留初次失败。等待条件不能掩盖已经显示的控件丢点击。

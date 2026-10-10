@@ -1,0 +1,263 @@
+import importlib.machinery
+import importlib.util
+import json
+import os
+import pathlib
+import sys
+import tempfile
+import unittest
+from unittest import mock
+
+import numpy as np
+from PIL import Image
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+EXT = ROOT / 'tool/parity-ext'
+sys.path.insert(0, str(EXT))
+import builders  # noqa: E402
+import react_cache  # noqa: E402
+
+_loader = importlib.machinery.SourceFileLoader('parity_ext_analyze_diffs_test', str(EXT / 'analyze-diffs.py'))
+analyze = importlib.util.module_from_spec(importlib.util.spec_from_loader(_loader.name, _loader))
+sys.modules[_loader.name] = analyze
+_loader.exec_module(analyze)
+
+
+def write(path, text):
+    path = pathlib.Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+class BuilderOrderTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.ext = pathlib.Path(self.tmp.name) / 'tool/parity-ext'
+        self.ext.mkdir(parents=True)
+        for name in ('build-b.py', 'build-a.py', 'build-z.py', 'build-new.py'):
+            write(self.ext / name, 'print(1)\n')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_registry_order_then_unregistered_alphabetically(self):
+        write(self.ext / 'builders.txt', '# comment\nbuild-z.py\n\nbuild-b.py  # trailing\nbuild-gone.py\n')
+        names, unknown, missing = builders.ordered_builders(self.ext)
+        self.assertEqual(names, ['build-z.py', 'build-b.py', 'build-a.py', 'build-new.py'])
+        self.assertEqual(unknown, ['build-a.py', 'build-new.py'])
+        self.assertEqual(missing, ['build-gone.py'])
+
+    def test_missing_registry_runs_everything_alphabetically(self):
+        names, unknown, _ = builders.ordered_builders(self.ext)
+        self.assertEqual(names, ['build-a.py', 'build-b.py', 'build-new.py', 'build-z.py'])
+        self.assertEqual(unknown, names)
+
+    def test_build_manifest_runs_in_order_and_writes_the_output_dir(self):
+        for name in ('build-a.py', 'build-b.py', 'build-z.py', 'build-new.py'):
+            tag = name[6:-3]
+            write(self.ext / name, 'import json, os, pathlib\n'
+                  "p = pathlib.Path(os.environ['PARITY_EXT_MANIFEST'])\n"
+                  "m = json.loads(p.read_text()) if p.exists() else {'cases': []}\n"
+                  f"m['cases'].append({{'id': 'components.{tag}.x'}})\n"
+                  'p.write_text(json.dumps(m))\n')
+        write(self.ext / 'builders.txt', 'build-z.py\nbuild-b.py\n')
+        out = pathlib.Path(self.tmp.name) / 'out'
+        target = builders.build_manifest(out, ext=self.ext)
+        self.assertEqual(target, out / 'cases.json')
+        self.assertEqual([c['id'].split('.')[1] for c in json.loads(target.read_text())['cases']],
+                         ['z', 'b', 'a', 'new'])
+
+    def test_failing_builder_stops_the_run(self):
+        write(self.ext / 'build-a.py', 'raise SystemExit(3)\n')
+        with self.assertRaises(SystemExit):
+            builders.build_manifest(pathlib.Path(self.tmp.name) / 'out', ext=self.ext)
+
+    def test_builders_need_the_manifest_env(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('PARITY_EXT_MANIFEST', None)
+            with self.assertRaises(SystemExit):
+                builders.manifest_path()
+
+    def test_every_repo_builder_is_registered(self):
+        names, unknown, missing = builders.ordered_builders(EXT)
+        self.assertEqual(missing, [])
+        self.assertEqual(names[0], 'build-cases.py')  # creates the manifest the others amend
+        if unknown:  # allowed (warned at run time); a registered list keeps the order stable
+            self.skipTest(f'unregistered builders: {unknown}')
+
+
+CASE = {
+    'id': 'components.demo.card.brutal', 'theme': 'brutal-light', 'viewport': {'width': 640, 'height': 600, 'density': 1},
+    'variants': [{'id': 'default', 'props': {'extKind': 'demo', 'state': 'a'}}],
+    'capture': {'selector': '#x', 'interactions': [{'type': 'hover', 'target': '#x'}],
+                'androidKey': 'demo-card', 'androidInteractions': []},
+    'androidCaseHint': 'hint', 'notes': 'n', 'tolerance': {'pixelRatio': 0.02}, 'reactPathHint': 'x.tsx',
+}
+
+
+class ReactCacheKeyTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name) / 'wt'
+        self.source = pathlib.Path(self.tmp.name) / 'raft-source'
+        self.source.mkdir()
+        self.reset()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def reset(self):
+        ext = self.root / 'tool/parity-ext'
+        write(ext / 'host/DemoCases.tsx', 'import f from "virtual:parity-ext/demo";\n'
+              'function parityExtDemoElement() { return params.get("extKind") === "demo" ? helper() : null; }\n'
+              'function demoOwn() {}\n')
+        write(ext / 'host/OtherCases.tsx', 'import g from "virtual:parity-ext/other";\n'
+              'function parityExtOtherElement() { return null; }\n')
+        write(ext / 'fixtures/demo.json', json.dumps({'routes': {'GET /a': {'x': 1}}}))
+        write(ext / 'fixtures/other.json', json.dumps({'routes': {'GET /b': {'y': 1}}}))
+        write(self.root / 'tool/parity-ext-web.mjs', 'web v1')
+        write(self.root / 'tool/parity', 'parity v1')
+        write(self.root / 'tool/parity-fonts/manifest.json', '{}')
+
+    def key(self, case=CASE, machinery='m1', root_name=None):
+        ctx = react_cache.KeyContext(self.root, self.root / 'tool/parity-ext', self.source, machinery)
+        return ctx.key(case)
+
+    def variant(self, **changes):
+        case = json.loads(json.dumps(CASE))
+        for path, value in changes.items():
+            node = case
+            *head, last = path.split('/')
+            for part in head:
+                node = node[int(part)] if part.isdigit() else node[part]
+            node[int(last) if last.isdigit() else last] = value
+        return case
+
+    def test_stable_and_sensitive_to_case_content(self):
+        base = self.key()
+        self.assertEqual(base, self.key())
+        for change in ({'variants/0/props/state': 'b'}, {'viewport/width': 641}, {'theme': 'elegant-light'},
+                       {'capture/interactions/0/type': 'press'}, {'capture/selector': '#y'}, {'id': 'components.demo.card.elegant'}):
+            self.assertNotEqual(base, self.key(self.variant(**change)), change)
+
+    def test_ignores_flutter_only_fields(self):
+        base = self.key()
+        for change in ({'capture/androidKey': 'other'}, {'capture/androidInteractions': [{'type': 'tap'}]},
+                       {'androidCaseHint': 'z'}, {'notes': 'z'}, {'tolerance': {'pixelRatio': 0.5}}, {'reactPathHint': 'z'}):
+            self.assertEqual(base, self.key(self.variant(**change)), change)
+
+    def test_own_host_and_fixture_invalidate_others_do_not(self):
+        base = self.key()
+        ext = self.root / 'tool/parity-ext'
+        write(ext / 'host/OtherCases.tsx', 'import g from "virtual:parity-ext/other";\nfunction parityExtOtherElement() { return 1; }\n')
+        write(ext / 'fixtures/other.json', json.dumps({'routes': {'GET /b': {'y': 2}}}))  # same route keys, other body
+        self.assertEqual(base, self.key())
+        write(ext / 'fixtures/other.json', json.dumps({'routes': {'GET /b': {}, 'GET /new': {}}}))  # new route: may shadow
+        self.assertNotEqual(base, self.key())
+        self.reset()
+        write(ext / 'fixtures/demo.json', json.dumps({'routes': {'GET /a': {'x': 2}}}))
+        self.assertNotEqual(base, self.key())
+        self.reset()
+        write(ext / 'host/DemoCases.tsx', (ext / 'host/DemoCases.tsx').read_text() + '// edit\n')
+        self.assertNotEqual(base, self.key())
+
+    def test_host_using_another_hosts_declarations_depends_on_it(self):
+        ext = self.root / 'tool/parity-ext'
+        write(ext / 'host/OtherCases.tsx', 'function helper() {}\nfunction parityExtOtherElement() { return null; }\n')
+        before = self.key()
+        write(ext / 'host/OtherCases.tsx', 'function helper() { return 1; }\nfunction parityExtOtherElement() { return null; }\n')
+        self.assertNotEqual(before, self.key())
+
+    def test_machinery_and_tool_files_invalidate(self):
+        base = self.key()
+        self.assertNotEqual(base, self.key(machinery='m2'))
+        write(self.root / 'tool/parity-ext-web.mjs', 'web v2')
+        self.assertNotEqual(base, self.key())
+        self.reset()
+        write(self.root / 'tool/parity', 'parity v2')
+        self.assertNotEqual(base, self.key())
+
+    def test_key_is_independent_of_the_worktree_path(self):
+        a = self.key(machinery=f'cmd node {self.root}/tool/parity-ext-web.mjs')
+        moved = pathlib.Path(self.tmp.name) / 'wt2'
+        self.root.rename(moved)
+        self.root = moved
+        self.assertEqual(a, self.key(machinery=f'cmd node {self.root}/tool/parity-ext-web.mjs'))
+
+
+class ReactCacheStorageTest(unittest.TestCase):
+    def test_store_restore_roundtrip_and_incomplete_entries_miss(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            results = tmp / 'results/react'
+            write(results / 'c.metadata.json', '{"caseId":"c"}')
+            (results / 'c.png').write_bytes(b'png-bytes')
+            cache = react_cache.Cache(tmp / 'cache')
+            self.assertFalse(cache.has('k'))
+            self.assertTrue(cache.store('k', 'c', results, {'a': 1}))
+            self.assertTrue(cache.has('k'))
+            self.assertEqual(json.loads(cache.paths('k')[2].read_text())['inputs'], {'a': 1})
+            other = tmp / 'wt2/react'
+            cache.restore('k', 'c', other)
+            self.assertEqual((other / 'c.png').read_bytes(), b'png-bytes')
+            self.assertEqual(json.loads((other / 'c.metadata.json').read_text())['caseId'], 'c')
+            self.assertEqual([p for p in cache.dir.iterdir() if p.name.endswith('.tmp')], [])
+            cache.paths('k')[1].unlink()  # metadata lands last: png alone is not an entry
+            self.assertFalse(cache.has('k'))
+
+    def test_failed_capture_is_not_stored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = react_cache.Cache(pathlib.Path(tmp) / 'cache')
+            self.assertFalse(cache.store('k', 'missing', pathlib.Path(tmp) / 'empty', {}))
+            self.assertFalse(cache.has('k'))
+
+
+def save(path, array):
+    Image.fromarray(array.astype(np.uint8)).save(path)
+
+
+class NonTextScoreTest(unittest.TestCase):
+    def scores(self, react, flutter):
+        with tempfile.TemporaryDirectory() as tmp:
+            rp, fp = pathlib.Path(tmp) / 'r.png', pathlib.Path(tmp) / 'f.png'
+            save(rp, react)
+            save(fp, flutter)
+            return analyze.non_text_scores({'c': (rp, fp, 1)}, jobs=1)['c']
+
+    def test_identical_images(self):
+        img = np.full((40, 60, 3), 255)
+        s = self.scores(img, img)
+        self.assertEqual((s['similarity'], s['nonTextSimilarity'], s['textShare']), (100.0, 100.0, 0.0))
+
+    def test_glyph_noise_is_excluded_but_a_wrong_fill_is_not(self):
+        rng = np.random.default_rng(1)
+        react = np.full((60, 80, 3), 255)
+        react[10:30, 10:50] = rng.integers(0, 256, (20, 40, 1)).repeat(3, 2)  # dense "ink"
+        flutter = react.copy()
+        flutter[10:30, 10:50] = rng.integers(0, 256, (20, 40, 1)).repeat(3, 2)  # different AA, no shift explains it
+        s = self.scores(react, flutter)
+        self.assertLess(s['similarity'], 99)
+        self.assertGreater(s['textShare'], 0.5)
+        self.assertGreater(s['nonTextSimilarity'], s['similarity'] + 10)  # block rim stays in other buckets
+        wrong = np.full((60, 80, 3), 255)
+        wrong[10:40, 10:70] = (0, 0, 0)
+        other = wrong.copy()
+        other[10:40, 10:70] = (200, 30, 30)  # a flat region of the wrong colour: not text
+        s = self.scores(wrong, other)
+        self.assertEqual(s['textShare'], 0.0)
+        self.assertLess(s['nonTextSimilarity'], 99.5)
+
+    def test_memo_reuses_results(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rp = pathlib.Path(tmp) / 'r.png'
+            save(rp, np.full((10, 10, 3), 255))
+            memo = {}
+            analyze.non_text_scores({'c': (rp, rp, 1)}, jobs=1, memo=memo)
+            self.assertEqual(len(memo), 1)
+            with mock.patch.object(analyze, 'classify', side_effect=AssertionError('classified again')):
+                analyze.non_text_scores({'c': (rp, rp, 1)}, jobs=1, memo=memo)
+
+
+if __name__ == '__main__':
+    unittest.main()
