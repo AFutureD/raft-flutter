@@ -480,7 +480,13 @@ void main() {
           ),
           hasLength(1),
         );
-        await t.tap(find.text('Log out'));
+        // Web's create form has no Log out link; the account change arrives
+        // through the page's own callback.
+        unawaited(
+          t
+              .widget<GlobalServerSelector>(find.byType(GlobalServerSelector))
+              .onLogout(),
+        );
         await f.flush(t);
         pending.complete({
           'id': 'new',
@@ -756,7 +762,7 @@ void main() {
         expect(find.byType(WorkspaceView), findsNothing);
         held.complete([]);
         await f.flush(t);
-        expect(find.text('Create your first server'), findsOneWidget);
+        expect(find.text('CREATE YOUR FIRST SERVER'), findsOneWidget);
         expect(
           find.byKey(const ValueKey('global-server-name')),
           findsOneWidget,
@@ -791,7 +797,7 @@ void main() {
         await t.tap(
           find.descendant(
             of: find.byType(RaftAuthSubmit),
-            matching: find.text('Create server'),
+            matching: find.text('Create Server'),
           ),
         );
         await t.pump();
@@ -886,7 +892,7 @@ void main() {
       f.adapter.statuses['GET /servers'] = 503;
       await f.mount(t, 'elegant-light', 390);
       expect(find.textContaining('Directory unavailable'), findsOneWidget);
-      expect(find.text('Create your first server'), findsNothing);
+      expect(find.text('CREATE YOUR FIRST SERVER'), findsNothing);
       expect(find.byKey(const ValueKey('global-server-name')), findsNothing);
       expect(f.adapter.calls.where((c) => c.path == '/channels'), isEmpty);
       f.serverDirectory = null;

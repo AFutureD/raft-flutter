@@ -157,8 +157,15 @@ class RaftButton extends StatelessWidget {
     this.foreground,
     this.iconInlineStart = true,
     this.opacityCompositing = RaftOpacityCompositing.layer,
+    this.leading,
+    this.gap,
   });
   final String label;
+
+  /// A custom leading node (a brand mark) before the label, separated by
+  /// [gap] (default: the recipe `gap-*`).
+  final Widget? leading;
+  final double? gap;
 
   /// Whether the icon carries Source `data-icon="inline-start"` (the smaller
   /// `has-data-[icon=inline-start]:pl-*` padding). Call sites that render a
@@ -253,7 +260,7 @@ class RaftButton extends StatelessWidget {
           tokens: rt,
         ).root;
         final svg = s.target("& svg:not([class*='size-'])");
-        final gap = s.columnGap ?? 0;
+        final gap = this.gap ?? s.columnGap ?? 0;
         // Accessibility exception (not in the Web): with platform high
         // contrast, elegant danger uses the in-repo component roles
         // `--button-danger-high-contrast(-foreground)` (WCAG AA text).
@@ -269,6 +276,9 @@ class RaftButton extends StatelessWidget {
               SizedBox(width: gap),
             ] else if (icon != null) ...[
               RaftSymbol(icon!, size: svg?.width ?? 16),
+              SizedBox(width: gap),
+            ] else if (leading != null) ...[
+              leading!,
               SizedBox(width: gap),
             ],
             Flexible(

@@ -5,6 +5,8 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/features/account_onboarding.dart';
 
+import 'parity/cases/screens/screen_fixture.dart';
+
 void main() {
   test(
     'real legacy handle completes identity even if its timestamp is missing',
@@ -237,6 +239,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(requests, ['POST /auth/reset-password']);
     expect(find.text('Password reset'), findsOneWidget);
+  });
+  testWidgets('unverified account gets the Web email verification page', (
+    tester,
+  ) async {
+    final requests = <String>[];
+    final client = ScreenFixtureClient((method, path, query) {
+      requests.add('$method $path');
+      return <String, dynamic>{};
+    }, user: {'id': 'u', 'email': 'artin@raft.build', 'emailVerified': false});
+    addTearDown(client.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: AccountOnboardingView(
+          client: client,
+          onComplete: () async {},
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    expect(find.text('Check your email'), findsOneWidget);
+    expect(find.text('artin@raft.build'), findsOneWidget);
+    expect(find.byKey(const Key('verification-token')), findsNothing);
+    await tester.tap(find.byKey(const Key('verify-manual-toggle')));
+    await tester.pump();
+    expect(find.byKey(const Key('verification-token')), findsOneWidget);
+    expect(find.textContaining('Hide manual entry'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('verify-resend')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(requests, contains('POST /auth/resend-verification'));
+    expect(
+      find.text('Verification email resent! Check your inbox.'),
+      findsOneWidget,
+    );
   });
 }
 

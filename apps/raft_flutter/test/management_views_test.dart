@@ -714,15 +714,17 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      // The step's progress log keeps a spinner running.
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Conversation fixture'), findsNothing);
-      expect(find.text('Set up your workspace'), findsOneWidget);
+      expect(find.text('Connect a computer'), findsOneWidget);
       a.routes['GET /servers/s1/setup-projection'] = (_) =>
           throw const RaftApiException('Fixture unavailable');
-      await tester.tap(find.text('Refresh setup'));
-      await tester.pumpAndSettle();
+      refreshServerSetup(w);
+      // The step's progress log keeps a spinner running.
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Conversation fixture'), findsNothing);
-      expect(find.text('Set up your workspace'), findsOneWidget);
+      expect(find.text('Connect a computer'), findsOneWidget);
     },
   );
   testWidgets(
@@ -783,12 +785,17 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Conversation fixture'), findsNothing);
-    expect(find.text('Tell us about you'), findsOneWidget);
+    expect(find.text('Tell Cindy about you'), findsOneWidget);
     expect(find.text("Let's Go"), findsNothing);
-    await tester.tap(find.text('Tell us about you'));
+    // The Web survey step: one chip per role and per referral source.
+    expect(find.byKey(const Key('signup-role-design')), findsOneWidget);
+    expect(find.byKey(const Key('signup-source-search')), findsOneWidget);
+    final cont = find.byKey(const Key('server-setup-survey-continue'));
+    expect(tester.widget<RaftButton>(cont).onPressed, isNull);
+    await tester.tap(find.byKey(const Key('signup-role-design')));
+    await tester.tap(find.byKey(const Key('signup-source-search')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('field-signupRole')), findsOneWidget);
-    expect(find.byKey(const ValueKey('field-referralSource')), findsOneWidget);
+    expect(tester.widget<RaftButton>(cont).onPressed, isNotNull);
   });
 
   testWidgets(

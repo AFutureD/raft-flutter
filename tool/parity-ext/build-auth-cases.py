@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Append the auth & onboarding extension cases to tool/parity-ext/cases.json
-and write tool/parity-ext/fixtures/auth-ext.json.
+"""Append the auth & onboarding extension cases to the run-time manifest
+($PARITY_EXT_MANIFEST) and write tool/parity-ext/fixtures/auth-ext.json.
 
-Run after every other build-*.py (build-cases.py rewrites cases.json from
-scratch; build-task-detail.py / build-composer-attachments.py are the previous
-tail of the chain). Idempotent: every `components.auth-ext.*` case is
+Run after every other build-*.py (registered last in builders.txt; build-cases.py creates
+the manifest from scratch each run). Idempotent: every `components.auth-ext.*` case is
 replaced, all other cases are kept in place (append-only for the others).
 
 Derivation (raft-source packages/web/src):
@@ -26,8 +25,11 @@ stores; the API answers come from fixtures/auth-ext.json (`routes`, per-case
 """
 import json
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402  (tool/parity-ext/builders.py)
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 DESKTOP = {'width': 1280, 'height': 800, 'density': 1}
 MOBILE = {'width': 390, 'height': 844, 'density': 3}
@@ -302,7 +304,7 @@ def make_cases():
 
 
 cases = make_cases()
-path = here / 'cases.json'
+path = manifest_path()
 manifest = json.loads(path.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith(PREFIX)] + cases
 path.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + '\n')

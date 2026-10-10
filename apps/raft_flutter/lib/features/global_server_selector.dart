@@ -238,7 +238,7 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
                                   slug.clear();
                                   slugTouched = false;
                                 }),
-                          child: Text(tr('Cancel')),
+                          label: tr('Cancel'),
                         ),
                       ),
                       const SizedBox(width: RaftSpace.x2),
@@ -287,12 +287,11 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
           ],
           if (!create) ...[
             const SizedBox(height: RaftSpace.x3), // mt-3
-            Center(
-              child: RaftAuthTextLink(
-                label: tr('Log out'),
-                bold: true,
-                onTap: widget.onLogout,
-              ),
+            RaftAuthTextLink(
+              label: tr('Log out'),
+              bold: true,
+              centeredLine: true,
+              onTap: widget.onLogout,
             ),
           ],
         ],

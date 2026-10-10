@@ -233,7 +233,7 @@ void main() {
     await t.pumpWidget(gate());
     expect(find.text('Chat'), findsOneWidget, reason: 'unknown until read');
     await settle(t);
-    expect(find.text('Set up your workspace'), findsOneWidget);
+    expect(find.text('Connect a computer'), findsOneWidget);
     expect(find.text('Chat'), findsNothing);
     await t.pumpWidget(_host(const SizedBox()));
     await t.pump();
@@ -242,12 +242,12 @@ void main() {
     client.gate = hold;
     await t.pumpWidget(gate());
     // First frame: setup is still owed; chat never flashes.
-    expect(find.text('Set up your workspace'), findsOneWidget);
+    expect(find.text('Connect a computer'), findsOneWidget);
     expect(find.text('Chat'), findsNothing);
     hold.complete();
     client.gate = null;
     await settle(t);
-    expect(find.text('Set up your workspace'), findsOneWidget);
+    expect(find.text('Connect a computer'), findsOneWidget);
     await t.pumpWidget(const SizedBox.shrink());
     expect(t.takeException(), isNull);
   });

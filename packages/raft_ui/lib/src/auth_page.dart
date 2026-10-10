@@ -335,7 +335,7 @@ class RaftAuthSubmit extends StatelessWidget {
   Widget build(BuildContext context) => RaftAuthWideButton(
     onPressed: onPressed,
     variant: RaftControlVariant.accent,
-    child: Text(label, maxLines: 1),
+    label: label,
   );
 }
 
@@ -345,36 +345,29 @@ class RaftAuthSubmit extends StatelessWidget {
 class RaftAuthWideButton extends StatelessWidget {
   const RaftAuthWideButton({
     super.key,
-    required this.child,
+    required this.label,
     required this.variant,
     this.onPressed,
+    this.leading,
+    this.gap,
   });
-  final Widget child;
+  final String label;
   final RaftControlVariant variant;
   final VoidCallback? onPressed;
+  final Widget? leading;
+  final double? gap;
 
   @override
-  Widget build(BuildContext context) {
-    final height = _lgHeight(context);
-    return LayoutBuilder(
-      builder: (context, box) => RaftControl(
-        onPressed: onPressed,
-        variant: variant,
-        visualHeight: height,
-        visualWidth: box.maxWidth,
-        minimumTargetSize: height,
-        child: child,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => RaftButton(
+    label: label,
+    variant: variant,
+    size: RaftButtonRecipeSize.lg,
+    expand: true,
+    onPressed: onPressed,
+    leading: leading,
+    gap: gap,
+  );
 }
-
-double _lgHeight(BuildContext context) => RaftButtonRecipe.resolve(
-  theme: RaftTokens.of(context).brutal
-      ? RaftRecipeTheme.brutal
-      : RaftRecipeTheme.elegant,
-  size: RaftButtonRecipeSize.lg,
-).root.height!;
 
 /// `my-4 flex items-center gap-3`; rules `h-0.5 flex-1 bg-line-strong
 /// theme-brutal:bg-black`; label `text-xs font-bold uppercase tracking-widest
@@ -433,29 +426,16 @@ class RaftAuthSocialButton extends StatelessWidget {
       'github' => RaftBrandMarkKind.github,
       _ => RaftBrandMarkKind.apple,
     };
-    // The outline lg Button label (14/20 bold brutal, 16/24 medium elegant).
-    final tokens = RaftRecipeTokens(t);
-    final label = RaftButtonRecipe.resolve(
-      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
-      variant: RaftButtonRecipeVariant.outline,
-      size: RaftButtonRecipeSize.lg,
-      tokens: tokens,
-    ).root.textStyle(tokens);
     return RaftAuthWideButton(
       onPressed: onPressed,
       variant: RaftControlVariant.outline,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RaftBrandMark(
-            mark,
-            height: 20,
-            width: 20,
-            invert: t.dark && mark != RaftBrandMarkKind.google,
-          ),
-          const SizedBox(width: 12), // gap-3
-          Flexible(child: Text(this.label, maxLines: 1, style: label)),
-        ],
+      label: label,
+      gap: 12, // gap-3
+      leading: RaftBrandMark(
+        mark,
+        height: 20,
+        width: 20,
+        invert: t.dark && mark != RaftBrandMarkKind.google,
       ),
     );
   }
@@ -626,8 +606,13 @@ class RaftAuthTextLink extends StatelessWidget {
     this.small = false,
     this.primary = false,
     this.bold = false,
+    this.centeredLine = false,
   });
   final String label;
+
+  /// `<div className="text-center"><button …>` in a `text-base` block: the
+  /// link is centred in a 24px line box.
+  final bool centeredLine;
   final VoidCallback? onTap;
   final bool small;
 
@@ -641,7 +626,7 @@ class RaftAuthTextLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return Opacity(
+    final link = Opacity(
       opacity: onTap == null ? .5 : 1,
       child: GestureDetector(
         onTap: onTap,
@@ -657,6 +642,8 @@ class RaftAuthTextLink extends StatelessWidget {
         ),
       ),
     );
+    if (!centeredLine) return link;
+    return SizedBox(height: 24, child: Center(child: link));
   }
 }
 
