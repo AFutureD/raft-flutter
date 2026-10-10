@@ -9,6 +9,15 @@ import 'app_global_server_selector_test.dart' show RootFixture;
 // RaftApp at a phone viewport. Taps go through the visible tab bar controls.
 const tabBar = Key('workspace-mobile-navigation');
 
+// Mobile details are platform routes: after Back the popped route keeps
+// absorbing pointers until its transition ends, so let it finish before the
+// next tab tap.
+Future<void> settleRoute(WidgetTester t) async {
+  for (var i = 0; i < 10; i++) {
+    await t.pump(const Duration(milliseconds: 100));
+  }
+}
+
 void main() {
   for (final theme in ['brutal', 'elegant-light']) {
     // tab-bar-sidebar.spec.ts:155–204 [T18] and useMobileNav.ts:89–109: every
@@ -35,6 +44,7 @@ void main() {
         expect(find.byKey(tabBar), findsNothing);
         await t.tap(find.byKey(const Key('mobile-detail-back')));
         await f.flush(t);
+        await settleRoute(t);
         expect(w.location.toString(), '/s/alpha');
 
         // Settings sub-page: Appearance hides the tab bar.
@@ -48,6 +58,7 @@ void main() {
         expect(find.byKey(tabBar), findsNothing);
         await t.tap(find.byKey(const Key('mobile-settings-back')));
         await f.flush(t);
+        await settleRoute(t);
         expect(w.location.toString(), '/s/alpha/settings');
 
         // Inactive Tasks tab: PUSH to its root.
