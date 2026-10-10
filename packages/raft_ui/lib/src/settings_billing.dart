@@ -322,11 +322,7 @@ class RaftPlanBillingLoading extends StatelessWidget {
       ],
     );
     final stats = [
-      for (final label in const [
-        'Seat',
-        'Message History',
-        'File uploads',
-      ])
+      for (final label in const ['Seat', 'Message History', 'File uploads'])
         Row(
           children: [
             Expanded(
@@ -337,7 +333,9 @@ class RaftPlanBillingLoading extends StatelessWidget {
                   size: 12,
                   line: 16,
                   weight: FontWeight.w700,
-                  color: t.brutal ? Colors.black.withValues(alpha: .45) : t.muted,
+                  color: t.brutal
+                      ? Colors.black.withValues(alpha: .45)
+                      : t.muted,
                 ),
               ),
             ),
@@ -393,7 +391,11 @@ class RaftPlanBillingLoading extends StatelessWidget {
                           )
                         : Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [column, const SizedBox(height: 16), column],
+                            children: [
+                              column,
+                              const SizedBox(height: 16),
+                              column,
+                            ],
                           ),
                   ),
                   Container(
@@ -443,10 +445,7 @@ class RaftPlanBillingLoading extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: divider.headerFill,
-                  border: Border.all(
-                    color: text.edge,
-                    width: t.brutal ? 2 : 1,
-                  ),
+                  border: Border.all(color: text.edge, width: t.brutal ? 2 : 1),
                   boxShadow: _shadowSm(t),
                 ),
                 child: Column(
@@ -487,9 +486,8 @@ class _BillingLines {
   _BillingLines(this.t);
   final RaftTokens t;
   Color get header => t.brutal ? Colors.black : t.colors['line-muted']!;
-  Color get strip => t.brutal
-      ? Colors.black.withValues(alpha: .1)
-      : t.colors['line-muted']!;
+  Color get strip =>
+      t.brutal ? Colors.black.withValues(alpha: .1) : t.colors['line-muted']!;
 
   /// `bg-layer-canvas-muted theme-brutal:bg-brutal-cream`.
   Color get headerFill =>
@@ -644,7 +642,7 @@ class _BillingNoticeCard extends StatelessWidget {
                 t.product.softSignal.withValues(alpha: .3),
                 white,
               )
-            : t.colors['primary-soft']!,
+            : Color.alphaBlend(t.colors['primary-soft']!, white),
       RaftBillingNoticeTone.downgrade => Color.alphaBlend(
         t.product.brutalOrange.withValues(alpha: .2),
         white,
@@ -681,7 +679,10 @@ class _BillingNoticeCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: downgrade ? 8 : 4),
-          Text.rich(TextSpan(children: _rich(notice.body, strong)), style: mono),
+          Text.rich(
+            TextSpan(children: _rich(notice.body, strong)),
+            style: mono,
+          ),
           if (notice.lines.isNotEmpty) ...[
             const SizedBox(height: 8),
             for (final (i, line) in notice.lines.indexed) ...[
@@ -727,7 +728,9 @@ class _PlanCard extends StatelessWidget {
                     child: RaftIcon(
                       yes ? RaftGlyph.check : RaftGlyph.x,
                       size: 16,
-                      color: yes ? RaftWebPalette.green700 : t.product.brutalRed,
+                      color: yes
+                          ? RaftWebPalette.green700
+                          : t.product.brutalRed,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -768,88 +771,92 @@ class _PlanCard extends StatelessWidget {
         ),
     ];
     final portal = s.portalActions;
-    return Container(
-      key: const ValueKey('billing-current-plan-card'),
-      margin: const EdgeInsets.only(bottom: 24),
-      decoration: RaftSettingsCard.decoration(t),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: lines.headerFill,
-              border: Border(bottom: BorderSide(color: lines.header, width: 2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  s.planName,
-                  style: RaftTypography.inherited(
-                    t,
-                    size: 18,
-                    line: 28,
-                    weight: FontWeight.w700,
-                    color: text.strong,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Container(
+        key: const ValueKey('billing-current-plan-card'),
+        decoration: RaftSettingsCard.decoration(t),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: lines.headerFill,
+                border: Border(
+                  bottom: BorderSide(color: lines.header, width: 2),
                 ),
-                Text(s.planDescription, style: text.bodyMuted),
-              ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.planName,
+                    style: RaftTypography.inherited(
+                      t,
+                      size: 18,
+                      line: 28,
+                      weight: FontWeight.w700,
+                      color: text.strong,
+                    ),
+                  ),
+                  Text(s.planDescription, style: text.bodyMuted),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: excluded != null && band >= 1024
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: included),
-                      const SizedBox(width: 16),
-                      Expanded(child: excluded),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      included,
-                      if (excluded != null) ...[
-                        const SizedBox(height: 16),
-                        excluded,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: excluded != null && band >= 1024
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: included),
+                        const SizedBox(width: 16),
+                        Expanded(child: excluded),
                       ],
-                    ],
-                  ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: lines.top,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: usage,
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        included,
+                        if (excluded != null) ...[
+                          const SizedBox(height: 16),
+                          excluded,
+                        ],
+                      ],
+                    ),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: lines.top,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                if (portal == null)
-                  const SizedBox.shrink()
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [for (final a in portal) _ActionButton(a)],
-                  ),
-                _ActionButton(s.compare),
-              ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: lines.top,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: usage,
+              ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: lines.top,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  if (portal == null)
+                    const SizedBox.shrink()
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [for (final a in portal) _ActionButton(a)],
+                    ),
+                  _ActionButton(s.compare),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -915,8 +922,7 @@ class _SeatUsage extends StatelessWidget {
       states,
       rt,
     );
-    Widget segment(double percent, Color color, String tooltip) =>
-        percent <= 0
+    Widget segment(double percent, Color color, String tooltip) => percent <= 0
         ? const SizedBox.shrink()
         : RaftTooltip(
             message: tooltip,

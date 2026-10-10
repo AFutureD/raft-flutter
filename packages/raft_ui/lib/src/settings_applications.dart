@@ -459,6 +459,10 @@ class RaftConnectedAppsSection extends StatelessWidget {
 TextStyle _relaxed(RaftTokens t, Color color) =>
     RaftTypography.inherited(t, size: 12, line: 12 * 1.625, color: color);
 
+/// The same line box inside a Dialog portal, whose text is Geist.
+TextStyle _relaxedDialog(RaftTokens t, Color color) =>
+    RaftTypography.body(t, size: 12, line: 12 * 1.625, color: color);
+
 /// ConnectedAppsErrorBanner: `Banner intent="warning" density="sm"
 /// className="font-bold"`.
 class RaftConnectedAppsError extends StatelessWidget {
@@ -1123,7 +1127,7 @@ class RaftConnectedAppDetailSection extends StatelessWidget {
           RaftSectionEyebrow(raftText(context, title)),
           if (description != null) ...[
             const SizedBox(height: 4),
-            Text(description!, style: _relaxed(t, text.muted)),
+            Text(description!, style: _relaxedDialog(t, text.muted)),
           ],
           const SizedBox(height: 12),
           child,
@@ -1150,14 +1154,14 @@ class RaftConnectedAppDetailRow extends StatelessWidget {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
     final wide = raftBreakpointWidth(context) >= 640;
-    final labelStyle = RaftTypography.inherited(
+    final labelStyle = RaftTypography.body(
       t,
       size: 14,
       line: 20,
       color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
     );
     final value = DefaultTextStyle.merge(
-      style: RaftTypography.inherited(
+      style: RaftTypography.body(
         t,
         size: 14,
         line: 20,
@@ -1259,7 +1263,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
     final soft = t.brutal ? Colors.black.withValues(alpha: .15) : t.colors['line-muted']!;
-    final summary = RaftTypography.inherited(
+    final summary = RaftTypography.body(
       t,
       size: 12,
       line: 16,
@@ -1290,7 +1294,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
         ),
         child: Text(
           scope,
-          style: RaftTypography.inherited(
+          style: RaftTypography.body(
             t,
             size: 11,
             line: 11 * 1.5,
@@ -1306,7 +1310,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
         RaftSectionEyebrow(widget.title),
         if (widget.description != null) ...[
           const SizedBox(height: 8 + 8),
-          Text(widget.description!, style: _relaxed(t, text.muted)),
+          Text(widget.description!, style: _relaxedDialog(t, text.muted)),
         ],
         const SizedBox(height: 8),
         Container(
@@ -1327,7 +1331,13 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
                   child: Row(
                     children: [
                       // The `<summary>` disclosure marker.
-                      Text(open ? '▾ ' : '▸ ', style: summary),
+                      SizedBox(
+                        width: 13,
+                        height: 16,
+                        child: CustomPaint(
+                          painter: _DisclosureMarker(open, text.strong),
+                        ),
+                      ),
                       Flexible(
                         child: Text(
                           raftText(context, 'Declared access'),
@@ -1365,6 +1375,34 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
       ],
     );
   }
+}
+
+/// Blink's painted `<summary>` marker: a solid triangle (6 x 8 closed,
+/// 8 x 6 open) centred in the 13px marker box.
+class _DisclosureMarker extends CustomPainter {
+  const _DisclosureMarker(this.open, this.color);
+  final bool open;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(open ? 4.0 : 3.0, size.height / 2);
+    final path = open
+        ? (Path()
+            ..moveTo(c.dx - 4, c.dy - 3)
+            ..lineTo(c.dx + 4, c.dy - 3)
+            ..lineTo(c.dx, c.dy + 3)
+            ..close())
+        : (Path()
+            ..moveTo(c.dx - 3, c.dy - 4)
+            ..lineTo(c.dx + 3, c.dy)
+            ..lineTo(c.dx - 3, c.dy + 4)
+            ..close());
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_DisclosureMarker old) =>
+      old.open != open || old.color != color;
 }
 
 /// AppNotificationRequestSummary / InstalledAppNotifications: the
@@ -1405,7 +1443,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
         decoration: topRule,
         child: Text(
           loading!,
-          style: RaftTypography.inherited(
+          style: RaftTypography.body(
             t,
             size: 12,
             line: 16,
@@ -1415,7 +1453,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
         ),
       );
     }
-    final columnLabel = RaftTypography.inherited(
+    final columnLabel = RaftTypography.body(
       t,
       size: 10,
       line: 15,
@@ -1440,14 +1478,21 @@ class RaftAppPermissionsSummary extends StatelessWidget {
           Text(c.$1.toUpperCase(), style: columnLabel),
           const SizedBox(height: 8),
           if (c.$2.isEmpty)
-            Text(
-              c.$3,
-              style: RaftTypography.inherited(
-                t,
-                size: 12,
-                line: 16,
-                weight: FontWeight.w700,
-                color: t.brutal ? Colors.black.withValues(alpha: .45) : t.muted,
+            // A `text-xs` inline span inside a block: the line box keeps the
+            // 16px / 24px parent strut, so the 12px text sits 5px lower.
+            Padding(
+              padding: const EdgeInsets.only(top: 5, bottom: 3),
+              child: Text(
+                c.$3,
+                style: RaftTypography.body(
+                  t,
+                  size: 12,
+                  line: 16,
+                  weight: FontWeight.w700,
+                  color: t.brutal
+                      ? Colors.black.withValues(alpha: .45)
+                      : t.muted,
+                ),
               ),
             )
           else
@@ -1471,7 +1516,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                     ),
                     child: Text(
                       v,
-                      style: RaftTypography.inherited(
+                      style: RaftTypography.body(
                         t,
                         size: 11,
                         line: 11 * 1.5,
@@ -1510,7 +1555,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: RaftTypography.inherited(
+                      style: RaftTypography.body(
                         t,
                         size: 12,
                         line: 16,
@@ -1605,7 +1650,7 @@ class RaftConnectedAppDetailCard extends StatelessWidget {
                       header: true,
                       child: Text(
                         name,
-                        style: RaftTypography.inherited(
+                        style: RaftTypography.body(
                           t,
                           size: 20,
                           line: 28,
@@ -1620,7 +1665,7 @@ class RaftConnectedAppDetailCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   byline,
-                  style: RaftTypography.inherited(
+                  style: RaftTypography.body(
                     t,
                     size: 12,
                     line: 16,
@@ -1701,7 +1746,7 @@ class RaftConnectedAppDangerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final copy = Text(description, style: _relaxed(t, RaftSettingsText(t).muted));
+    final copy = Text(description, style: _relaxedDialog(t, RaftSettingsText(t).muted));
     return raftBreakpointWidth(context) >= 640
         ? Row(
             children: [
@@ -1732,8 +1777,8 @@ class RaftConnectedAppParagraph extends StatelessWidget {
     return Text(
       text,
       style: small
-          ? _relaxed(t, color)
-          : RaftTypography.inherited(t, size: 14, line: 14 * 1.625, color: color),
+          ? _relaxedDialog(t, color)
+          : RaftTypography.body(t, size: 14, line: 14 * 1.625, color: color),
     );
   }
 }
@@ -1790,7 +1835,7 @@ class RaftAppPermissionsApproval extends StatelessWidget {
       children: [
         Text(
           notice,
-          style: RaftTypography.inherited(
+          style: RaftTypography.body(
             t,
             size: 12,
             line: 16,
@@ -1816,7 +1861,7 @@ class RaftAppPermissionsApproval extends StatelessWidget {
                 ),
                 child: Text(
                   g,
-                  style: RaftTypography.inherited(
+                  style: RaftTypography.body(
                     t,
                     size: 11,
                     line: 11 * 1.5,

@@ -78,6 +78,7 @@ class RaftSettingsRecipeButton extends StatefulWidget {
     this.glyphSize,
     this.expand = false,
     this.disabledOpacity,
+    this.restColor,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -94,6 +95,10 @@ class RaftSettingsRecipeButton extends StatefulWidget {
 
   /// Callsite `disabled:opacity-*` override (ConfirmDialog uses 80 / 30).
   final double? disabledOpacity;
+
+  /// Callsite `text-*` colour while not hovered (DialogClose's
+  /// `text-foreground-placeholder hover:text-foreground-strong`).
+  final Color? restColor;
   @override
   State<RaftSettingsRecipeButton> createState() =>
       _RaftSettingsRecipeButtonState();
@@ -117,7 +122,10 @@ class _RaftSettingsRecipeButtonState extends State<RaftSettingsRecipeButton> {
         ),
         tokens: tokens,
       ).root;
-      final text = _slotText(t, s);
+      final base = _slotText(t, s);
+      final text = widget.restColor != null && !state.hovered
+          ? base.copyWith(color: widget.restColor)
+          : base;
       final svg = s.target("& svg:not([class*='size-'])");
       final opacity = !state.enabled
           ? (widget.disabledOpacity ?? s.opacity ?? 1)
@@ -585,7 +593,7 @@ class RaftConfirmDialog extends StatelessWidget {
 
   /// `text-sm leading-relaxed text-foreground-muted` (font-normal body).
   static TextStyle messageStyle(RaftTokens t) =>
-      RaftTypography.inherited(t, size: 14, line: 14 * 1.625, color: t.muted);
+      RaftTypography.body(t, size: 14, line: 14 * 1.625, color: t.muted);
 
   @override
   Widget build(BuildContext context) {
@@ -645,6 +653,9 @@ class RaftConfirmDialog extends StatelessWidget {
                           ? RaftButtonRecipeSize.iconMd
                           : RaftButtonRecipeSize.iconSm,
                       glyphSize: t.brutal ? 20 : 16,
+                      restColor: t.brutal
+                          ? null
+                          : t.colors['foreground-placeholder'],
                       onPressed: () => Navigator.of(context).pop(false),
                     ),
                   ],
