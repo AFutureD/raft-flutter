@@ -677,6 +677,60 @@ quantises the alpha before blending, see the Computers result). Official
 set: 98 values unchanged; `components.settings.root.page` (shared rail rows)
 0.9743 -> 0.9905.
 
+### Announcement modal cases (13 surfaces x 3 themes = 39)
+
+Derived from Web `components/AnnouncementModal.tsx` (`Modal layer={1}
+closeOnBackdrop` + `Card w-full max-w-xl`), `components/Modal.tsx` and
+`store/announcementStore.ts`. `tool/parity-ext/build-announcements.py`
+appends `components.announcements.<platform>.<kind>.<theme>` (run it after
+`build-cases.py` and `build-live-activity.py`); data is
+`tool/parity-ext/fixtures/announcements.json`. The React host
+(`host/AnnouncementCases.tsx`) mounts the real `AnnouncementModal` with
+`useAnnouncementStore.pending` primed; the Flutter builders
+(`test/parity/cases/ext_announcements.dart`) mount the real `AnnouncementHost`
+whose fixture client answers `GET /announcements/active` and the setup
+projection (`phase: null`), so the modal opens exactly as on workspace entry.
+
+* desktop (1280x800, 1x): single page, multi-page first / middle / last
+  (`capture.interactions` press Next), rich Markdown (h2/h3, ordered list,
+  bold/italic, inline code, link), long body (`max-h-[60vh]`), long title
+  (`truncate`), and the whole viewport with the backdrop (`overlay`);
+* mobile (390x844, 3x): single, multi-middle, rich, long, overlay.
+
+Element cases crop the card (`[data-testid="announcement-modal"]` / `ValueKey
+announcement-modal`), overlay cases the viewport.
+
+Blink details reproduced in `packages/raft_ui/lib/src/announcement_modal.dart`
+(each measured on the parity Chromium with element/range rects):
+
+* the card is centred at a fractional y (e.g. 296.5) but painted at the whole
+  CSS pixel (round half up); its layout rect keeps the fraction, and
+  Playwright's element screenshot encloses it in whole CSS pixels. The
+  harness now encloses extension element crops in CSS pixels before scaling
+  (`parity_harness.dart`; no change for integer rects, the 9 mobile live
+  activity cases score identically);
+* text uses `RaftCssText` line boxes (22.75px `leading-relaxed` lines, Blink
+  baseline); elegant InlineCode is `inline-flex` with `py-[1.5px]`, so a line
+  holding it grows by `box descent - (line-height - css baseline)` (1.094px
+  at 14px Geist), brutal InlineCode is an inline box (content area + 1px
+  border) that never grows its line;
+* `list-disc` markers are Blink's painted symbol: an `(A*2/3+1)/2` circle
+  (5px for A = 14) ending 11px before the item content;
+* the primary button is focused on open and keeps `:focus-visible` after it
+  is clicked (Blink keeps it on a script-focused element).
+
+| | first run | final |
+| --- | --- | --- |
+| mean pixel-perfect similarity | 91.0 % | 93.6 % |
+| passing (>96 %) | 8 / 39 | 8 / 39 (overlay x6, mobile single/rich brutal) |
+| capture size mismatches | 15 | 0 |
+
+All 39 crops have identical sizes and the glyph positions match (checked by
+row profiles and 5x zooms); what remains is Chromium vs Skia text
+rasterisation (Chromium's glyphs are darker, see "Text rendering"), which
+keeps text-dense cards at 89–96 %. Not covered: the failed-write error
+notice (Web `toast.error`; Flutter uses a SnackBar), hover states.
+
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 
 The official `pixelPerfectSimilarity` (visual-testing
