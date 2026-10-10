@@ -139,7 +139,9 @@ class _AnnouncementHostState extends State<AnnouncementHost>
     }
     final current = store.current;
     final visible =
-        current != null && current.pages.isNotEmpty && !gate.suppressed(serverId)
+        current != null &&
+            current.pages.isNotEmpty &&
+            !gate.suppressed(serverId)
         ? current
         : null;
     if (visible?.id == _routeId) return;
@@ -215,7 +217,9 @@ class _AnnouncementHostState extends State<AnnouncementHost>
     }
 
     // The navigator cannot change while the tree is being torn down.
-    deferred ? WidgetsBinding.instance.addPostFrameCallback((_) => remove()) : remove();
+    deferred
+        ? WidgetsBinding.instance.addPostFrameCallback((_) => remove())
+        : remove();
   }
 
   static void _openLink(String href) {

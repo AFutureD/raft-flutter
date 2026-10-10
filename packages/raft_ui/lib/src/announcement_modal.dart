@@ -81,8 +81,9 @@ void showRaftErrorNotice(BuildContext context, String message) {
 /// * Next / Back walk the pages; on the last page the primary button reads
 ///   OK and calls [onConfirm] (explicit read-complete).
 /// * ✕, Escape and a press on the backdrop call [onClose] (local close).
-/// * Enter anywhere advances / confirms (Web: a capture-phase window
-///   listener, so a focused Back button does not swallow it).
+/// * Enter advances / confirms wherever focus is in the modal (Web: a
+///   capture-phase window listener, so a focused Back button does not
+///   swallow it).
 /// * The primary button takes focus when the modal opens.
 ///
 /// Page index starts at 0; key the widget by announcement id so a new
@@ -119,7 +120,6 @@ class _RaftAnnouncementModalState extends State<RaftAnnouncementModal> {
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_key);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) primary.requestFocus();
     });
@@ -127,26 +127,25 @@ class _RaftAnnouncementModalState extends State<RaftAnnouncementModal> {
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_key);
     primary.dispose();
     super.dispose();
   }
 
-  bool _key(KeyEvent event) {
-    if (!mounted || event is KeyUpEvent) return false;
-    // Only the topmost route owns the keyboard.
-    if (ModalRoute.of(context)?.isCurrent == false) return false;
+  /// Sees every key from inside the modal before the app's activation
+  /// shortcuts, so a focused Back button does not swallow Enter.
+  KeyEventResult _key(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter) {
       next();
-      return true;
+      return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.escape && event is KeyDownEvent) {
-      widget.onClose();
-      return true;
+    if (key == LogicalKeyboardKey.escape) {
+      if (event is KeyDownEvent) widget.onClose();
+      return KeyEventResult.handled;
     }
-    return false;
+    return KeyEventResult.ignored;
   }
 
   void next() {
@@ -163,20 +162,25 @@ class _RaftAnnouncementModalState extends State<RaftAnnouncementModal> {
   Widget build(BuildContext context) {
     if (widget.pages.isEmpty) return const SizedBox.shrink();
     final current = widget.pages[page.clamp(0, _last)];
-    return RaftModalBackdrop(
-      onBackdrop: widget.onClose,
-      child: RaftAnnouncementCard(
-        title: widget.title,
-        page: current,
-        pageIndex: page,
-        pageCount: widget.pages.length,
-        labels: widget.labels ?? RaftAnnouncementLabels.of(context),
-        onClose: widget.onClose,
-        onBack: back,
-        onNext: next,
-        primaryFocusNode: primary,
-        maxBodyHeight: MediaQuery.sizeOf(context).height * .6,
-        onLink: widget.onLink,
+    return Focus(
+      autofocus: true,
+      skipTraversal: true,
+      onKeyEvent: _key,
+      child: RaftModalBackdrop(
+        onBackdrop: widget.onClose,
+        child: RaftAnnouncementCard(
+          title: widget.title,
+          page: current,
+          pageIndex: page,
+          pageCount: widget.pages.length,
+          labels: widget.labels ?? RaftAnnouncementLabels.of(context),
+          onClose: widget.onClose,
+          onBack: back,
+          onNext: next,
+          primaryFocusNode: primary,
+          maxBodyHeight: MediaQuery.sizeOf(context).height * .6,
+          onLink: widget.onLink,
+        ),
       ),
     );
   }
@@ -313,9 +317,7 @@ class RaftAnnouncementCard extends StatelessWidget {
               style: raftCssTextStyle(
                 family: t.monoFont,
                 step: RaftTextSteps.xs,
-                color: t.brutal
-                    ? Colors.black.withValues(alpha: .6)
-                    : t.muted,
+                color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
               ),
             ),
           const Spacer(),
@@ -360,15 +362,14 @@ class RaftAnnouncementCard extends StatelessWidget {
           applyText: false,
           // `overflow-hidden`: children are clipped to the padding box.
           child: ClipRRect(
-            borderRadius:
-                radius == null
-                    ? BorderRadius.zero
-                    : BorderRadius.only(
-                        topLeft: _inner(radius.topLeft, borderInsets),
-                        topRight: _inner(radius.topRight, borderInsets),
-                        bottomLeft: _inner(radius.bottomLeft, borderInsets),
-                        bottomRight: _inner(radius.bottomRight, borderInsets),
-                      ),
+            borderRadius: radius == null
+                ? BorderRadius.zero
+                : BorderRadius.only(
+                    topLeft: _inner(radius.topLeft, borderInsets),
+                    topRight: _inner(radius.topRight, borderInsets),
+                    bottomLeft: _inner(radius.bottomLeft, borderInsets),
+                    bottomRight: _inner(radius.bottomRight, borderInsets),
+                  ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -560,9 +561,7 @@ class _MarkdownBlocks {
       case 'pre':
         return RaftCssBlock(child: _codeBlock(e.textContent));
       case 'hr':
-        return RaftCssBlock(
-          child: Container(height: 1, color: base.color),
-        );
+        return RaftCssBlock(child: Container(height: 1, color: base.color));
       case 'table':
         return RaftCssBlock(child: _table(e));
       default:
@@ -601,10 +600,7 @@ class _MarkdownBlocks {
           wrap: (column) => Stack(
             clipBehavior: Clip.none,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 20),
-                child: column,
-              ),
+              Padding(padding: const EdgeInsets.only(left: 20), child: column),
               Positioned(
                 left: 20 - markerWidth,
                 top: 0,
@@ -717,7 +713,10 @@ class _MarkdownBlocks {
         tokens: tokens,
         applyText: false,
         // `px-1` (elegant keeps `py-[1.5px]`).
-        padding: EdgeInsets.symmetric(horizontal: 4, vertical: elegant ? 1.5 : 0),
+        padding: EdgeInsets.symmetric(
+          horizontal: 4,
+          vertical: elegant ? 1.5 : 0,
+        ),
         decorationOverride: (d) => d.copyWith(
           // `bg-layer-inset theme-brutal:bg-white` (dark keeps the
           // recipe's later `dark:bg-fill-muted`).
