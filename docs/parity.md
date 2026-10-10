@@ -100,7 +100,7 @@ React used production fonts and `--disable-lcd-text --font-render-hinting=none`
 | message-row.md-wrap-slice1 | 9.10 | 5.98 | 1.24 | 1.88 | 1.76 | list item gap 4px vs `mb-0.5`; fallback `。`/`→` |
 | composer.pending-mention-actions | 4.15 | 3.22 | 0.06 | 0.87 | 1.59 | composer keeps focus after button send (shadow-md); Source blurs on click send |
 | message-row.md-wrap-clarify | 11.15 | 5.24 | 1.98 | 3.93 | 4.84 | break after `（` before inline code (padding placeholders add break opportunities) |
-| settings.notifications.page | 6.79 | 1.08 | 0.44 | 5.27 | 6.21 | Android copy instead of Web push copy (platform content); panel left border height |
+| settings.notifications.page | 9.71 | n/a | n/a | n/a | n/a | intended difference: Web Web Push card vs Flutter phone card (see below) |
 | message-share.selection | 5.81 | 1.31 | 0.04 | 4.46 | 6.63 | bottom-anchored real chat with date divider; square vs circular select checkbox; no Owner badge |
 | message-row.md-wrap-status606 | 16.63 | 7.96 | 1.92 | 6.76 | 9.61 | long inline code breaks on the current line instead of moving down (`wrap-anywhere`); break after `/` |
 
@@ -156,7 +156,7 @@ were equal):
 | thread.message.row | 94.64 | 99.24 | 4.60 | text raster; 18.25px task chip border snap; `+` icon stroke |
 | thread.message-row.long-inline-code | 94.32 | 98.90 | 4.58 | text raster; unknown-task line box does not grow (strut); code break position |
 | thread.message-row.md-wrap-adjacent | 93.69 | 98.73 | 5.04 | text raster; `。` host fallback font |
-| settings.notifications.page | 93.21 | 94.73 | 1.52 | platform copy: Android notification text instead of Web push copy (by design: no fabricated browser permission); panel left border height |
+| settings.notifications.page | 90.29 | n/a | n/a | intended difference: the case mounts Web's browser Web Push card ("Push Notifications", Enable/Send Test Push); Flutter shows the phone card ("Phone notifications", permission-based, no server push). Desktop parity is covered by `components.notifications.desktop.*` in the extension suite |
 | thread.message-row.md-link-ref | 93.20 | 98.07 | 4.86 | text raster; link underline 2px at baseline+2 vs font metric |
 | ui.card.states.elegant | 93.17 | 99.94 | 6.78 | shadow blur and gradient dither +-1 level (4.3% of pixels differ by exactly 1); text raster |
 | thread.message-row.md-wrap-task607 | 92.66 | 98.19 | 5.53 | text raster; `→`/`。` fallback fonts |
@@ -753,6 +753,41 @@ row profiles and 5x zooms); what remains is Chromium vs Skia text
 rasterisation (Chromium's glyphs are darker, see "Text rendering"), which
 keeps text-dense cards at 89–96 %. Not covered: the failed-write error
 notice (Web `toast.error`; Flutter uses a SnackBar), hover states.
+
+### Desktop notifications card cases (2 states x 3 themes = 6)
+
+Derived from Web `SettingsPanel.tsx` `NotificationsSection` ->
+`DesktopNativeNotificationsCard` (`settings.notifications.desktop.*`),
+`utils/notificationChannel.ts` and `desktopNativeNotifications.ts`.
+`python3 tool/parity-ext/build-notification-card.py` appends
+`components.notifications.desktop.<available|unavailable>.<theme>` (run it
+after the other builders; it keeps every other family). The card is private to
+`SettingsPanel.tsx`, so `host/NotificationCardCases.tsx` renders the real
+`SettingsPanel tab="notifications"` with the Electron marker
+`window.raftDesktop.isDesktop = true` (the product's own channel switch) and,
+for "unavailable", no `Notification` API. Flutter
+(`cases/ext_notifications.dart`) mounts `NotificationSettingsView` with a
+macOS desktop service (Web's hint names macOS). Capture: section header + card.
+
+Flutter now follows Web on desktop (macOS / Linux / Windows): Bell header,
+"Desktop notifications", system-managed pill, per-platform OS path hint,
+one success "Send a test notification" button, no server read and no mute
+form. Phones (Android / iOS) keep the same card with phone copy, an Enable
+notifications action (opens system settings once the OS stops asking) and the
+member mute form. The official `settings.notifications.page` compares Web's
+browser Web Push card against the phone card and stays an intended difference.
+
+| case | pixel-perfect |
+| --- | --- |
+| available brutal / elegant / elegant-dark | 89.8 / 84.7 / 83.6 % |
+| unavailable brutal / elegant / elegant-dark | 93.7 / 89.6 / 88.3 % |
+
+Sizes, colours, borders and spacing match. What remains is text: the macOS hint
+names "Raft" (the app's display name) where Web says "Raft Desktop"; the `→`
+glyph comes from a different fallback font in Chromium, which moves the hint's
+line breaks; the description wraps one word differently because Chromium and
+Skia advance widths differ by under 1px at the available width; and the usual
+Chromium vs Skia glyph rasterisation.
 
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 
