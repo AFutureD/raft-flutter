@@ -12,16 +12,27 @@ import 'package:flutter/widgets.dart';
 /// Flutter's Row + Flexible splits free space evenly instead, which wraps the
 /// wrong item first.
 class RaftFlexShrinkRow extends MultiChildRenderObjectWidget {
-  const RaftFlexShrinkRow({super.key, this.gap = 0, required super.children});
+  const RaftFlexShrinkRow({
+    super.key,
+    this.gap = 0,
+    this.spaceBetween = false,
+    required super.children,
+  });
   final double gap;
+
+  /// `justify-between`: the row fills its width and free space goes between
+  /// the items.
+  final bool spaceBetween;
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderFlexShrinkRow(gap);
+      _RenderFlexShrinkRow(gap, spaceBetween);
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderFlexShrinkRow renderObject,
-  ) => renderObject.gap = gap;
+  ) => renderObject
+    ..gap = gap
+    ..spaceBetween = spaceBetween;
 }
 
 class _FlexShrinkParentData extends ContainerBoxParentData<RenderBox> {}
@@ -30,8 +41,15 @@ class _RenderFlexShrinkRow extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _FlexShrinkParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _FlexShrinkParentData> {
-  _RenderFlexShrinkRow(this._gap);
+  _RenderFlexShrinkRow(this._gap, this._spaceBetween);
   double _gap;
+  bool _spaceBetween;
+  set spaceBetween(bool value) {
+    if (value == _spaceBetween) return;
+    _spaceBetween = value;
+    markNeedsLayout();
+  }
+
   set gap(double value) {
     if (value == _gap) return;
     _gap = value;
@@ -152,15 +170,24 @@ class _RenderFlexShrinkRow extends RenderBox
       );
       height = math.max(height, kids[i].size.height);
     }
+    final content =
+        kids.fold<double>(0, (a, c) => a + c.size.width) +
+        _gap * math.max(0, kids.length - 1);
+    final fill = _spaceBetween && constraints.hasBoundedWidth;
+    final extra = fill && kids.length > 1
+        ? math.max(0.0, constraints.maxWidth - content) / (kids.length - 1)
+        : 0.0;
     var x = 0.0;
     for (final child in kids) {
       (child.parentData! as _FlexShrinkParentData).offset = Offset(
         x,
         (height - child.size.height) / 2, // items-center
       );
-      x += child.size.width + _gap;
+      x += child.size.width + _gap + extra;
     }
-    size = constraints.constrain(Size(kids.isEmpty ? 0 : x - _gap, height));
+    size = constraints.constrain(
+      Size(fill ? constraints.maxWidth : (kids.isEmpty ? 0 : content), height),
+    );
   }
 
   @override

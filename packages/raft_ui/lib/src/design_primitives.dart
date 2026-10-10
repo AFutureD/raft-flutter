@@ -271,13 +271,26 @@ class RaftAttachmentRecipe {
         : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
-  TextStyle get title => RaftTypography.attachmentTitle(
-    tokens,
-  ).copyWith(fontWeight: FontWeight.w700);
+  TextStyle get title =>
+      RaftTypography.attachmentTitle(tokens)
+          .copyWith(fontWeight: FontWeight.w700);
   TextStyle get metadata => RaftTypography.attachmentMeta(tokens);
 }
 
 enum RaftSansSize { large, body, small, caption }
+
+/// Marks a subtree that inherits the page's `font-family` (the theme's
+/// heading family) instead of Geist: recipe-driven `Badge` and
+/// `SegmentedControl` labels render Inter inside a Settings panel but Geist in
+/// a Dialog portal.
+class RaftInheritedFontScope extends InheritedWidget {
+  const RaftInheritedFontScope({super.key, required super.child});
+  static bool active(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RaftInheritedFontScope>() !=
+      null;
+  @override
+  bool updateShouldNotify(RaftInheritedFontScope old) => false;
+}
 
 abstract final class RaftTypography {
   /// CSS `font-black` (900). Web serves the raft-ui families with
@@ -365,6 +378,23 @@ abstract final class RaftTypography {
     letterSpacing: 0,
     color: color ?? t.strong,
   );
+
+  /// Text that inherits the page's `font-family` (no `font-sans` class): the
+  /// Web body resolves to the theme's heading family (Inter in elegant, Hanken
+  /// Grotesk in brutal), while the `font-sans` utility ([body]) is Geist.
+  static TextStyle inherited(
+    RaftTokens t, {
+    double size = 16,
+    double line = 24,
+    FontWeight weight = FontWeight.w400,
+    Color? color,
+  }) => body(
+    t,
+    size: size,
+    line: line,
+    weight: weight,
+    color: color,
+  ).copyWith(fontFamily: t.headingFont);
   static TextStyle mono(
     RaftTokens t, {
     double size = 12,
@@ -1716,12 +1746,11 @@ enum RaftDropdownSide { bottom, top, right }
 enum RaftDropdownAlign { start, end }
 
 /// The popup retains ownership of its trigger focus and dismissal callbacks.
-typedef RaftDropdownTriggerBuilder =
-    Widget Function(
-      BuildContext context,
-      FocusNode focusNode,
-      VoidCallback? onPressed,
-    );
+typedef RaftDropdownTriggerBuilder = Widget Function(
+  BuildContext context,
+  FocusNode focusNode,
+  VoidCallback? onPressed,
+);
 
 class RaftDropdownMenu extends StatefulWidget {
   const RaftDropdownMenu({
@@ -2591,9 +2620,18 @@ class RaftSegmentedOption<T> {
     this.tooltip,
     this.count,
     this.enabled = true,
+    this.labelSuffix,
+    this.itemKey,
   });
   final T value;
   final String label;
+
+  /// Key of the segment (tests, parity interactions).
+  final Key? itemKey;
+
+  /// A `font-mono text-[10px] font-bold uppercase text-black/60` note inside
+  /// the label (`gap-1.5`), e.g. BillingIntervalSegmentedControl's "Save 12%".
+  final String? labelSuffix;
   final RaftGlyph? glyph;
   final String? tooltip;
 
@@ -2683,6 +2721,7 @@ class _RaftSegmentedControlState<T> extends State<RaftSegmentedControl<T>> {
             for (var i = 0; i < widget.items.length; i++) ...[
               if (widget.style == RaftSegmentedStyle.buttons)
                 _SegmentedItem<T>(
+                  key: widget.items[i].itemKey,
                   option: widget.items[i],
                   checked: widget.items[i].value == widget.value,
                   onPressed:
@@ -3186,16 +3225,38 @@ class _SegmentedItem<T> extends StatelessWidget {
               ],
               Flexible(
                 child: Builder(
-                  builder: (context) => Text(
-                    option.label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: s.label.text(
-                      rt,
-                      base: DefaultTextStyle.of(context).style,
-                    ),
-                  ),
+                  builder: (context) {
+                    final inherited = RaftInheritedFontScope.active(context);
+                    final label = s.label
+                        .text(rt, base: DefaultTextStyle.of(context).style)
+                        .copyWith(fontFamily: inherited ? t.headingFont : null);
+                    final text = Text(
+                      option.label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: label,
+                    );
+                    if (option.labelSuffix == null) return text;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(child: text),
+                        const SizedBox(width: 6),
+                        Text(
+                          option.labelSuffix!.toUpperCase(),
+                          maxLines: 1,
+                          softWrap: false,
+                          style: label.copyWith(
+                            fontFamily: t.monoFont,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black.withValues(alpha: .6),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
               if (option.count != null) ...[

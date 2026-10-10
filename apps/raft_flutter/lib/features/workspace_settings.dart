@@ -9,6 +9,7 @@ import '../platform/native_notifications.dart';
 import 'account_settings.dart';
 import 'admin_views.dart';
 import 'appearance_section.dart';
+import 'billing_view.dart';
 import 'fleet_views.dart';
 import 'im_bridges_view.dart';
 import 'integrations_views.dart';
@@ -47,8 +48,13 @@ class WorkspaceSettings extends StatefulWidget {
     this.appVersion,
     this.frontendOrigin,
     this.workspaceModeCard,
+    this.now,
   });
   final WorkspaceController controller;
+
+  /// Clock for date-dependent copy (the billing trial notice); tests and the
+  /// parity harness freeze it.
+  final DateTime Function()? now;
   final Widget? workspaceModeCard;
   final RaftAppearance appearance;
   final ValueChanged<RaftAppearance> onAppearance;
@@ -171,9 +177,8 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               'billing',
               'Plan & Billing',
               RaftGlyph.creditCard,
-              (_) => BillingView(controller: w),
+              (_) => BillingView(controller: w, now: widget.now),
               group: WorkspaceSettings.workspace,
-              scroll: false,
             ),
           if (w.can('changeMemberRoles') ||
               w.can('changeChannelVisibility') ||
@@ -203,7 +208,6 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               RaftGlyph.link2,
               (_) => IntegrationsView(controller: w),
               group: WorkspaceSettings.workspace,
-              scroll: false,
             ),
           if (widget.labsEnabled)
             RaftSettingsDestination(

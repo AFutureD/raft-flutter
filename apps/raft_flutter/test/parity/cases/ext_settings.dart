@@ -82,8 +82,16 @@ Widget _page(ParityContext ctx) {
   w
     ..server = server
     ..servers = [server];
+  // Mobile cases: SettingsPanel fills the 390px viewport (the React host
+  // mounts it alone); desktop: the 1216px page beside the 64px rail.
+  final mobile = ctx.props['platform'] == 'mobile';
+  // The React provider freezes its clock at the fixture instant (the Free
+  // trial notice and relative dates read it).
+  final now = DateTime.fromMillisecondsSinceEpoch(
+    (ctx.fixtureData['locale']['nowEpochMillis'] as num).toInt(),
+  );
   return ctx.frame(
-    width: 1216,
+    width: mobile ? ctx.width : 1216,
     height: ctx.height,
     padding: EdgeInsets.zero,
     child: Material(
@@ -103,6 +111,7 @@ Widget _page(ParityContext ctx) {
         providerEnabled: flags.contains('providers'),
         bridgeEnabled: flags.contains('bridge'),
         labsEnabled: flags.contains('labs'),
+        now: () => now,
         appVersion: _fx(ctx)['appVersion'] as String,
         // The React render host's origin (the QR encodes `<origin>/download`).
         frontendOrigin: Uri.parse(
@@ -161,10 +170,30 @@ const _extSettingsKeys = [
   'server.panel',
   'billing.page',
   'billing.panel',
+  'billing.current-plan',
+  'billing.summary',
+  'billing.pro',
+  'billing.pro-plan',
+  'billing.pro-summary',
+  'billing.admin',
+  'billing.loading',
+  'billing.confirm-checkout',
+  'billing.mobile',
+  'billing.mobile-pro',
   'administration.page',
   'administration.panel',
   'integrations.page',
   'integrations.panel',
+  'integrations.installed',
+  'integrations.my-apps',
+  'integrations.list',
+  'integrations.member',
+  'integrations.empty',
+  'integrations.detail',
+  'integrations.detail-installed',
+  'integrations.installed-detail',
+  'integrations.mobile',
+  'integrations.mobile-detail',
   'mcp.page',
   'mcp.panel',
   'labs.page',

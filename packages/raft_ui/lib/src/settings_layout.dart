@@ -1,4 +1,4 @@
-import 'panel_layout.dart' show raftRecipeTheme;
+import 'panel_layout.dart' show RaftCssText, raftRecipeTheme;
 export 'panel_layout.dart' show raftRecipeTheme;
 
 import 'package:flutter/material.dart';
@@ -275,7 +275,7 @@ class RaftSettingsPanelHeader extends StatelessWidget {
             SizedBox(width: header.columnGap ?? 12),
           ],
           Expanded(
-            child: Text(
+            child: RaftCssText(
               raftText(context, title),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -558,6 +558,27 @@ abstract final class RaftSpace {
 /// Text colours/styles repeated across SettingsPanel.tsx sections, each the
 /// resolved `text-foreground-* theme-brutal:text-black[/NN]` pair.
 @immutable
+/// The page's inherited `font-family` for descendants that do not name one:
+/// the theme's heading family (Inter in elegant, Hanken Grotesk in brutal),
+/// not the `font-sans` utility family ([RaftTokens.bodyFont]).
+class RaftInheritedFont extends StatelessWidget {
+  const RaftInheritedFont({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return RaftInheritedFontScope(
+      child: DefaultTextStyle.merge(
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          fontFamilyFallback: t.fontFallback,
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
 class RaftSettingsText {
   const RaftSettingsText(this.t);
   final RaftTokens t;
@@ -599,7 +620,7 @@ class RaftSettingsText {
       !t.brutal && t.dark ? t.colors['layer-card']! : insetFill;
 
   /// `text-sm font-bold`
-  TextStyle get title => RaftTypography.body(
+  TextStyle get title => RaftTypography.inherited(
     t,
     size: 14,
     line: 20,
@@ -609,11 +630,11 @@ class RaftSettingsText {
 
   /// `text-xs` muted description.
   TextStyle get description =>
-      RaftTypography.body(t, size: 12, line: 16, color: muted);
+      RaftTypography.inherited(t, size: 12, line: 16, color: muted);
 
   /// `text-sm` muted copy.
   TextStyle get bodyMuted =>
-      RaftTypography.body(t, size: 14, line: 20, color: muted);
+      RaftTypography.inherited(t, size: 14, line: 20, color: muted);
 
   /// `font-mono text-sm`
   TextStyle get mono =>
@@ -623,7 +644,7 @@ class RaftSettingsText {
   TextStyle get monoBold => mono.copyWith(fontWeight: FontWeight.w700);
 
   /// `text-xs font-bold` alert copy (`text-brutal-red` / danger).
-  TextStyle get alert => RaftTypography.body(
+  TextStyle get alert => RaftTypography.inherited(
     t,
     size: 12,
     line: 16,

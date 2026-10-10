@@ -454,12 +454,26 @@ marketplace = [
               publishStatus='published', category='Productivity & Collaboration',
               dataAccessSummary='Messages and channel metadata', name='Slack Bridge',
               description='Mirror Slock activity into Slack channels.', homepageUrl='https://example.com/slack',
-              humanMarketplaceVisible=True, installedAt=None, publisherName='Raft Labs', privateShared=False),
+              returnUrl='https://example.com/slack/oauth/callback', allowedScopes=['openid', 'profile', 'identity'],
+              humanMarketplaceVisible=True, installedAt=None, publisherName='Raft Labs', privateShared=False,
+              official=True, marketplaceInstallBadge={'kind': 'bucket', 'bucket': '100_plus'}),
     oauth_app(id='market_github', clientId='client_github_issues', appType='third_party_global',
               publishStatus='published', category='Development', dataAccessSummary='Tasks and feedback',
               name='GitHub Issues', description='Create issues from tasks and feedback.',
-              homepageUrl='https://example.com/github', humanMarketplaceVisible=True,
-              installedAt=T['entityCreatedAtIso'], publisherName='Raft Labs', privateShared=False),
+              homepageUrl='https://example.com/github', returnUrl='https://example.com/github/callback',
+              allowedScopes=['openid', 'profile', 'agent:read'], humanMarketplaceVisible=True,
+              installedAt=T['entityCreatedAtIso'], publisherName='Raft Labs', privateShared=False,
+              official=False, marketplaceInstallBadge={'kind': 'none'}),
+    # Billing / Applications port: a third listing with the NEW badge, a
+    # publisher server name and a long description (two-line clamp in list view).
+    oauth_app(id='market_linear', clientId='client_linear_sync', appType='third_party_global',
+              publishStatus='published', category='Developer Tools', dataAccessSummary='Tasks',
+              name='Linear Sync',
+              description=('Keep Linear issues and Raft tasks in step: status, assignee and comments flow both '
+                           'ways, and agents can open issues from any thread when work needs tracking.'),
+              homepageUrl=None, humanMarketplaceVisible=True, installedAt=None, publisherName='Linear',
+              publisherServerName='Linear Workspace', privateShared=False, official=False,
+              marketplaceInstallBadge={'kind': 'new'}),
 ]
 clients = [oauth_app(id='client_1', clientId='client_slack_bridge', appType='server_local', publishStatus='private',
                      category='Productivity & Collaboration', dataAccessSummary='Messages and channel metadata',
@@ -527,8 +541,11 @@ PANEL = "[data-parity-region='settings-panel']"
 
 
 def settings_case(key, title, *, tab, region=None, selector=None, android_key=None, viewport=FRAME, role='owner',
-                  flags='', route_set='', interactions=(), android=(), hint=SETTINGS_HINT, notes=None):
+                  flags='', route_set='', interactions=(), android=(), hint=SETTINGS_HINT, notes=None,
+                  platform='desktop'):
     props = {'tab': tab, 'role': role}
+    if platform != 'desktop':
+        props['platform'] = platform
     if flags:
         props['flags'] = flags
     if route_set:
@@ -600,6 +617,110 @@ for tab, title, flags in [
 ]:
     settings_case(f'{tab}.page', f'{title}: whole page', tab=tab, flags=flags)
     settings_case(f'{tab}.panel', f'{title}: panel', tab=tab, region='panel', flags=flags, viewport=FRAME_TALL)
+
+# ---------------------------------------------- Plan & Billing + Applications
+# SettingsPanel.tsx PlanSection (+ PlanBillingLoadingSection, ConfirmDialog
+# checkout) and IntegrationsSection (marketplace / installed / my apps tabs,
+# grid / list views, listing + installed-app detail modals), desktop and the
+# 390px mobile page (SettingsPanel full width, PanelHeader mobile back).
+PLAN_HINT = SETTINGS_HINT + '#PlanSection'
+APPS_HINT = SETTINGS_HINT + '#IntegrationsSection'
+MOBILE_FRAME = {'width': 390, 'height': 844, 'density': 3}
+billing_pro = {
+    'plan': 'pro', 'displayName': 'Pro', 'serverPlan': 'pro', 'source': 'subscription',
+    'capacity': {'maxHumans': -1, 'maxAgents': -1, 'maxUniversalSeats': 3},
+    'usage': {'humans': 2, 'agents': 5, 'universalSeats': 2.5},
+    'provisioned': {'humans': 3, 'agents': 30, 'proPackQuantity': 3, 'trialFreePackQuantity': 0,
+                    'firstPackTrialEndsAt': None},
+    'fileUploadQuota': {'month': '2026-06', 'plan': 'pro', 'limited': False, 'enforced': False,
+                        'limitBytes': -1, 'usedBytes': 188_743_680, 'reservedBytes': 0, 'remainingBytes': -1},
+    'price': {'billingInterval': 'annual', 'monthlyUsd': 26.4, 'annualUsd': 316.8, 'discountPercent': 12,
+              'baseMonthlyUsd': 26.4, 'overageMonthlyUsd': 0, 'seatQuantity': 3, 'packQuantity': 3,
+              'humanSeatQuantity': 3, 'agentSeatQuantity': 30, 'agentSeatBlockQuantity': 3},
+    'subscription': {'status': 'active', 'billingInterval': 'annual', 'currentPeriodStart': '2026-06-18T00:00:00.000Z',
+                     'currentPeriodEnd': '2027-06-18T00:00:00.000Z', 'cancelAtPeriodEnd': False},
+    'stripeConfigured': True,
+    'permissions': {'canReadBillingSummary': True, 'canManageBilling': True},
+}
+settings_fixture['routeSets'].update({
+    'billing-pro': {'GET /billing/subscription': billing_pro},
+    'billing-admin': {'GET /billing/subscription': {
+        **billing_free, 'permissions': {'canReadBillingSummary': True, 'canManageBilling': False}}},
+    'billing-loading': {'GET /billing/subscription': {'$pending': True}},
+    'apps-empty': {'GET /integrations/marketplace': [], 'GET /integrations/clients': []},
+})
+settings_fixture['routes']['GET /integrations/overview'] = [
+    {'id': 'grant-github', 'type': 'active', 'clientId': 'market_github', 'clientKey': 'client_github_issues',
+     'clientName': 'GitHub Issues', 'agentName': 'cindy', 'agentDisplayName': 'Cindy',
+     'scopes': ['openid', 'profile'], 'revokedAt': None}]
+settings_fixture['routes']['GET /integrations/marketplace/market_github/install/app-notifications'] = {
+    'requested_groups': [], 'approved_groups': [], 'subscribed_events': [], 'effective_groups': [],
+    'effective_events': [], 'app_review_pending': False, 'approval_required': False}
+CURRENT_PLAN = "[data-testid='billing-current-plan-card']"
+SUMMARY = "[data-testid='billing-summary-card']"
+MODAL_CARD = "[data-slot='modal-backdrop'] [data-slot='card']"
+MARKET = "[data-testid='connected-apps-marketplace-collection'] > button"
+
+
+def apps_tab(name):
+    return {'type': 'click', 'target': f"[data-testid='connected-apps-tab-{name}']"}
+
+
+settings_case('billing.current-plan', 'Plan & Billing: current plan card (free, trial)', tab='billing',
+              selector=CURRENT_PLAN, android_key='billing-current-plan-card', hint=PLAN_HINT)
+settings_case('billing.summary', 'Plan & Billing: checkout summary card', tab='billing', viewport=FRAME_TALL,
+              selector=SUMMARY, android_key='billing-summary-card', hint=PLAN_HINT)
+settings_case('billing.pro', 'Plan & Billing: Pro subscription (seat usage, manage seats)', tab='billing',
+              region='panel', viewport=FRAME_TALL, route_set='billing-pro', hint=PLAN_HINT)
+settings_case('billing.pro-plan', 'Plan & Billing: Pro current plan card (seat bar, portal)', tab='billing',
+              selector=CURRENT_PLAN, android_key='billing-current-plan-card', route_set='billing-pro', hint=PLAN_HINT)
+settings_case('billing.pro-summary', 'Plan & Billing: manage seats summary card', tab='billing',
+              selector=SUMMARY, android_key='billing-summary-card', route_set='billing-pro', hint=PLAN_HINT)
+settings_case('billing.admin', 'Plan & Billing: admin (cannot change billing)', tab='billing', role='admin',
+              region='panel', viewport=FRAME_TALL, route_set='billing-admin', hint=PLAN_HINT)
+settings_case('billing.loading', 'Plan & Billing: loading skeleton', tab='billing', region='panel',
+              route_set='billing-loading', hint=SETTINGS_HINT + '#PlanBillingLoadingSection')
+settings_case('billing.confirm-checkout', 'Plan & Billing: confirm Pro checkout dialog', tab='billing',
+              selector=DIALOG, android_key='billing-confirm-dialog', hint=PLAN_HINT + ' + ConfirmDialog.tsx',
+              interactions=[{'type': 'click', 'target': btn('Upgrade to Pro')}],
+              android=[{'type': 'tap', 'key': 'billing-upgrade'}])
+settings_case('billing.mobile', 'Plan & Billing: mobile page', tab='billing', viewport=MOBILE_FRAME,
+              platform='mobile', hint=PLAN_HINT)
+settings_case('billing.mobile-pro', 'Plan & Billing: mobile page, Pro', tab='billing', viewport=MOBILE_FRAME,
+              platform='mobile', route_set='billing-pro', hint=PLAN_HINT)
+
+settings_case('integrations.installed', 'Applications: Installed tab', tab='integrations', region='panel',
+              hint=APPS_HINT, interactions=[apps_tab('installed')],
+              android=[{'type': 'tap', 'key': 'connected-apps-tab-installed'}])
+settings_case('integrations.my-apps', 'Applications: My apps tab', tab='integrations', region='panel',
+              hint=APPS_HINT, interactions=[apps_tab('my-apps')],
+              android=[{'type': 'tap', 'key': 'connected-apps-tab-my-apps'}])
+settings_case('integrations.list', 'Applications: marketplace list view', tab='integrations', region='panel',
+              hint=APPS_HINT, interactions=[{'type': 'click', 'target': "[data-testid='connected-apps-view-toggle'] [aria-label='List view']"}],
+              android=[{'type': 'tap', 'key': 'connected-apps-view-list'}])
+settings_case('integrations.member', 'Applications: member (read-only)', tab='integrations', role='member',
+              region='panel', hint=APPS_HINT)
+settings_case('integrations.empty', 'Applications: no marketplace apps', tab='integrations', region='panel',
+              route_set='apps-empty', hint=APPS_HINT)
+settings_case('integrations.detail', 'Applications: marketplace app detail', tab='integrations',
+              selector=MODAL_CARD, android_key='connected-app-detail', hint=APPS_HINT, viewport=FRAME_TALL,
+              interactions=[{'type': 'click', 'target': f'{MARKET} >> nth=0'}],
+              android=[{'type': 'tap', 'key': 'connected-app-market_slack'}])
+settings_case('integrations.detail-installed', 'Applications: installed marketplace app detail (danger zone)',
+              tab='integrations', selector=MODAL_CARD, android_key='connected-app-detail', hint=APPS_HINT,
+              viewport=FRAME_TALL, interactions=[{'type': 'click', 'target': f'{MARKET} >> nth=1'}],
+              android=[{'type': 'tap', 'key': 'connected-app-market_github'}])
+settings_case('integrations.installed-detail', 'Applications: installed app access detail', tab='integrations',
+              selector=MODAL_CARD, android_key='connected-app-installed-detail', hint=APPS_HINT,
+              interactions=[apps_tab('installed'), {'type': 'click', 'target': "role=button[name='GitHub Issues's]"}],
+              android=[{'type': 'tap', 'key': 'connected-apps-tab-installed'},
+                       {'type': 'tap', 'key': 'connected-app-installed-market_github'}])
+settings_case('integrations.mobile', 'Applications: mobile page', tab='integrations', viewport=MOBILE_FRAME,
+              platform='mobile', hint=APPS_HINT)
+settings_case('integrations.mobile-detail', 'Applications: mobile marketplace app detail', tab='integrations',
+              viewport=MOBILE_FRAME, platform='mobile', selector=MODAL_CARD, android_key='connected-app-detail',
+              hint=APPS_HINT, interactions=[{'type': 'click', 'target': f'{MARKET} >> nth=0'}],
+              android=[{'type': 'tap', 'key': 'connected-app-market_slack'}])
 
 manifest = {
     'version': 1,

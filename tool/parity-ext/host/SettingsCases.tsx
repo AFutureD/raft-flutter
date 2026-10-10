@@ -19,6 +19,7 @@ type ParityExtSettingsProps = {
   tab: string;
   role: "owner" | "admin" | "member" | "guest";
   flags: Set<string>;
+  mobile: boolean;
 };
 
 function parityExtSettingsProps(): ParityExtSettingsProps | null {
@@ -32,6 +33,7 @@ function parityExtSettingsProps(): ParityExtSettingsProps | null {
     tab,
     role: (params.get("role") ?? "owner") as ParityExtSettingsProps["role"],
     flags: new Set((params.get("flags") ?? "").split(",").filter(Boolean)),
+    mobile: params.get("platform") === "mobile",
   };
 }
 
@@ -73,6 +75,22 @@ function parityExtPrimeSettingsStores(props: ParityExtSettingsProps) {
 function ParityExtSettingsCaseView({ props }: { props: ParityExtSettingsProps }) {
   useMemo(() => parityExtPrimeSettingsStores(props), [props]);
   void parityExtSettingsFixture;
+  if (props.mobile) {
+    // Mobile settings sub-page: SettingsPanel fills the 390px viewport (its
+    // PanelHeader shows the mobile back below `md`; the tab bar is covered).
+    return (
+      <main className="min-h-screen bg-white p-0 font-display text-black">
+        <div
+          data-visual-case={props.caseId}
+          data-parity-region="settings-panel"
+          className="bg-layer-canvas-muted theme-brutal:bg-white"
+          style={{ ...parityExtShellVars(), width: window.innerWidth, height: window.innerHeight, display: "flex", flexDirection: "column", overflow: "hidden" }}
+        >
+          <SettingsPanel tab={props.tab} />
+        </div>
+      </main>
+    );
+  }
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
       <div
