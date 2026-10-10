@@ -185,6 +185,72 @@
    "next_cursor": null,
    "unread_total": 2
   },
+  "GET /product-feedback/tickets/5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61": {
+   "ticket": {
+    "id": "5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61",
+    "kind": "feedback",
+    "status": "in_progress",
+    "closure_reason": null,
+    "duplicate_of_ticket_id": null,
+    "message": "Let me keep the app open when I switch workspaces\nIt reloads every time.",
+    "created_at": 1790740800000,
+    "updated_at": 1790992800000,
+    "unread": false,
+    "unread_count": 0,
+    "attachment_count": 1,
+    "comment_count": 3
+   },
+   "comments": [
+    {
+     "id": "c-5b0e-1",
+     "author_type": "staff",
+     "body": "Thanks for the report! Which platform are you on?",
+     "created_at": 1790827200000
+    },
+    {
+     "id": "c-5b0e-2",
+     "author_type": "reporter",
+     "body": "macOS desktop, switching between two workspaces.",
+     "created_at": 1790830800000
+    },
+    {
+     "id": "c-5b0e-3",
+     "author_type": "staff",
+     "body": "We reproduced it and a fix is in progress.",
+     "created_at": 1790992800000
+    }
+   ],
+   "attachments": [],
+   "next_comment_cursor": null,
+   "unread_total": 0
+  },
+  "GET /product-feedback/tickets/9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34": {
+   "ticket": {
+    "id": "9e8d7c6b-5a4f-4e3d-9c2b-1a0f9e8d7c34",
+    "kind": "bug",
+    "status": "closed",
+    "closure_reason": "duplicate",
+    "duplicate_of_ticket_id": null,
+    "message": "Crash when pasting a very large image",
+    "created_at": 1789963200000,
+    "updated_at": 1790049600000,
+    "unread": false,
+    "unread_count": 0,
+    "attachment_count": 0,
+    "comment_count": 1
+   },
+   "comments": [
+    {
+     "id": "c-9e8d-1",
+     "author_type": "system",
+     "body": "Closed as a duplicate of an existing ticket.",
+     "created_at": 1790049600000
+    }
+   ],
+   "attachments": [],
+   "next_comment_cursor": null,
+   "unread_total": 2
+  },
   "GET /mcp/servers": {
    "servers": [
     {
@@ -508,6 +574,26 @@
   "feedback-error": {
    "GET /product-feedback/tickets": {
     "$status": 500
+   }
+  },
+  "feedback-create-pending": {
+   "POST /product-feedback": {
+    "$pending": true
+   }
+  },
+  "feedback-create-error": {
+   "POST /product-feedback": {
+    "$status": 503
+   }
+  },
+  "feedback-reply-error": {
+   "POST /product-feedback/tickets/5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61/comments": {
+    "$status": 503
+   }
+  },
+  "feedback-close-error": {
+   "POST /product-feedback/tickets/5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61/close": {
+    "$status": 503
    }
   }
  }
