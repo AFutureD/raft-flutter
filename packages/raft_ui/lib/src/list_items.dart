@@ -546,9 +546,13 @@ class RaftSelectionOption {
     this.italic = false,
     this.leading,
     this.reserveLeadingSlot = false,
+    this.rowKey,
   });
   final String label;
   final bool checked, disabled, italic, reserveLeadingSlot;
+
+  /// Key of the option row (tests and parity interactions).
+  final Key? rowKey;
   final VoidCallback onTap;
   final Widget? leading;
 }
@@ -699,6 +703,7 @@ class RaftSelectionPopover extends StatelessWidget {
                     children: [
                       for (var i = 0; i < options.length; i++)
                         _SelectionRow(
+                          key: options[i].rowKey,
                           option: options[i],
                           last: i == options.length - 1,
                         ),
@@ -839,7 +844,7 @@ class _SelectionFocusOutline extends CustomPainter {
 }
 
 class _SelectionRow extends StatefulWidget {
-  const _SelectionRow({required this.option, required this.last});
+  const _SelectionRow({super.key, required this.option, required this.last});
   final RaftSelectionOption option;
   final bool last;
   @override

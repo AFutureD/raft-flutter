@@ -70,6 +70,7 @@ export 'src/settings_resources.dart';
 export 'src/feedback_inbox.dart';
 export 'src/settings_workspace.dart';
 export 'src/settings_controls.dart';
+export 'src/settings_administration.dart';
 export 'src/appearance_picker.dart';
 
 export 'src/notification_center.dart';
@@ -116,6 +117,7 @@ export 'src/conversation_surface.dart';
 
 export 'src/timeline_composition.dart';
 export 'src/panel_layout.dart';
+export 'src/css_pixel_snap.dart';
 export 'src/agent_create_form.dart';
 export 'src/agent_profile.dart';
 export 'src/dialog_card.dart';

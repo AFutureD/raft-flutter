@@ -14,7 +14,6 @@ import 'package:raft_flutter/features/fleet_views.dart';
 import 'package:raft_flutter/features/integrations_views.dart';
 import 'package:raft_flutter/features/joint_channel_views.dart';
 import 'package:raft_flutter/features/management_support.dart';
-import 'package:raft_flutter/features/server_views.dart';
 import 'package:raft_flutter/features/sidebar_preferences_view.dart';
 import 'package:raft_flutter/features/workspace_settings.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -453,25 +452,6 @@ void main() {
         find.text('Faster revisits'),
         // ReleaseNotesPanel's loading state is a status line, not a spinner.
         loading: find.text('Loading release notes…'),
-      );
-    });
-
-    testWidgets('workspace access', (t) async {
-      final (w, a) = (await t.runAsync(_fixture))!;
-      addTearDown(w.dispose);
-      a.routes['GET /servers/s1'] = (_) => {'id': 's1', 'name': 'Fixture'};
-      a.routes['GET /servers/s1/notification-settings'] = (_) => {
-        'serverPushMode': 'mentions',
-      };
-      a.routes['GET /servers/s1/invites'] = (_) => <dynamic>[];
-      a.routes['GET /servers/s1/join-links'] = (_) => <dynamic>[];
-      await revisit(
-        t,
-        a,
-        () => SingleChildScrollView(
-          child: WorkspaceAccessSettings(controller: w),
-        ),
-        find.text('Mentions only'),
       );
     });
 

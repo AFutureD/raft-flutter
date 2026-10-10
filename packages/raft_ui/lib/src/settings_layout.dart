@@ -1,4 +1,5 @@
-import 'panel_layout.dart' show raftRecipeTheme;
+import 'panel_layout.dart' show RaftCssText, raftRecipeTheme;
+import 'recipe_surface.dart' show RaftLayeredDecoration, RaftOuterShadowPainter;
 export 'panel_layout.dart' show raftRecipeTheme;
 
 import 'package:flutter/material.dart';
@@ -432,6 +433,21 @@ class RaftSettingsPanelFrame extends StatelessWidget {
   }
 }
 
+/// Settings text that inherits the page's `font-display` ancestor (Hanken
+/// Grotesk in Brutal, Inter in Elegant) rather than `font-sans`: body copy,
+/// titles and eyebrows of the SettingsPanel sections that set no family.
+TextStyle raftSettingsBody(
+  RaftTokens t, {
+  double size = 16,
+  double line = 24,
+  FontWeight weight = FontWeight.w400,
+  Color? color,
+}) =>
+    RaftTypography.heading(t, size: size, line: line, weight: weight).copyWith(
+      color: color ?? t.strong,
+      leadingDistribution: TextLeadingDistribution.even,
+    );
+
 /// SectionHeader.tsx: `flex items-center gap-2`, a 16px icon in
 /// `text-foreground-muted theme-brutal:text-black/60`, and SectionEyebrow
 /// `text-xs font-bold uppercase text-foreground-muted tracking-widest`.
@@ -443,6 +459,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
     this.action,
     this.bottom = 12,
     this.count,
+    this.display = false,
   });
   final String label;
   final RaftGlyph? glyph;
@@ -454,13 +471,22 @@ class RaftSettingsSectionHeader extends StatelessWidget {
 
   /// Callsite margin (`mb-3` on every SettingsPanel section).
   final double bottom;
-  static TextStyle eyebrow(RaftTokens t) => RaftTypography.body(
-    t,
-    size: 12,
-    line: 16,
-    weight: FontWeight.w700,
-    color: t.muted,
-  ).copyWith(letterSpacing: 1.2);
+
+  /// The eyebrow inherits the oracle host's `font-display` ancestor and is
+  /// laid out as a Blink line box ([RaftCssText]).
+  final bool display;
+  static TextStyle eyebrow(RaftTokens t, {bool display = false}) =>
+      (display ? raftSettingsBody : RaftTypography.body)(
+        t,
+        size: 12,
+        line: 16,
+        weight: FontWeight.w700,
+        color: t.muted,
+      ).copyWith(letterSpacing: 1.2);
+  Widget rich(InlineSpan span, TextStyle style) => display
+      ? RaftCssText.rich(span, style: style)
+      : Text.rich(span, style: style);
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -477,7 +503,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           Expanded(
-            child: Text.rich(
+            child: rich(
               TextSpan(
                 children: [
                   TextSpan(text: raftText(context, label).toUpperCase()),
@@ -501,7 +527,7 @@ class RaftSettingsSectionHeader extends StatelessWidget {
                   ],
                 ],
               ),
-              style: eyebrow(t),
+              eyebrow(t, display: display),
             ),
           ),
           ?action,
@@ -539,11 +565,54 @@ class RaftSettingsCard extends StatelessWidget {
         : t.themeShadows.sm.outer,
   );
   @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: decoration(RaftTokens.of(context)),
-    child: child,
-  );
+  Widget build(BuildContext context) =>
+      box(RaftTokens.of(context), padding: padding, child: child);
+
+  /// The card surface (optionally [color] / [radius] overridden, [height]
+  /// fixed): background, the Elegant-dark inset highlights of
+  /// `shadow-raft-sm` (Flutter's BoxShadow has none), then the border, all
+  /// below the content, with the outer shadow outside the border box.
+  static Widget box(
+    RaftTokens t, {
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+    Color? color,
+    BorderRadius? radius,
+    double? height,
+  }) {
+    final base = decoration(t).copyWith(color: color, borderRadius: radius);
+    final inset = t.brutal ? const <RaftCssShadow>[] : t.themeShadows.sm.inset;
+    if (inset.isEmpty) {
+      return Container(
+        height: height,
+        padding: padding,
+        decoration: base,
+        child: child,
+      );
+    }
+    return CustomPaint(
+      painter: RaftOuterShadowPainter(
+        base.boxShadow ?? const [],
+        radius ?? BorderRadius.zero,
+      ),
+      child: Container(
+        height: height,
+        padding: padding,
+        decoration: RaftLayeredDecoration(
+          BoxDecoration(
+            color: base.color,
+            border: base.border,
+            borderRadius: radius,
+          ),
+          inset,
+          radius ?? BorderRadius.zero,
+          null,
+          const EdgeInsets.all(1),
+        ),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Tailwind spacing steps (`--spacing: 0.25rem`) used by the settings pages.
@@ -605,6 +674,33 @@ class RaftSettingsText {
     line: 20,
     weight: FontWeight.w700,
     color: strong,
+  );
+
+  /// [title] for sections whose text inherits the oracle host's
+  /// `font-display` ancestor (see [raftSettingsBody]).
+  TextStyle get displayTitle => raftSettingsBody(
+    t,
+    size: 14,
+    line: 20,
+    weight: FontWeight.w700,
+    color: strong,
+  );
+
+  /// [description] in the `font-display` family.
+  TextStyle get displayDescription =>
+      raftSettingsBody(t, size: 12, line: 16, color: muted);
+
+  /// [bodyMuted] in the `font-display` family.
+  TextStyle get displayBodyMuted =>
+      raftSettingsBody(t, size: 14, line: 20, color: muted);
+
+  /// [alert] in the `font-display` family.
+  TextStyle get displayAlert => raftSettingsBody(
+    t,
+    size: 12,
+    line: 16,
+    weight: FontWeight.w700,
+    color: t.colors['color-brutal-red'] ?? t.colors['danger'],
   );
 
   /// `text-xs` muted description.

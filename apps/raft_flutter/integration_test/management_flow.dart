@@ -199,52 +199,60 @@ Future<void> verifyManagementFlow(
     await section('administration');
     await _until(
       tester,
-      () => find.byType(AdministrationView).evaluate().isNotEmpty,
+      () => find
+          .byKey(const ValueKey('admin-section-pre-join-agreement'))
+          .evaluate()
+          .isNotEmpty,
     );
-    final originalAnalytics = await w.client.get(
-      '/servers/$serverId/product-analytics-settings',
-    );
-    final target = originalAnalytics['productAnalyticsEnabled'] != true;
-    await _tap(
-      tester,
-      find.widgetWithText(SwitchListTile, 'Share product usage data'),
-    );
-    await _until(
-      tester,
-      () =>
-          tester
-              .widget<SwitchListTile>(
-                find.widgetWithText(SwitchListTile, 'Share product usage data'),
-              )
-              .value ==
-          target,
-    );
-    expect(
-      (await w.client.get(
+    // WorkspaceProductAnalyticsSection renders only behind
+    // product_analytics_settings_v0; toggle it when the server enables it.
+    final analytics = find.byKey(const ValueKey('admin-product-analytics'));
+    await tester.pumpAndSettle();
+    if (analytics.evaluate().isNotEmpty) {
+      final originalAnalytics = await w.client.get(
         '/servers/$serverId/product-analytics-settings',
-      ))['productAnalyticsEnabled'],
-      target,
-    );
-    await _tap(tester, find.text('Edit agreement'));
-    await _formText(tester, 'title', 'Native join agreement');
-    await _formText(
-      tester,
-      'bodyMarkdown',
+      );
+      final target = originalAnalytics['productAnalyticsEnabled'] != true;
+      await _tap(tester, analytics);
+      await _until(
+        tester,
+        () => tester.widget<RaftSwitch>(analytics).value == target,
+      );
+      expect(
+        (await w.client.get(
+          '/servers/$serverId/product-analytics-settings',
+        ))['productAnalyticsEnabled'],
+        target,
+      );
+    }
+    // Pre-join Agreement: require it, fill title and body, Save.
+    final agreementTitle = find.byKey(const ValueKey('admin-agreement-title'));
+    if (agreementTitle.evaluate().isEmpty) {
+      await _tap(tester, find.byKey(const ValueKey('admin-agreement-enabled')));
+    }
+    await tester.ensureVisible(agreementTitle);
+    await tester.enterText(agreementTitle, 'Native join agreement');
+    final agreementBody = find.byKey(const ValueKey('admin-agreement-body'));
+    await tester.ensureVisible(agreementBody);
+    await tester.enterText(
+      agreementBody,
       'Accept this native test agreement to join.',
     );
-    await tester.tap(find.byKey(const ValueKey('field-enabled')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Required').last);
-    await tester.pumpAndSettle();
-    await _tap(tester, find.text('Save'));
+    await _tap(tester, find.byKey(const ValueKey('admin-agreement-save')));
     await _until(
       tester,
-      () => find.text('Native join agreement').evaluate().isNotEmpty,
+      () => find
+          .descendant(
+            of: find.byKey(const ValueKey('admin-agreement-save')),
+            matching: find.text('Saved'),
+          )
+          .evaluate()
+          .isNotEmpty,
     );
-    expect(
-      (await w.client.get('/servers/$serverId/agreement'))['enabled'],
-      true,
-    );
+    final agreement = await w.client.get('/servers/$serverId/agreement');
+    expect(agreement['enabled'], true);
+    expect(agreement['agreement']['title'], 'Native join agreement');
     await capture('linux-workspace-administration');
     await section('billing');
     await _until(tester, () => find.byType(BillingView).evaluate().isNotEmpty);
