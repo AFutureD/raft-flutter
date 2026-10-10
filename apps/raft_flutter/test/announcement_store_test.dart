@@ -206,5 +206,14 @@ void main() {
       gate.setForServer('s2', AnnouncementGateState.ready);
       expect(gate.suppressed('s2'), isTrue);
     });
+
+    test('a setup gate unmounting after sign-out is ignored', () {
+      final gate = AnnouncementOnboardingGate()..attach('s1');
+      gate.dispose();
+      gate
+        ..detach('s1')
+        ..report('s1', {'phase': null})
+        ..clearForServer('s1');
+    });
   });
 }

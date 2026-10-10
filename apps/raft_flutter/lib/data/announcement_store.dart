@@ -242,6 +242,14 @@ class AnnouncementOnboardingGate extends ChangeNotifier {
   final Set<String> sawOnboardingServerIds = {};
   final Map<String, int> _attached = {};
 
+  /// Setup gates unmount after the account session (and this gate) is
+  /// torn down; their late detach / reports are dropped.
+  bool _disposed = false;
+
+  void _changed() {
+    if (!_disposed) notifyListeners();
+  }
+
   /// Web `ServerSetupProjectionGate` announcementGateState for a resolved
   /// read: no projection (first read failed) → blocked; `phase: null` →
   /// ready; anything short of complete with the survey and handoff done →
@@ -273,9 +281,9 @@ class AnnouncementOnboardingGate extends ChangeNotifier {
     final saw =
         state == AnnouncementGateState.blocked &&
         sawOnboardingServerIds.add(serverId);
-    if (byServerId[serverId] == state && !saw) return;
+    if (_disposed || (byServerId[serverId] == state && !saw)) return;
     byServerId[serverId] = state;
-    notifyListeners();
+    _changed();
   }
 
   void report(String serverId, Map<String, dynamic>? projection) =>
@@ -283,7 +291,7 @@ class AnnouncementOnboardingGate extends ChangeNotifier {
 
   /// The live reading goes; the session memory of onboarding stays.
   void clearForServer(String serverId) {
-    if (byServerId.remove(serverId) != null) notifyListeners();
+    if (byServerId.remove(serverId) != null) _changed();
   }
 
   void attach(String serverId) =>
@@ -296,7 +304,7 @@ class AnnouncementOnboardingGate extends ChangeNotifier {
     } else {
       _attached[serverId] = count;
     }
-    notifyListeners();
+    _changed();
   }
 
   bool hasGate(String serverId) => (_attached[serverId] ?? 0) > 0;
@@ -304,6 +312,12 @@ class AnnouncementOnboardingGate extends ChangeNotifier {
   void reset() {
     byServerId.clear();
     sawOnboardingServerIds.clear();
-    notifyListeners();
+    _changed();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
