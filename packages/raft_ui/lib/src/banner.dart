@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsRole;
 
+import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/widgets.dart';
 
 import 'icons.dart';
@@ -28,7 +29,16 @@ class RaftBanner extends StatelessWidget {
     this.titleGap,
     this.glyph,
     this.action,
+    this.descriptionTail,
+    this.textAlign,
   });
+
+  /// An inline underlined link after the description copy, 4px (`ml-1`) from
+  /// it: Web HistoryLimitBanner's `<button className="ml-1 underline">`.
+  final ({String label, VoidCallback onPressed})? descriptionTail;
+
+  /// Web `text-center` on the Banner root.
+  final TextAlign? textAlign;
 
   /// ui/Banner.tsx `withIcon` / `icon`: the leading `svg` grid cell
   /// (`[&>svg]` size and intent colour from the recipe).
@@ -114,9 +124,19 @@ class RaftBanner extends StatelessWidget {
                   ),
                   style: recipe.description.text(tokens, base: base),
                 )
+              else if (descriptionTail != null)
+                _TailedDescription(
+                  text: raftText(context, description),
+                  tail: descriptionTail!,
+                  style: recipe.description
+                      .text(tokens, base: base)
+                      .copyWith(fontWeight: descriptionWeight),
+                  textAlign: textAlign,
+                )
               else
                 Text(
                   raftText(context, description),
+                  textAlign: textAlign,
                   style: recipe.description
                       .text(tokens, base: base)
                       .copyWith(fontWeight: descriptionWeight),
@@ -169,6 +189,56 @@ class RaftBanner extends StatelessWidget {
         Expanded(child: content),
         if (action != null) ...[SizedBox(width: gap), action!],
       ],
+    );
+  }
+}
+
+class _TailedDescription extends StatefulWidget {
+  const _TailedDescription({
+    required this.text,
+    required this.tail,
+    required this.style,
+    this.textAlign,
+  });
+  final String text;
+  final ({String label, VoidCallback onPressed}) tail;
+  final TextStyle style;
+  final TextAlign? textAlign;
+  @override
+  State<_TailedDescription> createState() => _TailedDescriptionState();
+}
+
+class _TailedDescriptionState extends State<_TailedDescription> {
+  final recognizer = TapGestureRecognizer();
+
+  @override
+  void dispose() {
+    recognizer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    recognizer.onTap = widget.tail.onPressed;
+    return Text.rich(
+      TextSpan(
+        text: widget.text,
+        children: [
+          const WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: SizedBox(width: 4),
+          ),
+          TextSpan(
+            text: raftText(context, widget.tail.label),
+            recognizer: recognizer,
+            mouseCursor: SystemMouseCursors.click,
+            style: const TextStyle(decoration: TextDecoration.underline),
+          ),
+        ],
+      ),
+      textAlign: widget.textAlign,
+      style: widget.style,
     );
   }
 }

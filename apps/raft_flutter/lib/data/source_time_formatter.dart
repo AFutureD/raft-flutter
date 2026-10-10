@@ -15,6 +15,12 @@ Future<void> _initialize() async {
   await initializeDateFormatting();
 }
 
+/// The instant "Today" / "Yesterday" labels are measured against. Production
+/// always reads the wall clock; the parity harness pins it to the fixture
+/// instant the React provider fixes (`page.clock.setFixedTime`). Only tests
+/// assign it.
+DateTime Function() sourceTimeNow = DateTime.now;
+
 enum SourceTimeFormat { twelveHour, twentyFourHour }
 
 SourceTimeFormat? sourceTimeFormatPreference(String? value) => switch (value) {
@@ -175,7 +181,7 @@ class SourceTimeFormatter {
   String messageTime(Object? value, {DateTime? now}) {
     final date = _date(value);
     if (date == null) return value?.toString() ?? '';
-    final current = now ?? DateTime.now();
+    final current = now ?? sourceTimeNow();
     final time = _clock(date);
     if (dayKey(date) == dayKey(current)) return time;
     if (dayKey(date) == dayKey(_previousHostDay(current))) {
@@ -196,7 +202,7 @@ class SourceTimeFormatter {
   String dayLabel(Object? value, {DateTime? now}) {
     final date = _date(value);
     if (date == null) return '';
-    final current = now ?? DateTime.now();
+    final current = now ?? sourceTimeNow();
     if (dayKey(date) == dayKey(current)) return todayLabel;
     if (dayKey(date) == dayKey(_previousHostDay(current))) {
       return yesterdayLabel;

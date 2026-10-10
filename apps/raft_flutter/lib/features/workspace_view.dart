@@ -1126,6 +1126,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 selectionHandle: mainSelection,
                 onTask: openTaskSurface,
                 onMessageTask: openMessageTaskSurface,
+                onViewBilling: () => select('billing'),
               ),
             )
           : route == 'search' && channelSearchRevoked
@@ -1517,6 +1518,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                                           viewportHandle: threadViewport,
                                           selectionHandle: threadSelection,
                                           onTask: openMessageTaskSurface,
+                                          onViewBilling: () =>
+                                              select('billing'),
                                         ),
                                       ),
                                     ),
@@ -2087,12 +2090,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                           selectionHandle: threadSelection,
                           viewportHandle: threadViewport,
                           onTask: openMessageTaskSurface,
+                          onViewBilling: () => select('billing'),
                         )
                       : ConversationPanel(
                           controller: w,
                           selectionHandle: mainSelection,
                           onTask: openTaskSurface,
                           onMessageTask: openMessageTaskSurface,
+                          onViewBilling: () => select('billing'),
                         ),
                 ),
         ),

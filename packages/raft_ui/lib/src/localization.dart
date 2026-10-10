@@ -22,6 +22,8 @@ String raftFormat(
 }
 
 const raftChinese = <String, String>{
+  "Message history is limited to {days} days on the {plan} plan.":
+      "消息历史在 {plan} 套餐下仅保留 {days} 天。",
   // Hover cards (ExternalIdentityPreviewCard, reaction reactors, runtime usage).
   "From {workspace}": "来自 {workspace}",
   "+{count} more": "等 {count} 人",

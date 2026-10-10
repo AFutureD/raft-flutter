@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'message_timeline.dart';
 import 'row_extents.dart';
 
+import '../data/plan_history.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
@@ -68,8 +69,12 @@ class RaftChatView extends StatefulWidget {
     this.selectionHandle,
     this.viewportHandle,
     this.onTask,
+    this.onViewBilling,
   });
   final WorkspaceController controller;
+
+  /// HistoryLimitBanner's "View Billing" link (Web `nav.toSettings("billing")`).
+  final VoidCallback? onViewBilling;
   final bool thread;
 
   /// Source TaskModalHead is an independent task subject above the replies.
@@ -2215,6 +2220,34 @@ class _RaftChatViewState extends State<RaftChatView>
     );
   }
 
+  /// Web HistoryLimitBanner: the plan message-history cutoff notice with a
+  /// billing link, shared by the channel list and the thread panel.
+  Widget historyLimitBanner() {
+    final limit = planHistoryLimit(w.server?.string('plan'));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 448),
+          child: RaftBanner(
+            key: const ValueKey('history-limit-banner'),
+            size: RaftBannerRecipeSize.sm,
+            textAlign: TextAlign.center,
+            description: raftFormat(
+              context,
+              'Message history is limited to {days} days on the {plan} plan.',
+              {'days': limit.days, 'plan': limit.plan},
+            ),
+            descriptionTail: (
+              label: 'View Billing',
+              onPressed: widget.onViewBilling ?? () {},
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget threadTopSliver({bool loading = false}) => RaftThreadTimelineTopSliver(
     parentSlot: widget.threadParentSlot,
     parent: widget.hideThreadParent || w.presentedThreadParent == null
@@ -2223,10 +2256,10 @@ class _RaftChatViewState extends State<RaftChatView>
     hasMore: loading || w.threadHasMore,
     historyLimited: w.threadHistoryLimited,
     loadingOlder: loading || w.loadingOlder,
-    loadingOlderLabel: raftText(context, 'Loading...'),
+    loadingOlderLabel: raftText(context, 'Loading older replies...'),
     historyLimitedLabel: raftText(
       context,
-      'Earlier messages are unavailable due to plan limits.',
+      'Older replies are limited by the current plan',
     ),
     beginningLabel: raftText(context, 'Beginning of replies'),
     replyCountLabel: raftFormat(context, '{count} replies', {
@@ -2371,10 +2404,19 @@ class _RaftChatViewState extends State<RaftChatView>
         threadTopSliver(loading: loading),
         if (!loading && empty)
           RaftTimelineSparseFill(
-            child: RaftEmptyState(
-              title: raftText(context, 'No replies yet'),
-              detail: raftText(context, 'Reply to start a thread.'),
-            ),
+            // Every reply sits behind the plan cutoff: the thread is hidden,
+            // not empty (Web shows the banner instead of "No replies yet").
+            child: w.threadHistoryLimited
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: historyLimitBanner(),
+                    ),
+                  )
+                : RaftEmptyState(
+                    title: raftText(context, 'No replies yet'),
+                    detail: raftText(context, 'Reply to start a thread.'),
+                  ),
           ),
       ];
     } else {
@@ -2389,20 +2431,25 @@ class _RaftChatViewState extends State<RaftChatView>
                 ? const SizedBox.shrink()
                 : Padding(
                     padding: recipe.channelHeaderInset,
-                    child: RaftThreadHistoryTopState(
-                      hasMore: w.hasMore,
-                      historyLimited: w.historyLimited,
-                      loadingOlder: w.loadingOlder,
-                      loadingOlderLabel: raftText(context, 'Loading...'),
-                      historyLimitedLabel: raftText(
-                        context,
-                        'Earlier messages are unavailable due to plan limits.',
-                      ),
-                      beginningLabel: raftText(
-                        context,
-                        'Beginning of messages',
-                      ),
-                    ),
+                    child: !w.hasMore && w.historyLimited
+                        ? historyLimitBanner()
+                        : RaftThreadHistoryTopState(
+                            hasMore: w.hasMore,
+                            historyLimited: w.historyLimited,
+                            loadingOlder: w.loadingOlder,
+                            loadingOlderLabel: raftText(
+                              context,
+                              'Loading older messages...',
+                            ),
+                            historyLimitedLabel: raftText(
+                              context,
+                              'Older messages are limited by the current plan',
+                            ),
+                            beginningLabel: raftText(
+                              context,
+                              'Beginning of messages',
+                            ),
+                          ),
                   ),
           ),
         ),

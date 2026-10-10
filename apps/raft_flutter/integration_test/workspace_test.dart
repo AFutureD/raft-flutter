@@ -1071,19 +1071,19 @@ void main() {
 
       await openFollowEntry();
       final initiallyFollowing =
-          tester.widget<RaftMenuItem>(followEntry).label == 'Unfollow thread';
+          tester.widget<RaftMenuItem>(followEntry).label == 'Unfollow Thread';
       await toggleFollow();
       await openFollowEntry(
-        expected: initiallyFollowing ? 'Follow thread' : 'Unfollow thread',
+        expected: initiallyFollowing ? 'Follow Thread' : 'Unfollow Thread',
       );
       await toggleFollow();
       await openFollowEntry(
-        expected: initiallyFollowing ? 'Unfollow thread' : 'Follow thread',
+        expected: initiallyFollowing ? 'Unfollow Thread' : 'Follow Thread',
       );
       // Keep this test-created parent followed for actual projection readback.
       if (!initiallyFollowing) {
         await toggleFollow();
-        await openFollowEntry(expected: 'Unfollow thread');
+        await openFollowEntry(expected: 'Unfollow Thread');
       }
       await tester.tap(find.byKey(const Key('thread-options')));
       await until(tester, () => followEntry.evaluate().isEmpty);

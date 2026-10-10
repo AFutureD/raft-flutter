@@ -492,6 +492,10 @@ Future<void> _androidInteractions(
         mouse ??= await t.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
         await mouse.moveTo(t.getCenter(target!.first));
+      case 'scroll':
+        // Counterpart of the React `scroll` interaction (wheel over the
+        // target; y < 0 scrolls the list up): drag the content down by |dy|.
+        await t.drag(target!.first, Offset(0, -(raw['dy'] as num).toDouble()));
       case 'enter':
         await t.enterText(target!.first, raw['value'] as String);
       case 'enterText':
