@@ -219,6 +219,9 @@ class RaftTooltip extends Tooltip {
   State<RaftTooltip> createState() => _RaftTooltipState();
 }
 
+/// Stillness needed to open while the provider is warm (adjacent trigger).
+const _warmRest = Duration(milliseconds: 100);
+
 class _RaftTooltipState extends State<RaftTooltip>
     with SingleTickerProviderStateMixin {
   final anchor = GlobalKey();
@@ -344,9 +347,13 @@ class _RaftTooltipState extends State<RaftTooltip>
   void _scheduleHover() {
     closeTimer?.cancel();
     openTimer?.cancel();
-    final wait = scope?.group.instant == true
-        ? Duration.zero
-        : widget.delay ?? scope?.delay ?? const Duration(milliseconds: 600);
+    final base =
+        widget.delay ?? scope?.delay ?? const Duration(milliseconds: 600);
+    // Warm provider: right after another tooltip closed, a shorter rest
+    // suffices. The pointer must still be at rest; moving restarts it.
+    final wait = scope?.group.instant == true && base > _warmRest
+        ? _warmRest
+        : base;
     if (wait == Duration.zero) {
       _show(immediate: scope?.group.instant == true);
       return;
