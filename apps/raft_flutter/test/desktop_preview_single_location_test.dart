@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/user_activity.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/page_layout.dart';
+import 'package:raft_flutter/features/quick_switcher.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -286,9 +287,18 @@ void main() {
         }
 
         // Search: open one result, retarget to another, then Back.
+        // Web's desktop shell: the rail opens the search overlay, and its
+        // "Search for" row hands the query to the full results page.
         await _rail(t, 'search');
+        expect(find.byType(QuickSwitcher), findsOneWidget);
+        expect(w.section, isNot('search'));
+        await t.enterText(find.byType(TextField).last, 'public');
+        await t.pump(const Duration(milliseconds: 300));
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pumpAndSettle();
+        expect(find.byType(QuickSwitcher), findsNothing);
         expectPreview('search', null, null);
-        await t.enterText(find.byType(TextField).first, 'public');
+        expect(w.location.query('q'), 'public');
         await t.pump(const Duration(milliseconds: 500));
         await t.pumpAndSettle();
         final master = t.state(find.byType(ResourceView));
