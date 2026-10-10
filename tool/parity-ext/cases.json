@@ -17009,6 +17009,3336 @@
     "layoutDp": 1,
     "ignoreAntialiasing": true
    }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar.desktop.brutal",
+   "title": "Message hover toolbar on a hovered row desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Pointer rests on the row; the pill rides on its top border (MessageHoverToolbar)."
+  },
+  {
+   "id": "components.thread-ext.message.toolbar.desktop.elegant",
+   "title": "Message hover toolbar on a hovered row desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Pointer rests on the row; the pill rides on its top border (MessageHoverToolbar)."
+  },
+  {
+   "id": "components.thread-ext.message.toolbar.desktop.elegant-dark",
+   "title": "Message hover toolbar on a hovered row desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Pointer rests on the row; the pill rides on its top border (MessageHoverToolbar)."
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-saved.desktop.brutal",
+   "title": "Message hover toolbar, saved message desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-saved.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-saved"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-saved.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-saved.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-saved.desktop.elegant",
+   "title": "Message hover toolbar, saved message desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-saved.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-saved"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-saved.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-saved.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-saved.desktop.elegant-dark",
+   "title": "Message hover toolbar, saved message desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-saved.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-saved"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-saved.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-saved.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-thread.desktop.brutal",
+   "title": "Message hover toolbar inside a thread (no reply action) desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-thread.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-thread.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-thread.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-thread.desktop.elegant",
+   "title": "Message hover toolbar inside a thread (no reply action) desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-thread.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-thread.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-thread.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-thread.desktop.elegant-dark",
+   "title": "Message hover toolbar inside a thread (no reply action) desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-thread.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-thread.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-thread.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-button-hover.desktop.brutal",
+   "title": "Message hover toolbar, pointer on the reaction button desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-button-hover.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-button-hover"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-button-hover.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-button-hover.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-button-hover.desktop.elegant",
+   "title": "Message hover toolbar, pointer on the reaction button desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-button-hover.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-button-hover"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-button-hover.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-button-hover.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.toolbar-button-hover.desktop.elegant-dark",
+   "title": "Message hover toolbar, pointer on the reaction button desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "toolbar-button-hover.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": 112,
+      "boxWidth": null,
+      "state": "toolbar-button-hover"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.toolbar-button-hover.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'toolbar-button-hover.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.picker.desktop.brutal",
+   "title": "Message quick reaction picker open desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "picker.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": 170,
+      "boxWidth": null,
+      "state": "picker"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.picker.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     },
+     {
+      "type": "click",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'picker.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Reaction button clicked; the seven quick reactions open below it."
+  },
+  {
+   "id": "components.thread-ext.message.picker.desktop.elegant",
+   "title": "Message quick reaction picker open desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "picker.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": 170,
+      "boxWidth": null,
+      "state": "picker"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.picker.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     },
+     {
+      "type": "click",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'picker.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Reaction button clicked; the seven quick reactions open below it."
+  },
+  {
+   "id": "components.thread-ext.message.picker.desktop.elegant-dark",
+   "title": "Message quick reaction picker open desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "picker.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": 170,
+      "boxWidth": null,
+      "state": "picker"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.picker.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     },
+     {
+      "type": "click",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'picker.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Reaction button clicked; the seven quick reactions open below it."
+  },
+  {
+   "id": "components.thread-ext.message.picker-emoji-hover.desktop.brutal",
+   "title": "Message quick reaction picker, pointer on an emoji desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "picker-emoji-hover.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": 170,
+      "boxWidth": null,
+      "state": "picker-emoji-hover"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.picker-emoji-hover.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     },
+     {
+      "type": "click",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     },
+     {
+      "type": "hover",
+      "target": "[data-message-affordance=\"reaction-picker\"] button:nth-child(3)"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'picker-emoji-hover.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.picker-emoji-hover.desktop.elegant",
+   "title": "Message quick reaction picker, pointer on an emoji desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "picker-emoji-hover.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": 170,
+      "boxWidth": null,
+      "state": "picker-emoji-hover"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.picker-emoji-hover.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     },
+     {
+      "type": "click",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     },
+     {
+      "type": "hover",
+      "target": "[data-message-affordance=\"reaction-picker\"] button:nth-child(3)"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'picker-emoji-hover.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.picker-emoji-hover.desktop.elegant-dark",
+   "title": "Message quick reaction picker, pointer on an emoji desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "picker-emoji-hover.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": 170,
+      "boxWidth": null,
+      "state": "picker-emoji-hover"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.picker-emoji-hover.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "#message-msg-parity-ext-hover"
+     },
+     {
+      "type": "click",
+      "target": "#message-msg-parity-ext-hover [data-message-affordance=\"reaction\"]"
+     },
+     {
+      "type": "hover",
+      "target": "[data-message-affordance=\"reaction-picker\"] button:nth-child(3)"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'picker-emoji-hover.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-single.desktop.brutal",
+   "title": "Message forwarded bundle, one message desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-single.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "single"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-single.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-single.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-single.desktop.elegant",
+   "title": "Message forwarded bundle, one message desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-single.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "single"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-single.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-single.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-single.desktop.elegant-dark",
+   "title": "Message forwarded bundle, one message desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-single.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "single"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-single.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-single.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-multi.desktop.brutal",
+   "title": "Message forwarded bundle, three messages collapsed desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-multi.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-multi.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-multi.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-multi.desktop.elegant",
+   "title": "Message forwarded bundle, three messages collapsed desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-multi.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-multi.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-multi.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-multi.desktop.elegant-dark",
+   "title": "Message forwarded bundle, three messages collapsed desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-multi.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-multi.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-multi.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-expanded.desktop.brutal",
+   "title": "Message forwarded bundle, three messages expanded desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-expanded.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-expanded.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"forwarded-bundle-toggle\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-expanded.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-expanded.desktop.elegant",
+   "title": "Message forwarded bundle, three messages expanded desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-expanded.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-expanded.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"forwarded-bundle-toggle\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-expanded.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-expanded.desktop.elegant-dark",
+   "title": "Message forwarded bundle, three messages expanded desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-expanded.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-expanded.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"forwarded-bundle-toggle\"]"
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-expanded.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-thread.desktop.brutal",
+   "title": "Message forwarded bundle from a thread desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-thread.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-thread.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-thread.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-thread.desktop.elegant",
+   "title": "Message forwarded bundle from a thread desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-thread.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-thread.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-thread.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-thread.desktop.elegant-dark",
+   "title": "Message forwarded bundle from a thread desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-thread.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-thread.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-thread.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-restricted.desktop.brutal",
+   "title": "Message forwarded bundle, restricted source (no source label) desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-restricted.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "restricted"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-restricted.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-restricted.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-restricted.desktop.elegant",
+   "title": "Message forwarded bundle, restricted source (no source label) desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-restricted.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "restricted"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-restricted.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-restricted.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-restricted.desktop.elegant-dark",
+   "title": "Message forwarded bundle, restricted source (no source label) desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-restricted.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "forward",
+      "bundle": "restricted"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-restricted.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-restricted.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-single.mobile.brutal",
+   "title": "Message forwarded bundle, one message mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-single.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "forward",
+      "bundle": "single"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-single.mobile.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-single.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-single.mobile.elegant",
+   "title": "Message forwarded bundle, one message mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-single.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "forward",
+      "bundle": "single"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-single.mobile.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-single.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-single.mobile.elegant-dark",
+   "title": "Message forwarded bundle, one message mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-single.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "forward",
+      "bundle": "single"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-single.mobile.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-single.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-multi.mobile.brutal",
+   "title": "Message forwarded bundle, three messages collapsed mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-multi.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-multi.mobile.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-multi.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-multi.mobile.elegant",
+   "title": "Message forwarded bundle, three messages collapsed mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-multi.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-multi.mobile.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-multi.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.forward-multi.mobile.elegant-dark",
+   "title": "Message forwarded bundle, three messages collapsed mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "forward-multi.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "forward",
+      "bundle": "multi"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.forward-multi.mobile.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'forward-multi.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-toolbar.desktop.brutal",
+   "title": "Message mermaid toolbar (diagram view) desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-toolbar.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"mermaid-toolbar\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-toolbar"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-toolbar.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-toolbar.desktop.elegant",
+   "title": "Message mermaid toolbar (diagram view) desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-toolbar.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"mermaid-toolbar\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-toolbar"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-toolbar.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-toolbar.desktop.elegant-dark",
+   "title": "Message mermaid toolbar (diagram view) desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-toolbar.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"mermaid-toolbar\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-toolbar"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-toolbar.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-code.desktop.brutal",
+   "title": "Message mermaid card, code view desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-code.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case] .r-mermaid-diagram",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"mermaid-toolbar\"] [aria-label=\"Code\"]"
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "mermaid-container"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-code.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-code.desktop.elegant",
+   "title": "Message mermaid card, code view desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-code.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case] .r-mermaid-diagram",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"mermaid-toolbar\"] [aria-label=\"Code\"]"
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "mermaid-container"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-code.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-code.desktop.elegant-dark",
+   "title": "Message mermaid card, code view desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-code.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case] .r-mermaid-diagram",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"mermaid-toolbar\"] [aria-label=\"Code\"]"
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "mermaid-container"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-code.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-diagram.desktop.brutal",
+   "title": "Message mermaid card, diagram view (SVG itself may differ) desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-diagram.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case] .r-mermaid-diagram",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-container"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-diagram.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-diagram.desktop.elegant",
+   "title": "Message mermaid card, diagram view (SVG itself may differ) desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-diagram.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case] .r-mermaid-diagram",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-container"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-diagram.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-diagram.desktop.elegant-dark",
+   "title": "Message mermaid card, diagram view (SVG itself may differ) desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-diagram.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 560,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case] .r-mermaid-diagram",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-container"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-diagram.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-toolbar.mobile.brutal",
+   "title": "Message mermaid toolbar (diagram view) mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-toolbar.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 358,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"mermaid-toolbar\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-toolbar"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-toolbar.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-toolbar.mobile.elegant",
+   "title": "Message mermaid toolbar (diagram view) mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-toolbar.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 358,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"mermaid-toolbar\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-toolbar"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-toolbar.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.mermaid-toolbar.mobile.elegant-dark",
+   "title": "Message mermaid toolbar (diagram view) mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mermaid-toolbar.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 358,
+      "state": "mermaid",
+      "diagram": "flow"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"mermaid-toolbar\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "mermaid-toolbar"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'mermaid-toolbar.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.banner.desktop.brutal",
+   "title": "Message notification activation banner desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "banner.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "banner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.banner.desktop.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'banner.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Flutter has no production surface (Web Push opt-in); the closest real widgets are mounted."
+  },
+  {
+   "id": "components.thread-ext.message.banner.desktop.elegant",
+   "title": "Message notification activation banner desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "banner.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "banner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.banner.desktop.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'banner.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Flutter has no production surface (Web Push opt-in); the closest real widgets are mounted."
+  },
+  {
+   "id": "components.thread-ext.message.banner.desktop.elegant-dark",
+   "title": "Message notification activation banner desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "banner.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": 480,
+      "state": "banner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.banner.desktop.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'banner.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Flutter has no production surface (Web Push opt-in); the closest real widgets are mounted."
+  },
+  {
+   "id": "components.thread-ext.message.banner.mobile.brutal",
+   "title": "Message notification activation banner mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "banner.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "banner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.banner.mobile.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'banner.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Flutter has no production surface (Web Push opt-in); the closest real widgets are mounted."
+  },
+  {
+   "id": "components.thread-ext.message.banner.mobile.elegant",
+   "title": "Message notification activation banner mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "banner.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "banner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.banner.mobile.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'banner.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Flutter has no production surface (Web Push opt-in); the closest real widgets are mounted."
+  },
+  {
+   "id": "components.thread-ext.message.banner.mobile.elegant-dark",
+   "title": "Message notification activation banner mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "banner.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": 390,
+      "state": "banner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.message.banner.mobile.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'banner.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Flutter has no production surface (Web Push opt-in); the closest real widgets are mounted."
+  },
+  {
+   "id": "components.thread-ext.message.sos-confirm.desktop.brutal",
+   "title": "Message SOS dialog, confirm phase desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-confirm.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-confirm.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-confirm.desktop.elegant",
+   "title": "Message SOS dialog, confirm phase desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-confirm.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-confirm.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-confirm.desktop.elegant-dark",
+   "title": "Message SOS dialog, confirm phase desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-confirm.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-confirm.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-stopped.desktop.brutal",
+   "title": "Message SOS dialog, stopped (guidance form) desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-stopped.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] >> role=button[name=\"Stop\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 250
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-stopped.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-stopped.desktop.elegant",
+   "title": "Message SOS dialog, stopped (guidance form) desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-stopped.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] >> role=button[name=\"Stop\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 250
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-stopped.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-stopped.desktop.elegant-dark",
+   "title": "Message SOS dialog, stopped (guidance form) desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-stopped.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] >> role=button[name=\"Stop\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 250
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-stopped.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-guidance.desktop.brutal",
+   "title": "Message SOS dialog, stopped with guidance typed desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-guidance.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] >> role=button[name=\"Stop\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 250
+     },
+     {
+      "type": "fill",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] textarea",
+      "value": "Stop editing the README and re-run the parity suite first."
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-guidance.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-guidance.desktop.elegant",
+   "title": "Message SOS dialog, stopped with guidance typed desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-guidance.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] >> role=button[name=\"Stop\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 250
+     },
+     {
+      "type": "fill",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] textarea",
+      "value": "Stop editing the README and re-run the parity suite first."
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-guidance.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-guidance.desktop.elegant-dark",
+   "title": "Message SOS dialog, stopped with guidance typed desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-guidance.desktop",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] >> role=button[name=\"Stop\"]"
+     },
+     {
+      "type": "wait",
+      "ms": 250
+     },
+     {
+      "type": "fill",
+      "target": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"] textarea",
+      "value": "Stop editing the README and re-run the parity suite first."
+     }
+    ],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-guidance.desktop'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-confirm.mobile.brutal",
+   "title": "Message SOS dialog, confirm phase mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-confirm.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-confirm.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-confirm.mobile.elegant",
+   "title": "Message SOS dialog, confirm phase mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-confirm.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-confirm.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.message.sos-confirm.mobile.elegant-dark",
+   "title": "Message SOS dialog, confirm phase mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-message-ext",
+   "category": "extension/thread-message",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "sos-confirm.mobile",
+      "extKind": "threadmessage",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "boxHeight": null,
+      "boxWidth": null,
+      "state": "sos"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"modal-backdrop\"] [data-slot=\"card\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "sos-dialog-card"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageItem.tsx (+ per-surface component)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread_messages.dart 'sos-confirm.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }
