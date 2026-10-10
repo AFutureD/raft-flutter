@@ -440,13 +440,8 @@ class RaftTaskSection extends StatelessWidget {
                     label: emptyLabel ?? '',
                     // TaskSectionEmpty `border-2 border-dashed
                     // border-line-muted px-3 py-5 text-sm
-                    // text-foreground-muted` (brutal line-muted = black/30).
+                    // text-foreground-muted`.
                     fill: r.empty.backgroundColor?.resolve(rt),
-                    borderColor: t.brutal
-                        ? Colors.black.withValues(alpha: .3)
-                        : t.colors['line-muted']!,
-                    borderWidth: 2,
-                    radius: t.brutal ? 0 : 8,
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -640,23 +635,33 @@ class RaftTaskLaneEmpty extends StatelessWidget {
   const RaftTaskLaneEmpty({
     super.key,
     required this.label,
-    required this.borderColor,
-    required this.borderWidth,
-    required this.radius,
+    this.board = false,
     this.fill,
   });
   final String label;
+
+  /// Board column (`border border-dashed theme-brutal:border-2`, Elegant
+  /// `layer-panel` fill) instead of the list section box.
+  final bool board;
+
+  /// List section fill (the recipe's `fill-muted`); unused on the board.
   final Color? fill;
-  final Color borderColor;
-  final double borderWidth, radius;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // Board: border 1 (Brutal 2) line-muted (black/20); list: border-2
+    // line-muted (black/30).
+    final borderWidth = board ? (t.brutal ? 2.0 : 1.0) : 2.0;
+    final borderColor = t.brutal
+        ? Colors.black.withValues(alpha: board ? .2 : .3)
+        : t.colors['line-muted']!;
+    final radius = t.brutal ? 0.0 : 8.0;
+    final fillColor = board ? (t.brutal ? null : t.colors['layer-panel']) : fill;
     return SizedBox(
       width: double.infinity,
       child: CustomPaint(
-        painter: _LaneEmptyPainter(fill, borderColor, borderWidth, radius),
+        painter: _LaneEmptyPainter(fillColor, borderColor, borderWidth, radius),
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: 12 + borderWidth,

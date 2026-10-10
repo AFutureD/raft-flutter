@@ -1641,7 +1641,15 @@ class RaftAdminSwitchCard extends StatelessWidget {
     this.switchKey,
     this.descriptionLink,
     this.onDescriptionLink,
+    this.topGap = 0,
+    this.cardKey,
   });
+
+  /// Key of the card box itself (excluding [topGap]).
+  final Key? cardKey;
+
+  /// Space above the card (`mt-6` of UsageDataSettingsCard).
+  final double topGap;
   final String title, description;
   final bool checked;
   final ValueChanged<bool>? onChanged;
@@ -1656,7 +1664,10 @@ class RaftAdminSwitchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), text = RaftSettingsText(t);
-    return RaftSettingsCard(
+    return Padding(
+      padding: EdgeInsets.only(top: topGap),
+      child: RaftSettingsCard(
+      key: cardKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1739,6 +1750,7 @@ class RaftAdminSwitchCard extends StatelessWidget {
             RaftAdminWarning(error),
           ],
         ],
+      ),
       ),
     );
   }

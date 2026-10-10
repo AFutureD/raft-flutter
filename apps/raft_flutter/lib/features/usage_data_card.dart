@@ -92,10 +92,9 @@ class _UsageDataSettingsCardState extends State<UsageDataSettingsCard> {
   @override
   Widget build(BuildContext context) {
     if (!enabled) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 24), // mt-6
-      child: RaftAdminSwitchCard(
-        key: const ValueKey('usage-data-card'),
+    return RaftAdminSwitchCard(
+        cardKey: const ValueKey('usage-data-card'),
+        topGap: 24, // mt-6
         switchKey: const ValueKey('usage-data-switch'),
         title: 'Share usage data',
         description:
@@ -106,7 +105,6 @@ class _UsageDataSettingsCardState extends State<UsageDataSettingsCard> {
         checked: shared,
         onChanged: saving ? null : change,
         error: failed ? "Couldn't save this setting. Try again." : null,
-      ),
     );
   }
 }

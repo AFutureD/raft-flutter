@@ -4652,13 +4652,8 @@ class _ResourceViewState extends State<ResourceView> {
                             // TaskBoardColumnEmpty: `border border-dashed
                             // px-3 py-5 text-sm theme-brutal:border-2`.
                             RaftTaskLaneEmpty(
+                              board: true,
                               label: _emptyLaneLabel(context, status),
-                              fill: t.brutal ? null : t.colors['layer-panel'],
-                              borderColor: t.brutal
-                                  ? Colors.black.withValues(alpha: .2)
-                                  : t.colors['line-muted']!,
-                              borderWidth: t.brutal ? 2 : 1,
-                              radius: t.brutal ? 0 : 8,
                             ),
                           if (laneCursors[status] != null)
                             RaftTextButton(
