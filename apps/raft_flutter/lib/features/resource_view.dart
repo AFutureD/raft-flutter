@@ -406,6 +406,19 @@ class _ResourceViewState extends State<ResourceView> {
     ]);
   }
 
+  /// [listView] with the relative time window's clock-derived `after`/`before`
+  /// replaced by the chosen range, so the identity of a view (and the scroll
+  /// offset stored under it) survives rebuilds while the clock moves.
+  String? get scrollView {
+    final view = listView;
+    if (view == null || widget.section != 'search') return view;
+    final decoded = jsonDecode(view) as List;
+    final params = {...(decoded[1] as Map<String, dynamic>)}
+      ..remove('after')
+      ..remove('before');
+    return jsonEncode([decoded[0], params, advanced.timeRange]);
+  }
+
   /// Remember the accepted [rows] under [rowsView] before another view
   /// replaces them.
   void stashViewWindow() {
@@ -2264,7 +2277,7 @@ class _ResourceViewState extends State<ResourceView> {
               ? searchHome(scope)
               : widget.section == 'search'
               ? ResourceSearchResults(
-                  key: PageStorageKey(('search-results', listView)),
+                  key: PageStorageKey(('search-results', scrollView)),
                   query: query.text,
                   rows: rows,
                   entities: currentSearchEntities,
