@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'indicators.dart';
+import 'mobile_page_header.dart';
 import 'panel_layout.dart';
 import 'recipe_surface.dart';
 import 'recipes/panel_header.g.dart';
@@ -89,6 +90,25 @@ class RaftConversationHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), rt = RaftRecipeTokens(t);
     final recipe = recipeOf(context, hasMeta: hasMeta);
+    if (MediaQuery.sizeOf(context).width <
+        RaftLayoutMetrics.desktopBreakpoint) {
+      return RaftMobilePageHeader(
+        onBack: onBack,
+        backKey: backKey,
+        backLabel: backLabel,
+        background: t.brutal ? Colors.white : t.colors['layer-canvas-muted'],
+        title: identity == null
+            ? content
+            : Row(
+                children: [
+                  identity!,
+                  const SizedBox(width: 6),
+                  Expanded(child: content),
+                ],
+              ),
+        actions: actions,
+      );
+    }
     final gap = recipe.header.columnGap ?? recipe.header.length('gap') ?? 12;
     final actionGap =
         recipe.actions.columnGap ?? recipe.actions.length('gap') ?? 6;

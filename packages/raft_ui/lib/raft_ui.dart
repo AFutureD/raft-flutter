@@ -157,3 +157,5 @@ export 'src/page_recipes.dart';
 export 'src/sidebar_frame.dart';
 
 export 'src/sidebar_indicators.dart';
+
+export 'src/mobile_page_header.dart';

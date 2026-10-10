@@ -1,3 +1,5 @@
+import 'page_layout.dart';
+
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
@@ -192,7 +194,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
       context,
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: Text(app['name'] ?? 'App')),
+          appBar: raftPageAppBar(context, title: Text(app['name'] ?? 'App')),
           body: AppManagementView(
             controller: w,
             appId: app['id'],
@@ -478,7 +480,10 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
           context,
           MaterialPageRoute<void>(
             builder: (_) => Scaffold(
-              appBar: AppBar(title: const Text('MCP connections')),
+              appBar: raftPageAppBar(
+                context,
+                title: const Text('MCP connections'),
+              ),
               body: AgentMcpView(controller: w),
             ),
           ),

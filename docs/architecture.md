@@ -132,3 +132,11 @@ raft_ui 的颜色映射已有生成来源；部分尺寸与布局约束仍分散
 The delivered b98 APK and Linux archive match the manifest bound to product commit `032f9f0442cf972c3e566c57ee9a19e8f361e2f3`. The real browser downloaded both archives and confirmed their sizes and SHA-256 against the independently reviewed manifest; all 221 report images decoded. See [released artifact evidence](release-evidence.md) for exact hashes and probe boundaries.
 
 The released APK smoke used an owned 16KiB Android emulator and synthetic input without authentication. Linux basic GUI/CJK interaction used a relocated archive, the build host’s isolated GTK/X11 session and an initialized empty SecretService keyring. Its live text readback passed, while the separately attempted AT-SPI Component.GetExtents method still timed out; screenshot-measured pointer input does not certify that coordinate method. Bundled libmpv PCM decoding passed separately. These checks do not establish store signing, physical devices, authenticated release workflows, Wayland or arbitrary Linux distributions. Pixel-level parity remains unaccepted, and the earlier HTTP parser failure has no confirmed cause.
+
+## 移动导航呈现（2026-10-10）
+
+窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。活动页面保留唯一 controller 子树，历史页仅暂存最后绘制的帧用于过渡；帧不持久化，并随账户、服务器或权限范围变化销毁。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。
+
+任务槽先投影为底层页面再判定根页面，任务弹层不制造 MaterialPage。系统返回先关闭任务槽；页面身份与进入实例分离，退出动画中的旧实例不会与快速重入的新实例共享帧 key。宽窄切换保留活动子树和任务 owner；呈现实例只由既有业务历史派生，不维护额外业务位置。
+
+`RaftMobilePageHeader` 统一移动页面的 56 逻辑像素高度、48 像素操作槽和返回按钮位置，系统安全区由宿主提供。Android 实机及组件检查的覆盖边界见 [mobile-navigation.md](mobile-navigation.md)，不能据此推断 iOS、Linux、Windows 的平台验收通过。

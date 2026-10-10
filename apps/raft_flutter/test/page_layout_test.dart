@@ -10,7 +10,7 @@ void main() {
     (RaftFamily.elegant, true),
   ]) {
     testWidgets(
-      '$family/$dark canonical mobile header matches measured source line boxes',
+      '$family/$dark mobile page header uses shared native navigation geometry',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -40,16 +40,14 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        Finder line(String label) =>
-            find.byWidgetPredicate((w) => w is RaftCssText && w.data == label);
-        final title = tester.getRect(line('Activity'));
-        final subtitle = tester.getRect(line('3 active · 3 unread'));
-        // Actual Source PanelHeader at the original 342px Activity fixture.
-        expect(title.left, family == RaftFamily.brutal ? 59 : 61);
-        expect(title.top, family == RaftFamily.brutal ? 12 : 7.375);
-        expect(title.height, family == RaftFamily.brutal ? 20 : 21.25);
-        expect(subtitle.top, family == RaftFamily.brutal ? 32 : 32.625);
-        expect(subtitle.height, family == RaftFamily.brutal ? 16 : 15);
+        final title = tester.getRect(find.text('Activity'));
+        final subtitle = tester.getRect(find.text('3 active · 3 unread'));
+        expect(tester.getSize(find.byType(RaftMobilePageHeader)).height, 56);
+        expect(title.left, 65);
+        expect(title.top, family == RaftFamily.brutal ? 9 : 10);
+        expect(title.height, 20);
+        expect(subtitle.top, family == RaftFamily.brutal ? 29 : 30);
+        expect(subtitle.height, 16);
         expect(tester.takeException(), isNull);
       },
     );
@@ -88,15 +86,27 @@ void main() {
             viewportHeight: size.height,
             mobile: size.width < RaftLayoutMetrics.desktopBreakpoint,
           );
-          expect(
-            tester.getSize(find.byKey(const Key('page-header-surface'))),
-            Size(size.width, recipe.height),
-          );
-          expect(tester.widget<Text>(find.text('Tasks')).style, recipe.title);
-          expect(
-            tester.widget<Text>(find.text('4 channel tasks')).style,
-            recipe.subtitle,
-          );
+          if (size.width < RaftLayoutMetrics.desktopBreakpoint) {
+            expect(
+              tester.getSize(find.byType(RaftMobilePageHeader)),
+              Size(size.width, 56),
+            );
+            expect(tester.widget<Text>(find.text('Tasks')).style!.fontSize, 16);
+            expect(
+              tester.widget<Text>(find.text('4 channel tasks')).style!.fontSize,
+              12,
+            );
+          } else {
+            expect(
+              tester.getSize(find.byKey(const Key('page-header-surface'))),
+              Size(size.width, recipe.height),
+            );
+            expect(tester.widget<Text>(find.text('Tasks')).style, recipe.title);
+            expect(
+              tester.widget<Text>(find.text('4 channel tasks')).style,
+              recipe.subtitle,
+            );
+          }
           expect(tester.takeException(), isNull);
         }
       }

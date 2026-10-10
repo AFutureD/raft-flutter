@@ -267,6 +267,8 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
                 ),
                 Text(
                   'Task #${task['taskNumber'] ?? ''}${widget.legacy ? ' · LEGACY' : ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: RaftTypography.heading(
                     t,
                     size: widget.legacy ? 12 : 14,

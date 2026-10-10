@@ -1,3 +1,5 @@
+import 'page_layout.dart';
+
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -185,7 +187,8 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       'Unassigned';
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
+    appBar: raftPageAppBar(
+      context,
       title: Text(raftText(context, 'Agent migration')),
       actions: [
         IconButton(

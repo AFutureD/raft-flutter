@@ -44,6 +44,7 @@ import 'create_channel_dialog.dart';
 import 'workspace_settings.dart';
 import 'server_views.dart';
 import 'mobile_workspace_navigation.dart';
+import 'mobile_workspace_pages.dart';
 import 'desktop_navigation_policy.dart';
 import 'activity_destination.dart';
 import 'desktop_master_detail.dart';
@@ -733,7 +734,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       return;
     }
     final previous = w.location;
-    final next = w.navigation.back();
+    final next = wide ? w.navigation.back() : backMobilePage(w.navigation);
     pendingDesktopSelection = false;
     if (next.thread == null) w.closeThread(navigate: false);
     mobileSettingsRevision++;
@@ -1222,13 +1223,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               onLegacyEscape ?? dismissPanel,
         },
         child: PopScope(
+          // URL-owned task surfaces close before the underlying platform page.
+          // Popping that page while dismissPanel only removes its task slot
+          // would leave Navigator and WorkspaceNavigation on different stacks.
           canPop:
+              w.location.task == null &&
+              w.location.legacyTask == null &&
               !mainSelection.active &&
               !threadSelection.active &&
-              !thread &&
-              (wide ||
-                  w.location.route == RaftRoute.home &&
-                      w.navigation.index <= 0),
+              (!wide || !thread) &&
+              scaffold.currentState?.isDrawerOpen != true,
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) dismissPanel();
           },
@@ -1506,7 +1510,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           ),
         ),
       );
-      return WorkspaceTaskHost(
+      final body = WorkspaceTaskHost(
         controller: w,
         seed: taskSeed,
         // RightPanel handles content routes before its workspace guard.
@@ -1522,6 +1526,13 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                       : 0)
             : 0,
         childBuilder: workspace,
+      );
+      return MobileWorkspacePages(
+        enabled: !wide,
+        key: ValueKey('mobile-pages-$desktopAuthority'),
+        navigation: w.navigation,
+        onBack: dismissPanel,
+        child: body,
       );
     },
   );

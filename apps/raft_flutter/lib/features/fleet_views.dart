@@ -1,3 +1,5 @@
+import 'page_layout.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -1228,7 +1230,8 @@ class _FleetInspectionState extends State<FleetInspection> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
+    appBar: raftPageAppBar(
+      context,
       title: Text(switch (widget.kind) {
         'activity-log' => 'Activity log',
         'channels' => 'Agent channels',

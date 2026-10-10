@@ -2474,104 +2474,110 @@ class _ResourceViewState extends State<ResourceView> {
       viewportHeight: MediaQuery.sizeOf(context).height,
       mobile: mobile,
     );
-    return Container(
-      height: recipe.height,
-      padding: EdgeInsets.symmetric(horizontal: RaftLayoutMetrics.panelInset),
-      decoration: BoxDecoration(
-        color: recipe.background,
-        border: Border(bottom: recipe.border),
-      ),
-      child: Row(
-        children: [
-          if (mobile) ...[
-            RaftPanelBackAction(onPressed: widget.onBack ?? () {}),
-            const SizedBox(width: RaftLayoutMetrics.panelGap),
-          ],
-          Container(
-            width: RaftLayoutMetrics.panelIcon,
-            height: RaftLayoutMetrics.panelIcon,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: recipe.iconBackground,
-              border: Border.all(color: t.line, width: t.border),
-            ),
-            child: const RaftIcon(RaftGlyph.search, size: 18),
+    final row = Row(
+      children: [
+        Container(
+          width: RaftLayoutMetrics.panelIcon,
+          height: RaftLayoutMetrics.panelIcon,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: recipe.iconBackground,
+            border: Border.all(color: t.line, width: t.border),
           ),
-          const SizedBox(width: RaftLayoutMetrics.panelGap),
-          Expanded(
-            child: Focus(
-              onKeyEvent: (_, event) {
-                if (event is! KeyDownEvent) return KeyEventResult.ignored;
-                final keys = [
-                  ...(query.text.trim().isEmpty
-                          ? frequentEntities
-                          : currentSearchEntities)
-                      .map((e) => e.key),
-                  ...rows.map((r) => 'message:${r['id']}'),
-                ];
-                if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                    event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  if (keys.isEmpty) return KeyEventResult.ignored;
-                  final index = keys.indexOf(selectedSearchKey ?? keys.first),
-                      step = event.logicalKey == LogicalKeyboardKey.arrowDown
-                          ? 1
-                          : -1;
-                  setState(
-                    () => selectedSearchKey =
-                        keys[(index + step).clamp(0, keys.length - 1)],
-                  );
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.escape) {
-                  widget.onBack?.call();
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
+          child: const RaftIcon(RaftGlyph.search, size: 18),
+        ),
+        const SizedBox(width: RaftLayoutMetrics.panelGap),
+        Expanded(
+          child: Focus(
+            onKeyEvent: (_, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              final keys = [
+                ...(query.text.trim().isEmpty
+                        ? frequentEntities
+                        : currentSearchEntities)
+                    .map((e) => e.key),
+                ...rows.map((r) => 'message:${r['id']}'),
+              ];
+              if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                  event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                if (keys.isEmpty) return KeyEventResult.ignored;
+                final index = keys.indexOf(selectedSearchKey ?? keys.first),
+                    step = event.logicalKey == LogicalKeyboardKey.arrowDown
+                        ? 1
+                        : -1;
+                setState(
+                  () => selectedSearchKey =
+                      keys[(index + step).clamp(0, keys.length - 1)],
+                );
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.escape) {
+                widget.onBack?.call();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: RaftSearchInput(
+              controller: query,
+              focusNode: queryFocus,
+              hint: raftText(context, 'Search messages'),
+              clearLabel: raftText(context, 'Clear search'),
+              showEscape: !mobile,
+              onClear: () {
+                query.clear();
+                searchChanged('');
               },
-              child: RaftSearchInput(
-                controller: query,
-                focusNode: queryFocus,
-                hint: raftText(context, 'Search messages'),
-                clearLabel: raftText(context, 'Clear search'),
-                showEscape: !mobile,
-                onClear: () {
-                  query.clear();
-                  searchChanged('');
-                },
-                onChanged: searchChanged,
-                onSubmitted: (_) {
-                  searchDebounce?.cancel();
-                  final selected =
-                      selectedSearchKey ??
-                      (query.text.trim().isEmpty
-                              ? frequentEntities
-                              : currentSearchEntities)
-                          .firstOrNull
-                          ?.key ??
-                      (rows.isEmpty ? null : 'message:${rows.first['id']}');
-                  final entity =
-                      (query.text.trim().isEmpty
-                              ? frequentEntities
-                              : currentSearchEntities)
-                          .where((e) => e.key == selected)
-                          .firstOrNull;
-                  final row = rows
-                      .where((r) => 'message:${r['id']}' == selected)
-                      .firstOrNull;
-                  if (entity != null) {
-                    openSearchEntity(entity, scope);
-                  } else if (row != null) {
-                    openSearchMessage(row, scope);
-                  } else {
-                    load();
-                  }
-                },
-              ),
+              onChanged: searchChanged,
+              onSubmitted: (_) {
+                searchDebounce?.cancel();
+                final selected =
+                    selectedSearchKey ??
+                    (query.text.trim().isEmpty
+                            ? frequentEntities
+                            : currentSearchEntities)
+                        .firstOrNull
+                        ?.key ??
+                    (rows.isEmpty ? null : 'message:${rows.first['id']}');
+                final entity =
+                    (query.text.trim().isEmpty
+                            ? frequentEntities
+                            : currentSearchEntities)
+                        .where((e) => e.key == selected)
+                        .firstOrNull;
+                final row = rows
+                    .where((r) => 'message:${r['id']}' == selected)
+                    .firstOrNull;
+                if (entity != null) {
+                  openSearchEntity(entity, scope);
+                } else if (row != null) {
+                  openSearchMessage(row, scope);
+                } else {
+                  load();
+                }
+              },
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+    return mobile
+        ? RaftMobilePageHeader(
+            onBack: widget.onBack ?? () {},
+            background: recipe.background,
+            border: recipe.border,
+            title: row,
+          )
+        : Container(
+            height: recipe.height,
+            padding: EdgeInsets.symmetric(
+              horizontal: RaftLayoutMetrics.panelInset,
+            ),
+            decoration: BoxDecoration(
+              color: recipe.background,
+              border: Border(bottom: recipe.border),
+            ),
+            child: row,
+          );
   }
 
   Widget searchFilters() {
@@ -3042,8 +3048,7 @@ class _ResourceViewState extends State<ResourceView> {
     'done' => 'Items you mark done appear here and can be restored.',
     _ when advanced.channelId != null =>
       'Try another channel or clear the channel filter.',
-    'mentions' =>
-      'Channels, DMs, and threads where someone @mentions you will appear here.',
+    'mentions' => 'Channels, DMs, and threads where someone @mentions you will appear here.',
     _ => 'Channels, DMs, and followed threads stay here until they are done.',
   };
 
@@ -3349,9 +3354,8 @@ class _ResourceViewState extends State<ResourceView> {
     final controller = w;
     final identity = SourceReadAllIdentity.capture(controller.client);
     try {
-      final receipt = await SourceReadAllTransport.of(
-        controller.client,
-      ).readAll(scopeId, identity: identity);
+      final receipt = await SourceReadAllTransport.of(controller.client)
+          .readAll(scopeId, identity: identity);
       if (identity.current(controller.client)) {
         controller.acceptReadAllAck(
           scopeId,

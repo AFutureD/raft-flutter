@@ -2,6 +2,8 @@ import 'recipe_surface.dart';
 
 import 'package:flutter/material.dart';
 
+import 'mobile_page_header.dart';
+
 import '../recipes.dart';
 import 'design_primitives.dart';
 import 'flex_shrink_row.dart';
@@ -276,6 +278,13 @@ class RaftPanelBackAction extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width <
+        RaftLayoutMetrics.desktopBreakpoint) {
+      return RaftMobileBackButton(
+        onPressed: onPressed,
+        tooltip: raftText(context, label),
+      );
+    }
     final t = RaftTokens.of(context), rt = t.recipeTokens;
     return RaftTouchTargetExpander(
       minSize: const Size.square(RaftMetrics.touchTarget),

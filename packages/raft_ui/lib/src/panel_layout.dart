@@ -7,6 +7,9 @@
 // panelAction, tabs) and, for classes written directly in Web JSX, from the
 // Tailwind classes cited next to each value (packages/web/src paths).
 import 'package:flutter/material.dart';
+
+import 'mobile_page_header.dart';
+
 import 'package:flutter/rendering.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
@@ -341,6 +344,38 @@ class RaftPanelHeaderBar extends StatelessWidget {
           .copyWith(fontFamily: slot.fontFamily == null ? t.bodyFont : null),
     );
     final gap = s.header.columnGap ?? s.header.length('gap') ?? 12;
+    if (width < RaftLayoutMetrics.desktopBreakpoint) {
+      return RaftMobilePageHeader(
+        onBack: onBack,
+        backLabel: backTooltip,
+        background: s.header.backgroundColor?.resolve(rt),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RaftTypography.heading(t, size: 16, line: 20),
+            ),
+            if (subtitle?.isNotEmpty == true)
+              Text(
+                subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: RaftTypography.body(
+                  t,
+                  size: 12,
+                  line: 16,
+                  color: t.muted,
+                ),
+              ),
+          ],
+        ),
+        actions: actions,
+      );
+    }
     return Container(
       height: s.header.height,
       constraints: BoxConstraints(minHeight: s.header.minHeight ?? 0),

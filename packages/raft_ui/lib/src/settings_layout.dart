@@ -3,6 +3,8 @@ export 'panel_layout.dart' show raftRecipeTheme;
 
 import 'package:flutter/material.dart';
 
+import 'mobile_page_header.dart';
+
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'indicators.dart';
@@ -237,6 +239,20 @@ class RaftSettingsPanelHeader extends StatelessWidget {
       states: states,
       tokens: tokens,
     );
+    if (mobile) {
+      return RaftMobilePageHeader(
+        title: Text(
+          raftText(context, title),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: RaftTypography.heading(t, size: 16, line: 20),
+        ),
+        onBack: onMobileBack,
+        backKey: backKey,
+        backLabel: raftText(context, backTooltip),
+        background: s.header.backgroundColor?.resolve(tokens),
+      );
+    }
     final header = s.header;
     final titleStyle = RaftTypography.body(
       t,
@@ -252,14 +268,6 @@ class RaftSettingsPanelHeader extends StatelessWidget {
       decoration: header.decoration(tokens),
       child: Row(
         children: [
-          if (mobile && onMobileBack != null) ...[
-            _PanelBackAction(
-              key: backKey,
-              tooltip: backTooltip,
-              onPressed: onMobileBack!,
-            ),
-            SizedBox(width: header.columnGap ?? 12),
-          ],
           if (!mobile && glyph != null) ...[
             Container(
               width: s.headerIcon.width,
@@ -283,67 +291,6 @@ class RaftSettingsPanelHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PanelBackAction extends StatefulWidget {
-  const _PanelBackAction({
-    super.key,
-    required this.onPressed,
-    required this.tooltip,
-  });
-  final VoidCallback onPressed;
-  final String tooltip;
-  @override
-  State<_PanelBackAction> createState() => _PanelBackActionState();
-}
-
-class _PanelBackActionState extends State<_PanelBackAction> {
-  bool hovered = false, pressed = false;
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context), tokens = RaftRecipeTokens(t);
-    final s = RaftPanelActionRecipe.resolve(
-      theme: raftRecipeTheme(t),
-      states: RaftRecipeStates({
-        if (hovered) RaftRecipeStates.hover,
-        if (pressed) RaftRecipeStates.active,
-        if (t.dark) RaftRecipeStates.dark,
-      }),
-      tokens: tokens,
-    ).base;
-    final svg = s.target('& > svg');
-    final color = s.textStyle(tokens).color ?? t.strong;
-    return Semantics(
-      button: true,
-      label: raftText(context, widget.tooltip),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => hovered = true),
-        onExit: (_) => setState(() => hovered = false),
-        child: Tooltip(
-          message: raftText(context, widget.tooltip),
-          child: GestureDetector(
-            onTapDown: (_) => setState(() => pressed = true),
-            onTapCancel: () => setState(() => pressed = false),
-            onTapUp: (_) => setState(() => pressed = false),
-            onTap: widget.onPressed,
-            child: Transform.translate(
-              offset: s.translate ?? Offset.zero,
-              child: Container(
-                padding: s.padding,
-                decoration: s.decoration(tokens),
-                child: RaftIcon(
-                  RaftGlyph.arrowLeft,
-                  size: svg?.width ?? 14,
-                  color: color,
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -396,7 +343,9 @@ class RaftSettingsPanelFrame extends StatelessWidget {
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
       child: Container(
-        decoration: attached
+        decoration: attached &&
+                MediaQuery.sizeOf(context).width >=
+                    RaftLayoutMetrics.desktopBreakpoint
             ? BoxDecoration(
                 border: Border(
                   left: BorderSide(color: edge, width: t.brutal ? 2 : 1),

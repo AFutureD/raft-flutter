@@ -1,3 +1,5 @@
+import 'page_layout.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -406,7 +408,8 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
     if (!current(captured)) return;
     final route = MaterialPageRoute<void>(
       builder: (context) => Scaffold(
-        appBar: AppBar(
+        appBar: raftPageAppBar(
+          context,
           title: Text(
             raftText(
               context,

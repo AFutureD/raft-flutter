@@ -1,3 +1,5 @@
+import 'page_layout.dart';
+
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -131,7 +133,10 @@ class _AgentScopesViewState extends State<AgentScopesView> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(raftText(context, 'Agent permissions'))),
+    appBar: raftPageAppBar(
+      context,
+      title: Text(raftText(context, 'Agent permissions')),
+    ),
     body: loading
         ? Center(child: CircularProgressIndicator())
         : ListView(

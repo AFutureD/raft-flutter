@@ -99,11 +99,9 @@ Future<bool> showForwardComposerPage(
   List<RaftMessage> messages,
 ) async =>
     await Navigator.of(context).push<bool>(
-      PageRouteBuilder<bool>(
-        opaque: true,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        pageBuilder: (_, _, _) =>
+      MaterialPageRoute<bool>(
+        fullscreenDialog: true,
+        builder: (_) =>
             ForwardComposerPage(controller: controller, messages: messages),
       ),
     ) ??

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'mobile_page_header.dart';
+
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
@@ -605,8 +607,7 @@ class RaftMobileRootHeaderRecipe {
   const RaftMobileRootHeaderRecipe(this.tokens, {required this.viewportHeight});
   final RaftTokens tokens;
   final double viewportHeight;
-  double get height =>
-      RaftLayoutMetrics.shellHeaderHeight(tokens, viewportHeight);
+  double get height => RaftMobilePageHeader.height;
   Color get background => tokens.brutal ? tokens.primaryFill : tokens.panel;
   BorderSide get border => BorderSide(
     color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
@@ -640,32 +641,21 @@ class RaftMobileRootHeader extends StatelessWidget {
       RaftTokens.of(context),
       viewportHeight: viewportHeight ?? MediaQuery.sizeOf(context).height,
     );
-    return Container(
-      height: recipe.height,
-      padding: recipe.inset,
-      decoration: BoxDecoration(
-        color: recipe.background,
-        border: Border(bottom: recipe.border),
-      ),
-      child: Row(
-        children: [
-          if (leading != null)
-            Expanded(
-              child: Align(alignment: Alignment.centerLeft, child: leading!),
-            )
-          else if (title != null)
-            Expanded(
-              child: Text(
-                raftText(context, title!),
-                style: recipe.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+    return RaftMobilePageHeader(
+      background: recipe.background,
+      border: recipe.border,
+      title: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child:
+            leading ??
+            Text(
+              raftText(context, title ?? ''),
+              style: recipe.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          if (leading == null && title == null) const Spacer(),
-          for (final action in actions) ...[const SizedBox(width: 12), action],
-        ],
       ),
+      actions: actions,
     );
   }
 }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'mobile_page_header.dart';
+import 'localization.dart';
+
 import 'design_primitives.dart';
 import 'conversation_surface.dart';
 import 'icons.dart';
@@ -163,6 +166,27 @@ class RaftThreadHeader extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
+    if ((viewportWidth ?? viewport.width) <
+        RaftLayoutMetrics.desktopBreakpoint) {
+      return RaftMobilePageHeader(
+        title: interactiveTitle && onJumpToStart != null
+            ? TextButton(
+                onPressed: onJumpToStart,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  alignment: AlignmentDirectional.centerStart,
+                ),
+                child: title(),
+              )
+            : title(),
+        onBack: onBack,
+        backKey: backKey,
+        backLabel: raftText(context, backLabel),
+        background: recipe.headerBackground,
+        border: recipe.headerBorder,
+        actions: [if (followers != null) followers!, ...actions],
+      );
+    }
     // CSS border-box: the bottom rule is inside the header height and the
     // row is centred in the remaining content box.
     return Container(

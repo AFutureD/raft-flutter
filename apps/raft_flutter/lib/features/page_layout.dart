@@ -31,7 +31,8 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
   final RaftPanelHeaderVariant variant;
 
   @override
-  Size get preferredSize => Size.fromHeight(height);
+  Size get preferredSize =>
+      Size.fromHeight(mobile ? RaftMobilePageHeader.height : height);
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +43,38 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
       mobile: mobile,
       variant: variant,
     );
+    if (mobile) {
+      return RaftMobilePageHeader(
+        leading: leading,
+        background: recipe.background,
+        border: recipe.border,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RaftTypography.heading(t, size: 16, line: 20),
+            ),
+            if (subtitle?.isNotEmpty == true)
+              Text(
+                subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: RaftTypography.body(
+                  t,
+                  size: 12,
+                  line: 16,
+                  color: t.muted,
+                ),
+              ),
+          ],
+        ),
+        actions: actions,
+      );
+    }
     final canonical = variant == RaftPanelHeaderVariant.canonical;
     final source = recipes.RaftPanelHeaderRecipe.resolve(
       theme: t.recipeTheme,
@@ -175,4 +208,39 @@ class RaftSettingsSection extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Standalone routes use the same mobile geometry as workspace panels.
+PreferredSizeWidget raftPageAppBar(
+  BuildContext context, {
+  required Widget title,
+  List<Widget> actions = const [],
+}) {
+  if (MediaQuery.sizeOf(context).width >= RaftLayoutMetrics.desktopBreakpoint) {
+    // ds-allow: Native Scaffold AppBar preserves desktop sizing and automatic route Back.
+    return AppBar(title: title, actions: actions);
+  }
+  final navigator = Navigator.of(context);
+  return PreferredSize(
+    preferredSize: const Size.fromHeight(RaftMobilePageHeader.height),
+    // ds-allow: Native Scaffold appBar ink host and safe-area background; raft_ui owns the header content.
+    child: Material(
+      color: RaftTokens.of(context).panel,
+      child: SafeArea(
+        bottom: false,
+        child: RaftMobilePageHeader(
+          title: DefaultTextStyle(
+            style: RaftTypography.heading(
+              RaftTokens.of(context),
+              size: 16,
+              line: 20,
+            ),
+            child: title,
+          ),
+          onBack: navigator.canPop() ? () => navigator.maybePop() : null,
+          actions: actions,
+        ),
+      ),
+    ),
+  );
 }

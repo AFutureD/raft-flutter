@@ -7,6 +7,9 @@ import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'mobile_page_header.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -1241,14 +1244,17 @@ class RaftBackButton extends StatelessWidget {
   final double visualSize;
   final String tooltip;
   @override
-  Widget build(BuildContext context) => RaftIconButton(
-    glyph: RaftGlyph.arrowLeft,
-    glyphSize: 16,
-    visualSize: visualSize,
-    variant: RaftControlVariant.outline,
-    tooltip: tooltip,
-    onPressed: onPressed,
-  );
+  Widget build(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < RaftLayoutMetrics.desktopBreakpoint
+      ? RaftMobileBackButton(onPressed: onPressed, tooltip: tooltip)
+      : RaftIconButton(
+          glyph: RaftGlyph.arrowLeft,
+          glyphSize: 16,
+          visualSize: visualSize,
+          variant: RaftControlVariant.outline,
+          tooltip: tooltip,
+          onPressed: onPressed,
+        );
 }
 
 /// Source Saved card action: filled Bookmark geometry on the accent recipe.

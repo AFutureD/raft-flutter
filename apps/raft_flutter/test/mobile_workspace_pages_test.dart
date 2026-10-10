@@ -1,0 +1,269 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_flutter/features/page_layout.dart';
+
+import 'package:raft_flutter/data/raft_location.dart';
+import 'package:raft_flutter/data/workspace_navigation.dart';
+import 'package:raft_flutter/features/mobile_workspace_pages.dart';
+
+void main() {
+  RaftLocation location(
+    RaftRoute route, {
+    String? id,
+    List<String> settings = const [],
+    Map<String, String> query = const {},
+  }) => RaftLocation.at(
+    serverSlug: 'mobile-navigation-test',
+    route: route,
+    entityId: id,
+    settingsPath: settings,
+    query: query,
+  );
+
+  test(
+    'Tab roots reset the visual stack; query edits and task sheets keep a page',
+    () {
+      final navigation = WorkspaceNavigation();
+      navigation.bind('isolated', location(RaftRoute.home));
+      navigation.navigate(location(RaftRoute.channel, id: 'one'));
+      expect(mobilePageEntries(navigation), hasLength(2));
+      navigation.navigate(navigation.location.withQuery({'msg': 'focus'}));
+      expect(mobilePageEntries(navigation), hasLength(2));
+      navigation.navigate(navigation.location.withQuery({'task': 'one:task'}));
+      expect(mobilePageEntries(navigation), hasLength(2));
+      navigation.navigate(location(RaftRoute.settings));
+      expect(mobilePageEntries(navigation), hasLength(1));
+      navigation.navigate(location(RaftRoute.settings, settings: ['account']));
+      expect(mobilePageEntries(navigation), hasLength(2));
+      navigation.back();
+      expect(mobilePageEntries(navigation), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'Platform routes keep one live state owner and pop accepted history once',
+    (tester) async {
+      final navigation = WorkspaceNavigation();
+      navigation.bind('isolated', location(RaftRoute.home));
+      late StateSetter rebuild;
+      var backCount = 0;
+      var mountCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return MobileWorkspacePages(
+                navigation: navigation,
+                onBack: () {
+                  backCount++;
+                  rebuild(() => backMobilePage(navigation));
+                },
+                child: _LivePage(
+                  onMount: () => mountCount++,
+                  label: mobilePageIdentity(navigation.location),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      rebuild(
+        () => navigation.navigate(location(RaftRoute.channel, id: 'one')),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+      rebuild(
+        () => navigation.navigate(
+          navigation.location.withQuery({'msg': 'focus'}),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(mountCount, 1);
+      expect(
+        find.text(mobilePageIdentity(navigation.location)),
+        findsOneWidget,
+      );
+      final context = tester.element(find.byType(_LivePage));
+      await Navigator.of(context).maybePop();
+      await tester.pumpAndSettle();
+      expect(backCount, 1);
+      expect(navigation.location.route, RaftRoute.home);
+      expect(mountCount, 1);
+      expect(tester.takeException(), isNull);
+      rebuild(() => navigation.navigate(location(RaftRoute.settings)));
+      await tester.pump();
+      final tabContext = tester.element(find.byType(_LivePage));
+      expect(ModalRoute.of(tabContext)?.animation?.value, 1);
+      await tester.pumpAndSettle();
+      expect(mountCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('Task overlays preserve the visual root including cold links', () {
+    for (final route in [
+      RaftRoute.home,
+      RaftRoute.tasks,
+      RaftRoute.members,
+      RaftRoute.settings,
+    ]) {
+      for (final slot in ['task', 'legacyTask']) {
+        final navigation = WorkspaceNavigation();
+        final base = location(route);
+        navigation.bind('isolated', base);
+        final root = mobilePageEntries(navigation);
+        for (var i = 0; i < 3; i++) {
+          navigation.navigateTask(base.withQuery({slot: 'c:t$i'}));
+          expect(mobilePageEntries(navigation), root);
+          navigation.back();
+          expect(mobilePageEntries(navigation), root);
+        }
+        navigation.bind('cold', base.withQuery({slot: 'c:t'}));
+        expect(mobilePageEntries(navigation), root);
+      }
+    }
+  });
+
+  testWidgets('Cold detail system pop paints its semantic root', (
+    tester,
+  ) async {
+    final navigation = WorkspaceNavigation();
+    navigation.bind('isolated', location(RaftRoute.channel, id: 'one'));
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return MobileWorkspacePages(
+              navigation: navigation,
+              onBack: () => rebuild(() => backMobilePage(navigation)),
+              child: _LivePage(
+                onMount: () {},
+                label: mobilePageIdentity(navigation.location),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(navigation.location.route, RaftRoute.home);
+    expect(find.text(mobilePageIdentity(navigation.location)), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Reentering a page during its exit animation owns a new route frame',
+    (tester) async {
+      final navigation = WorkspaceNavigation();
+      navigation.bind('isolated', location(RaftRoute.home));
+      late StateSetter rebuild;
+      var mountCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return MobileWorkspacePages(
+                navigation: navigation,
+                onBack: () => rebuild(() => backMobilePage(navigation)),
+                child: _LivePage(
+                  onMount: () => mountCount++,
+                  label: mobilePageIdentity(navigation.location),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      for (var cycle = 0; cycle < 4; cycle++) {
+        rebuild(
+          () => navigation.navigate(location(RaftRoute.channel, id: 'one')),
+        );
+        await tester.pumpAndSettle();
+        rebuild(() => backMobilePage(navigation));
+        await tester.pump();
+        rebuild(
+          () => navigation.navigate(location(RaftRoute.channel, id: 'one')),
+        );
+        for (var frame = 0; frame < 24; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            find.text(mobilePageIdentity(navigation.location)),
+            findsOneWidget,
+          );
+          expect(mountCount, 1);
+          expect(tester.takeException(), isNull);
+        }
+        rebuild(() => backMobilePage(navigation));
+        await tester.pumpAndSettle();
+      }
+    },
+  );
+
+  testWidgets('Standalone mobile routes share header and safe-area geometry', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => Scaffold(
+                    appBar: raftPageAppBar(
+                      context,
+                      title: const Text('Detail'),
+                    ),
+                    body: const SizedBox.expand(),
+                  ),
+                ),
+              ),
+              child: const Text('Open detail'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open detail'));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(RaftMobilePageHeader)).height, 56);
+    expect(tester.getCenter(find.byType(BackButtonIcon)).dx, 32);
+    await tester.tap(find.byType(RaftMobileBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Open detail'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _LivePage extends StatefulWidget {
+  const _LivePage({required this.onMount, required this.label});
+  final VoidCallback onMount;
+  final String label;
+  @override
+  State<_LivePage> createState() => _LivePageState();
+}
+
+class _LivePageState extends State<_LivePage> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(body: Text(widget.label));
+}
