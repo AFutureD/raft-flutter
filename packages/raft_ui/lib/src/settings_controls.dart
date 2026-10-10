@@ -79,7 +79,11 @@ class RaftSettingsRecipeButton extends StatefulWidget {
     this.expand = false,
     this.disabledOpacity,
     this.restColor,
+    this.trailingGlyph,
   });
+
+  /// Icon after the label (`Finish setup <ChevronRight size={14} />`).
+  final RaftGlyph? trailingGlyph;
   final String label;
   final VoidCallback? onPressed;
   final RaftButtonRecipeVariant variant;
@@ -157,6 +161,14 @@ class _RaftSettingsRecipeButtonState extends State<RaftSettingsRecipeButton> {
                   softWrap: false,
                   style: text,
                 ),
+              if (widget.trailingGlyph != null) ...[
+                SizedBox(width: s.columnGap ?? 6),
+                RaftIcon(
+                  widget.trailingGlyph!,
+                  size: widget.glyphSize ?? svg?.width ?? 16,
+                  color: text.color,
+                ),
+              ],
             ],
           ),
         ),
@@ -215,6 +227,9 @@ class RaftRecipeInput extends StatefulWidget {
     this.numeric = false,
     this.upperCase = false,
     this.height,
+    this.keyboardType,
+    this.inputFormatters,
+    this.maxLength,
   });
 
   /// Callsite fixed box height (`box-border h-10`); content centres.
@@ -232,6 +247,13 @@ class RaftRecipeInput extends StatefulWidget {
   /// Callsite `uppercase` (the value renders upper-cased; the typed text is
   /// kept, like CSS `text-transform`).
   final bool upperCase;
+
+  /// `type="number"` and friends.
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// `maxLength`.
+  final int? maxLength;
 
   /// Key for the inner [TextField] (tests and focus lookups).
   final Key? fieldKey;
@@ -300,10 +322,15 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         focusNode: focus,
         autofocus: widget.autofocus,
         enabled: widget.enabled,
-        keyboardType: widget.numeric ? TextInputType.number : null,
-        inputFormatters: widget.numeric
-            ? [FilteringTextInputFormatter.digitsOnly]
-            : null,
+        keyboardType:
+            widget.keyboardType ??
+            (widget.numeric ? TextInputType.number : null),
+        inputFormatters: [
+          if (widget.numeric) FilteringTextInputFormatter.digitsOnly,
+          ...?widget.inputFormatters,
+          if (widget.maxLength != null)
+            LengthLimitingTextInputFormatter(widget.maxLength),
+        ],
         textCapitalization: widget.upperCase
             ? TextCapitalization.characters
             : TextCapitalization.none,
@@ -317,10 +344,10 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         ),
       ),
     );
-    // `disabled:opacity-50` lives on the recipe root.
-    return widget.enabled || s.opacity == null
+    // `disabled:opacity-*` lives on the recipe root.
+    return widget.enabled
         ? field
-        : Opacity(opacity: s.opacity!, child: field);
+        : Opacity(opacity: s.opacity ?? .6, child: field);
   }
 }
 
@@ -543,7 +570,7 @@ class _RaftSettingsPrefixedInputState extends State<RaftSettingsPrefixedInput> {
 }
 
 /// ConfirmDialog.tsx on raft-ui `Dialog` (`dialog` recipe, `max-w-sm`).
-class RaftConfirmDialog extends StatelessWidget {
+class RaftConfirmDialog extends StatefulWidget {
   const RaftConfirmDialog({
     super.key,
     required this.title,
@@ -557,7 +584,18 @@ class RaftConfirmDialog extends StatelessWidget {
     this.maxWidth = 384,
     this.surfaceKey,
     this.showCancel = true,
+    this.onConfirm,
+    this.loadingLabel,
   });
+
+  /// ConfirmDialog `onConfirm`: when set, Confirm runs it with the dialog
+  /// open (both buttons disabled, Confirm reads [loadingLabel] beside a
+  /// spinner) and closes with `true` once it completes. A failure keeps the
+  /// dialog open and shows the error under the message.
+  final Future<void> Function()? onConfirm;
+
+  /// ConfirmDialog `loadingLabel` (default "Processing…").
+  final String? loadingLabel;
 
   /// Key of the dialog surface itself (`dialog-content`).
   final Key? surfaceKey;
@@ -592,7 +630,45 @@ class RaftConfirmDialog extends StatelessWidget {
       RaftTypography.body(t, size: 14, line: 14 * 1.625, color: t.muted);
 
   @override
+  State<RaftConfirmDialog> createState() => _RaftConfirmDialogState();
+}
+
+class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
+  bool loading = false;
+  String? error;
+
+  Future<void> confirm() async {
+    final run = widget.onConfirm;
+    if (run == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      await run();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          loading = false;
+          error = e is StateError ? e.message : '$e';
+        });
+      }
+    }
+  }
+
+  void cancel() {
+    if (!loading) Navigator.of(context).pop(false);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final widget = this.widget;
+    final title = widget.title, message = widget.message;
+    final content = widget.content, maxWidth = widget.maxWidth;
     final t = RaftTokens.of(context), tokens = RaftRecipeTokens(t);
     final size = MediaQuery.sizeOf(context);
     final d = RaftDialogRecipe.resolve(
@@ -609,15 +685,28 @@ class RaftConfirmDialog extends StatelessWidget {
     // their padding and sit flush.
     final gap = d.content.rowGap ?? (t.brutal ? 16.0 : 0.0);
     final titleStyle = _slotText(t, d.title);
-    final body = DefaultTextStyle.merge(
-      style: messageStyle(t),
+    Widget body = DefaultTextStyle.merge(
+      style: RaftConfirmDialog.messageStyle(t),
       child: content ?? Text(raftText(context, message ?? '')),
     );
+    if (error case final error?) {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          body,
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            child: Text(error, style: RaftSettingsText(t).alert),
+          ),
+        ],
+      );
+    }
     return Center(
       child: Material(
         type: MaterialType.transparency,
         child: Container(
-          key: surfaceKey,
+          key: widget.surfaceKey,
           width: (size.width - 32).clamp(0, maxWidth).toDouble(),
           constraints: BoxConstraints(maxHeight: size.height - 32),
           padding: d.content.padding,
@@ -652,7 +741,7 @@ class RaftConfirmDialog extends StatelessWidget {
                       restColor: t.brutal
                           ? null
                           : t.colors['foreground-placeholder'],
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: loading ? null : cancel,
                     ),
                   ],
                 ),
@@ -672,26 +761,27 @@ class RaftConfirmDialog extends StatelessWidget {
                   spacing: d.footer.columnGap ?? 12,
                   runSpacing: d.footer.rowGap ?? 12,
                   children: [
-                    if (showCancel)
+                    if (widget.showCancel)
                       RaftSettingsRecipeButton(
-                        label: cancelLabel,
+                        label: widget.cancelLabel,
                         size: RaftButtonRecipeSize.sm,
                         disabledOpacity: .3,
-                        onPressed: () => Navigator.of(context).pop(false),
+                        onPressed: loading ? null : cancel,
                       ),
                     ValueListenableBuilder<bool>(
                       valueListenable:
-                          confirmEnabled ?? const AlwaysStoppedAnimation(true),
+                          widget.confirmEnabled ??
+                          const AlwaysStoppedAnimation(true),
                       builder: (context, enabled, _) =>
                           RaftSettingsRecipeButton(
-                            key: confirmKey,
-                            label: confirmLabel,
-                            variant: confirmVariant,
+                            key: widget.confirmKey,
+                            label: loading
+                                ? widget.loadingLabel ?? 'Processing…'
+                                : widget.confirmLabel,
+                            variant: widget.confirmVariant,
                             size: RaftButtonRecipeSize.sm,
                             disabledOpacity: .8,
-                            onPressed: enabled
-                                ? () => Navigator.of(context).pop(true)
-                                : null,
+                            onPressed: enabled && !loading ? confirm : null,
                           ),
                     ),
                   ],

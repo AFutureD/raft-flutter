@@ -7,7 +7,7 @@ import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
 import '../platform/native_notifications.dart';
 import 'account_settings.dart';
-import 'admin_views.dart';
+import 'administration_view.dart';
 import 'appearance_section.dart';
 import 'billing_view.dart';
 import 'fleet_views.dart';
@@ -188,9 +188,11 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               'administration',
               'Administration',
               RaftGlyph.shield,
-              (_) => AdministrationView(controller: w),
+              (_) => AdministrationView(
+                controller: w,
+                frontendOrigin: widget.frontendOrigin,
+              ),
               group: WorkspaceSettings.workspace,
-              scroll: false,
             ),
           if (widget.bridgeEnabled)
             RaftSettingsDestination(

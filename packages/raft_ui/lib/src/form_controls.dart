@@ -395,8 +395,16 @@ class RaftTextarea extends StatefulWidget {
     this.focusNode,
     this.maxLength,
     this.semanticLabel,
+    this.textStyle,
+    this.fieldKey,
   });
 
+  /// Callsite type classes merged over the recipe text (`font-mono
+  /// text-xs`); the row height follows the merged line height.
+  final TextStyle? textStyle;
+
+  /// Key of the inner [TextField].
+  final Key? fieldKey;
   final TextEditingController? controller;
   final String? initialValue, hintText, semanticLabel;
   final int rows;
@@ -442,7 +450,9 @@ class _RaftTextareaState extends State<RaftTextarea>
       ),
       tokens: rt,
     ).root;
-    final style = s.text(rt, base: DefaultTextStyle.of(context).style);
+    final style = s
+        .text(rt, base: DefaultTextStyle.of(context).style)
+        .merge(widget.textStyle);
     final line = (style.height ?? 1.5) * (style.fontSize ?? 14);
     final chrome = s.padding.vertical + s.borderWidth.vertical;
     final height = [
@@ -457,6 +467,7 @@ class _RaftTextareaState extends State<RaftTextarea>
           tokens: rt,
           height: height,
           child: TextField(
+            key: widget.fieldKey,
             autofillHints: null,
             controller: controller,
             focusNode: focus,
@@ -580,7 +591,8 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
         hovered: hovered,
         extra: [
           if (focused) 'has:data-slot=input-group-control+focus',
-          if (focused) 'group/input-group:has:data-slot=input-group-control+focus',
+          if (focused)
+            'group/input-group:has:data-slot=input-group-control+focus',
           if (!widget.enabled) 'has:data-slot=input-group-control+disabled',
           if (!widget.enabled)
             'group/input-group:has:data-slot=input-group-control+disabled',

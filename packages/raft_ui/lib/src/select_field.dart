@@ -153,7 +153,7 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
                           ),
                     maxLines: 1,
                     softWrap: false,
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.clip,
                     child: selected?.child ?? Text(widget.placeholder),
                   ),
                 ),

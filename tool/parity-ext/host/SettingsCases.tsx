@@ -19,6 +19,7 @@ type ParityExtSettingsProps = {
   tab: string;
   role: "owner" | "admin" | "member" | "guest";
   flags: Set<string>;
+  routeSet: string;
   mobile: boolean;
 };
 
@@ -33,6 +34,7 @@ function parityExtSettingsProps(): ParityExtSettingsProps | null {
     tab,
     role: (params.get("role") ?? "owner") as ParityExtSettingsProps["role"],
     flags: new Set((params.get("flags") ?? "").split(",").filter(Boolean)),
+    routeSet: params.get("routeSet") ?? "",
     mobile: params.get("platform") === "mobile",
   };
 }
@@ -58,9 +60,13 @@ function parityExtSettingsRoutePath(tab: string): string {
 function parityExtPrimeSettingsStores(props: ParityExtSettingsProps) {
   primeDirectVisualStores(props.caseId);
   const current = useServerStore.getState().current;
+  // Administration states that live on the primed stores, not on a route:
+  // MemberPermissionsSection reads `current.hideHumansFromMembers`,
+  // SystemChannelsSection reads whether #all is in the channel list.
+  const serverPatch = { role: props.role, ...(props.routeSet === "admin-hide-humans" ? { hideHumansFromMembers: true } : {}) };
   useServerStore.setState({
-    current: current ? { ...current, role: props.role } : current,
-    servers: current ? [{ ...current, role: props.role }] : [],
+    current: current ? { ...current, ...serverPatch } : current,
+    servers: current ? [{ ...current, ...serverPatch }] : [],
     members: visualMembers.map((member) => (
       member.userId === visualUser.id ? { ...member, role: props.role } : member
     )),
@@ -70,6 +76,13 @@ function parityExtPrimeSettingsStores(props: ParityExtSettingsProps) {
   setServerFeatureFlagForTests(fxServer.id, "server_labs_ui_v0", props.flags.has("labs"));
   setServerFeatureFlagForTests(fxServer.id, "provider_connections_v0", props.flags.has("providers"));
   setServerFeatureFlagForTests(fxServer.id, "slack_bridge_v0", props.flags.has("bridge"));
+  setServerFeatureFlagForTests(fxServer.id, "product_analytics_settings_v0", props.flags.has("analytics"));
+  if (props.routeSet === "admin-all-visible") {
+    const channels = useChannelStore.getState().channels;
+    if (!channels.some((channel) => channel.name === "all")) {
+      useChannelStore.setState({ channels: [{ ...channels[0], id: "channel-all", name: "all" }, ...channels] });
+    }
+  }
 }
 
 function ParityExtSettingsCaseView({ props }: { props: ParityExtSettingsProps }) {

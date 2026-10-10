@@ -173,6 +173,8 @@ enum RaftAvatarSlotContext {
   mentionCard(48, 2),
   panelHeader(36, 2),
   surfaceList(32, 2),
+  // AvatarSlot `compact-list`: `!size-5 !border` (SelectionPopover rows).
+  compactList(20, 1),
   creatorLink(22, 1),
   previewMini(14, 1);
 

@@ -56,8 +56,8 @@ import 'member_profile_view.dart';
 import 'fleet_views.dart';
 import 'integrations_views.dart';
 import 'provider_views.dart';
-import 'admin_views.dart';
 import 'billing_view.dart';
+import 'administration_view.dart';
 import 'private_route_guard.dart';
 import 'server_setup_gate.dart';
 import 'sidebar_preferences_view.dart';
@@ -1061,6 +1061,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           ? AdministrationView(
               key: ValueKey('administration-${w.server!.id}'),
               controller: w,
+              standalone: true,
             )
           : route == 'billing'
           ? ListView(
