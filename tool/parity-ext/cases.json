@@ -37695,7 +37695,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -37786,7 +37787,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -37877,7 +37879,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -39339,7 +39342,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -39430,7 +39434,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -39521,7 +39526,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -42690,7 +42696,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -42781,7 +42788,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -42872,7 +42880,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -44664,7 +44673,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -44755,7 +44765,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"
@@ -44846,7 +44857,8 @@
      },
      {
       "type": "tap",
-      "key": "channel-settings-manage-group"
+      "key": "channel-settings-manage-group",
+      "scroll": false
      }
     ],
     "androidKey": "channel-overflow-sheet"

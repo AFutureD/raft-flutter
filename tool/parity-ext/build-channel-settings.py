@@ -204,7 +204,8 @@ OPEN_A = [{'type': 'tap', 'key': 'channel-overflow-trigger'}, {'type': 'wait', '
 FILL = [{'type': 'fill', 'target': '#channel-settings-name', 'value': 'colvalley-renamed'},
         {'type': 'fill', 'target': '#channel-settings-description', 'value': 'Release gates and review links'}]
 BLUR = [{'type': 'click', 'target': '[data-testid="channel-settings-manage-group"]'}]
-BLUR_A = [{'type': 'tap', 'key': 'channel-settings-manage-group'}]
+# `scroll: False`: the heading is already on screen (Playwright does not scroll then).
+BLUR_A = [{'type': 'tap', 'key': 'channel-settings-manage-group', 'scroll': False}]
 FILL_A = [{'type': 'enter', 'key': 'channel-settings-name', 'value': 'colvalley-renamed'},
           {'type': 'enter', 'key': 'channel-settings-description', 'value': 'Release gates and review links'}]
 

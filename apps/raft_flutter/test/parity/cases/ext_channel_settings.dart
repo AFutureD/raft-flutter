@@ -170,7 +170,8 @@ final ParityCase _case = ParityCase(
 final Map<String, ParityCase> extChannelSettingsCases = () {
   final path = Platform.environment['PARITY_MANIFEST'];
   if (path == null || !File(path).existsSync()) return <String, ParityCase>{};
-  final cases = (jsonDecode(File(path).readAsStringSync()) as Map)['cases'] as List;
+  final cases =
+      (jsonDecode(File(path).readAsStringSync()) as Map)['cases'] as List;
   return {
     for (final c in cases)
       if ((c as Map)['id'].toString().startsWith('components.channelsettings.'))

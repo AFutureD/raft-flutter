@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'localization.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/recipes.g.dart';
@@ -80,7 +81,11 @@ class RaftSettingsRecipeButton extends StatefulWidget {
     this.disabledOpacity,
     this.restColor,
     this.trailingGlyph,
+    this.semanticLabel,
   });
+
+  /// Accessible name for icon-only buttons.
+  final String? semanticLabel;
 
   /// Icon after the label (`Finish setup <ChevronRight size={14} />`).
   final RaftGlyph? trailingGlyph;
@@ -134,7 +139,7 @@ class _RaftSettingsRecipeButtonState extends State<RaftSettingsRecipeButton> {
       final opacity = !state.enabled
           ? (widget.disabledOpacity ?? s.opacity ?? 1)
           : (s.opacity ?? 1);
-      return Opacity(
+      final button = Opacity(
         opacity: opacity,
         child: RaftRecipeBox(
           style: s,
@@ -173,6 +178,16 @@ class _RaftSettingsRecipeButtonState extends State<RaftSettingsRecipeButton> {
           ),
         ),
       );
+      final name = widget.semanticLabel;
+      return name == null
+          ? button
+          : Semantics(
+              button: true,
+              enabled: state.enabled,
+              label: name,
+              excludeSemantics: true,
+              child: button,
+            );
     },
   );
 }
@@ -687,7 +702,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
     final titleStyle = _slotText(t, d.title);
     Widget body = DefaultTextStyle.merge(
       style: RaftConfirmDialog.messageStyle(t),
-      child: content ?? Text(raftText(context, message ?? '')),
+      child: content ?? RaftCssText(raftText(context, message ?? '')),
     );
     if (error case final error?) {
       body = Column(

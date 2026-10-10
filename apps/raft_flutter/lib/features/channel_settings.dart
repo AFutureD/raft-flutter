@@ -44,11 +44,9 @@ class ChannelSettings extends StatefulWidget {
     required WorkspaceController controller,
     required RaftChannel channel,
     String? dmName,
-  }) => showDialog<void>(
-    context: context,
+  }) => showRaftOverflowSheet<void>(
+    context,
     // Dismissal goes through the unsaved-draft guard inside the drawer.
-    barrierDismissible: false,
-    barrierColor: RaftTokens.of(context).colors['layer-backdrop'],
     builder: (_) => ChannelSettings(
       controller: controller,
       channel: channel,
@@ -189,8 +187,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     final id = widget.channel.id;
     final wanted = [
       for (final part in parts)
-        if ((part != 'notification' ||
-                channel.flag('activityMuteSupported')) &&
+        if ((part != 'notification' || channel.flag('activityMuteSupported')) &&
             // A 1:1 DM sheet has no members section (ChatPanel #1281).
             !(part == 'members' && widget.isPanel && channel.type == 'dm'))
           part,
@@ -547,7 +544,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                   display.containsKey('collapseLongMessages')))
             RaftSheetSwitchRow(
               title: 'Collapse long messages',
-              description: 'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
+              description:
+                  'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
               value: display['collapseLongMessages'] != false,
               pending: !known.contains('display'),
               onChanged: (v) => run(() async {
@@ -764,7 +762,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialog) => RaftUnsavedChangesPrompt(
-          message: 'The channel name or description has unsaved edits. Save them before closing?',
+          message:
+              'The channel name or description has unsaved edits. Save them before closing?',
           busy: busy,
           onKeepEditing: () => Navigator.of(dialogContext).pop(),
           onDiscard: () {
@@ -1041,7 +1040,10 @@ class _ChannelSettingsState extends State<ChannelSettings> {
           ? raftText(context, 'Loading members…')
           : membersSummary(context, humans.length, agents.length),
       loading: loadingMembers,
-      members: [for (final m in humans) tile(m), for (final m in agents) tile(m)],
+      members: [
+        for (final m in humans) tile(m),
+        for (final m in agents) tile(m),
+      ],
       onOpen: openMembers,
       onAdd: canAdd ? () => openMembers(add: true) : null,
     );
@@ -1216,16 +1218,18 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     final info = canEdit && !dm;
 
     final Widget body = dm
-        ? Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: raftSheetSection(context, t, preferences, busy: busy),
+        ? RaftOverflowDmBody(
+            child: raftSheetSection(
+              context,
+              t,
+              preferences,
+              busy: busy,
+              family: t.bodyFont,
+            ),
           )
         : settingsPresent
         ? (!flagsKnown
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: RaftSpinner()),
-                )
+              ? const RaftOverflowLoading()
               : RaftOverflowPanelBody(
                   children: [
                     if (info)
@@ -1241,10 +1245,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                         description:
                             'Name and description shown across the workspace.',
                       ),
-                    if (error != null) ...[
-                      RaftWarningBanner(error!),
-                      const SizedBox(height: 20),
-                    ],
+                    if (error != null) RaftOverflowFormError(error!),
                     if (info)
                       RaftChannelInfoForm(
                         nameController: name,
@@ -1309,23 +1310,33 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                           ],
                         ),
                         busy: busy || guestBusy,
+                        family: t.bodyFont,
                       ),
-                    raftSheetSection(context, t, preferences, busy: busy),
+                    raftSheetSection(
+                      context,
+                      t,
+                      preferences,
+                      busy: busy,
+                      family: t.bodyFont,
+                    ),
                     if (actions.isNotEmpty)
-                      RaftOverflowActions(title: 'Actions', actions: [
-                        for (final a in actions)
-                          RaftOverflowAction(
-                            id: a.id,
-                            label: raftText(context, a.label),
-                            glyph: a.glyph,
-                            danger: a.danger,
-                            disabled: a.disabled || busy,
-                            semanticLabel: a.semanticLabel == null
-                                ? null
-                                : raftText(context, a.semanticLabel!),
-                            onPressed: a.onPressed,
-                          ),
-                      ]),
+                      RaftOverflowActions(
+                        title: 'Actions',
+                        actions: [
+                          for (final a in actions)
+                            RaftOverflowAction(
+                              id: a.id,
+                              label: raftText(context, a.label),
+                              glyph: a.glyph,
+                              danger: a.danger,
+                              disabled: a.disabled || busy,
+                              semanticLabel: a.semanticLabel == null
+                                  ? null
+                                  : raftText(context, a.semanticLabel!),
+                              onPressed: a.onPressed,
+                            ),
+                        ],
+                      ),
                   ],
                 ))
         : const SizedBox.shrink();
@@ -1349,10 +1360,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         // Without the settings panel (a DM, a left channel) the failure of a
         // preference write still has to be visible.
         if (error != null && (dm || !settingsPresent || !flagsKnown))
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: RaftWarningBanner(error!),
-          ),
+          RaftOverflowNotice(error!),
         body,
       ],
     );

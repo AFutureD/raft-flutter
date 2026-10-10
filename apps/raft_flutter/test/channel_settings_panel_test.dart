@@ -120,63 +120,88 @@ Future<(WorkspaceController, MessageAdapter)> _open(
 }
 
 Finder _id(String id) => find.byKey(ValueKey(id));
-List<RequestOptions> _writes(MessageAdapter api) =>
-    api.calls
-        .where(
-          (c) =>
-              c.method != 'GET' &&
-              !c.path.startsWith('/auth/') &&
-              !c.path.startsWith('/feature-flags/'),
-        )
-        .toList();
+List<RequestOptions> _writes(MessageAdapter api) => api.calls
+    .where(
+      (c) =>
+          c.method != 'GET' &&
+          !c.path.startsWith('/auth/') &&
+          !c.path.startsWith('/feature-flags/'),
+    )
+    .toList();
 
-TextEditingController _controller(WidgetTester t, String id) =>
-    t.widget<TextField>(find.descendant(of: _id(id), matching: find.byType(TextField)).evaluate().isEmpty ? _id(id) : find.descendant(of: _id(id), matching: find.byType(TextField))).controller!;
+TextEditingController _controller(WidgetTester t, String id) => t
+    .widget<TextField>(
+      find
+              .descendant(of: _id(id), matching: find.byType(TextField))
+              .evaluate()
+              .isEmpty
+          ? _id(id)
+          : find.descendant(of: _id(id), matching: find.byType(TextField)),
+    )
+    .controller!;
 
 void main() {
-  testWidgets('owner drawer: identity header, members, info, preferences, actions in Web order', (
+  testWidgets(
+    'owner drawer: identity header, members, info, preferences, actions in Web order',
+    (t) async {
+      await _open(t);
+      final sheet = t.widget<RaftOverflowSheet>(find.byType(RaftOverflowSheet));
+      expect(sheet.title, '#work');
+      expect(sheet.badge, 'Public');
+      expect(sheet.subtitle, 'Release gates');
+      expect(find.text('3 humans · 1 agent'), findsNothing);
+      expect(find.text('2 humans · 1 agent'), findsOneWidget);
+      // Sections top to bottom: Members, Info, Preferences, Actions.
+      double y(Finder f) => t.getTopLeft(f).dy;
+      expect(y(find.text('Members')) < y(find.text('Info')), isTrue);
+      expect(y(find.text('Info')) < y(find.text('Preferences')), isTrue);
+      expect(y(find.text('Preferences')) < y(find.text('Actions')), isTrue);
+      // Action rows: visibility, archive, leave, stop agents, delete (filled).
+      final order = [
+        'channel-settings-visibility-action',
+        'channel-overflow-leave',
+        'channel-overflow-stop-agents',
+        'channel-settings-delete-action',
+      ];
+      final archiveY = y(_id('channel-settings-archive-action'));
+      expect(y(_id(order[0])) < archiveY, isTrue);
+      expect(archiveY < y(_id(order[1])), isTrue);
+      for (var i = 1; i < order.length - 1; i++) {
+        expect(
+          y(_id(order[i])) < y(_id(order[i + 1])),
+          isTrue,
+          reason: order[i],
+        );
+      }
+      // Only Delete is a filled danger button; the rest are outline.
+      RaftButtonRecipeVariant variant(String id) =>
+          t.widget<RaftSettingsRecipeButton>(_id(id)).variant;
+      expect(
+        variant('channel-settings-delete-action'),
+        RaftButtonRecipeVariant.danger,
+      );
+      for (final id in order.take(3)) {
+        expect(variant(id), RaftButtonRecipeVariant.outline, reason: id);
+      }
+      // Pin, mute and collapse live in Preferences.
+      for (final label in [
+        'Pin channel',
+        'Mute activity',
+        'Collapse long messages',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets('member drawer shows only members, preferences and Leave', (
     t,
   ) async {
-    await _open(t);
-    final sheet = t.widget<RaftOverflowSheet>(find.byType(RaftOverflowSheet));
-    expect(sheet.title, '#work');
-    expect(sheet.badge, 'Public');
-    expect(sheet.subtitle, 'Release gates');
-    expect(find.text('3 humans · 1 agent'), findsNothing);
-    expect(find.text('2 humans · 1 agent'), findsOneWidget);
-    // Sections top to bottom: Members, Info, Preferences, Actions.
-    double y(Finder f) => t.getTopLeft(f).dy;
-    expect(y(find.text('Members')) < y(find.text('Info')), isTrue);
-    expect(y(find.text('Info')) < y(find.text('Preferences')), isTrue);
-    expect(y(find.text('Preferences')) < y(find.text('Actions')), isTrue);
-    // Action rows: visibility, archive, leave, stop agents, delete (filled).
-    final order = [
-      'channel-settings-visibility-action',
-      'channel-overflow-leave',
-      'channel-overflow-stop-agents',
-      'channel-settings-delete-action',
-    ];
-    final archiveY = y(_id('channel-settings-archive-action'));
-    expect(y(_id(order[0])) < archiveY, isTrue);
-    expect(archiveY < y(_id(order[1])), isTrue);
-    for (var i = 1; i < order.length - 1; i++) {
-      expect(y(_id(order[i])) < y(_id(order[i + 1])), isTrue, reason: order[i]);
-    }
-    // Only Delete is a filled danger button; the rest are outline.
-    RaftButtonRecipeVariant variant(String id) =>
-        t.widget<RaftRecipeButton>(_id(id)).variant;
-    expect(variant('channel-settings-delete-action'), RaftButtonRecipeVariant.danger);
-    for (final id in order.take(3)) {
-      expect(variant(id), RaftButtonRecipeVariant.outline, reason: id);
-    }
-    // Pin, mute and collapse live in Preferences.
-    for (final label in ['Pin channel', 'Mute activity', 'Collapse long messages']) {
-      expect(find.text(label), findsOneWidget);
-    }
-  });
-
-  testWidgets('member drawer shows only members, preferences and Leave', (t) async {
-    await _open(t, role: 'member', row: _row(caps: {'addChannelMembers': true}));
+    await _open(
+      t,
+      role: 'member',
+      row: _row(caps: {'addChannelMembers': true}),
+    );
     expect(find.byType(RaftChannelInfoForm), findsNothing);
     expect(find.text('Info'), findsNothing);
     expect(_id('channel-overflow-leave'), findsOneWidget);
@@ -191,7 +216,9 @@ void main() {
     expect(find.text('Guest access'), findsNothing);
   });
 
-  testWidgets('DM drawer: peer name, Direct message badge, preferences only', (t) async {
+  testWidgets('DM drawer: peer name, Direct message badge, preferences only', (
+    t,
+  ) async {
     await _open(
       t,
       row: _row(
@@ -216,52 +243,72 @@ void main() {
     expect(find.text('Mute activity'), findsNothing);
     // A DM never asks for the roster.
     expect(
-      t.widget<RaftSwitch>(find.byWidgetPredicate((w) => w is RaftSwitch && w.semanticLabel == 'Pin channel')).value,
+      t
+          .widget<RaftSwitch>(
+            find.byWidgetPredicate(
+              (w) => w is RaftSwitch && w.semanticLabel == 'Pin channel',
+            ),
+          )
+          .value,
       false,
     );
   });
 
-  testWidgets('private channel offers Make Public with the private badge', (t) async {
+  testWidgets('private channel offers Make Public with the private badge', (
+    t,
+  ) async {
     await _open(t, row: _row(type: 'private'));
-    expect(t.widget<RaftOverflowSheet>(find.byType(RaftOverflowSheet)).badge, 'Private');
+    expect(
+      t.widget<RaftOverflowSheet>(find.byType(RaftOverflowSheet)).badge,
+      'Private',
+    );
     expect(find.text('Make Public'), findsOneWidget);
     expect(find.text('Make Private'), findsNothing);
     // A private channel has no guest policy.
     expect(find.text('Guest access'), findsNothing);
   });
 
-  testWidgets('an authored newline stays in the field and is collapsed in the header', (t) async {
-    await _open(t, row: _row(description: 'line one\nline two'));
-    expect(
-      t.widget<RaftOverflowSheet>(find.byType(RaftOverflowSheet)).subtitle,
-      'line one\nline two',
-    );
-    expect(find.text('line one line two'), findsOneWidget);
-    expect(_controller(t, 'channel-settings-description').text, 'line one\nline two');
-  });
+  testWidgets(
+    'an authored newline stays in the field and is collapsed in the header',
+    (t) async {
+      await _open(t, row: _row(description: 'line one\nline two'));
+      expect(
+        t.widget<RaftOverflowSheet>(find.byType(RaftOverflowSheet)).subtitle,
+        'line one\nline two',
+      );
+      expect(find.text('line one line two'), findsOneWidget);
+      expect(
+        _controller(t, 'channel-settings-description').text,
+        'line one\nline two',
+      );
+    },
+  );
 
-  testWidgets('inline Save sends only the changed field and keeps the drawer open', (t) async {
-    final (w, api) = await _open(t);
-    api.routes['PATCH /channels/c1'] = (_) => _row(name: 'renamed');
-    api.routes['GET /channels'] = (_) => [_row(name: 'renamed')];
-    final save = _id('channel-settings-save-inline');
-    expect(t.widget<RaftRecipeButton>(save).disabled, isTrue);
-    await t.enterText(_id('channel-settings-name'), 'renamed');
-    await t.pump();
-    expect(t.widget<RaftRecipeButton>(save).disabled, isFalse);
-    await t.tap(save);
-    await t.pumpAndSettle(const Duration(milliseconds: 100));
-    final patch = _writes(api).single;
-    expect(patch.path, '/channels/c1');
-    expect(patch.data, {'name': 'renamed'});
-    expect(find.byType(RaftOverflowSheet), findsOneWidget);
-    expect(w.channels.single.name, 'renamed');
-    // "Changes saved" shows on the button, then Save is clean again.
-    expect(find.text(' Changes saved'), findsOneWidget);
-    await t.pump(const Duration(milliseconds: 1600));
-    expect(find.text('Save'), findsOneWidget);
-    expect(t.widget<RaftRecipeButton>(save).disabled, isTrue);
-  });
+  testWidgets(
+    'inline Save sends only the changed field and keeps the drawer open',
+    (t) async {
+      final (w, api) = await _open(t);
+      api.routes['PATCH /channels/c1'] = (_) => _row(name: 'renamed');
+      api.routes['GET /channels'] = (_) => [_row(name: 'renamed')];
+      final save = _id('channel-settings-save-inline');
+      expect(t.widget<RaftSettingsRecipeButton>(save).onPressed, isNull);
+      await t.enterText(_id('channel-settings-name'), 'renamed');
+      await t.pump();
+      expect(t.widget<RaftSettingsRecipeButton>(save).onPressed, isNotNull);
+      await t.tap(save);
+      await t.pumpAndSettle(const Duration(milliseconds: 100));
+      final patch = _writes(api).single;
+      expect(patch.path, '/channels/c1');
+      expect(patch.data, {'name': 'renamed'});
+      expect(find.byType(RaftOverflowSheet), findsOneWidget);
+      expect(w.channels.single.name, 'renamed');
+      // "Changes saved" shows on the button, then Save is clean again.
+      expect(find.text('Changes saved'), findsOneWidget);
+      await t.pump(const Duration(milliseconds: 1600));
+      expect(find.text('Save'), findsOneWidget);
+      expect(t.widget<RaftSettingsRecipeButton>(save).onPressed, isNull);
+    },
+  );
 
   testWidgets('Cancel restores the saved name and description', (t) async {
     await _open(t);
@@ -271,8 +318,16 @@ void main() {
     await t.tap(_id('channel-settings-discard-draft'));
     await t.pump();
     expect(_controller(t, 'channel-settings-name').text, 'work');
-    expect(_controller(t, 'channel-settings-description').text, 'Release gates');
-    expect(t.widget<RaftRecipeButton>(_id('channel-settings-save-inline')).disabled, isTrue);
+    expect(
+      _controller(t, 'channel-settings-description').text,
+      'Release gates',
+    );
+    expect(
+      t
+          .widget<RaftSettingsRecipeButton>(_id('channel-settings-save-inline'))
+          .onPressed,
+      isNull,
+    );
   });
 
   testWidgets('an invalid name is rejected before any request', (t) async {
@@ -282,7 +337,10 @@ void main() {
     await t.tap(_id('channel-settings-save-inline'));
     await t.pumpAndSettle();
     expect(_writes(api), isEmpty);
-    expect(find.text('Start with a letter, then letters, numbers, - or _'), findsOneWidget);
+    expect(
+      find.text('Start with a letter, then letters, numbers, - or _'),
+      findsOneWidget,
+    );
     await t.enterText(_id('channel-settings-name'), '   ');
     await t.pump();
     await t.tap(_id('channel-settings-save-inline'));
@@ -351,17 +409,26 @@ void main() {
       await t.pumpAndSettle(const Duration(milliseconds: 100));
     }
 
-    testWidgets('archive: warning copy, POST, then the drawer closes', (t) async {
+    testWidgets('archive: warning copy, POST, then the drawer closes', (
+      t,
+    ) async {
       final (_, api) = await _open(t);
       api.routes['POST /channels/c1/archive'] = (_) => _row();
       await press(t, 'channel-settings-archive-action');
-      expect(find.textContaining('Members keep read access to "work"'), findsOneWidget);
+      expect(
+        find.textContaining('Members keep read access to "work"'),
+        findsOneWidget,
+      );
       await confirm(t, 'Archive');
-      expect(_writes(api).map((c) => '${c.method} ${c.path}'), ['POST /channels/c1/archive']);
+      expect(_writes(api).map((c) => '${c.method} ${c.path}'), [
+        'POST /channels/c1/archive',
+      ]);
       expect(find.byType(RaftOverflowSheet), findsNothing);
     });
 
-    testWidgets('a failed archive keeps the drawer open with the error', (t) async {
+    testWidgets('a failed archive keeps the drawer open with the error', (
+      t,
+    ) async {
       final (_, api) = await _open(t);
       api.routes['POST /channels/c1/archive'] = (_) => throw StateError('x');
       await press(t, 'channel-settings-archive-action');
@@ -384,7 +451,11 @@ void main() {
     });
 
     testWidgets('leave closes the drawer', (t) async {
-      final (_, api) = await _open(t, role: 'member', row: _row(caps: {'addChannelMembers': true}));
+      final (_, api) = await _open(
+        t,
+        role: 'member',
+        row: _row(caps: {'addChannelMembers': true}),
+      );
       api.routes['POST /channels/c1/leave'] = (_) => {};
       await press(t, 'channel-overflow-leave');
       await confirm(t, 'Leave');
@@ -404,28 +475,64 @@ void main() {
       expect(find.byType(RaftOverflowSheet), findsNothing);
     });
 
-    testWidgets('#all: name locked with its hint, Hide #all uses the dedicated endpoint', (t) async {
-      final (_, api) = await _open(t, row: _row(name: 'all'));
-      expect(find.text('The #all channel cannot be renamed'), findsOneWidget);
-      expect(t.widget<TextField>(find.descendant(of: _id('channel-settings-name'), matching: find.byType(TextField)).evaluate().isEmpty ? _id('channel-settings-name') : find.descendant(of: _id('channel-settings-name'), matching: find.byType(TextField))).enabled, isFalse);
-      for (final id in [
-        'channel-settings-archive-action',
-        'channel-overflow-leave',
-        'channel-settings-delete-action',
-      ]) {
-        expect(_id(id), findsNothing, reason: id);
-      }
-      api.routes['POST /channels/system/all/hide'] = (_) => _row(name: 'all', type: 'private');
-      await press(t, 'channel-settings-visibility-action');
-      await confirm(t, 'Hide #all');
-      expect(_writes(api).single.path, '/channels/system/all/hide');
-    });
+    testWidgets(
+      '#all: name locked with its hint, Hide #all uses the dedicated endpoint',
+      (t) async {
+        final (_, api) = await _open(t, row: _row(name: 'all'));
+        expect(find.text('The #all channel cannot be renamed'), findsOneWidget);
+        expect(
+          t
+              .widget<TextField>(
+                find
+                        .descendant(
+                          of: _id('channel-settings-name'),
+                          matching: find.byType(TextField),
+                        )
+                        .evaluate()
+                        .isEmpty
+                    ? _id('channel-settings-name')
+                    : find.descendant(
+                        of: _id('channel-settings-name'),
+                        matching: find.byType(TextField),
+                      ),
+              )
+              .enabled,
+          isFalse,
+        );
+        for (final id in [
+          'channel-settings-archive-action',
+          'channel-overflow-leave',
+          'channel-settings-delete-action',
+        ]) {
+          expect(_id(id), findsNothing, reason: id);
+        }
+        api.routes['POST /channels/system/all/hide'] = (_) =>
+            _row(name: 'all', type: 'private');
+        await press(t, 'channel-settings-visibility-action');
+        await confirm(t, 'Hide #all');
+        expect(_writes(api).single.path, '/channels/system/all/hide');
+      },
+    );
   });
 
-  testWidgets('archived channel: fields disabled, Unarchive and no Save', (t) async {
-    final (_, api) = await _open(t, row: _row(extra: {'archivedAt': '2026-01-01T00:00:00Z'}));
-    expect(find.text('Info'), findsNothing, reason: 'no manage group when archived');
-    expect(t.widget<RaftRecipeButton>(_id('channel-settings-save-inline')).disabled, isTrue);
+  testWidgets('archived channel: fields disabled, Unarchive and no Save', (
+    t,
+  ) async {
+    final (_, api) = await _open(
+      t,
+      row: _row(extra: {'archivedAt': '2026-01-01T00:00:00Z'}),
+    );
+    expect(
+      find.text('Info'),
+      findsNothing,
+      reason: 'no manage group when archived',
+    );
+    expect(
+      t
+          .widget<RaftSettingsRecipeButton>(_id('channel-settings-save-inline'))
+          .onPressed,
+      isNull,
+    );
     expect(_id('channel-settings-archive-action'), findsOneWidget);
     expect(find.text('Unarchive Channel'), findsOneWidget);
     for (final id in [
@@ -451,16 +558,22 @@ void main() {
     await t.ensureVisible(_id('channel-settings-guest-joinable-switch'));
     await t.tap(_id('channel-settings-guest-joinable-switch'));
     await t.pumpAndSettle(const Duration(milliseconds: 100));
-    expect(_writes(api).last.data, {'guestVisible': true, 'guestJoinable': true});
+    expect(_writes(api).last.data, {
+      'guestVisible': true,
+      'guestJoinable': true,
+    });
   });
 
-  testWidgets('the members strip opens the roster; the add tile opens its add view', (t) async {
-    await _open(t);
-    expect(_id('channel-overflow-members-add-tile'), findsOneWidget);
-    await t.tap(_id('channel-overflow-members-entry'));
-    await t.pumpAndSettle();
-    expect(find.byType(RaftChannelMembersModal), findsOneWidget);
-  });
+  testWidgets(
+    'the members strip opens the roster; the add tile opens its add view',
+    (t) async {
+      await _open(t);
+      expect(_id('channel-overflow-members-add-tile'), findsOneWidget);
+      await t.tap(_id('channel-overflow-members-entry'));
+      await t.pumpAndSettle();
+      expect(find.byType(RaftChannelMembersModal), findsOneWidget);
+    },
+  );
 
   testWidgets('mobile: the drawer is the page with a back button', (t) async {
     await _open(t, size: const Size(390, 1800));

@@ -110,8 +110,9 @@ Future<void> tapSheetAction(WidgetTester t, String label) async {
   expect(find.byType(RaftConfirmDialog), findsOneWidget);
 }
 
-TextEditingController nameField(WidgetTester t) =>
-    t.widget<TextField>(find.byKey(const ValueKey('channel-settings-name'))).controller!;
+TextEditingController nameField(WidgetTester t) => t
+    .widget<TextField>(find.byKey(const ValueKey('channel-settings-name')))
+    .controller!;
 
 Future<void> submitConfirmation(WidgetTester t, String label) async {
   await t.tap(

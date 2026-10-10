@@ -17,6 +17,7 @@ import 'localization.dart';
 import 'mounted_avatar_recipe.dart';
 import 'tooltip.dart';
 import 'recipes/button_variants.g.dart';
+import 'settings_controls.dart' show RaftSettingsRecipeButton;
 import 'theme.dart';
 
 /// The drawer popup of `OverflowSheet`: `inset-y-0 right-0 h-dvh w-full
@@ -60,7 +61,9 @@ class RaftOverflowSheet extends StatelessWidget {
     final t = RaftTokens.of(context);
     final size = MediaQuery.sizeOf(context);
     final mobile = size.width < RaftLayoutMetrics.desktopBreakpoint;
-    final headerHeight = RaftLayoutMetrics.shellHeaderHeight(t, size.height);
+    // `h-panel-header` reads `--shell-header-height`, which the AppShell root
+    // sets; the drawer portals out of it, so Web paints the 62px fallback.
+    const headerHeight = RaftMetrics.brutalPanelHeader;
     final paper = t.brutal
         ? t.colors['color-brutal-cream']!
         : t.colors['layer-panel']!;
@@ -69,7 +72,7 @@ class RaftOverflowSheet extends StatelessWidget {
         : t.colors['layer-panel']!;
     final edge = t.brutal ? Colors.black : t.colors['line-muted']!;
     final titleStyle = raftCssTextStyle(
-      family: t.headingFont,
+      family: t.bodyFont,
       // text-base font-bold leading-tight (16px / 1.25).
       step: (16, 20),
       weight: FontWeight.w700,
@@ -90,12 +93,14 @@ class RaftOverflowSheet extends StatelessWidget {
       child: Row(
         children: [
           if (mobile) ...[
-            RaftRecipeButton(
+            RaftSettingsRecipeButton(
               key: const ValueKey('channel-overflow-back'),
+              label: '',
+              variant: RaftButtonRecipeVariant.default_,
               glyph: RaftGlyph.arrowLeft,
               glyphSize: 16,
               size: RaftButtonRecipeSize.iconSm,
-              tooltip: raftText(context, closeLabel),
+              semanticLabel: raftText(context, closeLabel),
               onPressed: onClose,
             ),
             const SizedBox(width: 8),
@@ -127,6 +132,7 @@ class RaftOverflowSheet extends StatelessWidget {
                           label: raftText(context, badge!),
                           appearance: RaftBadgeRecipeAppearance.soft,
                           variant: badgeTone,
+                          fontFamily: t.bodyFont,
                         ),
                       ],
                     ],
@@ -176,7 +182,7 @@ class RaftOverflowSheet extends StatelessWidget {
                   : null,
             ),
             child: DefaultTextStyle.merge(
-              style: TextStyle(fontFamily: t.headingFont, color: t.strong),
+              style: TextStyle(fontFamily: t.bodyFont, color: t.strong),
               child: Column(
                 children: [
                   header,
@@ -257,7 +263,7 @@ class RaftOverflowGroupHeading extends StatelessWidget {
           Text(
             raftText(context, title),
             style: raftCssTextStyle(
-              family: t.headingFont,
+              family: t.bodyFont,
               step: RaftTextSteps.base,
               weight: FontWeight.w700,
               color: t.strong,
@@ -268,7 +274,7 @@ class RaftOverflowGroupHeading extends StatelessWidget {
             Text(
               raftText(context, description!),
               style: raftCssTextStyle(
-                family: t.headingFont,
+                family: t.bodyFont,
                 step: RaftTextSteps.xs,
                 color: t.colors['foreground-muted'],
               ),
@@ -313,7 +319,6 @@ class RaftChannelInfoForm extends StatelessWidget {
     final hairline = t.brutal
         ? Colors.black.withValues(alpha: .1)
         : t.colors['line-muted']!;
-    const buttonPadding = EdgeInsets.symmetric(horizontal: 12);
     return Container(
       padding: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -327,6 +332,7 @@ class RaftChannelInfoForm extends StatelessWidget {
             uppercase: false,
             required: true,
             labelWeight: FontWeight.w500,
+            family: t.bodyFont,
             hint: nameHint,
             child: RaftDialogTextInput(
               fieldKey: const ValueKey('channel-settings-name'),
@@ -342,6 +348,7 @@ class RaftChannelInfoForm extends StatelessWidget {
             uppercase: false,
             optional: true,
             labelWeight: FontWeight.w500,
+            family: t.bodyFont,
             child: RaftDialogTextInput(
               fieldKey: const ValueKey('channel-settings-description'),
               controller: descriptionController,
@@ -354,30 +361,24 @@ class RaftChannelInfoForm extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              RaftRecipeButton(
+              RaftSettingsRecipeButton(
                 key: const ValueKey('channel-settings-discard-draft'),
                 label: 'Cancel',
                 variant: RaftButtonRecipeVariant.outline,
                 size: RaftButtonRecipeSize.sm,
-                padding: buttonPadding,
-                disabled: !canCancel || saving,
-                onPressed: onCancel,
+                onPressed: !canCancel || saving ? null : onCancel,
               ),
               const SizedBox(width: 8),
-              RaftRecipeButton(
+              RaftSettingsRecipeButton(
                 key: const ValueKey('channel-settings-save-inline'),
-                label: saving
-                    ? 'Saving…'
-                    : (savedLabel != null ? ' $savedLabel' : 'Save'),
+                label: saving ? 'Saving…' : (savedLabel ?? 'Save'),
                 glyph: savedLabel != null && !saving ? RaftGlyph.check : null,
                 glyphSize: 12,
                 variant: savedLabel != null
                     ? RaftButtonRecipeVariant.success
                     : RaftButtonRecipeVariant.accent,
                 size: RaftButtonRecipeSize.sm,
-                padding: buttonPadding,
-                disabled: !canSave || saving,
-                onPressed: onSave,
+                onPressed: !canSave || saving ? null : onSave,
               ),
             ],
           ),
@@ -431,7 +432,7 @@ class RaftOverflowActions extends StatelessWidget {
           Text(
             raftText(context, title),
             style: raftCssTextStyle(
-              family: t.headingFont,
+              family: t.bodyFont,
               step: RaftTextSteps.base,
               weight: FontWeight.w700,
               color: t.strong,
@@ -444,7 +445,7 @@ class RaftOverflowActions extends StatelessWidget {
             children: [
               for (var i = 0; i < actions.length; i++) ...[
                 if (i > 0) const SizedBox(height: 8),
-                RaftRecipeButton(
+                RaftSettingsRecipeButton(
                   key: actions[i].id == null
                       ? null
                       : ValueKey<String>(actions[i].id!),
@@ -456,9 +457,8 @@ class RaftOverflowActions extends StatelessWidget {
                       : RaftButtonRecipeVariant.outline,
                   size: RaftButtonRecipeSize.md,
                   expand: true,
-                  disabled: actions[i].disabled,
-                  tooltip: actions[i].semanticLabel,
-                  onPressed: actions[i].onPressed,
+                  semanticLabel: actions[i].semanticLabel,
+                  onPressed: actions[i].disabled ? null : actions[i].onPressed,
                 ),
               ],
             ],
@@ -515,13 +515,13 @@ class RaftMembersStrip extends StatelessWidget {
     final t = RaftTokens.of(context);
     final muted = t.colors['foreground-muted']!;
     final headingStyle = raftCssTextStyle(
-      family: t.headingFont,
+      family: t.bodyFont,
       step: RaftTextSteps.base,
       weight: FontWeight.w700,
       color: t.brutal ? Colors.black : t.strong,
     );
     final summaryStyle = raftCssTextStyle(
-      family: t.headingFont,
+      family: t.bodyFont,
       step: RaftTextSteps.xs,
       weight: FontWeight.w700,
       color: t.brutal ? Colors.black : muted,
@@ -672,7 +672,7 @@ class _TextTile extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            fontFamily: t.headingFont,
+            fontFamily: t.bodyFont,
             // AvatarSlot human text: text-sm font-bold; the add tile text-lg.
             fontSize: large ? 18 : 14,
             height: large ? 28 / 18 : 20 / 14,
@@ -790,7 +790,7 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return RaftModalBackdrop(
-      child: RaftRecipeCard(
+      child: _PromptCard(
         key: const ValueKey('channel-overflow-unsaved-prompt'),
         maxWidth: 384,
         padding: const EdgeInsets.all(24),
@@ -803,7 +803,7 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
               child: Text(
                 raftText(context, 'Unsaved changes'),
                 style: raftCssTextStyle(
-                  family: t.headingFont,
+                  family: t.bodyFont,
                   step: RaftTextSteps.lg,
                   weight: FontWeight.w700,
                   color: t.strong,
@@ -815,46 +815,144 @@ class RaftUnsavedChangesPrompt extends StatelessWidget {
               child: Text(
                 raftText(context, message),
                 style: raftCssTextStyle(
-                  family: t.headingFont,
+                  family: t.bodyFont,
                   step: RaftTextSteps.sm,
                   color: Colors.black.withValues(alpha: .7),
                 ),
               ),
             ),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                RaftRecipeButton(
-                  label: 'Keep editing',
-                  variant: RaftButtonRecipeVariant.outline,
-                  size: RaftButtonRecipeSize.sm,
-                  disabled: busy,
-                  onPressed: onKeepEditing,
+            // `flex justify-end gap-3` (no wrap): the row may be a hair wider
+            // than the card, like the unwrapped CSS flex.
+            SizedBox(
+              height: 28,
+              child: OverflowBox(
+                maxWidth: double.infinity,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    RaftSettingsRecipeButton(
+                      label: 'Keep editing',
+                      variant: RaftButtonRecipeVariant.outline,
+                      size: RaftButtonRecipeSize.sm,
+                      onPressed: busy ? null : onKeepEditing,
+                    ),
+                    const SizedBox(width: 12),
+                    RaftSettingsRecipeButton(
+                      key: const ValueKey('channel-overflow-unsaved-discard'),
+                      label: 'Discard changes',
+                      variant: RaftButtonRecipeVariant.warning,
+                      size: RaftButtonRecipeSize.sm,
+                      onPressed: busy ? null : onDiscard,
+                    ),
+                    if (onSaveAndClose != null) ...[
+                      const SizedBox(width: 12),
+                      RaftSettingsRecipeButton(
+                        key: const ValueKey('channel-overflow-unsaved-save'),
+                        label: busy ? 'Saving…' : 'Save and close',
+                        variant: RaftButtonRecipeVariant.accent,
+                        size: RaftButtonRecipeSize.sm,
+                        onPressed: busy ? null : onSaveAndClose,
+                      ),
+                    ],
+                  ],
                 ),
-                RaftRecipeButton(
-                  key: const ValueKey('channel-overflow-unsaved-discard'),
-                  label: 'Discard changes',
-                  variant: RaftButtonRecipeVariant.warning,
-                  size: RaftButtonRecipeSize.sm,
-                  disabled: busy,
-                  onPressed: onDiscard,
-                ),
-                if (onSaveAndClose != null)
-                  RaftRecipeButton(
-                    key: const ValueKey('channel-overflow-unsaved-save'),
-                    label: busy ? 'Saving…' : 'Save and close',
-                    variant: RaftButtonRecipeVariant.accent,
-                    size: RaftButtonRecipeSize.sm,
-                    disabled: busy,
-                    onPressed: onSaveAndClose,
-                  ),
-              ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+/// The `card-brutal` utility (index.css): Elegant `border border-line-muted
+/// bg-layer-panel shadow-raft-md` (square), Brutal `border-2 border-black
+/// bg-white shadow-brutal` (the Card recipe paints that one).
+class _PromptCard extends StatelessWidget {
+  const _PromptCard({
+    super.key,
+    required this.maxWidth,
+    required this.padding,
+    required this.child,
+  });
+  final double maxWidth;
+  final EdgeInsets padding;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    if (t.brutal) {
+      return RaftRecipeCard(maxWidth: maxWidth, padding: padding, child: child);
+    }
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        width: double.infinity,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: t.colors['layer-panel'],
+          border: Border.all(color: t.colors['line-muted']!),
+          boxShadow: t.themeShadows.md.outer,
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Opens the settings drawer the way Web mounts its `Drawer`: a modal route
+/// whose scrim is the drawer backdrop. The route never dismisses itself;
+/// the drawer's own scrim / Escape handling decides (unsaved-draft guard).
+Future<T?> showRaftOverflowSheet<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) => showDialog<T>(
+  context: context,
+  barrierDismissible: false,
+  barrierColor: RaftTokens.of(context).colors['layer-backdrop'],
+  builder: builder,
+);
+
+/// A failure notice above the panel when it has no form of its own to host
+/// the warning banner (a DM, a channel the viewer left).
+class RaftOverflowNotice extends StatelessWidget {
+  const RaftOverflowNotice(this.message, {super.key});
+  final String message;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+    child: RaftWarningBanner(message),
+  );
+}
+
+/// The DM drawer's root view: `px-4 pb-2` around the shared preferences.
+class RaftOverflowDmBody extends StatelessWidget {
+  const RaftOverflowDmBody({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: child);
+}
+
+/// Cold-load placeholder of the panel body (server flags not known yet).
+class RaftOverflowLoading extends StatelessWidget {
+  const RaftOverflowLoading({super.key});
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 32),
+    child: Center(child: RaftSpinner()),
+  );
+}
+
+
+/// The form's `Banner intent="warning"` (`space-y-5`: 20px below it).
+class RaftOverflowFormError extends StatelessWidget {
+  const RaftOverflowFormError(this.message, {super.key});
+  final String message;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: RaftWarningBanner(message),
+  );
 }

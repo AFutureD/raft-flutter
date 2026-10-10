@@ -382,13 +382,13 @@ class RaftChannelSettingsSheet extends StatelessWidget {
   }
 }
 
-
 /// One `py-3` preference row (`flex items-center justify-between gap-3`).
 Widget raftSheetSwitchRow(
   BuildContext context,
   RaftTokens t,
   RaftSheetSwitchRow row, {
   bool busy = false,
+  String? family,
 }) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 12),
   child: Row(
@@ -400,7 +400,7 @@ Widget raftSheetSwitchRow(
             Text(
               raftText(context, row.title),
               style: raftCssTextStyle(
-                family: t.headingFont,
+                family: family ?? t.headingFont,
                 step: RaftTextSteps.sm,
                 weight: FontWeight.w500,
                 color: t.strong,
@@ -410,7 +410,7 @@ Widget raftSheetSwitchRow(
             Text(
               raftText(context, row.description),
               style: raftCssTextStyle(
-                family: t.headingFont,
+                family: family ?? t.headingFont,
                 step: RaftTextSteps.xs,
                 color: t.colors['foreground-muted'],
               ),
@@ -445,6 +445,7 @@ Widget raftSheetSection(
   RaftTokens t,
   RaftSheetSection s, {
   bool busy = false,
+  String? family,
 }) {
   final divider = t.brutal
       ? Colors.black.withValues(alpha: .1)
@@ -459,7 +460,7 @@ Widget raftSheetSection(
         Text(
           raftText(context, s.title),
           style: raftCssTextStyle(
-            family: t.headingFont,
+            family: family ?? t.headingFont,
             step: RaftTextSteps.base,
             weight: FontWeight.w700,
             color: t.strong,
@@ -470,7 +471,7 @@ Widget raftSheetSection(
           Text(
             raftText(context, s.description!),
             style: raftCssTextStyle(
-              family: t.headingFont,
+              family: family ?? t.headingFont,
               step: RaftTextSteps.xs,
               color: muted,
             ),
@@ -481,7 +482,7 @@ Widget raftSheetSection(
           Text(
             s.usage!,
             style: raftCssTextStyle(
-              family: t.headingFont,
+              family: family ?? t.headingFont,
               step: RaftTextSteps.xs,
               weight: FontWeight.w600,
               color: muted,
@@ -490,11 +491,18 @@ Widget raftSheetSection(
         ],
         const SizedBox(height: 8),
         for (var i = 0; i < s.rows.length; i++)
-          DecoratedBox(
+          // Container, not DecoratedBox: `divide-y` borders take layout space.
+          Container(
             decoration: BoxDecoration(
               border: i == 0 ? null : Border(top: BorderSide(color: divider)),
             ),
-            child: raftSheetSwitchRow(context, t, s.rows[i], busy: busy),
+            child: raftSheetSwitchRow(
+              context,
+              t,
+              s.rows[i],
+              busy: busy,
+              family: family,
+            ),
           ),
       ],
     ),

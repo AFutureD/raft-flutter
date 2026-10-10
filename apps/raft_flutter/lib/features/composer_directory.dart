@@ -199,9 +199,7 @@ final _sharedComposerData = Expando<_ComposerShared>('composer directory');
 ({List<Map<String, dynamic>> humans, List<Map<String, dynamic>> agents})?
 cachedChannelRoster(WorkspaceController w, String channelId) {
   final roster = _sharedComposerData[w.entityDirectory]?.rosters[channelId];
-  return roster == null
-      ? null
-      : (humans: roster.humans, agents: roster.agents);
+  return roster == null ? null : (humans: roster.humans, agents: roster.agents);
 }
 
 /// Autocomplete projection. People come from the shared, server-scoped entity

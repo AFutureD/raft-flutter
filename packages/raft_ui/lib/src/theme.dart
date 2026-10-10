@@ -191,8 +191,9 @@ class RaftFieldRecipe {
   const RaftFieldRecipe(this.tokens);
   final RaftTokens tokens;
   Color fill({bool disabled = false}) => disabled && !tokens.brutal
-      ? tokens.colors['fill-muted']!.withValues(
-          alpha: tokens.colors['fill-muted']!.a * .5,
+      // `bg-fill-muted/50`: Chromium quantises the alpha to 8 bits first.
+      ? tokens.colors['fill-muted']!.withAlpha(
+          (tokens.colors['fill-muted']!.a * .5 * 255).round(),
         )
       : tokens.dark && !tokens.brutal
       ? tokens.card
@@ -533,9 +534,9 @@ ThemeData raftTheme(
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: WidgetStateColor.resolveWith(
-        (states) =>
-            RaftFieldRecipe(t)
-                .fill(disabled: states.contains(WidgetState.disabled)),
+        (states) => RaftFieldRecipe(
+          t,
+        ).fill(disabled: states.contains(WidgetState.disabled)),
       ),
       isDense: true,
       // CSS field outer height includes borders; Material outlines paint inside.
@@ -545,8 +546,9 @@ ThemeData raftTheme(
       ),
       hintStyle: WidgetStateTextStyle.resolveWith(
         (states) => t.fieldStyle.copyWith(
-          color: RaftFieldRecipe(t)
-              .placeholder(disabled: states.contains(WidgetState.disabled)),
+          color: RaftFieldRecipe(
+            t,
+          ).placeholder(disabled: states.contains(WidgetState.disabled)),
         ),
       ),
       labelStyle: textTheme.bodySmall,
