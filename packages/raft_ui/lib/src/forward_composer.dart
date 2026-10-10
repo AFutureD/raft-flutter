@@ -143,13 +143,17 @@ class RaftForwardTargetsBody extends StatelessWidget {
     super.key,
     required this.search,
     required this.label,
-    required this.rows,
+    this.rows = const [],
+    this.itemBuilder,
+    this.itemCount,
     this.labelAction,
   });
   final Widget search;
   final String label;
   final Widget? labelAction;
   final List<Widget> rows;
+  final IndexedWidgetBuilder? itemBuilder;
+  final int? itemCount;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -182,14 +186,11 @@ class RaftForwardTargetsBody extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView(
+            child: ListView.separated(
               padding: const EdgeInsets.only(bottom: 8),
-              children: [
-                for (var i = 0; i < rows.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 6),
-                  rows[i],
-                ],
-              ],
+              itemCount: itemCount ?? rows.length,
+              itemBuilder: itemBuilder ?? (_, index) => rows[index],
+              separatorBuilder: (_, _) => const SizedBox(height: 6),
             ),
           ),
         ],

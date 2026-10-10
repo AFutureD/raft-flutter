@@ -18,6 +18,7 @@ import 'followed_threads_store.dart';
 import 'raft_location.dart';
 import 'raft_navigation_history.dart';
 import 'workspace_navigation.dart';
+import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 
@@ -47,9 +48,17 @@ class WorkspaceThreadIdentity {
 }
 
 class UploadDraft {
-  UploadDraft(this.filename, this.bytes);
+  UploadDraft(this.filename, this.bytes) : local = null;
+  UploadDraft.shared(SharedDraftAttachment file)
+    : filename = file.filename,
+      bytes = Uint8List(0),
+      local = file,
+      queued = true;
   final String filename;
   final Uint8List bytes;
+  final SharedDraftAttachment? local;
+  int get sizeBytes => local?.sizeBytes ?? bytes.length;
+  bool queued = false;
   var cancel = UploadCancellation();
   double progress = 0;
   String? id, error;
@@ -101,6 +110,8 @@ class WorkspaceController extends ChangeNotifier {
     this.cache,
     this.mobileNavigation = false,
     this.ownsClient = true,
+    this.restoreSharedAttachment,
+    this.discardSharedScope,
     WorkspaceEntityDirectory? entityDirectory,
     FollowedThreadsStore? followedThreads,
     AttachmentImageByteStore? attachmentImageStore,
@@ -140,6 +151,14 @@ class WorkspaceController extends ChangeNotifier {
   final bool ownsClient;
   final RaftClient client;
   final WorkspaceCache? cache;
+  final RestoreSharedDraftAttachment? restoreSharedAttachment;
+  final Future<void> Function(
+    String origin,
+    String principal,
+    String server,
+    String? channel,
+  )?
+  discardSharedScope;
   late final WorkspaceEntityDirectory entityDirectory;
   late final bool _ownsEntityDirectory;
 
@@ -950,6 +969,7 @@ class WorkspaceController extends ChangeNotifier {
     _revokedServers.add(id);
     servers.removeWhere((s) => s.id == id);
     final origin = client.origin;
+    unawaited(discardSharedScope?.call(origin, principal, id, null));
     if (client.serverId == id) {
       for (final list in _uploads.values) {
         for (final draft in list) {
@@ -960,6 +980,8 @@ class WorkspaceController extends ChangeNotifier {
       _attempts.clear();
       _pendingSends.clear();
       drafts.clear();
+      _draftRevisions.clear();
+      _draftShareTokens.clear();
       visibleIds.clear();
       _windowState.clear();
       _diskOnlyWindows.clear();
@@ -1027,6 +1049,7 @@ class WorkspaceController extends ChangeNotifier {
     String id,
     dynamic value, {
     String? server,
+    bool requiredSuccess = false,
   }) async {
     final user = client.user?.id;
     if (cache == null || user == null || _cacheRetired) return;
@@ -1035,7 +1058,7 @@ class WorkspaceController extends ChangeNotifier {
       return;
     }
     final origin = client.origin, serverId = server ?? client.serverId ?? '';
-    _cacheWrites = _cacheWrites.then((_) async {
+    final writing = _cacheWrites.then((_) async {
       try {
         await cache!.write(origin, user, serverId, kind, id, value);
       } catch (_) {
@@ -1043,26 +1066,127 @@ class WorkspaceController extends ChangeNotifier {
           error ??= 'Local changes could not be saved on this device.';
           notifyListeners();
         }
+        if (requiredSuccess) rethrow;
       }
     });
-    await _cacheWrites;
+    _cacheWrites = writing.then<void>((_) {}, onError: (Object _) {});
+    await writing;
   }
 
   void saveDraft(String text, {bool thread = false}) {
     final scope = draftScope(thread: thread);
     if (scope == null) return;
     drafts[scope] = text;
-    _save(
+    unawaited(_saveDraftScope(scope));
+  }
+
+  final _queuedSendTexts = <String, String>{};
+  final _draftShareTokens = <String, Set<String>>{};
+  Future<void> _saveDraftScope(String scope, {bool requiredSuccess = false}) {
+    final pending = _pendingSends[scope] ?? <_PendingSend>[];
+    final files = [
+      ...?_uploads[scope],
+      for (final attempt in pending) ...attempt.uploads,
+    ].where((f) => f.local != null).toList();
+    final text = [
+      if (files.isNotEmpty)
+        for (final p in pending) p.draft,
+      _queuedSendTexts[scope] ?? '',
+      drafts[scope] ?? '',
+    ].where((s) => s.isNotEmpty).toSet().join('\n\n');
+    return _save(
       'draft',
       scope,
-      text.isEmpty ? null : {'text': text, 'channelId': channel?.id},
+      text.isEmpty && files.isEmpty
+          ? null
+          : {
+              'text': text,
+              'channelId': scope,
+              'shareTokens': _draftShareTokens[scope]?.toList(),
+              'files': [
+                for (final file in files)
+                  {
+                    'ref': file.local!.reference,
+                    'id': file.id,
+                    'metadata': {
+                      for (final key in [
+                        'id',
+                        'filename',
+                        'mimeType',
+                        'sizeBytes',
+                      ])
+                        if (file.metadata?.containsKey(key) == true)
+                          key: file.metadata![key],
+                    },
+                  },
+              ],
+            },
+      requiredSuccess: requiredSuccess,
     );
   }
 
+  /// Stage local queued files without uploading or replacing the user's draft.
+  Future<void> stageSharedDraft(
+    String text,
+    List<SharedDraftAttachment> files, {
+    String? sourceToken,
+  }) async {
+    final scope = draftScope();
+    if (scope == null) throw const RaftApiException('Choose a conversation.');
+    if (sourceToken != null &&
+        (_draftShareTokens[scope]?.contains(sourceToken) ?? false)) {
+      return;
+    }
+    final list = _uploads[scope] ??= [];
+    final additions = files
+        .where(
+          (f) => !list.any(
+            (u) =>
+                u.local != null &&
+                jsonEncode(u.local!.reference) == jsonEncode(f.reference),
+          ),
+        )
+        .toList();
+    if (list.length + additions.length > 10) {
+      throw const RaftApiException('Attach up to 10 files per message.');
+    }
+    final previous = drafts[scope] ?? '', generation = client.generation;
+    final staged = additions.map(UploadDraft.shared).toList();
+    list.addAll(staged);
+    final next = text.trim();
+    if (next.isNotEmpty && previous.trim() != next) {
+      drafts[scope] = previous.isEmpty ? next : '$previous\n\n$next';
+    }
+    if (sourceToken != null) {
+      final tokens = _draftShareTokens[scope] ??= {};
+      tokens.add(sourceToken);
+      if (tokens.length > 64) tokens.remove(tokens.first);
+    }
+    try {
+      await _saveDraftScope(scope, requiredSuccess: true);
+    } catch (_) {
+      if (!_disposed && generation == client.generation) {
+        list.removeWhere(staged.contains);
+        drafts[scope] = previous;
+        _draftShareTokens[scope]?.remove(sourceToken);
+      }
+      rethrow;
+    }
+    _draftRevisions[scope] = (_draftRevisions[scope] ?? 0) + 1;
+    if (!_disposed) notifyListeners();
+  }
+
   void updateDraftFromShare(String text) {
+    final scope = draftScope();
+    if (scope == null) return;
     saveDraft(text);
+    _draftRevisions[scope] = (_draftRevisions[scope] ?? 0) + 1;
     notifyListeners();
   }
+
+  final _draftRevisions = <String, int>{};
+  int draftRevision({bool thread = false}) =>
+      _draftRevisions[draftScope(thread: thread)] ?? 0;
 
   Future<void> _restoreDraft(String scope) async {
     final generation = ledger.generation;
@@ -1074,6 +1198,46 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (value is Map && value['text'] is String) {
       drafts[scope] = value['text'];
+      if (value['shareTokens'] is List) {
+        _draftShareTokens[scope] = (value['shareTokens'] as List)
+            .whereType<String>()
+            .take(64)
+            .toSet();
+      }
+      final principal = client.user?.id;
+      final files = value['files'];
+      if (files is List &&
+          restoreSharedAttachment != null &&
+          client.user != null) {
+        for (final row in files.whereType<Map>()) {
+          if (row['ref'] is! Map) continue;
+          final file = await restoreSharedAttachment!(
+            Map<String, dynamic>.from(row['ref']),
+            client.origin,
+            principal!,
+          );
+          if (generation != ledger.generation || _disposed) return;
+          if (file == null) continue;
+          final list = _uploads[scope] ??= [];
+          if (list.any(
+            (u) =>
+                u.local != null &&
+                jsonEncode(u.local!.reference) == jsonEncode(file.reference),
+          )) {
+            continue;
+          }
+          final draft = UploadDraft.shared(file);
+          if (row['id'] is String) {
+            draft.id = row['id'];
+            draft.queued = false;
+            draft.progress = 1;
+            if (row['metadata'] is Map) {
+              draft.metadata = Map<String, dynamic>.from(row['metadata']);
+            }
+          }
+          list.add(draft);
+        }
+      }
       notifyListeners();
     }
     final attempt = await _cached('attempt', scope);
@@ -1258,7 +1422,9 @@ class WorkspaceController extends ChangeNotifier {
   List<UploadDraft> uploads({bool thread = false}) =>
       _uploads[draftScope(thread: thread)] ?? [];
   bool uploadsReady({bool thread = false}) =>
-      uploads(thread: thread).every((u) => u.id != null);
+      !_queuedSendTexts.containsKey(draftScope(thread: thread)) &&
+      uploads(thread: thread)
+          .every((u) => u.id != null || u.queued && u.error == null);
 
   /// Web MessageInput composer error banner per draft scope.
   final Map<String, String> composerErrors = {};
@@ -1424,6 +1590,7 @@ class WorkspaceController extends ChangeNotifier {
     final generation = ledger.generation;
     final idBefore = channel?.id;
     final scope = draftScope(thread: thread);
+    draft.queued = false;
     notifyListeners();
     try {
       final id = thread ? await ensureThread() : idBefore;
@@ -1434,21 +1601,40 @@ class WorkspaceController extends ChangeNotifier {
           !(_uploads[scope]?.contains(draft) ?? false)) {
         return;
       }
-      final files = await client.upload(
-        id,
-        draft.bytes,
-        draft.filename,
-        cancellation: draft.cancel,
-        onProgress: (sent, total) {
-          if (generation != ledger.generation ||
-              draft.cancel.cancelled ||
-              _disposed) {
-            return;
-          }
-          draft.progress = total > 0 ? sent / total : 0;
-          notifyListeners();
-        },
-      );
+      void progress(int sent, int total) {
+        if (generation != ledger.generation ||
+            draft.cancel.cancelled ||
+            _disposed) {
+          return;
+        }
+        draft.progress = total > 0 ? sent / total : 0;
+        notifyListeners();
+      }
+
+      final files = draft.local != null
+          ? await client.uploadStream(
+              id,
+              draft.local!.openRead,
+              draft.sizeBytes,
+              draft.filename,
+              cancellation: draft.cancel,
+              onProgress: progress,
+            )
+          : await client.upload(
+              id,
+              draft.bytes,
+              draft.filename,
+              cancellation: draft.cancel,
+              onProgress: (sent, total) {
+                if (generation != ledger.generation ||
+                    draft.cancel.cancelled ||
+                    _disposed) {
+                  return;
+                }
+                draft.progress = total > 0 ? sent / total : 0;
+                notifyListeners();
+              },
+            );
       if (generation != ledger.generation ||
           draft.cancel.cancelled ||
           _disposed ||
@@ -1458,6 +1644,7 @@ class WorkspaceController extends ChangeNotifier {
       draft.id = files.single['id'];
       draft.metadata = files.single;
       draft.progress = 1;
+      if (draft.local != null && scope != null) await _saveDraftScope(scope);
     } catch (e) {
       if (!draft.cancel.cancelled &&
           generation == ledger.generation &&
@@ -1471,12 +1658,26 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
+  Future<void> _releaseSharedUploads(Iterable<UploadDraft> files) async {
+    for (final file in files) {
+      try {
+        await file.local?.release();
+      } catch (_) {
+        // Local cleanup failure cannot turn an accepted message into a failed
+        // send. Account/scope cleanup also retires these private inbox files.
+      }
+    }
+  }
+
   void removeUpload(UploadDraft draft, {bool thread = false}) {
     draft.cancel.cancel();
     // The caller may be disposing a view after selection changed.
-    for (final drafts in _uploads.values) {
-      drafts.remove(draft);
+    for (final entry in _uploads.entries) {
+      if (entry.value.remove(draft) && draft.local != null) {
+        unawaited(_saveDraftScope(entry.key));
+      }
     }
+    if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
     notifyListeners();
   }
 
@@ -1981,6 +2182,8 @@ class WorkspaceController extends ChangeNotifier {
     _pendingSends.clear();
     _localRandomIds.clear();
     drafts.clear();
+    _draftRevisions.clear();
+    _draftShareTokens.clear();
     visibleIds.clear();
     _windowState.clear();
     _windowHistoryLimited.clear();
@@ -2405,6 +2608,17 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   void _revokeChannel(String id) {
+    final sharedPrincipal = client.user?.id, sharedServer = client.serverId;
+    if (sharedPrincipal != null && sharedServer != null) {
+      unawaited(
+        discardSharedScope?.call(
+          client.origin,
+          sharedPrincipal,
+          sharedServer,
+          id,
+        ),
+      );
+    }
     final origin = client.origin,
         principal = client.user?.id,
         serverId = client.serverId;
@@ -2455,8 +2669,10 @@ class WorkspaceController extends ChangeNotifier {
         readState.revoke(serverId, principal, scope);
       }
       drafts.remove(scope);
+      _draftRevisions.remove(scope);
       for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
         draft.cancel.cancel();
+        if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
       }
       _attempts.remove(scope);
       _pendingSends.remove(scope);
@@ -2464,10 +2680,12 @@ class WorkspaceController extends ChangeNotifier {
     for (final messageId in messageIds) {
       final scope = 'thread:$messageId';
       drafts.remove(scope);
+      _draftRevisions.remove(scope);
       _attempts.remove(scope);
       _pendingSends.remove(scope);
       for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
         draft.cancel.cancel();
+        if (draft.local != null) unawaited(_releaseSharedUploads([draft]));
       }
       reactionViewer.remove(messageId);
       for (final bucket in _summariesByChannel.values) {
@@ -3545,6 +3763,30 @@ class WorkspaceController extends ChangeNotifier {
     if (intendedScope == null) return false;
     final scope = intendedScope;
     final uploaded = List<UploadDraft>.of(uploads(thread: thread));
+    if (uploaded.any((u) => u.queued)) {
+      if (_queuedSendTexts.containsKey(scope)) return false;
+      _queuedSendTexts[scope] = text;
+      unawaited(_saveDraftScope(scope));
+      try {
+        final limit = await uploadLimitBytes();
+        if (!currentSend()) return false;
+        if (limit == null ||
+            uploaded.any((u) => u.local != null && u.sizeBytes > limit)) {
+          error = limit == null
+              ? 'The upload size limit could not be checked. Try again in a moment.'
+              : 'A shared file exceeds the upload size limit.';
+          notifyListeners();
+          return false;
+        }
+        for (final upload in uploaded.where((u) => u.queued)) {
+          if (!currentSend()) return false;
+          await _transferUpload(upload, thread: thread);
+          if (!currentSend() || upload.id == null) return false;
+        }
+      } finally {
+        _queuedSendTexts.remove(scope);
+      }
+    }
     if (uploaded.any((u) => u.id == null)) {
       error =
           '${const RaftApiException('Wait for uploads to finish, or remove the failed file.')}';
@@ -3599,7 +3841,7 @@ class WorkspaceController extends ChangeNotifier {
                   {
                     'id': upload.id,
                     'filename': upload.filename,
-                    'sizeBytes': upload.bytes.length,
+                    'sizeBytes': upload.sizeBytes,
                   },
           ],
         'pendingSend': true,
@@ -3635,10 +3877,10 @@ class WorkspaceController extends ChangeNotifier {
           drafts[scope] ?? '',
         );
         drafts[scope] = restored;
-        _save('draft', scope, {'text': restored, 'channelId': intendedChannel});
         if (pending.uploads.isNotEmpty) {
           _uploads[scope] = [...pending.uploads, ...?_uploads[scope]];
         }
+        unawaited(_saveDraftScope(scope));
         if (cause != null && currentSend()) error = '$cause';
       }
       notifyListeners();
@@ -3676,6 +3918,10 @@ class WorkspaceController extends ChangeNotifier {
       );
       final message = sent.message;
       settle();
+      if (sameAccount() && pending.uploads.any((file) => file.local != null)) {
+        await _saveDraftScope(scope);
+        await _releaseSharedUploads(pending.uploads);
+      }
       if (_attempts[scope]?.randomId == sentId) {
         _attempts.remove(scope);
         _save('attempt', scope, null);
@@ -3700,6 +3946,10 @@ class WorkspaceController extends ChangeNotifier {
       if (sameAccount() &&
           delivered(thread ? threadChannelId : intendedChannel)) {
         settle();
+        if (pending.uploads.any((file) => file.local != null)) {
+          await _saveDraftScope(scope);
+          await _releaseSharedUploads(pending.uploads);
+        }
         notifyListeners();
         return true;
       }

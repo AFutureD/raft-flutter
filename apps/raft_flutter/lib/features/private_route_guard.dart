@@ -38,6 +38,7 @@ class PrivateRouteGuard extends NavigatorObserver {
     final stale = _routes.skip(1).toList().reversed.toList();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final route in stale) {
+        if (route is AccountScopedRoute && route.valid()) continue;
         if (_routes.contains(route) && route.isActive) {
           navigator?.removeRoute(route);
         }
@@ -87,4 +88,11 @@ bool channelAuthorityReduced(
     }
   }
   return false;
+}
+
+/// An incoming share chooses its server inside the route, but remains owned by
+/// the authenticated account that admitted it.
+class AccountScopedRoute<T> extends MaterialPageRoute<T> {
+  AccountScopedRoute({required super.builder, required this.valid});
+  final bool Function() valid;
 }

@@ -996,6 +996,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.3"
+  receive_intent:
+    dependency: transitive
+    description:
+      name: receive_intent
+      sha256: "0fdb0bf57e6759f586803c4a42e35fbe9e49ee948298c6d2ae75bf99c06be005"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.8"
   record_use:
     dependency: transitive
     description:
@@ -1281,6 +1289,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
+  uri_content:
+    dependency: transitive
+    description:
+      name: uri_content
+      sha256: "6d10ec315fc737dd8395660826518b7460fbf0cd56527a9cdc807c232c8a6185"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.1"
   uri_parser:
     dependency: transitive
     description:

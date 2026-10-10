@@ -2603,7 +2603,7 @@ class _RaftChatViewState extends State<RaftChatView>
                       (draft) => RaftUploadChip(
                         name: draft.filename,
                         progress: draft.progress,
-                        ready: draft.id != null,
+                        ready: draft.id != null || draft.queued,
                         error: draft.error,
                         onRetry: () =>
                             w.retryUpload(draft, thread: widget.thread),
@@ -2662,6 +2662,7 @@ class _RaftChatViewState extends State<RaftChatView>
                   w.can('viewChannel', resource: w.channel),
               handle: composerHandle,
               initialDraft: w.drafts[w.draftScope(thread: widget.thread)] ?? '',
+              draftRevision: w.draftRevision(thread: widget.thread),
               onDraftChanged: (text) {
                 if (currentComposer()) w.saveDraft(text, thread: widget.thread);
               },

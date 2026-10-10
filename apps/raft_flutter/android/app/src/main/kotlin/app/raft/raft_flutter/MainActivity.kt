@@ -7,13 +7,68 @@ import android.app.Activity
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Bundle
+import androidx.core.content.IntentCompat
+import java.util.ArrayDeque
 import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import java.io.File
 
 class MainActivity : FlutterActivity() {
+    private var shareReceiverReady = false
+    private val earlyShares = ArrayDeque<Intent>()
     private var sharing: NativeSharingBridge? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        prepareSharedUris(intent)
+        super.onCreate(savedInstanceState)
+        consumeShare(intent)
+    }
+
+    // receive_intent forwards extras, but not ClipData. Normalize URI references
+    // only: no file queries, copies, or binary data are processed here.
+    private fun prepareSharedUris(intent: Intent) {
+        if (intent.action !in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) return
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) {
+            intent.action = Intent.ACTION_MAIN
+            return
+        }
+        try {
+            intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.let { text ->
+                if (text.length > 65536) { intent.action = Intent.ACTION_MAIN; return }
+                intent.putExtra(Intent.EXTRA_TEXT, text.toString())
+            }
+            val streams = if (intent.action == Intent.ACTION_SEND_MULTIPLE)
+                IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: emptyList()
+            else listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+            val clips = intent.clipData?.let { clip ->
+                (0 until minOf(clip.itemCount, 11)).mapNotNull { clip.getItemAt(it).uri }
+            } ?: emptyList()
+            intent.putStringArrayListExtra("app.raft.sharedUris", ArrayList((streams + clips).distinct().map { it.toString() }))
+        } catch (_: Exception) { intent.action = Intent.ACTION_MAIN }
+    }
+
+    private fun consumeShare(intent: Intent) {
+        if (intent.action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
+            intent.action = Intent.ACTION_MAIN
+            intent.removeExtra(Intent.EXTRA_STREAM)
+            intent.removeExtra(Intent.EXTRA_TEXT)
+            intent.removeExtra("app.raft.sharedUris")
+            intent.clipData = null
+        }
+    }
+
+    private fun shareReceiverAttached() {
+        shareReceiverReady = true
+        while (earlyShares.isNotEmpty()) dispatchNewIntent(earlyShares.removeFirst())
+    }
+
+    private fun dispatchNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeShare(intent)
+    }
     private var systemFonts: NativeSystemFontsBridge? = null
     private var saveResult: MethodChannel.Result? = null
     private val saveRequest = 45071
@@ -22,7 +77,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        sharing = NativeSharingBridge(this, flutterEngine)
+        sharing = NativeSharingBridge(this, flutterEngine, ::shareReceiverAttached)
         systemFonts = NativeSystemFontsBridge(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/local-network")
@@ -100,9 +155,12 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        sharing?.receive(intent)
+        prepareSharedUris(intent)
+        if (!shareReceiverReady && intent.action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE)) {
+            earlyShares.addLast(intent)
+            return
+        }
+        dispatchNewIntent(intent)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -121,6 +179,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        earlyShares.clear()
+        sharing?.dispose()
         systemFonts?.dispose()
         localNetworkResults.forEach { it.success(false) }
         localNetworkResults.clear()

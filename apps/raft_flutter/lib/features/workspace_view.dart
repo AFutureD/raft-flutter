@@ -64,7 +64,6 @@ import 'sidebar_projection.dart';
 import 'sidebar_sort_menu.dart';
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
-import 'incoming_share_review.dart';
 import 'im_bridges_view.dart';
 import 'joint_channel_views.dart';
 import 'workspace_browser.dart';
@@ -353,13 +352,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   double masterWideWidth = 560, masterCompactWidth = 320;
   Timer? persistPanels;
   bool joiningCommunityFromHelp = false;
-  VoidCallback? removeShareReceiver;
-  bool sharingReady = false,
-      reviewingIncoming = false,
-      bridgeEnabled = false,
-      providerEnabled = false,
-      labsEnabled = false;
-  String? shareReceiverScope, bridgeScope;
+  bool bridgeEnabled = false, providerEnabled = false, labsEnabled = false;
+  String? bridgeScope;
   int bridgeRequest = 0;
   String tr(String source) => raftText(context, source);
 
@@ -396,16 +390,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     threadSelection.addListener(chatSelectionChanged);
     restorePanels();
     w.addListener(syncSidebarAgents);
-    w.addListener(syncSharing);
     w.addListener(syncBridgeFlag);
     syncSidebarAgents();
     syncBridgeFlag();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        sharingReady = true;
-        syncSharing();
-      }
-    });
   }
 
   late WorkspaceModeStore workspaceMode;
@@ -416,44 +403,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   Size? retainedGridSize;
   String? classicDraftScope, classicDraftAtEntry;
   bool get gridActive => workspaceMode.active(MediaQuery.sizeOf(context).width);
-
-  void syncSharing() {
-    if (!sharingReady || !mounted) return;
-    final ready =
-        w.channel?.joined == true && w.server != null && w.client.user != null;
-    final next = ready
-        ? jsonEncode([
-            w.client.generation,
-            w.client.user!.id,
-            w.server!.id,
-            w.channel!.id,
-          ])
-        : null;
-    if (shareReceiverScope == next) return;
-    removeShareReceiver?.call();
-    removeShareReceiver = null;
-    shareReceiverScope = next;
-    if (next == null) return;
-    removeShareReceiver = widget.sharing?.registerReceiver((share) {
-      if (!mounted || shareReceiverScope != next) return;
-      if (reviewingIncoming) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(tr('Finish reviewing the current share first.')),
-          ),
-        );
-        return;
-      }
-      reviewingIncoming = true;
-      unawaited(
-        reviewIncomingShare(context, w, share, widget.sharing!).whenComplete(
-          () {
-            reviewingIncoming = false;
-          },
-        ),
-      );
-    });
-  }
 
   void syncBridgeFlag() {
     final next = jsonEncode([
@@ -591,22 +540,12 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       w.addListener(syncSavedIds);
       syncSavedIds();
       oldWidget.controller.removeListener(syncSidebarAgents);
-      oldWidget.controller.removeListener(syncSharing);
       oldWidget.controller.removeListener(syncBridgeFlag);
       w.addListener(syncSidebarAgents);
-      w.addListener(syncSharing);
       w.addListener(syncBridgeFlag);
       bridgeScope = null;
       syncBridgeFlag();
       syncSidebarAgents();
-    }
-    if (!identical(oldWidget.controller, w) ||
-        !identical(oldWidget.sharing, widget.sharing)) {
-      removeShareReceiver?.call();
-      shareReceiverScope = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) syncSharing();
-      });
     }
   }
 
@@ -705,10 +644,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     mainSelection.dispose();
     threadSelection.dispose();
     w.removeListener(syncSidebarAgents);
-    w.removeListener(syncSharing);
     w.removeListener(syncBridgeFlag);
     bridgeRequest++;
-    removeShareReceiver?.call();
     super.dispose();
   }
 

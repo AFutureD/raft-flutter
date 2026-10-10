@@ -415,6 +415,20 @@ class RaftClient {
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
       request('GET', path, query: query);
+
+  /// Read a picker directory without changing the active workspace. Authentication
+  /// changes still fence the response and refresh/retry preserves this server.
+  Future<dynamic> getForServer(
+    String server,
+    String path, {
+    Map<String, dynamic>? query,
+  }) => _request(
+    'GET',
+    path,
+    query: query,
+    workspaceScoped: false,
+    headers: {'X-Server-Id': server},
+  );
   Future<dynamic> post(String path, {dynamic data}) =>
       request('POST', path, data: data);
   Future<dynamic> patch(String path, {dynamic data}) =>
@@ -707,14 +721,10 @@ class RaftClient {
           .map((e) => RaftRecord(Map<String, dynamic>.from(e)))
           .toList();
 
-  Future<List<RaftChannel>> channels({bool dm = false}) async =>
-      (await get(
-                dm ? '/channels/dm' : '/channels',
-                query: dm ? null : {'archived': 'include'},
-              )
-              as List)
-          .map((e) => RaftChannel(Map<String, dynamic>.from(e)))
-          .toList();
+  Future<List<RaftChannel>> channels({bool dm = false}) async => (await get(
+    dm ? '/channels/dm' : '/channels',
+    query: dm ? null : {'archived': 'include'},
+  ) as List).map((e) => RaftChannel(Map<String, dynamic>.from(e))).toList();
   Future<Map<String, dynamic>> messagePage(
     String id, {
     BigInt? before,
@@ -746,6 +756,31 @@ class RaftClient {
       'POST',
       '/attachments/upload',
       data: form,
+      cancellation: cancellation,
+      onSendProgress: onProgress,
+    );
+    return (result['attachments'] as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  /// A new stream is opened for each attempt, including an auth refresh retry.
+  /// Platform files remain in private storage rather than being copied to bytes.
+  Future<List<Map<String, dynamic>>> uploadStream(
+    String channelId,
+    Stream<List<int>> Function() openRead,
+    int length,
+    String filename, {
+    UploadCancellation? cancellation,
+    void Function(int, int)? onProgress,
+  }) async {
+    final result = await request(
+      'POST',
+      '/attachments/upload',
+      data: FormData.fromMap({
+        'channelId': channelId,
+        'files': MultipartFile.fromStream(openRead, length, filename: filename),
+      }),
       cancellation: cancellation,
       onSendProgress: onProgress,
     );

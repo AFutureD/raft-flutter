@@ -190,7 +190,8 @@ class RootClient extends RaftClient {
 }
 
 class RootFixture {
-  RootFixture({RootCache? cache}) : cache = cache ?? RootCache();
+  RootFixture({RootCache? cache, this.sharing}) : cache = cache ?? RootCache();
+  final NativeSharing? sharing;
   final RootCache cache;
   final engineRoutes = <Map<dynamic, dynamic>>[];
   final adapter = RootAdapter(),
@@ -329,7 +330,7 @@ class RootFixture {
         sessionStore: sessions,
         initialLocation: uri ?? Uri(path: '/'),
         nativeContent: content,
-        nativeSharing: NativeSharing(supported: false),
+        nativeSharing: sharing ?? NativeSharing(supported: false),
         openWorkspaceCache: () async => cache,
         createClient: (origin, store, kind) =>
             client = RootClient(origin, store, kind, adapter),

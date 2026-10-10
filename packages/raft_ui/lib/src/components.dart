@@ -1702,6 +1702,7 @@ class RaftComposer extends StatefulWidget {
     this.canSend = true,
     this.pendingLabel,
     this.initialDraft = '',
+    this.draftRevision = 0,
     this.onDraftChanged,
     this.suggestions = const [],
     this.onSendWithMentions,
@@ -1738,6 +1739,10 @@ class RaftComposer extends StatefulWidget {
   final bool enabled, canSend;
   final String? pendingLabel;
   final String initialDraft;
+
+  /// Owner-initiated draft changes update the mounted editor without changing
+  /// focus. Ordinary draft persistence leaves this revision unchanged.
+  final int draftRevision;
   final ValueChanged<String>? onDraftChanged;
 
   /// Web MessageInput `handlePaste`: a keyboard paste (Ctrl/Cmd+V) first asks
@@ -1988,7 +1993,25 @@ class _RaftComposerState extends State<RaftComposer> {
       widget.handle?._bind(this, insertSender);
     }
     updateSuggestionPortal(defer: true);
-    if (oldWidget.initialDraft != widget.initialDraft &&
+    if (oldWidget.draftRevision != widget.draftRevision) {
+      final value = controller.value, length = widget.initialDraft.length;
+      restoringDraft = true;
+      controller.value = TextEditingValue(
+        text: widget.initialDraft,
+        selection: value.selection.isValid
+            ? TextSelection(
+                baseOffset: value.selection.baseOffset.clamp(0, length),
+                extentOffset: value.selection.extentOffset.clamp(0, length),
+                affinity: value.selection.affinity,
+                isDirectional: value.selection.isDirectional,
+              )
+            : TextSelection.collapsed(offset: length),
+        composing: widget.initialDraft.startsWith(value.text)
+            ? value.composing
+            : TextRange.empty,
+      );
+      restoringDraft = false;
+    } else if (oldWidget.initialDraft != widget.initialDraft &&
         controller.text.isEmpty &&
         !focus.hasFocus &&
         !sending) {

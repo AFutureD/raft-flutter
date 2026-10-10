@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:receive_intent/receive_intent.dart' as intents;
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_flutter/platform/content_links.dart';
@@ -60,35 +61,121 @@ void main() {
       final sharing = NativeSharing(supported: false);
       final received = <String?>[];
       sharing.receive(const IncomingShare(text: 'queued'));
+      sharing.receive(const IncomingShare(text: 'also queued'));
       final unsubscribe = sharing.registerReceiver(
         (s) => received.add('old:${s.text}'),
       );
       sharing.registerReceiver((s) => received.add(s.text));
       unsubscribe();
       sharing.receive(const IncomingShare(text: 'new'));
-      expect(received, ['old:queued', 'new']);
+      expect(received, ['old:queued', 'old:also queued', 'new']);
       await sharing.dispose();
       sharing.receive(const IncomingShare(text: 'closed'));
-      expect(received.length, 2);
+      expect(received.length, 3);
     },
   );
-  test('platform byte read drops late bytes after account changes', () async {
-    const channel = MethodChannel('test.raft.share');
-    final pending = Completer<Uint8List>();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) => pending.future);
-    final sharing = NativeSharing(channel: channel, supported: true);
+  test('plugin byte stream drops late bytes after account changes', () async {
+    final stream = StreamController<Uint8List>();
+    var cancelled = false;
+    stream.onCancel = () => cancelled = true;
+    final sharing = NativeSharing(
+      supported: true,
+      readContent: (_) => stream.stream,
+    );
     var authorized = true;
     final read = sharing.readIncoming(
       const IncomingSharedFile('content://proof/item', 'item', 'text/plain', 1),
       authorized: () => authorized,
     );
+    final checked = expectLater(read, throwsA(isA<PlatformException>()));
+    stream.add(Uint8List.fromList([1]));
+    await Future<void>.delayed(Duration.zero);
     authorized = false;
-    pending.complete(Uint8List.fromList([1]));
-    await expectLater(read, throwsA(isA<PlatformException>()));
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+    stream.add(Uint8List.fromList([2]));
+    await checked;
+    expect(cancelled, isTrue);
+    await stream.close();
+    await sharing.dispose();
   });
+
+  test('file size is bounded before and during plugin streaming', () async {
+    var reads = 0, cancelled = false;
+    final stream = StreamController<Uint8List>();
+    stream.onCancel = () => cancelled = true;
+    final sharing = NativeSharing(
+      supported: true,
+      readContent: (_) {
+        reads++;
+        return stream.stream;
+      },
+    );
+    await expectLater(
+      sharing.readIncoming(
+        const IncomingSharedFile(
+          'content://proof/item',
+          'item',
+          'text/plain',
+          NativeSharing.maxIncomingBytes + 1,
+        ),
+        authorized: () => true,
+      ),
+      throwsA(isA<PlatformException>()),
+    );
+    expect(reads, 0);
+    final read = sharing.readIncoming(
+      const IncomingSharedFile(
+        'content://proof/item',
+        'item',
+        'text/plain',
+        null,
+      ),
+      authorized: () => true,
+    );
+    final checked = expectLater(read, throwsA(isA<PlatformException>()));
+    final chunk = Uint8List(1024 * 1024);
+    for (var i = 0; i < 51; i++) {
+      stream.add(chunk);
+    }
+    await checked;
+    expect(cancelled, isTrue);
+    await stream.close();
+    await sharing.dispose();
+  });
+
+  test(
+    'cold and warm plugin intents are queued in order until a receiver exists',
+    () async {
+      const plugin = MethodChannel('receive_intent');
+      const bridge = MethodChannel('test.raft.share');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      Map<String, dynamic> intent(String text) => {
+        'action': 'android.intent.action.SEND',
+        'extra': '{"android.intent.extra.TEXT":"$text"}',
+      };
+      messenger.setMockMethodCallHandler(plugin, (_) async => intent('cold'));
+      messenger.setMockMethodCallHandler(bridge, (_) async => null);
+      final events = StreamController<intents.Intent?>();
+      final original = intents.ReceiveIntent.receivedIntentStream;
+      intents.ReceiveIntent.receivedIntentStream = events.stream;
+      addTearDown(() {
+        intents.ReceiveIntent.receivedIntentStream = original;
+        messenger.setMockMethodCallHandler(plugin, null);
+        messenger.setMockMethodCallHandler(bridge, null);
+      });
+      final sharing = NativeSharing(channel: bridge, supported: true);
+      await sharing.init();
+      events.add(intents.Intent.fromMap(intent('warm-1')));
+      events.add(intents.Intent.fromMap(intent('warm-2')));
+      await Future<void>.delayed(Duration.zero);
+      final received = <String?>[];
+      sharing.registerReceiver((s) => received.add(s.text));
+      expect(received, ['cold', 'warm-1', 'warm-2']);
+      await sharing.dispose();
+      await events.close();
+    },
+  );
+
   test('real download exports bytes only; leases and stale transfers delete private artifacts', () async {
     final folder = await Directory.systemTemp.createTemp('raft-share-test');
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
