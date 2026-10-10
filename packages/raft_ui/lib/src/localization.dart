@@ -8,6 +8,13 @@ String raftText(BuildContext context, String source) {
   return raftChinese[source] ?? source;
 }
 
+/// Fixed UI copy whose Chinese differs per Web catalog key although the English
+/// source collides (for example `Unassigned`: the task property says 未指派,
+/// the board filter 未分配, the history detail 取消指派). The call site names
+/// the Web key's Chinese; non-Chinese locales show [source].
+String raftTextZh(BuildContext context, String source, String zh) =>
+    Localizations.maybeLocaleOf(context)?.languageCode == 'zh' ? zh : source;
+
 /// Localizes fixed UI copy before inserting untouched user-provided values.
 String raftFormat(
   BuildContext context,
@@ -78,6 +85,11 @@ const raftChinese = <String, String>{
   "Upload canceled": "上传已取消",
   "Open attachment {name}": "打开附件 {name}",
   "Screenshots (up to {count})": "截图（最多 {count} 张）",
+  "Task #{taskNumber}": "任务 #{taskNumber}",
+  "Task #{taskNumber} · LEGACY": "任务 #{taskNumber} · LEGACY",
+  "Task #{taskNumber} · Status: {status}": "任务号：{taskNumber} · 状态：{status}",
+  "Assigned to {name}": "负责人：{name}",
+  "{field}: {from} → {to}": "{field}：{from} → {to}",
   // Hover cards (ExternalIdentityPreviewCard, reaction reactors, runtime usage).
   "From {workspace}": "来自 {workspace}",
   "+{count} more": "等 {count} 人",

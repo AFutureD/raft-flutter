@@ -920,3 +920,23 @@ which rounds single-channel 1-level differences to 0. Per-channel max delta
 * The React baseline was captured from a raft-source checkout at 26f77ef with
   pre-existing local edits (additive diagnostic cases in
   `VisualTestingCases.tsx`); see `build/parity/react-source.json`.
+
+### Tasks board and task detail cases (87 = 9 page + 78 detail, x 3 themes already counted)
+
+`python3 tool/parity-ext/build-task-detail.py` (run last in the chain) appends
+`components.taskspage.<platform>.<state>.<theme>` (states `board`, desktop-only
+`expanded`) and `components.taskdetail.<platform>.<state>.<theme>` (states empty,
+replies, replies-short, history-open, status-todo/in-progress/in-review/done/closed,
+unassigned, assigned, long-title, description; desktop 1280x800 and mobile 390x844 @3x).
+Data: `tool/parity-ext/fixtures/taskdetail.json` (board tasks, per-state detail tasks,
+replies, history; `routes` + `routeSets` answer the API on both providers).
+
+* React (`host/TaskDetailCases.tsx`) mounts the real `MainLayout` on `/s/visual/tasks`; a
+  detail case adds `?task=<channel>:<message>` and the `taskModal` store slot, so the real
+  RightPanel renders Modal + ThreadPanelWrapper (TaskModalBar, TaskModalHead, ThreadPanel).
+  Desktop page cases crop `thread-main-column`; detail cases capture the viewport.
+* Flutter (`cases/ext_task_detail.dart`) mounts the real `WorkspaceView` (section tasks;
+  detail via `navigateTask`) with a fixture client that honours `/tasks/server?status=`.
+* Web facts the cases pin: done/closed lanes start collapsed, mobile defaults to the list
+  view, and on mobile the floating tab bar stays above the task modal composer.
+* Mobile `expanded` is not covered (lazy Flutter list vs Playwright scroll offsets).

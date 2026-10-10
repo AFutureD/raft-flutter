@@ -224,7 +224,10 @@ void main() {
         expect(find.text('Human owner'), findsOneWidget);
         expect(find.text('Agent owner'), findsOneWidget);
         await t.enterText(
-          find.byKey(const ValueKey('task-assignee-search')),
+          find.descendant(
+            of: find.byType(RaftSelectionPopover),
+            matching: find.byType(EditableText),
+          ),
           'Agent',
         );
         await t.pump();
@@ -253,11 +256,11 @@ void main() {
         await flush(t);
         expect(
           t
-              .widget<RaftTextButton>(
+              .widget<RaftInlineBadgeEditor>(
                 find.byKey(const ValueKey('task-properties-assignee')),
               )
-              .onPressed,
-          isNull,
+              .enabled,
+          isFalse,
         );
         expect(api.calls.where((r) => r.method == 'PATCH'), hasLength(2));
         await t.sendKeyEvent(LogicalKeyboardKey.escape);

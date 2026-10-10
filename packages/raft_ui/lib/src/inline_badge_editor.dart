@@ -46,8 +46,14 @@ class RaftInlineBadgeEditor extends StatefulWidget {
     this.alignRight = false,
     this.enabled = true,
     this.tooltip,
+    this.panelBuilder,
   });
   final String label, selectedId;
+
+  /// Replaces the plain option list with a caller panel (Web `searchable`:
+  /// the same SelectionPopover as the search filters). It receives a close
+  /// callback; [options] then only feed semantics and selection checks.
+  final Widget Function(BuildContext context, VoidCallback close)? panelBuilder;
   final List<RaftInlineBadgeOption> options;
   final ValueChanged<String> onSelect;
 
@@ -145,6 +151,13 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
       uppercase: widget.uppercase,
       tokens: rt,
     ).root;
+    // `rounded-full` resolves to a float-max radius; a finite one paints the
+    // same pill (an RRect with an infinite radius degrades to a rectangle).
+    final badgeRadius = badge.borderRadius == null
+        ? null
+        : BorderRadius.circular(
+            badge.borderRadius!.topLeft.x.clamp(0, 9999).toDouble(),
+          );
     final inherited = DefaultTextStyle.of(context).style
         .merge(badge.textStyle(rt));
     final label = inherited.copyWith(
@@ -161,7 +174,7 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
       padding: const EdgeInsets.only(top: 2), // mt-0.5 is outside the button.
       child: CustomPaint(
         foregroundPainter: state.focusVisible
-            ? _BadgeFocusOutline(t.semantic.lineStrong, badge.borderRadius)
+            ? _BadgeFocusOutline(t.semantic.lineStrong, badgeRadius)
             : null,
         child: Container(
           // brutal Badge `h-5`; elegant has no fixed height (py-0.5 + 16px line).
@@ -175,7 +188,7 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
           ),
           decoration: BoxDecoration(
             color: widget.background,
-            borderRadius: badge.borderRadius,
+            borderRadius: badgeRadius,
             border: t.brutal
                 ? Border.all(color: Colors.black, width: 2)
                 : Border.all(color: Colors.transparent),
@@ -184,7 +197,7 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
               // Product InlineBadgeEditor: hover:brightness-90 in both families.
               ? BoxDecoration(
                   color: Colors.black.withValues(alpha: .1),
-                  borderRadius: badge.borderRadius,
+                  borderRadius: badgeRadius,
                 )
               : null,
           child: Row(
@@ -233,26 +246,28 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
                         const SingleActivator(LogicalKeyboardKey.escape): () =>
                             _setOpen(false),
                       },
-                      child: RaftInlineBadgeMenu(
-                        key: menuKey,
-                        autofocus: keyboardEdge != null,
-                        focusLast: keyboardEdge ?? false,
-                        onDismiss: () => _setOpen(false),
-                        minWidth: widget.menuMinWidth,
-                        selectedId: widget.selectedId,
-                        options: widget.options,
-                        onSelect: (id) {
-                          if (!mounted ||
-                              !widget.enabled ||
-                              !isOpen ||
-                              !widget.options.any(
-                                (o) => o.id == id && !o.disabled,
-                              ))
-                            return;
-                          _setOpen(false);
-                          widget.onSelect(id);
-                        },
-                      ),
+                      child: widget.panelBuilder != null
+                          ? widget.panelBuilder!(context, () => _setOpen(false))
+                          : RaftInlineBadgeMenu(
+                              key: menuKey,
+                              autofocus: keyboardEdge != null,
+                              focusLast: keyboardEdge ?? false,
+                              onDismiss: () => _setOpen(false),
+                              minWidth: widget.menuMinWidth,
+                              selectedId: widget.selectedId,
+                              options: widget.options,
+                              onSelect: (id) {
+                                if (!mounted ||
+                                    !widget.enabled ||
+                                    !isOpen ||
+                                    !widget.options.any(
+                                      (o) => o.id == id && !o.disabled,
+                                    ))
+                                  return;
+                                _setOpen(false);
+                                widget.onSelect(id);
+                              },
+                            ),
                     ),
                   ),
                 ),
