@@ -3,6 +3,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../data/source_time_formatter.dart';
+import '../data/workspace_entity_directory.dart';
 import 'chat_view.dart';
 import 'task_surface_controller.dart';
 
@@ -63,6 +64,20 @@ class _SourceTaskSurfaceState extends State<SourceTaskSurface> {
     super.dispose();
   }
 
+  /// Web TaskProperties resolves creator/assignee display names from the
+  /// channel members; the workspace directory carries the same names.
+  String? displayName(String type, String id) {
+    final directory = o.parent.entityDirectory;
+    final row = type == 'agent'
+        ? directory
+              .rows(WorkspaceEntityKind.agents)
+              .where((r) => r['id'] == id)
+              .firstOrNull
+        : directory.member(id);
+    final name = row?['displayName'] ?? row?['name'];
+    return name is String && name.isNotEmpty ? name : null;
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: o,
@@ -96,6 +111,7 @@ class _SourceTaskSurfaceState extends State<SourceTaskSurface> {
         assignees: o.assignees,
         legacy: o.legacy,
         legacyPresentation: widget.legacyPresentation,
+        displayNameFor: displayName,
         loading: o.loading,
         historyLoading: o.historyLoading,
         busy: o.busy,

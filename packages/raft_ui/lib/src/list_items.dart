@@ -576,10 +576,16 @@ class RaftSelectionPopover extends StatelessWidget {
     this.emptyLabel = 'No options',
     this.width,
     this.surfaceStyle,
+    this.brutalProductShadow = false,
   });
 
   final String title;
   final List<RaftSelectionOption> options;
+
+  /// A caller surface that names the product `theme-brutal:shadow-brutal`
+  /// utility (not a recipe class): brutal paints that shadow instead of the
+  /// recipe's.
+  final bool brutalProductShadow;
 
   /// Shows the Clear action when non-null (`showClear && onClear`).
   final VoidCallback? onClear;
@@ -720,7 +726,8 @@ class RaftSelectionPopover extends StatelessWidget {
         padding: EdgeInsets.zero,
         // Source's theme-brutal:shadow-brutal is a product utility. It replaces
         // the default recipe shadow; an explicit caller recipe owns its shadows.
-        decorationOverride: surfaceStyle == null && t.brutal
+        decorationOverride:
+            (surfaceStyle == null || brutalProductShadow) && t.brutal
             ? (decoration) => decoration.copyWith(
                 boxShadow: RaftProductShadows.shadowBrutal.paintOrder,
               )

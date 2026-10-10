@@ -2215,24 +2215,26 @@ class _RaftChatViewState extends State<RaftChatView>
     );
   }
 
-  Widget threadTopSliver({bool loading = false}) => RaftThreadTimelineTopSliver(
-    parentSlot: widget.threadParentSlot,
-    parent: widget.hideThreadParent || w.presentedThreadParent == null
-        ? null
-        : tile(w.presentedThreadParent!, parent: true),
-    hasMore: loading || w.threadHasMore,
-    historyLimited: w.threadHistoryLimited,
-    loadingOlder: loading || w.loadingOlder,
-    loadingOlderLabel: raftText(context, 'Loading...'),
-    historyLimitedLabel: raftText(
-      context,
-      'Earlier messages are unavailable due to plan limits.',
-    ),
-    beginningLabel: raftText(context, 'Beginning of replies'),
-    replyCountLabel: raftFormat(context, '{count} replies', {
-      'count': rows.length,
-    }),
-  );
+  Widget threadTopSliver({bool loading = false, bool summary = true}) =>
+      RaftThreadTimelineTopSliver(
+        showSummary: summary,
+        parentSlot: widget.threadParentSlot,
+        parent: widget.hideThreadParent || w.presentedThreadParent == null
+            ? null
+            : tile(w.presentedThreadParent!, parent: true),
+        hasMore: loading || w.threadHasMore,
+        historyLimited: w.threadHistoryLimited,
+        loadingOlder: loading || w.loadingOlder,
+        loadingOlderLabel: raftText(context, 'Loading...'),
+        historyLimitedLabel: raftText(
+          context,
+          'Earlier messages are unavailable due to plan limits.',
+        ),
+        beginningLabel: raftText(context, 'Beginning of replies'),
+        replyCountLabel: raftFormat(context, '{count} replies', {
+          'count': rows.length,
+        }),
+      );
 
   // id -> index over the displayed window, rebuilt when the window changes;
   // rows used to project and scan the whole channel on every build.
@@ -2314,8 +2316,7 @@ class _RaftChatViewState extends State<RaftChatView>
   }
 
   Widget tile(RaftMessage m, {bool parent = false, bool captureFocus = true}) {
-    final selectable =
-        selection.active && m.string('messageType') != 'system';
+    final selectable = selection.active && m.string('messageType') != 'system';
     final checked = selectable && selection.ids.contains(m.id);
     // Web MessageMultiSelectCheckbox: circle, size lg, primary variant, in the
     // row's flex line before the avatar (the row owns `mt-1.5` and the gap).
@@ -2368,12 +2369,15 @@ class _RaftChatViewState extends State<RaftChatView>
     final List<Widget> header;
     if (widget.thread) {
       header = [
-        threadTopSliver(loading: loading),
+        // Web ThreadPanel: no replies (not loading) is the parent plus an
+        // EmptyState (icon + title) with no history/reply-count header.
+        threadTopSliver(loading: loading, summary: loading || !empty),
         if (!loading && empty)
           RaftTimelineSparseFill(
-            child: RaftEmptyState(
+            child: RaftProductEmptyState(
               title: raftText(context, 'No replies yet'),
-              detail: raftText(context, 'Reply to start a thread.'),
+              icon: (context, size, color) =>
+                  RaftThreadIcon(size: size, color: color),
             ),
           ),
       ];

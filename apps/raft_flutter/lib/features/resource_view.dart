@@ -2892,8 +2892,7 @@ class _ResourceViewState extends State<ResourceView> {
     'done' => 'Items you mark done appear here and can be restored.',
     _ when advanced.channelId != null =>
       'Try another channel or clear the channel filter.',
-    'mentions' =>
-      'Channels, DMs, and threads where someone @mentions you will appear here.',
+    'mentions' => 'Channels, DMs, and threads where someone @mentions you will appear here.',
     _ => 'Channels, DMs, and followed threads stay here until they are done.',
   };
 
@@ -3199,9 +3198,8 @@ class _ResourceViewState extends State<ResourceView> {
     final controller = w;
     final identity = SourceReadAllIdentity.capture(controller.client);
     try {
-      final receipt = await SourceReadAllTransport.of(
-        controller.client,
-      ).readAll(scopeId, identity: identity);
+      final receipt = await SourceReadAllTransport.of(controller.client)
+          .readAll(scopeId, identity: identity);
       if (identity.current(controller.client)) {
         controller.acceptReadAllAck(
           scopeId,
@@ -4311,7 +4309,11 @@ class _ResourceViewState extends State<ResourceView> {
                         ? channelOptions
                         : <String, String>{
                             if (field == 'Assignee')
-                              'unassigned': raftText(context, 'Unassigned'),
+                              'unassigned': raftTextZh(
+                                context,
+                                'Unassigned',
+                                '未分配',
+                              ),
                             if (self != null)
                               'user:${self.id}': raftText(
                                 context,
@@ -4552,103 +4554,54 @@ class _ResourceViewState extends State<ResourceView> {
                       );
                     }
                   },
-                  builder: (context, candidates, rejected) => SizedBox(
-                    width: 320,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: candidates.isNotEmpty
-                            ? t.colors['primary-soft']
-                            : t.brutal
-                            ? t.panel.withValues(alpha: .3)
-                            : t.colors['fill-muted']!.withValues(alpha: .3),
-                        border: Border.all(
-                          color: candidates.isNotEmpty
-                              ? t.strong
-                              : t.brutal
-                              ? t.strong.withValues(alpha: .2)
-                              : t.colors['line-muted']!,
-                          width: t.border,
-                        ),
-                        borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-                      ),
+                  builder: (context, candidates, rejected) => RaftTaskBoardColumn(
+                    status: status,
+                    count:
+                        '${(lanes[status] ?? []).where(matchesTask).length}${laneCursors[status] != null ? '+' : ''}',
+                    collapsed: collapsedTaskStatuses.contains(status),
+                    dropActive: candidates.isNotEmpty,
+                    triggerKey: ValueKey('task-group-$status'),
+                    onToggle: () {
+                      if (accepts(scope)) {
+                        setState(() {
+                          if (!collapsedTaskStatuses.remove(status)) {
+                            collapsedTaskStatuses.add(status);
+                          }
+                        });
+                      }
+                    },
+                    body: SingleChildScrollView(
+                      primary: false,
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        spacing:
+                            RaftResourceMetrics.gap2_5, // taskBoardColumn items
                         children: [
-                          Row(
-                            children: [
-                              RaftTaskStatus(status: status),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${(lanes[status] ?? []).where(matchesTask).length}${laneCursors[status] != null ? '+' : ''}',
-                                style: RaftTypography.mono(t),
-                              ),
-                              const Spacer(),
-                              RaftIconButton(
-                                glyph: collapsedTaskStatuses.contains(status)
-                                    ? RaftGlyph.chevronRight
-                                    : RaftGlyph.chevronDown,
-                                key: ValueKey('task-group-$status'),
-                                tooltip:
-                                    '${collapsedTaskStatuses.contains(status) ? 'Show' : 'Hide'} ${raftTaskStatusLabel(status)} tasks',
-                                onPressed: () {
-                                  if (accepts(scope)) {
-                                    setState(() {
-                                      if (!collapsedTaskStatuses.remove(
-                                        status,
-                                      )) {
-                                        collapsedTaskStatuses.add(status);
-                                      }
-                                    });
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          if (!collapsedTaskStatuses.contains(status)) ...[
-                            const SizedBox(height: 12),
-                            Flexible(
-                              child: SingleChildScrollView(
-                                primary: false,
-                                child: Column(
-                                  spacing: RaftResourceMetrics
-                                      .gap2_5, // taskBoardColumn items
-                                  children: [
-                                    for (final row in sortedLane(
-                                      (lanes[status] ?? [])
-                                          .where(matchesTask)
-                                          .toList(),
-                                    ))
-                                      KeyedSubtree(
-                                        // The drag source follows its task
-                                        // when rows land above it.
-                                        key: ValueKey('task-drag-${row['id']}'),
-                                        child: draggableTask(row, scope),
-                                      ),
-                                    if (!(lanes[status] ?? []).any(matchesTask))
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 20,
-                                        ),
-                                        child: Text(
-                                          '${raftText(context, 'No tasks')} · ${raftTaskStatusLabel(status)}',
-                                          style: TextStyle(color: t.muted),
-                                        ),
-                                      ),
-                                    if (laneCursors[status] != null)
-                                      RaftTextButton(
-                                        label: laneBusy.contains(status)
-                                            ? 'Loading…'
-                                            : 'Load more ${raftTaskStatusLabel(status)}',
-                                        onPressed: laneBusy.contains(status)
-                                            ? null
-                                            : () => moreLane(status),
-                                      ),
-                                  ],
-                                ),
+                          for (final row in sortedLane(
+                            (lanes[status] ?? []).where(matchesTask).toList(),
+                          ))
+                            KeyedSubtree(
+                              // The drag source follows its task
+                              // when rows land above it.
+                              key: ValueKey('task-drag-${row['id']}'),
+                              child: draggableTask(row, scope),
+                            ),
+                          if (!(lanes[status] ?? []).any(matchesTask))
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              child: Text(
+                                '${raftText(context, 'No tasks')} · ${raftTaskStatusLabel(status)}',
+                                style: TextStyle(color: t.muted),
                               ),
                             ),
-                          ],
+                          if (laneCursors[status] != null)
+                            RaftTextButton(
+                              label: laneBusy.contains(status)
+                                  ? 'Loading…'
+                                  : 'Load more ${raftTaskStatusLabel(status)}',
+                              onPressed: laneBusy.contains(status)
+                                  ? null
+                                  : () => moreLane(status),
+                            ),
                         ],
                       ),
                     ),

@@ -170,9 +170,8 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
     // full read then revalidates it in place.
     final known = seeded || legacy || knownChannel == null
         ? null
-        : MessageTaskCache.of(
-            w.client,
-          ).tasks(w, anchor.channelId)?[anchor.itemId];
+        : MessageTaskCache.of(w.client)
+              .tasks(w, anchor.channelId)?[anchor.itemId];
     final accepted = seeded
         ? seed!.row
         : known == null
@@ -272,8 +271,9 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
         ? RaftLegacyTaskPresentation.mobileModal
         : RaftLegacyTaskPresentation.modal;
     final t = RaftTokens.of(context);
-    final mobileTaskFooter =
-        legacy && tasksRoute && viewport.width < 768 && t.brutal
+    // Web's mobile task surface is `absolute inset-0` inside the main area,
+    // above which the brutal footer navigation stays visible.
+    final mobileTaskFooter = tasksRoute && viewport.width < 768 && t.brutal
         ? RaftMobileNavRecipe(t, viewportHeight: viewport.height).itemHeight + 2
         : 0.0;
     return Stack(

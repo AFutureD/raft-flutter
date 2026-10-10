@@ -18869,6 +18869,3936 @@
     "ignoreAntialiasing": true
    },
    "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
+  },
+  {
+   "id": "components.taskspage.desktop.board.brutal",
+   "title": "Tasks page desktop board (platform default view; done/closed collapsed) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.board",
+      "extKind": "taskspage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "board"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"thread-main-column\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.board'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Web opens in board view on desktop and list view on mobile; Done and Closed start collapsed."
+  },
+  {
+   "id": "components.taskspage.desktop.board.elegant",
+   "title": "Tasks page desktop board (platform default view; done/closed collapsed) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.board",
+      "extKind": "taskspage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "board"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"thread-main-column\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.board'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Web opens in board view on desktop and list view on mobile; Done and Closed start collapsed."
+  },
+  {
+   "id": "components.taskspage.desktop.board.elegant-dark",
+   "title": "Tasks page desktop board (platform default view; done/closed collapsed) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.board",
+      "extKind": "taskspage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "board"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"thread-main-column\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.board'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Web opens in board view on desktop and list view on mobile; Done and Closed start collapsed."
+  },
+  {
+   "id": "components.taskspage.desktop.expanded.brutal",
+   "title": "Tasks page desktop with Done and Closed expanded (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.expanded",
+      "extKind": "taskspage",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "expanded"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"thread-main-column\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[aria-label=\"Show Done\"]"
+     },
+     {
+      "type": "click",
+      "target": "[aria-label=\"Show Closed\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-group-done"
+     },
+     {
+      "type": "tap",
+      "key": "task-group-closed"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskspage.desktop.expanded.elegant",
+   "title": "Tasks page desktop with Done and Closed expanded (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.expanded",
+      "extKind": "taskspage",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "expanded"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"thread-main-column\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[aria-label=\"Show Done\"]"
+     },
+     {
+      "type": "click",
+      "target": "[aria-label=\"Show Closed\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-group-done"
+     },
+     {
+      "type": "tap",
+      "key": "task-group-closed"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskspage.desktop.expanded.elegant-dark",
+   "title": "Tasks page desktop with Done and Closed expanded (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.expanded",
+      "extKind": "taskspage",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "expanded"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"thread-main-column\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[aria-label=\"Show Done\"]"
+     },
+     {
+      "type": "click",
+      "target": "[aria-label=\"Show Closed\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-group-done"
+     },
+     {
+      "type": "tap",
+      "key": "task-group-closed"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskspage.mobile.board.brutal",
+   "title": "Tasks page mobile board (platform default view; done/closed collapsed) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.board",
+      "extKind": "taskspage",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "board"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.board'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Web opens in board view on desktop and list view on mobile; Done and Closed start collapsed."
+  },
+  {
+   "id": "components.taskspage.mobile.board.elegant",
+   "title": "Tasks page mobile board (platform default view; done/closed collapsed) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.board",
+      "extKind": "taskspage",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "board"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.board'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Web opens in board view on desktop and list view on mobile; Done and Closed start collapsed."
+  },
+  {
+   "id": "components.taskspage.mobile.board.elegant-dark",
+   "title": "Tasks page mobile board (platform default view; done/closed collapsed) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskspage",
+   "category": "extension/taskspage",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.board",
+      "extKind": "taskspage",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "board"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TasksPanel.tsx (+ TaskCard, layout/MainLayout.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.board'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   },
+   "notes": "Web opens in board view on desktop and list view on mobile; Done and Closed start collapsed."
+  },
+  {
+   "id": "components.taskdetail.desktop.empty.brutal",
+   "title": "Task detail desktop no replies (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.empty",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "empty",
+      "detail": "empty",
+      "routeSet": "td-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.empty.elegant",
+   "title": "Task detail desktop no replies (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.empty",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "empty",
+      "detail": "empty",
+      "routeSet": "td-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.empty.elegant-dark",
+   "title": "Task detail desktop no replies (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.empty",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "empty",
+      "detail": "empty",
+      "routeSet": "td-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.replies.brutal",
+   "title": "Task detail desktop replies from a human and an agent (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.replies",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "replies",
+      "detail": "replies",
+      "routeSet": "td-replies"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.replies'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.replies.elegant",
+   "title": "Task detail desktop replies from a human and an agent (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.replies",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "replies",
+      "detail": "replies",
+      "routeSet": "td-replies"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.replies'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.replies.elegant-dark",
+   "title": "Task detail desktop replies from a human and an agent (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.replies",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "replies",
+      "detail": "replies",
+      "routeSet": "td-replies"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.replies'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.replies-short.brutal",
+   "title": "Task detail desktop two short replies (no scrolling) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.replies-short",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "replies-short",
+      "detail": "replies-short",
+      "routeSet": "td-replies-short"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.replies-short'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.replies-short.elegant",
+   "title": "Task detail desktop two short replies (no scrolling) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.replies-short",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "replies-short",
+      "detail": "replies-short",
+      "routeSet": "td-replies-short"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.replies-short'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.replies-short.elegant-dark",
+   "title": "Task detail desktop two short replies (no scrolling) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.replies-short",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "replies-short",
+      "detail": "replies-short",
+      "routeSet": "td-replies-short"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.replies-short'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.history-open.brutal",
+   "title": "Task detail desktop History expanded (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.history-open",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "history-open",
+      "detail": "history",
+      "routeSet": "td-history"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "button:has-text(\"History\")"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-properties-history"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.history-open'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.history-open.elegant",
+   "title": "Task detail desktop History expanded (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.history-open",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "history-open",
+      "detail": "history",
+      "routeSet": "td-history"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "button:has-text(\"History\")"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-properties-history"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.history-open'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.history-open.elegant-dark",
+   "title": "Task detail desktop History expanded (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.history-open",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "history-open",
+      "detail": "history",
+      "routeSet": "td-history"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "button:has-text(\"History\")"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-properties-history"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.history-open'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-todo.brutal",
+   "title": "Task detail desktop status todo (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-todo",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "status-todo",
+      "detail": "todo",
+      "routeSet": "td-todo"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-todo'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-todo.elegant",
+   "title": "Task detail desktop status todo (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-todo",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "status-todo",
+      "detail": "todo",
+      "routeSet": "td-todo"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-todo'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-todo.elegant-dark",
+   "title": "Task detail desktop status todo (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-todo",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "status-todo",
+      "detail": "todo",
+      "routeSet": "td-todo"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-todo'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-in-progress.brutal",
+   "title": "Task detail desktop status in progress (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-in-progress",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "status-in-progress",
+      "detail": "in-progress",
+      "routeSet": "td-in-progress"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-in-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-in-progress.elegant",
+   "title": "Task detail desktop status in progress (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-in-progress",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "status-in-progress",
+      "detail": "in-progress",
+      "routeSet": "td-in-progress"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-in-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-in-progress.elegant-dark",
+   "title": "Task detail desktop status in progress (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-in-progress",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "status-in-progress",
+      "detail": "in-progress",
+      "routeSet": "td-in-progress"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-in-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-in-review.brutal",
+   "title": "Task detail desktop status in review (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-in-review",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "status-in-review",
+      "detail": "in-review",
+      "routeSet": "td-in-review"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-in-review'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-in-review.elegant",
+   "title": "Task detail desktop status in review (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-in-review",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "status-in-review",
+      "detail": "in-review",
+      "routeSet": "td-in-review"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-in-review'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-in-review.elegant-dark",
+   "title": "Task detail desktop status in review (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-in-review",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "status-in-review",
+      "detail": "in-review",
+      "routeSet": "td-in-review"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-in-review'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-done.brutal",
+   "title": "Task detail desktop status done (assignee read-only) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-done",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "status-done",
+      "detail": "done",
+      "routeSet": "td-done"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-done'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-done.elegant",
+   "title": "Task detail desktop status done (assignee read-only) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-done",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "status-done",
+      "detail": "done",
+      "routeSet": "td-done"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-done'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-done.elegant-dark",
+   "title": "Task detail desktop status done (assignee read-only) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-done",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "status-done",
+      "detail": "done",
+      "routeSet": "td-done"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-done'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-closed.brutal",
+   "title": "Task detail desktop status closed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-closed",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "status-closed",
+      "detail": "closed",
+      "routeSet": "td-closed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-closed.elegant",
+   "title": "Task detail desktop status closed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-closed",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "status-closed",
+      "detail": "closed",
+      "routeSet": "td-closed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.status-closed.elegant-dark",
+   "title": "Task detail desktop status closed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.status-closed",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "status-closed",
+      "detail": "closed",
+      "routeSet": "td-closed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.status-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.unassigned.brutal",
+   "title": "Task detail desktop unassigned (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.unassigned",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "unassigned",
+      "detail": "unassigned",
+      "routeSet": "td-unassigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.unassigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.unassigned.elegant",
+   "title": "Task detail desktop unassigned (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.unassigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "unassigned",
+      "detail": "unassigned",
+      "routeSet": "td-unassigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.unassigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.unassigned.elegant-dark",
+   "title": "Task detail desktop unassigned (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.unassigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "unassigned",
+      "detail": "unassigned",
+      "routeSet": "td-unassigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.unassigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.assigned.brutal",
+   "title": "Task detail desktop assigned (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.assigned",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "assigned",
+      "detail": "assigned",
+      "routeSet": "td-assigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.assigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.assigned.elegant",
+   "title": "Task detail desktop assigned (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.assigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "assigned",
+      "detail": "assigned",
+      "routeSet": "td-assigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.assigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.assigned.elegant-dark",
+   "title": "Task detail desktop assigned (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.assigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "assigned",
+      "detail": "assigned",
+      "routeSet": "td-assigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.assigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.long-title.brutal",
+   "title": "Task detail desktop long title (three-line clamp) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long-title",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "long-title",
+      "detail": "long-title",
+      "routeSet": "td-long-title"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.long-title.elegant",
+   "title": "Task detail desktop long title (three-line clamp) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long-title",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "long-title",
+      "detail": "long-title",
+      "routeSet": "td-long-title"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.long-title.elegant-dark",
+   "title": "Task detail desktop long title (three-line clamp) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long-title",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "long-title",
+      "detail": "long-title",
+      "routeSet": "td-long-title"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.description.brutal",
+   "title": "Task detail desktop long description (Show more) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.description",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "state": "description",
+      "detail": "description",
+      "routeSet": "td-description"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.description'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.description.elegant",
+   "title": "Task detail desktop long description (Show more) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.description",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "state": "description",
+      "detail": "description",
+      "routeSet": "td-description"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.description'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.desktop.description.elegant-dark",
+   "title": "Task detail desktop long description (Show more) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.description",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "state": "description",
+      "detail": "description",
+      "routeSet": "td-description"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'desktop.description'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.empty.brutal",
+   "title": "Task detail mobile no replies (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.empty",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "empty",
+      "detail": "empty",
+      "routeSet": "td-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.empty.elegant",
+   "title": "Task detail mobile no replies (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.empty",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "empty",
+      "detail": "empty",
+      "routeSet": "td-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.empty.elegant-dark",
+   "title": "Task detail mobile no replies (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.empty",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "empty",
+      "detail": "empty",
+      "routeSet": "td-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.replies.brutal",
+   "title": "Task detail mobile replies from a human and an agent (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.replies",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "replies",
+      "detail": "replies",
+      "routeSet": "td-replies"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.replies'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.replies.elegant",
+   "title": "Task detail mobile replies from a human and an agent (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.replies",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "replies",
+      "detail": "replies",
+      "routeSet": "td-replies"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.replies'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.replies.elegant-dark",
+   "title": "Task detail mobile replies from a human and an agent (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.replies",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "replies",
+      "detail": "replies",
+      "routeSet": "td-replies"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.replies'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.replies-short.brutal",
+   "title": "Task detail mobile two short replies (no scrolling) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.replies-short",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "replies-short",
+      "detail": "replies-short",
+      "routeSet": "td-replies-short"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.replies-short'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.replies-short.elegant",
+   "title": "Task detail mobile two short replies (no scrolling) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.replies-short",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "replies-short",
+      "detail": "replies-short",
+      "routeSet": "td-replies-short"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.replies-short'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.replies-short.elegant-dark",
+   "title": "Task detail mobile two short replies (no scrolling) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.replies-short",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "replies-short",
+      "detail": "replies-short",
+      "routeSet": "td-replies-short"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.replies-short'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.history-open.brutal",
+   "title": "Task detail mobile History expanded (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.history-open",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "history-open",
+      "detail": "history",
+      "routeSet": "td-history"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "button:has-text(\"History\")"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-properties-history"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.history-open'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.history-open.elegant",
+   "title": "Task detail mobile History expanded (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.history-open",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "history-open",
+      "detail": "history",
+      "routeSet": "td-history"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "button:has-text(\"History\")"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-properties-history"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.history-open'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.history-open.elegant-dark",
+   "title": "Task detail mobile History expanded (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.history-open",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "history-open",
+      "detail": "history",
+      "routeSet": "td-history"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "button:has-text(\"History\")"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "task-properties-history"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.history-open'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-todo.brutal",
+   "title": "Task detail mobile status todo (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-todo",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "status-todo",
+      "detail": "todo",
+      "routeSet": "td-todo"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-todo'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-todo.elegant",
+   "title": "Task detail mobile status todo (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-todo",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "status-todo",
+      "detail": "todo",
+      "routeSet": "td-todo"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-todo'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-todo.elegant-dark",
+   "title": "Task detail mobile status todo (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-todo",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "status-todo",
+      "detail": "todo",
+      "routeSet": "td-todo"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-todo'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-in-progress.brutal",
+   "title": "Task detail mobile status in progress (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-in-progress",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "status-in-progress",
+      "detail": "in-progress",
+      "routeSet": "td-in-progress"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-in-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-in-progress.elegant",
+   "title": "Task detail mobile status in progress (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-in-progress",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "status-in-progress",
+      "detail": "in-progress",
+      "routeSet": "td-in-progress"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-in-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-in-progress.elegant-dark",
+   "title": "Task detail mobile status in progress (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-in-progress",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "status-in-progress",
+      "detail": "in-progress",
+      "routeSet": "td-in-progress"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-in-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-in-review.brutal",
+   "title": "Task detail mobile status in review (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-in-review",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "status-in-review",
+      "detail": "in-review",
+      "routeSet": "td-in-review"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-in-review'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-in-review.elegant",
+   "title": "Task detail mobile status in review (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-in-review",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "status-in-review",
+      "detail": "in-review",
+      "routeSet": "td-in-review"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-in-review'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-in-review.elegant-dark",
+   "title": "Task detail mobile status in review (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-in-review",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "status-in-review",
+      "detail": "in-review",
+      "routeSet": "td-in-review"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-in-review'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-done.brutal",
+   "title": "Task detail mobile status done (assignee read-only) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-done",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "status-done",
+      "detail": "done",
+      "routeSet": "td-done"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-done'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-done.elegant",
+   "title": "Task detail mobile status done (assignee read-only) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-done",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "status-done",
+      "detail": "done",
+      "routeSet": "td-done"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-done'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-done.elegant-dark",
+   "title": "Task detail mobile status done (assignee read-only) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-done",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "status-done",
+      "detail": "done",
+      "routeSet": "td-done"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-done'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-closed.brutal",
+   "title": "Task detail mobile status closed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-closed",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "status-closed",
+      "detail": "closed",
+      "routeSet": "td-closed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-closed.elegant",
+   "title": "Task detail mobile status closed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-closed",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "status-closed",
+      "detail": "closed",
+      "routeSet": "td-closed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.status-closed.elegant-dark",
+   "title": "Task detail mobile status closed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.status-closed",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "status-closed",
+      "detail": "closed",
+      "routeSet": "td-closed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.status-closed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.unassigned.brutal",
+   "title": "Task detail mobile unassigned (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.unassigned",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "unassigned",
+      "detail": "unassigned",
+      "routeSet": "td-unassigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.unassigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.unassigned.elegant",
+   "title": "Task detail mobile unassigned (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.unassigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "unassigned",
+      "detail": "unassigned",
+      "routeSet": "td-unassigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.unassigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.unassigned.elegant-dark",
+   "title": "Task detail mobile unassigned (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.unassigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "unassigned",
+      "detail": "unassigned",
+      "routeSet": "td-unassigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.unassigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.assigned.brutal",
+   "title": "Task detail mobile assigned (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.assigned",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "assigned",
+      "detail": "assigned",
+      "routeSet": "td-assigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.assigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.assigned.elegant",
+   "title": "Task detail mobile assigned (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.assigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "assigned",
+      "detail": "assigned",
+      "routeSet": "td-assigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.assigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.assigned.elegant-dark",
+   "title": "Task detail mobile assigned (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.assigned",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "assigned",
+      "detail": "assigned",
+      "routeSet": "td-assigned"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.assigned'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.long-title.brutal",
+   "title": "Task detail mobile long title (three-line clamp) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.long-title",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "long-title",
+      "detail": "long-title",
+      "routeSet": "td-long-title"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.long-title.elegant",
+   "title": "Task detail mobile long title (three-line clamp) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.long-title",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "long-title",
+      "detail": "long-title",
+      "routeSet": "td-long-title"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.long-title.elegant-dark",
+   "title": "Task detail mobile long title (three-line clamp) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.long-title",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "long-title",
+      "detail": "long-title",
+      "routeSet": "td-long-title"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.description.brutal",
+   "title": "Task detail mobile long description (Show more) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.description",
+      "extKind": "taskdetail",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "state": "description",
+      "detail": "description",
+      "routeSet": "td-description"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.description'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.description.elegant",
+   "title": "Task detail mobile long description (Show more) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.description",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "state": "description",
+      "detail": "description",
+      "routeSet": "td-description"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.description'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.taskdetail.mobile.description.elegant-dark",
+   "title": "Task detail mobile long description (Show more) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "taskdetail",
+   "category": "extension/taskdetail",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.description",
+      "extKind": "taskdetail",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "state": "description",
+      "detail": "description",
+      "routeSet": "td-description"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"task-modal-title\"]",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/task/TaskModalHead.tsx + layout/MainLayout.tsx (TaskModalBar, ThreadPanelWrapper)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_task_detail.dart 'mobile.description'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }
