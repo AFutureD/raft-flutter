@@ -564,7 +564,9 @@ void main() {
       await tester.tap(find.text('New Task'));
       await tester.pumpAndSettle();
       final submit = tester
-          .widget<RaftFormDialog>(find.byType(RaftFormDialog))
+          .widget<RaftCreateTaskDialogView>(
+            find.byType(RaftCreateTaskDialogView),
+          )
           .onSubmit;
       w.channels = [
         RaftChannel({
@@ -576,11 +578,8 @@ void main() {
       ];
       w.notifyListeners();
       await tester.pumpAndSettle();
-      expect(find.byType(RaftFormDialog), findsNothing);
-      await expectLater(
-        submit({'channel': 'c1', 'title': 'Old form', 'description': ''}),
-        throwsA(isA<RaftApiException>()),
-      );
+      expect(find.byType(RaftCreateTaskDialogView), findsNothing);
+      await expectLater(Future.sync(submit), throwsA(isA<RaftApiException>()));
       expect(
         a.calls.where(
           (o) => o.method == 'POST' && o.path.startsWith('/tasks/'),

@@ -61,6 +61,19 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
 
   Future<void> submit() async {
     if (submitting) return;
+    // The channel must still be joinable by this account; a retained submit
+    // of a closed form fails instead of writing.
+    final joined = widget.controller.channels.any(
+      (c) => c.id == widget.channelId && c.joined && !c.archived,
+    );
+    if (!mounted || !joined) {
+      const message = 'Channel access changed. Reopen this form.';
+      if (mounted) {
+        setState(() => error = raftText(context, message));
+        return;
+      }
+      throw const RaftApiException(message);
+    }
     final nonEmpty = [
       for (final c in titles)
         if (c.text.trim().isNotEmpty) c.text.trim(),

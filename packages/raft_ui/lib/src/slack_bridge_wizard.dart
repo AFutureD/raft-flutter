@@ -134,13 +134,12 @@ class RaftSlackWizardView extends StatelessWidget {
     FontWeight weight = FontWeight.w400,
     Color? color,
     double tracking = 0,
-  }) => RaftTypography.body(
+  }) => RaftTypography.heading(
     t,
     size: size,
     line: line ?? size * 1.5,
     weight: weight,
-    color: color ?? t.strong,
-  ).copyWith(letterSpacing: tracking);
+  ).copyWith(color: color ?? t.strong, letterSpacing: tracking);
 
   @override
   Widget build(BuildContext context) {
@@ -369,7 +368,7 @@ class RaftSlackWizardView extends StatelessWidget {
             spacing: 12,
             children: [
               if (checks.isNotEmpty)
-                _preflightResults(context, t, s, topGap: false)
+                _preflightResults(context, t, s)
               else
                 RaftBanner(
                   description: 'Preflight has not passed. The bridge cannot be enabled.',
@@ -479,29 +478,22 @@ class RaftSlackWizardView extends StatelessWidget {
     Widget pairGrid() => LayoutBuilder(
       builder: (context, box) {
         if (box.maxWidth >= 600) {
-          // sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto], gap-x-2 gap-y-1;
-          // the hint sits under the Slack select, the actions beside it.
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          // sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto], gap-x-2 gap-y-1:
+          // the hint sits under the Slack field, the actions bottom-align with
+          // the selects (a 58px field: label 16 + 10 + select 32).
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 8,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                spacing: 8,
-                children: [
-                  Expanded(child: raftSelect),
-                  Expanded(child: slackSelect),
-                  actions,
-                ],
+              Expanded(child: raftSelect),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 4,
+                  children: [slackSelect, hint],
+                ),
               ),
-              const SizedBox(height: 4),
-              Row(
-                spacing: 8,
-                children: [
-                  const Spacer(),
-                  Expanded(child: hint),
-                  Opacity(opacity: 0, child: ExcludeSemantics(child: actions)),
-                ],
-              ),
+              Padding(padding: const EdgeInsets.only(top: 26), child: actions),
             ],
           );
         }
@@ -536,7 +528,7 @@ class RaftSlackWizardView extends StatelessWidget {
               spacing: 8,
               children: [
                 for (var i = 0; i < pairLabels.length; i++)
-                  _pairRow(context, t, s, pairLabels[i], removable: canManage ? () => onRemovePair?.call(i) : null),
+                  _pairRow(context, t, s, pairLabels[i], index: i, removable: canManage ? () => onRemovePair?.call(i) : null),
               ],
             ),
           if (pairInvalid && pairLabels.isNotEmpty)
@@ -555,7 +547,7 @@ class RaftSlackWizardView extends StatelessWidget {
     );
   }
 
-  Widget _pairRow(BuildContext context, RaftTokens t, RaftSettingsText s, String label, {VoidCallback? removable}) =>
+  Widget _pairRow(BuildContext context, RaftTokens t, RaftSettingsText s, String label, {VoidCallback? removable, int index = 0}) =>
       RaftSnappedDecoratedBox(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -569,6 +561,7 @@ class RaftSlackWizardView extends StatelessWidget {
             Expanded(child: _pairText(t, s, label)),
             if (removable != null)
               RaftSettingsRecipeButton(
+                key: ValueKey('slack-bridge-remove-pair-$index'),
                 label: '',
                 glyph: RaftGlyph.trash2,
                 glyphSize: 12,
@@ -726,6 +719,7 @@ class RaftSlackWizardView extends StatelessWidget {
             const SizedBox(height: 16),
             RaftBanner(
               title: recoveryTitle,
+              titleGap: t.brutal ? null : 4,
               description: recoveryDescription ?? '',
               status: RaftBannerRecipeStatus.warning,
               size: RaftBannerRecipeSize.sm,

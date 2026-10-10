@@ -3,6 +3,8 @@
 // title Input per row (a danger `p-1` trash button once there are several),
 // an outline "Add Another" button and Cancel / Create Task(s). The app adapter
 // owns the rows' controllers and the create command.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'banner.dart';
@@ -29,7 +31,10 @@ class RaftCreateTaskDialogView extends StatelessWidget {
 
   /// Rows with a non-blank title (the submit button's `count`).
   final int filledCount;
-  final VoidCallback onClose, onSubmit, onAddRow;
+  final VoidCallback onClose, onAddRow;
+
+  /// Creates the tasks (the adapter's request may be asynchronous).
+  final FutureOr<void> Function() onSubmit;
   final ValueChanged<int> onRemoveRow;
   final String? error;
   final bool submitting;

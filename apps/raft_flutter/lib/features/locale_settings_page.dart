@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -51,6 +52,9 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
 
   @override
   void dispose() {
+    for (final timer in savedTimers.values) {
+      timer.cancel();
+    }
     translations.removeListener(translationChanged);
     super.dispose();
   }
@@ -74,6 +78,7 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
       draftDisplay,
       draftTimezone,
       draftTimeFormat;
+  final savedTimers = <bool, Timer>{};
   String? languageError, dateTimeError;
   bool savingLanguage = false, savingDateTime = false;
   bool languageSaved = false, dateTimeSaved = false;
@@ -138,7 +143,8 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
           dateTimeSaved = true;
         }
       });
-      Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      savedTimers[language]?.cancel();
+      savedTimers[language] = Timer(const Duration(milliseconds: 1500), () {
         if (mounted) {
           setState(() {
             if (language) {

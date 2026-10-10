@@ -80,7 +80,9 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
   };
   @override
   bool restoreSnapshot(Map<String, Object?> fields) {
-    projection = fields['projection'] as SlackBridgeProjection?;
+    final restored = fields['projection'] as SlackBridgeProjection?;
+    if (restored != null) adopt(restored);
+    projection = restored;
     enabled = fields['enabled'] as bool;
     return true;
   }
@@ -108,7 +110,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
     }
     try {
       final next = SlackBridgeProjection.parse(await w.client.get(base));
-      if (accepts(generation, request)) projection = next;
+      if (accepts(generation, request)) adopt(next);
     } on RaftApiException catch (e) {
       if (e.status == 503) {
         throw StateError(
