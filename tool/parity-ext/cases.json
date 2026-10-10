@@ -15185,6 +15185,1830 @@
     "layoutDp": 1,
     "ignoreAntialiasing": true
    }
+  },
+  {
+   "id": "components.announcements.desktop.single.brutal",
+   "title": "Announcement modal desktop single (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.single",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "single",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.single.elegant",
+   "title": "Announcement modal desktop single (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.single",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "single",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.single.elegant-dark",
+   "title": "Announcement modal desktop single (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.single",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "single",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-first.brutal",
+   "title": "Announcement modal desktop multi-first (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-first",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-first'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-first.elegant",
+   "title": "Announcement modal desktop multi-first (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-first",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-first'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-first.elegant-dark",
+   "title": "Announcement modal desktop multi-first (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-first",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-first'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-middle.brutal",
+   "title": "Announcement modal desktop multi-middle (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-middle",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-middle'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-middle.elegant",
+   "title": "Announcement modal desktop multi-middle (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-middle",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-middle'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-middle.elegant-dark",
+   "title": "Announcement modal desktop multi-middle (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-middle",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-middle'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-last.brutal",
+   "title": "Announcement modal desktop multi-last (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-last",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "2"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     },
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     },
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-last'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-last.elegant",
+   "title": "Announcement modal desktop multi-last (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-last",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "2"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     },
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     },
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-last'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.multi-last.elegant-dark",
+   "title": "Announcement modal desktop multi-last (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.multi-last",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "2"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     },
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     },
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.multi-last'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.rich.brutal",
+   "title": "Announcement modal desktop rich (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.rich",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "rich",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.rich'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.rich.elegant",
+   "title": "Announcement modal desktop rich (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.rich",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "rich",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.rich'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.rich.elegant-dark",
+   "title": "Announcement modal desktop rich (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.rich",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "rich",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.rich'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.long.brutal",
+   "title": "Announcement modal desktop long (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "long",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.long.elegant",
+   "title": "Announcement modal desktop long (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "long",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.long.elegant-dark",
+   "title": "Announcement modal desktop long (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "long",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.long-title.brutal",
+   "title": "Announcement modal desktop long-title (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long-title",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "long-title",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.long-title.elegant",
+   "title": "Announcement modal desktop long-title (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long-title",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "long-title",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.long-title.elegant-dark",
+   "title": "Announcement modal desktop long-title (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.long-title",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "long-title",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.long-title'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.overlay.brutal",
+   "title": "Announcement modal desktop overlay (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.overlay",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.overlay'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.overlay.elegant",
+   "title": "Announcement modal desktop overlay (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.overlay",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.overlay'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.desktop.overlay.elegant-dark",
+   "title": "Announcement modal desktop overlay (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.overlay",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'desktop.overlay'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.single.brutal",
+   "title": "Announcement modal mobile single (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.single",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "ann": "single",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.single.elegant",
+   "title": "Announcement modal mobile single (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.single",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "ann": "single",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.single.elegant-dark",
+   "title": "Announcement modal mobile single (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.single",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "ann": "single",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.single'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.multi-middle.brutal",
+   "title": "Announcement modal mobile multi-middle (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.multi-middle",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "ann": "multi",
+      "next": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.multi-middle'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.multi-middle.elegant",
+   "title": "Announcement modal mobile multi-middle (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.multi-middle",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "ann": "multi",
+      "next": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.multi-middle'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.multi-middle.elegant-dark",
+   "title": "Announcement modal mobile multi-middle (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.multi-middle",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "ann": "multi",
+      "next": "1"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"announcement-next\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "announcement-next"
+     }
+    ],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.multi-middle'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.rich.brutal",
+   "title": "Announcement modal mobile rich (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.rich",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "ann": "rich",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.rich'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.rich.elegant",
+   "title": "Announcement modal mobile rich (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.rich",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "ann": "rich",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.rich'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.rich.elegant-dark",
+   "title": "Announcement modal mobile rich (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.rich",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "ann": "rich",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.rich'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.long.brutal",
+   "title": "Announcement modal mobile long (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.long",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "ann": "long",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.long.elegant",
+   "title": "Announcement modal mobile long (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.long",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "ann": "long",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.long.elegant-dark",
+   "title": "Announcement modal mobile long (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.long",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "ann": "long",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid=\"announcement-modal\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": [],
+    "androidKey": "announcement-modal"
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.overlay.brutal",
+   "title": "Announcement modal mobile overlay (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.overlay",
+      "extKind": "announcement",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.overlay'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.overlay.elegant",
+   "title": "Announcement modal mobile overlay (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.overlay",
+      "extKind": "announcement",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.overlay'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.announcements.mobile.overlay.elegant-dark",
+   "title": "Announcement modal mobile overlay (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "announcements",
+   "category": "extension/announcements",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.overlay",
+      "extKind": "announcement",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "ann": "multi",
+      "next": "0"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "body",
+    "crop": "viewport",
+    "contract": "viewport-with-portal",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/AnnouncementModal.tsx (+ components/Modal.tsx)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_announcements.dart 'mobile.overlay'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }

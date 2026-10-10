@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_sync/raft_sync.dart';
 
+import 'announcement_store.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
 import 'panel_caches.dart';
@@ -171,6 +172,20 @@ class WorkspaceController extends ChangeNotifier {
   MessageTranslationStore get translations =>
       _translations ??= MessageTranslationStore(this);
   MessageTranslationStore? _translations;
+
+  /// Web `useAnnouncementStore`: the account-level announcement queue,
+  /// living as long as this account session.
+  AnnouncementStore get announcements => _announcements ??= AnnouncementStore(
+    get: (path, {query}) => client.get(path, query: query),
+    post: (path) => client.post(path),
+    principal: () => client.user?.id,
+  );
+  AnnouncementStore? _announcements;
+
+  /// Web `useOnboardingAnnouncementGateStore` (session memory per account).
+  AnnouncementOnboardingGate get announcementGate =>
+      _announcementGate ??= AnnouncementOnboardingGate();
+  AnnouncementOnboardingGate? _announcementGate;
   WorkspaceEntityScope? _entityScope() {
     final principal = client.user?.id;
     final serverId = client.serverId;
@@ -5090,6 +5105,8 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_ownsFollowedThreads) followedThreads.dispose();
     _translations?.dispose();
+    _announcements?.dispose();
+    _announcementGate?.dispose();
     _imageAuthorities.clear();
     _attachmentImages?.dispose();
     _channelFilesStores.clear();

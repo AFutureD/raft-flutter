@@ -10,6 +10,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/recipes.dart' as recipes;
 
+import 'announcement_host.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../data/source_activity_unread_store.dart';
@@ -748,7 +749,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   @override
   Widget build(BuildContext context) => PersonalPresentationScope(
     store: presentation,
-    child: buildWorkspace(context),
+    child: AnnouncementHost(controller: w, child: buildWorkspace(context)),
   );
   Widget buildWorkspace(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([

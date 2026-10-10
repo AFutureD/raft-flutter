@@ -78,7 +78,22 @@ class RaftRecipeButton extends StatelessWidget {
     this.foreground,
     this.gap,
     this.fontWeight,
+    this.focusNode,
+    this.glyphTrailing = false,
+    this.focusRing = false,
   });
+
+  /// Paints the focus-visible ring while focused even after a pointer press
+  /// (Blink keeps `:focus-visible` on an element that script focused when a
+  /// click lands on it again).
+  final bool focusRing;
+
+  /// Focus node of the control (e.g. a modal's primary action that takes
+  /// focus when it opens).
+  final FocusNode? focusNode;
+
+  /// The glyph follows the label (`{label}<ChevronRight />`).
+  final bool glyphTrailing;
 
   /// Callsite `font-bold` etc.
   final FontWeight? fontWeight;
@@ -101,6 +116,7 @@ class RaftRecipeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => RaftInteractive(
     onPressed: disabled ? null : onPressed,
+    focusNode: focusNode,
     semanticLabel: tooltip,
     builder: (context, state) => _paint(context, state),
   );
@@ -116,7 +132,8 @@ class RaftRecipeButton extends StatelessWidget {
         if (t.dark) RaftRecipeStates.dark,
         if (state.hovered && state.enabled) RaftRecipeStates.hover,
         if (state.pressed && state.enabled) RaftRecipeStates.active,
-        if (state.focusVisible) RaftRecipeStates.focusVisible,
+        if (state.focusVisible || (focusRing && (focusNode?.hasFocus ?? false)))
+          RaftRecipeStates.focusVisible,
         if (disabled) RaftRecipeStates.disabled,
       }),
       tokens: tokens,
@@ -143,8 +160,10 @@ class RaftRecipeButton extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (glyph != null) RaftIcon(glyph!, size: iconSize, color: color),
-            if (glyph != null && label != null) SizedBox(width: resolvedGap),
+            if (glyph != null && !glyphTrailing)
+              RaftIcon(glyph!, size: iconSize, color: color),
+            if (glyph != null && label != null && !glyphTrailing)
+              SizedBox(width: resolvedGap),
             if (label != null)
               Flexible(
                 child: Text(
@@ -154,6 +173,10 @@ class RaftRecipeButton extends StatelessWidget {
                   style: text,
                 ),
               ),
+            if (glyph != null && label != null && glyphTrailing)
+              SizedBox(width: resolvedGap),
+            if (glyph != null && glyphTrailing)
+              RaftIcon(glyph!, size: iconSize, color: color),
           ],
         );
     content = DefaultTextStyle.merge(
@@ -233,8 +256,11 @@ abstract final class RaftShadowSet {
 /// backdrop-blur-[2px] theme-brutal:bg-black/60`, then `flex min-h-full p-4`
 /// and a `m-auto flex w-full justify-center` column holding [child].
 class RaftModalBackdrop extends StatelessWidget {
-  const RaftModalBackdrop({super.key, required this.child});
+  const RaftModalBackdrop({super.key, required this.child, this.onBackdrop});
   final Widget child;
+
+  /// `closeOnBackdrop`: a press on the backdrop itself (not on [child]).
+  final VoidCallback? onBackdrop;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -246,15 +272,38 @@ class RaftModalBackdrop extends StatelessWidget {
             ? Colors.black.withValues(alpha: .6)
             : t.colors['layer-backdrop']!,
         child: LayoutBuilder(
-          builder: (context, box) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: box.maxHeight),
-              child: Padding(
+          builder: (context, box) {
+            Widget content = Center(child: child);
+            if (onBackdrop != null) {
+              // Presses inside [child] never reach the backdrop handler.
+              content = GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onBackdrop,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {},
+                      excludeFromSemantics: true,
+                      child: child,
+                    ),
+                  ),
+                ),
+              );
+            } else {
+              content = Padding(
                 padding: const EdgeInsets.all(16),
-                child: Center(child: child),
+                child: content,
+              );
+            }
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight),
+                child: content,
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -271,6 +320,20 @@ Future<T?> showRaftModal<T>(
   barrierDismissible: false,
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
+  pageBuilder: (context, _, _) =>
+      Material(type: MaterialType.transparency, child: builder(context)),
+);
+
+/// The route [showRaftModal] pushes, for hosts that open and close a modal
+/// from state (no barrier; [builder] paints its own backdrop, no transition).
+RawDialogRoute<T> raftModalRoute<T>({
+  required WidgetBuilder builder,
+  RouteSettings? settings,
+}) => RawDialogRoute<T>(
+  barrierDismissible: false,
+  barrierColor: Colors.transparent,
+  transitionDuration: Duration.zero,
+  settings: settings,
   pageBuilder: (context, _, _) =>
       Material(type: MaterialType.transparency, child: builder(context)),
 );

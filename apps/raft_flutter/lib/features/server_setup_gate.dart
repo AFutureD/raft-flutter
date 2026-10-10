@@ -155,14 +155,40 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
       debounce?.cancel();
       _directory?.removeListener(directoryChanged);
       _signal?.removeListener(reload);
+      if (_announcementServer != null) {
+        oldWidget.controller.announcementGate.detach(_announcementServer!);
+        _announcementServer = null;
+      }
       rebindManagementController();
       _signal = _setupSignal(w)..addListener(reload);
       listenEvents();
     }
   }
 
+  /// The server whose setup this gate reads, registered with the
+  /// announcement gate (Web: the gate is mounted for the current server).
+  String? _announcementServer;
+  void _attachAnnouncementGate() {
+    final id = w.server?.id;
+    if (id == _announcementServer) return;
+    final gate = w.announcementGate;
+    if (_announcementServer != null) gate.detach(_announcementServer!);
+    _announcementServer = id;
+    if (id != null) gate.attach(id);
+  }
+
+  /// Every resolved read sets the Web `announcementGateState`; a failed
+  /// first read (no projection) reads as blocked.
+  void _reportAnnouncementGate(String serverId) {
+    if (w.server?.id != serverId) return;
+    w.announcementGate.report(serverId, projection);
+  }
+
   @override
   void dispose() {
+    if (_announcementServer != null) {
+      w.announcementGate.detach(_announcementServer!);
+    }
     _signal?.removeListener(reload);
     events?.cancel();
     _directory?.removeListener(directoryChanged);
@@ -201,10 +227,19 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
 
   @override
   Future<void> loadData(int request, int generation) async {
+    _attachAnnouncementGate();
     if (w.server == null) return;
-    final result = await w.client.get('$base/setup-projection');
+    final serverId = w.server!.id;
+    final Object? result;
+    try {
+      result = await w.client.get('$base/setup-projection');
+    } catch (_) {
+      if (accepts(generation, request)) _reportAnnouncementGate(serverId);
+      rethrow;
+    }
     if (!accepts(generation, request)) return;
     projection = managementMap(result);
+    _reportAnnouncementGate(serverId);
     if (projection?['surface'] == 'create_agent' && createdAgentId == null) {
       try {
         final catalog = await w.client.get('$base/machines');
@@ -238,6 +273,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
       );
       if (!accepts(generation) || scope != authority) return;
       projection = managementMap(result);
+      _reportAnnouncementGate(w.server!.id);
       if (action == 'complete' && projection?['surface'] != 'complete') {
         throw StateError(
           'Setup is not complete. Refresh and finish the remaining step.',
