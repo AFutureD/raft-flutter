@@ -13,6 +13,7 @@ import 'recipes/recipes.g.dart';
 import 'recipes/token_binding.dart';
 import 'theme.dart';
 import 'tokens/shadows.g.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Shared Settings page pieces from the Web client:
 /// - [RaftSettingsSidebarList]: components/settings/SettingsSidebarList.tsx
@@ -324,7 +325,7 @@ class _PanelBackActionState extends State<_PanelBackAction> {
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => hovered = true),
         onExit: (_) => setState(() => hovered = false),
-        child: Tooltip(
+        child: RaftTooltip(
           message: raftText(context, widget.tooltip),
           child: GestureDetector(
             onTapDown: (_) => setState(() => pressed = true),

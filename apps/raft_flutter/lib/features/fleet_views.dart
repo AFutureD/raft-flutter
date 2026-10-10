@@ -332,10 +332,12 @@ class _FleetViewState extends State<FleetView> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
-            IconButton(
-              tooltip: raftText(context, 'Refresh'),
-              onPressed: load,
-              icon: const Icon(Icons.refresh),
+            RaftTooltip(
+              message: raftText(context, 'Refresh'),
+              child: IconButton(
+                onPressed: load,
+                icon: const Icon(Icons.refresh),
+              ),
             ),
             if (w.can(widget.computers ? 'registerMachines' : 'createAgents'))
               RaftButton(
@@ -1238,10 +1240,12 @@ class _FleetInspectionState extends State<FleetInspection> {
         _ => 'Workspaces',
       }),
       actions: [
-        IconButton(
-          tooltip: raftText(context, 'Refresh'),
-          onPressed: load,
-          icon: const RaftIcon(RaftGlyph.refreshCw, size: 12),
+        RaftTooltip(
+          message: raftText(context, 'Refresh'),
+          child: IconButton(
+            onPressed: load,
+            icon: const RaftIcon(RaftGlyph.refreshCw, size: 12),
+          ),
         ),
       ],
     ),

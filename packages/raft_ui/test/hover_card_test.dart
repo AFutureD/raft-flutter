@@ -224,4 +224,72 @@ void main() {
     expect(surface.bottom, moreOrLessEquals(trigger.top - 6));
     await settle(tester, mouse);
   });
+  Widget cardList(ScrollController scroll) => hoverHost(
+    SizedBox(
+      width: 200,
+      height: 300,
+      child: ListView(
+        controller: scroll,
+        children: [
+          for (var i = 0; i < 40; i++)
+            RaftHoverCard(
+              card: (_) => Text('Card $i'),
+              child: SizedBox(height: 30, child: Text('Row $i')),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  testWidgets('a continuously moving pointer never opens a card', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(cardList(scroll));
+    final mouse = await mouseAt(tester, tester.getCenter(find.text('Row 2')));
+    // Moves every 100ms for 3s: each move restarts the 200ms delay.
+    for (var step = 0; step < 30; step++) {
+      await mouse.moveBy(Offset(step.isEven ? 1 : -1, 0));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.textContaining('Card '), findsNothing);
+    }
+    // Resting opens it 200ms after the last move (100ms already elapsed).
+    await tester.pump(const Duration(milliseconds: 99));
+    expect(find.textContaining('Card '), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Card 2'), findsOneWidget);
+    await settle(tester, mouse);
+  });
+
+  testWidgets('an open card is gone on the frame of a scroll change or wheel', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(cardList(scroll));
+    final mouse = await mouseAt(tester, tester.getCenter(find.text('Row 2')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Card 2'), findsOneWidget);
+    scroll.jumpTo(10);
+    await tester.pump();
+    expect(find.textContaining('Card '), findsNothing);
+
+    // A wheel signal closes it too, even where the list cannot scroll.
+    await mouse.moveBy(const Offset(2, 0));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Card '), findsOneWidget);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(find.text('Row 2')),
+        scrollDelta: const Offset(0, 40),
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('Card '), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('Card '), findsNothing);
+    await settle(tester, mouse);
+  });
 }

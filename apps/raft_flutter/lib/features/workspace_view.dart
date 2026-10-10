@@ -1397,7 +1397,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                                                       )
                                                     : null,
                                                 actions: [
-                                                  Tooltip(
+                                                  RaftTooltip(
                                                     message: w.connected
                                                         ? tr('Connected')
                                                         : tr('Reconnecting'),

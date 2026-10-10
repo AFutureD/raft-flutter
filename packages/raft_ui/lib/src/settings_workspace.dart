@@ -18,6 +18,7 @@ import 'recipes/button_variants.g.dart'
 import 'settings_layout.dart';
 import 'switch.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 @immutable
 class RaftServerLab {
@@ -854,7 +855,7 @@ class _McpServerCard extends StatelessWidget {
                   spacing: 4,
                   children: [
                     for (final action in server.actions)
-                      Tooltip(
+                      RaftTooltip(
                         message: raftText(context, action.tooltip),
                         child: Semantics(
                           label: raftText(context, action.tooltip),

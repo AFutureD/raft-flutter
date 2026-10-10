@@ -466,10 +466,12 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
               raftText(context, title),
               style: Theme.of(context).textTheme.headlineSmall,
             );
-            final refresh = IconButton(
-              onPressed: busy ? null : reload,
-              tooltip: raftText(context, 'Refresh'),
-              icon: const Icon(Icons.refresh),
+            final refresh = RaftTooltip(
+              message: raftText(context, 'Refresh'),
+              child: IconButton(
+                onPressed: busy ? null : reload,
+                icon: const Icon(Icons.refresh),
+              ),
             );
             if (constraints.maxWidth < 600) {
               return Column(

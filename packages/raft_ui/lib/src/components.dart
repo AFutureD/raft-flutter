@@ -30,6 +30,7 @@ import 'recipe_surface.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
 import 'recipes/recipe_utilities.g.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Surface styles of [RaftPanel].
 enum RaftPanelStyle {
@@ -1411,7 +1412,8 @@ class RaftMessageTile extends StatelessWidget {
               children: [
                 if (modelLabel != null && modelLabel!.trim().isNotEmpty)
                   Flexible(
-                    child: Tooltip(
+                    child: RaftTooltip(
+                      onlyWhenTruncated: true,
                       message: modelLabel!,
                       child: Text(
                         modelLabel!,

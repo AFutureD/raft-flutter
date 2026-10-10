@@ -59,6 +59,7 @@ import 'design_primitives.dart';
 import 'localization.dart';
 import 'message_semantics.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// A reference is interactive only when its identity is supplied by the
 /// current workspace projection. User text never supplies a target identity.
@@ -1089,8 +1090,7 @@ class _MermaidToolbar extends StatelessWidget {
             onCopy,
           ),
           SizedBox(width: toolbarRecipe.gap),
-          PopupMenuButton<String>(
-            tooltip: raftText(context, 'Download Mermaid diagram'),
+          RaftTooltip(message: raftText(context, 'Download Mermaid diagram'), child: PopupMenuButton<String>(
             enabled: onExport != null,
             onSelected: onExport,
             itemBuilder: (_) => [
@@ -1115,7 +1115,7 @@ class _MermaidToolbar extends StatelessWidget {
                 ownTooltip: false,
               ),
             ),
-          ),
+          )),
           if (!showSource) ...[
             SizedBox(width: toolbarRecipe.gap),
             control(

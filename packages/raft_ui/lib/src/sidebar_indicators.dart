@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'icons.dart';
 import 'design_primitives.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Quiet count from mounted Sidebar.tsx:902–905. Muted or unjoined channels
 /// retain their unread count without inheriting the accent badge.
@@ -36,7 +37,7 @@ class RaftSidebarMutedIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return Tooltip(
+    return RaftTooltip(
       message: label,
       excludeFromSemantics: true,
       child: Semantics(

@@ -230,13 +230,18 @@ class _ProviderConnectionsState
                       '${a['runtime']} · ${a['status']}${a['computerName'] == null ? '' : ' · ${a['computerName']}'}',
                     ),
                     trailing: a['deleted'] == true
-                        ? IconButton(
-                            tooltip: 'Detach deleted agent',
-                            icon: const RaftIcon(RaftGlyph.link2Off, size: 15),
-                            onPressed: () {
-                              detachId = a['id'];
-                              Navigator.pop(context);
-                            },
+                        ? RaftTooltip(
+                            message: 'Detach deleted agent',
+                            child: IconButton(
+                              icon: const RaftIcon(
+                                RaftGlyph.link2Off,
+                                size: 15,
+                              ),
+                              onPressed: () {
+                                detachId = a['id'];
+                                Navigator.pop(context);
+                              },
+                            ),
                           )
                         : null,
                   ),

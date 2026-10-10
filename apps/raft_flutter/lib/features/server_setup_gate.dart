@@ -542,12 +542,11 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     child: Row(
       children: [
         Expanded(child: SelectableText(command)),
-        IconButton(
-          tooltip: raftText(context, 'Copy command'),
+        RaftTooltip(message: raftText(context, 'Copy command'), child: IconButton(
           onPressed: () => Clipboard.setData(ClipboardData(text: command)),
           // raft-ui CopyableCodeAction: lucide Copy, size-3, strokeWidth 1.75.
           icon: const RaftIcon(RaftGlyph.copy, size: 12, strokeWidth: 1.75),
-        ),
+        )),
       ],
     ),
   );
