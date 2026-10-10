@@ -1390,6 +1390,11 @@ class _RaftFieldSurfaceState extends State<RaftFieldSurface> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // Elegant `focus-visible:ring-*`: the field keeps its border and a ring is
+    // drawn OUTSIDE it (1px primary-400; dark: 2px primary-400 at 60%), not the
+    // Material focused-border colour swap.
+    final theme = Theme.of(context);
+    final inputs = theme.inputDecorationTheme;
     return Focus(
       skipTraversal: true,
       onFocusChange: (value) => setState(() => focused = value),
@@ -1400,9 +1405,27 @@ class _RaftFieldSurfaceState extends State<RaftFieldSurface> {
               ? focused
                     ? t.focusShadows
                     : t.shadows
+              : focused
+              ? [
+                  BoxShadow(
+                    color: t.dark
+                        ? t.primaryFill.withValues(alpha: .6)
+                        : t.primaryFill,
+                    spreadRadius: t.dark ? 2 : 1,
+                  ),
+                ]
               : null,
         ),
-        child: widget.child,
+        child: t.brutal
+            ? widget.child
+            : Theme(
+                data: theme.copyWith(
+                  inputDecorationTheme: inputs.copyWith(
+                    focusedBorder: inputs.enabledBorder,
+                  ),
+                ),
+                child: widget.child,
+              ),
       ),
     );
   }

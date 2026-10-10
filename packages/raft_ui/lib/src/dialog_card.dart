@@ -11,6 +11,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'design_primitives.dart';
 import 'icons.dart';
@@ -586,11 +587,15 @@ class RaftRecipeSegmentedControl<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     this.label,
+    this.counts = const {},
   });
   final T value;
   final List<(T, RaftGlyph?, String)> items;
   final ValueChanged<T>? onChanged;
   final String? label;
+
+  /// `SegmentedControlCount` per item value (omitted values render none).
+  final Map<T, String> counts;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -601,19 +606,46 @@ class RaftRecipeSegmentedControl<T> extends StatelessWidget {
     return Semantics(
       label: label,
       container: true,
-      child: Wrap(
-        spacing: root.columnGap ?? 0,
-        runSpacing: root.rowGap ?? 0,
-        children: [
-          for (final (v, glyph, text) in items)
-            _RecipeSegment(
-              checked: v == value,
-              glyph: glyph,
-              label: raftText(context, text),
-              onTap: onChanged == null ? null : () => onChanged!(v),
-            ),
-        ],
+      child: _FillWhenWrapped(
+        child: Wrap(
+          spacing: root.columnGap ?? 0,
+          runSpacing: root.rowGap ?? 0,
+          children: [
+            for (final (v, glyph, text) in items)
+              _RecipeSegment(
+                checked: v == value,
+                glyph: glyph,
+                label: raftText(context, text),
+                count: counts[v],
+                onTap: onChanged == null ? null : () => onChanged!(v),
+              ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// The `inline-flex flex-wrap max-w-full` root of the Web SegmentedControl:
+/// content width while the items fit on one line, the full available width
+/// once they wrap (Flutter's `Wrap` would shrink to its widest run).
+class _FillWhenWrapped extends SingleChildRenderObjectWidget {
+  const _FillWhenWrapped({required Widget child}) : super(child: child);
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFillWhenWrapped();
+}
+
+class _RenderFillWhenWrapped extends RenderProxyBox {
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    final wrapped =
+        constraints.hasBoundedWidth &&
+        child.getMaxIntrinsicWidth(double.infinity) > constraints.maxWidth;
+    size = constraints.constrain(
+      Size(wrapped ? constraints.maxWidth : child.size.width, child.size.height),
     );
   }
 }
@@ -624,10 +656,12 @@ class _RecipeSegment extends StatefulWidget {
     required this.glyph,
     required this.label,
     required this.onTap,
+    this.count,
   });
   final bool checked;
   final RaftGlyph? glyph;
   final String label;
+  final String? count;
   final VoidCallback? onTap;
   @override
   State<_RecipeSegment> createState() => _RecipeSegmentState();
@@ -639,16 +673,19 @@ class _RecipeSegmentState extends State<_RecipeSegment> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final tokens = RaftRecipeTokens(t);
-    final item = RaftSegmentedControlRecipe.resolve(
+    final recipe = RaftSegmentedControlRecipe.resolve(
       theme: raftRecipeThemeOf(t),
       disabled: widget.onTap == null,
       states: RaftRecipeStates({
         if (t.dark) RaftRecipeStates.dark,
         if (hovered && widget.onTap != null) RaftRecipeStates.hover,
         widget.checked ? 'data-checked' : 'data-unchecked',
+        if (widget.checked) 'group/segmented-control-item:data-checked',
+        if (widget.count != null) 'has:data-slot=segmented-control-count',
       }),
       tokens: tokens,
-    ).item;
+    );
+    final item = recipe.item;
     // Inherited `font-display` (main.font-display) supplies the family.
     final text = item
         .textStyle(tokens)
@@ -699,6 +736,17 @@ class _RecipeSegmentState extends State<_RecipeSegment> {
                     overflow: TextOverflow.ellipsis,
                     style: text.copyWith(color: color),
                   ),
+                  if (widget.count != null) ...[
+                    SizedBox(width: item.columnGap ?? 0),
+                    Text(
+                      widget.count!,
+                      maxLines: 1,
+                      style: recipe.count.text(
+                        tokens,
+                        base: text.copyWith(color: color),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

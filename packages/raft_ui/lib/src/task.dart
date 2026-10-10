@@ -436,24 +436,17 @@ class RaftTaskSection extends StatelessWidget {
           trigger,
           if (!collapsed)
             children.isEmpty
-                ? Container(
-                    padding: r.empty.padding,
-                    decoration: BoxDecoration(
-                      color: r.empty.backgroundColor?.resolve(rt),
-                      borderRadius: r.empty.borderRadius,
-                      border: Border.all(
-                        color:
-                            r.empty.borderColor?.resolve(rt) ??
-                            t.colors['line-muted']!,
-                        width: r.empty.borderWidth.top,
-                      ),
-                    ),
-                    child: Text(
-                      emptyLabel ?? '',
-                      style: r.empty
-                          .textStyle(rt)
-                          .copyWith(fontFamily: t.bodyFont),
-                    ),
+                ? RaftTaskLaneEmpty(
+                    label: emptyLabel ?? '',
+                    // TaskSectionEmpty `border-2 border-dashed
+                    // border-line-muted px-3 py-5 text-sm
+                    // text-foreground-muted` (brutal line-muted = black/30).
+                    fill: r.empty.backgroundColor?.resolve(rt),
+                    borderColor: t.brutal
+                        ? Colors.black.withValues(alpha: .3)
+                        : t.colors['line-muted']!,
+                    borderWidth: 2,
+                    radius: t.brutal ? 0 : 8,
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -638,4 +631,90 @@ class RaftTaskBoardColumn extends StatelessWidget {
       ),
     );
   }
+}
+
+/// `TaskSectionEmpty` / `TaskBoardColumnEmpty`: the dashed "No {status}
+/// tasks." box of an empty lane (`border-dashed px-3 py-5 text-sm
+/// text-foreground-muted`).
+class RaftTaskLaneEmpty extends StatelessWidget {
+  const RaftTaskLaneEmpty({
+    super.key,
+    required this.label,
+    required this.borderColor,
+    required this.borderWidth,
+    required this.radius,
+    this.fill,
+  });
+  final String label;
+  final Color? fill;
+  final Color borderColor;
+  final double borderWidth, radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return SizedBox(
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _LaneEmptyPainter(fill, borderColor, borderWidth, radius),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 12 + borderWidth,
+            vertical: 20 + borderWidth,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: t.headingFont,
+              fontFamilyFallback: t.fontFallback,
+              fontSize: 14,
+              height: 20 / 14,
+              leadingDistribution: TextLeadingDistribution.even,
+              color: t.colors['foreground-muted'],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LaneEmptyPainter extends CustomPainter {
+  const _LaneEmptyPainter(this.fill, this.color, this.width, this.radius);
+  final Color? fill, color;
+  final double width, radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    if (fill != null) canvas.drawRRect(outer, Paint()..color = fill!);
+    // Chromium dashes: 3x the border width, gaps spread evenly over the path.
+    final path = Path()..addRRect(outer.deflate(width / 2));
+    final paint = Paint()
+      ..color = color!
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width;
+    final dash = width * 3;
+    for (final metric in path.computeMetrics()) {
+      final count = ((metric.length + dash) / (dash * 2)).floor().clamp(
+        1,
+        10000,
+      );
+      final gap = count > 1 ? (metric.length - count * dash) / count : 0.0;
+      for (var i = 0; i < count; i++) {
+        final start = i * (dash + gap);
+        canvas.drawPath(metric.extractPath(start, start + dash), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LaneEmptyPainter old) =>
+      old.fill != fill ||
+      old.color != color ||
+      old.width != width ||
+      old.radius != radius;
 }

@@ -87,7 +87,7 @@ class _TaskClient extends ParityFakeClient {
   }
 }
 
-WorkspaceController _workspace(ParityContext ctx) {
+WorkspaceController _workspace(ParityContext ctx, {List<dynamic>? board}) {
   SharedPreferences.setMockInitialValues({});
   final fx = _fx(ctx);
   final base = ParityThreadFixture(ctx.fixtureData);
@@ -121,7 +121,7 @@ WorkspaceController _workspace(ParityContext ctx) {
   final client = _TaskClient(
     user: base.authUser,
     routes: routes,
-    board: List<dynamic>.from(fx['board'] as List),
+    board: board ?? List<dynamic>.from(fx['board'] as List),
   );
   final w = WorkspaceController(client)
     ..server = RaftRecord(base.serverRecord)
@@ -143,14 +143,15 @@ WorkspaceController _workspace(ParityContext ctx) {
 }
 
 class _Host extends StatefulWidget {
-  const _Host({required this.ctx});
+  const _Host({required this.ctx, this.board});
   final ParityContext ctx;
+  final List<dynamic>? board;
   @override
   State<_Host> createState() => _HostState();
 }
 
 class _HostState extends State<_Host> {
-  late final WorkspaceController w = _workspace(widget.ctx);
+  late final WorkspaceController w = _workspace(widget.ctx, board: widget.board);
 
   @override
   Widget build(BuildContext context) => WorkspaceView(
@@ -167,16 +168,28 @@ class _HostState extends State<_Host> {
 /// The Tasks column the React host crops on desktop: the viewport right of the
 /// left rail (brutal 64, elegant 56).
 Rect? _window(ParityContext ctx) {
-  if (ctx.props['extKind'] != 'taskspage' || ctx.props['platform'] == 'mobile') {
+  final page =
+      ctx.props['extKind'] == 'taskspage' ||
+      ctx.props['surface'] == 'tasks-board';
+  if (!page || ctx.props['platform'] == 'mobile') {
     return null;
   }
   final rail = ctx.family == RaftFamily.brutal ? 64.0 : 56.0;
   return Rect.fromLTWH(rail, 0, ctx.width - rail, ctx.height);
 }
 
-Widget _build(ParityContext ctx) {
+/// The Tasks page (real WorkspaceView, section tasks) on [board] instead of
+/// the fixture's board; [window] crops it like the taskspage cases. Shared with
+/// the WP6 cases (ext_wp6.dart).
+Widget extTaskPageBuild(ParityContext ctx, {List<dynamic>? board}) =>
+    _build(ctx, board: board);
+
+/// The fixture workspace of the task cases (channels, members, routes).
+WorkspaceController extTaskWorkspace(ParityContext ctx) => _workspace(ctx);
+
+Widget _build(ParityContext ctx, {List<dynamic>? board}) {
   final window = _window(ctx);
-  if (window == null) return _Host(ctx: ctx);
+  if (window == null) return _Host(ctx: ctx, board: board);
   return Align(
     alignment: Alignment.topLeft,
     child: ctx.target(
@@ -191,7 +204,7 @@ Widget _build(ParityContext ctx) {
             maxHeight: ctx.height,
             child: Transform.translate(
               offset: -window.topLeft,
-              child: _Host(ctx: ctx),
+              child: _Host(ctx: ctx, board: board),
             ),
           ),
         ),
