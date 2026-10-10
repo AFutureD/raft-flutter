@@ -61,6 +61,7 @@ export 'src/attachment_lightbox.dart';
 export 'src/switch.dart';
 
 export 'src/mobile_navigation.dart';
+export 'src/section_pager.dart';
 export 'src/mermaid_toolbar_recipe.dart';
 
 export 'src/sidebar_section.dart';

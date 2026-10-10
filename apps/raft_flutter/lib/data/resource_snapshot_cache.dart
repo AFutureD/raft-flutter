@@ -49,6 +49,7 @@ class ResourceSnapshot extends PageSnapshot {
     required this.channelAccess,
     required this.scrollOffset,
     this.viewWindows = const {},
+    this.sectionScrollOffsets = const {},
   });
 
   final bool enabledActivity;
@@ -65,6 +66,7 @@ class ResourceSnapshot extends PageSnapshot {
       doneActivityItems;
   final Map<String, Map<String, dynamic>> channelAccess;
   final double scrollOffset;
+  final Map<String, double> sectionScrollOffsets;
 
   /// Other recently accepted filter/query windows, by request shape.
   final Map<String, ResourceViewWindow> viewWindows;

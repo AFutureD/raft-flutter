@@ -764,6 +764,30 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
 
   @override
   Widget build(BuildContext context) {
+    Widget page(BuildContext context, RaftConnectedAppsTab value) => ListView(
+      key: PageStorageKey(('connected-apps', authority, value)),
+      primary: false,
+      padding: RaftSettingsPanelFrame.contentInset,
+      children: [section(context, value)],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight) return section(context, tab);
+        return RaftSectionPager<RaftConnectedAppsTab>(
+          key: ValueKey(authority),
+          sections: RaftConnectedAppsTab.values,
+          value: tab,
+          onChanged: (value) => setState(() => tab = value),
+          swipeEnabled:
+              MediaQuery.sizeOf(context).width <
+              RaftLayoutMetrics.desktopBreakpoint,
+          builder: page,
+        );
+      },
+    );
+  }
+
+  Widget section(BuildContext context, RaftConnectedAppsTab shownTab) {
     String tr(String s) => raftText(context, s);
     final p = projection;
     final query = search.text.trim().toLowerCase();
@@ -878,7 +902,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     final cold = loading;
     final empty = cold
         ? null
-        : switch (tab) {
+        : switch (shownTab) {
             RaftConnectedAppsTab.marketplace when listings.isEmpty => tr(
               'No third-party marketplace apps match this view.',
             ),
@@ -906,7 +930,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
               ),
         loading: cold,
         onRegister: canManage ? () => run(edit, refresh: false) : null,
-        tab: tab,
+        tab: shownTab,
         counts: (
           marketplace: p.listings.length,
           installed: p.installed.length,
@@ -925,7 +949,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
         onLayout: setLayout,
         error: error,
         marketplace: listings,
-        rows: tab == RaftConnectedAppsTab.installed
+        rows: shownTab == RaftConnectedAppsTab.installed
             ? installedRows
             : registeredRows,
         emptyMessage: empty,

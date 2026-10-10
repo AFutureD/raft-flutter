@@ -11,8 +11,10 @@ import '../data/workspace_controller.dart';
 import 'source_channel_file_glyph.dart';
 import 'source_channel_files_actions.dart';
 
-typedef ChannelFileThumbnailBuilder =
-    Widget Function(SourceChannelFileEntry file, bool Function() authorized);
+typedef ChannelFileThumbnailBuilder = Widget Function(
+  SourceChannelFileEntry file,
+  bool Function() authorized,
+);
 
 class SourceChannelFilesView extends StatefulWidget {
   const SourceChannelFilesView({
@@ -42,6 +44,17 @@ class _SourceChannelFilesState extends State<SourceChannelFilesView> {
   late SourceChannelFilesStore store;
   late SourceChannelFilesActions actions;
   StreamSubscription<RaftEvent>? session;
+  bool tabActive = true;
+  bool dependenciesReady = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = TickerMode.valuesOf(context).enabled;
+    if (active && (!dependenciesReady || !tabActive)) unawaited(store.load());
+    tabActive = active;
+    dependenciesReady = true;
+  }
 
   /// The controller-owned per-channel store outlives this view; this view only
   /// listens to it and asks for a background refresh on every open.
@@ -56,7 +69,7 @@ class _SourceChannelFilesState extends State<SourceChannelFilesView> {
     store.addListener(storeChanged);
     widget.controller.addListener(changed);
     session = widget.controller.client.events.listen((_) => changed());
-    unawaited(store.load());
+    if (dependenciesReady && tabActive) unawaited(store.load());
   }
 
   // The projection listens to the store itself; only revoke open actions here.
@@ -74,7 +87,7 @@ class _SourceChannelFilesState extends State<SourceChannelFilesView> {
     }
     final rebound = store.syncAuthority();
     actions.sync();
-    if (rebound && store.authorized) unawaited(store.load());
+    if (rebound && store.authorized && tabActive) unawaited(store.load());
     setState(() {});
   }
 

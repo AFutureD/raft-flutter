@@ -9,6 +9,52 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
+    testWidgets('$family/$dark mobile keeps swiped selection visible', (
+      t,
+    ) async {
+      var view = RaftActivityView.all;
+      late StateSetter update;
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(family, dark: dark),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 240,
+                child: StatefulBuilder(
+                  builder: (_, setState) {
+                    update = setState;
+                    return RaftActivityScopeToolbar(
+                      view: view,
+                      compact: false,
+                      onView: (next) => setState(() => view = next),
+                      onOpenSwitcher: () {},
+                      sort: 'desc',
+                      onSort: (_) {},
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      update(() => view = RaftActivityView.done);
+      await t.pumpAndSettle();
+      final toolbar = t.getRect(find.byType(RaftActivityScopeToolbar));
+      final done = t.getRect(find.byKey(const ValueKey('activity-view-done')));
+      expect(done.left, greaterThanOrEqualTo(toolbar.left));
+      expect(done.right, lessThanOrEqualTo(toolbar.right));
+      update(() => view = RaftActivityView.all);
+      await t.pumpAndSettle();
+      final all = t.getRect(find.byKey(const ValueKey('activity-view-all')));
+      expect(all.left, greaterThanOrEqualTo(toolbar.left));
+      expect(all.right, lessThanOrEqualTo(toolbar.right));
+      expect(t.takeException(), isNull);
+    });
+
     testWidgets(
       '$family/$dark Source compact min-height and keyboard switcher',
       (tester) async {

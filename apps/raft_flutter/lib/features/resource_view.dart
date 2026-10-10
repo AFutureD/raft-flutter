@@ -368,16 +368,18 @@ class _ResourceViewState extends State<ResourceView> {
   static const maxViewWindows = 8;
 
   bool get cachesViewWindows =>
-      !enabledActivity &&
       ['search', 'saved', 'activity'].contains(widget.section) &&
       widget.channelId == null;
 
   /// Request shape (path and filters, without the window) the list would load
   /// now; the same key [rowsView] records for accepted rows.
-  String? get listView {
+  String? get listView => listViewFor(filter);
+
+  String? listViewFor(String filter) {
     if (!cachesViewWindows) return null;
     final path = switch (widget.section) {
       'activity' => switch (filter) {
+        'saved' when enabledActivity => '/channels/saved',
         'done' => '/channels/inbox/done',
         'unfollowed' => '/channels/inbox/unfollowed',
         _ => '/channels/inbox',
@@ -410,7 +412,7 @@ class _ResourceViewState extends State<ResourceView> {
   /// replaces them.
   void stashViewWindow() {
     final view = rowsView;
-    if (!cachesViewWindows || view == null || rows.isEmpty) return;
+    if (!cachesViewWindows || view == null) return;
     viewWindows.remove(view);
     viewWindows[view] = ResourceViewWindow(
       rows: rows,
@@ -437,6 +439,29 @@ class _ResourceViewState extends State<ResourceView> {
       widget.channelId == null;
   ScrollController? listScroll;
   double listOffset = 0;
+  final activityScrollOffsets = <String, double>{};
+  final activityScrolls = <String, ScrollController>{};
+
+  ScrollController newActivityScroll() {
+    final scroll = RaftAnchoredScrollController(
+      listUpdates.anchor,
+      initialScrollOffset: listOffset,
+    );
+    scroll.addListener(() {
+      if (identical(scroll, listScroll)) trackListScroll();
+    });
+    return scroll;
+  }
+
+  void trackListScroll() {
+    final scroll = listScroll;
+    if (scroll == null || scroll.positions.length != 1) return;
+    listOffset = scroll.offset;
+    if (widget.section == 'activity') {
+      activityScrollOffsets[filter] = listOffset;
+    }
+    if (listUpdates.scrolled(scroll.position) && mounted) setState(() {});
+  }
 
   /// Reading position and "N new updates" pill of the Activity/Saved list.
   final listUpdates = ResourceListUpdates();
@@ -574,21 +599,13 @@ class _ResourceViewState extends State<ResourceView> {
     final usable =
         snapshot != null && snapshot.enabledActivity == enabledActivity;
     listOffset = usable ? snapshot.scrollOffset : 0;
-    // Children unmount before this state disposes; track the offset live.
-    listScroll =
-        RaftAnchoredScrollController(
-          listUpdates.anchor,
-          initialScrollOffset: listOffset,
-        )..addListener(() {
-          final scroll = listScroll;
-          if (scroll == null || !scroll.hasClients) return;
-          listOffset = scroll.offset;
-          if (scroll.positions.length == 1 &&
-              listUpdates.scrolled(scroll.position) &&
-              mounted) {
-            setState(() {});
-          }
-        });
+    // Track live offsets: children unmount before the owner is disposed.
+    if (usable && widget.section == 'activity') {
+      filter = snapshot.filter;
+      activityScrollOffsets.addAll(snapshot.sectionScrollOffsets);
+    }
+    listScroll = newActivityScroll();
+    if (widget.section == 'activity') activityScrolls[filter] = listScroll!;
     if (!usable) return false;
     rows = snapshot.rows;
     rowsView = snapshot.view;
@@ -649,6 +666,7 @@ class _ResourceViewState extends State<ResourceView> {
         doneActivityItems: doneActivityItems,
         channelAccess: acceptedAccess,
         scrollOffset: listOffset,
+        sectionScrollOffsets: Map.of(activityScrollOffsets),
         viewWindows: Map.of(viewWindows),
       ),
     );
@@ -805,6 +823,19 @@ class _ResourceViewState extends State<ResourceView> {
       scope == acceptedAuthority &&
       (request == null || request == requestGeneration);
   void clearRows() {
+    if (widget.section == 'activity') {
+      final retired = activityScrolls.values.toList();
+      activityScrolls.clear();
+      activityScrollOffsets.clear();
+      listOffset = 0;
+      listScroll = newActivityScroll();
+      activityScrolls['all'] = listScroll!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final scroll in retired) {
+          scroll.dispose();
+        }
+      });
+    }
     activityFollowState.clear();
     activityDoneState.clear();
     activityActivation?.cancel();
@@ -1457,6 +1488,11 @@ class _ResourceViewState extends State<ResourceView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    tabActive = TickerMode.valuesOf(context).enabled;
+    if (tabActive && reloadWhenActive) {
+      reloadWhenActive = false;
+      unawaited(load(keep: true, quietErrors: true));
+    }
     if (!initializedTaskLayout && widget.section == 'tasks') {
       initializedTaskLayout = true;
       final next =
@@ -1523,7 +1559,13 @@ class _ResourceViewState extends State<ResourceView> {
   @override
   void dispose() {
     saveSnapshot();
-    listScroll?.dispose();
+    if (widget.section == 'activity') {
+      for (final scroll in activityScrolls.values) {
+        scroll.dispose();
+      }
+    } else {
+      listScroll?.dispose();
+    }
     taskListScroll?.dispose();
     taskBoardScroll?.dispose();
     dragFeedbackRevision.value++;
@@ -1557,11 +1599,17 @@ class _ResourceViewState extends State<ResourceView> {
   /// skeleton), the request spans the loaded window and the response merges
   /// by item key. [quietErrors] retains the accepted window on a transient
   /// failure, as Source's background reset does.
+  bool tabActive = true, reloadWhenActive = false;
+
   Future<void> load({
     bool append = false,
     bool keep = false,
     bool quietErrors = false,
   }) async {
+    if (widget.section == 'tasks' && widget.channelId != null && !tabActive) {
+      reloadWhenActive = true;
+      return;
+    }
     final acceptActivityWindow = widget.onActivityWindowAccepted;
     saveSearchState();
     final request = ++requestGeneration, scope = authority;
@@ -2239,94 +2287,142 @@ class _ResourceViewState extends State<ResourceView> {
             ),
           ),
         Expanded(
-          child: loading && rows.isEmpty
-              ? enabledActivity
-                    ? const RaftActivityLoadingList()
-                    : Center(child: CircularProgressIndicator())
-              : widget.section == 'search' &&
-                    query.text.trim().isEmpty &&
-                    (!advanced.hasSearchFilter ||
-                        widget.initialSearchDeferUntilQuery)
-              ? searchHome(scope)
-              : widget.section == 'search'
-              ? ResourceSearchResults(
-                  key: PageStorageKey(('search-results', listView)),
-                  query: query.text,
-                  rows: rows,
-                  entities: currentSearchEntities,
-                  origin: w.client.origin,
-                  agents: rowAgents,
-                  members: rowPeople,
-                  currentUser: w.client.user?.json,
-                  plan: w.server?.string('plan', 'free') ?? 'free',
-                  now: widget.clock?.call() ?? DateTime.now(),
-                  selectedKey:
-                      selectedSearchKey ??
-                      currentSearchEntities.firstOrNull?.key,
-                  onMessage: (row) => openSearchMessage(row, scope),
-                  onEntity: (entity) => openSearchEntity(entity, scope),
-                  hasMore: hasMore,
-                  onMore: () => load(append: true),
+          child:
+              widget.section == 'activity' &&
+                  !widget.compactActivitySidebar &&
+                  MediaQuery.sizeOf(context).width <
+                      RaftLayoutMetrics.desktopBreakpoint &&
+                  activitySections.contains(filter)
+              ? RaftSectionPager<String>(
+                  key: ValueKey(identityAuthority),
+                  sections: activitySections,
+                  value: filter,
+                  onChanged: (value) => selectActivitySection(value, scope),
+                  unvisitedBuilder: (_) => const RaftActivityLoadingList(),
+                  builder: (context, value) => value == filter
+                      ? resourceResults(context)
+                      : inactiveActivitySection(value),
                 )
-              : widget.section == 'tasks' && taskLayout == 'board'
-              ? taskBoard()
-              : widget.section == 'tasks' && rows.isNotEmpty
-              ? groupedTasks()
-              : rows.isEmpty
-              ? LayoutBuilder(
-                  builder: (context, constraints) => SingleChildScrollView(
-                    primary: false,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: RaftEmptyState(
-                        title: enabledActivity
-                            ? activityEmptyTitle
-                            : widget.section == 'search'
-                            ? 'Search your workspace'
-                            : 'No ${widget.section}',
-                        detail: enabledActivity
-                            ? activityEmptyDetail
-                            : widget.section == 'search'
-                            ? 'Enter words to find messages.'
-                            : 'There are no items in this view.',
-                        glyph: enabledActivity
-                            ? (filter == 'saved'
-                                  ? RaftGlyph.bookmark
-                                  : filter == 'done'
-                                  ? RaftGlyph.checkCircle2
-                                  : RaftGlyph.messageSquareText)
-                            : null,
-                      ),
-                    ),
-                  ),
-                )
-              : widget.section == 'activity' && advanced.groupByChannel
-              ? groupedActivity()
-              : Material(
-                  color: RaftTokens.of(context).brutal
-                      ? RaftTokens.of(context).panel
-                      : RaftTokens.of(context).sidebar,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: resourceList()),
-                      if (snapshotted && listUpdates.count > 0)
-                        RaftNewUpdatesButton(
-                          label: raftFormat(
-                            context,
-                            listUpdates.count == 1
-                                ? '{count} new update'
-                                : '{count} new updates',
-                            {'count': listUpdates.count},
-                          ),
-                          onPressed: revealListUpdates,
-                        ),
-                    ],
-                  ),
-                ),
+              : resourceResults(context),
         ),
       ],
+    );
+  }
+
+  List<String> get activitySections => enabledActivity
+      ? [for (final view in RaftActivityView.values) view.name]
+      : const ['all', 'unread', 'mentions'];
+
+  Widget resourceResults(BuildContext context) {
+    final scope = authority;
+    return loading && rows.isEmpty
+        ? enabledActivity
+              ? const RaftActivityLoadingList()
+              : Center(child: CircularProgressIndicator())
+        : widget.section == 'search' &&
+              query.text.trim().isEmpty &&
+              (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery)
+        ? searchHome(scope)
+        : widget.section == 'search'
+        ? ResourceSearchResults(
+            key: PageStorageKey(('search-results', listView)),
+            query: query.text,
+            rows: rows,
+            entities: currentSearchEntities,
+            origin: w.client.origin,
+            agents: rowAgents,
+            members: rowPeople,
+            currentUser: w.client.user?.json,
+            plan: w.server?.string('plan', 'free') ?? 'free',
+            now: widget.clock?.call() ?? DateTime.now(),
+            selectedKey:
+                selectedSearchKey ?? currentSearchEntities.firstOrNull?.key,
+            onMessage: (row) => openSearchMessage(row, scope),
+            onEntity: (entity) => openSearchEntity(entity, scope),
+            hasMore: hasMore,
+            onMore: () => load(append: true),
+          )
+        : widget.section == 'tasks' && taskLayout == 'board'
+        ? taskBoard()
+        : widget.section == 'tasks' && rows.isNotEmpty
+        ? groupedTasks()
+        : rows.isEmpty
+        ? LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              primary: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: RaftEmptyState(
+                  title: enabledActivity
+                      ? activityEmptyTitle
+                      : widget.section == 'search'
+                      ? 'Search your workspace'
+                      : 'No ${widget.section}',
+                  detail: enabledActivity
+                      ? activityEmptyDetail
+                      : widget.section == 'search'
+                      ? 'Enter words to find messages.'
+                      : 'There are no items in this view.',
+                  glyph: enabledActivity
+                      ? (filter == 'saved'
+                            ? RaftGlyph.bookmark
+                            : filter == 'done'
+                            ? RaftGlyph.checkCircle2
+                            : RaftGlyph.messageSquareText)
+                      : null,
+                ),
+              ),
+            ),
+          )
+        : widget.section == 'activity' && advanced.groupByChannel
+        ? groupedActivity()
+        : Material(
+            color: RaftTokens.of(context).brutal
+                ? RaftTokens.of(context).panel
+                : RaftTokens.of(context).sidebar,
+            child: Stack(
+              children: [
+                Positioned.fill(child: resourceList()),
+                if (snapshotted && listUpdates.count > 0)
+                  RaftNewUpdatesButton(
+                    label: raftFormat(
+                      context,
+                      listUpdates.count == 1
+                          ? '{count} new update'
+                          : '{count} new updates',
+                      {'count': listUpdates.count},
+                    ),
+                    onPressed: revealListUpdates,
+                  ),
+              ],
+            ),
+          );
+  }
+
+  /// A neighboring page is a pure projection of its accepted window. It
+  /// never issues reads, appends pages or registers another data owner.
+  Widget inactiveActivitySection(String value) {
+    final window = viewWindows[listViewFor(value)];
+    if (window == null) return const RaftActivityLoadingList();
+    if (window.rows.isEmpty) {
+      return RaftEmptyState(
+        title: activityEmptyTitleFor(value),
+        detail: activityEmptyDetailFor(value),
+      );
+    }
+    if (advanced.groupByChannel) {
+      return groupedActivity(viewFilter: value, windowRows: window.rows);
+    }
+    return ListView.separated(
+      key: PageStorageKey(('resource-list', 'activity', value)),
+      primary: false,
+      padding: const EdgeInsets.all(16),
+      controller: activityScrolls[value],
+      itemCount: window.rows.length,
+      separatorBuilder: (_, _) =>
+          const SizedBox(height: RaftConversationCardRecipe.gap),
+      itemBuilder: (_, i) =>
+          activityCard(window.rows[i], authority, viewFilter: value),
     );
   }
 
@@ -2336,7 +2432,7 @@ class _ResourceViewState extends State<ResourceView> {
     final shown = visibleRows;
     final list = ListView.separated(
       key: snapshotted
-          ? null
+          ? PageStorageKey(('resource-list', widget.section, filter))
           : PageStorageKey((
               'resource-list',
               widget.section,
@@ -2841,15 +2937,21 @@ class _ResourceViewState extends State<ResourceView> {
     }).toList();
   }
 
-  void selectActivityView(RaftActivityView next, String scope) {
-    if (!accepts(scope) || !enabledActivity) return;
+  void selectActivityView(RaftActivityView next, String scope) =>
+      selectActivitySection(next.name, scope);
+
+  void selectActivitySection(String next, String scope) {
+    if (!accepts(scope) || filter == next) return;
+    stashViewWindow();
+    activityScrollOffsets[filter] = listOffset;
+    activityActivation?.cancel();
     setState(() {
-      filter = next.name;
-      rows = List.of(switch (next) {
-        RaftActivityView.saved => savedActivityItems,
-        RaftActivityView.done => doneActivityItems,
-        _ => acceptedActivityItems,
-      });
+      filter = next;
+      rows = [];
+      rowsView = null;
+      hasMore = false;
+      listOffset = activityScrollOffsets[next] ?? 0;
+      listScroll = activityScrolls.putIfAbsent(next, newActivityScroll);
       if (!['saved', 'done'].contains(filter)) activeActivityFilter = filter;
     });
     load();
@@ -2892,7 +2994,8 @@ class _ResourceViewState extends State<ResourceView> {
         );
       });
 
-  String get activityEmptyTitle => switch (filter) {
+  String get activityEmptyTitle => activityEmptyTitleFor(filter);
+  String activityEmptyTitleFor(String filter) => switch (filter) {
     'saved' => 'No saved threads yet',
     'done' => 'Nothing completed yet',
     'mentions' => 'No mentions yet',
@@ -2902,7 +3005,8 @@ class _ResourceViewState extends State<ResourceView> {
           ? 'Activity is empty'
           : 'No activity in ${activitySourceGroups.where((g) => g.id == advanced.channelId).firstOrNull?.label ?? 'Selected channel'}',
   };
-  String get activityEmptyDetail => switch (filter) {
+  String get activityEmptyDetail => activityEmptyDetailFor(filter);
+  String activityEmptyDetailFor(String filter) => switch (filter) {
     'saved' => 'Save a thread or message from Activity to keep it here.',
     'done' => 'Items you mark done appear here and can be restored.',
     _ when advanced.channelId != null =>
@@ -3013,9 +3117,7 @@ class _ResourceViewState extends State<ResourceView> {
                 ],
                 onChanged: (value) {
                   if (accepts(scope) && filter != value) {
-                    filter = value;
-                    activeActivityFilter = value;
-                    load();
+                    selectActivitySection(value, scope);
                   }
                 },
               ),
@@ -3476,7 +3578,12 @@ class _ResourceViewState extends State<ResourceView> {
         ),
       );
 
-  Widget activityCard(Map<String, dynamic> row, String scope) {
+  Widget activityCard(
+    Map<String, dynamic> row,
+    String scope, {
+    String? viewFilter,
+  }) {
+    final filter = viewFilter ?? this.filter;
     final recipe = RaftConversationCardRecipe(RaftTokens.of(context));
     final thread = row['kind'] == 'thread';
     final dm = row['kind'] == 'dm' || row['channelType'] == 'dm';
@@ -4007,15 +4114,20 @@ class _ResourceViewState extends State<ResourceView> {
     );
   }
 
-  Widget groupedActivity() {
+  Widget groupedActivity({
+    String? viewFilter,
+    List<Map<String, dynamic>>? windowRows,
+  }) {
+    final value = viewFilter ?? filter;
     final groups = <String, List<Map<String, dynamic>>>{};
-    for (final row in rows) {
+    for (final row in windowRows ?? rows) {
       final id =
           '${row['kind'] == 'thread' ? row['parentChannelId'] : row['channelId']}';
       (groups[id] ??= []).add(row);
     }
     return ListView(
-      key: const PageStorageKey('activity-grouped-list'),
+      key: PageStorageKey(('activity-grouped-list', value)),
+      controller: viewFilter == null ? listScroll : activityScrolls[value],
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         for (final group in groups.values) ...[
@@ -4026,9 +4138,12 @@ class _ResourceViewState extends State<ResourceView> {
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
-          for (final row in group) item(row),
+          for (final row in group)
+            viewFilter == null
+                ? item(row)
+                : activityCard(row, authority, viewFilter: value),
         ],
-        if (hasMore)
+        if (viewFilter == null && hasMore)
           TextButton(
             onPressed: () => load(append: true),
             child: Text(raftText(context, 'Load more')),

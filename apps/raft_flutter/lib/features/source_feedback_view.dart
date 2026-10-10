@@ -200,10 +200,8 @@ class _SourceFeedbackViewState extends State<SourceFeedbackView> {
   }
 
   @override
-  Widget build(BuildContext context) => SourceFeedbackProjectionView(
-    store: store,
-    pickFiles: pickFeedbackImages,
-  );
+  Widget build(BuildContext context) =>
+      SourceFeedbackProjectionView(store: store, pickFiles: pickFeedbackImages);
 }
 
 String _status(String status, String? closure) => switch (status) {
@@ -514,6 +512,7 @@ class _SourceFeedbackProjectionViewState
   Widget _inbox(BuildContext context) {
     final rows = store.visibleTickets;
     return RaftFeedbackInbox(
+      key: ValueKey((store, store.authority())),
       headerAction: store.canWrite
           ? RaftFeedbackHeaderButton(
               key: const ValueKey('feedback-new'),
@@ -551,35 +550,46 @@ class _SourceFeedbackProjectionViewState
           ? (id, reason) => store.requestClose(id, _sourceReason(reason))
           : null,
       closeDisabled: store.closing,
-      tickets: [
-        for (final ticket in rows)
-          RaftFeedbackTicketRow(
-            id: ticket.id,
-            // User content: first line only, never a dictionary lookup.
-            title: ticket.title,
-            date: _date(context, ticket.updatedAt),
-            problem: ticket.kind != 'feedback',
-            status: switch (_status(ticket.status, ticket.closureReason)) {
-              'In progress' => RaftFeedbackStatus.inProgress,
-              'Resolved' => RaftFeedbackStatus.resolved,
-              'Closed' => RaftFeedbackStatus.closed,
-              _ => RaftFeedbackStatus.open,
-            },
-            unreadLabel: ticket.unread ? ticket.badgeLabel : null,
-            unreadSemantics: ticket.unread
-                ? raftFormat(context, '{count} unread', {
-                    'count': ticket.badgeCount,
-                  })
-                : null,
-            closeReason: ticket.status == 'closed'
-                ? null
-                : _closeReason(
-                    SourceFeedbackCloseReason.defaultFor(ticket.status),
-                  ),
-          ),
-      ],
+      ticketsForFilter: (value) => feedbackRows(
+        context,
+        store.ticketsForFilter(switch (value) {
+          RaftFeedbackFilter.all => SourceFeedbackFilter.all,
+          RaftFeedbackFilter.active => SourceFeedbackFilter.open,
+          RaftFeedbackFilter.ended => SourceFeedbackFilter.resolved,
+        }),
+      ),
+      tickets: feedbackRows(context, rows),
     );
   }
+
+  List<RaftFeedbackTicketRow> feedbackRows(
+    BuildContext context,
+    List<SourceFeedbackTicket> rows,
+  ) => [
+    for (final ticket in rows)
+      RaftFeedbackTicketRow(
+        id: ticket.id,
+        // User content: first line only, never a dictionary lookup.
+        title: ticket.title,
+        date: _date(context, ticket.updatedAt),
+        problem: ticket.kind != 'feedback',
+        status: switch (_status(ticket.status, ticket.closureReason)) {
+          'In progress' => RaftFeedbackStatus.inProgress,
+          'Resolved' => RaftFeedbackStatus.resolved,
+          'Closed' => RaftFeedbackStatus.closed,
+          _ => RaftFeedbackStatus.open,
+        },
+        unreadLabel: ticket.unread ? ticket.badgeLabel : null,
+        unreadSemantics: ticket.unread
+            ? raftFormat(context, '{count} unread', {
+                'count': ticket.badgeCount,
+              })
+            : null,
+        closeReason: ticket.status == 'closed'
+            ? null
+            : _closeReason(SourceFeedbackCloseReason.defaultFor(ticket.status)),
+      ),
+  ];
 
   Widget _create(BuildContext context) {
     final sending = store.newSending;

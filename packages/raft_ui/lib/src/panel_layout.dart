@@ -954,6 +954,9 @@ class _RenderCssLineBox extends RenderProxyBox {
   double get _shift {
     final flutter = _flutterBaseline;
     final top = localToGlobal(Offset.zero).dy;
+    // Kept-alive sliver children can paint their own repaint boundary while
+    // their ancestor has no screen transform. Align locally until attached.
+    if (!top.isFinite) return _metrics.baseline - flutter;
     final chrome = (top + _metrics.baseline + 0.5).floorToDouble();
     return chrome - (top + flutter);
   }
@@ -1033,9 +1036,9 @@ class _RenderCssTopBorder extends RenderProxyBox {
   void paint(PaintingContext context, Offset offset) {
     super.paint(context, offset);
     final top = localToGlobal(Offset.zero).dy;
-    final snapped = (top + .5).floorToDouble();
+    final shift = top.isFinite ? (top + .5).floorToDouble() - top : 0.0;
     context.canvas.drawRect(
-      Rect.fromLTWH(offset.dx, offset.dy + snapped - top, size.width, _width),
+      Rect.fromLTWH(offset.dx, offset.dy + shift, size.width, _width),
       Paint()
         ..color = _color
         ..isAntiAlias = false,

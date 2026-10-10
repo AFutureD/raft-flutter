@@ -73,6 +73,19 @@ class _ConversationPanelState extends State<ConversationPanel> {
         : null,
   );
 
+  void selectTab(RaftConversationTabId value) {
+    setState(() => tab = value);
+    if (w.server != null) {
+      w.navigation.navigate(
+        w.location.withQuery({
+          'chatTab': value == RaftConversationTabId.chat ? null : value.name,
+        }),
+        kind: RaftNavigationKind.replace,
+      );
+      w.notifyListeners();
+    }
+  }
+
   bool _usesThumbnail(
     SourceChannelFileEntry file,
     SourceChannelImageRendition rendition,
@@ -210,65 +223,58 @@ class _ConversationPanelState extends State<ConversationPanel> {
                 ),
             ],
             value: tab,
-            onChanged: (value) {
-              setState(() => tab = value);
-              if (w.server != null) {
-                w.navigation.navigate(
-                  w.location.withQuery({
-                    'chatTab': value == RaftConversationTabId.chat
-                        ? null
-                        : value.name,
-                  }),
-                  kind: RaftNavigationKind.replace,
-                );
-                w.notifyListeners();
-              }
-            },
+            onChanged: selectTab,
           ),
         Expanded(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              KeyedSubtree(
+          child: RaftSectionPager<RaftConversationTabId>(
+            key: ValueKey(currentScope),
+            sections: hasTabs ? order : const [RaftConversationTabId.chat],
+            value: tab,
+            initiallyMounted: const [RaftConversationTabId.chat],
+            swipeEnabled:
+                hasTabs &&
+                !widget.hideHeader &&
+                MediaQuery.sizeOf(context).width <
+                    RaftLayoutMetrics.desktopBreakpoint,
+            onChanged: selectTab,
+            builder: (context, id) => switch (id) {
+              RaftConversationTabId.chat => KeyedSubtree(
                 key: chatSlot,
-                child: Visibility(
-                  visible: tab == RaftConversationTabId.chat,
-                  maintainState: true,
-                  child: RaftChatView(
-                    controller: w,
-                    selectionHandle: widget.selectionHandle,
-                    onTask: widget.onMessageTask,
-                  ),
+                // PageView retains the laid-out chat, so swiping back paints
+                // the cached rows immediately. Pager TickerMode gates its
+                // presentation; hiding it with Offstage forced relayout.
+                child: RaftChatView(
+                  controller: w,
+                  selectionHandle: widget.selectionHandle,
+                  onTask: widget.onMessageTask,
                 ),
               ),
-              if (channel != null && tab == RaftConversationTabId.tasks)
-                ResourceView(
-                  key: ValueKey('channel-tasks-$currentScope'),
-                  controller: w,
-                  section: 'tasks',
-                  channelId: channel.id,
-                  onTask: widget.onTask,
-                  onMessage: (id, message) async {
-                    setState(() => tab = RaftConversationTabId.chat);
-                    w.setChatTabPresentation(this, true);
-                    await w.jumpToMessage(id, message);
-                  },
-                ),
-              if (channel != null && tab == RaftConversationTabId.files)
-                SourceChannelFilesView(
-                  key: ValueKey('channel-files-$currentScope'),
-                  controller: w,
-                  channelId: channel.id,
-                  formatCreatedAt: formatter(context).shortDateTime,
-                  acquireImage: acquireImage,
-                  peekImage: peekImage,
-                  onOpenSource: (file) async {
-                    setState(() => tab = RaftConversationTabId.chat);
-                    w.setChatTabPresentation(this, true);
-                    await w.jumpToMessage(channel.id, file.messageId);
-                  },
-                ),
-            ],
+              RaftConversationTabId.tasks => ResourceView(
+                key: ValueKey('channel-tasks-$currentScope'),
+                controller: w,
+                section: 'tasks',
+                channelId: channel!.id,
+                onTask: widget.onTask,
+                onMessage: (id, message) async {
+                  setState(() => tab = RaftConversationTabId.chat);
+                  w.setChatTabPresentation(this, true);
+                  await w.jumpToMessage(id, message);
+                },
+              ),
+              RaftConversationTabId.files => SourceChannelFilesView(
+                key: ValueKey('channel-files-$currentScope'),
+                controller: w,
+                channelId: channel!.id,
+                formatCreatedAt: formatter(context).shortDateTime,
+                acquireImage: acquireImage,
+                peekImage: peekImage,
+                onOpenSource: (file) async {
+                  setState(() => tab = RaftConversationTabId.chat);
+                  w.setChatTabPresentation(this, true);
+                  await w.jumpToMessage(channel.id, file.messageId);
+                },
+              ),
+            },
           ),
         ),
       ],

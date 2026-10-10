@@ -24,6 +24,8 @@ import 'recipes/skeleton.g.dart';
 import 'recipes/tabs.g.dart';
 import 'recipes/task_card.g.dart';
 import 'theme.dart';
+import 'section_pager.dart';
+import 'design_primitives.dart' show RaftLayoutMetrics;
 
 /// `.hands-feedback-root { font-family: ui-sans-serif, system-ui, ... }`:
 /// the platform UI face (an unknown family name resolves to the platform
@@ -115,6 +117,7 @@ class RaftFeedbackInbox extends StatelessWidget {
     required this.filter,
     required this.onFilter,
     this.anyTickets,
+    this.ticketsForFilter,
     this.loading = false,
     this.error,
     this.onRetry,
@@ -131,6 +134,10 @@ class RaftFeedbackInbox extends StatelessWidget {
 
   /// Tickets visible under [filter].
   final List<RaftFeedbackTicketRow> tickets;
+
+  /// Pure projection of the same accepted inbox for neighboring sections.
+  final List<RaftFeedbackTicketRow> Function(RaftFeedbackFilter)?
+  ticketsForFilter;
 
   /// Whether the account has any ticket at all (the Tabs render and the
   /// empty copy is per-filter only then); defaults to `tickets.isNotEmpty`.
@@ -150,8 +157,88 @@ class RaftFeedbackInbox extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final any = anyTickets ?? tickets.isNotEmpty;
-    final emptyKind = any ? filter : RaftFeedbackFilter.all;
-    final showEmpty = !loading && error == null && tickets.isEmpty;
+    Widget listFor(RaftFeedbackFilter filter) {
+      final tickets = ticketsForFilter?.call(filter) ?? this.tickets;
+      final emptyKind = any ? filter : RaftFeedbackFilter.all;
+      final showEmpty = !loading && error == null && tickets.isEmpty;
+      return showEmpty
+          ? Padding(
+              // `[data-feedback-empty-scroll]`: 6px 2px 0.
+              padding: EdgeInsets.fromLTRB(
+                2,
+                6,
+                2 + raftFeedbackScrollGutter(context),
+                0,
+              ),
+              child: RaftFeedbackEmptyState(kind: emptyKind),
+            )
+          : KeyedSubtree(
+              key: const ValueKey('feedback-inbox'),
+              child: ListView(
+                key: PageStorageKey(('feedback-inbox', filter)),
+                primary: false,
+                padding: EdgeInsets.fromLTRB(
+                  2,
+                  2,
+                  2 + raftFeedbackScrollGutter(context),
+                  2,
+                ),
+                children: [
+                  // The zero-height pull-to-refresh row is a
+                  // grid item: its `margin-bottom: -12px`
+                  // cannot shrink the track, so the 12px grid
+                  // gap after it stays.
+                  const SizedBox(height: 12),
+                  if (loading)
+                    for (var i = 0; i < 3; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      const RaftUiSkeleton(height: 64),
+                    ],
+                  if (error != null) ...[
+                    if (loading) const SizedBox(height: 12),
+                    RaftBanner(
+                      status: RaftBannerRecipeStatus.destructive,
+                      size: RaftBannerRecipeSize.sm,
+                      description: error!,
+                      action: onRetry == null
+                          ? null
+                          : RaftButton(
+                              label: 'Try again',
+                              variant: RaftControlVariant.outline,
+                              size: RaftButtonRecipeSize.sm,
+                              onPressed: onRetry,
+                            ),
+                    ),
+                  ],
+                  for (final (i, ticket) in tickets.indexed) ...[
+                    if (i > 0 || loading || error != null)
+                      SizedBox(height: i > 0 ? 10 : 12),
+                    RaftFeedbackTicketCard(
+                      key: ValueKey('feedback-ticket-${ticket.id}'),
+                      ticket: ticket,
+                      onOpen: onOpen == null ? null : () => onOpen!(ticket.id),
+                      onClose: onClose == null
+                          ? null
+                          : (reason) => onClose!(ticket.id, reason),
+                      closeDisabled: closeDisabled,
+                    ),
+                  ],
+                  if (onLoadMore != null) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: RaftButton(
+                        label: 'Load more',
+                        variant: RaftControlVariant.outline,
+                        onPressed: onLoadMore,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+    }
+
     return ColoredBox(
       // `--hf-bg: var(--layer-canvas)`.
       color: t.colors['layer-canvas']!,
@@ -180,86 +267,18 @@ class RaftFeedbackInbox extends StatelessWidget {
                         const SizedBox(height: 12),
                       ],
                       Expanded(
-                        child: showEmpty
-                            ? Padding(
-                                // `[data-feedback-empty-scroll]`: 6px 2px 0.
-                                padding: EdgeInsets.fromLTRB(
-                                  2,
-                                  6,
-                                  2 + raftFeedbackScrollGutter(context),
-                                  0,
-                                ),
-                                child: RaftFeedbackEmptyState(kind: emptyKind),
+                        child:
+                            any &&
+                                ticketsForFilter != null &&
+                                MediaQuery.sizeOf(context).width <
+                                    RaftLayoutMetrics.desktopBreakpoint
+                            ? RaftSectionPager<RaftFeedbackFilter>(
+                                sections: RaftFeedbackFilter.values,
+                                value: filter,
+                                onChanged: onFilter,
+                                builder: (context, value) => listFor(value),
                               )
-                            : ListView(
-                                key: const ValueKey('feedback-inbox'),
-                                padding: EdgeInsets.fromLTRB(
-                                  2,
-                                  2,
-                                  2 + raftFeedbackScrollGutter(context),
-                                  2,
-                                ),
-                                children: [
-                                  // The zero-height pull-to-refresh row is a
-                                  // grid item: its `margin-bottom: -12px`
-                                  // cannot shrink the track, so the 12px grid
-                                  // gap after it stays.
-                                  const SizedBox(height: 12),
-                                  if (loading)
-                                    for (var i = 0; i < 3; i++) ...[
-                                      if (i > 0) const SizedBox(height: 8),
-                                      const RaftUiSkeleton(height: 64),
-                                    ],
-                                  if (error != null) ...[
-                                    if (loading) const SizedBox(height: 12),
-                                    RaftBanner(
-                                      status:
-                                          RaftBannerRecipeStatus.destructive,
-                                      size: RaftBannerRecipeSize.sm,
-                                      description: error!,
-                                      action: onRetry == null
-                                          ? null
-                                          : RaftButton(
-                                              label: 'Try again',
-                                              variant:
-                                                  RaftControlVariant.outline,
-                                              size: RaftButtonRecipeSize.sm,
-                                              onPressed: onRetry,
-                                            ),
-                                    ),
-                                  ],
-                                  for (final (i, ticket)
-                                      in tickets.indexed) ...[
-                                    if (i > 0 || loading || error != null)
-                                      SizedBox(height: i > 0 ? 10 : 12),
-                                    RaftFeedbackTicketCard(
-                                      key: ValueKey(
-                                        'feedback-ticket-${ticket.id}',
-                                      ),
-                                      ticket: ticket,
-                                      onOpen: onOpen == null
-                                          ? null
-                                          : () => onOpen!(ticket.id),
-                                      onClose: onClose == null
-                                          ? null
-                                          : (reason) =>
-                                                onClose!(ticket.id, reason),
-                                      closeDisabled: closeDisabled,
-                                    ),
-                                  ],
-                                  if (onLoadMore != null) ...[
-                                    const SizedBox(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: RaftButton(
-                                        label: 'Load more',
-                                        variant: RaftControlVariant.outline,
-                                        onPressed: onLoadMore,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
+                            : listFor(filter),
                       ),
                     ],
                   ),

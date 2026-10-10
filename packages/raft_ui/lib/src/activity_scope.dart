@@ -146,31 +146,80 @@ class RaftActivityScopeToolbar extends StatelessWidget {
               spacing: 12,
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      spacing: 4,
-                      children: [
-                        for (final value in RaftActivityView.values)
-                          _ActivityButton(
-                            key: ValueKey('activity-view-${value.name}'),
-                            label: raftText(context, value.label),
-                            onPressed: () => onView(value),
-                            selected: view == value,
-                            shadowed: view == value,
-                            border: true,
-                            height: 32,
-                            child: Text(raftText(context, value.label)),
-                          ),
-                      ],
-                    ),
-                  ),
+                  child: _ActivityViewStrip(view: view, onView: onView),
                 ),
                 ?markAllRead,
               ],
             ),
     );
   }
+}
+
+class _ActivityViewStrip extends StatefulWidget {
+  const _ActivityViewStrip({required this.view, required this.onView});
+  final RaftActivityView view;
+  final ValueChanged<RaftActivityView> onView;
+  @override
+  State<_ActivityViewStrip> createState() => _ActivityViewStripState();
+}
+
+class _ActivityViewStripState extends State<_ActivityViewStrip> {
+  final anchors = {
+    for (final view in RaftActivityView.values) view: GlobalKey(),
+  };
+
+  void revealSelected({bool forward = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = anchors[widget.view]?.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          alignmentPolicy: forward
+              ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+              : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+        );
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    revealSelected();
+  }
+
+  @override
+  void didUpdateWidget(_ActivityViewStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.view != widget.view) {
+      revealSelected(forward: widget.view.index > oldWidget.view.index);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      spacing: 4,
+      children: [
+        for (final value in RaftActivityView.values)
+          KeyedSubtree(
+            key: anchors[value],
+            child: _ActivityButton(
+              key: ValueKey('activity-view-${value.name}'),
+              label: raftText(context, value.label),
+              onPressed: () => widget.onView(value),
+              selected: widget.view == value,
+              shadowed: widget.view == value,
+              border: true,
+              height: 32,
+              child: Text(raftText(context, value.label)),
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 /// DialogCard's shared view/group content. Source closes on any selection;

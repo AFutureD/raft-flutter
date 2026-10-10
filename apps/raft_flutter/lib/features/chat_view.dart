@@ -220,7 +220,8 @@ class _RaftChatViewState extends State<RaftChatView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final active = Visibility.of(context);
+    final active =
+        Visibility.of(context) && TickerMode.valuesOf(context).enabled;
     if (active != presentationActive) {
       presentationActive = active;
       ++presentationRevision;
@@ -2744,6 +2745,7 @@ class _RaftChatViewState extends State<RaftChatView>
                       'name': w.channel?.name ?? '',
                     }),
               enabled:
+                  presentationActive &&
                   !w.conversationPaused &&
                   (widget.thread
                       ? w.threadParentMessageId != null &&

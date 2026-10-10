@@ -210,6 +210,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               RaftGlyph.link2,
               (_) => IntegrationsView(controller: w),
               group: WorkspaceSettings.workspace,
+              scroll: false,
             ),
           if (widget.labsEnabled)
             RaftSettingsDestination(

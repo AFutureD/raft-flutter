@@ -490,17 +490,20 @@ class SourceFeedbackStore extends ChangeNotifier {
       : _inboxCloseError;
   bool get authorized =>
       !_disposed && _authority != null && authority() == _authority;
-  List<SourceFeedbackTicket> get visibleTickets => _tickets
-      .where(
-        (t) => switch (filter) {
-          SourceFeedbackFilter.all => true,
-          SourceFeedbackFilter.open =>
-            t.status == 'open' || t.status == 'in_progress',
-          SourceFeedbackFilter.resolved =>
-            t.status == 'resolved' || t.status == 'closed',
-        },
-      )
-      .toList(growable: false);
+  List<SourceFeedbackTicket> get visibleTickets => ticketsForFilter(filter);
+
+  List<SourceFeedbackTicket> ticketsForFilter(SourceFeedbackFilter filter) =>
+      _tickets
+          .where(
+            (t) => switch (filter) {
+              SourceFeedbackFilter.all => true,
+              SourceFeedbackFilter.open =>
+                t.status == 'open' || t.status == 'in_progress',
+              SourceFeedbackFilter.resolved =>
+                t.status == 'resolved' || t.status == 'closed',
+            },
+          )
+          .toList(growable: false);
 
   String _nextId() => newId?.call() ?? 'local-${++_ids}';
 

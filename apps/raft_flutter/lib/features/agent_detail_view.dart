@@ -275,7 +275,25 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             onChanged: (v) => setState(() => tab = v),
           ),
           if (widget.error != null) RaftPanelError(widget.error!),
-          Expanded(child: _content(context, current)),
+          Expanded(
+            child: RaftSectionPager<AgentDetailTab>(
+              key: ValueKey((
+                widget.controller.client.origin,
+                widget.controller.client.generation,
+                widget.controller.client.user?.id,
+                widget.controller.server?.id,
+                widget.controller.server?.string('role'),
+                a['id'],
+              )),
+              sections: visible,
+              value: current,
+              onChanged: (value) => setState(() => tab = value),
+              swipeEnabled:
+                  MediaQuery.sizeOf(context).width <
+                  RaftLayoutMetrics.desktopBreakpoint,
+              builder: _content,
+            ),
+          ),
         ],
       ),
     );
@@ -381,9 +399,8 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     final raw = a['createdAt'];
     final date = raw is String ? DateTime.tryParse(raw) : null;
     if (date == null) return '';
-    return DateFormat.yMMMd(
-      Localizations.localeOf(context).toLanguageTag(),
-    ).format(agentTimeFormatter(context, widget.controller).wallTime(date));
+    return DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
+        .format(agentTimeFormatter(context, widget.controller).wallTime(date));
   }
 
   Widget _profile(BuildContext context) {
@@ -709,11 +726,27 @@ mixin _AgentTabLoader<T extends StatefulWidget> on State<T> {
   /// Skeleton/"Loading…" only while there is nothing to show yet.
   bool loading = true;
   String? loadError;
+  bool tabActive = true, reloadWhenActive = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final wasActive = tabActive;
+    tabActive = TickerMode.valuesOf(context).enabled;
+    if (tabActive && (!wasActive || reloadWhenActive)) {
+      reloadWhenActive = false;
+      unawaited(reload());
+    }
+  }
 
   /// An earlier accepted result is on screen; reloads keep it.
   bool get hasContent;
   Future<void> fetch();
   Future<void> reload() async {
+    if (!tabActive) {
+      reloadWhenActive = true;
+      return;
+    }
     final ticket = ++_ticket;
     setState(() {
       loading = !hasContent;
@@ -974,9 +1007,8 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       emptyLabel: loading ? raftText(context, 'Loading…') : loadError,
       onCopy: () => Clipboard.setData(
         ClipboardData(
-          text: [
-            for (final e in entries) '${e['timestamp']} ${e['entry']}',
-          ].join('\n'),
+          text: [for (final e in entries) '${e['timestamp']} ${e['entry']}']
+              .join('\n'),
         ),
       ),
     );
@@ -1000,9 +1032,10 @@ class AgentChatTab extends StatefulWidget {
 class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _ChatSnapshot snapshot =
-      w.agentTabCache.putIfAbsent('chat/${widget.agentId}', _ChatSnapshot.new)
-          as _ChatSnapshot;
+  late final _ChatSnapshot snapshot = w.agentTabCache.putIfAbsent(
+    'chat/${widget.agentId}',
+    _ChatSnapshot.new,
+  ) as _ChatSnapshot;
   List<Map<String, dynamic>> get channels => snapshot.channels;
   List<Map<String, dynamic>> get dms => snapshot.dms;
   @override
