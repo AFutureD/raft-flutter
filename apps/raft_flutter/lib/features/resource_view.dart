@@ -2026,15 +2026,23 @@ class _ResourceViewState extends State<ResourceView> {
     if (snapshotted) observeListUpdates();
     // ThreadsInbox mounts ActivityInboxPanel with `theme-brutal:!border-l`.
     final activityEdge = widget.section == 'activity';
+    // Owner decision 2026-10-11 (overrides the Web measurement): the mobile
+    // Activity page draws no vertical border at x = 0; the desktop panel keeps
+    // its line beside the rail.
+    final activityBorder =
+        MediaQuery.sizeOf(context).width >=
+        RaftAdaptiveWorkspace.desktopMinWidth;
     final body = Container(
       decoration: activityEdge
           ? BoxDecoration(
               color: t.brutal ? t.panel : t.sidebar,
-              border: Border(
-                left: BorderSide(
-                  color: t.brutal ? t.colors['color-black']! : t.line,
-                ),
-              ),
+              border: activityBorder
+                  ? Border(
+                      left: BorderSide(
+                        color: t.brutal ? t.colors['color-black']! : t.line,
+                      ),
+                    )
+                  : null,
             )
           : null,
       child: widget.section == 'tasks'

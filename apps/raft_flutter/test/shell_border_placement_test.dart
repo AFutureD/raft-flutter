@@ -14,8 +14,11 @@ import 'message_presentation_test.dart' show fixture;
 ///   between the rail and the sidebar;
 /// - Activity: the sidebar column is hidden and the inbox panel (raft-ui Panel
 ///   `edge="attached"`, `theme-brutal:!border-l`) owns the line at its LEFT
-///   edge, beside the rail - on desktop and, at x = 0, on mobile.
-/// The expectations are the measured Web DOM (components.shell.*.activity.frame).
+///   edge, beside the rail. Owner decision 2026-10-11 (overrides the Web
+///   measurement of a line at x = 0): the mobile Activity page draws no
+///   vertical border.
+/// The desktop expectations are the measured Web DOM
+/// (components.shell.*.activity.frame).
 void main() {
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
@@ -84,7 +87,7 @@ void main() {
           visit(tester.binding.renderViews.first);
           final brutal = family == RaftFamily.brutal;
           final expected = mobile
-              ? ['L@0.0:1.0']
+              ? <String>[]
               : page == 'chat'
               ? (brutal ? ['R@64.0:2.0', 'R@304.0:2.0'] : ['R@296.0:1.0'])
               : (brutal

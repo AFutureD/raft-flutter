@@ -1100,11 +1100,16 @@ Activity borders (owner report): Web draws the vertical line beside the rail on
 the Activity page itself: the inbox panel is raft-ui `Panel edge="attached"`
 (`border-l`, Brutal `!border-l`), the rail keeps only its Brutal divider (1px on
 Activity: LeftRail `thinDivider`) and MainLayout hides the sidebar column on
-that route. On mobile the same panel keeps its left border at x = 0 (checked
-with AppShellRoot + AppShellMainSlot around ThreadsInbox at 390px, 3x). Flutter
-draws exactly these lines (`components.shell.*.activity.frame`, and
+that route. Flutter draws exactly these lines on desktop
+(`components.shell.desktop.activity.frame`, and
 `test/shell_border_placement_test.dart` asserts the owner and x of every
-vertical border per page, theme and form factor), so no border was removed.
+vertical border per page, theme and form factor).
+
+Intended difference (owner decision 2026-10-11): on MOBILE the same Web panel
+keeps its left border at x = 0 (checked with AppShellRoot + AppShellMainSlot
+around ThreadsInbox at 390px, 3x), but Flutter does not draw it. The ext cases
+`components.shell.mobile.activity.frame.*` therefore differ from Web by that
+1px vertical line by design; the owner decision overrides the Web analysis.
 
 Remaining gaps: the OverflowSheet (Drawer) shell, the emoji picker popover
 (third-party grid), the Electron-only "Find a conversation" sidebar box, the
