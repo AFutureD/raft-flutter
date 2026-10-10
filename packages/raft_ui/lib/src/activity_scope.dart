@@ -9,6 +9,7 @@ import 'indicators.dart';
 import 'localization.dart';
 import 'select_field.dart';
 import 'theme.dart';
+import 'recipe_surface.dart' show RaftCssBoxDecoration;
 
 /// Mounted ThreadsInbox views; Saved and Done are independent result sources.
 enum RaftActivityView {
@@ -366,7 +367,7 @@ class _ActivityButton extends StatelessWidget {
               ? BoxDecoration(border: Border.all(color: t.ink, width: 2))
               : null,
           padding: padding,
-          decoration: BoxDecoration(
+          decoration: RaftCssBoxDecoration(
             color: t.brutal && group && selected
                 ? black.withValues(alpha: .08)
                 : fill,

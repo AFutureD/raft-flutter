@@ -15,6 +15,7 @@ import 'localization.dart';
 import 'task.dart';
 import 'theme.dart';
 import 'thread_composition.dart';
+import 'recipe_surface.dart' show RaftCssBoxDecoration;
 
 /// LegacyTaskPanel's container is selected by MainLayout, independently of
 /// the modern task modal and of the task's accepted metadata.
@@ -144,7 +145,9 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
               onTap: () {},
               child: DecoratedBox(
                 position: DecorationPosition.foreground,
-                decoration: BoxDecoration(
+                // Foreground paint: the shadow must stay outside the border
+                // box or it covers the panel it frames.
+                decoration: RaftCssBoxDecoration(
                   border: Border.all(
                     color: t.brutal ? t.ink : t.colors['line-muted']!,
                     width: t.brutal ? 2 : 1,

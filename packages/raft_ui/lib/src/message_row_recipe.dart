@@ -11,6 +11,7 @@ import 'message_semantics.dart';
 import 'viewport_breakpoints.dart';
 import 'tokens/tokens.dart';
 import 'theme.dart';
+import 'recipe_surface.dart' show RaftCssBoxDecoration;
 
 /// ThreadPanelContent applies its own descendant padding below lg.
 enum RaftMessageRowContext { main, thread }
@@ -129,7 +130,10 @@ class RaftMessageRowRecipe {
               : tokens.colors['foreground-placeholder']!)
         : Colors.transparent,
   );
-  BoxDecoration get decoration => BoxDecoration(
+  // The focus fill is translucent and the idle fill transparent: the brutal
+  // shadow must paint outside the border box only (CSS `box-shadow`), never
+  // through the fill as Flutter's BoxDecoration shadow does.
+  BoxDecoration get decoration => RaftCssBoxDecoration(
     color: background,
     border: Border.all(color: border, width: borderWidth),
     boxShadow: tokens.brutal && (highlighted || popupOpen)

@@ -17,6 +17,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'theme.dart' hide RaftFieldRecipe;
 import 'tokens/tokens.dart';
+import 'recipe_surface.dart' show RaftCssBoxDecoration;
 
 /// RaftAuthShell (packages/web/src/components/brand/RaftAuthShell.tsx):
 /// `bg-layer-canvas font-display safe-top safe-bottom`, brand top bar, then
@@ -771,7 +772,7 @@ class RaftAuthAvatarField extends StatelessWidget {
         Row(
           children: [
             DecoratedBox(
-              decoration: BoxDecoration(
+              decoration: RaftCssBoxDecoration(
                 boxShadow: t.brutal
                     ? RaftProductShadows.shadowBrutalSm.outer
                     : null,

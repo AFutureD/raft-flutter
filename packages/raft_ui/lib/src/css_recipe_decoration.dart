@@ -1,5 +1,7 @@
 import 'package:flutter/painting.dart';
 
+import 'recipe_surface.dart' show RaftOuterShadowPainter;
+
 /// Reduces CSS corner radii against the actual border box in double precision.
 /// Tailwind `rounded-full` resolves to Chrome's max float; passing it to Skia
 /// before this CSS overlap reduction overflows float arithmetic.
@@ -110,6 +112,7 @@ class _RaftRecipePainter extends BoxPainter {
   BoxPainter? painter;
   Size? size;
   TextDirection? direction;
+  BorderRadius radius = BorderRadius.zero;
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     if (painter == null ||
@@ -118,9 +121,23 @@ class _RaftRecipePainter extends BoxPainter {
       painter?.dispose();
       size = configuration.size;
       direction = configuration.textDirection;
-      painter = decoration
-          .forBox(Offset.zero & size!, direction)
-          .createBoxPainter(onChanged);
+      final box = decoration.forBox(Offset.zero & size!, direction);
+      radius = box.borderRadius?.resolve(direction) ?? BorderRadius.zero;
+      // CSS outer box-shadows paint only outside the border box. Flutter
+      // paints a BoxShadow as a full shape beneath the box, so a translucent
+      // or transparent fill would show the shadow through it.
+      painter = box.copyWith(boxShadow: const []).createBoxPainter(onChanged);
+    }
+    final shadows = decoration.boxShadow;
+    if (shadows != null && shadows.isNotEmpty) {
+      canvas.save();
+      canvas.translate(offset.dx, offset.dy);
+      RaftOuterShadowPainter(
+        shadows,
+        radius,
+        circle: decoration.shape == BoxShape.circle,
+      ).paint(canvas, configuration.size!);
+      canvas.restore();
     }
     painter!.paint(canvas, offset, configuration);
   }

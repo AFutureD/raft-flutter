@@ -1350,7 +1350,7 @@ class _RaftFieldSurfaceState extends State<RaftFieldSurface> {
       skipTraversal: true,
       onFocusChange: (value) => setState(() => focused = value),
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: RaftCssBoxDecoration(
           borderRadius: RaftShapes.field(t),
           boxShadow: t.brutal
               ? focused
