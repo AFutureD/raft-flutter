@@ -5,6 +5,7 @@ import 'message_body.dart';
 import 'design_primitives.dart';
 import 'message_content_tokens.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Structured, server-bounded attachment content. Never executes document HTML.
 class RaftDocumentPreview extends StatefulWidget {
@@ -147,12 +148,11 @@ class RaftMediaControls extends StatelessWidget {
     children: [
       Row(
         children: [
-          IconButton(
-            tooltip: raftText(context, playing ? 'Pause' : 'Play'),
+          RaftTooltip(message: raftText(context, playing ? 'Pause' : 'Play'), child: IconButton(
             onPressed: onPlayPause,
             icon: Icon(playing ? Icons.pause : Icons.play_arrow),
             constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          ),
+          )),
           Expanded(
             child: Slider(
               semanticFormatterCallback: (v) =>

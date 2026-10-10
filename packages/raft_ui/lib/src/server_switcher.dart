@@ -15,6 +15,7 @@ import 'recipes/context_menu.g.dart';
 import 'recipes/popover.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Accepted records and actions are supplied by the application, never the SDK.
 @immutable
@@ -524,7 +525,7 @@ class _ServerUnreadCount extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), label = count > 99 ? '99+' : '$count';
     if (muted) {
-      return Tooltip(
+      return RaftTooltip(
         message: 'Notifications muted',
         child: Text(
           label,

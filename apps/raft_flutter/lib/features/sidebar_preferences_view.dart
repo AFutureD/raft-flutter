@@ -344,24 +344,26 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
                 title: Text(c.name),
                 onTap: busy ? null : () => run(() => place('channel', c.id)),
                 trailing: dms
-                    ? IconButton(
-                        tooltip: raftText(
+                    ? RaftTooltip(
+                        message: raftText(
                           context,
                           hidden.contains(c.id)
                               ? 'Show direct message'
                               : 'Hide direct message',
                         ),
-                        icon: Icon(
-                          hidden.contains(c.id)
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                        child: IconButton(
+                          icon: Icon(
+                            hidden.contains(c.id)
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: busy
+                              ? null
+                              : () => run(() async {
+                                  if (!hidden.remove(c.id)) hidden.add(c.id);
+                                  await save({'hiddenDmIds': hidden.toList()});
+                                }),
                         ),
-                        onPressed: busy
-                            ? null
-                            : () => run(() async {
-                                if (!hidden.remove(c.id)) hidden.add(c.id);
-                                await save({'hiddenDmIds': hidden.toList()});
-                              }),
                       )
                     : const Padding(
                         padding: EdgeInsets.only(right: 24),
@@ -426,12 +428,14 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
                   ),
                 ),
                 onTap: busy ? null : () => run(() => editSection(section)),
-                trailing: IconButton(
-                  tooltip: raftText(context, 'Remove section'),
-                  icon: const RaftIcon(RaftGlyph.trash2, size: 14),
-                  onPressed: busy
-                      ? null
-                      : () => run(() => deleteSection(section)),
+                trailing: RaftTooltip(
+                  message: raftText(context, 'Remove section'),
+                  child: IconButton(
+                    icon: const RaftIcon(RaftGlyph.trash2, size: 14),
+                    onPressed: busy
+                        ? null
+                        : () => run(() => deleteSection(section)),
+                  ),
                 ),
               ),
             RaftButton(

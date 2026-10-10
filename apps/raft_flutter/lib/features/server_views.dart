@@ -642,10 +642,12 @@ class _MembersViewState extends State<MembersView> {
                             style: Theme.of(context).textTheme.headlineSmall,
                           ),
                         ),
-                        IconButton(
-                          tooltip: raftText(context, 'Refresh members'),
-                          onPressed: load,
-                          icon: const Icon(Icons.refresh),
+                        RaftTooltip(
+                          message: raftText(context, 'Refresh members'),
+                          child: IconButton(
+                            onPressed: load,
+                            icon: const Icon(Icons.refresh),
+                          ),
                         ),
                       ],
                     ),
@@ -663,41 +665,43 @@ class _MembersViewState extends State<MembersView> {
                       onTap: () => profile(member),
                       trailing:
                           w.can('changeMemberRoles') || w.can('removeMembers')
-                          ? PopupMenuButton<String>(
-                              tooltip: raftText(context, 'Member actions'),
-                              onSelected: (role) => change(member, role),
-                              itemBuilder: (_) => [
-                                if (w.can('changeMemberRoles')) ...[
-                                  for (final role
-                                      in w.server!.string('role') == 'owner'
-                                          ? [
-                                              'owner',
-                                              'admin',
-                                              'member',
-                                              'guest',
-                                            ]
-                                          : ['member', 'guest'])
+                          ? RaftTooltip(
+                              message: raftText(context, 'Member actions'),
+                              child: PopupMenuButton<String>(
+                                onSelected: (role) => change(member, role),
+                                itemBuilder: (_) => [
+                                  if (w.can('changeMemberRoles')) ...[
+                                    for (final role
+                                        in w.server!.string('role') == 'owner'
+                                            ? [
+                                                'owner',
+                                                'admin',
+                                                'member',
+                                                'guest',
+                                              ]
+                                            : ['member', 'guest'])
+                                      PopupMenuItem(
+                                        value: role,
+                                        child: Text(
+                                          raftFormat(context, 'Make {role}', {
+                                            'role': raftText(
+                                              context,
+                                              '${role[0].toUpperCase()}${role.substring(1)}',
+                                            ),
+                                          }),
+                                        ),
+                                      ),
+                                  ],
+                                  if (w.can('removeMembers') &&
+                                      member['userId'] != w.client.user!.id)
                                     PopupMenuItem(
-                                      value: role,
+                                      value: 'remove',
                                       child: Text(
-                                        raftFormat(context, 'Make {role}', {
-                                          'role': raftText(
-                                            context,
-                                            '${role[0].toUpperCase()}${role.substring(1)}',
-                                          ),
-                                        }),
+                                        raftText(context, 'Remove member'),
                                       ),
                                     ),
                                 ],
-                                if (w.can('removeMembers') &&
-                                    member['userId'] != w.client.user!.id)
-                                  PopupMenuItem(
-                                    value: 'remove',
-                                    child: Text(
-                                      raftText(context, 'Remove member'),
-                                    ),
-                                  ),
-                              ],
+                              ),
                             )
                           : null,
                     ),

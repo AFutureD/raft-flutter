@@ -11,6 +11,7 @@ import 'message_semantics.dart';
 import 'viewport_breakpoints.dart';
 import 'tokens/tokens.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
 
 /// ThreadPanelContent applies its own descendant padding below lg.
@@ -531,11 +532,18 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
               ),
             ),
           if (widget.subtitle != null && widget.subtitle!.isNotEmpty)
-            Text(
-              widget.subtitle!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: recipe.time,
+            // The description repeats its own text: the tooltip opens only
+            // while the single line is cut off.
+            RaftTooltip(
+              message: widget.subtitle!,
+              onlyWhenTruncated: true,
+              excludeFromSemantics: true,
+              child: Text(
+                widget.subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: recipe.time,
+              ),
             ),
           Text(
             widget.timestamp,

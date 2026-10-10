@@ -191,10 +191,12 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
       context,
       title: Text(raftText(context, 'Agent migration')),
       actions: [
-        IconButton(
-          tooltip: raftText(context, 'Refresh'),
-          onPressed: busy ? null : reload,
-          icon: const Icon(Icons.refresh),
+        RaftTooltip(
+          message: raftText(context, 'Refresh'),
+          child: IconButton(
+            onPressed: busy ? null : reload,
+            icon: const Icon(Icons.refresh),
+          ),
         ),
       ],
     ),

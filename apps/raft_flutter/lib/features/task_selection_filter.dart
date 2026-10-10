@@ -226,7 +226,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
             ],
           ),
       ],
-      builder: (context, controller, child) => Tooltip(
+      builder: (context, controller, child) => RaftTooltip(
         message: raftText(
           context,
           widget.tooltip ?? 'Filter tasks by ${widget.field.toLowerCase()}',

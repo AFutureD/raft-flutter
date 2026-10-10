@@ -136,46 +136,57 @@ void main() {
     },
   );
 
-  testWidgets('Adjacent provider trigger instant then expires after400', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RaftTooltip(
-              message: 'First',
-              child: SizedBox(width: 80, height: 32, child: Text('D')),
-            ),
-            RaftTooltip(
-              message: 'Second',
-              child: SizedBox(width: 80, height: 32, child: Text('E')),
-            ),
-          ],
+  testWidgets(
+    'Adjacent provider trigger opens after a short rest, then expires after400',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RaftTooltip(
+                message: 'First',
+                child: SizedBox(width: 80, height: 32, child: Text('D')),
+              ),
+              RaftTooltip(
+                message: 'Second',
+                child: SizedBox(width: 80, height: 32, child: Text('E')),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(find.text('D')));
-    await tester.pump(const Duration(milliseconds: 750));
-    expect(find.text('First'), findsOneWidget);
-    await mouse.moveTo(tester.getCenter(find.text('E')));
-    await tester.pump();
-    expect(find.text('First'), findsNothing);
-    expect(find.text('Second'), findsOneWidget);
-    await mouse.moveTo(Offset.zero);
-    await tester.pump(const Duration(milliseconds: 401));
-    await mouse.moveTo(tester.getCenter(find.text('D')));
-    await tester.pump(const Duration(milliseconds: 599));
-    expect(find.text('First'), findsNothing);
-    await tester.pump(const Duration(milliseconds: 151));
-    expect(find.text('First'), findsOneWidget);
-    await mouse.removePointer();
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 1));
-  });
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(find.text('D')));
+      await tester.pump(const Duration(milliseconds: 750));
+      expect(find.text('First'), findsOneWidget);
+      await mouse.moveTo(tester.getCenter(find.text('E')));
+      await tester.pump();
+      // Warm: no instant open on a moving pointer, only a shorter 100ms rest.
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Second'), findsNothing);
+      for (var i = 0; i < 5; i++) {
+        await mouse.moveBy(Offset(i.isEven ? 1 : -1, 0));
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(find.text('Second'), findsNothing);
+      }
+      await tester.pump(const Duration(milliseconds: 19));
+      expect(find.text('Second'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('Second'), findsOneWidget);
+      await mouse.moveTo(Offset.zero);
+      await tester.pump(const Duration(milliseconds: 401));
+      await mouse.moveTo(tester.getCenter(find.text('D')));
+      await tester.pump(const Duration(milliseconds: 599));
+      expect(find.text('First'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 151));
+      expect(find.text('First'), findsOneWidget);
+      await mouse.removePointer();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
 
   testWidgets(
     'Controlled genuine keyboard focus immediate, Escape finite, no focus creation',

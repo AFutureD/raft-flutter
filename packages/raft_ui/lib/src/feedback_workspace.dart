@@ -33,6 +33,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/textarea_counter.g.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Reporter close reasons (`completed` / `no_longer_needed`).
 enum RaftFeedbackCloseReason { completed, noLongerNeeded }
@@ -607,7 +608,7 @@ class _PendingAttachment extends StatelessWidget {
       ),
       RaftFeedbackUploadState.ready => null,
     };
-    return Tooltip(
+    return RaftTooltip(
       message: '${file.name} · ${file.contentType}',
       child: Stack(
         clipBehavior: Clip.none,
