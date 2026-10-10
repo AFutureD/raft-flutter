@@ -439,17 +439,19 @@ class RaftConnectedAppsSection extends StatelessWidget {
       if (error != null && error!.isNotEmpty) RaftConnectedAppsError(error!),
       body,
     ];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        key: const ValueKey('connected-apps-section'),
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final (i, child) in children.indexed) ...[
-            if (i > 0) const SizedBox(height: 16),
-            child,
+    return RaftInheritedFont(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
+          key: const ValueKey('connected-apps-section'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, child) in children.indexed) ...[
+              if (i > 0) const SizedBox(height: 16),
+              child,
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -837,7 +839,10 @@ class _InstallPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: t.brutal ? t.product.brutalPink : t.colors['accent-soft'],
+        // Translucent fills sit over the card, not over its outer shadow.
+        color: t.brutal
+            ? t.product.brutalPink
+            : Color.alphaBlend(t.colors['accent-soft']!, t.panel),
         borderRadius: t.brutal ? null : BorderRadius.circular(4),
         border: Border.all(color: t.colors['line-strong']!),
         boxShadow: t.themeShadows.xs.outer,

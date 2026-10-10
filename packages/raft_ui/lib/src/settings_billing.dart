@@ -218,7 +218,8 @@ class RaftPlanBillingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return RaftInheritedFont(
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -238,6 +239,7 @@ class RaftPlanBillingSection extends StatelessWidget {
           ],
         ],
       ),
+    ),
     );
   }
 }

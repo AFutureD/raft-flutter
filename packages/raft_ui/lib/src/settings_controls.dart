@@ -818,7 +818,10 @@ class RaftSettingsRecipeBadge extends StatelessWidget {
             SizedBox(width: s.columnGap ?? 4),
           ],
           Text(
-            uppercase ? value.toUpperCase() : value,
+            // The recipe's `uppercase` axis only transforms Brutal.
+            uppercase && s.textTransform == 'uppercase'
+                ? value.toUpperCase()
+                : value,
             maxLines: 1,
             softWrap: false,
             style: text,

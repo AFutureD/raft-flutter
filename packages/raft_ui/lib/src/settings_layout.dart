@@ -1,4 +1,4 @@
-import 'panel_layout.dart' show raftRecipeTheme;
+import 'panel_layout.dart' show RaftCssText, raftRecipeTheme;
 export 'panel_layout.dart' show raftRecipeTheme;
 
 import 'package:flutter/material.dart';
@@ -275,7 +275,7 @@ class RaftSettingsPanelHeader extends StatelessWidget {
             SizedBox(width: header.columnGap ?? 12),
           ],
           Expanded(
-            child: Text(
+            child: RaftCssText(
               raftText(context, title),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -558,6 +558,25 @@ abstract final class RaftSpace {
 /// Text colours/styles repeated across SettingsPanel.tsx sections, each the
 /// resolved `text-foreground-* theme-brutal:text-black[/NN]` pair.
 @immutable
+/// The page's inherited `font-family` for descendants that do not name one:
+/// the theme's heading family (Inter in elegant, Hanken Grotesk in brutal),
+/// not the `font-sans` utility family ([RaftTokens.bodyFont]).
+class RaftInheritedFont extends StatelessWidget {
+  const RaftInheritedFont({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return DefaultTextStyle.merge(
+      style: TextStyle(
+        fontFamily: t.headingFont,
+        fontFamilyFallback: t.fontFallback,
+      ),
+      child: child,
+    );
+  }
+}
+
 class RaftSettingsText {
   const RaftSettingsText(this.t);
   final RaftTokens t;
