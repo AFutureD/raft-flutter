@@ -52,6 +52,9 @@ class NativeNotificationService extends ChangeNotifier {
   }
 
   void Function(String)? onTap;
+
+  /// Rechecked at the final OS send for queued foreground arrivals.
+  bool Function()? deliveryAllowed;
   TargetPlatform get platform => _platform;
 
   /// True once the latest permission request returned "denied" without the
@@ -60,11 +63,22 @@ class NativeNotificationService extends ChangeNotifier {
   /// system notification settings.
   bool permissionPromptSkipped = false;
   bool get receivesMessages =>
-      _platform == TargetPlatform.android || _platform == TargetPlatform.iOS;
+      _platform == TargetPlatform.android ||
+      _platform == TargetPlatform.iOS ||
+      _platform == TargetPlatform.macOS;
   bool get canOpenSettings =>
       _platform == TargetPlatform.android ||
       _platform == TargetPlatform.iOS ||
       _platform == TargetPlatform.macOS;
+
+  // Desktop has no app-owned opt-in; the system notification switch owns it.
+  void _updateEnabled() {
+    enabled =
+        _scope != null &&
+        available &&
+        permitted &&
+        (_platform == TargetPlatform.macOS || _wanted);
+  }
 
   Future<bool> _permission({bool request = false}) async {
     if (_platform == TargetPlatform.iOS) {
@@ -105,14 +119,18 @@ class NativeNotificationService extends ChangeNotifier {
   Future<void> initialize() => _initializing ??= _initialize();
   Future<void> _initialize() async {
     try {
+      final result = await _plugin.initialize(
+        settings: notificationInitialization,
+        onDidReceiveNotificationResponse: (response) {
+          if (response.payload != null) onTap?.call(response.payload!);
+        },
+      );
+      // Darwin returns the authorization result, including false when all
+      // permission requests are deferred. It still initialized successfully.
       available =
-          await _plugin.initialize(
-            settings: notificationInitialization,
-            onDidReceiveNotificationResponse: (response) {
-              if (response.payload != null) onTap?.call(response.payload!);
-            },
-          ) ??
-          false;
+          _platform == TargetPlatform.macOS || _platform == TargetPlatform.iOS
+          ? result != null
+          : result == true;
       if (canOpenSettings) {
         permitted = await _permission();
         final launch = await _plugin.getNotificationAppLaunchDetails();
@@ -156,7 +174,7 @@ class NativeNotificationService extends ChangeNotifier {
       }
     });
     await _tail;
-    if (scope != null) {
+    if (scope != null && _platform != TargetPlatform.macOS) {
       try {
         await _preferenceTail;
         final wanted = await _preferences.read(_key(scope)) ?? false;
@@ -167,8 +185,8 @@ class NativeNotificationService extends ChangeNotifier {
         _wanted = false;
         error = 'Notification settings could not be loaded on this device.';
       }
-      enabled = _wanted && available && permitted;
     }
+    _updateEnabled();
     notifyListeners();
   }
 
@@ -206,6 +224,14 @@ class NativeNotificationService extends ChangeNotifier {
       }
     }
     if (!current()) return;
+    if (_platform == TargetPlatform.macOS) {
+      _updateEnabled();
+      error = value && !permitted
+          ? 'Allow notifications in system settings to receive alerts.'
+          : null;
+      notifyListeners();
+      return;
+    }
     enabled = value && available && permitted;
     _wanted = enabled;
     error = value && !enabled
@@ -255,8 +281,8 @@ class NativeNotificationService extends ChangeNotifier {
       final permission = await _permission();
       if (epoch != _epoch || revision != _preferenceRevision) return;
       permitted = permission;
-      enabled = _wanted && permitted;
-      if (_wanted && !permitted) {
+      _updateEnabled();
+      if ((_wanted || _platform == TargetPlatform.macOS) && !permitted) {
         error = 'Allow notifications in system settings to receive alerts.';
       } else if (permitted) {
         error = null;
@@ -279,7 +305,13 @@ class NativeNotificationService extends ChangeNotifier {
     final epoch = _epoch;
     _tail = _tail.then((_) async {
       await refreshPermission();
-      if (epoch != _epoch || !enabled || !permitted || !available) return;
+      if (epoch != _epoch ||
+          !enabled ||
+          !permitted ||
+          !available ||
+          deliveryAllowed?.call() == false) {
+        return;
+      }
       try {
         error = null;
         await _plugin.show(
@@ -322,6 +354,10 @@ class NativeNotificationService extends ChangeNotifier {
         // macOS asks the first time; phones re-check what the person changed
         // in system settings.
         permitted = await _permission() || await _permission(request: true);
+        if (_platform == TargetPlatform.macOS) {
+          _updateEnabled();
+          notifyListeners();
+        }
         if (!permitted) {
           enabled = false;
           notifyListeners();

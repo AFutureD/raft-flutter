@@ -1,8 +1,8 @@
 # 原生通知与内容链接
 
-源码基准为 26f77ef。`messageService.ts` 发出的 `notification:push` 已经过 DM、个人提及、线程关注和静音策略筛选，并含服务器生成的纯文本标题、正文及目标身份。`socket/platformScope.ts` 明确只向 mobile 客户端投递；Linux 保留 desktop 声明，设置页明确说明当前服务器不投递桌面消息通知。Android 只在应用 Socket 仍连接时投递本地系统通知；`push.ts` 的原生设备注册只接受 APNS，未注册或声称提供 Android FCM/被系统终止后的后台推送。另一个原生通知 SSE 协议有独立功能开关和设备注册授权，本实现不默认启用它。
+源码基准为 26f77ef。`messageService.ts` 发出的 `notification:push` 已经过 DM、个人提及、线程关注和静音策略筛选，并含服务器生成的纯文本标题、正文及目标身份。`socket/platformScope.ts` 明确只向 mobile 客户端投递；Linux 保留 desktop 声明，设置页明确说明当前服务器不投递桌面消息通知。Android 只在应用 Socket 仍连接且应用不在前台时投递本地系统通知；`push.ts` 的原生设备注册只接受 APNS，未注册或声称提供 Android FCM/被系统终止后的后台推送。另一个原生通知 SSE 协议有独立功能开关和设备注册授权，本实现不默认启用它。
 
-通知默认关闭，在设置中由用户启用；Android 13+ 请求系统通知权限，拒绝时保持关闭并提供系统设置入口。偏好按 coordinator、账户及服务器散列隔离。目标载荷不含 token、签名资源 URL 或通知正文。切换作用域及退出账户清除已发通知，排队中的旧作用域投递失效。正文使用服务器的通知预览，不从所有 `message:new` 自行推断投递策略；Android 锁屏可见性为 private。
+移动端通知默认关闭，在设置中由用户启用；Android 13+ 请求系统通知权限，拒绝时保持关闭并提供系统设置入口。偏好按 coordinator、账户及服务器散列隔离。目标载荷不含 token、签名资源 URL 或通知正文。切换作用域及退出账户清除已发通知，排队中的旧作用域投递失效。正文使用服务器的通知预览，不从所有 `message:new` 自行推断投递策略；Android 锁屏可见性为 private。
 
 内容链接接受源码 `raft://v1/servers/:id/{channels,dms}/:id/messages/:id`、线程 `.../channels/:parent/threads/:thread?parentMessageId=:parent&messageId=:reply` 和同源 Web `/s/:slug/{channel,dm}/:id?msg=:id&thread=:channelId:parentId`。OAuth 回调独立处理。链接只在当前已登录账户、当前 coordinator、当前选中服务器中打开；其他服务器须先在应用中选择。每次打开重新读取成员服务器、频道及消息上下文；历史链接、无权访问的消息或线程身份矛盾均不导航，不切换登录账户或服务器地址。
 
@@ -17,3 +17,9 @@ Android 注册 raft://v1 内容 intent。Linux runner 使用 GLib 单实例命�
 
 
 通知偏好持久化进一步使用串行写入和 revision fence：重启恢复同一 principal 的布尔开关；旧缓存读取及迟到的启用操作不能覆盖新选择。关闭立即生效。读写失败保持关闭并显示错误，系统权限查询失败禁止投递。启动先捕获待验证的点击目标，再清除上一进程遗留的系统通知。针对性测试覆盖重启、跨账户、读写失败、迟到写入和旧缓存读取竞争。
+
+## macOS 长连接系统通知（2026-10-11）
+
+macOS 本地通知初始化与授权分离，桌面设置的测试按钮主动请求权限。系统授权直接控制该平台投递，不读取移动端开关。当前 Socket notification:push mobile-only 限制不变，macOS 的 DesktopInboxNotifications 直接消费 WorkspaceController 唯一 SourceActivityUnreadStore 已接受的收件箱窗口：未读标记、Activity 页面和系统通知复用现有长连接驱动的 150ms 合并刷新，无第二个连接、收件箱请求或周期轮询。新候选才读取独立 notification-settings 的服务器静音与 push mode，投递前核对当前已接受窗口。后台时间基线、去重及账号/服务器/角色/权限代次/前后台 fence 阻止旧积压和失效结果投递。
+
+不使用 experimental native SSE，不假冒 mobile，不提供退出后的远程推送保证。macOS 实机横幅与点击待验；相关权限、设置 UI、去重、取消、缓存复用及既有移动端投递合同以针对性回归检查覆盖。

@@ -6,14 +6,21 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _Plugin implements FlutterLocalNotificationsPlugin {
+class NotificationPluginFixture implements FlutterLocalNotificationsPlugin {
   MacOSFlutterLocalNotificationsPlugin? mac;
+  IOSFlutterLocalNotificationsPlugin? ios;
   AndroidFlutterLocalNotificationsPlugin? android;
   InitializationSettings? settings;
   @override
   T? resolvePlatformSpecificImplementation<
     T extends FlutterLocalNotificationsPlatform
-  >() => (T == AndroidFlutterLocalNotificationsPlugin ? android : mac) as T?;
+  >() =>
+      (T == AndroidFlutterLocalNotificationsPlugin
+              ? android
+              : T == IOSFlutterLocalNotificationsPlugin
+              ? ios
+              : mac)
+          as T?;
   @override
   Future<NotificationAppLaunchDetails?>
   getNotificationAppLaunchDetails() async =>
@@ -63,7 +70,7 @@ class _Android extends AndroidFlutterLocalNotificationsPlugin {
   Future<bool?> requestNotificationsPermission() async => true;
 }
 
-class _Mac extends MacOSFlutterLocalNotificationsPlugin {
+class MacPermissionFixture extends MacOSFlutterLocalNotificationsPlugin {
   bool allowed = false;
   int requests = 0;
   Completer<bool?>? prompt;
@@ -94,10 +101,82 @@ class _Mac extends MacOSFlutterLocalNotificationsPlugin {
       );
 }
 
+class _IOS extends IOSFlutterLocalNotificationsPlugin {
+  _IOS(this.permission);
+  final MacPermissionFixture permission;
+  @override
+  Future<NotificationsEnabledOptions?> checkPermissions() =>
+      permission.checkPermissions();
+  @override
+  Future<bool?> requestPermissions({
+    bool sound = false,
+    bool alert = false,
+    bool badge = false,
+    bool provisional = false,
+    bool critical = false,
+    bool carPlay = false,
+    bool providesAppNotificationSettings = false,
+  }) => permission.requestPermissions(sound: sound, alert: alert, badge: badge);
+}
+
+(NativeNotificationService, NotificationPluginFixture, MacPermissionFixture)
+deferredMacNotifications() {
+  final mac = MacPermissionFixture();
+  final plugin = NotificationPluginFixture()..mac = mac;
+  plugin.initialized.complete(false);
+  return (
+    NativeNotificationService(plugin: plugin, platform: TargetPlatform.macOS),
+    plugin,
+    mac,
+  );
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    test(
+      '$platform deferred permission does not mean plugin unavailable',
+      () async {
+        final permission = MacPermissionFixture();
+        final plugin = NotificationPluginFixture()
+          ..mac = permission
+          ..ios = _IOS(permission);
+        plugin.initialized.complete(false);
+        final service = NativeNotificationService(
+          plugin: plugin,
+          platform: platform,
+        );
+        addTearDown(service.dispose);
+        await service.bind('alice');
+        expect(service.initialized, true);
+        expect(service.available, true);
+        expect(service.permitted, false);
+        expect(permission.requests, 0);
+        await service.requestEnable(true);
+        await service.show(title: 'Raft', body: 'new DM', payload: 'target');
+        expect(service.enabled, true);
+        expect(plugin.sent, ['target']);
+      },
+    );
+    test(
+      '$platform missing native implementation remains unavailable',
+      () async {
+        final plugin = NotificationPluginFixture();
+        plugin.initialized.complete(null);
+        final service = NativeNotificationService(
+          plugin: plugin,
+          platform: platform,
+        );
+        addTearDown(service.dispose);
+        await service.initialize();
+        expect(service.available, false);
+        expect(await service.test(), false);
+        expect(plugin.sent, isEmpty);
+      },
+    );
+  }
   test('Android message and test notifications deliver with the monochrome Raft drawable', () async {
-    final plugin = _Plugin()..android = _Android();
+    final plugin = NotificationPluginFixture()..android = _Android();
     plugin.initialized.complete(true);
     final service = NativeNotificationService(
       plugin: plugin,
@@ -118,8 +197,8 @@ void main() {
   test(
     'macOS asks only on opt-in and stops delivery after OS revocation',
     () async {
-      final mac = _Mac();
-      final plugin = _Plugin()..mac = mac;
+      final mac = MacPermissionFixture();
+      final plugin = NotificationPluginFixture()..mac = mac;
       plugin.initialized.complete(true);
       final service = NativeNotificationService(
         plugin: plugin,
@@ -146,9 +225,32 @@ void main() {
       expect(mac.requests, 1);
     },
   );
-  test('test notification does not need the opt-in; macOS asks, denial posts nothing', () async {
-    final mac = _Mac();
-    final plugin = _Plugin()..mac = mac;
+  test('queued background alert rechecks foreground at the OS send', () async {
+    final (service, plugin, mac) = deferredMacNotifications();
+    mac.allowed = true;
+    await service.bind('origin/alice/s');
+    var background = true;
+    service.deliveryAllowed = () => background;
+    final pending = service.show(
+      title: 'Raft',
+      body: 'message',
+      payload: 'queued',
+    );
+    background = false;
+    await pending;
+    expect(plugin.sent, isEmpty);
+    background = true;
+    await service.show(title: 'Raft', body: 'message', payload: 'background');
+    expect(plugin.sent, ['background']);
+    background = false;
+    expect(await service.test(), true);
+    expect(plugin.sent, ['background', 'raft-notification-test']);
+    service.dispose();
+  });
+
+  test('macOS test requests OS permission and enables real delivery; denial posts nothing', () async {
+    final mac = MacPermissionFixture();
+    final plugin = NotificationPluginFixture()..mac = mac;
     plugin.initialized.complete(true);
     final service = NativeNotificationService(
       plugin: plugin,
@@ -162,13 +264,13 @@ void main() {
     mac.prompt = null;
     expect(await service.test(title: 'Raft Desktop', body: 'x'), true);
     expect(plugin.sent, ['raft-notification-test']);
-    expect(service.enabled, false);
+    expect(service.enabled, true);
   });
   test(
     'a refusal with no time for a prompt means the system stopped asking',
     () async {
-      final mac = _Mac();
-      final plugin = _Plugin()..mac = mac;
+      final mac = MacPermissionFixture();
+      final plugin = NotificationPluginFixture()..mac = mac;
       plugin.initialized.complete(true);
       final service = NativeNotificationService(
         plugin: plugin,
@@ -191,52 +293,50 @@ void main() {
       expect(service.permissionPromptSkipped, false);
     },
   );
-  test(
-    'macOS denied permission stays disabled after a later OS grant',
-    () async {
-      final mac = _Mac()..prompt = (Completer<bool?>()..complete(false));
-      final plugin = _Plugin()..mac = mac;
-      final store = _Store();
-      plugin.initialized.complete(true);
-      final service = NativeNotificationService(
-        plugin: plugin,
-        platform: TargetPlatform.macOS,
-        preferences: store,
-      );
-      await service.bind('alice');
-      await service.requestEnable(true);
-      expect(service.enabled, false);
-      expect(service.permitted, false);
-      expect(service.error, contains('system settings'));
-      expect(store.values.values.single, false);
-      mac.allowed = true;
-      await service.show(title: 'Raft', body: 'blocked', payload: 'denied');
-      expect(service.permitted, true);
-      expect(service.enabled, false);
-      expect(plugin.sent, isEmpty);
-    },
-  );
-  test('macOS late permission grant cannot undo a newer disable', () async {
-    final mac = _Mac()..prompt = Completer<bool?>();
-    final plugin = _Plugin()..mac = mac;
+  test('macOS follows a later OS grant without a mobile opt-in', () async {
+    final mac = MacPermissionFixture()
+      ..prompt = (Completer<bool?>()..complete(false));
+    final plugin = NotificationPluginFixture()..mac = mac;
+    final store = _Store();
     plugin.initialized.complete(true);
     final service = NativeNotificationService(
       plugin: plugin,
       platform: TargetPlatform.macOS,
+      preferences: store,
     );
     await service.bind('alice');
-    final enabling = service.requestEnable(true);
-    await Future<void>.delayed(Duration.zero);
-    await service.requestEnable(false);
-    mac.prompt!.complete(true);
-    await enabling;
+    await service.requestEnable(true);
     expect(service.enabled, false);
-    await service.refreshPermission();
+    expect(service.permitted, false);
+    expect(service.error, contains('system settings'));
+    expect(store.values, isEmpty);
+    mac.allowed = true;
+    await service.show(title: 'Raft', body: 'blocked', payload: 'denied');
+    expect(service.permitted, true);
+    expect(service.enabled, true);
+    expect(plugin.sent, ['denied']);
+  });
+  test('macOS ignores stale app opt-in and follows the OS switch', () async {
+    final mac = MacPermissionFixture()..allowed = true;
+    final plugin = NotificationPluginFixture()..mac = mac;
+    final store = _Store()..failRead = true;
+    plugin.initialized.complete(false);
+    final service = NativeNotificationService(
+      plugin: plugin,
+      preferences: store,
+      platform: TargetPlatform.macOS,
+    );
+    addTearDown(service.dispose);
+    await service.bind('alice');
+    expect(service.enabled, true);
+    expect(service.error, isNull);
+    expect(store.writes, 0);
+    await service.bind(null);
     expect(service.enabled, false);
   });
   test('macOS late permission grant cannot enable a newer account', () async {
-    final mac = _Mac()..prompt = Completer<bool?>();
-    final plugin = _Plugin()..mac = mac;
+    final mac = MacPermissionFixture()..prompt = Completer<bool?>();
+    final plugin = NotificationPluginFixture()..mac = mac;
     final store = _Store();
     plugin.initialized.complete(true);
     final service = NativeNotificationService(
@@ -250,15 +350,16 @@ void main() {
     await service.bind('bob');
     mac.prompt!.complete(true);
     await enabling;
-    await service.show(title: 'Raft', body: 'blocked', payload: 'old-account');
     expect(service.enabled, false);
     expect(plugin.sent, isEmpty);
     expect(store.values, isEmpty);
+    await service.refreshPermission();
+    expect(service.enabled, true);
     await service.bind('alice');
-    expect(service.enabled, false);
+    expect(service.enabled, true);
   });
   test('opt-in defaults off; preferences are isolated and contain no raw coordinator/principal', () async {
-    final plugin = _Plugin()..initialized.complete(true);
+    final plugin = NotificationPluginFixture()..initialized.complete(true);
     final service = NativeNotificationService(
       plugin: plugin,
       platform: TargetPlatform.linux,
@@ -291,7 +392,7 @@ void main() {
   test(
     'queued alert after scope changes cannot survive initialization',
     () async {
-      final plugin = _Plugin();
+      final plugin = NotificationPluginFixture();
       final service = NativeNotificationService(
         plugin: plugin,
         platform: TargetPlatform.linux,
@@ -318,7 +419,7 @@ void main() {
       final store = _Store();
       NativeNotificationService make() => NativeNotificationService(
         platform: TargetPlatform.linux,
-        plugin: _Plugin()..initialized.complete(true),
+        plugin: NotificationPluginFixture()..initialized.complete(true),
         preferences: store,
       );
       final first = make();
@@ -345,7 +446,7 @@ void main() {
       final store = _Store();
       final service = NativeNotificationService(
         platform: TargetPlatform.linux,
-        plugin: _Plugin()..initialized.complete(true),
+        plugin: NotificationPluginFixture()..initialized.complete(true),
         preferences: store,
       );
       await service.bind('alice');
@@ -365,7 +466,7 @@ void main() {
     final store = _Store()..delayedRead = Completer<bool?>();
     final service = NativeNotificationService(
       platform: TargetPlatform.linux,
-      plugin: _Plugin()..initialized.complete(true),
+      plugin: NotificationPluginFixture()..initialized.complete(true),
       preferences: store,
     );
     final binding = service.bind('alice');

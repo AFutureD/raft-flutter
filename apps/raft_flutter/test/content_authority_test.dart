@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/platform/content_coordinator.dart';
@@ -79,6 +80,7 @@ class _Notifications extends NativeNotificationService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _Client c;
   late _Workspace w;
   late _Notifications n;
@@ -182,7 +184,29 @@ void main() {
       expect(w.jumps, ['c/m']);
     },
   );
-  test('only eligible server notification event delivers, duplicates/read surface suppress', () async {
+  test(
+    'foreground app suppresses OS alerts even when workspace is covered',
+    () async {
+      // A server picker covers the workspace without backgrounding the app.
+      w.foreground = false;
+      links.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      c.stream.add(
+        RaftEvent('notification:push', {
+          'serverId': 's',
+          'kind': 'channel',
+          'channelId': 'c',
+          'messageId': 'picker',
+          'title': 'Raft',
+          'body': 'preview',
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(n.sent, isEmpty);
+      expect(await links.pollBackground(), true);
+    },
+  );
+
+  test('only eligible server notification event delivers, duplicates/foreground suppress', () async {
     final p = {
       'serverId': 's',
       'kind': 'channel',
@@ -205,5 +229,10 @@ void main() {
     c.stream.add(RaftEvent('notification:push', {...p, 'messageId': 'm2'}));
     await Future<void>.delayed(Duration.zero);
     expect(n.sent, hasLength(1));
+    w.section = 'tasks';
+    c.stream.add(RaftEvent('notification:push', {...p, 'messageId': 'm3'}));
+    await Future<void>.delayed(Duration.zero);
+    expect(n.sent, hasLength(1));
+    expect(await links.pollBackground(), true);
   });
 }

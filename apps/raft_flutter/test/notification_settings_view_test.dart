@@ -12,6 +12,8 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/notification_settings_view.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 
+import 'native_notifications_test.dart' show deferredMacNotifications;
+
 class Adapter implements HttpClientAdapter {
   final calls = <RequestOptions>[];
   FutureOr<Map<String, dynamic>> Function(RequestOptions)? settings;
@@ -94,7 +96,7 @@ Future<(WorkspaceController, Adapter, Service)> fixture() async {
 
 Widget host(
   WorkspaceController w,
-  Service s, {
+  NativeNotificationService s, {
   bool dark = false,
   RaftFamily family = RaftFamily.elegant,
   Locale? locale,
@@ -445,6 +447,33 @@ void main() {
       expect(card(t).error, 'Could not post a test notification.');
     });
   }
+  testWidgets(
+    'macOS deferred authorization keeps the desktop action usable and requests permission on test',
+    (t) async {
+      final (w, a, unused) = (await t.runAsync(fixture))!;
+      final (service, plugin, mac) = deferredMacNotifications();
+      addTearDown(w.dispose);
+      addTearDown(unused.dispose);
+      addTearDown(service.dispose);
+      await service.bind('alice');
+      await t.pumpWidget(host(w, service, locale: const Locale('zh')));
+      expect(find.text('此桌面版本无法显示系统通知。'), findsNothing);
+      expect(card(t).title, 'Desktop notifications');
+      expect(card(t).muteDescription, isNull);
+      expect(card(t).onAction, isNotNull);
+      expect(mac.requests, 0);
+      await t.tap(find.text('发一条测试通知'));
+      await t.pumpAndSettle();
+      expect(mac.requests, 1);
+      expect(service.enabled, true);
+      expect(plugin.sent, ['raft-notification-test']);
+      expect(
+        a.calls.where((call) => call.path.contains('notification-settings')),
+        isEmpty,
+      );
+      expect(t.takeException(), isNull);
+    },
+  );
   testWidgets('desktop: unavailable build shows Web unavailable copy', (
     t,
   ) async {

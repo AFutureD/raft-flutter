@@ -393,7 +393,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     HardwareKeyboard.instance.addHandler(globalShortcut);
     w.addListener(syncMobileAppBadge);
     syncMobileAppBadge();
-    activityUnread = SourceActivityUnreadStore(w)
+    activityUnread = w.acquireActivityUnread(this)
       ..addListener(activityUnreadChanged);
     serverUnread = SourceServerUnreadStore(w)..addListener(serverUnreadChanged);
     serverMenu.addListener(serverMenuChanged);
@@ -524,8 +524,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       w.addListener(syncMobileAppBadge);
       syncMobileAppBadge();
       activityUnread.removeListener(activityUnreadChanged);
-      activityUnread.dispose();
-      activityUnread = SourceActivityUnreadStore(w)
+      oldWidget.controller.releaseActivityUnread(this);
+      activityUnread = w.acquireActivityUnread(this)
         ..addListener(activityUnreadChanged);
       serverMenu.close();
       oldWidget.controller.removeListener(syncServerMenu);
@@ -646,7 +646,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     mobileAppBadge.removeListener(chatSelectionChanged);
     mobileAppBadge.dispose();
     activityUnread.removeListener(activityUnreadChanged);
-    activityUnread.dispose();
+    w.releaseActivityUnread(this);
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);
     serverMenu.dispose();

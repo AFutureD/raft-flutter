@@ -10,6 +10,7 @@ import 'message_task_cache.dart';
 import 'message_translation_store.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
+import 'source_activity_unread_store.dart';
 import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
 import 'resource_snapshot_cache.dart';
@@ -978,6 +979,25 @@ class WorkspaceController extends ChangeNotifier {
     if (!identical(owner, _presentationOwner)) return;
     _presentationOwner = null;
     _mainPresented = _threadPresented = true;
+  }
+
+  SourceActivityUnreadStore? _activityUnread;
+  final _activityUnreadOwners = <Object>{};
+
+  /// One accepted inbox projection for badges, Activity and OS notifications.
+  SourceActivityUnreadStore get activityUnread =>
+      _activityUnread ??= SourceActivityUnreadStore(this);
+
+  SourceActivityUnreadStore acquireActivityUnread(Object owner) {
+    _activityUnreadOwners.add(owner);
+    return activityUnread;
+  }
+
+  void releaseActivityUnread(Object owner) {
+    if (_activityUnreadOwners.remove(owner) && _activityUnreadOwners.isEmpty) {
+      _activityUnread?.dispose();
+      _activityUnread = null;
+    }
   }
 
   final foregroundChanges = ValueNotifier<bool>(true);
@@ -5209,6 +5229,8 @@ class WorkspaceController extends ChangeNotifier {
     }
     _uploads.clear();
     subscription.cancel();
+    _activityUnread?.dispose();
+    _activityUnreadOwners.clear();
     foregroundChanges.dispose();
     if (ownsClient) client.dispose();
     super.dispose();

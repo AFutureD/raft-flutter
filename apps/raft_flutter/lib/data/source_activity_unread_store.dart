@@ -93,6 +93,11 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   int? get totalUnreadCount => hasAcceptedWindow ? _total : null;
   bool get hasAttention => (totalUnreadCount ?? 0) > 0;
 
+  /// A copy of the currently accepted server window, never raw socket rows.
+  List<Map<String, dynamic>> get acceptedRows => hasAcceptedWindow
+      ? [for (final row in _rows) Map<String, dynamic>.from(row)]
+      : const [];
+
   void _bind() {
     if (_disposed) return;
     final next = scope;
@@ -169,6 +174,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
             payload['threadChannelId'] is String &&
             (payload['latestReply'] is! Map ||
                 _messageRelevant(payload['latestReply'] as Map)),
+      'notification_prefs:updated' => true,
       'dm:new' =>
         payload is Map && ((payload['channelId'] ?? payload['id']) is String),
       _ => false,

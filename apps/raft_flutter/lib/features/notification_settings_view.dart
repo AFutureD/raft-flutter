@@ -33,8 +33,10 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   bool testPosted = false, nativeBusy = false;
   WorkspaceController? get w => widget.controller;
 
-  /// Phones receive messages and own the member mute form; desktops do not.
-  bool get phone => widget.service.receivesMessages;
+  /// Phones own the member mute form; desktop authorization belongs to the OS.
+  bool get phone =>
+      widget.service.platform == TargetPlatform.android ||
+      widget.service.platform == TargetPlatform.iOS;
 
   /// Server-level identity only: switching channels or opening a thread keeps
   /// the accepted settings (Source useServerStore notification prefs).

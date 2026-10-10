@@ -144,3 +144,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 移动附件预览是持有附件元数据及权限绑定的临时 `MaterialPageRoute`，不改变底层频道业务位置；图片、文档、PDF、音视频与 HTML 共用页面页头及原有预览资源生命周期。图片缩放 controller 在退出动画完成后释放；权限撤销仍立即移除私有预览。桌面预览继续使用 DialogRoute。
 
 `RaftMobilePageHeader` 统一移动页面的 56 逻辑像素高度、48 像素操作槽和返回按钮位置，系统安全区由宿主提供。Android 实机及组件检查的覆盖边界见 [mobile-navigation.md](mobile-navigation.md)，不能据此推断 iOS、Linux、Windows 的平台验收通过。
+
+### macOS 通知平台补充（2026-10-11）
+
+NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消费 WorkspaceController 唯一 SourceActivityUnreadStore 已接受的窗口，与 Activity 页面和未读标记共享长连接驱动的现有收件箱刷新，不创建第二连接、收件箱请求或周期轮询。OS 权限是桌面开关；只在后台消费新候选，读取独立 notification-settings 通知规则，核对当前已接受窗口，并维护账号/角色/权限代次/生命周期 fence。仅持久化时间基线和有界 message ID，不持久化通知正文。应用完全退出后的远程推送与 macOS 系统横幅/点击实机验收仍未覆盖。

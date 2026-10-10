@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart'
+    show WidgetsBinding, WidgetsBindingObserver, AppLifecycleState;
+
 import 'package:flutter/services.dart';
 
 import 'package:app_links/app_links.dart';
@@ -13,10 +16,11 @@ import 'content_links.dart';
 import 'native_notifications.dart';
 import 'background_inbox.dart';
 import 'background_notifications.dart';
+import 'desktop_inbox_notifications.dart';
 
 /// Binds platform links and notification clicks to the currently signed-in
 /// principal. Every navigation rechecks server membership and visible context.
-class NativeContentCoordinator {
+class NativeContentCoordinator with WidgetsBindingObserver {
   NativeContentCoordinator({
     NativeNotificationService? notifications,
     this.links,
@@ -24,6 +28,8 @@ class NativeContentCoordinator {
   final NativeNotificationService notifications;
   final Stream<Uri>? links;
   final background = BackgroundNotificationScheduler();
+  DesktopInboxNotifications? desktop;
+  bool? _appForeground;
   WorkspaceController? _workspace;
   StreamSubscription<Uri>? _linkSubscription;
   StreamSubscription<RaftEvent>? _events;
@@ -37,8 +43,18 @@ class NativeContentCoordinator {
   final Set<String> _inFlight = {};
 
   Future<void> init({List<String> initialArguments = const []}) async {
+    _appForeground = WidgetsBinding.instance.lifecycleState == null
+        ? null
+        : WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addObserver(this);
     notifications.onTap = _tap;
+    notifications.deliveryAllowed = () =>
+        !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
     notifications.addListener(_notificationSettingsChanged);
+    if (notifications.platform == TargetPlatform.macOS) {
+      desktop = DesktopInboxNotifications(notifications: notifications);
+      desktop!.bind(_workspace);
+    }
     unawaited(background.initialize().catchError((Object _) {}));
     _linkSubscription = (links ?? AppLinks().uriLinkStream).listen(
       receiveLink,
@@ -60,6 +76,7 @@ class NativeContentCoordinator {
     _workspace?.removeListener(_changed);
     _events?.cancel();
     _workspace = workspace;
+    desktop?.bind(workspace);
     workspace?.addListener(_changed);
     _events = workspace?.client.events.listen(_event);
     _changed();
@@ -110,9 +127,19 @@ class NativeContentCoordinator {
 
   Future<bool> pollBackground() async {
     final w = _workspace, scope = _scope, epoch = _epoch;
-    if (w == null || scope == null || !notifications.enabled) return true;
+    if (w == null ||
+        scope == null ||
+        !notifications.enabled ||
+        w.foreground ||
+        notifications.deliveryAllowed?.call() == false) {
+      return true;
+    }
     bool valid() =>
-        !_closed && _workspace == w && _scope == scope && _epoch == epoch;
+        !_closed &&
+        _workspace == w &&
+        _scope == scope &&
+        _epoch == epoch &&
+        !w.foreground;
     return BackgroundInboxPoller(
       client: w.client,
       store: background.store,
@@ -122,11 +149,7 @@ class NativeContentCoordinator {
           throw const RaftApiException('Notifications are muted.');
         }
       },
-      suppress: (target) =>
-          w.foreground &&
-          w.section == 'chat' &&
-          (w.channel?.id == target.channelId ||
-              w.threadChannelId == target.threadId),
+      suppress: (_) => w.foreground,
       deliver: (alert, selected) async {
         if (!valid() || selected != scope || !notifications.enabled) {
           return false;
@@ -213,12 +236,7 @@ class NativeContentCoordinator {
         p['body'] is! String) {
       return;
     }
-    if (w.foreground &&
-        w.section == 'chat' &&
-        (w.channel?.id == target.channelId ||
-            w.threadChannelId == target.threadId)) {
-      return;
-    }
+    if (w.foreground || notifications.deliveryAllowed?.call() == false) return;
     final key = '${target.serverId}:${target.messageId}';
     if (_delivered.contains(key) || _inFlight.contains(key)) return;
     try {
@@ -244,10 +262,8 @@ class NativeContentCoordinator {
         return;
       }
       if (memberServer.flag('serverPushMuted') ||
-          w.foreground &&
-              w.section == 'chat' &&
-              (w.channel?.id == target.channelId ||
-                  w.threadChannelId == target.threadId)) {
+          w.foreground ||
+          notifications.deliveryAllowed?.call() == false) {
         return;
       }
       _delivered.add(key);
@@ -383,8 +399,16 @@ class NativeContentCoordinator {
     return server;
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appForeground = state == AppLifecycleState.resumed;
+    desktop?.sync();
+  }
+
   Future<void> dispose() async {
     _closed = true;
+    WidgetsBinding.instance.removeObserver(this);
+    desktop?.dispose();
     _epoch++;
     _navigation++;
     _workspace?.removeListener(_changed);

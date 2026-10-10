@@ -32,7 +32,7 @@ Debug / Profile 与 Release 均启用 App Sandbox，权限位于 `macos/Runner/D
 
 会话使用 `flutter_secure_storage` 的 macOS Keychain 后端，设置 `MacOsOptions(usesDataProtectionKeychain: false)`，使用当前应用的传统 Keychain 存储；没有启用跨应用 Keychain sharing。本地构建不要求为此配置共享组或 provisioning profile。
 
-通知初始化不弹出系统授权请求；用户在应用通知设置主动启用后才请求 alert / sound 权限。macOS 接入本地测试通知及系统权限状态，当前 `receivesMessages` 仅对 Android 开启，不能把 macOS 本地测试通知视为服务端 desktop push。
+通知初始化不弹出系统授权请求；用户在应用通知设置点击“发一条测试通知”后才请求 alert / sound 权限。macOS 是否投递由系统通知权限控制，不使用移动端本地 opt-in。Darwin 插件 initialize 的 false 表示授权结果，不代表原生通知不支持。当前服务端 Socket 只投递 mobile，macOS 在应用仍运行、窗口在后台且授权时复用现有长连接驱动的已接受 unread inbox 数据，不能视为服务端 desktop push 或退出后推送。
 
 媒体增加 `media_kit_libs_macos_video` 原生依赖，随 macOS bundle 构建；Linux 的 media 下载准备步骤不适用于 macOS。
 
@@ -47,7 +47,7 @@ Debug / Profile 与 Release 均启用 App Sandbox，权限位于 `macos/Runner/D
 | Keychain 会话恢复、退出清理 | 已配置；macOS 实机读写及重启恢复待实测 |
 | 文件选择、上传、保存 | 沙盒权限与既有平台适配已接入；系统面板和上传下载链路待实测 |
 | `raft` 内容链接 | 已注册；冷启、热启及真实消息上下文跳转待实测 |
-| 本地通知及权限拒绝 / 重新启用 | 主动 opt-in、拒绝、撤权恢复、关闭/账户切换与迟到授权竞态回归通过；系统通知显示、点击仍待实测 |
+| 本地通知及权限拒绝 / 重新启用 | OS 权限、延迟授权初始化、测试按钮、撤权/恢复及账号隔离回归通过；系统通知横幅、点击仍待实测 |
 | 服务端桌面推送 | 未接入 |
 | 音视频播放 | macOS 媒体运行库已接入；真实媒体播放待实测 |
 | 应用内 PDF 预览 | macOS 未实现，使用既有下载回退 |
@@ -66,3 +66,13 @@ Debug / Profile 与 Release 均启用 App Sandbox，权限位于 `macos/Runner/D
 macOS AppIcon 已替换 Flutter 默认图标，使用 Android 前景与设计系统相同的 Raft 标记：品牌黄 `#FFD440` 圆角底、黑色标记、纸色 `#FFFAEF` 镂空填充。1024px 画布保留外部透明边距，提供 16–1024px 七套 PNG，映射现有 1x/2x 资源槽。`tool/gen-macos-icon` 从现有品牌矢量生成这些资源，无新增 Flutter 包或运行时图像加载。
 
 使用 FVM Flutter 3.47.6 更新 Release 配置，再通过 Xcode 指定 `ARCHS=arm64`、`ONLY_ACTIVE_ARCH=YES` 构建成功。主程序及 Dart App.framework 为 arm64；bundle 引用已生成的 `AppIcon.icns`，签名校验通过。未启动或置前应用；Dock/Finder 图标刷新及实际窗口展示未验收。
+
+## macOS 通知能力修复（2026-10-11）
+
+固定 flutter_local_notifications 22.3.1 的 Darwin initialize 返回授权结果；所有启动权限请求关闭时返回 false，原实现误判为 unavailable。现在将成功调用与 OS 权限分开，并保持启动不弹窗。macOS 使用桌面设置卡片及系统权限，不受陈旧移动端偏好影响；同类初始化修复也覆盖 iOS。
+
+新增 DesktopInboxNotifications：直接消费 SourceActivityUnreadStore 已接受的收件箱窗口，该数据由现有长连接消息/线程事件合并刷新，通知模块没有第二个连接、收件箱请求或周期轮询。该 store 从 WorkspaceView 私有所有权提升为 WorkspaceController 的唯一惰性数据所有者，Activity 页面、未读标记和系统通知共享同一个实例；各消费者借用同一生命周期，最后一个消费者离开才释放，Workspace 退出仍统一清理。仅当前已授权账号/服务器的后台窗口工作，进入后台建立时间基线，不补发前台及旧未读消息。新候选才读取独立 notification-settings 的 OS push mode/静音规则，已通知窗口不重复取规则；投递前核对当前已接受窗口，保留 Done、线程关注及个人提及判断。已投递 ID 有界保存，账号、服务器、角色、生命周期、权限代次或 OS 撤权使迟到请求失效。真正的 App 前后台独立于工作区遮挡状态，Android 和 macOS 消息提醒都只在后台发送，最终 OS 队列发送前再次检查；测试通知可由前台主动发送。不修改已读游标、不注册实验设备协议、不声称应用退出后接收远程推送。
+
+本轮 78 项针对性 Dart/Widget 检查通过，覆盖延迟授权初始化、设置 UI、共享长连接收件箱窗口、前后台、去重、取消、通知规则、通知点击导航、既有 Activity 协议与 section swipe 回归；静态分析无问题，设计系统审计通过。Computer Use 原生连接失败，实际系统授权面板、横幅和点击尚未补验；不把模拟插件检查算作 macOS 原生验收。
+
+安装记录：FVM ARM64 Release 编译成功，主程序、App.framework 及 24 个嵌入框架可执行文件均为 arm64。增量构建后 App.framework 的旧资源签名失效，重新签署该框架与外层 bundle（保留原 identifier、entitlements、flags、runtime）后 `codesign --verify --deep --strict` 通过。仅替换 `/Users/kevinzhow/Applications/Raft.app` 应用包并 `open -g` 后台启动；旧包保留于忽略的本地安装备份，未更改 Keychain / 用户数据。Android ARM64 Release versionCode 8021 通过安装脚本预检及保留数据更新，targetSdk 37。
