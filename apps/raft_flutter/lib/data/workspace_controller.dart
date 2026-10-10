@@ -4325,10 +4325,13 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
+  /// [replaceEntry] makes the destination take over the current history
+  /// entry instead of pushing (Web openThreadParentMessageRoute, mobile).
   Future<void> jumpToMessage(
     String channelId,
     String? messageId, {
     bool navigate = true,
+    bool replaceEntry = false,
   }) async {
     final generation = ledger.generation;
     var navigationWindow = navigationRevision;
@@ -4383,7 +4386,18 @@ class WorkspaceController extends ChangeNotifier {
             );
     channel = next;
     if (navigate) {
-      section = 'chat';
+      if (replaceEntry && server != null) {
+        _unboundSection = 'chat';
+        bindNavigation();
+        navigation.selectSection(
+          'chat',
+          channelId: channelId,
+          dm: next.type == 'dm',
+          kind: RaftNavigationKind.replace,
+        );
+      } else {
+        section = 'chat';
+      }
       navigation.navigate(
         location.withQuery({'msg': messageId}),
         kind: RaftNavigationKind.replace,
