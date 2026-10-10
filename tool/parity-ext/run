@@ -123,6 +123,14 @@ SPEC_EXT_PATCHES = [
      '      const parityExtCdp = await page.context().newCDPSession(page);\n'
      '      await parityExtCdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });\n'
      '    }'),
+    # Native right click (a real `contextmenu` event at the element centre, or
+    # at `x`,`y` from its top-left); the official `contextmenu` type only waits
+    # for the message context menu.
+    ('    } else if (interaction.type === "fill" && interaction.target) {',
+     '    } else if ((interaction.type as string) === "rightclick" && interaction.target) {\n'
+     '      await page.locator(interaction.target).first().click({ button: "right",\n'
+     '        position: interaction.x === undefined ? undefined : { x: interaction.x, y: interaction.y ?? 0 } });\n'
+     '    } else if (interaction.type === "fill" && interaction.target) {'),
     ('    await applyInteractions(page, visualCase);',
      '    await applyInteractions(page, visualCase);\n'
      '    // Extension: Flutter taps leave no hover; park the pointer off the\n'
