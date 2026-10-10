@@ -151,6 +151,9 @@ const _settingsKeys = [
   'settings.bridge-manage',
   'settings.bridge-disconnect',
   'settings.bridge-error',
+  'settings.feedback-mobile',
+  'settings.feedback-new-mobile',
+  'settings.feedback-ticket-mobile',
 ];
 
 final Map<String, ParityCase> extWp6Cases = {

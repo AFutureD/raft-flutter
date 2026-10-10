@@ -778,9 +778,14 @@ class _RaftFeedbackMessageState extends State<RaftFeedbackMessage> {
     final t = RaftTokens.of(context);
     final rt = t.recipeTokens;
     final m = widget.message;
+    // MessageItem's `max-md:` padding, gap and avatar (below 768px).
+    final width = MediaQuery.sizeOf(context).width;
+    // (Brutal keeps the desktop item at every width.)
+    final compact = width < 768 && !t.brutal;
+    final base = t.recipeStates(hovered: hovered);
     final s = RaftMessageItemRecipe.resolve(
       theme: t.recipeTheme,
-      states: t.recipeStates(hovered: hovered),
+      states: compact ? RaftRecipeStates(base.flags, width) : base,
       tokens: rt,
     );
     final inherited = raftFeedbackText(t, size: 16);
@@ -831,7 +836,11 @@ class _RaftFeedbackMessageState extends State<RaftFeedbackMessage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: root.columnGap ?? 12,
               children: [
-                _FeedbackAvatar(author: m.author, sender: m.sender),
+                _FeedbackAvatar(
+                  author: m.author,
+                  sender: m.sender,
+                  compact: compact,
+                ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -912,9 +921,16 @@ class _RaftFeedbackMessageState extends State<RaftFeedbackMessage> {
 /// raft-ui `Avatar size="md"` (human for the reporter, agent otherwise)
 /// with the sender's initial as `AvatarFallback`.
 class _FeedbackAvatar extends StatelessWidget {
-  const _FeedbackAvatar({required this.author, required this.sender});
+  const _FeedbackAvatar({
+    required this.author,
+    required this.sender,
+    this.compact = false,
+  });
   final RaftFeedbackAuthor author;
   final String sender;
+
+  /// Below 768px the avatar is 24px in a 32px slot.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -933,12 +949,18 @@ class _FeedbackAvatar extends StatelessWidget {
     final initial = label.isEmpty ? '?' : label.characters.first.toUpperCase();
     final fallback = s.fallback;
     final style = fallback.text(rt, base: raftFeedbackText(t, size: 14));
+    final size = compact ? 24.0 : 36.0;
     return ExcludeSemantics(
-      child: RaftRecipeBox(
+      child: SizedBox(
+        width: compact ? 32 : 36,
+        height: size,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: RaftRecipeBox(
         style: s.root,
         tokens: rt,
-        width: 36,
-        height: 36,
+        width: size,
+        height: size,
         clip: true,
         applyText: false,
         decorationOverride: t.brutal ? null : (d) => d.copyWith(border: null),
@@ -950,6 +972,8 @@ class _FeedbackAvatar extends StatelessWidget {
           alignment: Alignment.center,
           applyText: false,
           child: Text(initial, style: style),
+        ),
+      ),
         ),
       ),
     );

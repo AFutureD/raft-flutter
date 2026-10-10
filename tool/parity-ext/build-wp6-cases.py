@@ -331,6 +331,22 @@ bridge_add('settings.bridge-disconnect', 'Slack bridge wizard: disconnect confir
 fixture['routeSets']['wp6-bridge-error'] = {'GET /slack-bridge/provisioning': {'$status': 500}}
 bridge_add('settings.bridge-error', 'Slack bridge: load failed', 'error')
 
+# About / Feedback panel (AboutFeedbackDialog.tsx AboutFeedbackPanel) at phone
+# width: inbox, New feedback form and the ticket conversation. The data is the
+# ext-settings feedback fixture (fixtures/settings.json).
+FB_HINT = 'packages/web/src/components/settings/AboutFeedbackDialog.tsx (+ @botiverse/hands-feedback-react)'
+FB_ID = '5b0e8c1a-7d3f-4c2e-9a61-0f2d3c4b5a61'
+MROW = f"[data-parity-region='settings-panel'] li:has(button[data-ticket-id='{FB_ID}']) .hands-feedback-ticket-title"
+settings_add('settings.feedback-mobile', 'Feedback: inbox (mobile)', tab='feedback', platform='mobile', hint=FB_HINT)
+settings_add('settings.feedback-new-mobile', 'Feedback: New feedback form (mobile)', tab='feedback',
+             platform='mobile', hint=FB_HINT,
+             interactions=[{'type': 'click', 'target': btn('New feedback')}, {'type': 'wait', 'ms': 500}],
+             android=[{'type': 'tap', 'key': 'feedback-new'}])
+settings_add('settings.feedback-ticket-mobile', 'Feedback: ticket conversation (mobile)', tab='feedback',
+             platform='mobile', hint=FB_HINT,
+             interactions=[{'type': 'click', 'target': MROW}, {'type': 'wait', 'ms': 700}],
+             android=[{'type': 'tap', 'key': f'feedback-ticket-{FB_ID}'}])
+
 manifest_path = here / 'cases.json'
 manifest = json.loads(manifest_path.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith(PREFIX)] + cases
