@@ -721,7 +721,7 @@ Blink details reproduced in `packages/raft_ui/lib/src/announcement_modal.dart`
 
 | | first run | final |
 | --- | --- | --- |
-| mean pixel-perfect similarity | 91.0 % | 93.6 % |
+| mean pixel-perfect similarity | 92.0 % | 93.6 % |
 | passing (>96 %) | 8 / 39 | 8 / 39 (overlay x6, mobile single/rich brutal) |
 | capture size mismatches | 15 | 0 |
 
