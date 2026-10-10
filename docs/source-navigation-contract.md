@@ -60,7 +60,7 @@ Source 用 React Router 的 location 表达当前表面，结构为 `pathname + 
 4. 浏览器多步 Back/Forward 依据实际 idx 记录，不假定每个 POP 只减少一层。Forward 不丢历史记录；从较早位置 PUSH 才丢其后的分支。同步 store 导航在 Router render 前登记；后续 commit 必须幂等，不能重复增加 entry。同 key 但 idx 变化仍是真 POP。
 5. 任务 sheet 的 Back 先关任务槽，再消费打开时的 PUSH；检查 idx 已回到来源，不能只比 URL，因为关闭时的 REPLACE 与原入口可以拥有相同字符串。View in channel 桌面 PUSH、移动 REPLACE，均同步关 thread 并拒绝旧 query effect。
 6. 桌面 rail 记忆按 server+mode 保存完整位置，并校验其归属。Search/Activity 入口总是新 landing，不恢复旧 query；Search 不写 chat memory。保存最后 server surface 和每 rail mode memory 是不同用途。
-7. 移动每次点击 tab，无论 active/inactive，都 PUSH 到根页并丢目标 tab 的子页记忆。`mobileNavStore` 顶部旧注释的“inactive 恢复 top”已经被实际 `useMobileNav.selectTab` 覆盖；不能照旧注释实现。store 仍做临时 hydration/归属记录，换 server 清空；它不驱动 Back fallback。
+7. 移动每次点击 tab，无论 active/inactive，都 PUSH 到根页并丢目标 tab 的子页记忆。`mobileNavStore` 顶部旧注释的“inactive 恢复 top”已经被实际 `useMobileNav.selectTab` 覆盖；不能照旧注释实现。store 仍做临时 hydration/归属记录，换 server 清空；它不驱动 Back fallback。**有意差异（产品负责人决定 2026-10-11）：** 手机 App 在 tab 根页按系统 Back 时交还系统（Android 退到后台），不像 Web 那样回退已访问的 tab 根页；tab 点击仍总是 PUSH 根页、不恢复子页。
 
 依据：[useAppNavigate.ts:50–109][S19]、[192–315][S20]、[363–400][S21]；[rightPanelUrlSync.ts:139–208][S22]、[509–549][S10]；[MainLayout.tsx:1153–1159][S23]；[useSidebarTab.ts:55–84][S3]、[useTabRouteMemory.ts:12–36及101–172][S17]；[useMobileNav.ts:30–109][S24]、[mobileNavStore.ts:120–183][S25]。
 
@@ -153,7 +153,7 @@ OS/PWA 通知也从 URI 进入同一 router：ServiceWorker 点击关闭系统�
 | N16 | P：reload落idx2，旧entry未知；再PUSH/REPLACE/POP | unknown不作安全Back；同步写入与commit不双计；同key/不同idx仍处理 | [mobileBack pure:163–182][T14]、[behavior:438–478,711–802][T15] |
 | N17 | P/W：任务叠thread→任务Back | teardown先发生；原thread/query恢复且idx回原值，不只URL相同 | [mobileBack behavior:389–428][T16] |
 | N18 | P/W：View in channel，桌面/移动 | desktop PUSH；mobile REPLACE；同步关thread；旧effect不重开 | [rightPanel tests:754–873][T17] |
-| N19 | P/W：两个tab各有子页→点击active或inactive tab | 均到目标tab根，PUSH且清目标子页记忆 | [mobile tab E2E:155–204][T18] |
+| N19 | P/W：两个tab各有子页→点击active或inactive tab | 均到目标tab根，PUSH且清目标子页记忆。**有意差异：** 在tab根按系统Back交还系统（Android退后台），不回退（负责人决定 2026-10-11） | [mobile tab E2E:155–204][T18] |
 | N20 | P：desktop chat→Search→Chat / Activity→Chat | Search不覆盖chat memory；search/activity入口新landing，chat恢复自己的有效位置 | [useSidebarTab:61–83][S3]、[useTabRouteMemory:12–36,101–112][S17] |
 | N21 | W：各已挂载路径与thread/content槽 | 根4tab可见；已列详情均隐藏；guest隐藏Members；embed首帧无tab | [MainLayout:227–330][S34] |
 | N22 | P/W：767/768/1023/1024，old/newInbox两组 | 一般rail为768；old Activity预览1024，new为768；grid低于1024禁止 | [ThreadsInbox:572–574][S29]、[MainLayout:1691–1715][S26] |
