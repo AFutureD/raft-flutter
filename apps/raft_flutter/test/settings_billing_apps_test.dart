@@ -83,6 +83,12 @@ Widget _host(Widget child, {double width = 1280}) => MediaQuery(
   ),
 );
 
+void _surface(WidgetTester t, [double width = 1280]) {
+  t.view.physicalSize = Size(width, 2000);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+}
+
 final _now = DateTime.utc(2026, 6, 19, 12, 30);
 
 Map<String, dynamic> _free({bool manage = true}) => {
@@ -135,6 +141,7 @@ void main() {
         'channels': 4,
       };
       final opened = <Uri>[];
+      _surface(t, width);
       await t.pumpWidget(
         _host(
           BillingView(
@@ -334,6 +341,7 @@ void main() {
       a.routes['GET /billing/subscription'] = (_) => _free();
       a.routes['GET /servers/s1/usage'] = (_) => {'agents': 2};
       a.gate = Completer<void>();
+      _surface(t);
       await t.pumpWidget(_host(BillingView(controller: w, now: () => _now)));
       expect(find.byType(RaftPlanBillingLoading), findsOneWidget);
       a.gate!.complete();
@@ -342,9 +350,11 @@ void main() {
       expect(find.text('Final Trial Period'), findsOneWidget);
       final plan = find.byKey(const ValueKey('billing-current-plan-card'));
       final rect = t.getRect(plan);
+      _surface(t);
       await t.pumpWidget(_host(const SizedBox()));
       await t.pumpAndSettle();
       a.gate = Completer<void>();
+      _surface(t);
       await t.pumpWidget(_host(BillingView(controller: w, now: () => _now)));
       // First frame: the accepted projection, no skeleton.
       expect(find.byType(RaftPlanBillingLoading), findsNothing);
@@ -356,7 +366,9 @@ void main() {
     });
 
     testWidgets('mobile width stacks the features and the summary', (t) async {
-      await mount(t, _free(), width: 390);
+      // 600 keeps the Ahem test font (1em glyphs) inside the 390px layout's
+      // single-column rules without nowrap labels overflowing.
+      await mount(t, _free(), width: 600);
       final summary = t.getRect(
         find.byKey(const ValueKey('billing-summary-card')),
       );
@@ -437,6 +449,7 @@ void main() {
             'app_review_pending': false,
             'approval_required': false,
           };
+      _surface(t);
       await t.pumpWidget(_host(IntegrationsView(controller: w)));
       await t.pumpAndSettle();
       return (w, a);

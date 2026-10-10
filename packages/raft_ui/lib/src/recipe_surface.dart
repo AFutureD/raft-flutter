@@ -671,6 +671,19 @@ class _RenderCssOverflowY extends RenderShiftedBox {
   }
 
   @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final child = this.child;
+    if (child == null) return constraints.smallest;
+    final size = child.getDryLayout(
+      BoxConstraints(
+        minWidth: constraints.minWidth,
+        maxWidth: constraints.maxWidth,
+      ),
+    );
+    return constraints.constrain(size);
+  }
+
+  @override
   double computeMinIntrinsicWidth(double height) =>
       child?.getMinIntrinsicWidth(double.infinity) ?? 0;
   @override
