@@ -27,6 +27,7 @@ import 'message_reference_directory.dart';
 import 'share_message_link.dart';
 import 'private_route_guard.dart';
 import 'message_selection.dart';
+import 'system_message_grouping.dart';
 import 'copy_selection_links.dart';
 import 'message_image_export.dart';
 import 'forward_messages_dialog.dart';
@@ -2284,10 +2285,67 @@ class _RaftChatViewState extends State<RaftChatView>
     return windowIndex[id];
   }
 
+  // Web `expandedSystemMessageGroups` + `systemMessageRenderStates`: render-only
+  // grouping of adjacent system messages over the displayed window.
+  final expandedSystemGroups = <String>{};
+  List<SystemGroupState?>? systemStates;
+  List<chat.Message>? systemStatesWindow;
+  int systemStatesRevision = -1;
+  String? systemStatesLocale;
+  SystemGroupState? systemStateAt(int index) {
+    final list = adapter.messages;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    if (systemStates == null ||
+        !identical(list, systemStatesWindow) ||
+        systemStatesRevision != windowRevision ||
+        systemStatesLocale != locale) {
+      systemStates = buildSystemGroupStates([
+        for (final m in list) source(m),
+      ], (text, values) => raftFormat(context, text, values));
+      systemStatesWindow = list;
+      systemStatesRevision = windowRevision;
+      systemStatesLocale = locale;
+    }
+    return index < systemStates!.length ? systemStates![index] : null;
+  }
+
   Widget datedTile(RaftMessage message, {bool captureFocus = true}) {
     final stamp = message.createdAt;
     final key = w.messageKey(message);
     final index = windowIndexOf(key);
+    final systemState = index == null ? null : systemStateAt(index);
+    if (systemState is SystemGroupHide) {
+      return RaftRowExtentRecorder(
+        scope: rowExtentScope(context),
+        id: key,
+        child: SizedBox.shrink(key: ValueKey('message-wrapper-$key')),
+      );
+    }
+    if (systemState is SystemGroupSummary) {
+      final expanded = expandedSystemGroups.contains(systemState.groupId);
+      return RaftRowExtentRecorder(
+        scope: rowExtentScope(context),
+        id: key,
+        child: Padding(
+          key: ValueKey('message-wrapper-$key'),
+          padding: const RaftTimelineCompositionRecipe().messageInset,
+          child: RaftSystemMessageGroup(
+            toggleKey: const ValueKey('system-message-group-toggle'),
+            summary: systemState.summary,
+            expanded: expanded,
+            onToggle: () => setState(() {
+              if (!expandedSystemGroups.remove(systemState.groupId)) {
+                expandedSystemGroups.add(systemState.groupId);
+              }
+            }),
+            children: [
+              for (final at in systemState.messageIndexes)
+                tile(source(adapter.messages[at])),
+            ],
+          ),
+        ),
+      );
+    }
     DateTime? previous;
     if (index != null) {
       previous = index > 0 ? adapter.messages[index - 1].createdAt : null;

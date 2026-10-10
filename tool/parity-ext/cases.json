@@ -18869,6 +18869,4362 @@
     "ignoreAntialiasing": true
    },
    "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.panel.brutal",
+   "title": "Thread panel with replies desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.panel",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.panel.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.panel'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.panel.elegant",
+   "title": "Thread panel with replies desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.panel",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.panel.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.panel'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.panel.elegant-dark",
+   "title": "Thread panel with replies desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.panel",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.panel.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.panel'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.empty.brutal",
+   "title": "Thread panel without replies desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.empty",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread-empty",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.empty.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.empty.elegant",
+   "title": "Thread panel without replies desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread-empty",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.empty.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.empty.elegant-dark",
+   "title": "Thread panel without replies desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-thread-empty",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.empty.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.loading.brutal",
+   "title": "Thread panel loading replies desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.loading",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread-loading",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.loading.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.loading.elegant",
+   "title": "Thread panel loading replies desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread-loading",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.loading.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.loading.elegant-dark",
+   "title": "Thread panel loading replies desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-thread-loading",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.loading.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.history-limited.brutal",
+   "title": "Thread panel behind the plan history cutoff desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.history-limited",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread-limited",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.history-limited.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.history-limited.elegant",
+   "title": "Thread panel behind the plan history cutoff desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread-limited",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.history-limited.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.history-limited.elegant-dark",
+   "title": "Thread panel behind the plan history cutoff desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-thread-limited",
+      "winY": 0,
+      "winH": 800,
+      "surface": "thread",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.history-limited.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.composer.brutal",
+   "title": "Thread composer desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.composer",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": -140,
+      "winH": 140,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.composer.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.composer'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.composer.elegant",
+   "title": "Thread composer desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.composer",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": -140,
+      "winH": 140,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.composer.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.composer'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.composer.elegant-dark",
+   "title": "Thread composer desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.composer",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": -140,
+      "winH": 140,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.composer.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.composer'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.panel.brutal",
+   "title": "Thread panel with replies mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.panel",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.panel.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.panel'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.panel.elegant",
+   "title": "Thread panel with replies mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.panel",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.panel.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.panel'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.panel.elegant-dark",
+   "title": "Thread panel with replies mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.panel",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.panel.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.panel'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.empty.brutal",
+   "title": "Thread panel without replies mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.empty",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread-empty",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.empty.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.empty.elegant",
+   "title": "Thread panel without replies mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread-empty",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.empty.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.empty.elegant-dark",
+   "title": "Thread panel without replies mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-thread-empty",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.empty.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.loading.brutal",
+   "title": "Thread panel loading replies mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.loading",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread-loading",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.loading.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.loading.elegant",
+   "title": "Thread panel loading replies mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread-loading",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.loading.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.loading.elegant-dark",
+   "title": "Thread panel loading replies mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-thread-loading",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.loading.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.history-limited.brutal",
+   "title": "Thread panel behind the plan history cutoff mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.history-limited",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread-limited",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.history-limited.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.history-limited.elegant",
+   "title": "Thread panel behind the plan history cutoff mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread-limited",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.history-limited.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.history-limited.elegant-dark",
+   "title": "Thread panel behind the plan history cutoff mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-thread-limited",
+      "winY": 0,
+      "winH": 844,
+      "surface": "thread",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.history-limited.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.composer.brutal",
+   "title": "Thread composer mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.composer",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": -140,
+      "winH": 140,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.composer.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.composer'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.composer.elegant",
+   "title": "Thread composer mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.composer",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": -140,
+      "winH": 140,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.composer.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.composer'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.composer.elegant-dark",
+   "title": "Thread composer mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.composer",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": -140,
+      "winH": 140,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.composer.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.composer'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.dates.brutal",
+   "title": "Timeline date dividers desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.dates",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-dates",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.dates.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.dates'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.dates.elegant",
+   "title": "Timeline date dividers desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.dates",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-dates",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.dates.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.dates'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.dates.elegant-dark",
+   "title": "Timeline date dividers desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.dates",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-dates",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.dates.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.dates'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.empty.brutal",
+   "title": "Empty channel desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.empty",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-empty",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.empty.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.empty.elegant",
+   "title": "Empty channel desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-empty",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.empty.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.empty.elegant-dark",
+   "title": "Empty channel desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-empty",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.empty.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.loading.brutal",
+   "title": "Channel loading desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.loading",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-loading",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.loading.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.loading.elegant",
+   "title": "Channel loading desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-loading",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.loading.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.loading.elegant-dark",
+   "title": "Channel loading desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-loading",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.loading.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.history-limited.brutal",
+   "title": "History limit banner desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.history-limited",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-limited",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.history-limited.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.history-limited.elegant",
+   "title": "History limit banner desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-limited",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.history-limited.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.history-limited.elegant-dark",
+   "title": "History limit banner desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-limited",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.history-limited.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.history-top.brutal",
+   "title": "Beginning of messages desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.history-top",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-top",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.history-top.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.history-top'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.history-top.elegant",
+   "title": "Beginning of messages desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.history-top",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-top",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.history-top.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.history-top'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.history-top.elegant-dark",
+   "title": "Beginning of messages desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.history-top",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-top",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.history-top.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.history-top'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.system-collapsed.brutal",
+   "title": "System message group desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.system-collapsed",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.system-collapsed.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.system-collapsed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.system-collapsed.elegant",
+   "title": "System message group desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.system-collapsed",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.system-collapsed.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.system-collapsed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.system-collapsed.elegant-dark",
+   "title": "System message group desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.system-collapsed",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.system-collapsed.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.system-collapsed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.system-expanded.brutal",
+   "title": "System message group expanded desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.system-expanded",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.system-expanded.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"system-message-group-toggle\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "system-message-group-toggle"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.system-expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.system-expanded.elegant",
+   "title": "System message group expanded desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.system-expanded",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.system-expanded.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"system-message-group-toggle\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "system-message-group-toggle"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.system-expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.system-expanded.elegant-dark",
+   "title": "System message group expanded desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.system-expanded",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.system-expanded.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"system-message-group-toggle\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "system-message-group-toggle"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.system-expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.back-to-bottom.brutal",
+   "title": "Back to bottom button desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.back-to-bottom",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-long",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.back-to-bottom.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "target": "[data-testid=\"message-content-surface\"]",
+      "y": -300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "key": "chat-list-channel",
+      "dy": -300
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.back-to-bottom'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.back-to-bottom.elegant",
+   "title": "Back to bottom button desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.back-to-bottom",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-long",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.back-to-bottom.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "target": "[data-testid=\"message-content-surface\"]",
+      "y": -300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "key": "chat-list-channel",
+      "dy": -300
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.back-to-bottom'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.desktop.back-to-bottom.elegant-dark",
+   "title": "Back to bottom button desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.desktop.back-to-bottom",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-timeline-long",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.desktop.back-to-bottom.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "target": "[data-testid=\"message-content-surface\"]",
+      "y": -300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "key": "chat-list-channel",
+      "dy": -300
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.desktop.back-to-bottom'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.inline.desktop.preview.brutal",
+   "title": "Inline thread replies preview desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-inline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "inline.desktop.preview",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-inline",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.inline.desktop.preview.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'inline.desktop.preview'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.inline.desktop.preview.elegant",
+   "title": "Inline thread replies preview desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-inline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "inline.desktop.preview",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-inline",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.inline.desktop.preview.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'inline.desktop.preview'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.inline.desktop.preview.elegant-dark",
+   "title": "Inline thread replies preview desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-inline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "inline.desktop.preview",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-inline",
+      "winY": 0,
+      "winH": 800,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.inline.desktop.preview.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'inline.desktop.preview'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.dates.brutal",
+   "title": "Timeline date dividers mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.dates",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-dates",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.dates.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.dates'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.dates.elegant",
+   "title": "Timeline date dividers mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.dates",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-dates",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.dates.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.dates'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.dates.elegant-dark",
+   "title": "Timeline date dividers mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.dates",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-dates",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.dates.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.dates'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.empty.brutal",
+   "title": "Empty channel mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.empty",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-empty",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.empty.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.empty.elegant",
+   "title": "Empty channel mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-empty",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.empty.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.empty.elegant-dark",
+   "title": "Empty channel mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.empty",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-empty",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.empty.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.loading.brutal",
+   "title": "Channel loading mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.loading",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-loading",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.loading.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.loading.elegant",
+   "title": "Channel loading mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-loading",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.loading.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.loading.elegant-dark",
+   "title": "Channel loading mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.loading",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-loading",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.loading.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.history-limited.brutal",
+   "title": "History limit banner mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.history-limited",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-limited",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.history-limited.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.history-limited.elegant",
+   "title": "History limit banner mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-limited",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.history-limited.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.history-limited.elegant-dark",
+   "title": "History limit banner mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.history-limited",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-limited",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design",
+      "clockIso": "2026-06-24T12:30:00.000Z"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.history-limited.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.history-limited'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.history-top.brutal",
+   "title": "Beginning of messages mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.history-top",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-top",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.history-top.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.history-top'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.history-top.elegant",
+   "title": "Beginning of messages mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.history-top",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-top",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.history-top.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.history-top'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.history-top.elegant-dark",
+   "title": "Beginning of messages mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.history-top",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-top",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.history-top.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.history-top'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.system-collapsed.brutal",
+   "title": "System message group mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.system-collapsed",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.system-collapsed.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.system-collapsed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.system-collapsed.elegant",
+   "title": "System message group mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.system-collapsed",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.system-collapsed.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.system-collapsed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.system-collapsed.elegant-dark",
+   "title": "System message group mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.system-collapsed",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.system-collapsed.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.system-collapsed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.system-expanded.brutal",
+   "title": "System message group expanded mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.system-expanded",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.system-expanded.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"system-message-group-toggle\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "system-message-group-toggle"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.system-expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.system-expanded.elegant",
+   "title": "System message group expanded mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.system-expanded",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.system-expanded.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"system-message-group-toggle\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "system-message-group-toggle"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.system-expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.system-expanded.elegant-dark",
+   "title": "System message group expanded mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.system-expanded",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-system",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.system-expanded.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"system-message-group-toggle\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "system-message-group-toggle"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.system-expanded'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.back-to-bottom.brutal",
+   "title": "Back to bottom button mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.back-to-bottom",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-long",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.back-to-bottom.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "target": "[data-testid=\"message-content-surface\"]",
+      "y": -300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "key": "chat-list-channel",
+      "dy": -300
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.back-to-bottom'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.back-to-bottom.elegant",
+   "title": "Back to bottom button mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.back-to-bottom",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-long",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.back-to-bottom.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "target": "[data-testid=\"message-content-surface\"]",
+      "y": -300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "key": "chat-list-channel",
+      "dy": -300
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.back-to-bottom'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.timeline.mobile.back-to-bottom.elegant-dark",
+   "title": "Back to bottom button mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-timeline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "timeline.mobile.back-to-bottom",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-timeline-long",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.timeline.mobile.back-to-bottom.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "target": "[data-testid=\"message-content-surface\"]",
+      "y": -300
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "scroll",
+      "key": "chat-list-channel",
+      "dy": -300
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'timeline.mobile.back-to-bottom'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.inline.mobile.preview.brutal",
+   "title": "Inline thread replies preview mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-inline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "inline.mobile.preview",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-inline",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.inline.mobile.preview.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'inline.mobile.preview'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.inline.mobile.preview.elegant",
+   "title": "Inline thread replies preview mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-inline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "inline.mobile.preview",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-inline",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.inline.mobile.preview.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'inline.mobile.preview'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.inline.mobile.preview.elegant-dark",
+   "title": "Inline thread replies preview mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-inline",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "inline.mobile.preview",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-inline",
+      "winY": 0,
+      "winH": 844,
+      "surface": "chat",
+      "channel": "channel-design"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.inline.mobile.preview.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'inline.mobile.preview'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.overflow-menu.brutal",
+   "title": "Thread overflow menu desktop (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.overflow-menu",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 240,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.overflow-menu.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"thread-overflow-trigger\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "thread-options"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.overflow-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.overflow-menu.elegant",
+   "title": "Thread overflow menu desktop (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.overflow-menu",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 240,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.overflow-menu.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"thread-overflow-trigger\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "thread-options"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.overflow-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.desktop.overflow-menu.elegant-dark",
+   "title": "Thread overflow menu desktop (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.desktop.overflow-menu",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 240,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.desktop.overflow-menu.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"thread-overflow-trigger\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "thread-options"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.desktop.overflow-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.overflow-menu.brutal",
+   "title": "Thread overflow menu mobile (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.overflow-menu",
+      "extKind": "thread",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 240,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.overflow-menu.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"thread-overflow-trigger\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "thread-options"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.overflow-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.overflow-menu.elegant",
+   "title": "Thread overflow menu mobile (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.overflow-menu",
+      "extKind": "thread",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 240,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.overflow-menu.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"thread-overflow-trigger\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "thread-options"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.overflow-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.thread-ext.thread.mobile.overflow-menu.elegant-dark",
+   "title": "Thread overflow menu mobile (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "thread-ext-thread",
+   "category": "extension/thread",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "thread.mobile.overflow-menu",
+      "extKind": "thread",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "routeSet": "thext-thread",
+      "winY": 0,
+      "winH": 240,
+      "surface": "thread"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.thread-ext.thread.mobile.overflow-menu.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "click",
+      "target": "[data-testid=\"thread-overflow-trigger\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "thread-options"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/ThreadPanel.tsx + ChatPanel.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_thread.dart 'thread.mobile.overflow-menu'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }
