@@ -300,11 +300,14 @@ class RaftButton extends StatelessWidget {
         if (highContrastDanger || foreground != null) {
           content2 = DefaultTextStyle.merge(
             style: TextStyle(
-              color: foreground ?? t.components.buttonDangerHighContrastForeground,
+              color:
+                  foreground ?? t.components.buttonDangerHighContrastForeground,
             ),
             child: IconTheme.merge(
               data: IconThemeData(
-                color: foreground ?? t.components.buttonDangerHighContrastForeground,
+                color:
+                    foreground ??
+                    t.components.buttonDangerHighContrastForeground,
               ),
               child: content2,
             ),
@@ -625,8 +628,13 @@ class RaftMountedConversationControlRecipe extends RaftControlRecipe {
     super.tokens, {
     super.selected,
     this.pointerPressed = false,
+    this.menuOpen = false,
   }) : super(kind: RaftControlKind.sidebar);
   final bool pointerPressed;
+
+  /// Sidebar.tsx `menuOpen`: the row whose context menu is open keeps
+  /// `bg-fill-muted` (unless it is the selected row).
+  final bool menuOpen;
   @override
   bool get transformsOnInteraction => false;
   @override
@@ -636,7 +644,9 @@ class RaftMountedConversationControlRecipe extends RaftControlRecipe {
   @override
   BorderRadius get radius => BorderRadius.circular(tokens.brutal ? 0 : 6);
   @override
-  EdgeInsets get padding => const EdgeInsets.symmetric(horizontal: 8);
+  // SidebarItem: `px-2` Brutal, `px-1.5` Elegant (measured on desktop and mobile).
+  EdgeInsets get padding =>
+      EdgeInsets.symmetric(horizontal: tokens.brutal ? 8 : 6);
   @override
   double get focusOutlineWidth => 2;
   @override
@@ -657,11 +667,11 @@ class RaftMountedConversationControlRecipe extends RaftControlRecipe {
       : foreground;
   @override
   Color get background => !selected
-      ? Colors.transparent
+      ? (menuOpen ? tokens.colors['fill-muted']! : Colors.transparent)
       : tokens.colors[tokens.brutal ? 'color-brutal-pink' : 'fill-muted']!;
   @override
   Color backgroundFor({bool hovered = false}) {
-    if (selected || (!hovered && !pointerPressed)) {
+    if (selected || menuOpen || (!hovered && !pointerPressed)) {
       return background;
     }
     return tokens.brutal
@@ -845,6 +855,9 @@ class RaftNavItem extends StatelessWidget {
     this.joined = true,
     this.activityMuted = false,
     this.hasDraft = false,
+    this.wrap = false,
+    this.onContextMenu,
+    this.menuOpen = false,
   }) : assert(icon != null || glyph != null || leading != null),
        assert(conversationKind == null || role == RaftNavItemRole.generic);
   final String label;
@@ -870,6 +883,18 @@ class RaftNavItem extends StatelessWidget {
   /// Mounted channel membership and accepted notification preference. They
   /// change emphasis and count appearance; they never disable navigation.
   final bool joined, activityMuted, hasDraft;
+
+  /// Sidebar.tsx `allowWrap` (Pinned rows): `items-start whitespace-normal
+  /// leading-tight`, the title wraps and the row grows from a 30 / 32 minimum
+  /// (an 18px icon slot + padding, the 17.5px line is shorter than the slot).
+  final bool wrap;
+
+  /// Right click / long press at the global pointer position (Sidebar.tsx
+  /// row `onContextMenu` + long-press handlers).
+  final ValueChanged<Offset>? onContextMenu;
+
+  /// This row's context menu is open (keeps the muted fill).
+  final bool menuOpen;
   bool get _channel => conversationKind == RaftConversationNavKind.channel;
   bool get _mutedIcon => _channel && joined && activityMuted;
   bool get _loudUnread => unread > 0 && (!_channel || joined && !_mutedIcon);
@@ -949,7 +974,51 @@ class RaftNavItem extends StatelessWidget {
                     ? t.strong
                     : t.colors['foreground-icon'],
               ));
-    Widget titleContent(BuildContext context) => description == null
+    Widget wrappedTitle(BuildContext context) {
+      final style =
+          RaftTypography.heading(
+            t,
+            size: 14,
+            line: 17.5,
+            weight: _loudUnread || (description != null && unread > 0)
+                ? FontWeight.w700
+                : FontWeight.w500,
+          ).copyWith(
+            color: description != null
+                ? (t.brutal
+                      ? Colors.black
+                      : DefaultTextStyle.of(context).style.color)
+                : _titleColor(context, t),
+          );
+      final text = Text(label, style: style);
+      if (description == null) return text;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          text,
+          const SizedBox(height: 2),
+          Text(
+            description!,
+            style:
+                RaftTypography.heading(
+                  t,
+                  size: 12,
+                  line: 15,
+                  weight: FontWeight.w500,
+                ).copyWith(
+                  color: t.brutal
+                      ? Colors.black.withValues(alpha: .4)
+                      : t.colors['foreground-muted'],
+                ),
+          ),
+        ],
+      );
+    }
+
+    Widget titleContent(BuildContext context) => wrap
+        ? wrappedTitle(context)
+        : description == null
         ? _title(
             t,
             (conversation?.titleStyle(loudUnread: _loudUnread) ??
@@ -1015,26 +1084,36 @@ class RaftNavItem extends StatelessWidget {
               t,
               selected: selected,
               pointerPressed: pointerPressed,
+              menuOpen: menuOpen,
             ),
       onPressed: onTap,
       selected: selected,
       // Mounted directory rows share Source's box; expand their touch area
       // without inserting 48px of layout between the section's entities.
-      minimumTargetSize: conversationKind == RaftConversationNavKind.directory
+      minimumTargetSize: conversationKind != null
           ? conversation!.rowHeight(
-              viewportWidth: MediaQuery.sizeOf(context).width,
-              viewportHeight:
-                  viewportHeight ?? MediaQuery.sizeOf(context).height,
-            )
+                  viewportWidth: MediaQuery.sizeOf(context).width,
+                  viewportHeight:
+                      viewportHeight ?? MediaQuery.sizeOf(context).height,
+                ) -
+                (wrap ? 2 : 0)
           : null,
       kind: RaftControlKind.sidebar,
       visualHeight: conversationKind != null
           ? conversation!.rowHeight(
-              viewportWidth: MediaQuery.sizeOf(context).width,
-              viewportHeight:
-                  viewportHeight ?? MediaQuery.sizeOf(context).height,
-            )
+                  viewportWidth: MediaQuery.sizeOf(context).width,
+                  viewportHeight:
+                      viewportHeight ?? MediaQuery.sizeOf(context).height,
+                ) -
+                (wrap ? 2 : 0)
           : 32,
+      flexibleHeight: wrap,
+      padding: wrap
+          ? EdgeInsets.symmetric(
+              horizontal: t.brutal ? 8 : 6,
+              vertical: t.brutal ? 4 : 6,
+            )
+          : null,
       variant: selected
           ? t.brutal
                 ? RaftControlVariant.accent
@@ -1042,6 +1121,9 @@ class RaftNavItem extends StatelessWidget {
           : RaftControlVariant.ghost,
       child: Builder(
         builder: (context) => Row(
+          crossAxisAlignment: wrap
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
           children: [
             if (conversation?.glyphSlotSize case final double slot)
               SizedBox.square(
@@ -1070,14 +1152,30 @@ class RaftNavItem extends StatelessWidget {
             else if (unread > 0 && _channel && !_loudUnread)
               RaftSidebarQuietUnreadCount(count: unread)
             else if (unread > 0 && conversationKind != null)
-              RaftConversationUnreadCount(
-                count: unread,
-                kind: conversationKind!,
-              )
+              // DM rows keep `self-center` in a top-aligned wrap row.
+              wrap && !_channel
+                  ? SizedBox(
+                      height: 18,
+                      child: Center(
+                        child: RaftConversationUnreadCount(
+                          count: unread,
+                          kind: conversationKind!,
+                        ),
+                      ),
+                    )
+                  : RaftConversationUnreadCount(
+                      count: unread,
+                      kind: conversationKind!,
+                    )
             else if (unread > 0)
               RaftSidebarUnreadCount(count: unread)
             else if (hasDraft && conversationKind != null)
-              const RaftSidebarDraftIcon(),
+              wrap && !_channel
+                  ? const SizedBox(
+                      height: 18,
+                      child: Center(child: RaftSidebarDraftIcon()),
+                    )
+                  : const RaftSidebarDraftIcon(),
           ],
         ),
       ),
@@ -1095,7 +1193,7 @@ class RaftNavItem extends StatelessWidget {
       if (hasDraft && unread <= 0 && conversationKind != null)
         raftText(context, 'Draft'),
     ].join(', ');
-    return Semantics(
+    final item = Semantics(
       selected: selected,
       onTap: onTap,
       button: true,
@@ -1113,6 +1211,13 @@ class RaftNavItem extends StatelessWidget {
                     : row(pressed),
               ),
             ),
+    );
+    if (onContextMenu == null) return item;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapDown: (d) => onContextMenu!(d.globalPosition),
+      onLongPressStart: (d) => onContextMenu!(d.globalPosition),
+      child: item,
     );
   }
 
@@ -1358,6 +1463,7 @@ class RaftMessageTile extends StatelessWidget {
       coarsePointer,
       popupOpen,
       highlighted;
+
   /// The default Markdown body in a compact row contributes only its links.
   Widget compactProse(Widget prose) => compactSemantics
       ? RaftMessageProseSemantics(
@@ -1430,8 +1536,11 @@ class RaftMessageTile extends StatelessWidget {
                 if (badge != null)
                   Padding(
                     padding: const EdgeInsets.only(left: 4),
-                    child: Text(badge!, maxLines: 1,
-                      style: recipe.time.copyWith(fontSize: 10)),
+                    child: Text(
+                      badge!,
+                      maxLines: 1,
+                      style: recipe.time.copyWith(fontSize: 10),
+                    ),
                   ),
                 if (departureLabel != null)
                   Container(
@@ -1474,33 +1583,35 @@ class RaftMessageTile extends StatelessWidget {
         enabled: collapseLongMessages,
         child:
             body ??
-            compactProse(SelectionArea(
-              child: MarkdownBody(
-                data: content,
-                onTapLink: (_, href, _) {
-                  if (href != null) onLink?.call(href);
-                },
-                styleSheet:
-                    MessageContentRecipe(
-                          t,
-                          fontSize: bodyFontSize,
-                          mountedMessage: true,
-                        )
-                        .stylesheet(context)
-                        .copyWith(
-                          code: TextStyle(
-                            fontFamily: t.monoFont,
-                            fontSize: 12,
-                            color: t.ink,
-                            backgroundColor: t.sidebar,
+            compactProse(
+              SelectionArea(
+                child: MarkdownBody(
+                  data: content,
+                  onTapLink: (_, href, _) {
+                    if (href != null) onLink?.call(href);
+                  },
+                  styleSheet:
+                      MessageContentRecipe(
+                            t,
+                            fontSize: bodyFontSize,
+                            mountedMessage: true,
+                          )
+                          .stylesheet(context)
+                          .copyWith(
+                            code: TextStyle(
+                              fontFamily: t.monoFont,
+                              fontSize: 12,
+                              color: t.ink,
+                              backgroundColor: t.sidebar,
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: t.sidebar,
+                              borderRadius: BorderRadius.circular(t.radius),
+                            ),
                           ),
-                          codeblockDecoration: BoxDecoration(
-                            color: t.sidebar,
-                            borderRadius: BorderRadius.circular(t.radius),
-                          ),
-                        ),
+                ),
               ),
-            )),
+            ),
       ),
       attachments: attachments.isEmpty
           ? null

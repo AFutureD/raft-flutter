@@ -6,7 +6,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
 import 'recipes/banner.g.dart';
-import 'recipes/recipe_runtime.dart' show RaftTokenResolver;
+import 'recipes/recipe_runtime.dart' show RaftSlotStyle, RaftTokenResolver;
 import 'theme.dart';
 
 export 'recipes/banner.g.dart'
@@ -91,9 +91,11 @@ class RaftBanner extends StatelessWidget {
             children: [
               if (title != null)
                 Padding(
-                  padding: titleGap == null
-                      ? recipe.title.margin
-                      : recipe.title.margin.copyWith(bottom: titleGap),
+                  // Measured: Web's Banner grid leaves 2px (Brutal) / 4px between title and description
+                  // (also at `lg`) although the recipe declares no row gap.
+                  padding: recipe.title.margin.copyWith(
+                    bottom: titleGap ?? (RaftTokens.of(context).brutal ? 2 : 4),
+                  ),
                   child: Text(
                     raftText(context, title!),
                     style: recipe.title.text(tokens, base: base),
@@ -148,6 +150,46 @@ class RaftBanner extends StatelessWidget {
     final svg = recipe.root.target('& > svg');
     // Title + description: the svg spans both rows at the top (`mt-0.5`).
     final stacked = title != null;
+    final brutal = recipe.root.borderWidth.top > 0;
+    return LayoutBuilder(
+      builder: (context, box) {
+        // `@max-[24rem]` on the root container: the action drops to its own
+        // full-width row, end aligned (`mt-2` Brutal / `mt-1` Elegant).
+        final below = action != null && box.maxWidth <= 384;
+        final main = _rowOf(
+          stacked,
+          gap,
+          svg,
+          recipe,
+          tokens,
+          content,
+          below ? null : action,
+        );
+        if (!below) return main;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            main,
+            Padding(
+              padding: EdgeInsets.only(top: brutal ? 8 : 4),
+              child: Align(alignment: Alignment.centerRight, child: action),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _rowOf(
+    bool stacked,
+    double gap,
+    RaftSlotStyle? svg,
+    RaftBannerRecipeStyle recipe,
+    RaftTokenResolver tokens,
+    Widget content,
+    Widget? action,
+  ) {
     return Row(
       crossAxisAlignment: stacked
           ? CrossAxisAlignment.start
@@ -167,7 +209,7 @@ class RaftBanner extends StatelessWidget {
           SizedBox(width: gap),
         ],
         Expanded(child: content),
-        if (action != null) ...[SizedBox(width: gap), action!],
+        if (action != null) ...[SizedBox(width: gap), action],
       ],
     );
   }

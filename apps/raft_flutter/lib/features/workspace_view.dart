@@ -65,6 +65,7 @@ import 'server_setup_gate.dart';
 import 'sidebar_preferences_view.dart';
 import 'sidebar_projection.dart';
 import 'sidebar_sort_menu.dart';
+import 'agent_avatar_projection.dart';
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
 import 'im_bridges_view.dart';
@@ -75,6 +76,8 @@ import 'sender_avatar_projection.dart';
 import '../platform/native_sharing.dart';
 import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
+
+part 'workspace_view_sidebar_menus.dart';
 
 class WorkspaceView extends StatefulWidget {
   const WorkspaceView({
@@ -109,6 +112,19 @@ class WorkspaceView extends StatefulWidget {
 }
 
 class _WorkspaceViewState extends State<WorkspaceView> {
+  /// Sidebar.tsx `joinedChannelsOnly` display preference of the Channels
+  /// section (per workspace session here; Web persists it per server).
+  bool joinedChannelsOnly = false;
+
+  /// Sidebar.tsx `menuOpen`: the row whose context menu is open (`c:<id>` /
+  /// `a:<id>`) keeps its muted fill.
+  String? menuOpenRow;
+  void setMenuOpenRow(String? row) {
+    if (mounted && menuOpenRow != row) setState(() => menuOpenRow = row);
+  }
+
+  void toggleJoinedChannelsOnly() =>
+      setState(() => joinedChannelsOnly = !joinedChannelsOnly);
   final serverMenu = RaftMenuController();
   late SourceServerUnreadStore serverUnread;
   String? serverMenuScope;
@@ -2256,6 +2272,13 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     final scope = mobileAuthority;
     return RaftServerSwitcher(
       mobile: mobile,
+      attention:
+          !mobile &&
+          w.servers.any(
+            (s) =>
+                s.id != w.server?.id &&
+                (serverUnread[s.id]?.activityUnreadCount ?? 0) > 0,
+          ),
       headerActions: mobile
           ? [
               SystemNotificationBell(
@@ -2717,10 +2740,12 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     SenderAvatarProjection source, {
     RaftMountedAvatarContext avatarContext =
         RaftMountedAvatarContext.sidebarList,
+    RaftAvatarPresence? presence,
   }) => RaftAvatar(
     name: name,
     kind: agent ? RaftAvatarKind.agent : RaftAvatarKind.human,
     mountedContext: avatarContext,
+    presence: presence,
     content: RaftAvatarContent(
       name: name,
       kind: agent ? RaftAvatarContentKind.agent : RaftAvatarContentKind.human,
@@ -2737,9 +2762,18 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     ),
   );
 
-  Widget sidebarEntry(SidebarEntry entry) {
+  /// [pinned] / [custom]: the Sidebar.tsx row options of those sections -
+  /// Pinned rows wrap (`allowWrap`) and hide an agent's description, custom
+  /// sections hide every DM description.
+  Widget sidebarEntry(
+    SidebarEntry entry, {
+    bool pinned = false,
+    bool custom = false,
+  }) {
     final agent = entry.agent;
-    if (agent == null) return channelItem(entry.channel!);
+    if (agent == null) {
+      return channelItem(entry.channel!, pinned: pinned, custom: custom);
+    }
     final source = projectSenderAvatar(
       origin: w.client.origin,
       senderId: '${agent['id']}',
@@ -2753,8 +2787,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       key: ValueKey('sidebar-${entry.key}'),
       label: entry.label,
       conversationKind: RaftConversationNavKind.directMessage,
-      leading: mountedPeerAvatar(entry.label, true, source),
-      description: description.isEmpty ? null : description,
+      leading: mountedPeerAvatar(
+        entry.label,
+        true,
+        source,
+        presence: agentRowPresence(agent),
+      ),
+      wrap: pinned,
+      menuOpen: menuOpenRow == 'a:${agent['id']}',
+      onContextMenu: (at) => openAgentMenu(at, agent, entry.channel),
+      description: pinned || custom || description.isEmpty ? null : description,
       selected:
           w.section == 'chat' &&
           entry.channel != null &&
@@ -2765,6 +2807,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     );
   }
 
+  List<SidebarEntry> _shownEntries(SidebarGroup group) =>
+      joinedChannelsOnly && group.id == 'system:channels'
+      ? [
+          for (final e in group.entries)
+            if (e.channel?.joined ?? true) e,
+        ]
+      : group.entries;
+
   List<Widget> conversationSections() => [
     for (final group in sidebarGroups)
       if (group.custom) ...[
@@ -2772,7 +2822,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             !presentation.value.hideEmptySections) ...[
           sectionLabel(group.label, group: group),
           if (sidebarDisclosure.collapsed[group.id] != true)
-            ...group.entries.map(sidebarEntry),
+            ...group.entries.map((e) => sidebarEntry(e, custom: true)),
+          if (sidebarDisclosure.collapsed[group.id] != true &&
+              group.entries.isEmpty)
+            RaftSidebarSectionEmptyHint(tr('No conversations')),
         ],
       ] else
         RaftChatSidebarGroup(
@@ -2786,7 +2839,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             _ => RaftChatSidebarGroupKind.channels,
           },
           label: tr(group.label),
-          count: group.entries.length,
+          count: _shownEntries(group).length,
           expanded: sidebarDisclosure.collapsed[group.id] != true,
           hideEmpty: presentation.value.hideEmptySections,
           loading: w.loading,
@@ -2801,7 +2854,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             expanded,
           ),
           actions: sidebarGroupActions(group),
-          children: group.entries.map(sidebarEntry).toList(),
+          onContextMenu: (at) => openSectionMenu(at, group),
+          children: [
+            for (final e in _shownEntries(group))
+              sidebarEntry(e, pinned: group.id == 'system:pinned'),
+          ],
         ),
   ];
 
@@ -2868,15 +2925,31 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     );
   }
 
-  Widget channelItem(RaftChannel c) {
+  Widget channelItem(
+    RaftChannel c, {
+    bool pinned = false,
+    bool custom = false,
+  }) {
     final scope = mobileAuthority;
     final peer = dmPeer(c);
     final agent = peer.agent, name = peer.name;
-    final description = peer.description;
+    final description = custom || (pinned && agent) ? '' : peer.description;
     final source = peer.avatar;
     return RaftNavItem(
       key: ValueKey('sidebar-channel-${c.id}'),
-      leading: c.type == 'dm' ? mountedPeerAvatar(name, agent, source) : null,
+      leading: c.type == 'dm'
+          ? mountedPeerAvatar(
+              name,
+              agent,
+              source,
+              presence: agent && peer.profile != null
+                  ? agentRowPresence(peer.profile!)
+                  : null,
+            )
+          : null,
+      wrap: pinned,
+      menuOpen: menuOpenRow == 'c:${c.id}',
+      onContextMenu: (at) => openChannelMenu(at, c),
       description: c.type == 'dm' && description.isNotEmpty
           ? description
           : null,
@@ -2942,44 +3015,53 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 workspaceEnabled: gridActive,
               ),
             Expanded(
-              child: ListView(
-                key: const Key('workspace-sidebar'),
-                padding: recipe.contentInset(
-                  headerInFlow: true,
-                  liveActivity: mobileHome && liveActivityVisible,
-                  bottomInset: edgeToEdgeHome
-                      ? MediaQuery.viewPaddingOf(context).bottom
-                      : 0,
-                ),
-                children: [
-                  if (mobileHome)
-                    RaftNavItem(
-                      key: const Key('nav-search'),
-                      role: RaftNavItemRole.search,
-                      viewportHeight: MediaQuery.sizeOf(context).height,
-                      label: tr('Search'),
-                      glyph: RaftGlyph.search,
-                      selected: w.section == 'search',
-                      onTap: () => select('search'),
-                    ),
-                  if (mobileHome)
-                    RaftNavItem(
-                      key: const Key('nav-activity'),
-                      role: RaftNavItemRole.activity,
-                      viewportHeight: MediaQuery.sizeOf(context).height,
-                      label: tr('Activity'),
-                      glyph: RaftGlyph.activity,
-                      selected: w.section == 'activity',
-                      unread: w.unread.values.fold(0, (a, b) => a + b),
-                      onTap: () => select('activity'),
-                    ),
-                  SavedSidebarEntry(
-                    key: const Key('nav-saved'),
-                    controller: w,
-                    onTap: () => select('saved'),
+              child: GestureDetector(
+                // Sidebar.tsx `sidebar-scroll-surface onContextMenu`: rows,
+                // sections and the Saved entry claim their own gestures first.
+                behavior: HitTestBehavior.translucent,
+                onSecondaryTapDown: mobileHome
+                    ? null
+                    : (d) => openSurfaceMenu(d.globalPosition),
+                onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
+                child: ListView(
+                  key: const Key('workspace-sidebar'),
+                  padding: recipe.contentInset(
+                    headerInFlow: true,
+                    liveActivity: mobileHome && liveActivityVisible,
+                    bottomInset: edgeToEdgeHome
+                        ? MediaQuery.viewPaddingOf(context).bottom
+                        : 0,
                   ),
-                  ...conversationSections(),
-                ],
+                  children: [
+                    if (mobileHome)
+                      RaftNavItem(
+                        key: const Key('nav-search'),
+                        role: RaftNavItemRole.search,
+                        viewportHeight: MediaQuery.sizeOf(context).height,
+                        label: tr('Search'),
+                        glyph: RaftGlyph.search,
+                        selected: w.section == 'search',
+                        onTap: () => select('search'),
+                      ),
+                    if (mobileHome)
+                      RaftNavItem(
+                        key: const Key('nav-activity'),
+                        role: RaftNavItemRole.activity,
+                        viewportHeight: MediaQuery.sizeOf(context).height,
+                        label: tr('Activity'),
+                        glyph: RaftGlyph.activity,
+                        selected: w.section == 'activity',
+                        unread: w.unread.values.fold(0, (a, b) => a + b),
+                        onTap: () => select('activity'),
+                      ),
+                    SavedSidebarEntry(
+                      key: const Key('nav-saved'),
+                      controller: w,
+                      onTap: () => select('saved'),
+                    ),
+                    ...conversationSections(),
+                  ],
+                ),
               ),
             ),
             if (!mobileHome) liveActivityBar(),
@@ -3044,6 +3126,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           : (expanded) =>
                 sidebarDisclosure.setExpanded(mobileAuthority, id, expanded),
       actions: group == null ? const [] : sidebarGroupActions(group),
+      onContextMenu: group == null ? null : (at) => openSectionMenu(at, group),
     );
   }
 
@@ -3064,6 +3147,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       if (sortable)
         RaftSidebarSectionAction(
           key: anchor,
+          testKey: ValueKey('sidebar-sort-$id'),
           label: tr('Sort'),
           glyph: RaftGlyph.arrowUpDown, // Sidebar.tsx ArrowUpDown 14
           onPressed: sortingGroups.contains(id)

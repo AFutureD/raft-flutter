@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'localization.dart';
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
@@ -687,7 +688,9 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
     final titleStyle = _slotText(t, d.title);
     Widget body = DefaultTextStyle.merge(
       style: RaftConfirmDialog.messageStyle(t),
-      child: content ?? Text(raftText(context, message ?? '')),
+      // Blink line boxes: `leading-relaxed` is 22.75px per line, which a plain
+      // Text would round up to whole pixels.
+      child: content ?? RaftCssText(raftText(context, message ?? '')),
     );
     if (error case final error?) {
       body = Column(

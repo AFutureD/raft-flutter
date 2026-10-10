@@ -68,9 +68,9 @@ Future<String?> showSidebarSortMenu(
                 onDismiss: () => close(),
                 children: [
                   for (final entry in const {
-                    'manual': 'Manual order',
-                    'recent': 'Recent activity',
-                    'az': 'Alphabetical',
+                    'manual': 'Manual',
+                    'recent': 'Recent',
+                    'az': 'A-Z',
                   }.entries)
                     RaftMenuItem(
                       key: ValueKey('sidebar-sort-${entry.key}'),

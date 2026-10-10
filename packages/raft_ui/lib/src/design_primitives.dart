@@ -807,6 +807,7 @@ class RaftControl extends StatefulWidget {
     this.kind = RaftControlKind.button,
     this.selected = false,
     this.visualHeight = RaftMetrics.buttonMd,
+    this.flexibleHeight = false,
     this.visualWidth,
     this.shadow = true,
     this.minimumTargetSize,
@@ -830,6 +831,10 @@ class RaftControl extends StatefulWidget {
   final RaftControlKind kind;
   final bool selected;
   final double visualHeight;
+
+  /// Content-sized box (CSS `min-height`): [visualHeight] is the minimum and a
+  /// wrapping child (the pinned sidebar rows) may grow it.
+  final bool flexibleHeight;
   final double? minimumTargetSize;
   final double? visualWidth;
   final String? tooltip;
@@ -1068,7 +1073,10 @@ class _RaftControlState extends State<RaftControl> {
                         ? Duration.zero
                         : RaftPrimitives.controlDuration,
                     curve: RaftPrimitives.controlCurve,
-                    height: widget.visualHeight,
+                    height: widget.flexibleHeight ? null : widget.visualHeight,
+                    constraints: widget.flexibleHeight
+                        ? BoxConstraints(minHeight: widget.visualHeight)
+                        : null,
                     width: widget.visualWidth,
                     transformAlignment: Alignment.center,
                     transform: Matrix4.diagonal3Values(scale, scale, 1)
