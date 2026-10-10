@@ -21,25 +21,22 @@ void main() {
     query: query,
   );
 
-  test(
-    'Tab roots reset the visual stack; query edits and task sheets keep a page',
-    () {
-      final navigation = WorkspaceNavigation();
-      navigation.bind('isolated', location(RaftRoute.home));
-      navigation.navigate(location(RaftRoute.channel, id: 'one'));
-      expect(mobilePageEntries(navigation), hasLength(2));
-      navigation.navigate(navigation.location.withQuery({'msg': 'focus'}));
-      expect(mobilePageEntries(navigation), hasLength(2));
-      navigation.navigate(navigation.location.withQuery({'task': 'one:task'}));
-      expect(mobilePageEntries(navigation), hasLength(2));
-      navigation.navigate(location(RaftRoute.settings));
-      expect(mobilePageEntries(navigation), hasLength(1));
-      navigation.navigate(location(RaftRoute.settings, settings: ['account']));
-      expect(mobilePageEntries(navigation), hasLength(2));
-      navigation.back();
-      expect(mobilePageEntries(navigation), hasLength(1));
-    },
-  );
+  test('Tab roots reset the visual stack; focus edits retain and tasks create pages', () {
+    final navigation = WorkspaceNavigation();
+    navigation.bind('isolated', location(RaftRoute.home));
+    navigation.navigate(location(RaftRoute.channel, id: 'one'));
+    expect(mobilePageEntries(navigation), hasLength(2));
+    navigation.navigate(navigation.location.withQuery({'msg': 'focus'}));
+    expect(mobilePageEntries(navigation), hasLength(2));
+    navigation.navigate(navigation.location.withQuery({'task': 'one:task'}));
+    expect(mobilePageEntries(navigation), hasLength(3));
+    navigation.navigate(location(RaftRoute.settings));
+    expect(mobilePageEntries(navigation), hasLength(1));
+    navigation.navigate(location(RaftRoute.settings, settings: ['account']));
+    expect(mobilePageEntries(navigation), hasLength(2));
+    navigation.back();
+    expect(mobilePageEntries(navigation), hasLength(1));
+  });
 
   testWidgets(
     'Platform routes keep one live state owner and pop accepted history once',
@@ -104,29 +101,33 @@ void main() {
     },
   );
 
-  test('Task overlays preserve the visual root including cold links', () {
-    for (final route in [
-      RaftRoute.home,
-      RaftRoute.tasks,
-      RaftRoute.members,
-      RaftRoute.settings,
-    ]) {
-      for (final slot in ['task', 'legacyTask']) {
-        final navigation = WorkspaceNavigation();
-        final base = location(route);
-        navigation.bind('isolated', base);
-        final root = mobilePageEntries(navigation);
-        for (var i = 0; i < 3; i++) {
-          navigation.navigateTask(base.withQuery({slot: 'c:t$i'}));
-          expect(mobilePageEntries(navigation), root);
-          navigation.back();
-          expect(mobilePageEntries(navigation), root);
+  test(
+    'Task pages preserve their underlying destination including cold links',
+    () {
+      for (final route in [
+        RaftRoute.home,
+        RaftRoute.tasks,
+        RaftRoute.members,
+        RaftRoute.settings,
+      ]) {
+        for (final slot in ['task', 'legacyTask']) {
+          final navigation = WorkspaceNavigation();
+          final base = location(route);
+          navigation.bind('isolated', base);
+          final root = mobilePageEntries(navigation);
+          for (var i = 0; i < 3; i++) {
+            navigation.navigateTask(base.withQuery({slot: 'c:t$i'}));
+            expect(mobilePageEntries(navigation), hasLength(root.length + 1));
+            navigation.back();
+            expect(mobilePageEntries(navigation), root);
+          }
+          navigation.bind('cold', base.withQuery({slot: 'c:t'}));
+          expect(mobilePageEntries(navigation), hasLength(root.length + 1));
+          expect(mobilePageEntries(navigation).first, root.first);
         }
-        navigation.bind('cold', base.withQuery({slot: 'c:t'}));
-        expect(mobilePageEntries(navigation), root);
       }
-    }
-  });
+    },
+  );
 
   testWidgets('Cold detail system pop paints its semantic root', (
     tester,
@@ -157,6 +158,32 @@ void main() {
     expect(navigation.location.route, RaftRoute.home);
     expect(find.text(mobilePageIdentity(navigation.location)), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('Cold channel management pages and task alias retain distinct back destinations', () {
+    for (final page in ['settings', 'members']) {
+      final base = location(RaftRoute.channel, id: 'one');
+      final navigation = WorkspaceNavigation();
+      navigation.bind(
+        'cold-$page',
+        base.withQuery({'channelPage': '$page:one'}),
+      );
+      expect(mobilePageEntries(navigation), hasLength(3));
+      expect(backMobilePage(navigation), base);
+      expect(mobilePageEntries(navigation), hasLength(2));
+      expect(backMobilePage(navigation).route, RaftRoute.home);
+    }
+    final thread = location(
+      RaftRoute.channel,
+      id: 'one',
+      query: {'thread': 'one:message'},
+    );
+    final navigation = WorkspaceNavigation();
+    navigation.bind('cold-task-alias', thread.withQuery({'task': '1'}));
+    expect(mobilePageEntries(navigation), hasLength(3));
+    expect(backMobilePage(navigation), thread);
+    expect(navigation.location.task, isNull);
+    expect(navigation.location.thread?.itemId, 'message');
   });
 
   testWidgets(

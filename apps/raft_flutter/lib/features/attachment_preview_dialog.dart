@@ -140,6 +140,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     this.files,
     this.pdf,
     this.playerFactory,
+    this.page = false,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
@@ -149,6 +150,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
   final AttachmentPreviewFiles? files;
   final NativePdfRenderer? pdf;
   final AttachmentPlayer Function()? playerFactory;
+  final bool page;
   @override
   State<AttachmentPreviewDialog> createState() =>
       _AttachmentPreviewDialogState();
@@ -343,6 +345,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
 
   @override
   Widget build(BuildContext context) => RaftAttachmentLightbox(
+    page: widget.page,
     title: '${widget.metadata['filename'] ?? ''}',
     onClose: widget.onClose,
     footer: Column(
@@ -381,18 +384,24 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
             label: 'Comments',
             glyph: RaftGlyph.messageSquare,
             variant: RaftControlVariant.ghost,
-            onPressed: () => Navigator.of(context).push(
-              PageRouteBuilder<void>(
-                pageBuilder: (_, _, _) => RaftAttachmentCommentsPage(
-                  child: AttachmentCommentsView(
-                    controller: widget.controller,
-                    attachmentId: widget.metadata['id'] as String,
-                    filename: '${widget.metadata['filename'] ?? ''}',
-                    authorized: () => current,
-                  ),
-                ),
-              ),
-            ),
+            onPressed: () {
+              Widget comments(BuildContext context) =>
+                  RaftAttachmentCommentsPage(
+                    child: AttachmentCommentsView(
+                      controller: widget.controller,
+                      attachmentId: widget.metadata['id'] as String,
+                      filename: '${widget.metadata['filename'] ?? ''}',
+                      authorized: () => current,
+                    ),
+                  );
+              Navigator.of(context).push(
+                widget.page
+                    ? MaterialPageRoute<void>(builder: comments)
+                    : PageRouteBuilder<void>(
+                        pageBuilder: (context, _, _) => comments(context),
+                      ),
+              );
+            },
           ),
         RaftTextButton(
           label: 'Download original',

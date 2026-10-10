@@ -119,7 +119,10 @@ void main() {
             );
             // Board activation removes profile, so its Source sync replaces;
             // footer-chip activation changes only its independent task slot.
-            expect(w.navigation.index, chip ? historyIndex + 1 : historyIndex);
+            expect(
+              w.navigation.index,
+              chip || width < 768 ? historyIndex + 1 : historyIndex,
+            );
             expect(w.location.query('profile'), chip ? 'human:alice' : null);
             expect(w.location.chatTab, chip ? null : 'tasks');
             detail.complete({'task': modernTask});
@@ -131,6 +134,7 @@ void main() {
             expect(w.threadChannelId, width >= 768 ? 'ordinary-side' : null);
             await t.sendKeyEvent(LogicalKeyboardKey.escape);
             await flush(t);
+            await t.pumpAndSettle();
             expect(surface, findsNothing);
             expect(w.location.query('task'), isNull);
             expect(

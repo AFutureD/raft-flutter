@@ -27,6 +27,24 @@ enum RaftContentKind { channel, dm, thread, agent, human, machine }
 
 enum RaftProfileKind { agent, human, external }
 
+enum RaftChannelPage { settings, members }
+
+/// Client page presentation, scoped to the channel that opened it. The mounted
+/// Web conversation URL remains the underlying location.
+class RaftChannelPageLocation {
+  const RaftChannelPageLocation(this.kind, this.channelId);
+  final RaftChannelPage kind;
+  final String channelId;
+  static RaftChannelPageLocation? parse(String? value) {
+    final anchor = RaftAnchor.parse(value);
+    if (anchor == null) return null;
+    final kind = RaftChannelPage.values
+        .where((kind) => kind.name == anchor.channelId)
+        .firstOrNull;
+    return kind == null ? null : RaftChannelPageLocation(kind, anchor.itemId);
+  }
+}
+
 /// Source splits anchors at the first colon and rejects either empty side.
 class RaftAnchor {
   const RaftAnchor(this.channelId, this.itemId);
@@ -262,12 +280,18 @@ class RaftLocation {
   RaftProfileLocation? get profile =>
       RaftProfileLocation.parse(query('profile'));
   String? get agentTab => query('agentTab');
+  RaftChannelPageLocation? get channelPage =>
+      RaftChannelPageLocation.parse(query('channelPage'));
   String? get chatTab => {'chat', 'tasks', 'files'}.contains(query('chatTab'))
       ? query('chatTab')
       : null;
   bool get searchDeferred => query('defer') == '1';
   bool get hasOverlay =>
-      thread != null || profile != null || task != null || legacyTask != null;
+      thread != null ||
+      profile != null ||
+      task != null ||
+      legacyTask != null ||
+      channelPage != null;
 
   RaftMobileTab get mobileTab => switch (route) {
     RaftRoute.tasks => RaftMobileTab.tasks,

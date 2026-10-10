@@ -9,6 +9,7 @@ import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'mobile_page_header.dart';
 import 'recipes/button_variants.g.dart';
 import 'switch.dart';
 import 'theme.dart';
@@ -74,6 +75,11 @@ class RaftChannelSettingsSheet extends StatelessWidget {
     this.actions = const [],
     this.onSave,
     this.saveDisabled = false,
+    this.page = false,
+    this.channelDescription = '',
+    this.channelLabel,
+    this.onEdit,
+    this.onMembers,
   });
   final String channelName, title;
   final VoidCallback onClose;
@@ -92,6 +98,10 @@ class RaftChannelSettingsSheet extends StatelessWidget {
   /// Footer Save; omitted when null (no edit capability).
   final VoidCallback? onSave;
   final bool saveDisabled;
+  final bool page;
+  final String channelDescription;
+  final String? channelLabel;
+  final VoidCallback? onEdit, onMembers;
 
   Widget _switchRow(
     BuildContext context,
@@ -265,6 +275,37 @@ class RaftChannelSettingsSheet extends StatelessWidget {
     );
 
     final body = <Widget>[
+      if (page) ...[
+        Semantics(
+          header: true,
+          child: Text(
+            channelLabel ?? '#$channelName',
+            style: RaftTypography.heading(t, size: 20, line: 28),
+          ),
+        ),
+        if (channelDescription.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(channelDescription, style: RaftTypography.body(t)),
+        ],
+        const SizedBox(height: 16),
+        if (onEdit != null)
+          RaftRecipeButton(
+            key: const ValueKey('channel-settings-edit'),
+            label: 'Edit',
+            variant: RaftButtonRecipeVariant.outline,
+            onPressed: busy ? null : onEdit,
+          ),
+        if (onMembers != null) ...[
+          const SizedBox(height: 12),
+          RaftRecipeButton(
+            key: const ValueKey('channel-settings-members'),
+            label: 'Members',
+            glyph: RaftGlyph.users,
+            variant: RaftButtonRecipeVariant.outline,
+            onPressed: onMembers,
+          ),
+        ],
+      ],
       if (error != null) ...[
         RaftWarningBanner(error!),
         const SizedBox(height: 20),
@@ -289,7 +330,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
                 child: RaftDialogTextInput(
                   controller: nameController!,
                   placeholder: 'e.g. ai-research',
-                  autofocus: true,
+                  autofocus: !page,
                   enabled: nameEnabled && !busy,
                   onSubmitted: onSubmitName,
                 ),
@@ -400,6 +441,33 @@ class RaftChannelSettingsSheet extends StatelessWidget {
         ],
       ),
     );
+
+    if (page) {
+      return Material(
+        color: t.panel,
+        child: Column(
+          children: [
+            RaftMobilePageHeader(
+              title: Text(
+                raftText(context, title),
+                style: RaftTypography.heading(t, size: 16, line: 20),
+              ),
+              background: t.panel,
+              onBack: onClose,
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: body,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     // DrawerContent: right sheet, `w-full max-w-[min(100vw,34rem)] h-dvh`,
     // `theme-brutal:border-l-2 border-line-strong`.

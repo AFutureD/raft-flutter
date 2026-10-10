@@ -7,23 +7,21 @@ import 'package:flutter/rendering.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_navigation.dart';
 
-/// Task surfaces are owned by WorkspaceTaskHost, above the current page.
-/// Use the same underlying location for both identity and root classification;
-/// the URL's overlay-aware mobileRootTab describes chrome, not route ownership.
-RaftLocation _mobilePageLocation(RaftLocation location) => location.withQuery({
-  'task': null,
-  'legacyTask': null,
-  if (location.query('task') == '1') 'thread': null,
-});
+/// The underlying destination of a cold task/channel-management page.
+RaftLocation _mobilePageBaseLocation(RaftLocation location) =>
+    location.withQuery({'task': null, 'legacyTask': null, 'channelPage': null});
 
-/// Visual identity excludes focus/search/task parameters that update a page.
+/// Focus/search edits stay on a page; task and channel-management identities
+/// own platform pages while retaining the workspace's existing data owners.
 String mobilePageIdentity(RaftLocation location) {
-  location = _mobilePageLocation(location);
   return [
     location.uri.path,
     location.query('open') ?? '',
     location.query('thread') ?? '',
     location.query('profile') ?? '',
+    location.query('task') ?? '',
+    location.query('legacyTask') ?? '',
+    location.query('channelPage') ?? '',
   ].join('|');
 }
 
@@ -45,7 +43,7 @@ RaftLocation backMobilePage(WorkspaceNavigation navigation) {
 }
 
 /// Project the accepted history into a single-column stack. Tab roots start a
-/// new visual stack; query edits and task sheets do not manufacture pages.
+/// new visual stack; focus/query edits do not manufacture pages.
 List<String> mobilePageEntries(WorkspaceNavigation navigation) {
   final result = <String>[];
   final entries = navigation.entries.take(navigation.index + 1).toList();
@@ -54,24 +52,20 @@ List<String> mobilePageEntries(WorkspaceNavigation navigation) {
   }
   for (var index = 0; index < entries.length; index++) {
     final location = entries[index];
+    final base = _mobilePageBaseLocation(location);
+    if (result.isEmpty && base != location) {
+      final root = WorkspaceNavigation(initial: base).mobileRootTab != null;
+      result.add('${root ? 'root' : index}::${mobilePageIdentity(base)}');
+    }
     final identity = mobilePageIdentity(location);
-    final root =
-        WorkspaceNavigation(initial: _mobilePageLocation(location))
-            .mobileRootTab !=
-        null;
+    final root = WorkspaceNavigation(initial: location).mobileRootTab != null;
     if (root) result.clear();
     if (result.isNotEmpty && result.last.endsWith('::$identity')) continue;
     result.add('${root ? 'root' : index}::$identity');
   }
   // A cold detail still has a semantic back destination.
-  if (result.length == 1 &&
-      WorkspaceNavigation(initial: _mobilePageLocation(navigation.location))
-              .mobileRootTab ==
-          null) {
-    result.insert(
-      0,
-      'root::${mobilePageIdentity(navigation.location.tabHome())}',
-    );
+  if (!result.first.startsWith('root::')) {
+    result.insert(0, 'root::${mobilePageIdentity(entries.first.tabHome())}');
   }
   return result.length > 8 ? result.sublist(result.length - 8) : result;
 }
@@ -147,6 +141,10 @@ class _MobileWorkspacePagesState extends State<MobileWorkspacePages> {
     if (!widget.enabled) {
       return KeyedSubtree(key: live, child: widget.child);
     }
+    // Android broadcasts predictive-back events to every route observer. A
+    // nested route is still "current" in its Navigator under a root preview;
+    // only the visible parent route may let this stack accept the gesture.
+    final parentCurrent = ModalRoute.isCurrentOf(context) ?? true;
     return NavigatorPopHandler<void>(
       onPopWithResult: (_) => navigator.currentState?.maybePop(),
       child: Navigator(
@@ -158,6 +156,7 @@ class _MobileWorkspacePagesState extends State<MobileWorkspacePages> {
           for (final entry in entries)
             MaterialPage<void>(
               key: ValueKey(entry.id),
+              canPop: parentCurrent,
               child: _MobilePageFrame(
                 key: frames.putIfAbsent(
                   entry.id,

@@ -339,6 +339,7 @@ void main() {
           await t.tap(find.byTooltip('Close task'));
           await flush(t);
           expect(retired.closed, isTrue);
+          await t.pumpAndSettle();
           await t.tap(find.text('Scoped actual task'));
           await flush(t);
           expect(w.location.query('task'), 'c1:task-parent');
@@ -352,7 +353,11 @@ void main() {
           });
           await flush(t);
           await pendingMain;
-          expect(find.text('Scoped actual task'), findsNWidgets(2));
+          expect(find.text('Scoped actual task'), findsOneWidget);
+          expect(
+            find.text('Scoped actual task', skipOffstage: false),
+            findsNWidgets(2),
+          );
           expect(w.location.query('task'), 'c1:task-parent');
           expect(w.navigationRevision, revision);
           expect(w.highlightedMessageId, 'pending-main');

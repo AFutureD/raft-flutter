@@ -12,6 +12,7 @@ import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'mobile_page_header.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -89,6 +90,7 @@ class RaftChannelMembersModal extends StatelessWidget {
     required this.onToggle,
     this.canCreateAgent = false,
     this.onConfirm,
+    this.page = false,
   });
   final VoidCallback onClose;
   final TextEditingController search;
@@ -107,11 +109,63 @@ class RaftChannelMembersModal extends StatelessWidget {
   final bool Function(String key) isChecked;
   final ValueChanged<String> onToggle;
   final VoidCallback? onConfirm;
+  final bool page;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final total = humans.length + agents.length;
+    if (page) {
+      return Material(
+        color: t.panel,
+        child: Column(
+          children: [
+            RaftMobilePageHeader(
+              background: t.panel,
+              title: Text(
+                addView
+                    ? raftText(context, 'Add Member')
+                    : loading
+                    ? raftText(context, 'Members')
+                    : '${raftText(context, 'Members')} ($total)',
+                style: RaftTypography.heading(t, size: 16, line: 20),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onBack: addView ? onBack : onClose,
+              backKey: addView ? const ValueKey('add-member-back') : null,
+              actions: [
+                if (!addView && !loading && onAdd != null)
+                  RaftIconButton(
+                    key: const ValueKey('add-member-open'),
+                    glyph: RaftGlyph.plus,
+                    tooltip: raftText(context, 'Add Member'),
+                    onPressed: hasCandidates ? onAdd : null,
+                  ),
+              ],
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (error != null) ...[
+                      RaftWarningBanner(error!),
+                      const SizedBox(height: 12),
+                    ],
+                    if (addView)
+                      ..._addView(context, t)
+                    else
+                      _roster(context, t),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final header = Padding(
       padding: const EdgeInsets.only(bottom: 16), // mb-4
       child: Row(
@@ -227,7 +281,7 @@ class RaftChannelMembersModal extends StatelessWidget {
         : t.colors['fill-muted'];
     return RaftRecipeCard(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 288),
+        constraints: BoxConstraints(maxHeight: page ? double.infinity : 288),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -393,7 +447,7 @@ class RaftChannelMembersModal extends StatelessWidget {
               controller: search,
               placeholder: 'Name',
               leadingGlyph: RaftGlyph.search,
-              autofocus: true,
+              autofocus: !page,
             ),
           ),
         ),

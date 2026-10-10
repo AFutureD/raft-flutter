@@ -1,0 +1,157 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/raft_location.dart';
+import 'package:raft_flutter/features/channel_members.dart';
+import 'package:raft_flutter/features/channel_settings.dart';
+import 'package:raft_flutter/features/mobile_workspace_pages.dart';
+import 'package:raft_flutter/features/private_route_guard.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_ui/raft_ui.dart';
+
+import 'workspace_channel_settings_identity_test.dart' show settingsFixture;
+import 'task_surface_test.dart' show flush;
+
+void main() {
+  for (final (family, dark) in [
+    (RaftFamily.brutal, false),
+    (RaftFamily.elegant, false),
+    (RaftFamily.elegant, true),
+  ]) {
+    testWidgets(
+      'Mobile channel pages preserve history, explicit editing and keyboard focus $family/$dark',
+      (t) async {
+        t.view.physicalSize = const Size(390, 844);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+        final semantics = t.ensureSemantics();
+        final (w, api) = await settingsFixture(t);
+        w.channel = RaftChannel({
+          ...w.channel!.json,
+          'channelCapabilities': {
+            ...w.channel!.json['channelCapabilities'] as Map,
+            'addChannelMembers': true,
+          },
+        });
+        w.channels = [w.channel!];
+        var channel = w.channel!.json;
+        api.routes['GET /channels'] = (_) => [channel];
+        api.routes['GET /agents'] = (_) => [];
+        api.routes['GET /servers/s1/members'] = (_) => [
+          {'userId': 'alice', 'name': 'Alice'},
+          {'userId': 'bob', 'name': 'Bob'},
+        ];
+        api.routes['PATCH /channels/c1'] = (r) {
+          channel = {...channel, ...Map<String, dynamic>.from(r.data as Map)};
+          return channel;
+        };
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            navigatorObservers: [PrivateRouteGuard()],
+            home: WorkspaceView(
+              controller: w,
+              appearance: RaftAppearance(light: family),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
+          ),
+        );
+        await flush(t);
+        await t.pumpAndSettle();
+        final base = w.location;
+        final pages = mobilePageEntries(w.navigation).length;
+        for (var cycle = 0; cycle < 3; cycle++) {
+          await t.tap(find.byTooltip('Channel details and settings'));
+          await t.pump();
+          final context = t.element(find.byType(ChannelSettings));
+          expect(ModalRoute.of(context)?.animation?.value, lessThan(1));
+          await flush(t);
+          await t.pumpAndSettle();
+          expect(w.location.channelPage?.kind, RaftChannelPage.settings);
+          expect(mobilePageEntries(w.navigation), hasLength(pages + 1));
+          expect(find.byType(TextField), findsNothing);
+          expect(t.testTextInput.isVisible, isFalse);
+          expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
+          expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+          expect(
+            t.getSemantics(find.text('#test')).flagsCollection.isHeader,
+            isTrue,
+          );
+          expect(find.text('Opening channel description'), findsOneWidget);
+
+          await t.tap(find.byKey(const ValueKey('channel-settings-members')));
+          await flush(t);
+          await t.pumpAndSettle();
+          expect(w.location.channelPage?.kind, RaftChannelPage.members);
+          expect(find.byType(ChannelMembers), findsOneWidget);
+          expect(find.byType(RaftModalBackdrop), findsNothing);
+          expect(mobilePageEntries(w.navigation), hasLength(pages + 2));
+          expect(t.testTextInput.isVisible, isFalse);
+          await t.tap(find.byKey(const ValueKey('add-member-open')));
+          await t.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('add-member-confirm')),
+            findsOneWidget,
+          );
+          expect(t.testTextInput.isVisible, isFalse);
+          await t.binding.handlePopRoute();
+          await t.pumpAndSettle();
+          expect(find.byType(ChannelMembers), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('add-member-confirm')),
+            findsNothing,
+          );
+          await t.binding.handlePopRoute();
+          await flush(t);
+          await t.pumpAndSettle();
+          expect(w.location.channelPage?.kind, RaftChannelPage.settings);
+          expect(find.byType(ChannelSettings), findsOneWidget);
+          expect(t.testTextInput.isVisible, isFalse);
+          await t.tap(find.byType(RaftMobileBackButton));
+          await t.pumpAndSettle();
+          expect(w.location.uri, base.uri);
+          expect(find.byType(ChannelSettings), findsNothing);
+          expect(t.takeException(), isNull);
+        }
+        await t.tap(find.byTooltip('Channel details and settings'));
+        await flush(t);
+        await t.pumpAndSettle();
+        await t.tap(find.byKey(const ValueKey('channel-settings-edit')));
+        await t.pumpAndSettle();
+        expect(find.byType(RaftFormDialog), findsOneWidget);
+        await t.enterText(find.byType(TextFormField).first, 'renamed');
+        await t.tap(find.widgetWithText(RaftButton, 'Save'));
+        await flush(t);
+        await t.pumpAndSettle();
+        expect(find.byType(RaftFormDialog), findsNothing);
+        expect(find.byType(ChannelSettings), findsOneWidget);
+        expect(find.text('#renamed'), findsOneWidget);
+        expect(
+          api.calls.where(
+            (r) => r.method == 'PATCH' && r.path == '/channels/c1',
+          ),
+          hasLength(1),
+        );
+        expect(t.testTextInput.isVisible, isFalse);
+        // A lost membership retires both the page and any open edit dialog.
+        await t.tap(find.byKey(const ValueKey('channel-settings-edit')));
+        await t.pumpAndSettle();
+        w.channel = RaftChannel({...w.channel!.json, 'joined': false});
+        w.channels = [w.channel!];
+        w.notifyListeners();
+        await t.pumpAndSettle();
+        expect(w.location.channelPage, isNull);
+        expect(find.byType(ChannelSettings), findsNothing);
+        expect(find.byType(RaftFormDialog), findsNothing);
+        expect(t.takeException(), isNull);
+        await t.pumpWidget(const SizedBox.shrink());
+        semantics.dispose();
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.android,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
+}

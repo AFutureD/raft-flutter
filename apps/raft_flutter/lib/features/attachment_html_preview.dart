@@ -16,6 +16,7 @@ class HtmlAttachmentPreviewDialog extends StatefulWidget {
     required this.authorized,
     required this.onClose,
     required this.onDownload,
+    this.page = false,
     this.loader,
     this.openExternal,
   });
@@ -24,6 +25,7 @@ class HtmlAttachmentPreviewDialog extends StatefulWidget {
   final bool Function() authorized;
   final VoidCallback onClose;
   final Future<void> Function() onDownload;
+  final bool page;
   final AttachmentHtmlLoader? loader;
   final Future<bool> Function(Uri)? openExternal;
   @override
@@ -163,6 +165,7 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
 
   @override
   Widget build(BuildContext context) => RaftAttachmentLightbox(
+    page: widget.page,
     title: '${widget.metadata['filename'] ?? 'HTML'}',
     onClose: widget.onClose,
     actions: [

@@ -6,6 +6,12 @@ import 'raft_ui.dart';
 @RaftPreviews('Task modal', size: Size(390, 844))
 Widget taskModalPreview() => const _TaskPreview();
 
+@RaftPreviews('Mobile task page', size: Size(390, 844))
+Widget taskPagePreview() => const _TaskPreview(page: true);
+
+@RaftPreviews('Mobile legacy task page', size: Size(390, 844))
+Widget legacyTaskPagePreview() => const _TaskPreview(legacy: true, page: true);
+
 @RaftPreviews('Legacy task panel', size: Size(1280, 844))
 Widget legacyTaskPreview() => const _TaskPreview(legacy: true);
 
@@ -19,8 +25,10 @@ class _TaskPreview extends StatefulWidget {
   const _TaskPreview({
     this.legacy = false,
     this.presentation = RaftLegacyTaskPresentation.modal,
+    this.page = false,
   });
   final bool legacy;
+  final bool page;
   final RaftLegacyTaskPresentation presentation;
   @override
   State<_TaskPreview> createState() => _TaskPreviewState();
@@ -57,6 +65,7 @@ class _TaskPreviewState extends State<_TaskPreview> {
           ),
         )
       : RaftTaskSurface(
+          page: widget.page,
           task: {
             'id': 'preview-task',
             'taskNumber': 8,

@@ -17,6 +17,40 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
+    for (final legacy in [false, true]) {
+      testWidgets(
+        'Task page uses shared header, semantics and keyboard Back $family/$dark/$legacy',
+        (t) async {
+          t.view.physicalSize = const Size(390, 844);
+          t.view.devicePixelRatio = 1;
+          addTearDown(t.view.reset);
+          final semantics = t.ensureSemantics();
+          await t.pumpWidget(
+            host(
+              legacy ? legacyTaskPagePreview() : taskPagePreview(),
+              family,
+              dark,
+            ),
+          );
+          expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
+          expect(t.getCenter(find.byKey(const ValueKey('task-back'))).dx, 32);
+          expect(
+            t
+                .getSemantics(find.byKey(const ValueKey('task-back')))
+                .flagsCollection
+                .isButton,
+            isTrue,
+          );
+          expect(find.byType(RaftModalBackdrop), findsNothing);
+          await t.sendKeyEvent(LogicalKeyboardKey.tab);
+          await t.sendKeyEvent(LogicalKeyboardKey.enter);
+          await t.pump();
+          expect(find.text('Reopen preview'), findsOneWidget);
+          expect(t.takeException(), isNull);
+          semantics.dispose();
+        },
+      );
+    }
     testWidgets(
       'Task preview history has actual expanded semantics and Escape closes $family/$dark',
       (t) async {

@@ -9,6 +9,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/raft_location.dart';
 import 'channel_form_fields.dart';
 import 'create_channel_dialog.dart';
 
@@ -88,18 +89,35 @@ class ChannelMembers extends StatefulWidget {
     super.key,
     required this.controller,
     required this.channel,
+    this.page = false,
+    this.onClose,
   });
   final WorkspaceController controller;
   final RaftChannel channel;
+  final bool page;
+  final VoidCallback? onClose;
 
   static Future<void> show(
     BuildContext context, {
     required WorkspaceController controller,
     required RaftChannel channel,
-  }) => showRaftModal<void>(
-    context,
-    builder: (_) => ChannelMembers(controller: controller, channel: channel),
-  );
+  }) async {
+    if (controller.mobileNavigation) {
+      if (!controller.can('viewChannel', resource: channel)) return;
+      FocusManager.instance.primaryFocus?.unfocus();
+      controller.navigation.navigate(
+        controller.location.withQuery({
+          'channelPage': '${RaftChannelPage.members.name}:${channel.id}',
+        }),
+      );
+      controller.notifyListeners();
+      return;
+    }
+    await showRaftModal<void>(
+      context,
+      builder: (_) => ChannelMembers(controller: controller, channel: channel),
+    );
+  }
 
   @override
   State<ChannelMembers> createState() => _ChannelMembersState();
@@ -107,7 +125,12 @@ class ChannelMembers extends StatefulWidget {
 
 class _ChannelMembersState extends State<ChannelMembers> {
   WorkspaceController get w => widget.controller;
-  RaftChannel get channel => widget.channel;
+  RaftChannel get channel =>
+      [
+        ...w.channels,
+        ...w.dms,
+      ].where((channel) => channel.id == widget.channel.id).firstOrNull ??
+      widget.channel;
   List<Map<String, dynamic>> humans = [], agents = [];
   List<ChannelMemberCandidate> candidates = [];
   final Map<String, Map<String, dynamic>> agentRows = {};
@@ -172,7 +195,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
       w.can('addChannelMembers', resource: channel) && !channel.archived;
 
   Future<void> confirmAdd() async {
-    if (adding || selected.isEmpty) return;
+    if (adding || selected.isEmpty || !canAdd) return;
     setState(() {
       adding = true;
       error = null;
@@ -210,6 +233,9 @@ class _ChannelMembersState extends State<ChannelMembers> {
   }
 
   Future<void> remove(String kind, String id) async {
+    if (channel.archived || !w.can('removeChannelMembers', resource: channel)) {
+      return;
+    }
     try {
       await w.command(
         'DELETE',
@@ -221,7 +247,9 @@ class _ChannelMembersState extends State<ChannelMembers> {
     }
   }
 
-  void close() => Navigator.of(context).maybePop();
+  void close() => widget.onClose != null
+      ? widget.onClose!()
+      : Navigator.of(context).maybePop();
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +290,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
       ),
     );
     final query = search.text;
-    return RaftChannelMembersModal(
+    final content = RaftChannelMembersModal(
+      page: widget.page,
       onClose: close,
       search: search,
       channelName: channel.name,
@@ -304,6 +333,19 @@ class _ChannelMembersState extends State<ChannelMembers> {
       }),
       canCreateAgent: w.can('createAgents'),
       onConfirm: confirmAdd,
+    );
+    return PopScope(
+      canPop: !widget.page || !addView,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && widget.page && addView) {
+          setState(() {
+            addView = false;
+            selected.clear();
+            search.clear();
+          });
+        }
+      },
+      child: content,
     );
   }
 }

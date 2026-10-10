@@ -73,7 +73,9 @@ void main() {
             );
             await flush(t);
             final workspaceState = t.state(find.byType(WorkspaceView));
-            final adaptiveState = t.state(find.byType(RaftAdaptiveWorkspace));
+            final adaptiveState = t.state(
+              find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
+            );
             if (!tasksRoute) {
               final tabs = find.byKey(const Key('conversation-tabs'));
               await t.tap(
@@ -84,6 +86,7 @@ void main() {
             final revision = w.navigationRevision;
             await t.tap(find.text('Read-only task fixture'));
             await flush(t);
+            await t.pumpAndSettle();
             final panel = find.byKey(const ValueKey('legacy-task-panel'));
             expect(panel, findsOneWidget);
             final rect = t.getRect(panel);
@@ -97,9 +100,7 @@ void main() {
               final left = width < 768
                   ? 0.0
                   : (family == RaftFamily.brutal ? 304.0 : 296.0);
-              final height = tasksRoute && family == RaftFamily.brutal
-                  ? 847.0
-                  : 900.0;
+              const height = 900.0;
               expect(rect, Rect.fromLTWH(left, 0, width - left, height));
             }
             expect(
@@ -124,14 +125,14 @@ void main() {
             expect(
               t
                   .widget<RaftAdaptiveWorkspace>(
-                    find.byType(RaftAdaptiveWorkspace),
+                    find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
                   )
                   .trailingExtent,
               docked ? 380 : 0,
             );
             expect(t.state(find.byType(WorkspaceView)), same(workspaceState));
             expect(
-              t.state(find.byType(RaftAdaptiveWorkspace)),
+              t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
               same(adaptiveState),
             );
             final closeKey = tasksRoute && width >= 768 || docked
@@ -145,15 +146,14 @@ void main() {
             expect(w.location.legacyTask, isNull);
             expect(
               w.navigation.index,
-              index,
-              reason:
-                  'Source back chevron closes its legacy slot; no browser Back.',
+              width < 768 ? index - 1 : index,
+              reason: 'Mobile page Back consumes history; desktop closes its legacy slot.',
             );
             expect(w.navigationRevision, revision);
             expect(w.channel!.id, 'c1');
             expect(w.drafts[w.draftScope()], 'Existing accepted main draft');
             expect(
-              t.state(find.byType(RaftAdaptiveWorkspace)),
+              t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
               same(adaptiveState),
             );
             expect(
@@ -215,7 +215,9 @@ void main() {
         final editorController = t.widget<TextField>(editor).controller!;
         editorController.selection = const TextSelection.collapsed(offset: 7);
         final composerState = t.state(composer);
-        final adaptiveState = t.state(find.byType(RaftAdaptiveWorkspace));
+        final adaptiveState = t.state(
+          find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
+        );
         await t.tap(
           find.descendant(
             of: find.byKey(const Key('conversation-tabs')),
@@ -250,7 +252,7 @@ void main() {
           await flush(t);
           expect(t.widget<SourceTaskSurface>(surface).owner, same(owner));
           expect(
-            t.state(find.byType(RaftAdaptiveWorkspace)),
+            t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
             same(adaptiveState),
           );
           final rect = t.getRect(
@@ -364,7 +366,7 @@ void main() {
           expect(
             t
                 .widget<RaftAdaptiveWorkspace>(
-                  find.byType(RaftAdaptiveWorkspace),
+                  find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
                 )
                 .trailingExtent,
             0,
@@ -392,7 +394,7 @@ void main() {
           expect(
             t
                 .widget<RaftAdaptiveWorkspace>(
-                  find.byType(RaftAdaptiveWorkspace),
+                  find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
                 )
                 .trailingExtent,
             0,
@@ -453,7 +455,9 @@ void main() {
         );
         expect(
           t
-              .widget<RaftAdaptiveWorkspace>(find.byType(RaftAdaptiveWorkspace))
+              .widget<RaftAdaptiveWorkspace>(
+                find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
+              )
               .trailingExtent,
           0,
         );
@@ -511,7 +515,9 @@ void main() {
         expect(w.navigation.taskRevision, revision);
         expect(
           t
-              .widget<RaftAdaptiveWorkspace>(find.byType(RaftAdaptiveWorkspace))
+              .widget<RaftAdaptiveWorkspace>(
+                find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
+              )
               .trailingExtent,
           0,
         );
@@ -527,7 +533,9 @@ void main() {
         );
         expect(
           t
-              .widget<RaftAdaptiveWorkspace>(find.byType(RaftAdaptiveWorkspace))
+              .widget<RaftAdaptiveWorkspace>(
+                find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
+              )
               .trailingExtent,
           380,
         );

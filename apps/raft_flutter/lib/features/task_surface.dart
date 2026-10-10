@@ -16,12 +16,14 @@ class SourceTaskSurface extends StatefulWidget {
     this.onCleanupDelete,
     this.onBack,
     this.legacyPresentation = RaftLegacyTaskPresentation.modal,
+    this.page = false,
   });
   final TaskSurfaceController owner;
   final VoidCallback onClose;
   final VoidCallback? onCleanupDelete;
   final VoidCallback? onBack;
   final RaftLegacyTaskPresentation legacyPresentation;
+  final bool page;
   @override
   State<SourceTaskSurface> createState() => _SourceTaskSurfaceState();
 }
@@ -91,6 +93,7 @@ class _SourceTaskSurfaceState extends State<SourceTaskSurface> {
             : null,
       );
       return RaftTaskSurface(
+        page: widget.page,
         task: o.task,
         history: o.history,
         assignees: o.assignees,

@@ -41,6 +41,7 @@ import 'resource_view.dart';
 import 'workspace_task_host.dart';
 import 'page_layout.dart';
 import 'channel_settings.dart';
+import 'channel_members.dart';
 import 'create_channel_dialog.dart';
 import 'workspace_settings.dart';
 import 'server_views.dart';
@@ -152,10 +153,22 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       if (!legacy || boardIntent) 'task': legacy ? null : '$channelId:$itemId',
       if (legacy && boardIntent) 'thread': null,
     });
-    w.navigation.navigateTask(
-      next,
-      kind: w.location.panelNavigationKindTo(next),
-    );
+    if (!wide) {
+      // Board arbitration clears a profile/legacy thread before the new page.
+      // Back must return to that accepted list, not revive a discarded panel.
+      if (w.location.task == null && w.location.legacyTask == null) {
+        final base = next.withQuery({'task': null, 'legacyTask': null});
+        if (base.uri.query != w.location.uri.query) {
+          w.navigation.navigate(base, kind: RaftNavigationKind.replace);
+        }
+      }
+      w.navigation.navigateTask(next);
+    } else {
+      w.navigation.navigateTask(
+        next,
+        kind: w.location.panelNavigationKindTo(next),
+      );
+    }
     if (legacy && boardIntent) w.closeThread(navigate: false);
     w.notifyListeners();
   }
@@ -652,7 +665,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   void dismissPanel() {
     if (w.location.task != null || w.location.legacyTask != null) {
-      w.navigation.back();
+      if (wide) {
+        w.navigation.back();
+      } else {
+        backMobilePage(w.navigation);
+      }
       w.notifyListeners();
       return;
     }
@@ -823,6 +840,12 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         channelAuthorityRevision,
       ]);
       if (lastAuthority != authority) {
+        if (lastAuthority != null && w.location.channelPage != null) {
+          w.navigation.navigate(
+            w.location.withQuery({'channelPage': null}),
+            kind: RaftNavigationKind.replace,
+          );
+        }
         lastAuthority = authority;
         final navigator = Navigator.of(context);
         for (final observer
@@ -1161,18 +1184,24 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               onLegacyEscape ?? dismissPanel,
         },
         child: PopScope(
-          // URL-owned task surfaces close before the underlying platform page.
-          // Popping that page while dismissPanel only removes its task slot
-          // would leave Navigator and WorkspaceNavigation on different stacks.
+          // Tasks/channel management own mobile MaterialPages. Their hidden
+          // workspace must allow the platform page to pop; desktop panels and
+          // active selection/drawer actions still consume Back locally.
           canPop:
+              !wide &&
+                  (w.location.task != null ||
+                      w.location.legacyTask != null ||
+                      w.location.channelPage != null) ||
               w.location.task == null &&
-              w.location.legacyTask == null &&
-              !mainSelection.active &&
-              !threadSelection.active &&
-              (!wide || !thread) &&
-              scaffold.currentState?.isDrawerOpen != true,
+                  w.location.legacyTask == null &&
+                  !mainSelection.active &&
+                  !threadSelection.active &&
+                  (!wide || !thread) &&
+                  scaffold.currentState?.isDrawerOpen != true,
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) dismissPanel();
+            // A channel page may consume Back internally (e.g. Add Members).
+            // Its hidden workspace must not also advance the business history.
+            if (!didPop && w.location.channelPage == null) dismissPanel();
           },
           child: Scaffold(
             key: scaffold,
@@ -1463,7 +1492,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                       ? sidebarWidth
                       : 0)
             : 0,
-        childBuilder: workspace,
+        childBuilder: (dockWidth, onEscape) =>
+            channelPageHost(workspace(dockWidth, onEscape)),
       );
       return MobileWorkspacePages(
         enabled: !wide,
@@ -3007,10 +3037,84 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     // selection. Its identity belongs to the channel that opened the sheet.
     final channel = w.channel;
     if (channel == null) return;
+    if (!wide) {
+      openChannelPage(RaftChannelPage.settings, channel);
+      return;
+    }
     await showDialog(
       context: context,
       builder: (_) =>
           ChannelSettings(controller: w, channel: channel, isPanel: true),
+    );
+  }
+
+  void openChannelPage(RaftChannelPage kind, RaftChannel channel) {
+    if (!w.can('viewChannel', resource: channel)) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    w.navigation.navigate(
+      w.location.withQuery({'channelPage': '${kind.name}:${channel.id}'}),
+    );
+    w.notifyListeners();
+  }
+
+  Widget channelPageHost(Widget child) {
+    final page = w.location.channelPage;
+    final channel = page == null
+        ? null
+        : [
+            ...w.channels,
+            ...w.dms,
+          ].where((channel) => channel.id == page.channelId).firstOrNull;
+    final available =
+        channel != null && w.can('viewChannel', resource: channel);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Offstage(
+          offstage: page != null,
+          child: ExcludeFocus(
+            excluding: page != null,
+            child: TickerMode(enabled: page == null, child: child),
+          ),
+        ),
+        if (page != null)
+          // ds-allow: Native page Scaffold owns keyboard insets; raft_ui owns its content/header.
+          Scaffold(
+            body: RaftSystemBarSurface(
+              statusBarBackground: RaftTokens.of(context).panel,
+              navigationBarBackground: RaftTokens.of(context).panel,
+              child: SafeArea(
+                child: !available
+                    ? Column(
+                        children: [
+                          RaftMobilePageHeader(
+                            title: Text(tr('Channel is no longer available')),
+                            onBack: dismissPanel,
+                          ),
+                        ],
+                      )
+                    : page.kind == RaftChannelPage.settings
+                    ? ChannelSettings(
+                        key: ValueKey('channel-settings-${page.channelId}'),
+                        controller: w,
+                        channel: channel,
+                        isPanel: true,
+                        page: true,
+                        onClose: dismissPanel,
+                        onMembers: () =>
+                            openChannelPage(RaftChannelPage.members, channel),
+                      )
+                    : ChannelMembers(
+                        key: ValueKey('channel-members-${page.channelId}'),
+                        controller: w,
+                        channel: channel,
+                        page: true,
+                        onClose: dismissPanel,
+                      ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

@@ -23,6 +23,9 @@ class ChannelSettings extends StatefulWidget {
     this.leave = true,
     this.collapseLongMessages = true,
     this.isPanel = false,
+    this.page = false,
+    this.onClose,
+    this.onMembers,
   });
   final WorkspaceController controller;
   final RaftChannel channel;
@@ -34,6 +37,8 @@ class ChannelSettings extends StatefulWidget {
   /// Source ChannelPreferencesSection: activity mute is a panel-only preference,
   /// omitted in standalone EditChannelDialog and for one-to-one DMs.
   final bool isPanel;
+  final bool page;
+  final VoidCallback? onClose, onMembers;
   @override
   State<ChannelSettings> createState() => _ChannelSettingsState();
 }
@@ -330,6 +335,39 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   });
   bool cap(String name) => w.can(name, resource: channel);
 
+  Future<void> editMetadata() async {
+    final c = channel, identity = pageIdentity(w);
+    if (c.archived || !cap('editChannelMetadata')) return;
+    await showRaftDialog<void>(
+      context: context,
+      builder: (_) => RaftFormDialog(
+        title: 'Edit channel',
+        fields: [
+          if (c.name != 'all')
+            RaftFormField('name', 'Name', initial: c.name, required: true),
+          RaftFormField(
+            'description',
+            'Description',
+            initial: c.description,
+            multiline: true,
+          ),
+        ],
+        onSubmit: (values) async {
+          if (!mounted ||
+              identity != pageIdentity(w) ||
+              channel.archived ||
+              !cap('editChannelMetadata')) {
+            throw StateError('Channel editing is no longer available.');
+          }
+          await w.command('PATCH', '/channels/${c.id}', data: values);
+          if (identity != pageIdentity(w)) return;
+          await w.refreshChannels();
+        },
+      ),
+    );
+    if (mounted && identity == pageIdentity(w)) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = channel;
@@ -362,9 +400,22 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         (canEdit || !all) &&
         w.can('controlAgentRuntime');
     return RaftChannelSettingsSheet(
-      channelName: widget.channel.name,
+      channelName: c.name,
+      channelLabel: dm
+          ? [
+              c.string('peerDisplayName'),
+              c.string('peerName'),
+              c.name,
+            ].where((name) => name.isNotEmpty).firstOrNull
+          : null,
+      channelDescription: c.description,
+      page: widget.page,
+      onEdit: widget.page && !dm && !archived && cap('editChannelMetadata')
+          ? editMetadata
+          : null,
+      onMembers: widget.page ? widget.onMembers : null,
       title: dm ? 'Conversation settings' : 'Settings',
-      onClose: () => Navigator.of(context).maybePop(),
+      onClose: widget.onClose ?? () => Navigator.of(context).maybePop(),
       // Only a true cold load (no flags for this server yet) waits; otherwise
       // the panel opens final, reserving rows whose values are in flight.
       loading: !flagsKnown,
@@ -378,8 +429,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
               channelId: c.id,
             )
           : null,
-      nameController: info ? name : null,
-      descriptionController: info ? description : null,
+      nameController: info && !widget.page ? name : null,
+      descriptionController: info && !widget.page ? description : null,
       nameEnabled: !all && !archived,
       descriptionEnabled: !archived,
       nameHint: all ? 'The #all channel cannot be renamed.' : null,
@@ -545,7 +596,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
             deleteChannel,
           ),
       ],
-      onSave: canEdit && !dm ? save : null,
+      onSave: canEdit && !dm && !widget.page ? save : null,
       saveDisabled: archived,
     );
   }

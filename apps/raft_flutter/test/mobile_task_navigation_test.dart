@@ -56,8 +56,16 @@ void main() {
             for (var cycle = 0; cycle < 6; cycle++) {
               await t.tap(find.text('Scoped actual task'));
               await flush(t);
+              await t.pumpAndSettle();
               expect(find.byType(SourceTaskSurface), findsOneWidget);
-              expect(mobilePageEntries(w.navigation), pages);
+              expect(
+                mobilePageEntries(w.navigation),
+                hasLength(pages.length + 1),
+              );
+              expect(
+                t.getSize(find.byType(RaftMobilePageHeader).last).height,
+                56,
+              );
               final owner = t
                   .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
                   .owner;
@@ -67,6 +75,7 @@ void main() {
                 await t.binding.handlePopRoute();
               }
               await flush(t);
+              await t.pumpAndSettle();
               expect(w.location.uri, base.uri);
               expect(find.byType(SourceTaskSurface), findsNothing);
               expect(find.text('Scoped actual task'), findsOneWidget);

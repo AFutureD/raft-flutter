@@ -150,7 +150,14 @@ void main() {
         );
         await flush(t);
         expect(w.location.query('legacyTask'), 'c1:legacy-id');
-        expect(find.byType(SourceTaskSurface), findsNothing);
+        expect(find.byType(SourceTaskSurface), findsOneWidget);
+        expect(
+          t
+              .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
+              .owner
+              .hydrated,
+          isFalse,
+        );
         bucket.complete({
           'tasks': [
             modernTask,
@@ -296,6 +303,7 @@ void main() {
           await t.tap(find.byTooltip('Close task'));
           await flush(t);
           expect(retired.closed, isTrue);
+          await t.pumpAndSettle();
           expect(w.navigation.index, historyIndex);
           await t.tap(find.text('Second real task'));
           await flush(t);

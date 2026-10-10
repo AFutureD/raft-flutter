@@ -218,9 +218,10 @@ Future<void> frames(
 }
 
 /// The workspace's own side/mobile thread timeline (not a task discussion).
-Finder threadTimeline() => find.byWidgetPredicate(
+Finder threadTimeline({bool includeHidden = false}) => find.byWidgetPredicate(
   (widget) =>
       widget is RaftChatView && widget.thread && widget.selectionHandle != null,
+  skipOffstage: !includeHidden,
 );
 
 ScrollPosition threadScroll(WidgetTester t) => t
@@ -284,7 +285,10 @@ void main() {
               // card opens over it.
               expect(w.threadGeneration, generation);
               expect(w.threadLoading, isFalse);
-              expect(t.state(threadTimeline()), same(timeline));
+              expect(
+                t.state(threadTimeline(includeHidden: true)),
+                same(timeline),
+              );
             },
           );
           expect(find.byType(SourceTaskSurface), findsOneWidget);

@@ -12,8 +12,10 @@ import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_task_cache.dart';
 import '../data/source_task_bucket.dart';
+import '../platform/system_bars.dart';
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
+import 'mobile_workspace_pages.dart';
 
 /// Accepted task-card facts are tied to the authority that supplied the row.
 class TaskSurfaceSeed {
@@ -40,8 +42,9 @@ String taskSurfaceAuthority(WorkspaceController w, String channelId) {
   ]);
 }
 
-/// MainLayout's task overlay owns its URI identity and independent lifecycle.
-/// The child stays mounted through open, hydration, retarget and close.
+/// One task owner follows the accepted URI. Mobile projects it as a page;
+/// desktop retains MainLayout's modal/docked presentation. The workspace stays
+/// mounted through open, hydration, retarget and close.
 class WorkspaceTaskHost extends StatefulWidget {
   const WorkspaceTaskHost({
     super.key,
@@ -170,9 +173,8 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
     // full read then revalidates it in place.
     final known = seeded || legacy || knownChannel == null
         ? null
-        : MessageTaskCache.of(
-            w.client,
-          ).tasks(w, anchor.channelId)?[anchor.itemId];
+        : MessageTaskCache.of(w.client)
+              .tasks(w, anchor.channelId)?[anchor.itemId];
     final accepted = seeded
         ? seed!.row
         : known == null
@@ -233,7 +235,12 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
 
   void back() {
     if (identity != currentIdentity) return;
-    w.navigation.back();
+    if (MediaQuery.sizeOf(context).width <
+        RaftAdaptiveWorkspace.desktopMinWidth) {
+      backMobilePage(w.navigation);
+    } else {
+      w.navigation.back();
+    }
     w.notifyListeners();
   }
 
@@ -263,32 +270,80 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
             ].contains(w.location.route) &&
             w.location.thread == null &&
             w.location.profile == null);
-    final visible = widget.presented && task != null && legacyVisible;
+    final mobilePage = viewport.width < RaftAdaptiveWorkspace.desktopMinWidth;
+    final pageColor = legacy
+        ? RaftTokens.of(context).canvas
+        : RaftTokens.of(context).panel;
+    final visible =
+        widget.presented && task != null && (mobilePage || legacyVisible);
+    if (mobilePage) {
+      // This subtree is the active MaterialPage's body. Keep the underlying
+      // workspace mounted (drafts/list state), but remove it from layout, focus
+      // and semantics while the task page is presented.
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: Offstage(
+              offstage: visible,
+              child: ExcludeFocus(
+                excluding: visible,
+                child: TickerMode(
+                  enabled: !visible,
+                  child: widget.childBuilder(0, null),
+                ),
+              ),
+            ),
+          ),
+          if (visible)
+            // ds-allow: Native page Scaffold owns keyboard insets; raft_ui owns its content/header.
+            Scaffold(
+              backgroundColor: pageColor,
+              body: RaftSystemBarSurface(
+                statusBarBackground: pageColor,
+                navigationBarBackground: pageColor,
+                child: SafeArea(
+                  child: SourceTaskSurface(
+                    key: ValueKey(identity),
+                    owner: task,
+                    page: true,
+                    onClose: back,
+                    onBack: back,
+                    legacyPresentation: RaftLegacyTaskPresentation.mobileModal,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
     final side = legacy && !tasksRoute;
     final docked = visible && side && viewport.width >= 1024;
     final presentation = side
         ? RaftLegacyTaskPresentation.side
-        : viewport.width < 768
-        ? RaftLegacyTaskPresentation.mobileModal
         : RaftLegacyTaskPresentation.modal;
-    final t = RaftTokens.of(context);
-    final mobileTaskFooter =
-        legacy && tasksRoute && viewport.width < 768 && t.brutal
-        ? RaftMobileNavRecipe(t, viewportHeight: viewport.height).itemHeight + 2
-        : 0.0;
     return Stack(
       fit: StackFit.expand,
       children: [
         Positioned.fill(
-          child: widget.childBuilder(
-            docked ? legacyWidth : 0,
-            visible && legacy ? close : null,
+          child: Offstage(
+            offstage: false,
+            child: ExcludeFocus(
+              excluding: false,
+              child: TickerMode(
+                enabled: true,
+                child: widget.childBuilder(
+                  docked ? legacyWidth : 0,
+                  visible && legacy ? close : null,
+                ),
+              ),
+            ),
           ),
         ),
         if (visible)
           Positioned(
             top: 0,
-            bottom: mobileTaskFooter,
+            bottom: 0,
             right: 0,
             left: side
                 ? docked

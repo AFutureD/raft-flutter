@@ -11,6 +11,7 @@ import '../data/workspace_controller.dart';
 import '../data/attachment_image_repository.dart';
 import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
+import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
 import 'attachment_html_preview.dart';
 import 'private_route_guard.dart';
@@ -59,7 +60,8 @@ class _AttachmentViewState extends State<AttachmentView> {
   bool begun = false;
   double devicePixelRatio = 1;
   bool exportReadyReported = false, opening = false;
-  DialogRoute<void>? previewRoute, progressRoute;
+  ModalRoute<void>? previewRoute;
+  DialogRoute<void>? progressRoute;
   late int generation;
   Map<String, dynamic>? channelAuthority;
   late String? principal, server, sourceChannel, projectedServer, role;
@@ -554,9 +556,30 @@ class _AttachmentViewState extends State<AttachmentView> {
     }
   }
 
+  ModalRoute<void> createPreviewRoute(bool page, WidgetBuilder builder) => page
+      ? MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/attachment-preview'),
+          builder: (context) {
+            final surface = RaftTokens.of(context).panel;
+            // ds-allow: Native route owns keyboard insets and system bars; raft_ui owns preview content.
+            return Scaffold(
+              backgroundColor: surface,
+              body: RaftSystemBarSurface(
+                statusBarBackground: surface,
+                navigationBarBackground: surface,
+                child: builder(context),
+              ),
+            );
+          },
+        )
+      : DialogRoute<void>(context: context, builder: builder);
+
   Future<void> openCurrent() async {
     final revision = bindingRevision;
     bool current() => revision == bindingRevision && authorized;
+    final page =
+        MediaQuery.sizeOf(context).width <
+        RaftAdaptiveWorkspace.desktopMinWidth;
     final html =
         '${widget.metadata['mimeType'] ?? ''}'
                 .toLowerCase()
@@ -581,11 +604,12 @@ class _AttachmentViewState extends State<AttachmentView> {
         return;
       }
       if (!mounted || !current()) return;
-      late final DialogRoute<void> operationRoute;
-      operationRoute = DialogRoute<void>(
-        context: context,
-        builder: (dialogContext) => html
+      late final ModalRoute<void> operationRoute;
+      operationRoute = createPreviewRoute(
+        page,
+        (dialogContext) => html
             ? HtmlAttachmentPreviewDialog(
+                page: page,
                 controller: w,
                 metadata: widget.metadata,
                 authorized: current,
@@ -599,6 +623,7 @@ class _AttachmentViewState extends State<AttachmentView> {
                 onDownload: download,
               )
             : AttachmentPreviewDialog(
+                page: page,
                 controller: w,
                 metadata: widget.metadata,
                 authorized: current,
@@ -626,18 +651,23 @@ class _AttachmentViewState extends State<AttachmentView> {
     // readiness. A pending thumbnail load must not consume the user's click.
     if (imageProvider == null && !loading) unawaited(loadImage());
     final fullKey = fullImageKey;
-    late final DialogRoute<void> operationRoute;
+    late final ModalRoute<void> operationRoute;
     final zoom = TransformationController();
-    operationRoute = DialogRoute<void>(
-      context: context,
-      builder: (dialogContext) => RaftAttachmentLightbox(
+    operationRoute = createPreviewRoute(
+      page,
+      (dialogContext) => RaftAttachmentLightbox(
+        page: page,
         title: name,
         titleBold: true,
         onResetZoom: () => zoom.value = Matrix4.identity(),
         onClose: () {
           if (identical(previewRoute, operationRoute) &&
-              operationRoute.isActive) {
-            operationRoute.navigator?.removeRoute(operationRoute);
+              operationRoute.isCurrent) {
+            if (page) {
+              operationRoute.navigator?.pop();
+            } else {
+              operationRoute.navigator?.removeRoute(operationRoute);
+            }
           }
         },
         footer: RaftTextButton(
@@ -667,6 +697,8 @@ class _AttachmentViewState extends State<AttachmentView> {
     );
     previewRoute = operationRoute;
     await Navigator.of(context, rootNavigator: true).push(operationRoute);
+    // The image remains interactive while its page animates out.
+    await operationRoute.completed;
     zoom.dispose();
     if (identical(previewRoute, operationRoute)) previewRoute = null;
   }

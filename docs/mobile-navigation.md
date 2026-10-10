@@ -1,5 +1,66 @@
 # 移动导航验收
 
+## 当前修正：附件预览的 Android 预测返回（2026-10-11）
+
+普通系统返回和顶部按钮未复现多退一级；使用 `flutter/backgesture` 的 start/update/commit 事件，在真实 RaftAppRouter → WorkspaceView → 附件预览上稳定复现：本应保留 `/s/demo/channel/c1`，实际退到了 `/s/demo`。Android 将预测返回广播给路由观察者；根 Navigator 的预览和嵌套 Navigator 的消息页各自仍是所在栈的 current route，因而同时提交返回。
+
+`MobileWorkspacePages` 现在订阅父 ModalRoute 的 current 状态；父页面被根预览覆盖时，将嵌套 MaterialPage 的 `canPop` 设为 false，阻止其接收预测手势。预览关闭后自动恢复原返回行为。没有增加定时器、消息复制或导航缓存。
+
+| 项目 | 本次证据 |
+| --- | --- |
+| 三主题 × 频道/私信的真实消息页 | 6 项定向 Widget 回归通过；顶部返回、普通系统返回、预测手势取消/提交保留消息页及历史索引，手势只由一个 Navigator 接收；关闭预览后的独立手势返回上级一次 |
+| 既有附件入口、移动页面与私信设置 | 连同上述回归共 22 项通过，覆盖移动/桌面图片、文档、HTML 入口及撤权 |
+| 静态分析 | 修改相关 2 个 Dart 文件通过 |
+| 实机手势、全量检查 | 后台 Computer Use native pipe unavailable，未计为本机交互通过；本次遵循用户指令不跑全量测试 |
+
+首次失败与修正后日志保留于忽略的 `.local/attachment-predictive-*.log`。这是 Flutter 手势协议回归证据，不代替 Android 原生无障碍/生命周期验收。
+
+FVM ARM64 Release 构建及安全覆盖安装通过：targetSdk 37、versionCode 6011（build number 4011 + ABI 偏移 2000），APK SHA-256 `58840c7190c75e6b2b93415973df83ff0d866e3dab9fd6a902ac263a5c2424be`。`tool/android-install` 预检和安装后哈希、首次安装时间、CE/DE 数据目录 inode 验证通过，未卸载、清数据或启动 App。
+
+## 当前修改：私信设置与附件预览（2026-10-11）
+
+移动私信设置现在复用 `channelPage=settings:<dmId>`，展示联系人名称和原有偏好，无频道元数据编辑或自动键盘。移动附件图片、文档、PDF、音视频及 HTML 预览改用临时 MaterialPageRoute，共用 56px 页头和平台返回动画；预览保留原有权限检查、下载、缩放与媒体清理。附件评论的移动入口采用同样的平台页面过渡。
+
+| 项目 | 本次实际证据 |
+| --- | --- |
+| 私信设置、图片/文档预览、加载/错误，三套主题 | 独立 Preview 组件 15 项 Widget 检查通过，覆盖 390×844 与 320×568、页头几何、语义、返回、Escape 和操作回执 |
+| 实际私信设置入口 | 三主题 3 项通过，进入动画、无输入框及系统返回恢复原私信 |
+| 实际图片/文档/HTML 附件入口 | 移动/桌面 6 项通过，连续两次进出与权限撤销；音视频/PDF 共用页面壳，本次未验原生解码 |
+| SDK Widget Preview | 生成并成功编译包含以上五组的新预览；后台浏览器 unavailable，未计为浏览器人工交互通过；Widget 渲染图仅存忽略的 `.local/` |
+| 静态分析 | 修改相关 11 个文件通过 |
+| 全量检查、手机实机交互 | 本次按用户要求不跑全量测试；安装后由用户验收 |
+
+FVM 仅 ARM64 Android Release 编译及安全覆盖安装通过：targetSdk 37、versionCode 6010（build number 4010 + ABI 偏移 2000），APK SHA-256 `191060122037e986278cddb76d8e531960fda7803acc52c71ae5d9eee2b8852d`。重新预检通过，安装后实际 APK 哈希、首次安装时间及 CE/DE 数据目录 inode 核对一致；未卸载或清数据。构建、预检及安装收据仅存 `.local/`。
+
+## 前次修改：任务与频道管理页面（2026-10-11）
+
+依据手机已安装的官方 Android `build.raft.app` 1.13.0 APK 静态核对：普通手机任务进入 `compose_thread`，大屏桌面模式先尝试 adaptive detail；新版频道设置进入 `compose_channel_settings`，成员进入 `compose_thread_members`。频道设置先展示信息，编辑是按需弹窗；私聊设置仍是弹窗。官方新版设置有偏好开关，Flutter 本次直接采用已确认的页面体验，不增加兼容开关。
+
+- `WorkspaceNavigation` 仍是唯一导航权威；`MobileWorkspacePages` 将现代/legacy 任务及客户端 `channelPage` 槽投影为独立 `MaterialPage`。任务 controller、底层消息窗口与列表不因呈现切换重复创建。
+- 三类页面共用 `RaftMobilePageHeader` 的 56px 高度、48px 返回槽与 32px 返回图标中心位置，使用 Flutter 平台页面过渡；桌面任务 modal / docked 及桌面、DM 设置维持原行为。
+- 设置页没有编辑输入框或 autofocus；显式编辑后留在设置页。`#all` 不可重命名、归档和权限限制仍生效。成员添加视图的系统返回先回到成员列表，不被隐藏工作区重复消费。
+- 冷任务和管理链接补入底层目的地；历史帧仍最多八页、倍率最多 2，仅供过渡、不持久化。隐藏工作区排除焦点/语义并停止 ticker。权限收缩撤销管理页与根 Navigator 上的编辑弹窗。
+
+| 项目 | 本次实际证据 |
+| --- | --- |
+| 三主题、Task 根列表/频道 Tasks、现代/legacy 任务 | Widget 72 次顶部返回/系统返回通过，列表与任务宿主 State 保持同一实例，owner 释放正常 |
+| 三主题 × Android/iOS 的设置→成员→添加成员→返回、显式编辑及撤权 | Widget 通过，验证平台进入动画、无自动键盘、编辑后页面保留及编辑弹窗撤销 |
+| 三主题任务页面的导航几何、返回语义、Tab/Enter | Widget 通过；SDK Preview 提供现代与 legacy 页面 |
+| 设置/成员 SDK Preview | 提供三主题、加载与错误状态；不作为原生验收证据 |
+| Android 实机交互、iOS 原生手势、Linux/Windows/macOS | 本次未验收；后台 Computer Use 返回 native pipe startup failed，未使用其他 UI 自动化绕过 |
+
+定向任务回归 102 项通过；host 检查 94 项通过。首轮全工程失败中的旧页头、Tab 返回后立即点击及桌面拖放问题，在未修改的 HEAD `7620cc0` 隔离 worktree 中复现 20 项失败（该组 88 项通过）。基线日志、首轮失败及修正后的任务回归日志保留于忽略的 `.local/`，不作为全工程通过证明。
+
+最终 `python3 tool/check-project` 对未变化的源码执行：Flutter 3,442 项通过、3 项跳过、20 项失败；失败集合与 HEAD 对照完全相同，没有新增失败；host 94 项及全工程静态分析通过。`sourceChanged=false`，但因原有失败，完整工程检查结果仍为未通过。
+
+FVM ARM64 Android Release 构建通过（`--target-platform android-arm64 --split-per-abi --build-number 4009`）。包名 `app.raft.raft_flutter`、targetSdk 37、实际 versionCode 6009，SHA-256 `b98b6d609e05f76c5b1bd78f66bf8923276778914299b4d026001a3b151651af`。`tool/android-install --check-only` 验证签名、版本及 ARM64 条件通过；本次只读预检，没有安装、启动、卸载或清数据，不能计为手机实机验收。构建日志与收据只保留在忽略的 `.local/`。
+
+随后依据用户安装指令重新预检并通过 `tool/android-install` 覆盖更新到 6009；安装后 APK 哈希与产物一致，首次安装时间及 CE/DE 数据目录 inode 保持不变。未卸载、清数据或启动 App；本次安装不计为实机交互验收。
+
+以下为旧版本检查点，不能计为本次源码的原生通过。
+
+## 历史验收：统一移动页头（2026-10-10）
+
 2026-10-10；基于 `80769ee` 的当前工作区修改。Flutter 3.47.6 由 FVM 管理。
 
 ## 实现

@@ -148,7 +148,9 @@ class WorkspaceNavigation {
     } else {
       // A task modal, profile and thread own independent slots. Closing one
       // must not erase the others (rightPanelUrlSyncContract 385–511).
-      final fallback = location.task != null
+      final fallback = location.channelPage != null
+          ? location.withQuery({'channelPage': null})
+          : location.task != null
           ? location.withQuery({'task': null})
           : location.legacyTask != null
           ? location.withQuery({'legacyTask': null})

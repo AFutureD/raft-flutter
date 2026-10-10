@@ -12,6 +12,7 @@ import 'dialog_card.dart';
 import 'icons.dart';
 import 'inline_badge_editor.dart';
 import 'localization.dart';
+import 'mobile_page_header.dart';
 import 'task.dart';
 import 'theme.dart';
 import 'thread_composition.dart';
@@ -48,6 +49,7 @@ class RaftTaskSurface extends StatefulWidget {
     this.onBack,
     this.unresolvedBody,
     this.legacyPresentation = RaftLegacyTaskPresentation.modal,
+    this.page = false,
   });
   final Map<String, dynamic> task;
   final List<Map<String, dynamic>> history, assignees;
@@ -59,6 +61,7 @@ class RaftTaskSurface extends StatefulWidget {
   final VoidCallback? onBack;
   final Widget? unresolvedBody;
   final RaftLegacyTaskPresentation legacyPresentation;
+  final bool page;
   final Future<void> Function() onRetry, onLoadAssignees;
   final Future<void> Function(String, dynamic) onUpdate;
   final String Function(dynamic) formatTime;
@@ -96,8 +99,9 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
     final side =
         legacy && widget.legacyPresentation == RaftLegacyTaskPresentation.side;
     final fullscreen =
+        widget.page ||
         legacy &&
-        widget.legacyPresentation == RaftLegacyTaskPresentation.mobileModal;
+            widget.legacyPresentation == RaftLegacyTaskPresentation.mobileModal;
     final overlay = side || fullscreen;
     final body =
         widget.unresolvedBody ??
@@ -195,6 +199,33 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
   Widget header(BuildContext context, bool mobile) {
     final t = RaftTokens.of(context);
     final task = widget.task;
+    if (widget.page) {
+      return RaftMobilePageHeader(
+        key: const ValueKey('task-modal-bar'),
+        background: widget.legacy ? t.canvas : t.panel,
+        onBack: widget.onBack ?? widget.onClose,
+        backKey: const ValueKey('task-back'),
+        backLabel: raftText(context, 'Close task'),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Task #${task['taskNumber'] ?? ''}${widget.legacy ? ' · LEGACY' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RaftTypography.heading(t, size: 16, line: 20),
+            ),
+            Text(
+              '#${task['channelName'] ?? raftText(context, 'unknown')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RaftTypography.body(t, size: 12, line: 16, color: t.muted),
+            ),
+          ],
+        ),
+      );
+    }
     final side =
         widget.legacy &&
         widget.legacyPresentation == RaftLegacyTaskPresentation.side;
