@@ -12,3 +12,8 @@ build-search-overlay-cases.py
 build-notification-card.py
 build-task-detail.py
 build-composer-attachments.py
+build-channel-settings.py
+build-shell-cases.py
+build-thread-attachments.py
+build-thread-cases.py
+build-thread-messages.py
