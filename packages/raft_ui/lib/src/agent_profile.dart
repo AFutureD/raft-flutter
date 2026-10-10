@@ -193,7 +193,11 @@ class RaftAvatarSlot extends StatelessWidget {
     this.avatarUrl,
     this.content,
     this.sizeOverride,
+    this.server = false,
   });
+
+  /// AvatarSlot `type="server"`: Brutal adds `bg-soft-signal text-black`.
+  final bool server;
   final double? sizeOverride;
   final Widget? content;
   final String name;
@@ -260,7 +264,11 @@ class RaftAvatarSlot extends StatelessWidget {
       height: sizeOverride ?? slot.size,
       clipBehavior: Clip.antiAlias,
       decoration: base.copyWith(
-        color: clipPadding ? Colors.transparent : null,
+        color: server && t.brutal
+            ? t.product.softSignal
+            : clipPadding
+            ? Colors.transparent
+            : null,
         border: Border.all(
           color: s.root.borderColor?.resolve(rt) ?? Colors.black,
           width: slot.border,

@@ -105,18 +105,18 @@ void main() {
             tester.widget<RaftControl>(control).visualHeight,
             tokens.brutal ? 32 : 30,
           );
-          expect(
-            tester.getSize(control).height,
-            density == RaftDensity.touch
-                ? 48
-                : tokens.brutal
-                ? 32
-                : 30,
-          );
+          // The row box is Web's in every density; touch only widens the hit
+          // and semantics rectangle to 48dp (RaftTouchTarget).
+          expect(tester.getSize(control).height, tokens.brutal ? 32 : 30);
+          if (density == RaftDensity.touch) {
+            expect(find.byType(RaftTouchTarget), findsWidgets);
+          }
           final dm = find.byKey(const ValueKey('dm'));
-          expect(tester.getRect(dm).top - tester.getRect(control).bottom,
-              tokens.brutal ? 4 : 2,
-              reason: 'Mounted SidebarItem bottom margin is separate from the row box.');
+          expect(
+            tester.getRect(dm).top - tester.getRect(control).bottom,
+            tokens.brutal ? 4 : 2,
+            reason: 'Mounted SidebarItem bottom margin is separate from the row box.',
+          );
           final badge = find.descendant(
             of: channel,
             matching: find.byType(RaftConversationUnreadCount),
@@ -353,9 +353,17 @@ void main() {
         final margin = family == RaftFamily.brutal ? 4.0 : 2.0;
         expect(a.height, expected + margin);
         expect(b.top - a.top, expected + margin);
-        expect(tester.getSize(find.descendant(
-          of: find.byKey(const ValueKey('row-0')),
-          matching: find.byType(RaftControl))).height, expected);
+        expect(
+          tester
+              .getSize(
+                find.descendant(
+                  of: find.byKey(const ValueKey('row-0')),
+                  matching: find.byType(RaftControl),
+                ),
+              )
+              .height,
+          expected,
+        );
         expect(
           tester.getSize(find.byType(RaftConversationUnreadCount).first).height,
           16,

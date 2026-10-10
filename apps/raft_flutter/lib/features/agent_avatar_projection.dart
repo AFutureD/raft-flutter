@@ -18,3 +18,20 @@ RaftAvatarPresence? agentAvatarPresence(AgentAmbientDisplay? display) {
     label: display.detail.isEmpty ? null : display.detail,
   );
 }
+
+/// Sidebar `AgentActivityDot`: the agent row's own `activity` (falling back to
+/// its `status`), shown on every agent row, offline included.
+RaftAvatarPresence agentRowPresence(Map<String, dynamic> row) =>
+    RaftAvatarPresence(
+      activity: switch (row['activity']) {
+        'working' => RaftAvatarActivity.working,
+        'thinking' => RaftAvatarActivity.thinking,
+        'error' => RaftAvatarActivity.error,
+        'offline' => RaftAvatarActivity.offline,
+        'online' => RaftAvatarActivity.online,
+        _ =>
+          row['status'] == 'active'
+              ? RaftAvatarActivity.online
+              : RaftAvatarActivity.offline,
+      },
+    );

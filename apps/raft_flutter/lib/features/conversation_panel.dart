@@ -22,9 +22,13 @@ class ConversationPanel extends StatefulWidget {
     this.selectionHandle,
     this.onTask,
     this.onMessageTask,
+    this.onViewBilling,
     this.hideHeader = false,
   });
   final WorkspaceController controller;
+
+  /// Forwarded to the timeline's history-limit banner link.
+  final VoidCallback? onViewBilling;
 
   /// Source workspace ChatPanel hides both its channel header and tab controls.
   /// Its URI-selected task/files body and retained editor still belong to it.
@@ -247,6 +251,7 @@ class _ConversationPanelState extends State<ConversationPanel> {
                   controller: w,
                   selectionHandle: widget.selectionHandle,
                   onTask: widget.onMessageTask,
+                  onViewBilling: widget.onViewBilling,
                 ),
               ),
               RaftConversationTabId.tasks => ResourceView(

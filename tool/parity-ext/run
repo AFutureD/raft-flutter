@@ -107,6 +107,11 @@ def cli(*args, log=None):
 
 
 SPEC_EXT_PATCHES = [
+    # Per-case clock: `props.clockIso` replaces the fixture instant (plan limits
+    # that depend on the trial end date, relative labels).
+    ('      await page.clock.setFixedTime(new Date(fixtureNowEpochMillis));',
+     '      const parityExtClock = (visualCase.variants?.[0]?.props as Record<string, string> | undefined)?.clockIso;\n'
+     '      await page.clock.setFixedTime(new Date(parityExtClock ? Date.parse(parityExtClock) : fixtureNowEpochMillis));'),
     ('    await page.goto(caseUrl(visualCase));',
      '    await parityExtRoutes(page, visualCase);\n    await page.goto(caseUrl(visualCase));'),
     ('    } else if (interaction.type === "fill" && interaction.target) {',
@@ -114,6 +119,11 @@ SPEC_EXT_PATCHES = [
      '      await page.locator(interaction.target).first().hover();\n'
      '    } else if ((interaction.type as string) === "press" && interaction.target) {\n'
      '      await page.locator(interaction.target).first().press(String((interaction as any).key));\n'
+     '    } else if ((interaction.type as string) === "scroll" && interaction.target) {\n'
+     '      // Wheel over the target (y < 0 scrolls the list up), then let it settle.\n'
+     '      await page.locator(interaction.target).first().hover();\n'
+     '      await page.mouse.wheel(0, Number((interaction as { y?: number }).y ?? 0));\n'
+     '      await page.waitForTimeout(400);\n'
      '    } else if (interaction.type === "fill" && interaction.target) {'),
     ('    await page.setViewportSize({ width: viewport.width, height: viewport.height });',
      '    await page.setViewportSize({ width: viewport.width, height: viewport.height });\n'
@@ -123,6 +133,14 @@ SPEC_EXT_PATCHES = [
      '      const parityExtCdp = await page.context().newCDPSession(page);\n'
      '      await parityExtCdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });\n'
      '    }'),
+    # Native right click (a real `contextmenu` event at the element centre, or
+    # at `x`,`y` from its top-left); the official `contextmenu` type only waits
+    # for the message context menu.
+    ('    } else if (interaction.type === "fill" && interaction.target) {',
+     '    } else if ((interaction.type as string) === "rightclick" && interaction.target) {\n'
+     '      await page.locator(interaction.target).first().click({ button: "right",\n'
+     '        position: interaction.x === undefined ? undefined : { x: interaction.x, y: interaction.y ?? 0 } });\n'
+     '    } else if (interaction.type === "fill" && interaction.target) {'),
     ('    await applyInteractions(page, visualCase);',
      '    await applyInteractions(page, visualCase);\n'
      '    // Extension: Flutter taps leave no hover; park the pointer off the\n'

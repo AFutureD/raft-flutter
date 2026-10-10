@@ -494,10 +494,12 @@ class _WorkspacePreviewState extends State<_WorkspacePreview> {
               children: [
                 ListTile(
                   title: const Text('Thread'),
-                  trailing: IconButton(
-                    tooltip: 'Close thread',
-                    icon: const Icon(Icons.close),
-                    onPressed: () => setState(() => thread = false),
+                  trailing: RaftTooltip(
+                    message: 'Close thread',
+                    child: IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setState(() => thread = false),
+                    ),
                   ),
                 ),
                 const Expanded(

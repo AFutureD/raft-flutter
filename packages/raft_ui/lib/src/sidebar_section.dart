@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'chat_composition.dart'
+    show RaftChatSidebarGroupKind, RaftChatSidebarGroupRecipe;
 import 'icons.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'theme.dart';
 
 /// Mounted Sidebar.tsx335/342 geometry, distinct from generic RUI sections.
@@ -54,11 +57,15 @@ class RaftSidebarSectionAction {
     required this.glyph,
     this.onPressed,
     this.key,
+    this.testKey,
   });
   final String label;
   final RaftGlyph glyph;
   final VoidCallback? onPressed;
   final Key? key;
+
+  /// Stable lookup key (the anchor [key] may be a GlobalKey).
+  final Key? testKey;
 }
 
 /// Controlled presentation. The caller owns count projection, collapse scope,
@@ -75,7 +82,12 @@ class RaftSidebarSectionHeader extends StatelessWidget {
     this.attention,
     this.actions = const [],
     this.trailing,
+    this.onContextMenu,
   });
+
+  /// Sidebar.tsx `SidebarSectionHeader onContextMenu`: right click / long press
+  /// anywhere on the header row, at the global pointer position.
+  final ValueChanged<Offset>? onContextMenu;
   final String label;
   final bool expanded;
   final ValueChanged<bool>? onExpandedChanged;
@@ -103,7 +115,7 @@ class RaftSidebarSectionHeader extends StatelessWidget {
           const SizedBox(width: 4),
         ],
         if (emoji != null && emoji!.isNotEmpty) ...[
-          Text(emoji!),
+          Text(emoji!, style: TextStyle(fontFamilyFallback: t.fontFallback)),
           const SizedBox(width: 4),
         ],
         Flexible(
@@ -124,7 +136,7 @@ class RaftSidebarSectionHeader extends StatelessWidget {
         ],
       ],
     );
-    return Padding(
+    final header = Padding(
       padding: recipe.inset,
       child: Row(
         children: [
@@ -165,6 +177,13 @@ class RaftSidebarSectionHeader extends StatelessWidget {
           if (trailing != null) ...[const SizedBox(width: 4), trailing!],
         ],
       ),
+    );
+    if (onContextMenu == null) return header;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapDown: (d) => onContextMenu!(d.globalPosition),
+      onLongPressStart: (d) => onContextMenu!(d.globalPosition),
+      child: header,
     );
   }
 }
@@ -250,26 +269,50 @@ class _SectionAction extends StatefulWidget {
 class _SectionActionState extends State<_SectionAction> {
   bool hasFocus = false;
   @override
-  Widget build(BuildContext context) => Focus(
-    canRequestFocus: false,
-    skipTraversal: true,
-    onFocusChange: (value) => setState(() => hasFocus = value),
-    child: RaftControl(
-      key: widget.action.key,
-      semanticLabel: widget.action.label,
-      tooltip: widget.action.label,
-      onPressed: widget.action.onPressed,
-      visualHeight: 24,
-      visualWidth: 24,
-      minimumTargetSize: widget.targetSize,
-      recipe: RaftSidebarSectionActionRecipe(
-        RaftTokens.of(context),
-        keyboardFocused:
-            hasFocus &&
-            FocusManager.instance.highlightMode ==
-                FocusHighlightMode.traditional,
+  Widget build(BuildContext context) => KeyedSubtree(
+    key: widget.action.testKey,
+    child: Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (value) => setState(() => hasFocus = value),
+      child: RaftControl(
+        key: widget.action.key,
+        semanticLabel: widget.action.label,
+        tooltip: widget.action.label,
+        onPressed: widget.action.onPressed,
+        visualHeight: 24,
+        visualWidth: 24,
+        minimumTargetSize: widget.targetSize,
+        recipe: RaftSidebarSectionActionRecipe(
+          RaftTokens.of(context),
+          keyboardFocused:
+              hasFocus &&
+              FocusManager.instance.highlightMode ==
+                  FocusHighlightMode.traditional,
+        ),
+        child: RaftIcon(widget.action.glyph, size: 14),
       ),
-      child: RaftIcon(widget.action.glyph, size: 14),
     ),
   );
+}
+
+/// SidebarSectionDescription under an empty custom section ("No
+/// conversations"): mono `text-xs`, `px-2`, the `min-h-7` drop target.
+class RaftSidebarSectionEmptyHint extends StatelessWidget {
+  const RaftSidebarSectionEmptyHint(this.label, {super.key});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final recipe = RaftChatSidebarGroupRecipe(
+      RaftTokens.of(context),
+      RaftChatSidebarGroupKind.channels,
+    );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 28),
+      child: Padding(
+        padding: recipe.descriptionInset,
+        child: RaftCssText(label, style: recipe.description),
+      ),
+    );
+  }
 }

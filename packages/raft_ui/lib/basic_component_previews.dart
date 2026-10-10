@@ -45,7 +45,7 @@ Widget designIconsPreview() => Padding(
     runSpacing: 20,
     children: [
       for (final glyph in RaftGlyph.values)
-        Tooltip(message: glyph.name, child: RaftIcon(glyph, size: 24)),
+        RaftTooltip(message: glyph.name, child: RaftIcon(glyph, size: 24)),
     ],
   ),
 );

@@ -159,7 +159,14 @@ void main() {
     (
       '#all without channel management',
       'member',
-      <String, dynamic>{'joined': true, 'name': 'all'},
+      // GET /channels carries the viewer's per-channel capabilities: a
+      // member has none in #all (addChannelMembers is false there), so the
+      // drawer has neither a management nor a leave surface.
+      <String, dynamic>{
+        'joined': true,
+        'name': 'all',
+        'channelCapabilities': <String, dynamic>{},
+      },
     ),
   ]) {
     testWidgets('$name does not offer Stop Agents', (tester) async {

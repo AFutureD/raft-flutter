@@ -550,8 +550,16 @@ class RaftPrefixedInput extends StatefulWidget {
     this.focusNode,
     this.inputFormatters,
     this.semanticLabel,
+    this.leading,
+    this.variant = RaftInputGroupRecipeVariant.container,
+    this.maxLength,
   });
 
+  /// `InputGroupAddon className="p-0"` holding a control (the section emoji
+  /// button) instead of the text [prefix].
+  final Widget? leading;
+  final RaftInputGroupRecipeVariant variant;
+  final int? maxLength;
   final String prefix;
   final TextEditingController? controller;
   final String? initialValue, hintText, semanticLabel;
@@ -586,7 +594,7 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
     final focused = focus.hasFocus;
     final g = RaftInputGroupRecipe.resolve(
       theme: t.recipeTheme,
-      variant: RaftInputGroupRecipeVariant.container,
+      variant: widget.variant,
       states: t.recipeStates(
         hovered: hovered,
         extra: [
@@ -615,14 +623,23 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ExcludeSemantics(
-                  child: RaftRecipeBox(
-                    style: g.text,
+                if (widget.leading != null)
+                  RaftRecipeBox(
+                    style: g.addon,
                     tokens: rt,
+                    padding: EdgeInsets.zero,
                     alignment: Alignment.center,
-                    child: Text(widget.prefix),
+                    child: widget.leading!,
+                  )
+                else
+                  ExcludeSemantics(
+                    child: RaftRecipeBox(
+                      style: g.text,
+                      tokens: rt,
+                      alignment: Alignment.center,
+                      child: Text(widget.prefix),
+                    ),
                   ),
-                ),
                 Expanded(
                   child: Padding(
                     padding: g.control.padding,
@@ -635,6 +652,15 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
                       onChanged: widget.onChanged,
                       onSubmitted: widget.onSubmitted,
                       inputFormatters: widget.inputFormatters,
+                      maxLength: widget.maxLength,
+                      buildCounter: widget.maxLength == null
+                          ? null
+                          : (
+                              _, {
+                              required currentLength,
+                              required isFocused,
+                              maxLength,
+                            }) => null,
                       style: control,
                       strutStyle: StrutStyle.fromTextStyle(
                         control,

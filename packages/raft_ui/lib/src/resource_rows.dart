@@ -335,6 +335,9 @@ abstract final class RaftResourceMetrics {
   /// MessageSearchPage results wrapper `<div class="p-4">`.
   static const EdgeInsets searchResultsInset = EdgeInsets.all(16);
 
+  /// Activity section's retained conversation-list viewport.
+  static const EdgeInsets activityListInset = EdgeInsets.all(16);
+
   /// MessageSearchPage summary wrapper `<div class="mb-3 px-1">`.
   static const EdgeInsets searchSummaryInset = EdgeInsets.symmetric(
     horizontal: 4,

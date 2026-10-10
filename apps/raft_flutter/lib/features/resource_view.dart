@@ -2074,15 +2074,23 @@ class _ResourceViewState extends State<ResourceView> {
     if (snapshotted) observeListUpdates();
     // ThreadsInbox mounts ActivityInboxPanel with `theme-brutal:!border-l`.
     final activityEdge = widget.section == 'activity';
+    // Owner decision 2026-10-11 (overrides the Web measurement): the mobile
+    // Activity page draws no vertical border at x = 0; the desktop panel keeps
+    // its line beside the rail.
+    final activityBorder =
+        MediaQuery.sizeOf(context).width >=
+        RaftAdaptiveWorkspace.desktopMinWidth;
     final body = Container(
       decoration: activityEdge
           ? BoxDecoration(
               color: t.brutal ? t.panel : t.sidebar,
-              border: Border(
-                left: BorderSide(
-                  color: t.brutal ? t.colors['color-black']! : t.line,
-                ),
-              ),
+              border: activityBorder
+                  ? Border(
+                      left: BorderSide(
+                        color: t.brutal ? t.colors['color-black']! : t.line,
+                      ),
+                    )
+                  : null,
             )
           : null,
       child: widget.section == 'tasks'
@@ -2210,62 +2218,68 @@ class _ResourceViewState extends State<ResourceView> {
                     ),
                   ),
                 if (widget.section == 'tasks')
-                  IconButton(
-                    tooltip: raftText(
+                  RaftTooltip(
+                    message: raftText(
                       context,
                       taskLayout == 'board'
                           ? 'Show task list'
                           : 'Show task board',
                     ),
-                    icon: RaftIcon(
-                      taskLayout == 'board'
-                          ? RaftGlyph.layoutList
-                          : RaftGlyph.columns3,
-                      size: 12,
+                    child: IconButton(
+                      icon: RaftIcon(
+                        taskLayout == 'board'
+                            ? RaftGlyph.layoutList
+                            : RaftGlyph.columns3,
+                        size: 12,
+                      ),
+                      onPressed: () {
+                        taskLayout = taskLayout == 'board' ? 'list' : 'board';
+                        load();
+                      },
                     ),
-                    onPressed: () {
-                      taskLayout = taskLayout == 'board' ? 'list' : 'board';
-                      load();
-                    },
                   ),
                 if (widget.section == 'tasks')
-                  IconButton(
-                    tooltip: raftText(context, 'Create task'),
-                    onPressed: w.server?.string('role') == 'guest'
-                        ? null
-                        : () => createTask(sourceScope: scope),
-                    icon: const RaftIcon(RaftGlyph.plus, size: 12),
+                  RaftTooltip(
+                    message: raftText(context, 'Create task'),
+                    child: IconButton(
+                      onPressed: w.server?.string('role') == 'guest'
+                          ? null
+                          : () => createTask(sourceScope: scope),
+                      icon: const RaftIcon(RaftGlyph.plus, size: 12),
+                    ),
                   ),
                 if (widget.section == 'activity')
-                  PopupMenuButton<String>(
-                    tooltip: raftText(context, 'Activity actions'),
-                    onSelected: (action) {
-                      if (!accepts(scope)) return;
-                      if (action == 'read-all') {
-                        command(
-                          'POST',
-                          '/channels/inbox/read-all',
-                          sourceScope: scope,
-                        );
-                      } else {
-                        filter = action;
-                        load();
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'read-all',
-                        child: Text(raftText(context, 'Mark all read')),
-                      ),
-                      PopupMenuItem(
-                        value: 'done',
-                        child: Text(raftText(context, 'Done conversations')),
-                      ),
-                      PopupMenuItem(
-                        value: 'unfollowed',
-                        child: Text(raftText(context, 'Unfollowed threads')),
-                      ),
-                    ],
+                  RaftTooltip(
+                    message: raftText(context, 'Activity actions'),
+                    child: PopupMenuButton<String>(
+                      onSelected: (action) {
+                        if (!accepts(scope)) return;
+                        if (action == 'read-all') {
+                          command(
+                            'POST',
+                            '/channels/inbox/read-all',
+                            sourceScope: scope,
+                          );
+                        } else {
+                          filter = action;
+                          load();
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'read-all',
+                          child: Text(raftText(context, 'Mark all read')),
+                        ),
+                        PopupMenuItem(
+                          value: 'done',
+                          child: Text(raftText(context, 'Done conversations')),
+                        ),
+                        PopupMenuItem(
+                          value: 'unfollowed',
+                          child: Text(raftText(context, 'Unfollowed threads')),
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -2416,7 +2430,7 @@ class _ResourceViewState extends State<ResourceView> {
     return ListView.separated(
       key: PageStorageKey(('resource-list', 'activity', value)),
       primary: false,
-      padding: const EdgeInsets.all(16),
+      padding: RaftResourceMetrics.activityListInset,
       controller: activityScrolls[value],
       itemCount: window.rows.length,
       separatorBuilder: (_, _) =>
@@ -3152,24 +3166,26 @@ class _ResourceViewState extends State<ResourceView> {
             ),
           ),
           if (extraFilters)
-            PopupMenuButton<String>(
-              tooltip: raftText(context, 'Activity actions'),
-              onSelected: (value) {
-                if (accepts(scope)) {
-                  filter = value;
-                  load();
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'done',
-                  child: Text(raftText(context, 'Done conversations')),
-                ),
-                PopupMenuItem(
-                  value: 'unfollowed',
-                  child: Text(raftText(context, 'Unfollowed threads')),
-                ),
-              ],
+            RaftTooltip(
+              message: raftText(context, 'Activity actions'),
+              child: PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (accepts(scope)) {
+                    filter = value;
+                    load();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'done',
+                    child: Text(raftText(context, 'Done conversations')),
+                  ),
+                  PopupMenuItem(
+                    value: 'unfollowed',
+                    child: Text(raftText(context, 'Unfollowed threads')),
+                  ),
+                ],
+              ),
             ),
         ],
       ),
@@ -3926,35 +3942,37 @@ class _ResourceViewState extends State<ResourceView> {
     bool labelIsContent = false,
   }) {
     final scope = authority;
-    return PopupMenuButton<String>(
-      tooltip: raftText(context, title),
-      onSelected: (value) {
-        if (accepts(scope)) changed(value);
-      },
-      itemBuilder: (_) => [
-        for (final option in options.entries)
-          PopupMenuItem(
-            value: option.key,
-            child: privateMenuLabel(scope, raftText(context, option.value)),
-          ),
-      ],
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 220, minHeight: 48),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  labelIsContent ? label : raftText(context, label),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    return RaftTooltip(
+      message: raftText(context, title),
+      child: PopupMenuButton<String>(
+        onSelected: (value) {
+          if (accepts(scope)) changed(value);
+        },
+        itemBuilder: (_) => [
+          for (final option in options.entries)
+            PopupMenuItem(
+              value: option.key,
+              child: privateMenuLabel(scope, raftText(context, option.value)),
+            ),
+        ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220, minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    labelIsContent ? label : raftText(context, label),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              const RaftIcon(RaftGlyph.chevronDown, size: 18),
-            ],
+                const SizedBox(width: 4),
+                const RaftIcon(RaftGlyph.chevronDown, size: 18),
+              ],
+            ),
           ),
         ),
       ),

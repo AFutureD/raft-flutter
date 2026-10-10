@@ -126,7 +126,9 @@ class _RaftHoverCardState extends State<RaftHoverCard>
   );
   bool listeningKeys = false;
   Timer? openTimer, closeTimer;
-  ScrollPosition? scroll;
+  late final RaftScrollWatch watch = RaftScrollWatch(_scrolled);
+  bool listeningSignal = false;
+  Offset? pointer;
   bool triggerHovered = false, cardHovered = false, focused = false;
   bool pinned = false, closing = false, blocked = false, awaitingMove = false;
   bool tracking = false;
@@ -145,12 +147,7 @@ class _RaftHoverCardState extends State<RaftHoverCard>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final next = Scrollable.maybeOf(context)?.position;
-    if (next != scroll) {
-      scroll?.removeListener(_scrolled);
-      scroll = next;
-      scroll?.addListener(_scrolled);
-    }
+    watch.sync(context);
   }
 
   @override
@@ -168,7 +165,8 @@ class _RaftHoverCardState extends State<RaftHoverCard>
     epoch++;
     openTimer?.cancel();
     closeTimer?.cancel();
-    scroll?.removeListener(_scrolled);
+    watch.dispose();
+    if (listeningSignal) RaftPointerIntent.unlistenScroll(_wheel);
     if (listeningKeys) HardwareKeyboard.instance.removeHandler(_key);
     if (widget.controller?._state == this) widget.controller?._state = null;
     _motion?.dispose();
@@ -181,26 +179,59 @@ class _RaftHoverCardState extends State<RaftHoverCard>
   void _enter(PointerEnterEvent event) {
     if (!allowed || !_pointer(event.kind)) return;
     triggerHovered = true;
+    pointer = event.position;
+    watch.sync(context);
+    _syncSignal();
     closeTimer?.cancel();
     if (portal.isShowing || blocked) return;
     awaitingMove = !RaftPointerIntent.movedSinceScroll;
     if (!awaitingMove) _scheduleOpen();
   }
 
+  /// Holds the wheel/trackpad subscription only while hovered or open.
+  void _syncSignal() {
+    final want = triggerHovered || portal.isShowing;
+    if (want == listeningSignal) return;
+    listeningSignal = want;
+    if (want) {
+      RaftPointerIntent.listenScroll(_wheel);
+    } else {
+      RaftPointerIntent.unlistenScroll(_wheel);
+    }
+  }
+
+  /// A wheel or trackpad scroll signal closes an unpinned card at once; the
+  /// next open waits for the pointer to move and rest again.
+  void _wheel() {
+    if (openTimer?.isActive == true) {
+      openTimer!.cancel();
+      epoch++;
+    }
+    awaitingMove = triggerHovered;
+    if (portal.isShowing && !pinned) _hide(immediate: true);
+  }
+
   void _hover(PointerHoverEvent event) {
+    final previous = pointer;
+    pointer = event.position;
     if (!allowed || !triggerHovered || blocked || portal.isShowing) return;
     if (awaitingMove) {
       if (event.delta == Offset.zero) return;
       awaitingMove = false;
       _scheduleOpen();
+      return;
     }
+    // Opening needs a resting pointer: any movement restarts the delay.
+    if (previous != event.position) _scheduleOpen();
   }
 
   void _exit(PointerExitEvent event) {
     triggerHovered = false;
     blocked = false;
     awaitingMove = false;
+    pointer = null;
     openTimer?.cancel();
+    _syncSignal();
     _scheduleClose();
   }
 
@@ -274,6 +305,7 @@ class _RaftHoverCardState extends State<RaftHoverCard>
       HardwareKeyboard.instance.addHandler(_key);
     }
     portal.show();
+    _syncSignal();
     if (reduced) {
       motion.value = 1;
     } else {
@@ -294,6 +326,7 @@ class _RaftHoverCardState extends State<RaftHoverCard>
     if (!portal.isShowing) return;
     void done() {
       portal.hide();
+      _syncSignal();
       if (listeningKeys) {
         listeningKeys = false;
         HardwareKeyboard.instance.removeHandler(_key);

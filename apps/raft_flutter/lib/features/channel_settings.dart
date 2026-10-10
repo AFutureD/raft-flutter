@@ -7,6 +7,10 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/resource_snapshot_cache.dart' show stableValue;
 import '../data/workspace_controller.dart';
 import 'channel_conversion_section.dart';
+import 'channel_form_fields.dart';
+import 'channel_members.dart';
+import 'composer_directory.dart' show cachedChannelRoster;
+import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 import 'management_support.dart'
     show
         cachedServerFlag,
@@ -26,9 +30,33 @@ class ChannelSettings extends StatefulWidget {
     this.page = false,
     this.onClose,
     this.onMembers,
+    this.dmName,
   });
   final WorkspaceController controller;
   final RaftChannel channel;
+
+  /// A DM's sheet title: the peer's plain name (ChatPanel `displayName`).
+  final String? dmName;
+
+  /// The settings drawer as the product shows it: Web mounts only
+  /// `ChannelOverflowMenu` (OverflowSheet + EditChannelDialog
+  /// `presentation="panel"`). `isPanel: false` is the legacy sheet
+  /// presentation, kept for the official parity case.
+  static Future<void> show(
+    BuildContext context, {
+    required WorkspaceController controller,
+    required RaftChannel channel,
+    String? dmName,
+  }) => showRaftOverflowSheet<void>(
+    context,
+    // Dismissal goes through the unsaved-draft guard inside the drawer.
+    builder: (_) => ChannelSettings(
+      controller: controller,
+      channel: channel,
+      isPanel: true,
+      dmName: dmName,
+    ),
+  );
 
   /// Web `onLeaveChannel` / `collapseLongMessages` props: hosts that do not
   /// offer Leave or the collapse preference in this sheet pass false.
@@ -85,6 +113,17 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       sidebar = w.sidebarOrder;
       known.add('sidebar');
     }
+    // The channel roster the composer read on opening shows at the first
+    // frame (Source ChatPanel prefetches it); the load below revalidates it.
+    final roster = drawer
+        ? cachedChannelRoster(w, widget.channel.id)
+        : null;
+    if (roster != null) {
+      members = rosterRows(roster.humans, roster.agents);
+      known.add('members');
+    }
+    name.addListener(draftChanged);
+    description.addListener(draftChanged);
     final guest = cachedServerFlag(w, guestFlag);
     flagsKnown =
         guest != null && cachedServerFlag(w, channelConversionFlag) != null;
@@ -117,15 +156,30 @@ class _ChannelSettingsState extends State<ChannelSettings> {
 
   @override
   void dispose() {
+    name.removeListener(draftChanged);
+    description.removeListener(draftChanged);
     name.dispose();
     description.dispose();
     events?.cancel();
     refresh?.cancel();
+    savedTimer?.cancel();
     super.dispose();
   }
 
   final _tickets = <String, int>{};
   int _ticket = 0;
+
+  static List<Map<String, dynamic>> rosterRows(
+    List<Map<String, dynamic>> humans,
+    List<Map<String, dynamic>> agents,
+  ) => [
+    for (final row in humans) {...row, 'actorType': 'user'},
+    for (final row in agents) {...row, 'actorType': 'agent'},
+  ];
+
+  void draftChanged() {
+    if (mounted) setState(() {});
+  }
 
   /// Fetch [parts] (all by default) and replace them in place. Older
   /// responses for a part never overwrite a newer one; failures keep the
@@ -138,7 +192,9 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     final id = widget.channel.id;
     final wanted = [
       for (final part in parts)
-        if (part != 'notification' || channel.flag('activityMuteSupported'))
+        if ((part != 'notification' || channel.flag('activityMuteSupported')) &&
+            // A 1:1 DM sheet has no members section (ChatPanel #1281).
+            !(part == 'members' && drawer && channel.type == 'dm'))
           part,
     ];
     final tickets = {
@@ -151,21 +207,44 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       _ => w.query('/channels/$id/notification-settings'),
     };
     try {
-      final values = await Future.wait(wanted.map(fetch));
+      // Each part settles on its own: one failed read never holds the others
+      // back (a failed roster shows the accepted or empty roster, as
+      // useChannelMembers does; a failed preference keeps its accepted value).
+      Object? failure;
+      final failed = <String>{};
+      final values = await Future.wait([
+        for (final part in wanted)
+          Future<dynamic>.sync(() => fetch(part)).catchError((Object e) {
+            failure ??= e;
+            failed.add(part);
+            return null;
+          }),
+      ]);
       if (!mounted || generation != w.client.generation) return;
       T stable<T>(T old, T next) => stableValue(old, next) as T;
       setState(() {
         for (var i = 0; i < wanted.length; i++) {
           final part = wanted[i], value = values[i];
           if (_tickets[part] != tickets[part]) continue;
+          if (failed.contains(part)) {
+            if (part == 'members') known.add(part);
+            continue;
+          }
           switch (part) {
             case 'members':
-              members = stable(members, [
-                for (final row in value['humans'] as List)
-                  {...Map<String, dynamic>.from(row), 'actorType': 'user'},
-                for (final row in value['agents'] as List)
-                  {...Map<String, dynamic>.from(row), 'actorType': 'agent'},
-              ]);
+              members = stable(
+                members,
+                rosterRows(
+                  [
+                    for (final row in value['humans'] as List)
+                      Map<String, dynamic>.from(row),
+                  ],
+                  [
+                    for (final row in value['agents'] as List)
+                      Map<String, dynamic>.from(row),
+                  ],
+                ),
+              );
             case 'sidebar':
               sidebar = stable(sidebar, Map<String, dynamic>.from(value));
             case 'display':
@@ -178,7 +257,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
           }
           known.add(part);
         }
-        error = null;
+        error = failure == null ? null : '$failure';
       });
       // The member roster is not shown here and is never cached.
       writePageSnapshot(w, snapshotKey, identity, {
@@ -368,8 +447,15 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     if (mounted && identity == pageIdentity(w)) setState(() {});
   }
 
+  /// The OverflowSheet drawer; the mobile page keeps the legacy sheet layout
+  /// (it only borrows `isPanel` for the panel-only preferences).
+  bool get drawer => widget.isPanel && !widget.page;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      drawer ? panel(context) : sheet(context);
+
+  Widget sheet(BuildContext context) {
     final c = channel;
     final generation = w.client.generation, serverId = w.server?.id;
     final dm = c.type == 'dm';
@@ -513,7 +599,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                   display.containsKey('collapseLongMessages')))
             RaftSheetSwitchRow(
               title: 'Collapse long messages',
-              description: 'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
+              description:
+                  'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
               value: display['collapseLongMessages'] != false,
               pending: !known.contains('display'),
               onChanged: (v) => run(() async {
@@ -598,6 +685,759 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       ],
       onSave: canEdit && !dm && !widget.page ? save : null,
       saveDisabled: archived,
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // The drawer panel (Web ChannelOverflowMenu + EditChannelDialog panel).
+  // ---------------------------------------------------------------------
+
+  static final _nameRegex = RegExp(r'^\p{L}[\p{L}\p{N}_-]*$', unicode: true);
+
+  /// `validateNameReason` + `formatNameValidationError` for the channel name.
+  String? nameError(BuildContext context, String value) {
+    final label = raftText(context, 'Channel name');
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return raftFormat(context, '{label} is required', {'label': label});
+    }
+    if (trimmed.runes.length > 32) {
+      return raftFormat(context, '{label} must be at most {max} characters', {
+        'label': label,
+        'max': 32,
+      });
+    }
+    if (!_nameRegex.hasMatch(trimmed)) {
+      return raftText(
+        context,
+        'Start with a letter, then letters, numbers, - or _',
+      );
+    }
+    return null;
+  }
+
+  bool saving = false, visibilityBusy = false, guestBusy = false;
+  bool archiveBusy = false, unsavedBusy = false;
+  String? savedLabel;
+  Timer? savedTimer;
+
+  bool get nameDescDirty =>
+      name.text != channel.name || description.text != channel.description;
+
+  /// Mirrors `isDirty`: the host drawer guards every dismissal while true.
+  bool get dirty => nameDescDirty;
+
+  void resetDraft() {
+    name.text = channel.name;
+    description.text = channel.description;
+    clearSaved();
+    setState(() => error = null);
+  }
+
+  void clearSaved() {
+    savedTimer?.cancel();
+    savedTimer = null;
+    if (savedLabel != null) savedLabel = null;
+  }
+
+  /// EditChannelDialog `saveChanges`: validates, PATCHes only the changed
+  /// fields and reports `true` when the draft is clean afterwards. Never
+  /// closes; callers decide what happens next.
+  Future<bool> saveChanges() async {
+    final c = channel;
+    final canEdit =
+        cap('editChannelMetadata') ||
+        cap('changeChannelVisibility') ||
+        cap('archiveChannels') ||
+        cap('deleteChannels') ||
+        cap('federateChannels');
+    setState(() => error = null);
+    clearSaved();
+    if (!canEdit) return true;
+    final all = c.name == 'all';
+    if (!all) {
+      final invalid = nameError(context, name.text);
+      if (invalid != null) {
+        setState(() => error = invalid);
+        return false;
+      }
+    }
+    setState(() => saving = true);
+    try {
+      final updates = <String, dynamic>{
+        if (!all && name.text.trim() != c.name) 'name': name.text.trim(),
+        if (description.text.trim() != c.description)
+          'description': description.text.trim(),
+      };
+      if (updates.isNotEmpty) {
+        await w.command('PATCH', '/channels/${c.id}', data: updates);
+        await w.refreshChannels();
+      }
+      if (!mounted) return true;
+      name.text = channel.name;
+      description.text = channel.description;
+      setState(() => savedLabel = raftText(context, 'Changes saved'));
+      savedTimer = Timer(const Duration(milliseconds: 1500), () {
+        savedTimer = null;
+        if (mounted) setState(() => savedLabel = null);
+      });
+      return true;
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => error = e is RaftApiException && e.message.isNotEmpty
+              ? e.message
+              : raftText(context, 'Failed to update channel'),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  /// Enter in the name field submits the form: save, then close the drawer.
+  Future<void> saveAndClose() async {
+    if (await saveChanges() && mounted) closeSheet();
+  }
+
+  /// Pops the drawer route itself: every caller has already decided to close
+  /// (a clean draft, a discard, a finished action), so PopScope must not ask.
+  void closeSheet() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+  }
+
+  /// OverflowSheet `closeGuardRef`: with an unsaved name / description draft
+  /// every dismissal (back, outside press, Escape) asks first.
+  Future<void> guardedClose() async {
+    if (!dirty) return closeSheet();
+    var busy = false;
+    await showRaftModal<void>(
+      context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) => RaftUnsavedChangesPrompt(
+          message:
+              'The channel name or description has unsaved edits. Save them before closing?',
+          busy: busy,
+          onKeepEditing: () => Navigator.of(dialogContext).pop(),
+          onDiscard: () {
+            Navigator.of(dialogContext).pop();
+            closeSheet();
+          },
+          onSaveAndClose: () async {
+            setDialog(() => busy = true);
+            final saved = await saveChanges();
+            if (!dialogContext.mounted) return;
+            setDialog(() => busy = false);
+            if (!saved) return;
+            Navigator.of(dialogContext).pop();
+            closeSheet();
+          },
+        ),
+      ),
+    );
+  }
+
+  /// ConfirmDialog: the dialog owns the in-flight state and shows a thrown
+  /// error under the copy; [action] returns normally to close it.
+  Future<bool> confirmAction({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required String loadingLabel,
+    required Future<void> Function() action,
+    RaftButtonRecipeVariant variant = RaftButtonRecipeVariant.warning,
+    Key? confirmKey,
+  }) async =>
+      await RaftConfirmDialog.show(
+        context,
+        RaftConfirmDialog(
+          title: title,
+          message: message,
+          confirmLabel: confirmLabel,
+          loadingLabel: loadingLabel,
+          confirmVariant: variant,
+          confirmKey: confirmKey,
+          surfaceKey: const ValueKey('channel-settings-confirm-dialog'),
+          onConfirm: action,
+        ),
+      ) ==
+      true;
+
+  RaftChannel? get fallbackChannel => [
+    ...w.channels.where((c) => c.id != channel.id && c.name == 'all'),
+    ...w.channels.where((c) => c.id != channel.id),
+  ].firstOrNull;
+
+  Future<void> failWith(Object e, String fallback) async {
+    if (!mounted) return;
+    setState(
+      () => error = e is RaftApiException && e.message.isNotEmpty
+          ? e.message
+          : raftText(context, fallback),
+    );
+  }
+
+  Future<void> archive() async {
+    final c = channel;
+    var failed = false;
+    final ok = await confirmAction(
+      title: 'Archive Channel',
+      message: raftFormat(
+        context,
+        'Members keep read access to "{name}" and its history, but posting will stop and the channel will be hidden from sidebars. You can unarchive it later.',
+        {'name': c.name},
+      ),
+      confirmLabel: 'Archive',
+      loadingLabel: 'Archiving…',
+      action: () async {
+        try {
+          await w.command('POST', '/channels/${c.id}/archive');
+          await w.refreshChannels();
+        } catch (e) {
+          // The drawer, not the dialog, reports an archive failure.
+          failed = true;
+          await failWith(e, 'Failed to archive channel');
+        }
+      },
+    );
+    if (ok && !failed && mounted) closeSheet();
+  }
+
+  Future<void> unarchive() async {
+    if (archiveBusy) return;
+    setState(() {
+      archiveBusy = true;
+      error = null;
+    });
+    try {
+      await w.command('POST', '/channels/${channel.id}/unarchive');
+      await w.refreshChannels();
+      await load();
+    } catch (e) {
+      await failWith(e, 'Failed to unarchive channel');
+    } finally {
+      if (mounted) setState(() => archiveBusy = false);
+    }
+  }
+
+  Future<void> changeVisibility() async {
+    final c = channel;
+    final all = c.name == 'all';
+    final toPublic = c.type == 'private';
+    var failed = false;
+    final label = all
+        ? (toPublic ? 'Restore #all' : 'Hide #all')
+        : (toPublic ? 'Make Channel Public' : 'Make Channel Private');
+    final ok = await confirmAction(
+      title: label,
+      message: all
+          ? (toPublic
+                ? '#all will reappear as the server-wide channel for server members and active agents.'
+                : '#all will disappear from channel lists, and server members and agents will no longer be able to read or post there — including you. Existing history is preserved. To bring it back, go to Settings → Server → System Channels and turn off "Hide #all channel".')
+          : raftFormat(
+              context,
+              toPublic
+                  ? 'All server members will regain read access to "{name}". Existing joined humans and agents keep their joined state.'
+                  : 'Existing joined humans and agents keep access to "{name}". Non-joined server members and historical thread followers will lose access to the channel and its threads.',
+              {'name': c.name},
+            ),
+      confirmLabel: all
+          ? (toPublic ? 'Restore #all' : 'Hide #all')
+          : (toPublic ? 'Public' : 'Private'),
+      loadingLabel: 'Updating…',
+      action: () async {
+        setState(() {
+          visibilityBusy = true;
+          error = null;
+        });
+        try {
+          // #all travels through its dedicated, id-free endpoints.
+          if (all) {
+            await w.command(
+              'POST',
+              '/channels/system/all/${toPublic ? 'restore' : 'hide'}',
+            );
+          } else {
+            await w.command(
+              'PATCH',
+              '/channels/${c.id}',
+              data: {'visibility': toPublic ? 'public' : 'private'},
+            );
+          }
+          await w.refreshChannels();
+        } catch (e) {
+          failed = true;
+          await failWith(e, 'Failed to update channel visibility');
+        } finally {
+          if (mounted) setState(() => visibilityBusy = false);
+        }
+      },
+    );
+    if (!ok || failed || !mounted) return;
+    closeSheet();
+    if (all && !toPublic) {
+      final next = fallbackChannel;
+      if (next != null) unawaited(w.selectChannel(next));
+    }
+  }
+
+  Future<void> leave() async {
+    final c = channel;
+    final ok = await confirmAction(
+      title: 'Leave Channel',
+      message: raftFormat(
+        context,
+        'You will stop receiving ordinary delivery from #{name} and cannot send messages until you rejoin. Existing followed threads are not automatically unfollowed; followed public threads can still notify you until you unfollow or manage those threads. Private content remains gated by current access.',
+        {'name': c.name},
+      ),
+      confirmLabel: 'Leave',
+      loadingLabel: 'Leaving…',
+      confirmKey: const ValueKey('channel-overflow-leave-confirm'),
+      action: () async {
+        await w.command('POST', '/channels/${c.id}/leave');
+        await w.refreshChannels();
+      },
+    );
+    if (ok && mounted) closeSheet();
+  }
+
+  Future<void> deleteFromPanel() async {
+    final c = channel;
+    final ok = await confirmAction(
+      title: 'Delete Channel',
+      message: raftFormat(
+        context,
+        '"{name}" and all of its messages will be permanently deleted. This cannot be undone.',
+        {'name': c.name},
+      ),
+      confirmLabel: 'Delete',
+      loadingLabel: 'Deleting…',
+      variant: RaftButtonRecipeVariant.danger,
+      action: () async {
+        await w.command('DELETE', '/channels/${c.id}');
+        await w.refreshChannels();
+      },
+    );
+    if (!ok || !mounted) return;
+    closeSheet();
+    final next = fallbackChannel;
+    if (next != null) unawaited(w.selectChannel(next));
+  }
+
+  Future<void> updateGuestPolicy(Map<String, dynamic> updates) async {
+    if (guestBusy) return;
+    setState(() {
+      guestBusy = true;
+      error = null;
+    });
+    try {
+      await w.command('PATCH', '/channels/${channel.id}', data: updates);
+      await w.refreshChannels();
+    } catch (e) {
+      await failWith(e, 'Failed to update Guest access');
+    } finally {
+      if (mounted) setState(() => guestBusy = false);
+    }
+  }
+
+  Future<void> openMembers({bool add = false}) async {
+    await ChannelMembers.show(
+      context,
+      controller: w,
+      channel: channel,
+      startInAdd: add,
+    );
+    if (mounted) unawaited(load({'members'}));
+  }
+
+  String membersSummary(BuildContext context, int humans, int agents) {
+    if (Localizations.localeOf(context).languageCode == 'zh') {
+      return raftFormat(context, '{humans} humans · {agents} agents', {
+        'humans': humans,
+        'agents': agents,
+      });
+    }
+    return '$humans ${humans == 1 ? 'human' : 'humans'} · '
+        '$agents ${agents == 1 ? 'agent' : 'agents'}';
+  }
+
+  Widget membersStrip(BuildContext context, RaftChannel c) {
+    final origin = w.client.origin;
+    RaftStripMember tile(Map<String, dynamic> m) {
+      final agent = m['actorType'] == 'agent';
+      final candidate = ChannelMemberCandidate(
+        kind: agent ? 'agent' : 'human',
+        id: '${agent ? m['id'] : (m['userId'] ?? m['id'])}',
+        name: '${m['name'] ?? ''}',
+        displayName: m['displayName'] as String?,
+        avatarUrl: m['avatarUrl'] as String?,
+      );
+      return RaftStripMember(
+        label: candidate.label,
+        avatar: ChannelCandidateAvatar(
+          candidate: candidate,
+          avatarContext: RaftMountedAvatarContext.panelHeader,
+          origin: origin,
+          presence: agent ? channelMemberPresence(m) : null,
+        ),
+      );
+    }
+
+    final humans = members.where((m) => m['actorType'] != 'agent').toList();
+    final agents = members.where((m) => m['actorType'] == 'agent').toList();
+    final canAdd = cap('addChannelMembers') && !c.archived;
+    final loadingMembers = !known.contains('members');
+    return RaftMembersStrip(
+      heading: 'Members',
+      summary: loadingMembers
+          ? raftText(context, 'Loading members…')
+          : membersSummary(context, humans.length, agents.length),
+      loading: loadingMembers,
+      members: [
+        for (final m in humans) tile(m),
+        for (final m in agents) tile(m),
+      ],
+      onOpen: openMembers,
+      onAdd: canAdd ? () => openMembers(add: true) : null,
+    );
+  }
+
+  Widget panel(BuildContext context) {
+    final c = channel;
+    final t = RaftTokens.of(context);
+    final dm = c.type == 'dm';
+    final all = c.name == 'all';
+    final archived = c.archived;
+    final canEdit =
+        cap('editChannelMetadata') ||
+        cap('changeChannelVisibility') ||
+        cap('archiveChannels') ||
+        cap('deleteChannels') ||
+        cap('federateChannels');
+    // ChatPanel `canManageChannels`: every management capability, including
+    // the member ones the edit form itself does not need.
+    final canManage =
+        canEdit ||
+        cap('addChannelMembers') ||
+        cap('removeChannelMembers') ||
+        cap('changeChannelMemberRoles');
+    // ChatPanel `settings`: joined && (canManageChannels || canLeaveChannel).
+    final settingsPresent = !dm && c.joined && (canManage || !all);
+    final showManage = canEdit && !archived;
+    final showLeave = settingsPresent && widget.leave && !all && !archived;
+    final showVisibility =
+        showManage && cap('changeChannelVisibility') && c.type != 'joint';
+    final archiveRow = !all && cap('archiveChannels');
+    final deleteRow = !all && cap('deleteChannels') && showManage;
+    final showStopAgents =
+        settingsPresent && !archived && w.can('controlAgentRuntime');
+    final private = c.type == 'private';
+    final pinned = (sidebar['pinned'] as List? ?? []).any(
+      (p) => p is Map && p['kind'] == 'channel' && p['id'] == c.id,
+    );
+    final guestSection =
+        guestFeature &&
+        cap('manageGuestAccess') &&
+        !archived &&
+        (c.type == 'channel' || c.type == 'private') &&
+        // A private channel has no guest policy; #all keeps its switch.
+        !(private && !all);
+    final generation = w.client.generation, serverId = w.server?.id;
+
+    final preferences = RaftSheetSection('Preferences', [
+      RaftSheetSwitchRow(
+        key: const ValueKey('channel-settings-pin-switch'),
+        title: 'Pin channel',
+        description: 'Keep this channel pinned to the top of your sidebar.',
+        value: pinned,
+        pending: !known.contains('sidebar'),
+        onChanged: pin,
+      ),
+      if (!dm &&
+          c.joined &&
+          c.flag('activityMuteSupported') &&
+          (!known.contains('notification') ||
+              notification['activityMuted'] is bool))
+        RaftSheetSwitchRow(
+          key: const ValueKey('channel-overflow-mute-switch'),
+          title: 'Mute activity',
+          description:
+              'Mute ordinary activity from this channel. Only affects you.',
+          value: notification['activityMuted'] == true,
+          pending: !known.contains('notification'),
+          onChanged: (value) => run(() async {
+            final fresh = [
+              ...w.channels,
+              ...w.dms,
+            ].where((next) => next.id == c.id).firstOrNull;
+            if (w.client.generation != generation ||
+                w.server?.id != serverId ||
+                fresh == null ||
+                !fresh.joined ||
+                !fresh.flag('activityMuteSupported') ||
+                !w.can('viewChannel', resource: fresh)) {
+              throw StateError(
+                'Channel activity preference is no longer available.',
+              );
+            }
+            await w.command(
+              'PATCH',
+              '/channels/${c.id}/notification-settings',
+              data: {'activityMuted': value},
+            );
+          }),
+        ),
+      if (widget.collapseLongMessages &&
+          (!known.contains('display') ||
+              display.containsKey('collapseLongMessages')))
+        RaftSheetSwitchRow(
+          key: const ValueKey('channel-settings-collapse-switch'),
+          title: 'Collapse long messages',
+          description:
+              'Fold messages taller than the preview height behind a Show more toggle. Turn off to always show full messages in this channel.',
+          value: display['collapseLongMessages'] != false,
+          pending: !known.contains('display'),
+          onChanged: (v) => run(() async {
+            await w.command(
+              'PATCH',
+              '/channels/${c.id}/message-display-settings',
+              data: {'collapseLongMessages': v},
+            );
+          }),
+        ),
+    ]);
+
+    final actions = [
+      if (showManage && showVisibility)
+        RaftOverflowAction(
+          id: 'channel-settings-visibility-action',
+          label: visibilityBusy
+              ? 'Updating…'
+              : all
+              ? (private ? 'Restore #all' : 'Hide #all')
+              : (private ? 'Make Public' : 'Make Private'),
+          glyph: all
+              ? (private ? RaftGlyph.eye : RaftGlyph.eyeOff)
+              : (private ? RaftGlyph.hash : RaftGlyph.lock),
+          disabled: archived || visibilityBusy,
+          onPressed: changeVisibility,
+        ),
+      if ((showManage || archived) && archiveRow)
+        if (archived)
+          RaftOverflowAction(
+            id: 'channel-settings-archive-action',
+            label: archiveBusy ? 'Unarchiving…' : 'Unarchive Channel',
+            glyph: RaftGlyph.archiveRestore,
+            disabled: archiveBusy,
+            onPressed: unarchive,
+          )
+        else
+          RaftOverflowAction(
+            id: 'channel-settings-archive-action',
+            label: 'Archive Channel',
+            glyph: RaftGlyph.archive,
+            onPressed: archive,
+          ),
+      if (showLeave)
+        RaftOverflowAction(
+          id: 'channel-overflow-leave',
+          label: 'Leave Channel',
+          glyph: RaftGlyph.logOut,
+          onPressed: leave,
+        ),
+      if (showStopAgents)
+        RaftOverflowAction(
+          id: 'channel-overflow-stop-agents',
+          label: 'Stop Agents',
+          semanticLabel: 'Stop all agents in this channel',
+          glyph: RaftGlyph.circleStop,
+          onPressed: stopAgents,
+        ),
+      if (deleteRow)
+        RaftOverflowAction(
+          id: 'channel-settings-delete-action',
+          label: 'Delete Channel',
+          glyph: RaftGlyph.trash2,
+          danger: true,
+          onPressed: deleteFromPanel,
+        ),
+    ];
+
+    final hidesMembers =
+        all &&
+        w.server?.string('role') == 'member' &&
+        w.server?.flag('hideHumansFromMembers') == true;
+    final stripShown = !dm && !hidesMembers;
+    final info = canEdit && !dm;
+
+    final Widget body = dm
+        ? RaftOverflowDmBody(
+            child: raftSheetSection(
+              context,
+              t,
+              preferences,
+              busy: busy,
+              family: t.bodyFont,
+            ),
+          )
+        : settingsPresent
+        ? (!flagsKnown
+              ? const RaftOverflowLoading()
+              : RaftOverflowPanelBody(
+                  children: [
+                    if (info)
+                      ChannelConversionSection(
+                        key: ValueKey('conversion-${w.server?.id}-${c.id}'),
+                        controller: w,
+                        channelId: c.id,
+                      ),
+                    if (showManage && info)
+                      const RaftOverflowGroupHeading(
+                        key: ValueKey('channel-settings-manage-group'),
+                        title: 'Info',
+                        description:
+                            'Name and description shown across the workspace.',
+                      ),
+                    if (error != null) RaftOverflowFormError(error!),
+                    if (info)
+                      RaftChannelInfoForm(
+                        nameController: name,
+                        descriptionController: description,
+                        nameEnabled: !all && !archived,
+                        descriptionEnabled: !archived,
+                        nameHint: all
+                            ? 'The #all channel cannot be renamed'
+                            : null,
+                        onSubmitName: (_) => saveAndClose(),
+                        canCancel: nameDescDirty,
+                        canSave: nameDescDirty && !archived,
+                        saving: saving,
+                        savedLabel: savedLabel,
+                        onCancel: resetDraft,
+                        onSave: saveChanges,
+                      ),
+                    if (guestSection)
+                      raftSheetSection(
+                        context,
+                        t,
+                        RaftSheetSection(
+                          'Guest access',
+                          description:
+                              'Choose whether Guests can discover this channel and join it themselves.',
+                          [
+                            RaftSheetSwitchRow(
+                              key: const ValueKey(
+                                'channel-settings-guest-visible-switch',
+                              ),
+                              title: 'Visible to Guests',
+                              description:
+                                  'Guests can discover and read this channel without joining.',
+                              value: c.flag('guestVisible'),
+                              onChanged: (v) => updateGuestPolicy(
+                                v
+                                    ? {'guestVisible': true}
+                                    : {
+                                        'guestVisible': false,
+                                        'guestJoinable': false,
+                                      },
+                              ),
+                            ),
+                            if (!all)
+                              RaftSheetSwitchRow(
+                                key: const ValueKey(
+                                  'channel-settings-guest-joinable-switch',
+                                ),
+                                title: 'Guests can join',
+                                description:
+                                    'Guests can join to keep this channel in their sidebar and follow updates. Guest access remains read-only.',
+                                value: c.flag('guestJoinable'),
+                                onChanged: (v) => updateGuestPolicy(
+                                  v
+                                      ? {
+                                          'guestVisible': true,
+                                          'guestJoinable': true,
+                                        }
+                                      : {'guestJoinable': false},
+                                ),
+                              ),
+                          ],
+                        ),
+                        busy: busy || guestBusy,
+                        family: t.bodyFont,
+                      ),
+                    raftSheetSection(
+                      context,
+                      t,
+                      preferences,
+                      busy: busy,
+                      family: t.bodyFont,
+                    ),
+                    if (actions.isNotEmpty)
+                      RaftOverflowActions(
+                        title: 'Actions',
+                        actions: [
+                          for (final a in actions)
+                            RaftOverflowAction(
+                              id: a.id,
+                              label: raftText(context, a.label),
+                              glyph: a.glyph,
+                              danger: a.danger,
+                              disabled: a.disabled || busy,
+                              semanticLabel: a.semanticLabel == null
+                                  ? null
+                                  : raftText(context, a.semanticLabel!),
+                              onPressed: a.onPressed,
+                            ),
+                        ],
+                      ),
+                  ],
+                ))
+        : const SizedBox.shrink();
+
+    final sheet = RaftOverflowSheet(
+      title: dm ? (widget.dmName ?? c.name) : '#${c.name}',
+      badge: dm
+          ? 'Direct message'
+          : private
+          ? 'Private'
+          : c.type == 'joint'
+          ? 'Joint channel'
+          : 'Public',
+      badgeTone: dm
+          ? RaftBadgeRecipeVariant.muted
+          : RaftBadgeRecipeVariant.success,
+      subtitle: settingsPresent ? c.description : null,
+      onClose: guardedClose,
+      children: [
+        if (stripShown) membersStrip(context, c),
+        // Without the settings panel (a DM, a left channel) the failure of a
+        // preference write still has to be visible.
+        if (error != null && (dm || !settingsPresent || !flagsKnown))
+          RaftOverflowNotice(error!),
+        body,
+      ],
+    );
+    // The barrier is the area outside the drawer: a press there is a close
+    // attempt like any other (Escape / back go through PopScope).
+    return PopScope(
+      canPop: !dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) guardedClose();
+      },
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('channel-overflow-scrim'),
+              behavior: HitTestBehavior.opaque,
+              onTap: guardedClose,
+            ),
+          ),
+          sheet,
+        ],
+      ),
     );
   }
 

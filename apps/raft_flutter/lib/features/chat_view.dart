@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'message_timeline.dart';
 import 'row_extents.dart';
 
+import '../data/plan_history.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
@@ -26,6 +27,7 @@ import 'message_reference_directory.dart';
 import 'share_message_link.dart';
 import 'private_route_guard.dart';
 import 'message_selection.dart';
+import 'system_message_grouping.dart';
 import 'copy_selection_links.dart';
 import 'message_image_export.dart';
 import 'forward_messages_dialog.dart';
@@ -69,8 +71,12 @@ class RaftChatView extends StatefulWidget {
     this.selectionHandle,
     this.viewportHandle,
     this.onTask,
+    this.onViewBilling,
   });
   final WorkspaceController controller;
+
+  /// HistoryLimitBanner's "View Billing" link (Web `nav.toSettings("billing")`).
+  final VoidCallback? onViewBilling;
   final bool thread;
 
   /// Source TaskModalHead is an independent task subject above the replies.
@@ -2241,26 +2247,42 @@ class _RaftChatViewState extends State<RaftChatView>
     );
   }
 
-  Widget threadTopSliver({bool loading = false, bool summary = true}) =>
+  /// Web HistoryLimitBanner: the plan message-history cutoff notice with a
+  /// billing link, shared by the channel list and the thread panel.
+  Widget historyLimitBanner({bool inset = false}) {
+    final limit = planHistoryLimit(w.server?.string('plan'));
+    return RaftHistoryLimitBanner(
+      inset: inset,
+      message: raftFormat(
+        context,
+        'Message history is limited to {days} days on the {plan} plan.',
+        {'days': limit.days, 'plan': limit.plan},
+      ),
+      linkLabel: raftText(context, 'View Billing'),
+      onLink: widget.onViewBilling ?? () {},
+    );
+  }
+
+  Widget threadTopSliver({bool loading = false, bool showSummary = true}) =>
       RaftThreadTimelineTopSliver(
-        showSummary: summary,
-        parentSlot: widget.threadParentSlot,
-        parent: widget.hideThreadParent || w.presentedThreadParent == null
-            ? null
-            : tile(w.presentedThreadParent!, parent: true),
-        hasMore: loading || w.threadHasMore,
-        historyLimited: w.threadHistoryLimited,
-        loadingOlder: loading || w.loadingOlder,
-        loadingOlderLabel: raftText(context, 'Loading...'),
-        historyLimitedLabel: raftText(
-          context,
-          'Earlier messages are unavailable due to plan limits.',
-        ),
-        beginningLabel: raftText(context, 'Beginning of replies'),
-        replyCountLabel: raftFormat(context, '{count} replies', {
-          'count': rows.length,
-        }),
-      );
+    showSummary: showSummary,
+    parentSlot: widget.threadParentSlot,
+    parent: widget.hideThreadParent || w.presentedThreadParent == null
+        ? null
+        : tile(w.presentedThreadParent!, parent: true),
+    hasMore: loading || w.threadHasMore,
+    historyLimited: w.threadHistoryLimited,
+    loadingOlder: loading || w.loadingOlder,
+    loadingOlderLabel: raftText(context, 'Loading older replies...'),
+    historyLimitedLabel: raftText(
+      context,
+      'Older replies are limited by the current plan',
+    ),
+    beginningLabel: raftText(context, 'Beginning of replies'),
+    replyCountLabel: raftFormat(context, '{count} replies', {
+      'count': rows.length,
+    }),
+  );
 
   // id -> index over the displayed window, rebuilt when the window changes;
   // rows used to project and scan the whole channel on every build.
@@ -2279,10 +2301,67 @@ class _RaftChatViewState extends State<RaftChatView>
     return windowIndex[id];
   }
 
+  // Web `expandedSystemMessageGroups` + `systemMessageRenderStates`: render-only
+  // grouping of adjacent system messages over the displayed window.
+  final expandedSystemGroups = <String>{};
+  List<SystemGroupState?>? systemStates;
+  List<chat.Message>? systemStatesWindow;
+  int systemStatesRevision = -1;
+  String? systemStatesLocale;
+  SystemGroupState? systemStateAt(int index) {
+    final list = adapter.messages;
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    if (systemStates == null ||
+        !identical(list, systemStatesWindow) ||
+        systemStatesRevision != windowRevision ||
+        systemStatesLocale != locale) {
+      systemStates = buildSystemGroupStates([
+        for (final m in list) source(m),
+      ], (text, values) => raftFormat(context, text, values));
+      systemStatesWindow = list;
+      systemStatesRevision = windowRevision;
+      systemStatesLocale = locale;
+    }
+    return index < systemStates!.length ? systemStates![index] : null;
+  }
+
   Widget datedTile(RaftMessage message, {bool captureFocus = true}) {
     final stamp = message.createdAt;
     final key = w.messageKey(message);
     final index = windowIndexOf(key);
+    final systemState = index == null ? null : systemStateAt(index);
+    if (systemState is SystemGroupHide) {
+      return RaftRowExtentRecorder(
+        scope: rowExtentScope(context),
+        id: key,
+        child: SizedBox.shrink(key: ValueKey('message-wrapper-$key')),
+      );
+    }
+    if (systemState is SystemGroupSummary) {
+      final expanded = expandedSystemGroups.contains(systemState.groupId);
+      return RaftRowExtentRecorder(
+        scope: rowExtentScope(context),
+        id: key,
+        child: Padding(
+          key: ValueKey('message-wrapper-$key'),
+          padding: const RaftTimelineCompositionRecipe().messageInset,
+          child: RaftSystemMessageGroup(
+            toggleKey: const ValueKey('system-message-group-toggle'),
+            summary: systemState.summary,
+            expanded: expanded,
+            onToggle: () => setState(() {
+              if (!expandedSystemGroups.remove(systemState.groupId)) {
+                expandedSystemGroups.add(systemState.groupId);
+              }
+            }),
+            children: [
+              for (final at in systemState.messageIndexes)
+                tile(source(adapter.messages[at])),
+            ],
+          ),
+        ),
+      );
+    }
     DateTime? previous;
     if (index != null) {
       previous = index > 0 ? adapter.messages[index - 1].createdAt : null;
@@ -2395,16 +2474,18 @@ class _RaftChatViewState extends State<RaftChatView>
     final List<Widget> header;
     if (widget.thread) {
       header = [
-        // Web ThreadPanel: no replies (not loading) is the parent plus an
-        // EmptyState (icon + title) with no history/reply-count header.
-        threadTopSliver(loading: loading, summary: loading || !empty),
+        threadTopSliver(loading: loading, showSummary: loading || !empty),
         if (!loading && empty)
           RaftTimelineSparseFill(
-            child: RaftProductEmptyState(
-              title: raftText(context, 'No replies yet'),
-              icon: (context, size, color) =>
-                  RaftThreadIcon(size: size, color: color),
-            ),
+            // Every reply sits behind the plan cutoff: the thread is hidden,
+            // not empty (Web shows the banner instead of "No replies yet").
+            child: w.threadHistoryLimited
+                ? Center(child: historyLimitBanner(inset: true))
+                : RaftProductEmptyState(
+                    title: raftText(context, 'No replies yet'),
+                    icon: (context, size, color) =>
+                        RaftThreadIcon(size: size, color: color),
+                  ),
           ),
       ];
     } else {
@@ -2419,20 +2500,25 @@ class _RaftChatViewState extends State<RaftChatView>
                 ? const SizedBox.shrink()
                 : Padding(
                     padding: recipe.channelHeaderInset,
-                    child: RaftThreadHistoryTopState(
-                      hasMore: w.hasMore,
-                      historyLimited: w.historyLimited,
-                      loadingOlder: w.loadingOlder,
-                      loadingOlderLabel: raftText(context, 'Loading...'),
-                      historyLimitedLabel: raftText(
-                        context,
-                        'Earlier messages are unavailable due to plan limits.',
-                      ),
-                      beginningLabel: raftText(
-                        context,
-                        'Beginning of messages',
-                      ),
-                    ),
+                    child: !w.hasMore && w.historyLimited
+                        ? historyLimitBanner()
+                        : RaftThreadHistoryTopState(
+                            hasMore: w.hasMore,
+                            historyLimited: w.historyLimited,
+                            loadingOlder: w.loadingOlder,
+                            loadingOlderLabel: raftText(
+                              context,
+                              'Loading older messages...',
+                            ),
+                            historyLimitedLabel: raftText(
+                              context,
+                              'Older messages are limited by the current plan',
+                            ),
+                            beginningLabel: raftText(
+                              context,
+                              'Beginning of messages',
+                            ),
+                          ),
                   ),
           ),
         ),

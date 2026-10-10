@@ -193,6 +193,15 @@ class _ComposerShared extends ChangeNotifier {
 
 final _sharedComposerData = Expando<_ComposerShared>('composer directory');
 
+/// The channel roster the composer already read when the channel opened
+/// (Source useChannelMembers prefetch), for surfaces that show it at their
+/// first frame (the settings drawer's members strip). Null until read.
+({List<Map<String, dynamic>> humans, List<Map<String, dynamic>> agents})?
+cachedChannelRoster(WorkspaceController w, String channelId) {
+  final roster = _sharedComposerData[w.entityDirectory]?.rosters[channelId];
+  return roster == null ? null : (humans: roster.humans, agents: roster.agents);
+}
+
 /// Autocomplete projection. People come from the shared, server-scoped entity
 /// directory (Source agentStore/serverStore members) and are available at the
 /// first frame; only the channel roster (Source useChannelMembers: in-channel

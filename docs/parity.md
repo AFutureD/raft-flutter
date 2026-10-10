@@ -807,6 +807,60 @@ rasterisation (Chromium's glyphs are darker, see "Text rendering"), which
 keeps text-dense cards at 89–96 %. Not covered: the failed-write error
 notice (Web `toast.error`; Flutter uses a SnackBar), hover states.
 
+### Thread, timeline, attachment and message-surface cases (`components.thread-ext.*`, 240 cases)
+
+Three builders append to `cases.json` (run after the others, in this order):
+`build-thread-cases.py` (thread panel, channel timeline states, inline replies,
+Threads inbox; React `host/ThreadCases.tsx`, Flutter `cases/ext_thread.dart`,
+data `fixtures/thread.json`), `build-thread-attachments.py` (preview hosts,
+lightbox, comments panel; `host/ThreadAttachmentCases.tsx`,
+`cases/ext_thread_attachments.dart`) and `build-thread-messages.py` (hover
+toolbar, reaction picker, forwarded bundle, mermaid, notification banner, SOS;
+`host/ThreadMessageCases.tsx`, `cases/ext_thread_messages.dart`).
+
+* Thread / timeline: React mounts the real `ThreadPanel` (side) or `ChatPanel`
+  in a column-sized box and clips `(winY, winH)`; the box is a CSS-transformed
+  column so the mobile page's `fixed` header cannot leak into a bottom window.
+  Flutter mounts the real `WorkspaceView`. Both providers answer the same
+  `routes` / `routeSets` (messages, thread context); `{"$pending": true}` keeps
+  a read open (loading states). Ids: `thread.<platform>.{panel,empty,loading,
+  history-limited,composer,overflow-menu}`, `timeline.<platform>.{dates,empty,
+  loading,history-limited,history-top,system-collapsed,system-expanded,
+  back-to-bottom}`, `inline.<platform>.preview`, `inbox.desktop.empty`.
+* Clock: the React provider pins `page.clock` to the fixture instant
+  (2026-06-19T12:30Z). Flutter reads the same instant through
+  `sourceTimeNow` (set by the builders); `props.clockIso` overrides both per
+  case (the history-limit cases use 2026-06-24, after the Free trial, where
+  the cutoff is 30 days). New interaction `scroll` (React wheel over the
+  target, Flutter drag of a keyed list; `dy` is 20px larger than `y` because
+  Flutter's drag consumes the touch slop).
+* Product gaps found and fixed in Flutter: Web `HistoryLimitBanner` (plan days
+  + "View Billing") for channels and for a thread whose replies all sit behind
+  the cutoff (was a lock chip); thread history copy ("Older replies are
+  limited by the current plan", "Loading older replies..."); an empty or
+  history-limited thread has no history-top line or reply count; adjacent
+  system messages collapse into the `SystemMessageGroup` disclosure
+  (`systemMessageGrouping.ts` port, task / reminder / system summaries);
+  thread overflow labels ("Search in thread", "Follow Thread"); menu panels
+  no longer inherit the debug no-Material underline.
+
+| family | cases | before (passing >96 %, mean) | after |
+| --- | --- | --- | --- |
+| thread panel (6 states x 2 platforms) | 36 | 14, 92.5 % | 15, 94.3 % |
+| timeline (8 x 2) | 48 | 23, 83.5 % | 36, 97.0 % |
+| inline replies | 6 | 6, 97.8 % | 6, 97.8 % |
+| Threads inbox (empty) | 3 | n/a | 0, 93.8 % |
+| attachments | 78 | 7, 54.7 % | 35, 94.7 % |
+| message surfaces | 69 | n/a (see branch notes) | 4, 80.7 % |
+
+What remains in the thread / timeline families is the text bucket (Skia vs
+Chromium glyph rasterisation) plus: the elegant composer send button fill
+(one channel level), a 1px header / overflow-menu vertical offset in the
+elegant theme, the empty-thread history-limit banner sitting 13px higher than
+Web's centred slot, and the narrow-row agent description ("K" before the time
+on 390px rows). Not covered: thread agent followers popover, the "N new
+updates" pill (needs a live update while scrolled), the quoted-permalink card
+(no Flutter widget).
 ### Desktop notifications card cases (2 states x 3 themes = 6)
 
 Derived from Web `SettingsPanel.tsx` `NotificationsSection` ->
@@ -925,6 +979,145 @@ image-preview 98.04).
 Not ported: drag-to-reorder of chips (dnd-kit), the "recoverable uploads" banner
 (needs the direct-upload session API), the billing link of the quota banner (no
 billing page in Flutter), multi-image lightbox navigation from the composer.
+### Channel and DM settings drawer cases (45 states x 3 themes = 135)
+
+`python3 tool/parity-ext/build-channel-settings.py` appends
+`components.channelsettings.<platform>.<state>.<theme>` (run it last, after the
+search overlay builder) and writes `tool/parity-ext/fixtures/channelsettings.json`.
+Derived from Web `ChannelOverflowMenu.tsx` + `ui/OverflowSheet.tsx` (the drawer),
+`EditChannelDialog.tsx` (`presentation="panel"`), `ChannelPreferencesSection.tsx`,
+`ConfirmDialog.tsx` and `ChatPanel.tsx` (which props the drawer gets).
+
+**What the product shows.** Web mounts the settings only as the header gear's
+`OverflowSheet`: identity header (`#name` + visibility badge + one truncated mono
+description line), `MembersStrip`, then the flat panel (Info form with in-section
+Cancel/Save, Guest access, Preferences, an Actions group whose only filled row is
+Delete). The yellow "Channel / Settings / #name" sheet with filled orange action
+buttons is `EditChannelDialog`'s legacy `presentation="sheet"`, which no Web
+surface mounts; Flutter kept it only for the official `components.channel.settings.panel`
+case (`ChannelSettings(isPanel: false)`, unchanged: 97.95 % before and after).
+`ChannelSettings(isPanel: true)` is now the Web drawer (`RaftOverflowSheet`,
+`RaftMembersStrip`, `RaftChannelInfoForm`, `RaftOverflowActions` in `raft_ui`); a DM
+shows the same sheet with only the shared Preferences.
+
+* React mounts the real `ChatPanel` and clicks the gear; Flutter mounts the real
+  `WorkspaceView` and taps the keyed gear. Keys equal the Web `data-testid`s.
+  `capture.androidKey` is the sheet, the ConfirmDialog surface or the unsaved prompt.
+* Elegant drawer: 448 px, `rounded-xl`; brutal 544 px with a 2 px left border; phones
+  390. The header is 62 px in both themes (`--shell-header-height` is set on the
+  AppShell root, the portal falls back). Text is the sans face (portal outside
+  `font-display`): Geist in Elegant.
+* States: owner / admin / member / guest / not-joined / private / archived / #all,
+  newline / no / long description, Guest access, prefs on, dirty draft, members
+  overflow (+N) and loading, agent and human DM, four ConfirmDialogs + Hide #all, the
+  unsaved prompt, and `-full` variants that capture tall drawers (the actions group is
+  below the fold at 800/844).
+* Not covered: the joint-channel sections and the Slack bridge field (neither renders
+  in the fixtures), the members *page* inside the drawer (the strip opens the existing
+  members modal, add tile straight into its add view) and the SOS dialog.
+
+Result (`cindy/channel-settings`, 135 cases): before, the old sheet had no keyed
+drawer, so every capture failed; after, mean exact-pixel similarity 93.3 %
+(brutal 94.5, elegant 93.7, elegant-dark 91.7; DM 96.9-98.6, mobile 94-97). What is
+left is text rasterisation (>16-level differences cover ~3 % of a full drawer, all
+glyphs) plus 1-level colour noise on dark fills and the elegant button sheen, with the
+ConfirmDialog/unsaved cards at 85-90 (card text and 1 px dialog offsets).
+
+### Shell and navigation cases (components.shell.*, 156 ids = 52 surfaces x 3 themes)
+
+`python3 tool/parity-ext/build-shell-cases.py` (last in the builder order) appends
+`components.shell.<platform>.<surface>.<theme>` and writes
+`tool/parity-ext/fixtures/shell.json` (channels, DMs, unread / drafts / mention,
+sidebar-order presets, servers and cross-server unread, primitive samples). The
+React host `host/ShellCases.tsx` mounts the real Web `LeftRail` + `Sidebar`
+(AppShell slots, seeded stores, `Sidebar mobileInline` for the Home tab),
+`ConfirmDialog`, `ui/Banner`, `ui/EmptyState`, `ui/BottomSheet`, the toast
+provider and `ThreadsInbox`; the Flutter side
+(`test/parity/cases/ext_shell.dart`) mounts the real `WorkspaceView` and the
+raft_ui primitives. Menus and dialogs are opened by the same interaction on both
+sides: Web `rightclick` (new `run` patch: a native right click, optionally at
+`x`,`y` of the element) and Flutter `secondaryTap` (new harness step; the
+keyed sidebar row carries its trailing margin, so `row: true` aims at the
+button centre).
+
+| group | desktop surfaces | mobile |
+| --- | --- | --- |
+| Sidebar + rail | default, empty, loading, custom sections, sorted, collapsed, row hover, sort menu | Home default, collapsed, sort menu |
+| Menus | channel, muted channel, human DM, agent DM, section, custom section, surface, Move to section | channel row |
+| Dialogs | new / rename section, delete section, archive channel, rail help menu, server switcher | |
+| Activity framing | rail + inbox panel edge | left edge |
+| Primitives | confirm (danger, warning, acknowledge), banner, empty state, bottom sheet, toast (success, error, info, plain), overflow sheet | same |
+
+Result (extension suite policy: elegant-dark sampled to one case per
+`components.shell.<platform>`; the table is light + Brutal, 100 captured of
+104 evaluated, mean 86.8 %, 94.4 % without the toasts):
+
+| group (cases) | first capture | now |
+| --- | --- | --- |
+| desktop sidebar (16) | 92.8 %, 4 passing | 94.1 %, 4 passing |
+| desktop menus (16) | 45 % at the first capture (no menu in Flutter) | 96.1 %, 8 passing |
+| desktop dialogs + help menu + server switcher (12) | 90.0 %, 0 passing | 92.1 %, 1 passing |
+| confirm dialog primitive (12) | 94.0 %, 4 passing | 94.1 %, 4 passing |
+| banner (4) | 74.8 %, 0 passing | 96.4 %, 2 passing |
+| bottom sheet (4) | not covered | 91.5 %, 1 passing |
+| empty state (8) | 96.1 %, 4 passing | 96.9 %, 4 passing |
+| toast (16) | 41.9 %, 0 passing | 47.1 %, 1 passing |
+| mobile Home sidebar / menu / sort (8) | not covered | 92.5 %, 1 passing |
+| Activity framing (4) | not covered | 96.0 %, 2 passing |
+| overflow sheet (4) | not covered | not covered |
+
+(The first-capture column is the run after the cases existed; the very first
+sidebar default capture was 90.1 / 90.4 / 89.6 % before the pinned-row, rail
+header and avatar fixes.)
+
+Official check: 46 official cases that use the touched shared widgets
+(screens.home / components.home, slug input, avatar list row, members,
+settings, thread header, channel) are identical to the same commit without
+this change (max |delta| < 0.05 %).
+
+What changed in Flutter (all measured against the Web DOM):
+
+* Pinned rows follow `allowWrap`: 17.5px lines, 30 / 32 minimum height, no agent
+  description, `items-start`; custom-section DMs and agents hide descriptions.
+  Elegant conversation rows use `px-1.5`; touch density keeps Web's row box and
+  only widens the hit area (RaftTouchTarget) instead of inflating rows to 48dp.
+* Right click / long press menus (raft_ui `RaftSidebarContextMenu`, the message
+  menu recipe at `w-48` / `w-64` / `w-56`) for channel, DM, agent rows, section
+  headers and the sidebar surface, the Move to section submenu, the section
+  dialog (`RaftSidebarSectionDialog`) and confirm dialogs, with the Source
+  actions (sidebar-order patches, read-all / unread, notification-settings).
+  The row whose menu is open keeps `bg-fill-muted`. Sort menu labels are Web's
+  (Manual / Recent / A-Z).
+* Rail: server avatar fill / ink per theme, Brutal 2px header border,
+  other-server attention dot; agent presence dot on agent rows; the Web browser
+  default for hide-empty sections (Electron / the Linux client turn it on).
+* `RaftBanner`: Brutal 2px / Elegant 4px title gap and the action dropping to
+  its own end-aligned row at or below 24rem (container query). `RaftToast`: icon
+  cell, close button and the two empty-track column gaps of the Web grid.
+  `RaftBottomSheet`: new (Card, `shadow-raft-xl` / `shadow-brutal-lg`).
+
+Activity borders (owner report): Web draws the vertical line beside the rail on
+the Activity page itself: the inbox panel is raft-ui `Panel edge="attached"`
+(`border-l`, Brutal `!border-l`), the rail keeps only its Brutal divider (1px on
+Activity: LeftRail `thinDivider`) and MainLayout hides the sidebar column on
+that route. Flutter draws exactly these lines on desktop
+(`components.shell.desktop.activity.frame`, and
+`test/shell_border_placement_test.dart` asserts the owner and x of every
+vertical border per page, theme and form factor).
+
+Intended difference (owner decision 2026-10-11): on MOBILE the same Web panel
+keeps its left border at x = 0 (checked with AppShellRoot + AppShellMainSlot
+around ThreadsInbox at 390px, 3x), but Flutter does not draw it. The ext cases
+`components.shell.mobile.activity.frame.*` therefore differ from Web by that
+1px vertical line by design; the owner decision overrides the Web analysis.
+
+Remaining gaps: the OverflowSheet (Drawer) shell, the emoji picker popover
+(third-party grid), the Electron-only "Find a conversation" sidebar box, the
+toast action variant (the Web toast manager ignores `actionProps` here), the
+member / computers sidebar rails, and text rasterisation. Elegant (light) toasts
+differ by a constant 2 levels in the blue channel of the translucent fill (the
+dark theme is within 1), which zeroes exact-pixel equality over the whole fill;
+the geometry matches (288 x 56 / 64).
 
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 

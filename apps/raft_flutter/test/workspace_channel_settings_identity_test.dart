@@ -76,7 +76,7 @@ Future<void> mountSettingsWorkspace(
     t.widget<ChannelSettings>(find.byType(ChannelSettings)).channel.id,
     'c1',
   );
-  expect(find.byType(RaftChannelSettingsSheet), findsOneWidget);
+  expect(find.byType(RaftOverflowSheet), findsOneWidget);
   expect(t.takeException(), isNull);
 }
 
@@ -101,19 +101,23 @@ Future<void> rebuildOverlay(WidgetTester t) async {
 
 Future<void> tapSheetAction(WidgetTester t, String label) async {
   final action = find.descendant(
-    of: find.byType(RaftChannelSettingsSheet),
+    of: find.byType(RaftOverflowSheet),
     matching: find.text(label),
   );
   await t.ensureVisible(action);
   await t.tap(action);
   await t.pumpAndSettle();
-  expect(find.byType(RaftFormDialog), findsOneWidget);
+  expect(find.byType(RaftConfirmDialog), findsOneWidget);
 }
+
+TextEditingController nameField(WidgetTester t) => t
+    .widget<TextField>(find.byKey(const ValueKey('channel-settings-name')))
+    .controller!;
 
 Future<void> submitConfirmation(WidgetTester t, String label) async {
   await t.tap(
     find.descendant(
-      of: find.byType(RaftFormDialog),
+      of: find.byType(RaftConfirmDialog),
       matching: find.text(label),
     ),
   );
@@ -132,10 +136,8 @@ void main() {
         final (w, api) = await settingsFixture(t);
         final opening = w.channel!;
         await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
-        final sheet = t.widget<RaftChannelSettingsSheet>(
-          find.byType(RaftChannelSettingsSheet),
-        );
-        sheet.nameController!.value = const TextEditingValue(
+        final nameController = nameField(t);
+        nameController.value = const TextEditingValue(
           text: 'Unsubmitted opening draft',
           selection: TextSelection.collapsed(offset: 12),
         );
@@ -155,18 +157,26 @@ void main() {
         w.notifyListeners();
         t.view.physicalSize = const Size(1180, 800);
         await t.pumpAndSettle();
-        final retained = t.widget<RaftChannelSettingsSheet>(
-          find.byType(RaftChannelSettingsSheet),
+        final retained = t.widget<RaftOverflowSheet>(
+          find.byType(RaftOverflowSheet),
         );
-        expect(retained.channelName, opening.name);
-        expect(retained.nameController, same(sheet.nameController));
-        expect(retained.nameController!.text, 'Unsubmitted opening draft');
-        expect(retained.nameController!.selection.baseOffset, 12);
+        expect(retained.title, '#${opening.name}');
+        expect(nameField(t), same(nameController));
+        expect(nameController.text, 'Unsubmitted opening draft');
+        expect(nameController.selection.baseOffset, 12);
         expect(
           api.calls.where((r) => r.path.startsWith('/channels/c2/')),
           isEmpty,
         );
+        // A close attempt with a dirty draft asks first (Web unsaved prompt).
         retained.onClose();
+        await t.pumpAndSettle();
+        expect(find.byType(ChannelSettings), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('channel-overflow-unsaved-prompt')),
+          findsOneWidget,
+        );
+        await t.tap(find.text('Discard changes'));
         await t.pumpAndSettle();
         expect(find.byType(ChannelSettings), findsNothing);
         expect(find.byType(WorkspaceView), findsOneWidget);
@@ -193,26 +203,27 @@ void main() {
         await mountSettingsWorkspace(t, w, family, dark, PrivateRouteGuard());
         final openingState = t.state(find.byType(ChannelSettings));
         await tapSheetAction(t, 'Archive Channel');
-        await submitConfirmation(t, 'Confirm');
+        await submitConfirmation(t, 'Archive');
         expect(
           api.calls.where((r) => r.path == '/channels/c1/archive'),
           hasLength(1),
         );
         expect(w.channel!.archived, false);
+        // The confirmation is in flight: a Navigator rebuild keeps the very
+        // same drawer state behind it.
+        await rebuildOverlay(t);
+        expect(find.byType(ChannelSettings), findsOneWidget);
+        expect(t.state(find.byType(ChannelSettings)), same(openingState));
+        expect(find.byType(RaftConfirmDialog), findsOneWidget);
         await t.runAsync(() async {
           pending.complete();
           await Future<void>.delayed(const Duration(milliseconds: 20));
         });
         await t.pumpAndSettle();
         expect(w.channel!.archived, true);
-        await rebuildOverlay(t);
-        expect(find.byType(ChannelSettings), findsOneWidget);
-        expect(t.state(find.byType(ChannelSettings)), same(openingState));
-        expect(find.text('Unarchive Channel'), findsOneWidget);
-        expect(
-          t.widget<ChannelSettings>(find.byType(ChannelSettings)).channel.id,
-          'c1',
-        );
+        // Web closes the drawer once the archive is confirmed.
+        expect(find.byType(ChannelSettings), findsNothing);
+        expect(find.byType(RaftConfirmDialog), findsNothing);
         expect(t.takeException(), isNull);
       },
       variant: TargetPlatformVariant({TargetPlatform.linux}),
@@ -238,7 +249,7 @@ void main() {
         await tapSheetAction(t, 'Delete Channel');
         await submitConfirmation(t, 'Delete');
         expect(w.channel?.id, 'c1');
-        expect(find.byType(RaftFormDialog), findsOneWidget);
+        expect(find.byType(RaftConfirmDialog), findsOneWidget);
         await t.runAsync(() async {
           pending.complete();
           await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -248,7 +259,7 @@ void main() {
         expect(w.channel, isNull);
         await rebuildOverlay(t);
         expect(find.byType(ChannelSettings), findsNothing);
-        expect(find.byType(RaftFormDialog), findsNothing);
+        expect(find.byType(RaftConfirmDialog), findsNothing);
         expect(find.byType(WorkspaceView), findsOneWidget);
         expect(
           api.calls.where((r) => r.method == 'DELETE').map((r) => r.path),
@@ -282,7 +293,7 @@ void main() {
           w.notifyListeners();
           await rebuildOverlay(t);
           expect(find.byType(ChannelSettings), findsNothing);
-          expect(find.byType(RaftFormDialog), findsNothing);
+          expect(find.byType(RaftConfirmDialog), findsNothing);
           expect(find.byType(WorkspaceView), findsOneWidget);
           expect(
             api.calls.where((r) => {'PATCH', 'DELETE'}.contains(r.method)),

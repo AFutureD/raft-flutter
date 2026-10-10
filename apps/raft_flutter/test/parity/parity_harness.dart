@@ -24,10 +24,8 @@ import 'geometry_dump.dart';
 typedef ParityBuilder = Widget Function(ParityContext ctx);
 
 /// Optional post-pump interaction (tap a trigger, open a menu, type text).
-typedef ParityInteraction = Future<void> Function(
-  WidgetTester t,
-  ParityContext ctx,
-);
+typedef ParityInteraction =
+    Future<void> Function(WidgetTester t, ParityContext ctx);
 
 /// One mapped case: the real widget path the Flutter app uses for the
 /// surface the React render host shows under the same case id.
@@ -445,11 +443,13 @@ Future<Map<String, dynamic>> captureParityCase(
   };
   await t.runAsync(() async {
     await imageFile.writeAsBytes(png!);
-    await File('${outputDir.path}/$id.metadata.json')
-        .writeAsString(const JsonEncoder.withIndent('  ').convert(metadata));
+    await File(
+      '${outputDir.path}/$id.metadata.json',
+    ).writeAsString(const JsonEncoder.withIndent('  ').convert(metadata));
     if (parityGeometryDumpEnabled) {
-      await File('${outputDir.path}/$id.geometry.txt')
-          .writeAsString(parityGeometryDump(rootBox, rect, rootBox));
+      await File(
+        '${outputDir.path}/$id.geometry.txt',
+      ).writeAsString(parityGeometryDump(rootBox, rect, rootBox));
     }
   });
   return metadata;
@@ -485,20 +485,59 @@ Future<void> _androidInteractions(
         // Playwright scrolls a click target into view first (after the
         // page's reads settle, since late rows move it).
         await t.pump(const Duration(milliseconds: 300));
-        await t.ensureVisible(target!.first);
+        // `scroll: false`: the target is already on screen, where Playwright
+        // does not scroll either (ensureVisible would align it to the top).
+        if (raw['scroll'] != false) await t.ensureVisible(target!.first);
         await t.pump();
-        await t.tap(target.first, warnIfMissed: false);
+        await t.tap(target!.first, warnIfMissed: false);
+      case 'secondaryTap':
+        // Native right click at the element centre, or at (x, y) from its
+        // top-left like Playwright's `position`.
+        await t.pump(const Duration(milliseconds: 300));
+        final box = t.getRect(target!.first);
+        // `row`: the keyed item carries the sidebar row's trailing margin
+        // (4 Brutal / 2 Elegant); Playwright clicks the button's own centre.
+        final rowMargin = raw['row'] == true
+            ? ((visualCase['variants'] as List).first
+                          as Map)['props']['parityTheme'] ==
+                      'brutal-light'
+                  ? 2.0
+                  : 1.0
+            : 0.0;
+        final at = raw['x'] == null
+            ? box.center - Offset(0, rowMargin)
+            : box.topLeft +
+                  Offset(
+                    (raw['x'] as num).toDouble(),
+                    (raw['y'] as num? ?? 0).toDouble(),
+                  );
+        await t.tapAt(
+          at,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
       case 'hover':
         mouse ??= await t.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: Offset.zero);
+        try {
+          await mouse.addPointer(location: Offset.zero);
+        } on AssertionError {
+          // A right click earlier in the case already added the mouse device.
+        }
         await mouse.moveTo(t.getCenter(target!.first));
+      case 'scroll':
+        // Counterpart of the React `scroll` interaction (wheel over the
+        // target; y < 0 scrolls the list up): drag the content down by |dy|.
+        await t.drag(target!.first, Offset(0, -(raw['dy'] as num).toDouble()));
       case 'enter':
         await t.enterText(target!.first, raw['value'] as String);
       case 'enterText':
         // Types into the field under the keyed widget (a keyed search input).
         await t.enterText(
           find
-              .descendant(of: target!.first, matching: find.byType(EditableText))
+              .descendant(
+                of: target!.first,
+                matching: find.byType(EditableText),
+              )
               .first,
           raw['text'] as String,
         );

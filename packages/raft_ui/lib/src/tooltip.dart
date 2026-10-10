@@ -219,6 +219,9 @@ class RaftTooltip extends Tooltip {
   State<RaftTooltip> createState() => _RaftTooltipState();
 }
 
+/// Stillness needed to open while the provider is warm (adjacent trigger).
+const _warmRest = Duration(milliseconds: 100);
+
 class _RaftTooltipState extends State<RaftTooltip>
     with SingleTickerProviderStateMixin {
   final anchor = GlobalKey();
@@ -226,7 +229,8 @@ class _RaftTooltipState extends State<RaftTooltip>
   late final AnimationController motion;
   Timer? openTimer, closeTimer;
   _TooltipScope? scope;
-  ScrollPosition? scroll;
+  late final RaftScrollWatch watch = RaftScrollWatch(_trackAnchor);
+  bool listeningSignal = false;
   Offset? pointer;
   bool hovered = false, closing = false, instant = false, tracking = false;
   bool hoverBlocked = false, focusBlocked = false;
@@ -258,12 +262,7 @@ class _RaftTooltipState extends State<RaftTooltip>
       _hide(immediate: true);
     }
     scope = nextScope;
-    final nextScroll = Scrollable.maybeOf(context)?.position;
-    if (nextScroll != scroll) {
-      scroll?.removeListener(_trackAnchor);
-      scroll = nextScroll;
-      scroll?.addListener(_trackAnchor);
-    }
+    watch.sync(context);
     if (widget.keyboardFocused && allowed && !focusBlocked) {
       _deferKeyboard();
     }
@@ -312,16 +311,49 @@ class _RaftTooltipState extends State<RaftTooltip>
     pointer = event.position;
     hovered = true;
     hoverBlocked = false;
+    watch.sync(context);
+    _syncSignal();
     awaitingMove = !RaftPointerIntent.movedSinceScroll;
     if (!awaitingMove) _scheduleHover();
+  }
+
+  /// Holds the wheel/trackpad subscription only while hovered or open.
+  void _syncSignal() {
+    final want = hovered || portal.isShowing;
+    if (want == listeningSignal) return;
+    listeningSignal = want;
+    if (want) {
+      RaftPointerIntent.listenScroll(_wheel);
+    } else {
+      RaftPointerIntent.unlistenScroll(_wheel);
+    }
+  }
+
+  /// A wheel or trackpad scroll signal: any open tooltip closes at once and
+  /// opening waits for the pointer to move and rest again.
+  void _wheel() {
+    if (openTimer?.isActive == true) {
+      openTimer!.cancel();
+      epoch++;
+    }
+    awaitingMove = hovered;
+    if (portal.isShowing) {
+      if (widget.keyboardFocused) focusBlocked = true;
+      _hide(immediate: true);
+      scope?.group.settle();
+    }
   }
 
   void _scheduleHover() {
     closeTimer?.cancel();
     openTimer?.cancel();
-    final wait = scope?.group.instant == true
-        ? Duration.zero
-        : widget.delay ?? scope?.delay ?? const Duration(milliseconds: 600);
+    final base =
+        widget.delay ?? scope?.delay ?? const Duration(milliseconds: 600);
+    // Warm provider: right after another tooltip closed, a shorter rest
+    // suffices. The pointer must still be at rest; moving restarts it.
+    final wait = scope?.group.instant == true && base > _warmRest
+        ? _warmRest
+        : base;
     if (wait == Duration.zero) {
       _show(immediate: scope?.group.instant == true);
       return;
@@ -347,12 +379,11 @@ class _RaftTooltipState extends State<RaftTooltip>
     if (awaitingMove) {
       if (event.delta == Offset.zero) return;
       awaitingMove = false;
-    }
-    if (openTimer?.isActive == true &&
-        previous != null &&
-        (previous - event.position).distanceSquared < 2) {
+      _scheduleHover();
       return;
     }
+    // Opening needs a resting pointer: any movement restarts the delay.
+    if (previous == event.position) return;
     _scheduleHover();
   }
 
@@ -364,6 +395,7 @@ class _RaftTooltipState extends State<RaftTooltip>
     awaitingMove = false;
     openTimer?.cancel();
     epoch++;
+    _syncSignal();
     if (widget.keyboardFocused && allowed) {
       return;
     }
@@ -407,7 +439,9 @@ class _RaftTooltipState extends State<RaftTooltip>
     scope?.group.activate(this, () => _hide(immediate: true));
     instant = immediate || adjacent || reduced;
     closing = false;
+    watch.sync(context);
     portal.show();
+    _syncSignal();
     if (instant) {
       motion.value = 1;
     } else {
@@ -427,11 +461,13 @@ class _RaftTooltipState extends State<RaftTooltip>
     if (immediate || reduced || motion.value == 0) {
       motion.stop();
       portal.hide();
+      _syncSignal();
       return;
     }
     motion.reverse().then((_) {
       if (mounted && ticket == epoch && closing) {
         portal.hide();
+        _syncSignal();
       }
     });
   }
@@ -509,7 +545,8 @@ class _RaftTooltipState extends State<RaftTooltip>
     epoch++;
     openTimer?.cancel();
     closeTimer?.cancel();
-    scroll?.removeListener(_trackAnchor);
+    watch.dispose();
+    if (listeningSignal) RaftPointerIntent.unlistenScroll(_wheel);
     HardwareKeyboard.instance.removeHandler(_key);
     scope?.group.release(this, scope!.hysteresis);
     motion.dispose();

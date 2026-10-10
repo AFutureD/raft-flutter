@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'design_primitives.dart';
 import 'settings_layout.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Component layer, traced to raft-ui0.5.27 search recipe (dist/index.mjs) and
 /// pinned SettingsProfileCard.tsx. Components consume shared semantic roles;
@@ -176,7 +177,8 @@ class RaftSettingsProfileCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Tooltip(
+                        RaftTooltip(
+                          onlyWhenTruncated: true,
                           message: title,
                           child: Text(
                             title,
@@ -185,7 +187,8 @@ class RaftSettingsProfileCard extends StatelessWidget {
                             style: recipe.title,
                           ),
                         ),
-                        Tooltip(
+                        RaftTooltip(
+                          onlyWhenTruncated: true,
                           message: subtitle,
                           child: Text(
                             subtitle,

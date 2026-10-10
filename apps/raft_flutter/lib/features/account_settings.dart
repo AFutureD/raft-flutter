@@ -293,7 +293,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
     // `border-t-2 border-line-muted theme-brutal:border-black`
     final divider = Container(height: 2, color: RaftSettingsText(t).edge);
     final card = RaftSettingsProfileCard(
-      avatar: Tooltip(
+      avatar: RaftTooltip(
         message: raftText(context, 'Change profile image'),
         child: InkWell(
           key: const Key('account-profile-image'),

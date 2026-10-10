@@ -105,6 +105,7 @@ void main() {
         final cardContext = tester.element(find.byType(RaftForwardedBundle));
         final headerRecipe = ForwardedSnapshotRecipe(
           RaftTokens.of(cardContext),
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(cardContext),
         );
         final headerInset =
             headerRecipe
@@ -183,6 +184,7 @@ void main() {
           final cardContext = tester.element(find.byType(RaftForwardedBundle));
           final headerRecipe = ForwardedSnapshotRecipe(
             RaftTokens.of(cardContext),
+            devicePixelRatio: MediaQuery.devicePixelRatioOf(cardContext),
           );
           final headerInset =
               headerRecipe

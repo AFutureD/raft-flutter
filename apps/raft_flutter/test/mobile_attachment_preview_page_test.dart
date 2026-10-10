@@ -128,7 +128,7 @@ void main() {
             await t.tap(find.text('research.md'));
             await flush(t);
             await t.pumpAndSettle();
-            expect(find.byType(RaftAttachmentLightbox), findsOneWidget);
+            expect(previewSurface, findsOneWidget);
             if (back == 'predictive') {
               // Cancellation must leave both the preview and history intact.
               await startPredictiveBack(t);
@@ -142,7 +142,7 @@ void main() {
               );
               await backEvent(t, const MethodCall('cancelBackGesture'));
               await t.pumpAndSettle();
-              expect(find.byType(RaftAttachmentLightbox), findsOneWidget);
+              expect(previewSurface, findsOneWidget);
               expect(w.location, base);
               expect(w.navigation.index, index);
               await startPredictiveBack(t);
@@ -153,7 +153,7 @@ void main() {
               await t.tap(find.byTooltip('Close preview'));
             }
             await t.pumpAndSettle();
-            expect(find.byType(RaftAttachmentLightbox), findsNothing);
+            expect(previewSurface, findsNothing);
             expect(w.location, base);
             expect(w.navigation.index, index);
             expect(find.text('research.md'), findsOneWidget);
@@ -226,7 +226,7 @@ void main() {
                   : find.text(name),
             );
             await t.pumpAndSettle();
-            expect(find.byType(RaftAttachmentLightbox), findsOneWidget);
+            expect(previewSurface, findsOneWidget);
             if (width < RaftAdaptiveWorkspace.desktopMinWidth) {
               expect(routes.latest, isA<MaterialPageRoute<void>>());
               expect(routes.latest?.settings.name, '/attachment-preview');
@@ -239,7 +239,7 @@ void main() {
             }
             await t.tap(find.byTooltip('Close preview'));
             await t.pumpAndSettle();
-            expect(find.byType(RaftAttachmentLightbox), findsNothing);
+            expect(previewSurface, findsNothing);
             expect(find.byType(RaftAttachmentCard), findsOneWidget);
             expect(t.takeException(), isNull);
           }
@@ -252,7 +252,7 @@ void main() {
           w.channel = RaftChannel({...w.channel!.json, 'joined': false});
           w.notifyListeners();
           await t.pumpAndSettle();
-          expect(find.byType(RaftAttachmentLightbox), findsNothing);
+          expect(previewSurface, findsNothing);
           expect(t.takeException(), isNull);
           await t.pumpWidget(const SizedBox.shrink());
           w.dispose();
@@ -261,6 +261,11 @@ void main() {
     }
   }
 }
+
+/// Images open in the lightbox; documents and HTML in the preview shell.
+final previewSurface = find.byWidgetPredicate(
+  (w) => w is RaftAttachmentLightbox || w is RaftAttachmentPreviewShell,
+);
 
 Future<void> backEvent(WidgetTester t, MethodCall call) async {
   await t.binding.defaultBinaryMessenger.handlePlatformMessage(

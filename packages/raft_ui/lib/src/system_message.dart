@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'icons.dart';
+import 'recipe_surface.dart';
+import 'recipes/message_system.g.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -72,6 +75,98 @@ class RaftSystemMessage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// raft-ui `SystemMessageGroup*` (web SystemMessageGroupDisclosure.tsx): the
+/// centred summary disclosure of an adjacent system-message run. The adapter
+/// owns the summary copy and the expanded state; [children] are the run's
+/// system rows, shown while [expanded].
+class RaftSystemMessageGroup extends StatelessWidget {
+  const RaftSystemMessageGroup({
+    super.key,
+    required this.summary,
+    required this.expanded,
+    required this.onToggle,
+    required this.children,
+    this.toggleKey,
+  });
+  final String summary;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final List<Widget> children;
+
+  /// Key of the disclosure button (Web `system-message-group-toggle`).
+  final Key? toggleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context), tokens = t.recipeTokens;
+    final recipe = RaftMessageSystemRecipe.resolve(
+      theme: t.recipeTheme,
+      tokens: tokens,
+      states: t.recipeStates(),
+    );
+    final label = recipe.systemGroupDisclosure.text(
+      tokens,
+      base: DefaultTextStyle.of(context).style,
+    );
+    final chevron = recipe.systemGroupChevron;
+    return Padding(
+      padding: recipe.systemGroup.margin,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: recipe.systemGroupHeader.padding,
+            child: Center(
+              child: RaftTooltip(
+                message: summary,
+                onlyWhenTruncated: true,
+                child: GestureDetector(
+                  key: toggleKey,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onToggle,
+                  child: Semantics(
+                    button: true,
+                    expanded: expanded,
+                    child: Padding(
+                      padding: recipe.systemGroupDisclosure.padding,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              summary,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: label,
+                            ),
+                          ),
+                          SizedBox(
+                            width: recipe.systemGroupDisclosure.columnGap ?? 6,
+                          ),
+                          // ChevronRight: rotate-90 closed, -rotate-90 open.
+                          RotatedBox(
+                            quarterTurns: expanded ? 3 : 1,
+                            child: RaftIcon(
+                              RaftGlyph.chevronRight,
+                              size: chevron.width ?? 12,
+                              color: chevron.textStyle(tokens).color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (expanded) ...children,
+        ],
       ),
     );
   }

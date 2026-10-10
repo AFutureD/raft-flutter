@@ -49,6 +49,7 @@ export 'src/recipes/button_variants.g.dart'
     show RaftButtonRecipeVariant, RaftButtonRecipeSize;
 
 export 'src/icons.dart';
+export 'src/recipes/toast_styles.g.dart' show RaftToastRecipeTone;
 export 'src/brand.dart';
 export 'src/auth_page.dart';
 
@@ -57,6 +58,7 @@ export 'src/tokens/tokens.dart';
 
 export 'src/attachment_gallery.dart';
 export 'src/attachment_lightbox.dart';
+export 'src/attachment_preview_shell.dart';
 
 export 'src/switch.dart';
 
@@ -65,6 +67,9 @@ export 'src/section_pager.dart';
 export 'src/mermaid_toolbar_recipe.dart';
 
 export 'src/sidebar_section.dart';
+export 'src/sidebar_menus.dart';
+export 'src/bottom_sheet.dart';
+export 'src/sidebar_section_dialog.dart';
 export 'src/settings_layout.dart';
 export 'src/qr_code.dart';
 export 'src/settings_resources.dart';
@@ -131,6 +136,7 @@ export 'src/computer_surfaces.dart';
 export 'src/computer_detail.dart';
 export 'src/add_computer_dialog.dart';
 export 'src/channel_settings_sheet.dart';
+export 'src/channel_overflow_sheet.dart';
 export 'src/create_channel_view.dart';
 export 'src/channel_members_view.dart';
 

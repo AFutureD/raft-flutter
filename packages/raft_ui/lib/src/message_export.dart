@@ -8,6 +8,7 @@ import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'selection_toolbar_recipe.dart';
 import 'theme.dart';
+import 'tooltip.dart' show RaftTooltip;
 
 /// Source SelectModeToolbar: measured compact row; less frequent actions in
 /// a top/end More menu. Callbacks and selection authority belong to the app.
@@ -352,10 +353,12 @@ class RaftImageReview extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              IconButton(
-                tooltip: raftText(context, 'Close preview'),
-                onPressed: busy ? null : onClose,
-                icon: const Icon(Icons.close),
+              RaftTooltip(
+                message: raftText(context, 'Close preview'),
+                child: IconButton(
+                  onPressed: busy ? null : onClose,
+                  icon: const Icon(Icons.close),
+                ),
               ),
             ],
           ),

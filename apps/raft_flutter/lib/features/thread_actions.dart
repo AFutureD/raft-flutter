@@ -166,7 +166,7 @@ class _ThreadActionsState extends State<ThreadActions> {
             children: [
               if (widget.onSearch != null)
                 RaftMenuItem(
-                  label: raftText(context, 'Search messages'),
+                  label: raftText(context, 'Search in thread'),
                   glyph: RaftGlyph.search,
                   autofocus: true,
                   onPressed: () {
@@ -187,7 +187,7 @@ class _ThreadActionsState extends State<ThreadActions> {
                 key: const Key('thread-follow-menu-item'),
                 label: raftText(
                   context,
-                  following == true ? 'Unfollow thread' : 'Follow thread',
+                  following == true ? 'Unfollow Thread' : 'Follow Thread',
                 ),
                 glyph: following == true
                     ? RaftGlyph.messageCircleOff
@@ -269,7 +269,7 @@ class _ThreadActionsState extends State<ThreadActions> {
                   label: Text(
                     raftText(
                       context,
-                      following == true ? 'Unfollow thread' : 'Follow thread',
+                      following == true ? 'Unfollow Thread' : 'Follow Thread',
                     ),
                   ),
                 ),
