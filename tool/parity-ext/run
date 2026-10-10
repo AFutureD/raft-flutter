@@ -200,6 +200,9 @@ async function parityExtRoutes(page: Page, visualCase: VisualCase) {
   }
   const props = (visualCase.variants?.[0]?.props || {}) as Record<string, string>;
   for (const file of readdirSync(dir).filter((f: string) => f.endsWith(".json"))) {
+    // A case may pin its fixture (`props.extFixture`): routes of the other families
+    // (e.g. settings' GET /agents) must not shadow its own.
+    if (props.extFixture && file !== `${props.extFixture}.json`) continue;
     const fixture = JSON.parse(readFileSync(resolve(dir, file), "utf8"));
     // The machine list the case's page loaded (the Sidebar re-reads it on
     // mount): fixture `lists[props.list]`, the detail variant replacing its

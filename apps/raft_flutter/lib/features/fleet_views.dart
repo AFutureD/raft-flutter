@@ -688,33 +688,22 @@ class _FleetDetailState extends State<FleetDetail> {
     widget.onClose?.call();
   }
 
-  /// ResetAgentDialog: one entry point, the mode is chosen in the dialog.
+  /// ResetAgentDialog: one entry point, the mode is chosen in the dialog and
+  /// the confirm button runs it (no second confirmation, like Web).
   Future<void> restartReset() async {
     if (!allowed('controlAgentRuntime') || external) return;
-    String? mode;
-    await _fleetDialog<void>(
+    await _fleetDialog<bool>(
       context,
       w,
       () => allowed('controlAgentRuntime'),
-      (_) => RaftFormDialog(
-        title: 'Restart / Reset',
-        fields: [
-          RaftFormField(
-            'mode',
-            'Mode',
-            initial: 'restart',
-            choices: {
-              'restart': 'Restart runtime',
-              'session': 'Reset session',
-              if (allowed('resetAgentWorkspace')) 'full': 'Reset workspace',
-            },
-          ),
-        ],
-        submitLabel: 'Continue',
-        onSubmit: (v) async => mode = v['mode'],
+      (_) => RaftResetAgentDialog(
+        agentName: '${row['displayName'] ?? row['name'] ?? ''}',
+        canFullReset: allowed('resetAgentWorkspace'),
+        // Web: a plain member may only restart / reset the model.
+        memberRuntimeOnly: w.server?.string('role') == 'member',
+        onConfirm: resetRuntime,
       ),
     );
-    if (mode != null) await resetRuntime(mode!);
   }
 
   Future<void> action(Future<void> Function() operation) async {
@@ -732,6 +721,33 @@ class _FleetDetailState extends State<FleetDetail> {
     } finally {
       if (current) setState(() => busy = false);
     }
+  }
+
+  /// AgentProfileEditDialog: one field per pencil (display name, description,
+  /// role); the change is PATCHed to the agent.
+  Future<void> editField(String field) async {
+    require('editAgents');
+    // Role options the viewer may assign (`canChangeAgentRole`): owners and
+    // admins choose between Admin and Member.
+    final role = '${row['serverRole'] ?? ''}';
+    await _fleetDialog<bool>(
+      context,
+      w,
+      () => allowed('editAgents'),
+      (_) => RaftAgentProfileEditDialog(
+        field: field,
+        displayName: '${row['displayName'] ?? ''}',
+        description: '${row['description'] ?? ''}',
+        namePlaceholder: '${row['name'] ?? ''}',
+        role: role.isEmpty ? null : role,
+        roleOptions: const [('admin', 'Admin'), ('member', 'Member')],
+        onSave: (fields) async {
+          require('editAgents');
+          await w.command('PATCH', base, data: fields);
+          await load();
+        },
+      ),
+    );
   }
 
   Future<void> edit() async {
@@ -861,38 +877,15 @@ class _FleetDetailState extends State<FleetDetail> {
   }
 
   Future<void> resetRuntime(String mode) async {
-    if (!allowed(
-          mode == 'full' ? 'resetAgentWorkspace' : 'controlAgentRuntime',
-        ) ||
-        external) {
-      return;
+    final capability = mode == 'full'
+        ? 'resetAgentWorkspace'
+        : 'controlAgentRuntime';
+    if (!allowed(capability) || external) {
+      throw const RaftApiException('This action is not available.');
     }
-    await confirm(
-      mode == 'full'
-          ? 'Reset agent workspace?'
-          : mode == 'session'
-          ? 'Reset agent session?'
-          : 'Restart agent?',
-      mode == 'full'
-          ? 'This removes the agent workspace and starts a fresh session. Existing files will be lost.'
-          : mode == 'session'
-          ? 'Start a fresh conversation session while retaining workspace files.'
-          : 'Restart the runtime while retaining the session and workspace files.',
-      () async {
-        require(mode == 'full' ? 'resetAgentWorkspace' : 'controlAgentRuntime');
-        await w.command('POST', '$base/reset', data: {'mode': mode});
-        await load();
-        if (mounted && current) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Request accepted. Check runtime status for completion.',
-              ),
-            ),
-          );
-        }
-      },
-    );
+    require(capability);
+    await w.command('POST', '$base/reset', data: {'mode': mode});
+    await load();
   }
 
   Future<void> runtimeCommand(String command) async {
@@ -998,7 +991,9 @@ class _FleetDetailState extends State<FleetDetail> {
     actions: AgentDetailActions(
       onEditAvatar: busy ? null : editAvatar,
       onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),
-      onEditProfile: busy ? null : edit,
+      onEditName: busy ? null : () => editField('displayName'),
+      onEditDescription: busy ? null : () => editField('description'),
+      onEditRole: busy ? null : () => editField('role'),
       onEditRuntime: !external && row['machineId'] is String
           ? () async {
               if (!allowed('editAgents')) return;

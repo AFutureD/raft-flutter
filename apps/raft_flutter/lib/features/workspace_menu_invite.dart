@@ -29,6 +29,7 @@ Future<bool> showWorkspaceMenuInvite(
   final sent = await showRaftDialog<bool>(
     context: context,
     builder: (_) => RaftFormDialog(
+      key: const ValueKey('invite-dialog'),
       title: 'Invite human',
       submitLabel: 'Send invitations',
       fields: [

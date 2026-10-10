@@ -32,14 +32,13 @@ class RaftSidebarSectionRecipe {
   Color get foreground => tokens.brutal ? Colors.black : tokens.strong;
   Color get hoverForeground =>
       tokens.brutal ? Colors.black.withValues(alpha: .7) : tokens.muted;
-  TextStyle get title => TextStyle(
-    fontFamily: tokens.bodyFont,
-    fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
-    fontSize: 12,
-    height: 16 / 12,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 1.2,
-  );
+  // The row inherits the host's heading face (Inter in Elegant, Hanken in
+  // Brutal): `button { font: inherit }` under `main.font-display`.
+  TextStyle get title => RaftTypography.heading(
+    tokens,
+    size: 12,
+    line: 16,
+  ).copyWith(letterSpacing: 1.2);
   TextStyle get count => RaftTypography.mono(
     tokens,
     size: 12,
@@ -83,12 +82,17 @@ class RaftSidebarSectionHeader extends StatelessWidget {
     this.actions = const [],
     this.trailing,
     this.onContextMenu,
+    this.topInset,
   });
 
   /// Sidebar.tsx `SidebarSectionHeader onContextMenu`: right click / long press
   /// anywhere on the header row, at the global pointer position.
   final ValueChanged<Offset>? onContextMenu;
   final String label;
+
+  /// Overrides the `mt-3` top inset when the row's margin collapses with the
+  /// previous sibling's bottom margin (the sibling's box already holds it).
+  final double? topInset;
   final bool expanded;
   final ValueChanged<bool>? onExpandedChanged;
   final int? count;
@@ -137,7 +141,9 @@ class RaftSidebarSectionHeader extends StatelessWidget {
       ],
     );
     final header = Padding(
-      padding: recipe.inset,
+      padding: topInset == null
+          ? recipe.inset
+          : recipe.inset.copyWith(top: topInset),
       child: Row(
         children: [
           Expanded(

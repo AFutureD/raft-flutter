@@ -20,8 +20,13 @@ class MemberProfileView extends StatefulWidget {
     required this.onClose,
     this.onMessage,
     this.onBack,
+    this.showClose = true,
   });
   final WorkspaceController controller;
+
+  /// Web HumanRoute renders no close control (only the overlay presentation
+  /// passes `onClose`); the desktop detail pane hides it.
+  final bool showClose;
   final String userId;
   final VoidCallback onClose;
 
@@ -129,57 +134,158 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
     }
   }
 
-  Future<void> roleOrRemove(String action) async {
+  /// HumanDetailPanel `ConfirmDialog` for removing the member.
+  Future<void> remove() async {
     final server = w.server!.id, id = widget.userId;
     final name = '${profile['displayName'] ?? profile['name']}';
-    await scopedDialog<void>(
-      (_) => RaftFormDialog(
-        title: action == 'remove'
-            ? raftText(context, 'Remove Member')
-            : raftText(context, 'Change role?'),
-        description: action == 'remove'
-            ? raftFormat(
-                context,
-                'Remove this member from {workspace}. They will lose workspace access.',
-                {'workspace': w.server!.name},
-              )
-            : null,
-        fields: [
-          if (action != 'remove')
-            RaftFormField(
-              'role',
-              'Role',
-              initial: '${profile['role'] ?? 'member'}',
-              choices: {
-                for (final r
-                    in w.server!.string('role') == 'owner'
-                        ? ['owner', 'admin', 'member', 'guest']
-                        : ['member', 'guest'])
-                  r: '${r[0].toUpperCase()}${r.substring(1)}',
-              },
-            ),
-        ],
-        submitLabel: action == 'remove' ? 'Remove' : 'Confirm',
-        destructive: action == 'remove',
-        onSubmit: (v) async {
-          await w.command(
-            action == 'remove' ? 'DELETE' : 'PATCH',
-            '/servers/$server/members/$id',
-            data: action == 'remove' ? null : {'role': v['role']},
-          );
+    final removed = await scopedDialog<bool>(
+      (_) => RaftConfirmDialog(
+        surfaceKey: const ValueKey('agent-dialog'),
+        title: raftText(context, 'Remove Member'),
+        message: raftFormat(
+          context,
+          '{name} will be removed from every channel on this server. Their past messages will remain in history.',
+          {'name': name},
+        ),
+        confirmLabel: raftText(context, 'Remove'),
+        loadingLabel: raftText(context, 'Removing…'),
+        onConfirm: () async {
+          await w.command('DELETE', '/servers/$server/members/$id');
         },
       ),
     );
-    if (action == 'remove' && mounted) {
+    if (removed == true && mounted) {
       widget.onBack != null ? widget.onBack!() : widget.onClose();
-    } else {
-      await reload();
     }
-    if (name.isEmpty) return;
+  }
+
+  /// `getEditableHumanServerRoles`: the roles the viewer may assign
+  /// (`canTransitionServerRole`; Guest only while guest invites are on).
+  List<String> editableRoles({required bool self}) {
+    final actor = w.server?.string('role');
+    final target = '${profile['role'] ?? ''}';
+    if (target.isEmpty) return const [];
+    final owners = w.entityDirectory
+        .rows(WorkspaceEntityKind.members)
+        .where((m) => m['role'] == 'owner')
+        .length;
+    bool can(String next) {
+      if (target == next || actor == null) return false;
+      if (actor == 'owner') {
+        return !(target == 'owner' && next != 'owner' && owners <= 1);
+      }
+      if (actor == 'admin') {
+        return !self &&
+            target != 'owner' &&
+            target != 'admin' &&
+            next != 'owner' &&
+            (target == 'member' || target == 'guest');
+      }
+      return false;
+    }
+
+    return [
+      for (final r in const ['owner', 'admin', 'member', 'guest'])
+        if (can(r)) r,
+    ];
+  }
+
+  bool editingRole = false, rolePickerOpen = false, roleSaving = false;
+  String roleValue = 'member';
+  String? roleError;
+
+  Future<void> saveRole() async {
+    final server = w.server!.id, id = widget.userId;
+    setState(() {
+      roleSaving = true;
+      roleError = null;
+    });
+    try {
+      await w.command(
+        'PATCH',
+        '/servers/$server/members/$id',
+        data: {'role': roleValue},
+      );
+      await reload();
+      if (mounted) setState(() => editingRole = false);
+    } catch (e) {
+      if (mounted) setState(() => roleError = '$e');
+    } finally {
+      if (mounted) setState(() => roleSaving = false);
+    }
+  }
+
+  /// InlineBadgeEditor + Save / Cancel (`space-y-1.5`, buttons `gap-1.5`).
+  Widget _roleEditor(BuildContext context, RaftTokens t, List<String> roles) {
+    String name(String r) => raftText(context, '${r[0].toUpperCase()}${r.substring(1)}');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RaftInlineBadgeEditor(
+          label: name(roleValue),
+          selectedId: roleValue,
+          options: [for (final r in roles) RaftInlineBadgeOption(id: r, label: name(r))],
+          onSelect: (id) => setState(() {
+            roleValue = id;
+            rolePickerOpen = false;
+          }),
+          open: rolePickerOpen,
+          onOpenChanged: (open) => setState(() => rolePickerOpen = open),
+          background: roleColor(t, roleValue),
+          foreground: roleInk(t, roleValue),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            RaftRecipeTextButton(
+              key: const ValueKey('member-edit-role-save'),
+              label: raftText(context, 'Save'),
+              variant: RaftButtonRecipeVariant.accent,
+              horizontalPadding: 8,
+              onPressed: roleSaving || roleValue == profile['role']
+                  ? null
+                  : saveRole,
+            ),
+            const SizedBox(width: 6),
+            RaftRecipeTextButton(
+              label: raftText(context, 'Cancel'),
+              horizontalPadding: 8,
+              onPressed: roleSaving
+                  ? null
+                  : () => setState(() {
+                      rolePickerOpen = false;
+                      roleError = null;
+                      editingRole = false;
+                    }),
+            ),
+          ],
+        ),
+        if (roleError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              roleError!,
+              style: RaftPanelText.caption(t).copyWith(
+                color: t.product.brutalOrange,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   /// HumanDetailPanel.tsx ROLE_CONFIG brutal backgrounds (`theme-brutal:bg-*`)
   /// and elegant soft tokens.
+  Color roleInk(RaftTokens t, String role) => t.brutal
+      ? Colors.black
+      : switch (role) {
+          'owner' => t.colors['warning-strong']!,
+          'admin' => t.colors['accent-strong']!,
+          'guest' => t.colors['info-strong']!,
+          _ => t.colors['foreground-strong']!,
+        };
+
   Color roleColor(RaftTokens t, String role) => t.brutal
       ? switch (role) {
           'owner' => t.product.brutalOrange,
@@ -193,6 +299,15 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
           'guest' => t.colors['info-soft']!,
           _ => t.colors['fill-muted']!,
         };
+
+  /// Live agent activity (`agent:activity`) else the summary's status: the
+  /// created-agent row's StatusDot (`computeAgentDisplayState`).
+  String? _createdActivity(Map a) {
+    final row = w.entityDirectory.agent('${a['id']}');
+    final activity = row?['activity'];
+    if (activity is String) return activity;
+    return (row?['status'] ?? a['status']) == 'active' ? 'online' : 'offline';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,9 +342,13 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
               slot: RaftAvatarSlotContext.panelHeader,
             ),
             onBack: widget.onBack,
+            profileBody: true,
             backTooltip: raftText(context, 'Back'),
             actions: [
-              if (!self && widget.onMessage != null)
+              // canMessageHuman: not for a guest (no existing DM known here).
+              if (widget.onMessage != null &&
+                  w.server?.string('role') != 'guest' &&
+                  profile['role'] != 'guest')
                 RaftPanelIconButton(
                   glyph: RaftGlyph.messageSquareMore,
                   tooltip: raftText(context, 'Message'),
@@ -237,7 +356,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
                       ? null
                       : () => run(widget.onMessage!, refresh: false),
                 ),
-              if (widget.onBack == null)
+              if (widget.onBack == null && widget.showClose)
                 RaftPanelIconButton(
                   glyph: RaftGlyph.x,
                   tooltip: raftText(context, 'Close profile'),
@@ -280,7 +399,10 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
         ? DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
               .format(DateTime.parse(joinedRaw).toLocal())
         : null;
-    final canRole = !self && w.can('changeMemberRoles');
+    final roles = w.can('changeMemberRoles')
+        ? editableRoles(self: self)
+        : const <String>[];
+    final canRole = roles.isNotEmpty && profile['membershipStatus'] != 'left';
     final canRemove = !self && w.can('removeMembers');
     return [
       RaftProfileIdentity(
@@ -288,6 +410,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
         handle: handle,
         agent: false,
         avatarUrl: avatarUrl,
+        youLabel: self ? raftText(context, '(you)') : null,
       ),
       RaftPanelSection(
         children: [
@@ -305,11 +428,20 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
                   context,
                   '${role[0].toUpperCase()}${role.substring(1)}',
                 ),
-                appearance: RaftBadgeRecipeAppearance.solid,
                 background: roleColor(t, role),
+                foreground: roleInk(t, role),
               ),
+              editKey: const ValueKey('member-edit-role'),
               onEdit: canRole
-                  ? () => run(() => roleOrRemove('role'), refresh: false)
+                  ? () => setState(() {
+                      roleValue = role;
+                      rolePickerOpen = true;
+                      roleError = null;
+                      editingRole = true;
+                    })
+                  : null,
+              editor: canRole && editingRole
+                  ? _roleEditor(context, t, roles)
                   : null,
             ),
           if (profile['email'] is String)
@@ -334,10 +466,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
             count: created.length,
           ),
           if (created.isEmpty)
-            Text(
-              raftText(context, 'No created agents'),
-              style: RaftPanelText.placeholder(t),
-            )
+            RaftSpanPlaceholder(raftText(context, 'No created agents'))
           else
             RaftGapColumn(
               children: [
@@ -350,6 +479,11 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
                     ),
                     name: '${a['displayName'] ?? a['name']}',
                     subtitle: sourceRuntimeDisplayNames['${a['runtime']}'],
+                    rightContent: [
+                      RaftActivityDot(
+                        color: raftActivityDotColor(t, _createdActivity(a)),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -362,6 +496,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
             // `<Button size="sm" variant="danger" className="flex w-full
             // items-center justify-center gap-2 px-4 py-2 text-sm font-bold">`.
             RaftRecipeTextButton(
+              key: const ValueKey('member-remove'),
               label: raftText(context, 'Remove Member'),
               glyph: RaftGlyph.trash2,
               variant: RaftButtonRecipeVariant.danger,
@@ -371,7 +506,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
               horizontalPadding: 16,
               onPressed: busy
                   ? null
-                  : () => run(() => roleOrRemove('remove'), refresh: false),
+                  : remove,
             ),
           ],
         ),

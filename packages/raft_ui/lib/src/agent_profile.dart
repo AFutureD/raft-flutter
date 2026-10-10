@@ -20,7 +20,8 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'recipes/token_binding.dart';
 import 'list_items.dart';
-import 'recipe_surface.dart' show RaftCssBoxDecoration, raftCssText;
+import 'recipe_surface.dart'
+    show RaftCssBoxDecoration, RaftRecipeBox, raftCssText;
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -47,9 +48,16 @@ class RaftPanelTextScope extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return DefaultTextStyle(
-      style: raftCssText.merge(RaftTypography.body(t, color: t.ink)),
-      child: ColoredBox(color: t.colors['layer-panel']!, child: child),
+    return RaftInheritedFontScope(
+      child: DefaultTextStyle(
+        style: raftCssText.merge(
+          RaftTypography.heading(
+            t,
+            weight: FontWeight.w400,
+          ).copyWith(color: t.ink),
+        ),
+        child: ColoredBox(color: t.colors['layer-panel']!, child: child),
+      ),
     );
   }
 }
@@ -87,9 +95,13 @@ class RaftRecipeBadge extends StatelessWidget {
     this.variant,
     this.uppercase = false,
     this.background,
+    this.foreground,
     this.trailing,
   });
   final String label;
+
+  /// Web className text colour override (`text-warning-strong`).
+  final Color? foreground;
   final RaftBadgeRecipeAppearance appearance;
   final RaftBadgeRecipeVariant? variant;
   final bool uppercase;
@@ -106,7 +118,9 @@ class RaftRecipeBadge extends StatelessWidget {
       appearance: appearance,
       variant: variant,
       uppercase: uppercase,
-      states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
+      states: RaftRecipeStates({
+        if (t.dark) RaftRecipeStates.dark,
+      }, MediaQuery.sizeOf(context).width),
       tokens: rt,
     ).root;
     final decoration = s.decoration(rt);
@@ -118,7 +132,15 @@ class RaftRecipeBadge extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: raftCssText.merge(
-        RaftTypography.body(t, size: 10, line: 10).merge(s.textStyle(rt)),
+        RaftTypography.body(t, size: 10, line: 10)
+            .merge(s.textStyle(rt))
+            .copyWith(
+              // Inside a panel the label inherits the page face (Inter).
+              fontFamily: RaftInheritedFontScope.active(context)
+                  ? t.headingFont
+                  : null,
+              color: foreground,
+            ),
       ),
     );
     return Container(
@@ -150,18 +172,28 @@ class RaftInlineBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final s = RaftBadgeRecipe.resolve(theme: raftRecipeTheme(t)).root;
+    final s = RaftBadgeRecipe.resolve(
+      theme: raftRecipeTheme(t),
+      states: RaftRecipeStates({
+        if (t.dark) RaftRecipeStates.dark,
+      }, MediaQuery.sizeOf(context).width),
+    ).root;
     return RaftCssInlineBox(
       lineText: bodyLine
-          ? raftCssText.merge(RaftTypography.body(t))
+          ? raftCssText.merge(
+              RaftTypography.heading(t, weight: FontWeight.w400),
+            )
           : RaftInfoRow.valueStyle(t),
-      childText: RaftTypography.body(
+      childText: RaftTypography.heading(
         t,
         size: s.fontSize ?? 10,
         line: (s.lineHeight ?? 1) * (s.fontSize ?? 10),
         weight: FontWeight.w700,
       ),
-      height: s.height ?? 20,
+      // Elegant badges size to their content (`py-0.5` + 1px border).
+      height:
+          s.height ??
+          (s.lineHeight ?? 1) * (s.fontSize ?? 10) + s.padding.vertical + 2,
       child: Align(alignment: Alignment.centerLeft, child: badge),
     );
   }
@@ -229,6 +261,9 @@ class RaftAvatarSlot extends StatelessWidget {
         : 12.0;
     final key = pixelKey(avatarUrl);
     final base = s.root.decoration(rt);
+    final radius = t.brutal
+        ? base.borderRadius
+        : BorderRadius.circular((sizeOverride ?? slot.size) / 2);
     // Elegant `border-2 border-transparent bg-clip-padding`: the fill stops
     // at the padding box, so the transparent border shows the surface behind
     // (a BoxDecoration colour would also paint under the border).
@@ -255,7 +290,7 @@ class RaftAvatarSlot extends StatelessWidget {
       child = DecoratedBox(
         decoration: BoxDecoration(
           color: base.color,
-          borderRadius: base.borderRadius,
+          borderRadius: radius,
         ),
         child: child,
       );
@@ -270,6 +305,8 @@ class RaftAvatarSlot extends StatelessWidget {
             : clipPadding
             ? Colors.transparent
             : null,
+        // `rounded-full` in Elegant at every AvatarSlot size.
+        borderRadius: radius,
         border: Border.all(
           color: s.root.borderColor?.resolve(rt) ?? Colors.black,
           width: slot.border,
@@ -361,12 +398,18 @@ class _RaftRecipeTextButtonState extends State<RaftRecipeTextButton> {
             opacity: s.opacity ?? 1,
             child: Transform.translate(
               offset: s.translate ?? Offset.zero,
-              child: Container(
+              // The recipe box paints the `::before` sheen and inset shadows
+              // (Elegant solid buttons carry a vertical gradient).
+              child: RaftRecipeBox(
+                style: s,
+                tokens: rt,
                 height: s.height,
                 padding: EdgeInsets.symmetric(
                   horizontal: pad ?? s.padding.left,
                 ),
-                decoration: s.decoration(rt),
+                applyText: false,
+                applyOpacity: false,
+                applyTransform: false,
                 child: Row(
                   mainAxisSize: widget.expand
                       ? MainAxisSize.max
@@ -456,10 +499,12 @@ class RaftEditableEyebrow extends StatelessWidget {
     super.key,
     this.onEdit,
     this.editLabel,
+    this.editKey,
   });
   final String label;
   final VoidCallback? onEdit;
   final String? editLabel;
+  final Key? editKey;
   @override
   Widget build(BuildContext context) => Row(
     children: [
@@ -467,6 +512,7 @@ class RaftEditableEyebrow extends StatelessWidget {
       if (onEdit != null) ...[
         const SizedBox(width: 8),
         RaftInlineIconButton(
+          key: editKey,
           glyph: RaftGlyph.pencil,
           tooltip: editLabel ?? label,
           onPressed: onEdit,
@@ -491,25 +537,47 @@ abstract final class RaftPanelText {
   static TextStyle monoSemibold(RaftTokens t) =>
       mono(t).copyWith(fontWeight: FontWeight.w600);
   static TextStyle label(RaftTokens t) => raftCssText.merge(
-    RaftTypography.body(
+    RaftTypography.heading(
       t,
       size: 12,
       line: 16,
-      color: raftPanelInk(t, .5, t.colors['foreground-muted']!),
-    ),
+      weight: FontWeight.w400,
+    ).copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!)),
   );
   static TextStyle caption(RaftTokens t) => raftCssText.merge(
-    RaftTypography.body(
+    RaftTypography.heading(
       t,
       size: 12,
       line: 16,
-      color: t.colors['foreground-muted'],
-    ),
+      weight: FontWeight.w400,
+    ).copyWith(color: t.colors['foreground-muted']),
   );
   static TextStyle monoCaption(RaftTokens t) => raftCssText.merge(
     RaftTypography.mono(
       t,
       color: raftPanelInk(t, .5, t.colors['foreground-muted']!),
+    ),
+  );
+}
+
+/// A `<span>` placeholder inside a block whose own text is the 16/24 body
+/// (HumanDetailPanel "No created agents"): the line box is 24px and the 14px
+/// text sits 4px below its top.
+class RaftSpanPlaceholder extends StatelessWidget {
+  const RaftSpanPlaceholder(this.text, {super.key});
+  final String text;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 24,
+    child: Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: RaftCssText(
+          text,
+          style: RaftPanelText.placeholder(RaftTokens.of(context)),
+        ),
+      ),
     ),
   );
 }
@@ -533,7 +601,11 @@ class RaftProfileIdentity extends StatelessWidget {
     this.statusColor,
     this.statusText,
     this.minHeight = 0,
+    this.youLabel,
   });
+
+  /// `(you)` after the handle: `shrink-0 text-sm font-mono text-foreground-muted`.
+  final String? youLabel;
   final String name, handle;
   final String? avatarUrl;
   final bool agent, avatarButton;
@@ -598,19 +670,18 @@ class RaftProfileIdentity extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: raftCssText.merge(
-                            RaftTypography.body(
+                            RaftTypography.heading(
                               t,
                               size: 18,
                               line: 22.5,
-                              weight: FontWeight.w700,
-                              color: t.colors['foreground-strong']!,
-                            ),
+                            ).copyWith(color: t.colors['foreground-strong']!),
                           ),
                         ),
                       ),
                       if (onEditName != null) ...[
                         const SizedBox(width: 8),
                         RaftInlineIconButton(
+                          key: const ValueKey('agent-edit-display-name'),
                           glyph: RaftGlyph.pencil,
                           size: 14,
                           tooltip: raftText(context, 'Edit display name'),
@@ -619,24 +690,49 @@ class RaftProfileIdentity extends StatelessWidget {
                       ],
                     ],
                   ),
-                  RaftCssText(
-                    '@$handle',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: raftCssText.merge(
-                      RaftTypography.mono(
-                        t,
-                        size: 14,
-                        line: 20,
-                        color: agent
-                            ? t.colors['foreground-muted']
-                            : raftPanelInk(
+                  Row(
+                    children: [
+                      Flexible(
+                        child: RaftCssText(
+                          '@$handle',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: raftCssText.merge(
+                            RaftTypography.mono(
+                              t,
+                              size: 14,
+                              line: 20,
+                              color: agent
+                                  ? t.colors['foreground-muted']
+                                  : raftPanelInk(
+                                      t,
+                                      .5,
+                                      t.colors['foreground-muted']!,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (youLabel != null) ...[
+                        const SizedBox(width: 8),
+                        RaftCssText(
+                          youLabel!,
+                          maxLines: 1,
+                          style: raftCssText.merge(
+                            RaftTypography.mono(
+                              t,
+                              size: 14,
+                              line: 20,
+                              color: raftPanelInk(
                                 t,
-                                .5,
+                                .6,
                                 t.colors['foreground-muted']!,
                               ),
-                      ),
-                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   if (statusText != null)
                     Padding(
@@ -909,7 +1005,7 @@ class RaftActivityLogView extends StatelessWidget {
   Widget _row(RaftTokens t, RaftActivityLogEntry e) {
     final strong = t.brutal ? Colors.black : t.strong;
     final primary = raftCssText.merge(
-      RaftTypography.body(
+      RaftTypography.heading(
         t,
         size: 14,
         line: 20,
@@ -1200,7 +1296,7 @@ class RaftReminderListView extends StatelessWidget {
     final t = RaftTokens.of(context);
     final muted = raftPanelInk(t, .5, t.colors['foreground-muted']!);
     final bold = raftCssText.merge(
-      RaftTypography.body(
+      RaftTypography.heading(
         t,
         size: 12,
         line: 16,
@@ -1272,7 +1368,7 @@ class RaftReminderListView extends StatelessWidget {
                   RaftCssText(
                     r.relative,
                     style: raftCssText.merge(
-                      RaftTypography.body(
+                      RaftTypography.heading(
                         t,
                         size: 12,
                         line: 16,
@@ -1458,7 +1554,7 @@ class RaftWorkspaceTreeView extends StatelessWidget {
 
   Widget _node(RaftTokens t, RaftWorkspaceNode n) {
     final text = raftCssText.merge(
-      RaftTypography.body(
+      RaftTypography.heading(
         t,
         size: 14,
         line: 20,
@@ -1668,7 +1764,7 @@ class RaftAccessCard extends StatelessWidget {
                   children: [
                     RaftCssText(
                       title,
-                      style: RaftTypography.body(t, weight: FontWeight.w700),
+                      style: RaftTypography.heading(t, weight: FontWeight.w700),
                     ),
                     if (subtitle != null)
                       RaftCssText(subtitle!, style: RaftPanelText.caption(t)),
@@ -1790,10 +1886,12 @@ class RaftDescriptionBlock extends StatelessWidget {
     super.key,
     required this.text,
     this.onEdit,
+    this.editKey,
     this.selectable = true,
   });
   final String text;
   final VoidCallback? onEdit;
+  final Key? editKey;
   final bool selectable;
   @override
   Widget build(BuildContext context) {
@@ -1804,6 +1902,7 @@ class RaftDescriptionBlock extends StatelessWidget {
         RaftEditableEyebrow(
           raftText(context, 'Description'),
           onEdit: onEdit,
+          editKey: editKey,
           editLabel: raftText(context, 'Edit description'),
         ),
         const SizedBox(height: 4),
@@ -1830,10 +1929,17 @@ class RaftRoleField extends StatelessWidget {
     required this.label,
     required this.badge,
     this.onEdit,
+    this.editKey,
+    this.editor,
   });
   final String label;
   final RaftRecipeBadge badge;
   final VoidCallback? onEdit;
+  final Key? editKey;
+
+  /// The role editor (InlineBadgeEditor + Save / Cancel) shown in place of the
+  /// badge while editing; the pencil is hidden then.
+  final Widget? editor;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -1848,9 +1954,10 @@ class RaftRoleField extends StatelessWidget {
               glyph: RaftGlyph.circleHelp,
               tooltip: raftText(context, 'Role permissions'),
             ),
-            if (onEdit != null) ...[
+            if (onEdit != null && editor == null) ...[
               const SizedBox(width: 8),
               RaftInlineIconButton(
+                key: editKey,
                 glyph: RaftGlyph.pencil,
                 tooltip: raftText(context, 'Edit role'),
                 onPressed: onEdit,
@@ -1859,7 +1966,7 @@ class RaftRoleField extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 4),
-        RaftInlineBadge(badge: badge, bodyLine: true),
+        editor ?? RaftInlineBadge(badge: badge, bodyLine: true),
       ],
     );
   }

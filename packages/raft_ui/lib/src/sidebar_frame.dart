@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
 import 'icons.dart';
+import 'indicators.dart';
 import 'sidebar_section.dart';
 import 'theme.dart';
 
@@ -66,7 +67,13 @@ class RaftSidebarMachineGroup extends StatelessWidget {
     required this.onExpandedChanged,
     required this.children,
     this.disclosureKey,
+    this.topPadding = 6,
   });
+
+  /// The label's `mt-1.5` less whatever margin of the previous sibling it
+  /// collapses with (Blink collapses adjacent vertical margins; the section
+  /// header's `mb-1` or a row's `mb-0.5` is already in that sibling's box).
+  final double topPadding;
   final String name;
   final int count;
   final bool expanded;
@@ -88,7 +95,7 @@ class RaftSidebarMachineGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 2),
+          padding: EdgeInsets.only(top: topPadding, bottom: 2),
           child: Semantics(
             expanded: expanded,
             child: RaftControl(
@@ -142,6 +149,10 @@ class _MachineGroupRecipe extends RaftControlRecipe {
   @override
   bool get transformsOnInteraction => false;
   @override
+  Gradient? get overlayGradient => null;
+  @override
+  double get insetHighlightAlpha => 0;
+  @override
   EdgeInsets get padding => const EdgeInsets.symmetric(horizontal: 8);
   @override
   Color get foreground => tokens.brutal
@@ -165,4 +176,96 @@ class _MachineGroupRecipe extends RaftControlRecipe {
     bool pressed = false,
     bool focused = false,
   }) => const [];
+}
+
+
+/// Tailwind `text-red-700` (oklch(50.5% 0.213 27.518)), the Sidebar's inline
+/// load-failure line in every theme.
+const raftSidebarErrorInk = Color(0xFFC10007);
+
+/// Sidebar.tsx `SidebarSectionDescription`: `px-2 text-xs font-mono
+/// leading-snug` section hint (empty state) in the muted or red error tone.
+class RaftSidebarSectionDescription extends StatelessWidget {
+  const RaftSidebarSectionDescription(this.text, {super.key, this.error});
+  final String text;
+
+  /// `text-red-700 font-mono` failure line colour; null = the muted hint.
+  final Color? error;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Text(
+        text,
+        style: RaftTypography.mono(
+          t,
+          size: 12,
+          line: error == null ? 16.5 : 16,
+          color:
+              error ??
+              (t.brutal
+                  ? Colors.black.withValues(alpha: .5)
+                  : t.colors['foreground-muted']),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sidebar.tsx `SidebarRowsSkeleton`: [rows] x `SkeletonRow gap-1.5 px-2
+/// py-2` with an 18px avatar and one `w-3/5` line.
+class RaftSidebarRowsSkeleton extends StatelessWidget {
+  const RaftSidebarRowsSkeleton({super.key, this.rows = 3});
+  final int rows;
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (var i = 0; i < rows; i++)
+        const Padding(
+          padding: EdgeInsets.all(8),
+          child: RaftSkeletonRow(avatar: true, gap: 6, lineFractions: [.6]),
+        ),
+    ],
+  );
+}
+
+/// Sidebar.tsx Guest chip (shared with ChannelMemberList): `shrink-0
+/// self-center rounded-sm border border-line-muted bg-info-soft px-1.5 py-0.5
+/// font-mono text-[10px] leading-3 text-foreground-strong`; Brutal
+/// `rounded-none border-[1.5px] border-black bg-brutal-cyan text-black`.
+class RaftSidebarTag extends StatelessWidget {
+  const RaftSidebarTag(this.label, {super.key});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: t.brutal ? t.colors['color-brutal-cyan'] : t.colors['info-soft'],
+        border: Border.all(
+          color: t.brutal ? Colors.black : t.colors['line-muted']!,
+          // `border-[1.5px]`: Blink floors a border to whole device pixels.
+          width: t.brutal
+              ? (1.5 * MediaQuery.devicePixelRatioOf(context))
+                        .floorToDouble()
+                        .clamp(1, 99) /
+                    MediaQuery.devicePixelRatioOf(context)
+              : 1,
+        ),
+        borderRadius: BorderRadius.circular(t.brutal ? 0 : 4),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        style: RaftTypography.mono(
+          t,
+          size: 10,
+          line: 12,
+          color: t.brutal ? Colors.black : t.strong,
+        ).copyWith(fontWeight: FontWeight.w500),
+      ),
+    );
+  }
 }

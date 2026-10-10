@@ -75,7 +75,9 @@ enum AgentDetailTab { profile, activity, chat, reminders, workspace, apps, mcp }
 class AgentDetailActions {
   const AgentDetailActions({
     this.onBack,
-    this.onEditProfile,
+    this.onEditName,
+    this.onEditDescription,
+    this.onEditRole,
     this.onEditAvatar,
     this.onEditRuntime,
     this.onStartStop,
@@ -86,7 +88,9 @@ class AgentDetailActions {
     this.onPermissions,
   });
   final VoidCallback? onBack,
-      onEditProfile,
+      onEditName,
+      onEditDescription,
+      onEditRole,
       onEditAvatar,
       onEditRuntime,
       onStartStop,
@@ -202,17 +206,40 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
       '${widget.liveActivity?['activity'] ?? a['activity'] ?? (a['status'] == 'active' ? 'online' : 'offline')}';
   bool get online => activity != 'offline';
 
-  List<AgentDetailTab> get tabs => [
-    AgentDetailTab.profile,
-    if (widget.canViewPrivate) ...[
-      AgentDetailTab.activity,
-      AgentDetailTab.chat,
-      AgentDetailTab.reminders,
-      AgentDetailTab.workspace,
-      AgentDetailTab.apps,
-    ],
-    if (widget.canManage) AgentDetailTab.mcp,
-  ];
+  /// AGENT_PANEL_TABS filtered by visibility, then ordered like raft-ui
+  /// `reconcileTabOrder`: the server's `agentPanelTabOrder` first (`channels` /
+  /// `dms` are the legacy ids of Chat, `integrations` of Apps), the rest in
+  /// their default order.
+  List<AgentDetailTab> get tabs {
+    final visible = [
+      AgentDetailTab.profile,
+      if (widget.canViewPrivate) ...[
+        AgentDetailTab.activity,
+        AgentDetailTab.chat,
+        AgentDetailTab.reminders,
+        AgentDetailTab.workspace,
+        AgentDetailTab.apps,
+      ],
+      if (widget.canManage) AgentDetailTab.mcp,
+    ];
+    final stored = widget.controller.sidebarOrder['agentPanelTabOrder'];
+    final ordered = <AgentDetailTab>[];
+    for (final raw in stored is List ? stored : const []) {
+      final id = switch (raw) {
+        'channels' || 'dms' => AgentDetailTab.chat,
+        'integrations' => AgentDetailTab.apps,
+        _ => AgentDetailTab.values.where((t) => t.name == raw).firstOrNull,
+      };
+      if (id != null && visible.contains(id) && !ordered.contains(id)) {
+        ordered.add(id);
+      }
+    }
+    return [
+      ...ordered,
+      for (final id in visible)
+        if (!ordered.contains(id)) id,
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -244,13 +271,30 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         ),
       ],
     ];
+    return LayoutBuilder(
+      builder: (context, box) =>
+          _panel(context, current, visible, menu, box.maxWidth),
+    );
+  }
+
+  Widget _panel(
+    BuildContext context,
+    AgentDetailTab current,
+    List<AgentDetailTab> visible,
+    List<RaftMenuEntry> menu,
+    double panelWidth,
+  ) {
     return RaftPanelTextScope(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           RaftPanelHeaderBar(
             title: displayName,
-            onBack: widget.actions.onBack,
+            profileBody: true,
+            // `useMobileBack` renders the chevron below `md` only.
+            onBack: MediaQuery.sizeOf(context).width >= 768
+                ? null
+                : widget.actions.onBack,
             backTooltip: raftText(context, 'Back'),
             iconSlot: RaftAvatarSlot(
               name: displayName,
@@ -262,11 +306,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             ),
             actions: [
               if (a['deletedAt'] == null && menu.isNotEmpty)
-                RaftOverflowMenuButton(
-                  key: const Key('agent-profile-overflow-trigger'),
-                  entries: menu,
-                  tooltip: raftText(context, 'More actions'),
-                ),
+                // AgentProfileOverflowMenu `responsive`: the inline command
+                // buttons while the panel is wider than 480px (container
+                // query), else the overflow menu.
+                if (panelWidth > 480)
+                  ..._inlineActions(context)
+                else
+                  RaftOverflowMenuButton(
+                    key: const Key('agent-profile-overflow-trigger'),
+                    entries: menu,
+                    tooltip: raftText(context, 'More actions'),
+                  ),
             ],
           ),
           RaftPanelTabBar<AgentDetailTab>(
@@ -298,6 +348,30 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
       ),
     );
   }
+
+  List<Widget> _inlineActions(BuildContext context) => [
+    if (widget.actions.onMessage != null)
+      RaftPanelIconButton(
+        key: const Key('agent-profile-inline-message'),
+        glyph: RaftGlyph.messageSquareMore,
+        tooltip: raftText(context, 'Direct Message'),
+        onPressed: widget.actions.onMessage,
+      ),
+    if (widget.canControlRuntime && !external) ...[
+      RaftPanelIconButton(
+        key: const Key('agent-profile-inline-start-stop'),
+        glyph: online ? RaftGlyph.square : RaftGlyph.play,
+        tooltip: raftText(context, online ? 'Stop Agent' : 'Start Agent'),
+        onPressed: widget.actions.onStartStop,
+      ),
+      RaftPanelIconButton(
+        key: const Key('agent-profile-inline-restart-reset'),
+        glyph: RaftGlyph.rotateCcw,
+        tooltip: raftText(context, 'Restart / Reset'),
+        onPressed: widget.actions.onRestartReset,
+      ),
+    ],
+  ];
 
   RaftPanelTab<AgentDetailTab> _tabSpec(
     BuildContext context,
@@ -479,7 +553,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           ),
           avatarButton: canEdit,
           onAvatar: canEdit ? widget.actions.onEditAvatar : null,
-          onEditName: canEdit ? widget.actions.onEditProfile : null,
+          onEditName: canEdit ? widget.actions.onEditName : null,
           statusColor: raftActivityDotColor(t, activity),
           statusText: a['deletedAt'] == null ? status : null,
           // `min-h-[66px] theme-brutal:min-h-[72px]`.
@@ -492,7 +566,8 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           children: [
             RaftDescriptionBlock(
               text: '${a['description'] ?? ''}',
-              onEdit: canEdit ? widget.actions.onEditProfile : null,
+              onEdit: canEdit ? widget.actions.onEditDescription : null,
+              editKey: const ValueKey('agent-edit-description'),
             ),
           ],
         ),
@@ -508,9 +583,10 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                 ),
                 if (canEdit && role != null && role != 'owner')
                   RaftInlineIconButton(
+                    key: const ValueKey('agent-edit-role'),
                     glyph: RaftGlyph.pencil,
                     tooltip: raftText(context, 'Edit role'),
-                    onPressed: widget.actions.onPermissions,
+                    onPressed: widget.actions.onEditRole,
                   ),
               ],
               child: role == null

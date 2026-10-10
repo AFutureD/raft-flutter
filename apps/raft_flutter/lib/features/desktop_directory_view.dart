@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'desktop_navigation_policy.dart';
 import 'add_computer_dialog.dart';
+import 'agent_avatar_projection.dart';
 import 'computer_detail_view.dart'
     show computerAvailableVersion, computerDiskLow, computerRunLabel;
 import 'fleet_views.dart' show showFleetRegistration;
 import 'managed_agent_launcher.dart';
 import 'sender_avatar_projection.dart';
+import 'workspace_menu_invite.dart';
 
 /// The classic Sidebar's Members/Computers column. This is a current-authority
 /// directory, separate from settings' member-role management and fleet routes.
@@ -39,6 +44,11 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
   WorkspaceController? _listened;
   late String _authority;
 
+  /// Live `agent:activity` per agent (Web agentStore.agentActivities): the
+  /// avatar badge follows it before the next directory read.
+  final liveActivity = <String, String>{};
+  StreamSubscription<RaftEvent>? _events;
+
   /// Account, workspace, role and the visibility rules of this column. Rows
   /// themselves are a projection of the server-scoped entity directory, which
   /// fences its own data, so a channel change never touches this column.
@@ -63,14 +73,6 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     ],
   ];
 
-  /// Kinds whose failure is reported; group names are auxiliary.
-  List<WorkspaceEntityKind> get errorKinds => widget.computers
-      ? [WorkspaceEntityKind.computers]
-      : [
-          if (w.can('viewAgents')) WorkspaceEntityKind.agents,
-          if (showHumans) WorkspaceEntityKind.members,
-        ];
-
   @override
   void initState() {
     super.initState();
@@ -83,6 +85,16 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     _directory?.removeListener(directoryChanged);
     _listened = w..addListener(workspaceChanged);
     _directory = w.entityDirectory..addListener(directoryChanged);
+    _events?.cancel();
+    liveActivity.clear();
+    _events = w.client.events.listen((e) {
+      final p = e.payload;
+      if (e.name != 'agent:activity' || p is! Map || !mounted) return;
+      final id = p['agentId'], activity = p['activityKind'] ?? p['activity'];
+      if (id is String && activity is String) {
+        setState(() => liveActivity[id] = activity);
+      }
+    });
     w.entityDirectory.ensure(waitKinds, retryFailed: true);
   }
 
@@ -121,6 +133,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
   void dispose() {
     _listened?.removeListener(workspaceChanged);
     _directory?.removeListener(directoryChanged);
+    _events?.cancel();
     agentMenu.dispose();
     super.dispose();
   }
@@ -217,6 +230,9 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
           : null,
       conversationKind: RaftConversationNavKind.directory,
       selected: selected,
+      tag: kind == DesktopContentKind.human && value['role'] == 'guest'
+          ? RaftSidebarTag(raftText(context, 'Guest'))
+          : null,
       description:
           kind != DesktopContentKind.computer &&
               '${value['description'] ?? ''}'.isNotEmpty
@@ -226,6 +242,9 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
           ? const RaftIcon(RaftGlyph.monitor, size: 18)
           : RaftAvatar(
               name: name,
+              presence: agent
+                  ? agentRowPresence(value, live: liveActivity[id])
+                  : null,
               mountedContext: RaftMountedAvatarContext.sidebarList,
               kind: kind == DesktopContentKind.agent
                   ? RaftAvatarKind.agent
@@ -316,6 +335,9 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     );
   }
 
+  /// Machine groups in first-seen order. The label's `mt-1.5` collapses with
+  /// the section header's `mb-1` (first group: 2 more) or the previous row's
+  /// `mb-0.5` / label's `mb-0.5` (4 more).
   List<Widget> agentMachineGroups(
     List<Map<String, dynamic>> rows,
     List<Map<String, dynamic>> computers,
@@ -327,9 +349,12 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
       groups.putIfAbsent(id, () => []).add(value);
     }
     return [
-      for (final entry in groups.entries)
+      for (final (index, entry) in groups.entries.indexed)
         RaftSidebarMachineGroup(
           key: ValueKey('directory-machine-group-${entry.key}'),
+          topPadding: index == 0
+              ? 2
+              : 6 - (RaftTokens.of(context).brutal ? 4 : 2),
           disclosureKey: ValueKey('directory-machine-disclosure-${entry.key}'),
           name:
               '${computers.where((m) => m['id'] == entry.key).firstOrNull?['name'] ?? raftText(context, 'No computer')}',
@@ -350,7 +375,6 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     final t = RaftTokens.of(context);
     final directory = w.entityDirectory;
     final loading = waitKinds.any((kind) => !directory.settled(kind));
-    final error = errorKinds.any((kind) => directory.state(kind).error != null);
     final computers = w.can('viewMachines')
         ? rows(WorkspaceEntityKind.computers)
         : const <Map<String, dynamic>>[];
@@ -363,12 +387,18 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     Widget section(
       String label,
       List<Map<String, dynamic>> rows,
-      DesktopContentKind kind,
-    ) => Column(
+      DesktopContentKind kind, {
+      double? topInset,
+      bool loading = false,
+      bool hideRows = false,
+      bool failed = false,
+    }) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         RaftSidebarSectionHeader(
           label: label,
+          disclosureKey: ValueKey('desktop-directory-toggle-${kind.name}'),
+          topInset: topInset,
           expanded: kind == DesktopContentKind.agent
               ? agentsExpanded
               : humansExpanded,
@@ -395,13 +425,39 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
                     onPressed: () => register(true),
                   ),
                 ]
+              : kind == DesktopContentKind.human && w.can('inviteMembers')
+              ? [
+                  RaftSidebarSectionAction(
+                    label: raftText(context, 'Invite human'),
+                    key: const ValueKey('desktop-directory-invite-human'),
+                    glyph: RaftGlyph.plus,
+                    onPressed: () => showWorkspaceMenuInvite(context, w),
+                  ),
+                ]
               : const [],
         ),
         if (widget.computers ||
             (kind == DesktopContentKind.agent
                 ? agentsExpanded
                 : humansExpanded))
-          if (kind == DesktopContentKind.agent)
+          if (failed)
+            // Sidebar.tsx: `px-2 text-xs text-red-700 font-mono`.
+            RaftSidebarSectionDescription(
+              raftText(context, 'Humans failed to load'),
+              error: raftSidebarErrorInk,
+            )
+          else if (hideRows || rows.isEmpty)
+            loading
+                ? const RaftSidebarRowsSkeleton()
+                : RaftSidebarSectionDescription(
+                    raftText(
+                      context,
+                      kind == DesktopContentKind.agent
+                          ? 'No agents yet'
+                          : 'No humans',
+                    ),
+                  )
+          else if (kind == DesktopContentKind.agent)
             ...agentMachineGroups(rows, computers)
           else
             for (final value in rows) row(value, kind),
@@ -426,32 +482,39 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
             ),
       body: widget.computers
           ? computersList(t, computers)
-          : loading
-          ? Center(
-              child: Text(
-                raftText(context, 'Loading...'),
-                style: RaftTypography.mono(t, size: 14, line: 20),
-              ),
-            )
           : ListView(
               key: const Key('desktop-directory-list'),
               padding: recipe.contentInset(headerInFlow: true),
               children: [
-                if (error)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      raftText(context, 'Directory could not be loaded.'),
-                    ),
+                if (w.can('viewAgents'))
+                  section(
+                    'Agents',
+                    agents,
+                    DesktopContentKind.agent,
+                    // The first read (rows and the computer names that label
+                    // the groups) decides the first frame.
+                    loading: loading,
+                    hideRows: loading,
                   ),
-                if (widget.computers)
-                  section('Computers', computers, DesktopContentKind.computer)
-                else ...[
-                  if (w.can('viewAgents'))
-                    section('Agents', agents, DesktopContentKind.agent),
-                  if (showHumans)
-                    section('Humans', humans, DesktopContentKind.human),
-                ],
+                if (showHumans)
+                  section(
+                    'Humans',
+                    humans,
+                    DesktopContentKind.human,
+                    // `mt-3` collapses with the previous box's margin: a row
+                    // or group label carries `mb-0.5`/`mb-1` (10 / 8 more), a collapsed
+                    // or hint-only section ends at its header's `mb-1` (8) or
+                    // a margin-less hint / skeleton (12).
+                    topInset: !w.can('viewAgents')
+                        ? null
+                        : !agentsExpanded
+                        ? 8
+                        : agents.isEmpty || loading
+                        ? 12
+                        : 12 - (t.brutal ? 4 : 2),
+                    failed: directory.state(WorkspaceEntityKind.members).error !=
+                        null,
+                  ),
               ],
             ),
     );

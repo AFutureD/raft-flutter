@@ -78,6 +78,7 @@ export 'src/feedback_workspace.dart';
 export 'src/settings_workspace.dart';
 export 'src/settings_billing.dart';
 export 'src/settings_applications.dart';
+export 'src/agent_dialogs.dart';
 export 'src/settings_controls.dart';
 export 'src/settings_administration.dart';
 export 'src/appearance_picker.dart';
