@@ -9,7 +9,9 @@ import 'design_primitives.dart';
 import 'icons.dart';
 import 'mobile_navigation.dart';
 import 'recipe_surface.dart';
+import 'rail_attention.dart';
 import 'recipes/app_rail.g.dart';
+import 'recipes/avatar.g.dart';
 import 'recipes/badge.g.dart';
 import 'recipes/context_menu.g.dart';
 import 'recipes/popover.g.dart';
@@ -69,7 +71,12 @@ class RaftServerSwitcher extends StatefulWidget {
     this.onReorder,
     this.mobile = false,
     this.headerActions = const [],
+    this.attention = false,
   });
+
+  /// LeftRail `hasOtherServerUnread`: the rail item attention dot on the
+  /// workspace avatar.
+  final bool attention;
   final RaftMenuController controller;
   final String workspaceName, label;
   final List<RaftServerMenuRow> rows;
@@ -199,45 +206,70 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
                   ),
                   actions: widget.headerActions,
                 )
-              : Center(
-                  child: RaftInteractive(
-                    key: const Key('rail-workspace'),
-                    semanticLabel: widget.label,
-                    tooltip: widget.workspaceName,
-                    selected: widget.controller.isOpen,
-                    focusNode: triggerFocus,
-                    onPressed: () => widget.controller.isOpen
-                        ? widget.controller.close()
-                        : widget.controller.open(),
-                    builder: (context, state) {
-                      final slot = RaftAppRailRecipe.resolve(
-                        theme: t.recipeTheme,
-                        tokens: t.recipeTokens,
-                        states: t.recipeStates(
-                          hovered: state.hovered,
-                          pressed: state.pressed,
-                          focusVisible: state.focusVisible,
-                          extra: [
-                            if (widget.controller.isOpen) 'data-selected=true',
-                          ],
-                        ),
-                      ).item;
-                      final extent = size.height <= 600 ? 36.0 : 40.0;
-                      return RaftRecipeBox(
-                        style: slot,
-                        tokens: t.recipeTokens,
-                        width: extent,
-                        height: extent,
-                        padding: EdgeInsets.zero,
-                        child: Center(
-                          child: _ServerAvatar(
-                            name: widget.workspaceName,
-                            size: extent - 4,
-                            initialSize: 14,
+              : DecoratedBox(
+                  // AppRailHeader `border-b-2 border-black` (Brutal): the
+                  // border sits inside the 62px box, the avatar centres in 60.
+                  decoration: BoxDecoration(
+                    border: t.brutal
+                        ? const Border(
+                            bottom: BorderSide(color: Colors.black, width: 2),
+                          )
+                        : null,
+                  ),
+                  child: Center(
+                    child: RaftInteractive(
+                      key: const Key('rail-workspace'),
+                      semanticLabel: widget.label,
+                      tooltip: widget.workspaceName,
+                      selected: widget.controller.isOpen,
+                      focusNode: triggerFocus,
+                      onPressed: () => widget.controller.isOpen
+                          ? widget.controller.close()
+                          : widget.controller.open(),
+                      builder: (context, state) {
+                        final slot = RaftAppRailRecipe.resolve(
+                          theme: t.recipeTheme,
+                          tokens: t.recipeTokens,
+                          states: t.recipeStates(
+                            hovered: state.hovered,
+                            pressed: state.pressed,
+                            focusVisible: state.focusVisible,
+                            extra: [
+                              if (widget.controller.isOpen)
+                                'data-selected=true',
+                            ],
                           ),
-                        ),
-                      );
-                    },
+                        ).item;
+                        final extent = size.height <= 600 ? 36.0 : 40.0;
+                        return RaftRecipeBox(
+                          style: slot,
+                          tokens: t.recipeTokens,
+                          width: extent,
+                          height: extent,
+                          padding: EdgeInsets.zero,
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: extent - 4,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                fit: StackFit.expand,
+                                children: [
+                                  _ServerAvatar(
+                                    name: widget.workspaceName,
+                                    size: extent - 4,
+                                    initialSize: 14,
+                                  ),
+                                  if (widget.attention)
+                                    const RaftRailAttention(
+                                      child: SizedBox.shrink(),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
         ),
@@ -649,6 +681,14 @@ class _ServerAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // AvatarSlot server: Avatar `human` fallback ink (Elegant: muted at 70%).
+    final rt = t.recipeTokens;
+    final fallbackInk = RaftAvatarRecipe.resolve(
+      theme: t.recipeTheme,
+      type_: RaftAvatarRecipeType.human,
+      size: RaftAvatarRecipeSize.xl,
+      tokens: rt,
+    ).fallback.color?.resolve(rt);
     final initial = Center(
       child: Text(
         name.trim().isEmpty ? 'S' : name.trim().characters.first.toUpperCase(),
@@ -657,7 +697,7 @@ class _ServerAvatar extends StatelessWidget {
           size: initialSize,
           line: 16,
           weight: FontWeight.w700,
-          color: t.brutal ? Colors.black : t.strong,
+          color: t.brutal ? Colors.black : (fallbackInk ?? t.strong),
         ),
       ),
     );
@@ -665,6 +705,7 @@ class _ServerAvatar extends StatelessWidget {
       name: name,
       slot: RaftAvatarSlotContext.surfaceList,
       agent: false,
+      server: true,
       sizeOverride: size,
       content: avatarUrl == null
           ? initial

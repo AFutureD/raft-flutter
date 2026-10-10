@@ -49,6 +49,7 @@ export 'src/recipes/button_variants.g.dart'
     show RaftButtonRecipeVariant, RaftButtonRecipeSize;
 
 export 'src/icons.dart';
+export 'src/recipes/toast_styles.g.dart' show RaftToastRecipeTone;
 export 'src/brand.dart';
 export 'src/auth_page.dart';
 
@@ -65,6 +66,9 @@ export 'src/mobile_navigation.dart';
 export 'src/mermaid_toolbar_recipe.dart';
 
 export 'src/sidebar_section.dart';
+export 'src/sidebar_menus.dart';
+export 'src/bottom_sheet.dart';
+export 'src/sidebar_section_dialog.dart';
 export 'src/settings_layout.dart';
 export 'src/qr_code.dart';
 export 'src/settings_resources.dart';

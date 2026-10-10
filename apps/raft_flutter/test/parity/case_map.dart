@@ -16,6 +16,7 @@ import 'cases/ext_thread_attachments.dart';
 import 'cases/ext_thread_messages.dart';
 import 'cases/ext_notifications.dart';
 import 'cases/ext_task_detail.dart';
+import 'cases/ext_shell.dart';
 import 'cases/home_tasks.dart';
 import 'cases/members_settings.dart';
 import 'cases/screens.dart';
@@ -45,6 +46,7 @@ final Map<String, ParityCase> parityCases = {
   ...extTaskDetailCases,
   ...extComposerAttachmentCases,
   ...extChannelSettingsCases,
+  ...extShellCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {

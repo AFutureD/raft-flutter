@@ -1023,6 +1023,97 @@ left is text rasterisation (>16-level differences cover ~3 % of a full drawer, a
 glyphs) plus 1-level colour noise on dark fills and the elegant button sheen, with the
 ConfirmDialog/unsaved cards at 85-90 (card text and 1 px dialog offsets).
 
+### Shell and navigation cases (components.shell.*, 156 ids = 52 surfaces x 3 themes)
+
+`python3 tool/parity-ext/build-shell-cases.py` (last in the builder order) appends
+`components.shell.<platform>.<surface>.<theme>` and writes
+`tool/parity-ext/fixtures/shell.json` (channels, DMs, unread / drafts / mention,
+sidebar-order presets, servers and cross-server unread, primitive samples). The
+React host `host/ShellCases.tsx` mounts the real Web `LeftRail` + `Sidebar`
+(AppShell slots, seeded stores, `Sidebar mobileInline` for the Home tab),
+`ConfirmDialog`, `ui/Banner`, `ui/EmptyState`, `ui/BottomSheet`, the toast
+provider and `ThreadsInbox`; the Flutter side
+(`test/parity/cases/ext_shell.dart`) mounts the real `WorkspaceView` and the
+raft_ui primitives. Menus and dialogs are opened by the same interaction on both
+sides: Web `rightclick` (new `run` patch: a native right click, optionally at
+`x`,`y` of the element) and Flutter `secondaryTap` (new harness step; the
+keyed sidebar row carries its trailing margin, so `row: true` aims at the
+button centre).
+
+| group | desktop surfaces | mobile |
+| --- | --- | --- |
+| Sidebar + rail | default, empty, loading, custom sections, sorted, collapsed, row hover, sort menu | Home default, collapsed, sort menu |
+| Menus | channel, muted channel, human DM, agent DM, section, custom section, surface, Move to section | channel row |
+| Dialogs | new / rename section, delete section, archive channel, rail help menu, server switcher | |
+| Activity framing | rail + inbox panel edge | left edge |
+| Primitives | confirm (danger, warning, acknowledge), banner, empty state, bottom sheet, toast (success, error, info, plain), overflow sheet | same |
+
+Result (extension suite policy: elegant-dark sampled to one case per
+`components.shell.<platform>`; the table is light + Brutal, 100 captured of
+104 evaluated, mean 86.8 %, 94.4 % without the toasts):
+
+| group (cases) | first capture | now |
+| --- | --- | --- |
+| desktop sidebar (16) | 92.8 %, 4 passing | 94.1 %, 4 passing |
+| desktop menus (16) | 45 % at the first capture (no menu in Flutter) | 96.1 %, 8 passing |
+| desktop dialogs + help menu + server switcher (12) | 90.0 %, 0 passing | 92.1 %, 1 passing |
+| confirm dialog primitive (12) | 94.0 %, 4 passing | 94.1 %, 4 passing |
+| banner (4) | 74.8 %, 0 passing | 96.4 %, 2 passing |
+| bottom sheet (4) | not covered | 91.5 %, 1 passing |
+| empty state (8) | 96.1 %, 4 passing | 96.9 %, 4 passing |
+| toast (16) | 41.9 %, 0 passing | 47.1 %, 1 passing |
+| mobile Home sidebar / menu / sort (8) | not covered | 92.5 %, 1 passing |
+| Activity framing (4) | not covered | 96.0 %, 2 passing |
+| overflow sheet (4) | not covered | not covered |
+
+(The first-capture column is the run after the cases existed; the very first
+sidebar default capture was 90.1 / 90.4 / 89.6 % before the pinned-row, rail
+header and avatar fixes.)
+
+Official check: 46 official cases that use the touched shared widgets
+(screens.home / components.home, slug input, avatar list row, members,
+settings, thread header, channel) are identical to the same commit without
+this change (max |delta| < 0.05 %).
+
+What changed in Flutter (all measured against the Web DOM):
+
+* Pinned rows follow `allowWrap`: 17.5px lines, 30 / 32 minimum height, no agent
+  description, `items-start`; custom-section DMs and agents hide descriptions.
+  Elegant conversation rows use `px-1.5`; touch density keeps Web's row box and
+  only widens the hit area (RaftTouchTarget) instead of inflating rows to 48dp.
+* Right click / long press menus (raft_ui `RaftSidebarContextMenu`, the message
+  menu recipe at `w-48` / `w-64` / `w-56`) for channel, DM, agent rows, section
+  headers and the sidebar surface, the Move to section submenu, the section
+  dialog (`RaftSidebarSectionDialog`) and confirm dialogs, with the Source
+  actions (sidebar-order patches, read-all / unread, notification-settings).
+  The row whose menu is open keeps `bg-fill-muted`. Sort menu labels are Web's
+  (Manual / Recent / A-Z).
+* Rail: server avatar fill / ink per theme, Brutal 2px header border,
+  other-server attention dot; agent presence dot on agent rows; the Web browser
+  default for hide-empty sections (Electron / the Linux client turn it on).
+* `RaftBanner`: Brutal 2px / Elegant 4px title gap and the action dropping to
+  its own end-aligned row at or below 24rem (container query). `RaftToast`: icon
+  cell, close button and the two empty-track column gaps of the Web grid.
+  `RaftBottomSheet`: new (Card, `shadow-raft-xl` / `shadow-brutal-lg`).
+
+Activity borders (owner report): Web draws the vertical line beside the rail on
+the Activity page itself: the inbox panel is raft-ui `Panel edge="attached"`
+(`border-l`, Brutal `!border-l`), the rail keeps only its Brutal divider (1px on
+Activity: LeftRail `thinDivider`) and MainLayout hides the sidebar column on
+that route. On mobile the same panel keeps its left border at x = 0 (checked
+with AppShellRoot + AppShellMainSlot around ThreadsInbox at 390px, 3x). Flutter
+draws exactly these lines (`components.shell.*.activity.frame`, and
+`test/shell_border_placement_test.dart` asserts the owner and x of every
+vertical border per page, theme and form factor), so no border was removed.
+
+Remaining gaps: the OverflowSheet (Drawer) shell, the emoji picker popover
+(third-party grid), the Electron-only "Find a conversation" sidebar box, the
+toast action variant (the Web toast manager ignores `actionProps` here), the
+member / computers sidebar rails, and text rasterisation. Elegant (light) toasts
+differ by a constant 2 levels in the blue channel of the translucent fill (the
+dark theme is within 1), which zeroes exact-pixel equality over the whole fill;
+the geometry matches (288 x 56 / 64).
+
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 
 The official `pixelPerfectSimilarity` (visual-testing

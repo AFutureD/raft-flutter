@@ -7,6 +7,11 @@ import 'package:raft_client/raft_client.dart';
 import 'search_memory.dart';
 import 'workspace_controller.dart';
 
+/// Test seam: parity captures render the release availability contract (the
+/// grid toggle needs the server flag) instead of the DEV default.
+@visibleForTesting
+bool? workspaceModeDevOverride;
+
 /// Mounted workspaceGridAvailability + workspaceGridNavigationStore contract.
 /// DEV availability is separate from the default-false personal preference.
 /// Release builds require the actual server feature evaluation. The native
@@ -14,7 +19,7 @@ import 'workspace_controller.dart';
 class WorkspaceModeStore extends ChangeNotifier {
   WorkspaceModeStore(this.workspace, {SearchMemoryStorage? storage, bool? dev})
     : storage = storage ?? PreferencesSearchMemoryStorage(),
-      dev = dev ?? kDebugMode {
+      dev = dev ?? workspaceModeDevOverride ?? kDebugMode {
     workspace.addListener(synchronize);
     events = workspace.client.events.listen((e) {
       if (e.name == 'server:updated') {

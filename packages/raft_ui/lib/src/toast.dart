@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import 'icons.dart';
 import 'recipe_surface.dart';
 import 'recipes/toast_styles.g.dart';
 import 'theme.dart';
@@ -12,37 +13,123 @@ import 'theme.dart';
 /// from raft-ui toastStyles; LocalizedToastProvider overrides title to normal
 /// weight and permits wrapping. This is not the stacked/action toast variant.
 class RaftToast extends StatelessWidget {
-  const RaftToast({super.key, required this.title});
+  const RaftToast({
+    super.key,
+    required this.title,
+    this.description,
+    this.tone = RaftToastRecipeTone.success,
+    this.icon = false,
+    this.onClose,
+  });
   final String title;
+
+  /// `ToastDescription` under the title (stacked in the same body column).
+  final String? description;
+  final RaftToastRecipeTone tone;
+
+  /// LocalizedToastProvider default (`hasIcon !== false`): the tone glyph in a
+  /// 20px `ToastIcon` cell before the body.
+  final bool icon;
+
+  /// `ToastClose` (default on toasts that keep their dismiss button): a 32px
+  /// button in the trailing grid cell.
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), rt = t.recipeTokens;
+    final hasClose = onClose != null;
     final s = RaftToastRecipe.resolve(
       theme: t.recipeTheme,
       layout: RaftToastRecipeLayout.inline,
-      tone: RaftToastRecipeTone.success,
+      tone: tone,
       states: t.recipeStates(
-        extra: const [
-          'not:has:data-slot=toast-icon',
-          'not:has:data-slot=toast-actions',
-          'not:has:data-slot=toast-description',
+        extra: [
+          if (icon)
+            'has:data-slot=toast-icon'
+          else
+            'not:has:data-slot=toast-icon',
+          if (hasClose)
+            'has:data-slot=toast-actions'
+          else
+            'not:has:data-slot=toast-actions',
+          if (description != null)
+            'has:data-slot=toast-description'
+          else
+            'not:has:data-slot=toast-description',
         ],
       ),
       tokens: rt,
     );
     final titleStyle = s.title.text(rt).copyWith(fontWeight: FontWeight.w400);
+    final glyph = switch (tone) {
+      RaftToastRecipeTone.success => RaftGlyph.checkCircle2,
+      RaftToastRecipeTone.info => RaftGlyph.info,
+      _ => RaftGlyph.alertTriangle,
+    };
+    // `!grid-cols-[auto_minmax(0,1fr)_auto] !gap-x-3`: three tracks, so the
+    // two column gaps (24px) stay even when a track is empty.
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: titleStyle),
+        if (description != null)
+          Text(description!, style: s.description.text(rt)),
+      ],
+    );
+    final Widget row = icon
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox.square(
+                dimension: 20,
+                child: Center(
+                  child: RaftIcon(
+                    glyph,
+                    size: t.brutal ? 16 : 18,
+                    color: s.icon.textStyle(rt).color,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(child: body),
+              const SizedBox(width: 12),
+              if (hasClose)
+                GestureDetector(
+                  onTap: onClose,
+                  child: RaftRecipeBox(
+                    style: s.close,
+                    tokens: rt,
+                    width: 32,
+                    height: 32,
+                    child: Center(
+                      child: RaftIcon(
+                        RaftGlyph.x,
+                        size: 14,
+                        color: s.close.textStyle(rt).color,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(width: 0),
+            ],
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: body),
+              const SizedBox(width: 24),
+            ],
+          );
     return Semantics(
       liveRegion: true,
       container: true,
       child: RaftRecipeBox(
         style: s.root,
         tokens: rt,
-        child: RaftRecipeBox(
-          style: s.content,
-          tokens: rt,
-          child: Text(title, style: titleStyle, textAlign: TextAlign.center),
-        ),
+        child: RaftRecipeBox(style: s.content, tokens: rt, child: row),
       ),
     );
   }

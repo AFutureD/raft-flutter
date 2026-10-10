@@ -490,9 +490,39 @@ Future<void> _androidInteractions(
         if (raw['scroll'] != false) await t.ensureVisible(target!.first);
         await t.pump();
         await t.tap(target!.first, warnIfMissed: false);
+      case 'secondaryTap':
+        // Native right click at the element centre, or at (x, y) from its
+        // top-left like Playwright's `position`.
+        await t.pump(const Duration(milliseconds: 300));
+        final box = t.getRect(target!.first);
+        // `row`: the keyed item carries the sidebar row's trailing margin
+        // (4 Brutal / 2 Elegant); Playwright clicks the button's own centre.
+        final rowMargin = raw['row'] == true
+            ? ((visualCase['variants'] as List).first
+                          as Map)['props']['parityTheme'] ==
+                      'brutal-light'
+                  ? 2.0
+                  : 1.0
+            : 0.0;
+        final at = raw['x'] == null
+            ? box.center - Offset(0, rowMargin)
+            : box.topLeft +
+                  Offset(
+                    (raw['x'] as num).toDouble(),
+                    (raw['y'] as num? ?? 0).toDouble(),
+                  );
+        await t.tapAt(
+          at,
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
       case 'hover':
         mouse ??= await t.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: Offset.zero);
+        try {
+          await mouse.addPointer(location: Offset.zero);
+        } on AssertionError {
+          // A right click earlier in the case already added the mouse device.
+        }
         await mouse.moveTo(t.getCenter(target!.first));
       case 'scroll':
         // Counterpart of the React `scroll` interaction (wheel over the

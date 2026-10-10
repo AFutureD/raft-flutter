@@ -81,7 +81,9 @@ class RaftChatSidebarGroup extends StatelessWidget {
     this.actions = const [],
     this.disclosureKey,
     this.headerKey,
+    this.onContextMenu,
   });
+  final ValueChanged<Offset>? onContextMenu;
   final RaftChatSidebarGroupKind kind;
   final String label, emptyLabel;
   final int count;
@@ -137,6 +139,7 @@ class RaftChatSidebarGroup extends StatelessWidget {
           disclosureKey: disclosureKey,
           actions: actions,
           attention: attention,
+          onContextMenu: onContextMenu,
         ),
         if (expanded) ...[
           ...children,
@@ -442,8 +445,7 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
     final recipe = RaftConversationTabsRecipe(
       tokens,
       mobile:
-          raftBreakpointWidth(context) <
-          RaftLayoutMetrics.desktopBreakpoint,
+          raftBreakpointWidth(context) < RaftLayoutMetrics.desktopBreakpoint,
       density: RaftDensityScope.of(context),
     );
     return Container(
@@ -677,8 +679,7 @@ class RaftConversationHeaderActions extends StatelessWidget {
     final recipe = RaftConversationHeaderActionsRecipe(
       RaftTokens.of(context),
       mobile:
-          raftBreakpointWidth(context) <
-          RaftLayoutMetrics.desktopBreakpoint,
+          raftBreakpointWidth(context) < RaftLayoutMetrics.desktopBreakpoint,
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
