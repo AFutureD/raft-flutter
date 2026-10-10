@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
@@ -201,7 +202,28 @@ class RaftRecipeInput extends StatefulWidget {
     this.mono = false,
     this.padding,
     this.autofocus = false,
+    this.focusNode,
+    this.enabled = true,
+    this.numeric = false,
+    this.upperCase = false,
+    this.height,
   });
+
+  /// Callsite fixed box height (`box-border h-10`); content centres.
+  final double? height;
+
+  /// Caller-owned focus (e.g. commit on blur); else the field owns one.
+  final FocusNode? focusNode;
+
+  /// `disabled` (the recipe's disabled state).
+  final bool enabled;
+
+  /// `inputMode="numeric" pattern="[0-9]*"`: digits only.
+  final bool numeric;
+
+  /// Callsite `uppercase` (the value renders upper-cased; the typed text is
+  /// kept, like CSS `text-transform`).
+  final bool upperCase;
 
   /// Key for the inner [TextField] (tests and focus lookups).
   final Key? fieldKey;
@@ -220,16 +242,28 @@ class RaftRecipeInput extends StatefulWidget {
 }
 
 class _RaftRecipeInputState extends State<RaftRecipeInput> {
-  final focus = FocusNode();
+  late final FocusNode own = FocusNode();
+  FocusNode get focus => widget.focusNode ?? own;
+  void _focusChanged() => setState(() {});
   @override
   void initState() {
     super.initState();
-    focus.addListener(() => setState(() {}));
+    focus.addListener(_focusChanged);
+  }
+
+  @override
+  void didUpdateWidget(RaftRecipeInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      (oldWidget.focusNode ?? own).removeListener(_focusChanged);
+      focus.addListener(_focusChanged);
+    }
   }
 
   @override
   void dispose() {
-    focus.dispose();
+    focus.removeListener(_focusChanged);
+    own.dispose();
     super.dispose();
   }
 
@@ -238,7 +272,11 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
     final t = RaftTokens.of(context), tokens = RaftRecipeTokens(t);
     final s = RaftInputRecipe.resolve(
       theme: raftRecipeTheme(t),
-      states: _states(t, focused: focus.hasFocus),
+      states: _states(
+        t,
+        focused: focus.hasFocus,
+        disabled: !widget.enabled,
+      ),
       tokens: tokens,
     ).root;
     // Callsite `text-sm`.
@@ -246,7 +284,9 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
     if (widget.mono) {
       text = text.copyWith(fontFamily: t.monoFont);
     }
-    return Container(
+    final field = Container(
+      height: widget.height,
+      alignment: widget.height == null ? null : Alignment.centerLeft,
       decoration: s.decoration(tokens),
       padding: widget.padding ?? s.padding,
       child: TextField(
@@ -255,6 +295,14 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         controller: widget.controller,
         focusNode: focus,
         autofocus: widget.autofocus,
+        enabled: widget.enabled,
+        keyboardType: widget.numeric ? TextInputType.number : null,
+        inputFormatters: widget.numeric
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : null,
+        textCapitalization: widget.upperCase
+            ? TextCapitalization.characters
+            : TextCapitalization.none,
         style: text,
         cursorColor: text.color ?? t.strong,
         onChanged: widget.onChanged,
@@ -265,6 +313,10 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         ),
       ),
     );
+    // `disabled:opacity-50` lives on the recipe root.
+    return widget.enabled || s.opacity == null
+        ? field
+        : Opacity(opacity: s.opacity!, child: field);
   }
 }
 

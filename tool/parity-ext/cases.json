@@ -12019,6 +12019,3198 @@
    }
   },
   {
+   "id": "components.ext-settings.billing.current-plan.brutal",
+   "title": "Settings Plan & Billing: current plan card (free, trial) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.current-plan",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-current-plan-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-current-plan-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.current-plan'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.current-plan.elegant",
+   "title": "Settings Plan & Billing: current plan card (free, trial) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.current-plan",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-current-plan-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-current-plan-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.current-plan'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.current-plan.elegant-dark",
+   "title": "Settings Plan & Billing: current plan card (free, trial) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.current-plan",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-current-plan-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-current-plan-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.current-plan'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.summary.brutal",
+   "title": "Settings Plan & Billing: checkout summary card (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.summary",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-summary-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-summary-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.summary'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.summary.elegant",
+   "title": "Settings Plan & Billing: checkout summary card (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.summary",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-summary-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-summary-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.summary'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.summary.elegant-dark",
+   "title": "Settings Plan & Billing: checkout summary card (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.summary",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-summary-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-summary-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.summary'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro.brutal",
+   "title": "Settings Plan & Billing: Pro subscription (seat usage, manage seats) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro.elegant",
+   "title": "Settings Plan & Billing: Pro subscription (seat usage, manage seats) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro.elegant-dark",
+   "title": "Settings Plan & Billing: Pro subscription (seat usage, manage seats) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro-plan.brutal",
+   "title": "Settings Plan & Billing: Pro current plan card (seat bar, portal) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro-plan",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-current-plan-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-current-plan-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro-plan'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro-plan.elegant",
+   "title": "Settings Plan & Billing: Pro current plan card (seat bar, portal) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro-plan",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-current-plan-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-current-plan-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro-plan'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro-plan.elegant-dark",
+   "title": "Settings Plan & Billing: Pro current plan card (seat bar, portal) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro-plan",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-current-plan-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-current-plan-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro-plan'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro-summary.brutal",
+   "title": "Settings Plan & Billing: manage seats summary card (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro-summary",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-summary-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-summary-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro-summary'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro-summary.elegant",
+   "title": "Settings Plan & Billing: manage seats summary card (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro-summary",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-summary-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-summary-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro-summary'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.pro-summary.elegant-dark",
+   "title": "Settings Plan & Billing: manage seats summary card (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.pro-summary",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-testid='billing-summary-card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-summary-card",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.pro-summary'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.admin.brutal",
+   "title": "Settings Plan & Billing: admin (cannot change billing) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.admin",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "admin",
+      "routeSet": "billing-admin"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.admin'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.admin.elegant",
+   "title": "Settings Plan & Billing: admin (cannot change billing) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.admin",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "admin",
+      "routeSet": "billing-admin"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.admin'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.admin.elegant-dark",
+   "title": "Settings Plan & Billing: admin (cannot change billing) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.admin",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "admin",
+      "routeSet": "billing-admin"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.admin'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.loading.brutal",
+   "title": "Settings Plan & Billing: loading skeleton (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.loading",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-loading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanBillingLoadingSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.loading.elegant",
+   "title": "Settings Plan & Billing: loading skeleton (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.loading",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-loading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanBillingLoadingSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.loading.elegant-dark",
+   "title": "Settings Plan & Billing: loading skeleton (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.loading",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-loading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanBillingLoadingSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.loading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.confirm-checkout.brutal",
+   "title": "Settings Plan & Billing: confirm Pro checkout dialog (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.confirm-checkout",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-confirm-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Upgrade to Pro\"s]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "billing-upgrade"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection + ConfirmDialog.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.confirm-checkout'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.confirm-checkout.elegant",
+   "title": "Settings Plan & Billing: confirm Pro checkout dialog (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.confirm-checkout",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-confirm-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Upgrade to Pro\"s]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "billing-upgrade"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection + ConfirmDialog.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.confirm-checkout'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.confirm-checkout.elegant-dark",
+   "title": "Settings Plan & Billing: confirm Pro checkout dialog (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.confirm-checkout",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot=\"dialog-content\"]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "billing-confirm-dialog",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "role=button[name=\"Upgrade to Pro\"s]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "billing-upgrade"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection + ConfirmDialog.tsx",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.confirm-checkout'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.mobile.brutal",
+   "title": "Settings Plan & Billing: mobile page (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.mobile",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.billing.mobile.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.mobile.elegant",
+   "title": "Settings Plan & Billing: mobile page (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.mobile",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.billing.mobile.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.mobile.elegant-dark",
+   "title": "Settings Plan & Billing: mobile page (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.mobile",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "tab": "billing",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.billing.mobile.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.mobile-pro.brutal",
+   "title": "Settings Plan & Billing: mobile page, Pro (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.mobile-pro",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.billing.mobile-pro.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.mobile-pro'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.mobile-pro.elegant",
+   "title": "Settings Plan & Billing: mobile page, Pro (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.mobile-pro",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.billing.mobile-pro.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.mobile-pro'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.billing.mobile-pro.elegant-dark",
+   "title": "Settings Plan & Billing: mobile page, Pro (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "billing.mobile-pro",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "tab": "billing",
+      "role": "owner",
+      "routeSet": "billing-pro"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.billing.mobile-pro.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#PlanSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'billing.mobile-pro'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.installed.brutal",
+   "title": "Settings Applications: Installed tab (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.installed",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-installed']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-installed"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.installed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.installed.elegant",
+   "title": "Settings Applications: Installed tab (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.installed",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-installed']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-installed"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.installed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.installed.elegant-dark",
+   "title": "Settings Applications: Installed tab (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.installed",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-installed']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-installed"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.installed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.my-apps.brutal",
+   "title": "Settings Applications: My apps tab (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.my-apps",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-my-apps']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-my-apps"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.my-apps'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.my-apps.elegant",
+   "title": "Settings Applications: My apps tab (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.my-apps",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-my-apps']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-my-apps"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.my-apps'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.my-apps.elegant-dark",
+   "title": "Settings Applications: My apps tab (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.my-apps",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-my-apps']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-my-apps"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.my-apps'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.list.brutal",
+   "title": "Settings Applications: marketplace list view (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.list",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-view-toggle'] [aria-label='List view']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-view-list"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.list'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.list.elegant",
+   "title": "Settings Applications: marketplace list view (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.list",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-view-toggle'] [aria-label='List view']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-view-list"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.list'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.list.elegant-dark",
+   "title": "Settings Applications: marketplace list view (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.list",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-view-toggle'] [aria-label='List view']"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-view-list"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.list'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.member.brutal",
+   "title": "Settings Applications: member (read-only) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.member",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "member"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.member'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.member.elegant",
+   "title": "Settings Applications: member (read-only) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.member",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "member"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.member'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.member.elegant-dark",
+   "title": "Settings Applications: member (read-only) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.member",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "member"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.member'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.empty.brutal",
+   "title": "Settings Applications: no marketplace apps (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.empty",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner",
+      "routeSet": "apps-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.empty.elegant",
+   "title": "Settings Applications: no marketplace apps (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.empty",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner",
+      "routeSet": "apps-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.empty.elegant-dark",
+   "title": "Settings Applications: no marketplace apps (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.empty",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner",
+      "routeSet": "apps-empty"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-parity-region='settings-panel']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "settings-panel",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.empty'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.detail.brutal",
+   "title": "Settings Applications: marketplace app detail (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.detail",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=0"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_slack"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.detail.elegant",
+   "title": "Settings Applications: marketplace app detail (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.detail",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=0"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_slack"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.detail.elegant-dark",
+   "title": "Settings Applications: marketplace app detail (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.detail",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=0"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_slack"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.detail-installed.brutal",
+   "title": "Settings Applications: installed marketplace app detail (danger zone) (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.detail-installed",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=1"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_github"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.detail-installed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.detail-installed.elegant",
+   "title": "Settings Applications: installed marketplace app detail (danger zone) (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.detail-installed",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=1"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_github"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.detail-installed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.detail-installed.elegant-dark",
+   "title": "Settings Applications: installed marketplace app detail (danger zone) (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 1600,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.detail-installed",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=1"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_github"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.detail-installed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.installed-detail.brutal",
+   "title": "Settings Applications: installed app access detail (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.installed-detail",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-installed-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-installed']"
+     },
+     {
+      "type": "click",
+      "target": "role=button[name='GitHub Issues's]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-installed"
+     },
+     {
+      "type": "tap",
+      "key": "connected-app-installed-market_github"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.installed-detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.installed-detail.elegant",
+   "title": "Settings Applications: installed app access detail (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.installed-detail",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-installed-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-installed']"
+     },
+     {
+      "type": "click",
+      "target": "role=button[name='GitHub Issues's]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-installed"
+     },
+     {
+      "type": "tap",
+      "key": "connected-app-installed-market_github"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.installed-detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.installed-detail.elegant-dark",
+   "title": "Settings Applications: installed app access detail (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.installed-detail",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-installed-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-tab-installed']"
+     },
+     {
+      "type": "click",
+      "target": "role=button[name='GitHub Issues's]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-apps-tab-installed"
+     },
+     {
+      "type": "tap",
+      "key": "connected-app-installed-market_github"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.installed-detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.mobile.brutal",
+   "title": "Settings Applications: mobile page (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.mobile",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.integrations.mobile.brutal']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.mobile.elegant",
+   "title": "Settings Applications: mobile page (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.mobile",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.integrations.mobile.elegant']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.mobile.elegant-dark",
+   "title": "Settings Applications: mobile page (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.mobile",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case='components.ext-settings.integrations.mobile.elegant-dark']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     }
+    ],
+    "androidInteractions": []
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.mobile'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.mobile-detail.brutal",
+   "title": "Settings Applications: mobile marketplace app detail (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.mobile-detail",
+      "extKind": "settings",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=0"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_slack"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.mobile-detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.mobile-detail.elegant",
+   "title": "Settings Applications: mobile marketplace app detail (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.mobile-detail",
+      "extKind": "settings",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=0"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_slack"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.mobile-detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.ext-settings.integrations.mobile-detail.elegant-dark",
+   "title": "Settings Applications: mobile marketplace app detail (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "ext-settings",
+   "category": "extension/ext-settings",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "integrations.mobile-detail",
+      "extKind": "settings",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "tab": "integrations",
+      "role": "owner"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-slot='modal-backdrop'] [data-slot='card']",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "connected-app-detail",
+    "interactions": [
+     {
+      "type": "wait",
+      "ms": 800
+     },
+     {
+      "type": "click",
+      "target": "[data-testid='connected-apps-marketplace-collection'] > button >> nth=0"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "tap",
+      "key": "connected-app-market_slack"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/settings/SettingsPanel.tsx#IntegrationsSection",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_settings.dart 'integrations.mobile-detail'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
    "id": "components.liveactivity.desktop.tool-finished.brutal",
    "title": "Live agent activity bar desktop tool-finished (brutal-light)",
    "captureType": "component-fixture",

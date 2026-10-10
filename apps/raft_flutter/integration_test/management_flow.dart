@@ -6,6 +6,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/mcp_views.dart';
 import 'package:raft_flutter/features/integrations_views.dart';
 import 'package:raft_flutter/features/admin_views.dart';
+import 'package:raft_flutter/features/billing_view.dart';
 import 'package:raft_flutter/features/provider_views.dart';
 import 'package:raft_ui/raft_ui.dart';
 

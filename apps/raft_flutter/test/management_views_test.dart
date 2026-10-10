@@ -10,7 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/integrations_views.dart';
 import 'package:raft_flutter/features/provider_views.dart';
-import 'package:raft_flutter/features/admin_views.dart';
+import 'package:raft_flutter/features/billing_view.dart';
 import 'package:raft_flutter/features/labs_view.dart';
 import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_flutter/features/account_connections_view.dart';
@@ -865,11 +865,16 @@ void main() {
       'provisioned': {'humans': 3, 'agents': 10},
       'subscription': {'status': 'active'},
     };
-    await tester.pumpWidget(host(BillingView(controller: w)));
+    await tester.pumpWidget(host(ListView(children: [BillingView(controller: w)])));
     await tester.pumpAndSettle();
     expect(find.text('Pro'), findsOneWidget);
-    expect(find.text('Manage purchased seats'), findsNothing);
-    expect(find.text('Cancel subscription'), findsNothing);
+    // PlanSection: the portal / cancel / seat controls render disabled with
+    // the owner-only reason (canManageBilling is false).
+    expect(find.text('Only server owners can change billing.'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('billing-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('billing-confirm-dialog')), findsNothing);
+    expect(a.calls.where((c) => c.path.startsWith('/billing/') && c.method == 'POST'), isEmpty);
   });
   testWidgets(
     'app registration declares scopes and masks the one-time secret',

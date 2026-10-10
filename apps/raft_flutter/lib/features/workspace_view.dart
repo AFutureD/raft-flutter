@@ -57,6 +57,7 @@ import 'fleet_views.dart';
 import 'integrations_views.dart';
 import 'provider_views.dart';
 import 'admin_views.dart';
+import 'billing_view.dart';
 import 'private_route_guard.dart';
 import 'server_setup_gate.dart';
 import 'sidebar_preferences_view.dart';
@@ -1062,7 +1063,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               controller: w,
             )
           : route == 'billing'
-          ? BillingView(key: ValueKey('billing-${w.server!.id}'), controller: w)
+          ? ListView(
+              // PlanSection renders inside SettingsPanel's scrolling surface.
+              padding: RaftSettingsPanelFrame.contentInset,
+              children: [
+                BillingView(
+                  key: ValueKey('billing-${w.server!.id}'),
+                  controller: w,
+                ),
+              ],
+            )
           : route == 'joint-channels'
           ? JointChannelsView(
               key: ValueKey('joint-channels-${w.server!.id}'),
@@ -1074,9 +1084,16 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               controller: w,
             )
           : route == 'integrations'
-          ? IntegrationsView(
-              key: ValueKey('integrations-${w.server!.id}'),
-              controller: w,
+          ? ListView(
+              // IntegrationsSection renders inside SettingsPanel's scrolling
+              // surface.
+              padding: RaftSettingsPanelFrame.contentInset,
+              children: [
+                IntegrationsView(
+                  key: ValueKey('integrations-${w.server!.id}'),
+                  controller: w,
+                ),
+              ],
             )
           : route == 'agents' || route == 'computers'
           ? wide
