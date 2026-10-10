@@ -23,4 +23,5 @@
 - 启动 subagent 时显式指定模型，不默认继承。
 - 默认一律用 Sonnet 5.5：调研、视觉对齐、页面移植、底层绘制、功能开发都用 Sonnet。
 - 只有 Kevin 明确要求时才用 Opus 5.5。
-- 无论哪种模型，合并前都由负责人审核代码并通过 `python3 tool/check-project`。
+- 每个任务只跑与改动相关的测试、`tool/flutter analyze` 和设计系统审计，不单独跑全量检查。
+- 负责人审核后把一批完成的分支合到批次分支上，整批只跑一次 `python3 tool/check-project`，通过后再合进主线并推送。
