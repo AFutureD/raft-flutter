@@ -91,7 +91,7 @@ void main() {
           accepted.complete({'items': [], 'totalUnreadCount': 7});
         });
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('rail-search')));
+        await tester.tap(find.byKey(const ValueKey('rail-tasks')));
         await tester.pumpAndSettle();
         expect(attention('activity'), findsOneWidget);
         w.unread['c1'] = 0;
@@ -111,7 +111,7 @@ void main() {
           zero.complete({'items': [], 'totalUnreadCount': 0});
         });
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('rail-search')));
+        await tester.tap(find.byKey(const ValueKey('rail-tasks')));
         await tester.pumpAndSettle();
         expect(
           attention('activity'),
@@ -135,7 +135,7 @@ void main() {
           newWindow.complete({'items': [], 'totalUnreadCount': 0});
         });
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('rail-search')));
+        await tester.tap(find.byKey(const ValueKey('rail-tasks')));
         await tester.pumpAndSettle();
         expect(
           attention('activity'),
