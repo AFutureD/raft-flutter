@@ -367,6 +367,11 @@ void main() {
           await tester.tap(find.byType(RaftPanelBackAction));
           await tester.pump();
           expect(w.location.route, RaftRoute.home);
+          // Mobile details are platform routes: let the popped Activity route
+          // finish its transition before asserting on the Home tab bar.
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
           expect(
             find.byKey(const Key('workspace-mobile-navigation')),
             findsOneWidget,
