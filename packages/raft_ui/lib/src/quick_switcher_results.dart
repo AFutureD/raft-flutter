@@ -68,7 +68,7 @@ class RaftQuickSwitcherSkeleton extends StatelessWidget {
       spacing: 8,
       children: [
         for (var i = 0; i < 5; i++)
-          DecoratedBox(
+          Container(
             decoration: BoxDecoration(
               color: t.brutal ? t.canvas : t.card,
               border: Border.fromBorderSide(line),
@@ -111,7 +111,7 @@ class RaftQuickSwitcherErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return DecoratedBox(
+    return Container(
       key: const Key('quick-switcher-error'),
       decoration: BoxDecoration(
         color: t.brutal ? t.canvas : t.card,
@@ -171,6 +171,7 @@ class RaftQuickSwitcherHit extends StatelessWidget {
     this.sender = '',
     this.time = '',
     this.nested = false,
+    this.first = false,
   });
   final String where, sender, time;
   final String? threadLabel;
@@ -179,7 +180,7 @@ class RaftQuickSwitcherHit extends StatelessWidget {
   final List<String> warnings;
   final Widget? avatar;
   final Widget snippet;
-  final bool selected, nested;
+  final bool selected, nested, first;
   final VoidCallback onPressed;
 
   @override
@@ -203,14 +204,19 @@ class RaftQuickSwitcherHit extends StatelessWidget {
     return RaftSearchResultSurface(
       selected: selected,
       nested: nested,
+      first: first,
       onPressed: onPressed,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: m.messageHeader.padding.add(
-              EdgeInsets.only(bottom: m.messageHeader.margin.bottom),
-            ),
+            // Nested hits drop the header padding and keep `mb-1`
+            // (`group-data-[nested=true]` variants).
+            padding: nested
+                ? const EdgeInsets.only(bottom: 4)
+                : m.messageHeader.padding.add(
+                    EdgeInsets.only(bottom: m.messageHeader.margin.bottom),
+                  ),
             child: Wrap(
               spacing: m.messageHeader.columnGap ?? 8,
               runSpacing: m.messageHeader.rowGap ?? 8,
@@ -258,7 +264,7 @@ class RaftQuickSwitcherHit extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: m.messageBody.padding,
+            padding: nested ? EdgeInsets.zero : m.messageBody.padding,
             child: DefaultTextStyle.merge(
               style: m.messageBody
                   .textStyle(rt)
@@ -317,10 +323,10 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
       line: 16,
       weight: FontWeight.w700,
       color: t.brutal ? t.strong.withValues(alpha: .7) : t.muted,
-    ).copyWith(letterSpacing: .55);
+    ).copyWith(letterSpacing: .275, height: 1.5);
     return RaftRecipeBox(
       key: const Key('quick-switcher-thread-group'),
-      style: g.thread,
+      style: g.thread.withCssUsedBorderWidths(),
       tokens: rt,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -333,23 +339,30 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      RaftBadge(
-                        label: badge,
-                        appearance: RaftBadgeRecipeAppearance.outline,
-                        leading: RaftThreadIcon(size: 11, color: t.muted),
-                      ),
-                      Text(where, style: metaStyle.merge(text(g.threadMeta))),
-                      Text(hits.toUpperCase(), style: metaStyle),
-                      Text(
-                        time,
-                        style: metaStyle.merge(text(g.threadTimestamp)),
-                      ),
-                    ],
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 20.5),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        RaftBadge(
+                          label: badge,
+                          uppercase: true,
+                          appearance: RaftBadgeRecipeAppearance.outline,
+                          leading: RaftThreadIcon(size: 11, color: t.muted),
+                        ),
+                        Text(
+                          where.toUpperCase(),
+                          style: metaStyle.merge(text(g.threadMeta)),
+                        ),
+                        Text(hits.toUpperCase(), style: metaStyle),
+                        Text(
+                          time,
+                          style: metaStyle.merge(text(g.threadTimestamp)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Text(title, style: text(g.threadTitle)),
@@ -357,7 +370,7 @@ class RaftQuickSwitcherThreadGroup extends StatelessWidget {
             ),
           ),
           RaftRecipeBox(
-            style: g.threadMessages,
+            style: g.threadMessages.withCssUsedBorderWidths(),
             tokens: rt,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -431,26 +444,36 @@ class RaftQuickSwitcherEntityScroll extends StatelessWidget {
   final List<Widget> children;
   static const _bleed = 6.0, _maxHeight = 384.0;
   @override
-  Widget build(BuildContext context) => ClipRect(
-    clipper: const _BleedClipper(_bleed),
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: _maxHeight - 2 * _bleed),
-      child: ListView(
-        key: const Key('quick-switcher-entities'),
-        shrinkWrap: true,
-        primary: false,
-        clipBehavior: Clip.none,
-        padding: EdgeInsets.zero,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 6,
-            children: children,
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final gap =
+        gen.RaftSearchRecipe.resolve(
+          theme: t.recipeTheme,
+          states: t.recipeStates(),
+          tokens: t.recipeTokens,
+        ).list.rowGap ??
+        6;
+    return ClipRect(
+      clipper: const _BleedClipper(_bleed),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: _maxHeight - 2 * _bleed),
+        child: ListView(
+          key: const Key('quick-switcher-entities'),
+          shrinkWrap: true,
+          primary: false,
+          clipBehavior: Clip.none,
+          padding: EdgeInsets.zero,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: gap,
+              children: children,
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _BleedClipper extends CustomClipper<Rect> {

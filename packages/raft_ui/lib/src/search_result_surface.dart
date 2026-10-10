@@ -18,11 +18,15 @@ class RaftSearchResultSurface extends StatelessWidget {
     this.entity = false,
     this.selected = false,
     this.nested = false,
+    this.first = false,
   });
 
   final Widget child;
   final VoidCallback onPressed;
   final bool entity, selected, nested;
+
+  /// First child of a thread card: no divider above it.
+  final bool first;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +39,10 @@ class RaftSearchResultSurface extends StatelessWidget {
           hovered: interaction.hovered,
           pressed: interaction.pressed,
           focusVisible: interaction.focusVisible,
-          extra: [if (selected) 'data-selected=true'],
+          extra: [
+            if (selected) 'data-selected=true',
+            if (nested) 'data-nested=true',
+          ],
         );
         final style = entity
             ? RaftSearchEntityRecipe.resolve(
@@ -51,7 +58,10 @@ class RaftSearchResultSurface extends StatelessWidget {
                 nested: nested,
               ).message;
         return RaftRecipeBox(
-          style: style,
+          // Chromium paints a hairline (`border-[0.5px]`) as 1px.
+          style: first
+              ? style.withCssUsedBorderWidths().withoutTopBorder()
+              : style.withCssUsedBorderWidths(),
           tokens: t.recipeTokens,
           child: child,
         );

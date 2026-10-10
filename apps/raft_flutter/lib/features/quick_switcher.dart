@@ -643,21 +643,24 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
                 ),
               ],
             ),
-          if ((loading && failure == null) || visible.isNotEmpty)
-            RaftQuickSwitcherSection(
-              heading: raftText(context, 'Messages'),
-              children: [
-                if (loading &&
-                    entities.isEmpty &&
-                    messages.isEmpty &&
-                    failure == null)
-                  const RaftQuickSwitcherSkeleton()
-                else
-                  ..._messageGroups(context, data, selectedRow),
-              ],
-            )
-          else if (failure != null && total == 0)
-            _failureCard(context),
+          // Source: the messages card always paints; its heading needs a
+          // loading request or hits.
+          RaftQuickSwitcherSection(
+            heading: (loading && failure == null) || visible.isNotEmpty
+                ? raftText(context, 'Messages')
+                : null,
+            children: [
+              if (loading &&
+                  entities.isEmpty &&
+                  messages.isEmpty &&
+                  failure == null)
+                const RaftQuickSwitcherSkeleton()
+              else if (failure != null && total == 0)
+                _failureCard(context)
+              else
+                ..._messageGroups(context, data, selectedRow),
+            ],
+          ),
         ],
       ],
     );
@@ -680,27 +683,22 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
       ),
     };
     final broad = kind == QuickSwitcherFailure.queryTooBroad;
-    return RaftQuickSwitcherSection(
-      heading: raftText(context, 'Messages'),
-      children: [
-        RaftQuickSwitcherErrorCard(
-          title: raftText(context, title),
-          body: raftText(context, body),
-          actionLabel: !broad
-              ? raftText(context, 'Retry')
-              : filters.searchSort != 'recent'
-              ? raftText(context, 'Sort by newest')
-              : null,
-          onAction: !broad
-              ? retry
-              : filters.searchSort != 'recent'
-              ? () {
-                  filters.searchSort = 'recent';
-                  filtersChanged();
-                }
-              : null,
-        ),
-      ],
+    return RaftQuickSwitcherErrorCard(
+      title: raftText(context, title),
+      body: raftText(context, body),
+      actionLabel: !broad
+          ? raftText(context, 'Retry')
+          : filters.searchSort != 'recent'
+          ? raftText(context, 'Sort by newest')
+          : null,
+      onAction: !broad
+          ? retry
+          : filters.searchSort != 'recent'
+          ? () {
+              filters.searchSort = 'recent';
+              filtersChanged();
+            }
+          : null,
     );
   }
 
@@ -721,7 +719,11 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
       if (!groups.containsKey(key)) order.add(key);
       (groups[key] ??= []).add(row);
     }
-    Widget hit(Map<String, dynamic> row, {bool nested = false}) {
+    Widget hit(
+      Map<String, dynamic> row, {
+      bool nested = false,
+      bool first = false,
+    }) {
       final key = 'message:${row['id']}';
       return KeyedSubtree(
         key: keyFor(key),
@@ -731,6 +733,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
           data,
           selectedRow?.key == key,
           nested,
+          first,
           () => openRow(_Row(key, message: row)),
         ),
       );
@@ -750,7 +753,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
     QuickSwitcherData data,
     List<Map<String, dynamic>> hits,
     _Row? selectedRow,
-    Widget Function(Map<String, dynamic>, {bool nested}) hit,
+    Widget Function(Map<String, dynamic>, {bool nested, bool first}) hit,
   ) {
     final first = hits.first;
     DateTime? latest;
@@ -782,7 +785,10 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
       time: time,
       title: clipped.isEmpty ? raftText(context, 'Thread discussion') : clipped,
       selected: hits.any((r) => selectedRow?.key == 'message:${r['id']}'),
-      children: [for (final row in hits) hit(row, nested: true)],
+      children: [
+        for (final (i, row) in hits.indexed)
+          hit(row, nested: true, first: i == 0),
+      ],
     );
   }
 
@@ -919,6 +925,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
     QuickSwitcherData data,
     bool selected,
     bool nested,
+    bool first,
     VoidCallback onPressed,
   ) {
     final thread = row['channelType'] == 'thread';
@@ -959,6 +966,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
       ),
       selected: selected,
       nested: nested,
+      first: first,
       onPressed: onPressed,
     );
   }
