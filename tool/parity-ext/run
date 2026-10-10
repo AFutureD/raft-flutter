@@ -59,6 +59,35 @@ parity.REACT_GEN = OUT / 'react-provider'
 parity.WEB_PORT = WEB_PORT
 
 
+FULL_MANIFEST = MANIFEST
+
+
+def sample_dark(manifest):
+    """Elegant-dark only re-skins elegant-light: keep ONE representative dark
+    case per surface (first id per `components.<area>.<surface>` prefix) to
+    catch dark-only tokens, shadows and highlights; every other state is
+    verified in light and brutal. PARITY_EXT_ALL_DARK=1 keeps every dark case."""
+    if os.environ.get('PARITY_EXT_ALL_DARK') == '1':
+        return manifest
+    seen, cases = set(), []
+    for c in manifest['cases']:
+        if c['id'].endswith('.elegant-dark'):
+            key = '.'.join(c['id'].split('.')[:3])
+            if key in seen:
+                continue
+            seen.add(key)
+        cases.append(c)
+    return {**manifest, 'cases': cases}
+
+
+def write_sampled_manifest():
+    global MANIFEST
+    sampled = sample_dark(json.loads(FULL_MANIFEST.read_text()))
+    OUT.mkdir(parents=True, exist_ok=True)
+    MANIFEST = OUT / 'cases.sampled.json'
+    MANIFEST.write_text(json.dumps(sampled, indent=2) + '\n')
+
+
 def ext_cases():
     return json.loads(MANIFEST.read_text())['cases']
 
@@ -315,11 +344,12 @@ def summarize():
         t['passing'] += row['verdict'] == 'passing'
     summary.update({
         'suite': 'raft-flutter extension (NOT the official case set)',
-        'manifest': str(MANIFEST.relative_to(ROOT)),
+        'manifest': str(MANIFEST.relative_to(ROOT) if MANIFEST.is_relative_to(ROOT) else MANIFEST),
         'byTheme': themes, 'themesWithoutOfficialCases': [],
     })
     summary['definition']['unit'] = 'extension case (one theme each; theme is the id suffix)'
-    summary['definition']['total'] = 'every case in tool/parity-ext/cases.json'
+    summary['definition']['total'] = ('every case in tool/parity-ext/cases.json, elegant-dark sampled to one case per surface'
+                                       ' (PARITY_EXT_ALL_DARK=1 for all)')
     (OUT / 'summary.json').write_text(json.dumps(summary, indent=2))
     (OUT / 'summary.md').write_text(parity.summary_markdown(summary).replace(
         '; elegant-dark: 0 official cases.', '.'))
@@ -427,6 +457,7 @@ def main():
     pub.add_argument('--no-verify', action='store_true')
     pub.set_defaults(fn=cmd_publish)
     a = p.parse_args()
+    write_sampled_manifest()
     a.fn(a)
 
 

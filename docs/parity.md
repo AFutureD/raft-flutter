@@ -461,6 +461,13 @@ byte-identical.
 
 ## Extension suite (raft-flutter additions, not official cases)
 
+**Dark sampling (2026-10-11, owner decision).** Elegant-dark only re-skins
+elegant-light, so `tool/parity-ext/run` writes `<out>/cases.sampled.json` with
+ONE elegant-dark case per surface (first id per `components.<area>.<surface>`)
+and runs/diffs/scores against it; brutal and elegant-light stay complete.
+`PARITY_EXT_ALL_DARK=1` restores every dark case. With 738 cases this keeps 39
+of 246 dark cases (531 total).
+
 Surfaces the official 99-case set does not cover are compared on the **same
 official framework** in a separate suite, so official and added coverage
 never mix. The official manifest, specs and Source checkout are untouched;
