@@ -1204,9 +1204,10 @@ class RaftNavItem extends StatelessWidget {
           : Padding(
               padding: EdgeInsets.only(bottom: t.brutal ? 4 : 2),
               child: _MountedNavigationPointerSurface(
+                // Touch density keeps Web's row box (34 / 40 / 32 / 30) and
+                // expands only the hit / semantic area to 48dp.
                 builder: (pressed) =>
-                    conversationKind == RaftConversationNavKind.directory &&
-                        RaftDensityScope.of(context) == RaftDensity.touch
+                    RaftDensityScope.of(context) == RaftDensity.touch
                     ? RaftTouchTarget(child: row(pressed))
                     : row(pressed),
               ),
@@ -1864,6 +1865,7 @@ class RaftComposer extends StatefulWidget {
 
   /// Web `submitTitle` while the send action is blocked by files.
   final String? submitTooltip;
+
   /// Pending files exist (Web `pendingFiles.length > 0`): a message may then
   /// be sent without text.
   final bool hasAttachments;
