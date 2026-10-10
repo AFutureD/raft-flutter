@@ -57,8 +57,9 @@ class MessageSelection extends ChangeNotifier {
     return result;
   }
 
-  List<SelectedMessageRow> get selected =>
-      available.where((r) => ids.contains(r.message.id)).toList();
+  List<SelectedMessageRow> get selected => ids.isEmpty
+      ? []
+      : available.where((r) => ids.contains(r.message.id)).toList();
   void changed() {
     final previousIds = ids.toSet(), previousActive = active;
     final next = scope;
@@ -77,8 +78,12 @@ class MessageSelection extends ChangeNotifier {
     }
     _scope = next;
     _channelAuthority = authority;
-    final visible = available.map((r) => r.message.id).toSet();
-    ids.removeWhere((id) => !visible.contains(id));
+    // Most workspace notifications (including section changes) have no
+    // selection to reconcile. Do not project the entire message window then.
+    if (ids.isNotEmpty) {
+      final visible = available.map((r) => r.message.id).toSet();
+      ids.removeWhere((id) => !visible.contains(id));
+    }
     if (active && ids.isEmpty) active = false;
     if (previousActive != active || !setEquals(previousIds, ids)) revision++;
     notifyListeners();

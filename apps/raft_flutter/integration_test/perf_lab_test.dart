@@ -17,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/conversation_panel.dart';
+import 'package:raft_flutter/features/source_channel_files_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -138,12 +140,47 @@ void main() {
       final openB = LabChannel('open-b', [for (final k in mixKinds(100).reversed) k], pageDelay: const Duration(milliseconds: 150));
       final img = LabChannel('img', [for (var i = 0; i < 240; i++) i % 5 == 4 ? 'plain' : 'image']);
       final hist = LabChannel('hist', mixKinds(300), pageDelay: const Duration(milliseconds: 250), firstPage: 50);
+      final tagged = LabChannel('section-tags', [
+        ...mixKinds(560),
+        for (var i = 0; i < 40; i++) i % 6 == 0 ? 'image' : 'task',
+      ]);
+      tagged.tasks.clear();
+      const statuses = ['todo', 'in_progress', 'in_review', 'done', 'closed'];
+      for (final (i, row) in tagged.rows.indexed) {
+        final status = statuses[i % statuses.length];
+        row.addAll({
+          'taskNumber': i + 1, 'taskStatus': status,
+          'taskTitle': 'Tagged section task ${i + 1}',
+          'taskId': 'tag-task-$i',
+        });
+        tagged.tasks.add({
+          'id': row['taskId'], 'messageId': row['id'],
+          'channelId': tagged.id, 'taskNumber': i + 1,
+          'title': row['taskTitle'], 'status': status,
+          'claimedByName': 'Bob Li',
+        });
+      }
       final mounts = {for (final k in rowKinds) k: LabChannel('mount-$k', List.filled(120, k))};
       final parent = mix.rows.lastWhere((r) => mix.summaries.containsKey(r['id']));
       final threadId = 'thread-${parent['id']}';
       final thread = LabChannel(threadId, [for (final k in mixKinds(40)) k == 'thread-summary' || k == 'task' ? 'plain' : k], pageDelay: const Duration(milliseconds: 150));
-      final channels = [mix, openA, openB, img, hist, thread, ...mounts.values];
+      final channels = [mix, openA, openB, img, hist, tagged, thread, ...mounts.values];
       final (w, api, client) = await labWorkspace(channels, images);
+      final sectionFiles = [
+        for (var i = 0; i < 240; i++) {
+          'id': 'section-image-$i', 'messageId': tagged.rows[i]['id'],
+          'channelId': tagged.id, 'filename': 'Section image $i.png',
+          'mimeType': 'image/png', 'sizeBytes': images.pngs[i % 4].$3.length,
+          'width': LabImages.sizes[i % 4].$1,
+          'height': LabImages.sizes[i % 4].$2,
+          'thumbnailUrl': images.url(i % 4, 'section-file-$i'),
+          'createdAt': tagged.rows[i]['createdAt'],
+          'source': {'type': 'channel', 'channelId': tagged.id},
+        },
+      ];
+      api.routes['GET /channels/${tagged.id}/files'] = (_) => {
+        'files': sectionFiles, 'nextCursor': null,
+      };
       api.routes['GET /channels/mix/threads/${parent['id']}'] = (_) => {'threadChannelId': threadId};
       w.channel = mix.record;
       await w.selectChannel(mix.record);
@@ -451,6 +488,207 @@ void main() {
         await show(openA);
         await show(openB);
       }, () => openSeries([for (var i = 0; i < 10; i++) i.isEven ? openA : openB], const Duration(milliseconds: 300)), kind: 'transitions');
+
+      // Hold one touch throughout: repeatedly expose a neighboring section
+      // without accepting it. This isolates drag layout/paint from the work
+      // performed when a section is selected after release.
+      // These are opt-in mobile scenarios; the default desktop suite has no
+      // horizontal section pager.
+      if (only.isNotEmpty && (wants('section-drag') || wants('section-back-drag') || wants('section-cycle'))) {
+        await show(tagged, latest: true);
+        await t.pumpWidget(MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: raftTheme(family, dark: dark),
+          home: Scaffold(body: ConversationPanel(controller: w)),
+        ));
+        await lab.settle(t, time: const Duration(seconds: 2));
+        // Visit the real Tasks adapter first. A never-visited neighbor is only
+        // a placeholder, which cannot establish populated-page performance.
+        expect(tagged.tasks, hasLength(600));
+        await t.tap(find.byKey(const ValueKey('panel-tab-tasks')));
+        final taskShown = await waitUntil(
+          () => find.byType(RaftTaskCard).evaluate().isNotEmpty,
+          limit: const Duration(seconds: 15),
+        );
+        expect(taskShown, greaterThanOrEqualTo(0));
+        await lab.settle(t, time: const Duration(seconds: 2));
+        expect(find.text('No tasks'), findsNothing);
+        await t.tap(find.byKey(const ValueKey('panel-tab-files')));
+        final filesShown = await waitUntil(
+          () => w.channelFilesStore(tagged.id).files.length == sectionFiles.length &&
+              find.descendant(of: find.byType(SourceChannelFilesView),
+                matching: find.byWidgetPredicate((v) => v is RawImage && v.image != null)).evaluate().length >= 5,
+          limit: const Duration(seconds: 20),
+        );
+        expect(filesShown, greaterThanOrEqualTo(0));
+        expect(find.text('No files yet'), findsNothing);
+        await lab.settle(t, time: const Duration(seconds: 2));
+        await t.tap(find.byKey(const ValueKey('panel-tab-chat')));
+        await lab.settle(t, time: const Duration(seconds: 2));
+        expect(find.byType(RaftTaskCard, skipOffstage: false), findsWidgets);
+        final pager = find.byType(PageView).first;
+        final bounds = t.getRect(pager);
+        final visibleTags = find.byType(RaftMountedMessageTaskChip).evaluate()
+            .where((e) => t.getRect(find.byWidget(e.widget)).overlaps(bounds)).length;
+        expect(visibleTags, greaterThanOrEqualTo(5));
+        expect(t.getSize(pager).width, lessThan(RaftLayoutMetrics.desktopBreakpoint));
+        if (wants('section-drag') || wants('section-cycle')) {
+        // Native screenshots are read by a host-side capture watcher during
+        // these holds, outside the measured intervals. Keep task IDs and exact
+        // on-screen geometry so colors can be compared after translation.
+        Future<void> captureTags(String label) async {
+          final tags = <Map<String, Object?>>[];
+          for (final e in find.byType(RaftMountedMessageTaskChip).evaluate()) {
+            final rect = t.getRect(find.byWidget(e.widget));
+            if (!rect.overlaps(bounds)) continue;
+            tags.add({'number': (e.widget as RaftMountedMessageTaskChip).number,
+              'rect': [rect.left, rect.top, rect.right, rect.bottom]});
+          }
+          await sampler.send('note', {'theme': name, 'capture': label,
+            'dpr': view.devicePixelRatio, 'tags': tags});
+          await idle(const Duration(seconds: 2));
+        }
+        await captureTags('idle');
+        final colorDrag = await t.startGesture(Offset(bounds.right - 24, bounds.top + 80), kind: PointerDeviceKind.touch);
+        await colorDrag.moveBy(const Offset(-20, 0));
+        await nextFrame();
+        await colorDrag.moveBy(Offset(-bounds.width * .3, 0));
+        await idle(const Duration(milliseconds: 300));
+        await captureTags('held');
+        await colorDrag.moveBy(Offset(bounds.width * .3 + 20, 0));
+        await colorDrag.up();
+        await lab.settle(t, time: const Duration(milliseconds: 500));
+        await captureTags('returned');
+        // Reproduction reported on device: fully leave Chat, then keep a
+        // finger down while exposing it from Tasks. Record this separately
+        // from timings so screen recording cannot inflate the benchmark.
+        final videoClock = Stopwatch()..start();
+        await sampler.send('note', {'theme': name, 'capture': 'video-start',
+          'videoSeconds': 30});
+        await idle(const Duration(seconds: 2));
+        final forwardOrigin = Offset(bounds.right - 24, bounds.top + 80);
+        final forwardDrag = await t.startGesture(forwardOrigin, kind: PointerDeviceKind.touch);
+        final forwardClock = Stopwatch()..start();
+        while (forwardClock.elapsedMilliseconds < 400) {
+          await forwardDrag.moveTo(forwardOrigin -
+            Offset(bounds.width * .8 * forwardClock.elapsedMilliseconds / 400, 0));
+          await nextFrame();
+        }
+        await forwardDrag.up();
+        final fullyTasks = await waitUntil(() => w.location.chatTab == 'tasks',
+          limit: const Duration(seconds: 2));
+        expect(fullyTasks, greaterThanOrEqualTo(0));
+        await lab.settle(t, time: const Duration(seconds: 1));
+        final backDrag = await t.startGesture(
+          Offset(bounds.left + 24, bounds.top + 80), kind: PointerDeviceKind.touch);
+        await backDrag.moveBy(const Offset(20, 0));
+        await nextFrame();
+        var backFraction = 0.0;
+        for (final fraction in [.15, .4, .65, .85]) {
+          await backDrag.moveBy(Offset(bounds.width * (fraction - backFraction), 0));
+          backFraction = fraction;
+          await idle(const Duration(milliseconds: 300));
+          await captureTags('back-${(fraction * 100).round()}');
+        }
+        await backDrag.up();
+        await lab.settle(t, time: const Duration(seconds: 1));
+        expect(w.location.chatTab ?? 'chat', 'chat');
+        await captureTags('back-returned');
+        // The host records for 30 seconds. Leave additional setup headroom,
+        // then start frame measurement only after the recorder has stopped.
+        while (videoClock.elapsed < const Duration(seconds: 35)) {
+          await idle(const Duration(milliseconds: 200));
+        }
+        }
+        await run('section-drag', () async {
+          final bounds = t.getRect(pager);
+          final origin = Offset(bounds.left + bounds.width * .85, bounds.top + bounds.height * .3);
+          final gesture = await t.startGesture(origin, kind: PointerDeviceKind.touch);
+          final clock = Stopwatch()..start();
+          var moves = 0;
+          while (clock.elapsedMilliseconds < seconds * 1000) {
+            final phase = (clock.elapsedMilliseconds % 1200) / 600;
+            final fraction = phase <= 1 ? phase : 2 - phase;
+            await gesture.moveTo(origin - Offset(bounds.width * .65 * fraction, 0));
+            await nextFrame();
+            moves++;
+          }
+          await gesture.moveTo(origin);
+          await gesture.up();
+          return {
+            'touchMoves': moves,
+            'acceptedSection': w.location.chatTab ?? 'chat',
+            'taskRows': tagged.tasks.length,
+            'visibleChatTags': visibleTags,
+            'fileRows': w.channelFilesStore(tagged.id).files.length,
+            'decodedFileThumbnails': find.descendant(of: find.byType(SourceChannelFilesView, skipOffstage: false),
+              matching: find.byWidgetPredicate((v) => v is RawImage && v.image != null, skipOffstage: false)).evaluate().length,
+            'retainedTaskCards': find.byType(RaftTaskCard, skipOffstage: false).evaluate().length,
+            'chatRows': w.timeline().length,
+          };
+        });
+        await lab.settle(t, time: const Duration(seconds: 1));
+        if (wants('section-back-drag')) {
+          final forwardOrigin = Offset(bounds.right - 24, bounds.top + 80);
+          final forward = await t.startGesture(forwardOrigin, kind: PointerDeviceKind.touch);
+          final forwardClock = Stopwatch()..start();
+          while (forwardClock.elapsedMilliseconds < 400) {
+            await forward.moveTo(forwardOrigin - Offset(bounds.width * .8 * forwardClock.elapsedMilliseconds / 400, 0));
+            await nextFrame();
+          }
+          await forward.up();
+          expect(await waitUntil(() => w.location.chatTab == 'tasks',
+            limit: const Duration(seconds: 2)), greaterThanOrEqualTo(0));
+          await lab.settle(t, time: const Duration(seconds: 1));
+          await run('section-back-drag', () async {
+            final origin = Offset(bounds.left + bounds.width * .15, bounds.top + bounds.height * .3);
+            final gesture = await t.startGesture(origin, kind: PointerDeviceKind.touch);
+            final clock = Stopwatch()..start();
+            var moves = 0;
+            while (clock.elapsedMilliseconds < seconds * 1000) {
+              final phase = (clock.elapsedMilliseconds % 1200) / 600;
+              final fraction = phase <= 1 ? phase : 2 - phase;
+              await gesture.moveTo(origin + Offset(bounds.width * .65 * fraction, 0));
+              await nextFrame();
+              moves++;
+              expect(w.location.chatTab, 'tasks');
+            }
+            await gesture.moveTo(origin);
+            await gesture.up();
+            return {'touchMoves': moves, 'acceptedSection': w.location.chatTab,
+              'taskRows': tagged.tasks.length, 'visibleChatTags': visibleTags,
+              'fileRows': w.channelFilesStore(tagged.id).files.length,
+              'retainedTaskCards': find.byType(RaftTaskCard, skipOffstage: false).evaluate().length,
+              'chatRows': w.timeline().length};
+          });
+          await t.tap(find.byKey(const ValueKey('panel-tab-chat')));
+          await lab.settle(t, time: const Duration(seconds: 1));
+        }
+        await run('section-cycle', () async {
+          final steps = <String>[];
+          final clock = Stopwatch()..start();
+          while (clock.elapsedMilliseconds < seconds * 1000) {
+            for (final (target, direction) in [('tasks', -1), ('files', -1), ('tasks', 1), ('chat', 1)]) {
+              final rect = t.getRect(pager);
+              final origin = Offset(rect.left + rect.width * (direction < 0 ? .85 : .15), rect.top + rect.height * .3);
+              final gesture = await t.startGesture(origin, kind: PointerDeviceKind.touch);
+              final dragClock = Stopwatch()..start();
+              while (dragClock.elapsedMilliseconds < 400) {
+                await gesture.moveTo(origin + Offset(direction * rect.width * .7 * dragClock.elapsedMilliseconds / 400, 0));
+                await nextFrame();
+              }
+              await gesture.up();
+              final accepted = await waitUntil(() => (w.location.chatTab ?? 'chat') == target,
+                limit: const Duration(seconds: 2));
+              expect(accepted, greaterThanOrEqualTo(0));
+              steps.add(target);
+              await lab.settle(t, time: const Duration(milliseconds: 200));
+            }
+          }
+          return {'sectionVisits': steps, 'taskRows': tagged.tasks.length,
+            'fileRows': w.channelFilesStore(tagged.id).files.length, 'taggedChatRows': tagged.rows.length};
+        }, kind: 'transitions');
+      }
 
       // Per row kind: jump 0.9 viewport per step so every step mounts fresh
       // rows of one kind; cost per row = that frame's UI time / rows mounted.

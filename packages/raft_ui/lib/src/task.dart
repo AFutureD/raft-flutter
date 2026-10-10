@@ -380,46 +380,15 @@ class RaftTaskSection extends StatelessWidget {
       states: states,
       tokens: rt,
     );
-    final label = raftText(context, raftTaskStatusLabel(status));
-    final trigger = Semantics(
-      button: onToggle != null,
-      expanded: !collapsed,
-      label:
-          '${collapsed ? raftText(context, 'Show') : raftText(context, 'Hide')} $label',
-      excludeSemantics: true,
-      onTap: onToggle,
-      child: GestureDetector(
-        key: triggerKey,
-        behavior: HitTestBehavior.opaque,
-        onTap: onToggle,
-        child: Padding(
-          padding: r.trigger.padding,
-          child: Row(
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: r.heading.columnGap ?? 8,
-                children: [
-                  RaftTaskSectionBadge(status: status, label: label),
-                  Text(
-                    '$count',
-                    // TaskSectionCount + `text-xs font-mono
-                    // text-foreground-muted`.
-                    style: r.count
-                        .textStyle(rt)
-                        .copyWith(
-                          fontFamily: t.monoFont,
-                          fontSize: 12,
-                          height: 16 / 12,
-                          color: t.colors['foreground-muted'],
-                        ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    final trigger = _taskSectionTrigger(
+      context,
+      r,
+      rt,
+      status: status,
+      count: count,
+      collapsed: collapsed,
+      onToggle: onToggle,
+      triggerKey: triggerKey,
     );
     // The section fill is translucent. CSS shadows paint outside its box;
     // BoxDecoration would darken the fill by painting the shadow underneath it.
@@ -466,6 +435,180 @@ class RaftTaskSection extends StatelessWidget {
     );
   }
 }
+
+/// A task status section whose rows are built only near the viewport.
+/// Uses the same header, padding, fill and CSS shadow as [RaftTaskSection].
+class RaftSliverTaskSection extends StatelessWidget {
+  const RaftSliverTaskSection({
+    super.key,
+    required this.status,
+    required this.count,
+    required this.itemBuilder,
+    this.collapsed = false,
+    this.onToggle,
+    this.triggerKey,
+    this.emptyLabel,
+    this.findChildIndexCallback,
+  });
+  final String status;
+  final int count;
+  final IndexedWidgetBuilder itemBuilder;
+  final bool collapsed;
+  final VoidCallback? onToggle;
+  final Key? triggerKey;
+  final String? emptyLabel;
+  final ChildIndexGetter? findChildIndexCallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context),
+        rt = RaftRecipeTokens(RaftTokens.of(context));
+    final r = RaftTaskListSectionRecipe.resolve(
+      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
+      tokens: rt,
+    );
+    final current = DefaultTextStyle.of(context).style.color;
+    final shadows = r.root.cssShadows(rt, currentColor: current);
+    return DecoratedSliver(
+      decoration: RaftCssBoxDecoration(
+        color: t.components.taskSectionFill,
+        border: r.root.border(rt, currentColor: current),
+        borderRadius: r.root.borderRadius,
+        boxShadow: [
+          for (final layer in shadows.reversed)
+            if (!layer.inset)
+              BoxShadow(
+                color: layer.color,
+                offset: layer.offset,
+                blurRadius: raftCssBlurRadius(layer.blur),
+                spreadRadius: layer.spread,
+              ),
+        ],
+      ),
+      sliver: SliverPadding(
+        padding: r.root.padding,
+        sliver: SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _taskSectionTrigger(
+                context,
+                r,
+                rt,
+                status: status,
+                count: count,
+                collapsed: collapsed,
+                onToggle: onToggle,
+                triggerKey: triggerKey,
+              ),
+            ),
+            if (!collapsed && count == 0)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: _taskSectionEmpty(context, r, rt, emptyLabel),
+                ),
+              ),
+            if (!collapsed && count > 0)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final child = itemBuilder(context, index);
+                    return Padding(
+                      key: child.key,
+                      padding: const EdgeInsets.only(top: 10),
+                      child: child,
+                    );
+                  },
+                  childCount: count,
+                  findChildIndexCallback: findChildIndexCallback,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _taskSectionTrigger(
+  BuildContext context,
+  RaftTaskListSectionRecipeStyle r,
+  RaftRecipeTokens rt, {
+  required String status,
+  required int count,
+  required bool collapsed,
+  VoidCallback? onToggle,
+  Key? triggerKey,
+}) {
+  final t = RaftTokens.of(context);
+  final label = raftText(context, raftTaskStatusLabel(status));
+  return Semantics(
+    button: onToggle != null,
+    expanded: !collapsed,
+    label:
+        '${collapsed ? raftText(context, 'Show') : raftText(context, 'Hide')} $label',
+    excludeSemantics: true,
+    onTap: onToggle,
+    child: GestureDetector(
+      key: triggerKey,
+      behavior: HitTestBehavior.opaque,
+      onTap: onToggle,
+      child: Padding(
+        padding: r.trigger.padding,
+        child: Row(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: r.heading.columnGap ?? 8,
+              children: [
+                RaftTaskSectionBadge(status: status, label: label),
+                Text(
+                  '$count',
+                  // TaskSectionCount + `text-xs font-mono
+                  // text-foreground-muted`.
+                  style: r.count
+                      .textStyle(rt)
+                      .copyWith(
+                        fontFamily: t.monoFont,
+                        fontSize: 12,
+                        height: 16 / 12,
+                        color: t.colors['foreground-muted'],
+                      ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _taskSectionEmpty(
+  BuildContext context,
+  RaftTaskListSectionRecipeStyle r,
+  RaftRecipeTokens rt,
+  String? label,
+) => Container(
+  padding: r.empty.padding,
+  decoration: BoxDecoration(
+    color: r.empty.backgroundColor?.resolve(rt),
+    borderRadius: r.empty.borderRadius,
+    border: Border.all(
+      color:
+          r.empty.borderColor?.resolve(rt) ??
+          RaftTokens.of(context).colors['line-muted']!,
+      width: r.empty.borderWidth.top,
+    ),
+  ),
+  child: Text(
+    label ?? '',
+    style: r.empty
+        .textStyle(rt)
+        .copyWith(fontFamily: RaftTokens.of(context).bodyFont),
+  ),
+);
 
 /// TaskSectionBadge: TaskStatusIcon + label; brutal adds the taskStatus
 /// status background.

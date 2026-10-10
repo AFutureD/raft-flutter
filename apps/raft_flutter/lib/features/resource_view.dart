@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
@@ -1501,11 +1502,7 @@ class _ResourceViewState extends State<ResourceView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    tabActive = TickerMode.valuesOf(context).enabled;
-    if (tabActive && reloadWhenActive) {
-      reloadWhenActive = false;
-      unawaited(load(keep: true, quietErrors: true));
-    }
+    bindSectionActivity();
     if (!initializedTaskLayout && widget.section == 'tasks') {
       initializedTaskLayout = true;
       final next =
@@ -1518,6 +1515,33 @@ class _ResourceViewState extends State<ResourceView> {
         load();
       }
     }
+  }
+
+  ValueListenable<TickerModeData>? sectionActivity;
+  void bindSectionActivity() {
+    final next = TickerMode.getValuesNotifier(context);
+    if (!identical(next, sectionActivity)) {
+      sectionActivity?.removeListener(sectionActivityChanged);
+      sectionActivity = next;
+      next.addListener(sectionActivityChanged);
+    }
+    sectionActivityChanged();
+  }
+
+  void sectionActivityChanged() {
+    // Activity gates reads, not task-list presentation. Observe the notifier
+    // directly so switching sections does not rebuild this unchanged list.
+    tabActive = sectionActivity?.value.enabled ?? true;
+    if (tabActive && reloadWhenActive) {
+      reloadWhenActive = false;
+      unawaited(load(keep: true, quietErrors: true));
+    }
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    bindSectionActivity();
   }
 
   @override
@@ -1571,6 +1595,7 @@ class _ResourceViewState extends State<ResourceView> {
 
   @override
   void dispose() {
+    sectionActivity?.removeListener(sectionActivityChanged);
     saveSnapshot();
     if (widget.section == 'activity') {
       for (final scroll in activityScrolls.values) {
@@ -3791,48 +3816,75 @@ class _ResourceViewState extends State<ResourceView> {
 
   Widget groupedTasks() {
     final t = RaftTokens.of(context), scope = authority;
-    // TasksPanelViewport + `bg-layer-canvas-muted p-4 theme-brutal:bg-white`;
-    // list view is TaskVirtualLayout `space-y-6` of TaskSections.
+    final groups = {
+      for (final status in raftTaskStatuses) status: <Map<String, dynamic>>[],
+    };
+    for (final row in visibleRows) {
+      groups[row['status']]?.add(row);
+    }
+    // Virtualize individual cards, not entire status groups. A large group
+    // otherwise rebuilds and lays out hundreds of offscreen cards when the
+    // pager changes its accepted selection/TickerMode.
     return ColoredBox(
       color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
-      child: ListView(
+      child: CustomScrollView(
         controller: taskListScroll,
-        padding: RaftTaskSectionRecipe(t).viewportInset,
-        children: [
-          for (final status in raftTaskStatuses.where(
-            (s) => filter == 'all' || filter == s,
-          )) ...[
-            RaftTaskSection(
-              status: status,
-              count: visibleRows.where((r) => r['status'] == status).length,
-              collapsed: collapsedTaskStatuses.contains(status),
-              triggerKey: ValueKey('task-group-$status'),
-              emptyLabel:
-                  '${raftText(context, 'No tasks')} · ${raftTaskStatusLabel(status)}',
-              onToggle: () {
-                if (accepts(scope)) {
-                  setState(() {
-                    if (!collapsedTaskStatuses.remove(status)) {
-                      collapsedTaskStatuses.add(status);
-                    }
-                  });
-                }
-              },
-              children: [
-                for (final row in visibleRows.where(
-                  (r) => r['status'] == status,
-                ))
-                  SourceTaskRowExtent(child: item(row)),
+        slivers: [
+          SliverPadding(
+            padding: RaftTaskSectionRecipe(t).viewportInset,
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                for (final status in raftTaskStatuses.where(
+                  (s) => filter == 'all' || filter == s,
+                )) ...[
+                  taskSection(status, groups[status]!, scope),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+                if (hasMore)
+                  SliverToBoxAdapter(
+                    child: TextButton(
+                      onPressed: () => load(append: true),
+                      child: Text(raftText(context, 'Load more')),
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 24),
-          ],
-          if (hasMore)
-            TextButton(
-              onPressed: () => load(append: true),
-              child: Text(raftText(context, 'Load more')),
-            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget taskSection(
+    String status,
+    List<Map<String, dynamic>> tasks,
+    String scope,
+  ) {
+    final indices = {
+      for (final (i, row) in tasks.indexed) 'task-${row['id']}': i,
+    };
+    return RaftSliverTaskSection(
+      key: ValueKey('task-section-$status'),
+      status: status,
+      count: tasks.length,
+      collapsed: collapsedTaskStatuses.contains(status),
+      triggerKey: ValueKey('task-group-$status'),
+      emptyLabel:
+          '${raftText(context, 'No tasks')} · ${raftTaskStatusLabel(status)}',
+      onToggle: () {
+        if (accepts(scope)) {
+          setState(() {
+            if (!collapsedTaskStatuses.remove(status)) {
+              collapsedTaskStatuses.add(status);
+            }
+          });
+        }
+      },
+      findChildIndexCallback: (key) =>
+          key is ValueKey<String> ? indices[key.value] : null,
+      itemBuilder: (_, i) => SourceTaskRowExtent(
+        key: ValueKey('task-${tasks[i]['id']}'),
+        child: item(tasks[i], sourceScope: scope),
       ),
     );
   }
@@ -4781,8 +4833,8 @@ class _ResourceViewState extends State<ResourceView> {
     );
   }
 
-  Widget item(Map<String, dynamic> row) {
-    final section = widget.section, scope = authority;
+  Widget item(Map<String, dynamic> row, {String? sourceScope}) {
+    final section = widget.section, scope = sourceScope ?? authority;
     final name =
         (row['title'] ??
                 row['parentChannelName'] ??

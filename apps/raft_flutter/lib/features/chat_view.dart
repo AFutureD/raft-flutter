@@ -1958,28 +1958,30 @@ class _RaftChatViewState extends State<RaftChatView>
         'number': number,
         'title': task['title'],
       }),
-      onOpen: presentationActive
-          ? () {
-              // Open the accepted task current at tap time; a chip built from
-              // the message's own fields waits for the channel's task rows.
-              final current = taskProjection.taskFor(message);
-              if (authority == workspaceAuthority(w) &&
-                  current != null &&
-                  current['id'] == task['id']) {
-                // Source MessageItem3685–3700: the footer task chip opens the
-                // independent task slot; the replies action keeps side intent.
-                if (widget.onTask case final open?) {
-                  open(current, () async {
-                    if (mounted && authority == workspaceAuthority(w)) {
-                      taskProjection.refresh();
-                    }
-                  });
-                } else {
-                  w.openThread(message);
-                }
+      // Inactive sections are gated by the pager. Keep the painted control
+      // enabled so dragging the retained Chat back into view cannot dim its
+      // task labels; recheck activity at invocation for stale callbacks.
+      onOpen: () {
+        if (!presentationActive) return;
+        // Open the accepted task current at tap time; a chip built from
+        // the message's own fields waits for the channel's task rows.
+        final current = taskProjection.taskFor(message);
+        if (authority == workspaceAuthority(w) &&
+            current != null &&
+            current['id'] == task['id']) {
+          // Source MessageItem3685–3700: the footer task chip opens the
+          // independent task slot; the replies action keeps side intent.
+          if (widget.onTask case final open?) {
+            open(current, () async {
+              if (mounted && authority == workspaceAuthority(w)) {
+                taskProjection.refresh();
               }
-            }
-          : null,
+            });
+          } else {
+            w.openThread(message);
+          }
+        }
+      },
     );
   }
 
@@ -2265,24 +2267,24 @@ class _RaftChatViewState extends State<RaftChatView>
 
   Widget threadTopSliver({bool loading = false, bool showSummary = true}) =>
       RaftThreadTimelineTopSliver(
-    showSummary: showSummary,
-    parentSlot: widget.threadParentSlot,
-    parent: widget.hideThreadParent || w.presentedThreadParent == null
-        ? null
-        : tile(w.presentedThreadParent!, parent: true),
-    hasMore: loading || w.threadHasMore,
-    historyLimited: w.threadHistoryLimited,
-    loadingOlder: loading || w.loadingOlder,
-    loadingOlderLabel: raftText(context, 'Loading older replies...'),
-    historyLimitedLabel: raftText(
-      context,
-      'Older replies are limited by the current plan',
-    ),
-    beginningLabel: raftText(context, 'Beginning of replies'),
-    replyCountLabel: raftFormat(context, '{count} replies', {
-      'count': rows.length,
-    }),
-  );
+        showSummary: showSummary,
+        parentSlot: widget.threadParentSlot,
+        parent: widget.hideThreadParent || w.presentedThreadParent == null
+            ? null
+            : tile(w.presentedThreadParent!, parent: true),
+        hasMore: loading || w.threadHasMore,
+        historyLimited: w.threadHistoryLimited,
+        loadingOlder: loading || w.loadingOlder,
+        loadingOlderLabel: raftText(context, 'Loading older replies...'),
+        historyLimitedLabel: raftText(
+          context,
+          'Older replies are limited by the current plan',
+        ),
+        beginningLabel: raftText(context, 'Beginning of replies'),
+        replyCountLabel: raftFormat(context, '{count} replies', {
+          'count': rows.length,
+        }),
+      );
 
   // id -> index over the displayed window, rebuilt when the window changes;
   // rows used to project and scan the whole channel on every build.

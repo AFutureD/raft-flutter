@@ -44,6 +44,8 @@ class ConversationPanel extends StatefulWidget {
 class _ConversationPanelState extends State<ConversationPanel> {
   RaftConversationTabId tab = RaftConversationTabId.chat;
   String? scope;
+  final sectionBodies = <RaftConversationTabId, Widget>{};
+  Object? fileFormatting;
   final chatSlot = GlobalKey();
   final files = AttachmentFiles();
   WorkspaceController get w => widget.controller;
@@ -55,7 +57,22 @@ class _ConversationPanelState extends State<ConversationPanel> {
       oldWidget.controller.releaseChatTabPresentation(this);
       scope = null;
     }
+    if (oldWidget.controller != w ||
+        oldWidget.selectionHandle != widget.selectionHandle ||
+        (oldWidget.onTask == null) != (widget.onTask == null) ||
+        (oldWidget.onMessageTask == null) != (widget.onMessageTask == null) ||
+        (oldWidget.onViewBilling == null) != (widget.onViewBilling == null)) {
+      sectionBodies.clear();
+    }
   }
+
+  void openTask(Map<String, dynamic> task, Future<void> Function() refresh) =>
+      widget.onTask?.call(task, refresh);
+  void openMessageTask(
+    Map<String, dynamic> task,
+    Future<void> Function() refresh,
+  ) => widget.onMessageTask?.call(task, refresh);
+  void viewBilling() => widget.onViewBilling?.call();
 
   @override
   void dispose() {
@@ -190,6 +207,19 @@ class _ConversationPanelState extends State<ConversationPanel> {
     if (scope != currentScope) {
       scope = currentScope;
       tab = RaftConversationTabId.chat;
+      sectionBodies.clear();
+    }
+    final formatting = (
+      Localizations.localeOf(context),
+      MediaQuery.alwaysUse24HourFormatOf(context),
+      w.client.user?.string('preferredTimezone'),
+      w.client.user?.string('timezone'),
+      w.client.user?.string('preferredTimeFormat'),
+      w.client.user?.string('timeFormat'),
+    );
+    if (fileFormatting != formatting) {
+      fileFormatting = formatting;
+      sectionBodies.remove(RaftConversationTabId.files);
     }
     if (w.server != null) {
       final requested = w.location.chatTab ?? 'chat';
@@ -241,45 +271,55 @@ class _ConversationPanelState extends State<ConversationPanel> {
                 MediaQuery.sizeOf(context).width <
                     RaftLayoutMetrics.desktopBreakpoint,
             onChanged: selectTab,
-            builder: (context, id) => switch (id) {
-              RaftConversationTabId.chat => KeyedSubtree(
-                key: chatSlot,
-                // PageView retains the laid-out chat, so swiping back paints
-                // the cached rows immediately. Pager TickerMode gates its
-                // presentation; hiding it with Offstage forced relayout.
-                child: RaftChatView(
-                  controller: w,
-                  selectionHandle: widget.selectionHandle,
-                  onTask: widget.onMessageTask,
-                  onViewBilling: widget.onViewBilling,
+            // Reuse the same widget for a visited data owner. Changing only
+            // the selected section must not update every page's root widget.
+            // Each page still listens to data, theme and permission changes.
+            builder: (context, id) => sectionBodies.putIfAbsent(
+              id,
+              () => switch (id) {
+                RaftConversationTabId.chat => KeyedSubtree(
+                  key: chatSlot,
+                  // PageView retains the laid-out chat, so swiping back paints
+                  // the cached rows immediately. Pager TickerMode gates its
+                  // presentation; hiding it with Offstage forced relayout.
+                  child: RaftChatView(
+                    controller: w,
+                    selectionHandle: widget.selectionHandle,
+                    onTask: widget.onMessageTask == null
+                        ? null
+                        : openMessageTask,
+                    onViewBilling: widget.onViewBilling == null
+                        ? null
+                        : viewBilling,
+                  ),
                 ),
-              ),
-              RaftConversationTabId.tasks => ResourceView(
-                key: ValueKey('channel-tasks-$currentScope'),
-                controller: w,
-                section: 'tasks',
-                channelId: channel!.id,
-                onTask: widget.onTask,
-                onMessage: (id, message) async {
-                  setState(() => tab = RaftConversationTabId.chat);
-                  w.setChatTabPresentation(this, true);
-                  await w.jumpToMessage(id, message);
-                },
-              ),
-              RaftConversationTabId.files => SourceChannelFilesView(
-                key: ValueKey('channel-files-$currentScope'),
-                controller: w,
-                channelId: channel!.id,
-                formatCreatedAt: formatter(context).shortDateTime,
-                acquireImage: acquireImage,
-                peekImage: peekImage,
-                onOpenSource: (file) async {
-                  setState(() => tab = RaftConversationTabId.chat);
-                  w.setChatTabPresentation(this, true);
-                  await w.jumpToMessage(channel.id, file.messageId);
-                },
-              ),
-            },
+                RaftConversationTabId.tasks => ResourceView(
+                  key: ValueKey('channel-tasks-$currentScope'),
+                  controller: w,
+                  section: 'tasks',
+                  channelId: channel!.id,
+                  onTask: widget.onTask == null ? null : openTask,
+                  onMessage: (id, message) async {
+                    setState(() => tab = RaftConversationTabId.chat);
+                    w.setChatTabPresentation(this, true);
+                    await w.jumpToMessage(id, message);
+                  },
+                ),
+                RaftConversationTabId.files => SourceChannelFilesView(
+                  key: ValueKey('channel-files-$currentScope'),
+                  controller: w,
+                  channelId: channel!.id,
+                  formatCreatedAt: formatter(context).shortDateTime,
+                  acquireImage: acquireImage,
+                  peekImage: peekImage,
+                  onOpenSource: (file) async {
+                    setState(() => tab = RaftConversationTabId.chat);
+                    w.setChatTabPresentation(this, true);
+                    await w.jumpToMessage(channel.id, file.messageId);
+                  },
+                ),
+              },
+            ),
           ),
         ),
       ],

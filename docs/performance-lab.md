@@ -117,7 +117,20 @@ All channels come from the product's own network-page path, through a mock dio a
 | `open-warm` | Revisits, including the 600-row channel. The cached window shows first, then the network refresh lands. | transitions |
 | `channel-switch` | Ten rapid switches between two warm channels, 300 ms dwell. | transitions |
 | `thread-open` | A cold thread open (150 ms network), then four cached reopens, closing in between. | transitions |
+| `section-drag` | Mobile opt-in: hold Chat toward Tasks, oscillate within the page, then roll back. Requires populated/warmed Chat, Tasks and Files. | continuous |
+| `section-back-drag` | Mobile opt-in: fully accept Tasks, then hold a reverse drag exposing Chat and roll back to Tasks. | continuous |
+| `section-cycle` | Mobile opt-in: Chat → Tasks → Files → Tasks → Chat twice, checking accepted sections. | transitions |
 | `mount-<kind>` | One channel per row kind with 120 rows of that kind. Jumps 0.9 viewport per step. Per-row cost = UI time of the mounting frame ÷ rows mounted in it. Kinds: plain, markdown, code, image, attachments, reactions, thread-summary, task. | mount |
+
+Mobile section scenarios require explicit selection and a mobile viewport. They warm 600 task-tagged messages, 600 tasks and 240 PNG files, asserting visible tags, actual cards and decoded thumbnails before timing. They are not included implicitly in desktop runs. Compile scenario/theme defines into the isolated APK; changing runner options does not override defines baked into a prebuilt artifact. See [section investigation](section-swipe-investigation.md) for measurements and limitations.
+
+For read-only native evidence, start this watcher against a new output directory **before** the runner:
+
+```bash
+python3 tool/performance/capture_sections.py --device <device> --run .local/performance/lab/<new-name>
+```
+
+It watches capture notes, verifies that the isolated fixture is resumed, saves ADB screenshots, and records/pulls the requested video. It does not install applications or send input. Completed directories are refused. Reverse screenshots/video setup for forward/cycle runs is outside measured intervals; the dedicated back-drag scenario skips that setup. Install the official release separately through `tool/android-install`, after profiling completes.
 
 ### Metrics
 

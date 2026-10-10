@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -20,6 +21,10 @@ void main() {
         addTearDown(t.view.reset);
         final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
         addTearDown(w.dispose);
+        // Large in-memory JSON fixtures must not spawn a real decoding
+        // isolate inside the widget test's fake clock. Native profile runs
+        // keep the actual HTTP/image decoding path.
+        w.client.http.transformer = SyncTransformer();
         w.ledger.switchServer('s1');
         w.ledger.ingest([
           {
@@ -30,23 +35,43 @@ void main() {
             'senderType': 'user',
             'content': 'Public message',
             'createdAt': '2026-06-22T02:30:00Z',
+            'taskId': 't1',
+            'taskNumber': 7,
+            'taskStatus': 'in_progress',
+            'taskTitle': 'Public task',
           },
         ], expectedGeneration: w.ledger.generation);
         w.visibleIds['c1'] = {'m1'};
         transport.routes['GET /agents'] = (_) => [];
         transport.routes['GET /servers/s1/members'] = (_) => [];
         transport.routes['GET /tasks/channel/c1'] = (_) => {
-          'tasks': [],
+          'tasks': [
+            for (var i = 0; i < 600; i++)
+              {
+                'id': i == 0 ? 't1' : 'task-$i',
+                'messageId': i == 0 ? 'm1' : 'other-message-$i',
+                'channelId': 'c1',
+                'taskNumber': i + 7,
+                'status': 'in_progress',
+                'title': 'Public task $i',
+              },
+          ],
           'nextCursor': null,
         };
         transport.routes['GET /channels/c1/files'] = (_) => {
           'files': [],
           'nextCursor': null,
         };
+        var taskOpens = 0;
         await t.pumpWidget(
           MaterialApp(
             theme: raftTheme(family, dark: dark),
-            home: Scaffold(body: ConversationPanel(controller: w)),
+            home: Scaffold(
+              body: ConversationPanel(
+                controller: w,
+                onMessageTask: (_, _) => taskOpens++,
+              ),
+            ),
           ),
         );
         await t.pumpAndSettle();
@@ -94,10 +119,23 @@ void main() {
           );
         }
         await drag.up();
-        await t.pumpAndSettle();
-        await t.runAsync(() async {
-          await Future<void>.delayed(const Duration(milliseconds: 40));
-        });
+        // Finish the page animation, then let the real async fixture request
+        // complete before settling its loading animation in the fake clock.
+        for (
+          var frame = 0;
+          frame < 100 && w.location.chatTab != 'tasks';
+          frame++
+        ) {
+          await t.pump(const Duration(milliseconds: 16));
+        }
+        expect(w.location.chatTab, 'tasks');
+        await t.pump();
+        for (var step = 0; step < 4; step++) {
+          await t.runAsync(() async {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          });
+          await t.pump();
+        }
         await t.pumpAndSettle();
         expect(
           transport.calls.where((r) => r.path == '/tasks/channel/c1'),
@@ -108,6 +146,24 @@ void main() {
           isEmpty,
         );
         expect(w.location.chatTab, 'tasks');
+        expect(
+          find.byType(RaftTaskCard).evaluate().length,
+          inInclusiveRange(1, 15),
+        );
+        final retainedChip = t.widget<RaftMountedMessageTaskChip>(
+          find.byKey(const ValueKey('message-task-m1'), skipOffstage: false),
+        );
+        expect(
+          retainedChip.onOpen,
+          isNotNull,
+          reason: 'A retained section must keep the enabled paint; the pager gates input.',
+        );
+        retainedChip.onOpen!();
+        expect(
+          taskOpens,
+          0,
+          reason: 'Inactive/stale callbacks must remain inert.',
+        );
         expect(w.navigation.entries.length, navigationLength);
         // Cached chat is still laid out for reverse drags, but cannot send
         // or mark read while the accepted section is Tasks.
@@ -154,6 +210,12 @@ void main() {
           expect(w.location.chatTab, 'tasks');
           expect(find.text('Public message'), findsOneWidget);
           expect(chatBuilds, 0);
+          final chip = t.widget<RaftMountedMessageTaskChip>(
+            find.byKey(const ValueKey('message-task-m1')),
+          );
+          expect(chip.onOpen, isNotNull);
+          chip.onOpen!();
+          expect(taskOpens, 0);
           expect(
             t.widget<RaftComposer>(find.byType(RaftComposer)).enabled,
             false,

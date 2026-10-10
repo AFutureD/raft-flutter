@@ -8,7 +8,30 @@ import 'package:raft_flutter/features/message_selection.dart';
 import 'message_export_test.dart' show messages;
 import 'message_presentation_test.dart' show fixture;
 
+class _ObservedSelection extends MessageSelection {
+  _ObservedSelection(super.w, {required super.thread});
+  int projections = 0;
+  @override
+  List<SelectedMessageRow> get available {
+    projections++;
+    return super.available;
+  }
+}
+
 void main() {
+  test(
+    'empty selection does not project messages on workspace changes',
+    () async {
+      final (w, _) = await fixture('owner');
+      final selection = _ObservedSelection(w, thread: false);
+      addTearDown(w.dispose);
+      addTearDown(selection.dispose);
+      selection.projections = 0;
+      w.notifyListeners();
+      expect(selection.selected, isEmpty);
+      expect(selection.projections, 0);
+    },
+  );
   test('main links use one ordered clipboard commit; parent does not include hidden reply', () async {
     final (w, a) = await fixture('owner');
     addTearDown(w.dispose);

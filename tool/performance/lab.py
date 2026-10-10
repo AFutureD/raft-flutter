@@ -31,7 +31,7 @@ from android_app import SafetyError, flutter_guard, protected_state
 BUDGET_120 = 1e6 / 120  # 8333 us
 BUDGET_60 = 1e6 / 60    # 16667 us
 SCENARIO_ORDER = ['steady-scroll', 'fling', 'image-scroll', 'older-drag', 'scrollbar-drag', 'scrollbar-sweep', 'arrival-scrolled-up', 'resize',
-                  'open-cold', 'open-warm', 'channel-switch', 'thread-open']
+                  'open-cold', 'open-warm', 'channel-switch', 'thread-open', 'section-drag', 'section-back-drag', 'section-cycle']
 ROW_KINDS = ['plain', 'markdown', 'code', 'image', 'attachments', 'reactions', 'thread-summary', 'task']
 
 
@@ -108,7 +108,8 @@ def summarize_record(record, attribution=None):
     row['worstUiFrames'] = [{'uiMs': ms(f['uit']), 'buildMs': ms(f['ui']), 'rasterMs': ms(f['r']), 'phasesMs': {k: ms(v) for k, v in sorted((f.get('ph') or {}).items(), key=lambda kv: -kv[1])[:4]}} for f in worst]
     blocks = record.get('blockTotalsUs') or {}
     row['topBlocksMs'] = {k: ms(v) for k, v in sorted(blocks.items(), key=lambda kv: -kv[1])[:10]}
-    for key in ('movedPx', 'anchorDriftPx', 'anchorLostFrames', 'olderPagesServed', 'rowsBefore', 'rowsAfter', 'imageReads', 'arrivals', 'resizeSteps'):
+    for key in ('movedPx', 'anchorDriftPx', 'anchorLostFrames', 'olderPagesServed', 'rowsBefore', 'rowsAfter', 'imageReads', 'arrivals', 'resizeSteps',
+                'touchMoves', 'acceptedSection', 'taskRows', 'visibleChatTags', 'fileRows', 'decodedFileThumbnails', 'retainedTaskCards', 'chatRows', 'taggedChatRows', 'sectionVisits'):
         if key in record:
             row[key] = record[key]
     if 'opens' in record:
@@ -213,6 +214,14 @@ def markdown(summary):
             '|---|---|---|---|---|---|---|---|---|---|---|']
     for r in summary['scenarios']:
         out.append(f"| {r['scenario']} | {r['theme']} | {r['frames']} | {fmt_dist(r['uiUs'])} | {fmt_dist(r['rasterUs'])} | {r['over8Ui']}/{r['over8Raster']} ({r['over8EitherPct']}%) | {r['over16Ui']}/{r['over16Raster']} | {r['stutters']} | {r.get('gcCount', '-')} | {r['semanticsShare']} | {'pass' if r['gate60'] else 'FAIL'} |")
+    sections = [r for r in summary['scenarios'] if r['scenario'].startswith('section-')]
+    if sections:
+        out += ['', '## Populated mobile sections', '',
+                '| Scenario | Theme | Chat rows | Visible task tags | Tasks / mounted cards | Files / decoded thumbnails | Accepted sections |',
+                '|---|---|---|---|---|---|---|']
+        for r in sections:
+            visits = ' → '.join(r.get('sectionVisits', [])) or r.get('acceptedSection', '?')
+            out.append(f"| {r['scenario']} | {r['theme']} | {r.get('chatRows', r.get('taggedChatRows', '?'))} | {r.get('visibleChatTags', '?')} | {r.get('taskRows', '?')} / {r.get('retainedTaskCards', '?')} | {r.get('fileRows', '?')} / {r.get('decodedFileThumbnails', '?')} | {visits} |")
     mounts = [r for r in summary['scenarios'] if 'mount' in r]
     if mounts:
         out += ['', '## New-row mount cost (UI µs of the frame that mounts rows, divided by rows mounted)', '',
