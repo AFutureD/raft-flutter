@@ -238,7 +238,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   raftText(context, 'Loading...'),
-                  style: RaftTypography.body(
+                  style: RaftTypography.inherited(
                     t,
                     size: 12,
                     line: 16,
@@ -374,7 +374,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
             Text(
               reviewNote!,
               textAlign: TextAlign.center,
-              style: RaftTypography.body(
+              style: RaftTypography.inherited(
                 t,
                 size: 12,
                 line: 16,
@@ -457,7 +457,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
 
 /// `text-xs leading-relaxed` (12 / 19.5).
 TextStyle _relaxed(RaftTokens t, Color color) =>
-    RaftTypography.body(t, size: 12, line: 12 * 1.625, color: color);
+    RaftTypography.inherited(t, size: 12, line: 12 * 1.625, color: color);
 
 /// ConnectedAppsErrorBanner: `Banner intent="warning" density="sm"
 /// className="font-bold"`.
@@ -731,7 +731,7 @@ class _MarketplaceCard extends StatelessWidget {
                 children: [
                   Text(
                     app.name,
-                    style: RaftTypography.body(
+                    style: RaftTypography.inherited(
                       t,
                       size: 16,
                       line: 24,
@@ -745,7 +745,7 @@ class _MarketplaceCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 app.byline,
-                style: RaftTypography.body(
+                style: RaftTypography.inherited(
                   t,
                   size: 12,
                   line: 16,
@@ -793,11 +793,18 @@ class _MarketplaceCard extends StatelessWidget {
           child: grid
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
+                  // `flex-1` spacer: pushes the chip down when the row gives
+                  // the card a height, shrink-wraps in a single column.
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     info,
-                    const Spacer(),
-                    const SizedBox(height: 12),
-                    Align(alignment: Alignment.centerRight, child: trailing),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: trailing,
+                      ),
+                    ),
                   ],
                 )
               : Row(
@@ -863,7 +870,7 @@ class _Summary extends StatelessWidget {
           value,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: RaftTypography.body(
+          style: RaftTypography.inherited(
             t,
             size: 14,
             line: 14 * 1.375,
@@ -947,7 +954,7 @@ class _AppRowCard extends StatelessWidget {
     final text = RaftSettingsText(t);
     final grid = layout == RaftConnectedAppsLayout.grid;
     final wide = raftBreakpointWidth(context) >= 640;
-    final nameStyle = RaftTypography.body(
+    final nameStyle = RaftTypography.inherited(
       t,
       size: 16,
       line: 24,
@@ -985,7 +992,7 @@ class _AppRowCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 row.meta,
-                style: RaftTypography.body(
+                style: RaftTypography.inherited(
                   t,
                   size: 12,
                   line: 16,
@@ -1047,13 +1054,14 @@ class _AppRowCard extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 184 - 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             info,
-            if (action != null) ...[
-              const Spacer(),
-              const SizedBox(height: 12),
-              Align(alignment: Alignment.centerRight, child: action),
-            ],
+            if (action != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Align(alignment: Alignment.centerRight, child: action),
+              ),
           ],
         ),
       );
@@ -1142,14 +1150,14 @@ class RaftConnectedAppDetailRow extends StatelessWidget {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
     final wide = raftBreakpointWidth(context) >= 640;
-    final labelStyle = RaftTypography.body(
+    final labelStyle = RaftTypography.inherited(
       t,
       size: 14,
       line: 20,
       color: t.brutal ? Colors.black.withValues(alpha: .55) : t.muted,
     );
     final value = DefaultTextStyle.merge(
-      style: RaftTypography.body(
+      style: RaftTypography.inherited(
         t,
         size: 14,
         line: 20,
@@ -1251,7 +1259,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
     final t = RaftTokens.of(context);
     final text = RaftSettingsText(t);
     final soft = t.brutal ? Colors.black.withValues(alpha: .15) : t.colors['line-muted']!;
-    final summary = RaftTypography.body(
+    final summary = RaftTypography.inherited(
       t,
       size: 12,
       line: 16,
@@ -1282,7 +1290,7 @@ class _RaftOAuthScopeSummaryState extends State<RaftOAuthScopeSummary> {
         ),
         child: Text(
           scope,
-          style: RaftTypography.body(
+          style: RaftTypography.inherited(
             t,
             size: 11,
             line: 11 * 1.5,
@@ -1397,7 +1405,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
         decoration: topRule,
         child: Text(
           loading!,
-          style: RaftTypography.body(
+          style: RaftTypography.inherited(
             t,
             size: 12,
             line: 16,
@@ -1407,7 +1415,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
         ),
       );
     }
-    final columnLabel = RaftTypography.body(
+    final columnLabel = RaftTypography.inherited(
       t,
       size: 10,
       line: 15,
@@ -1434,7 +1442,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
           if (c.$2.isEmpty)
             Text(
               c.$3,
-              style: RaftTypography.body(
+              style: RaftTypography.inherited(
                 t,
                 size: 12,
                 line: 16,
@@ -1463,7 +1471,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                     ),
                     child: Text(
                       v,
-                      style: RaftTypography.body(
+                      style: RaftTypography.inherited(
                         t,
                         size: 11,
                         line: 11 * 1.5,
@@ -1502,7 +1510,7 @@ class RaftAppPermissionsSummary extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: RaftTypography.body(
+                      style: RaftTypography.inherited(
                         t,
                         size: 12,
                         line: 16,
@@ -1597,7 +1605,7 @@ class RaftConnectedAppDetailCard extends StatelessWidget {
                       header: true,
                       child: Text(
                         name,
-                        style: RaftTypography.body(
+                        style: RaftTypography.inherited(
                           t,
                           size: 20,
                           line: 28,
@@ -1612,7 +1620,7 @@ class RaftConnectedAppDetailCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   byline,
-                  style: RaftTypography.body(
+                  style: RaftTypography.inherited(
                     t,
                     size: 12,
                     line: 16,
@@ -1725,7 +1733,7 @@ class RaftConnectedAppParagraph extends StatelessWidget {
       text,
       style: small
           ? _relaxed(t, color)
-          : RaftTypography.body(t, size: 14, line: 14 * 1.625, color: color),
+          : RaftTypography.inherited(t, size: 14, line: 14 * 1.625, color: color),
     );
   }
 }
@@ -1782,7 +1790,7 @@ class RaftAppPermissionsApproval extends StatelessWidget {
       children: [
         Text(
           notice,
-          style: RaftTypography.body(
+          style: RaftTypography.inherited(
             t,
             size: 12,
             line: 16,
@@ -1808,7 +1816,7 @@ class RaftAppPermissionsApproval extends StatelessWidget {
                 ),
                 child: Text(
                   g,
-                  style: RaftTypography.body(
+                  style: RaftTypography.inherited(
                     t,
                     size: 11,
                     line: 11 * 1.5,

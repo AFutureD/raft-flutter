@@ -599,7 +599,7 @@ class RaftSettingsText {
       !t.brutal && t.dark ? t.colors['layer-card']! : insetFill;
 
   /// `text-sm font-bold`
-  TextStyle get title => RaftTypography.body(
+  TextStyle get title => RaftTypography.inherited(
     t,
     size: 14,
     line: 20,
@@ -609,11 +609,11 @@ class RaftSettingsText {
 
   /// `text-xs` muted description.
   TextStyle get description =>
-      RaftTypography.body(t, size: 12, line: 16, color: muted);
+      RaftTypography.inherited(t, size: 12, line: 16, color: muted);
 
   /// `text-sm` muted copy.
   TextStyle get bodyMuted =>
-      RaftTypography.body(t, size: 14, line: 20, color: muted);
+      RaftTypography.inherited(t, size: 14, line: 20, color: muted);
 
   /// `font-mono text-sm`
   TextStyle get mono =>
@@ -623,7 +623,7 @@ class RaftSettingsText {
   TextStyle get monoBold => mono.copyWith(fontWeight: FontWeight.w700);
 
   /// `text-xs font-bold` alert copy (`text-brutal-red` / danger).
-  TextStyle get alert => RaftTypography.body(
+  TextStyle get alert => RaftTypography.inherited(
     t,
     size: 12,
     line: 16,

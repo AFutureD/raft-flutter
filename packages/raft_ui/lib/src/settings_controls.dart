@@ -585,7 +585,7 @@ class RaftConfirmDialog extends StatelessWidget {
 
   /// `text-sm leading-relaxed text-foreground-muted` (font-normal body).
   static TextStyle messageStyle(RaftTokens t) =>
-      RaftTypography.body(t, size: 14, line: 14 * 1.625, color: t.muted);
+      RaftTypography.inherited(t, size: 14, line: 14 * 1.625, color: t.muted);
 
   @override
   Widget build(BuildContext context) {

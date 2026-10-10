@@ -332,7 +332,7 @@ class RaftPlanBillingLoading extends StatelessWidget {
             Expanded(
               child: Text(
                 raftText(context, label),
-                style: RaftTypography.body(
+                style: RaftTypography.inherited(
                   t,
                   size: 12,
                   line: 16,
@@ -734,7 +734,7 @@ class _PlanCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       item,
-                      style: RaftTypography.body(
+                      style: RaftTypography.inherited(
                         t,
                         size: 14,
                         line: 20,
@@ -786,7 +786,7 @@ class _PlanCard extends StatelessWidget {
               children: [
                 Text(
                   s.planName,
-                  style: RaftTypography.body(
+                  style: RaftTypography.inherited(
                     t,
                     size: 18,
                     line: 28,
@@ -867,7 +867,7 @@ class _StatRow extends StatelessWidget {
         Expanded(
           child: Text(
             stat.label,
-            style: RaftTypography.body(
+            style: RaftTypography.inherited(
               t,
               size: 12,
               line: 16,
@@ -937,7 +937,7 @@ class _SeatUsage extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: RaftTypography.body(
+            style: RaftTypography.inherited(
               t,
               size: 12,
               line: 16,
@@ -1033,7 +1033,7 @@ class _ManagePlanCard extends StatelessWidget {
     final m = manage;
     final mono = RaftTypography.mono(t, size: 12, line: 16, color: text.muted);
     final red = mono.copyWith(color: t.product.brutalRed);
-    final fieldLabel = RaftTypography.body(
+    final fieldLabel = RaftTypography.inherited(
       t,
       size: 12,
       line: 16,
@@ -1207,7 +1207,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Text(
             raftText(context, m.summaryTitle).toUpperCase(),
-            style: RaftTypography.body(
+            style: RaftTypography.inherited(
               t,
               size: 12,
               line: 16,

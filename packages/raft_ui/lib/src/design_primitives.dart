@@ -365,6 +365,22 @@ abstract final class RaftTypography {
     letterSpacing: 0,
     color: color ?? t.strong,
   );
+  /// Text that inherits the page's `font-family` (no `font-sans` class): the
+  /// Web body resolves to the theme's heading family (Inter in elegant, Hanken
+  /// Grotesk in brutal), while the `font-sans` utility ([body]) is Geist.
+  static TextStyle inherited(
+    RaftTokens t, {
+    double size = 16,
+    double line = 24,
+    FontWeight weight = FontWeight.w400,
+    Color? color,
+  }) => body(
+    t,
+    size: size,
+    line: line,
+    weight: weight,
+    color: color,
+  ).copyWith(fontFamily: t.headingFont);
   static TextStyle mono(
     RaftTokens t, {
     double size = 12,
