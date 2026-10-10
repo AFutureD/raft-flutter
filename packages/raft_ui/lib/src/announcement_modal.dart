@@ -119,18 +119,31 @@ class _RaftAnnouncementModalState extends State<RaftAnnouncementModal> {
   late int page = widget.initialPage.clamp(0, _last);
   final primary = FocusNode(debugLabel: 'announcement-primary');
 
+  /// Web focuses OK/Next on open (`:focus-visible`); the ring stays while
+  /// that button keeps focus, including after it is clicked.
+  bool ring = true;
+
   int get _last => math.max(0, widget.pages.length - 1);
 
   @override
   void initState() {
     super.initState();
+    primary.addListener(_primaryFocus);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) primary.requestFocus();
     });
   }
 
+  bool _hadFocus = false;
+  void _primaryFocus() {
+    if (_hadFocus && !primary.hasFocus && ring) setState(() => ring = false);
+    _hadFocus = primary.hasFocus;
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    primary.removeListener(_primaryFocus);
     primary.dispose();
     super.dispose();
   }
@@ -182,6 +195,7 @@ class _RaftAnnouncementModalState extends State<RaftAnnouncementModal> {
           onBack: back,
           onNext: next,
           primaryFocusNode: primary,
+          primaryFocusRing: ring,
           maxBodyHeight: MediaQuery.sizeOf(context).height * .6,
           onLink: widget.onLink,
         ),
@@ -204,8 +218,12 @@ class RaftAnnouncementCard extends StatelessWidget {
     required this.onNext,
     required this.maxBodyHeight,
     this.primaryFocusNode,
+    this.primaryFocusRing = false,
     this.onLink,
   });
+
+  /// The primary action was focused by the modal on open and still is.
+  final bool primaryFocusRing;
 
   final String title;
   final RaftAnnouncementPage page;
@@ -341,6 +359,7 @@ class RaftAnnouncementCard extends StatelessWidget {
             size: RaftButtonRecipeSize.md,
             fontWeight: FontWeight.w700,
             focusNode: primaryFocusNode,
+            focusRing: primaryFocusRing,
             glyph: last ? null : RaftGlyph.chevronRight,
             glyphTrailing: true,
             label: last ? labels.ok : labels.next,

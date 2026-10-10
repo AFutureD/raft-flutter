@@ -80,7 +80,13 @@ class RaftRecipeButton extends StatelessWidget {
     this.fontWeight,
     this.focusNode,
     this.glyphTrailing = false,
+    this.focusRing = false,
   });
+
+  /// Paints the focus-visible ring while focused even after a pointer press
+  /// (Blink keeps `:focus-visible` on an element that script focused when a
+  /// click lands on it again).
+  final bool focusRing;
 
   /// Focus node of the control (e.g. a modal's primary action that takes
   /// focus when it opens).
@@ -126,7 +132,8 @@ class RaftRecipeButton extends StatelessWidget {
         if (t.dark) RaftRecipeStates.dark,
         if (state.hovered && state.enabled) RaftRecipeStates.hover,
         if (state.pressed && state.enabled) RaftRecipeStates.active,
-        if (state.focusVisible) RaftRecipeStates.focusVisible,
+        if (state.focusVisible || (focusRing && (focusNode?.hasFocus ?? false)))
+          RaftRecipeStates.focusVisible,
         if (disabled) RaftRecipeStates.disabled,
       }),
       tokens: tokens,
