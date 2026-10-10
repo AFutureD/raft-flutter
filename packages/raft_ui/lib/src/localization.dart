@@ -307,11 +307,32 @@ const raftChinese = <String, String>{
       "Raft 运行并连接时会接收消息；尚未配置后台推送。",
   "This server does not send desktop message notifications. You can test system delivery.":
       "此服务器不发送桌面消息通知，你可以测试系统通知功能。",
-  "Send test notification": "发送测试通知",
+  "Send test notification": "发一条测试通知",
   "Open notification settings": "打开通知设置",
   "System notifications are unavailable on this device.": "此设备无法使用系统通知。",
   "Allow notifications in system settings to receive alerts.": "请在系统设置中允许通知。",
   "The system notification could not be delivered.": "系统通知发送失败。",
+  "Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.":
+      "这些通知是否显示由系统决定,而不是 Raft:{path}。首次发出通知时系统可能会询问权限。若开启了专注模式或勿扰,系统可能延迟或静默横幅。",
+  "macOS → System Settings → Notifications → {app}": "macOS → 系统设置 → 通知 → {app}",
+  "Linux → your desktop environment's notification settings": "Linux → 桌面环境的通知设置",
+  "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
+  "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
+      "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
+  "System Settings → Notifications": "系统设置 → 通知",
+  "your desktop environment's notification settings": "桌面环境的通知设置",
+  "Settings → System → Notifications": "设置 → 系统 → 通知",
+  "Phone notifications": "手机通知",
+  "Not enabled": "未开启",
+  "While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.":
+      "Raft 连接时，会对新私信、直接提及和已关注消息串的回复弹出系统通知。切到后台后会定期检查新消息，可能会晚一些到达。",
+  "Whether notifications appear is decided by the system: on Android, Settings → Apps → Raft → Notifications. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.":
+      "通知是否显示由系统决定：Android 在“设置 → 应用 → Raft → 通知”。开启了勿扰或专注模式时，系统可能延迟或静默通知。",
+  "Whether notifications appear is decided by the system: on iOS, Settings → Notifications → Raft. With Do Not Disturb or a Focus mode on, the system may delay or silence notifications.":
+      "通知是否显示由系统决定：iOS 在“设置 → 通知 → Raft”。开启了勿扰或专注模式时，系统可能延迟或静默通知。",
+  "Test notification sent. If no banner appeared, check Raft's notification settings in the system settings, then try again.":
+      "测试通知已发出。如果没有看到横幅，请在系统设置中检查 Raft 的通知设置后再试。",
+  "System notifications are enabled. Tap to return to Raft.": "系统通知已开启。点按即可回到 Raft。",
   " (coming soon)": "（即将推出）",
   " (deprecated)": "（已弃用）",
   " (installed)": "（已安装）",
