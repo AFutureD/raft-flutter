@@ -226,28 +226,32 @@ class _InteractivePreviewState extends State<_InteractivePreview> {
           ),
         ],
       ),
-      'Upload' => Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
+      'Upload' => RaftComposerAttachments(
+        items: [
           for (final entry in uploads.entries)
-            RaftUploadChip(
+            RaftComposerAttachment(
+              id: entry.key,
               name: entry.key,
-              ready: entry.value == 'ready',
-              progress: entry.value == 'uploading' ? .4 : 0,
+              mimeType: entry.key.endsWith('.pdf')
+                  ? 'application/pdf'
+                  : 'audio/wav',
+              status: switch (entry.value) {
+                'ready' => RaftComposerAttachmentStatus.ready,
+                'failed' => RaftComposerAttachmentStatus.failed,
+                _ => RaftComposerAttachmentStatus.uploading,
+              },
+              progress: entry.value == 'uploading' ? 40 : 0,
               error: entry.value == 'failed' ? 'Upload failed' : null,
-              onRetry: entry.value != 'failed'
-                  ? null
-                  : () => setState(() {
-                      uploads[entry.key] = 'ready';
-                      result = 'Retried ${entry.key}';
-                    }),
-              onRemove: () => setState(() {
-                uploads.remove(entry.key);
-                result = 'Removed ${entry.key}';
-              }),
             ),
         ],
+        onRetry: (item) => setState(() {
+          uploads[item.id] = 'ready';
+          result = 'Retried ${item.id}';
+        }),
+        onRemove: (item) => setState(() {
+          uploads.remove(item.id);
+          result = 'Removed ${item.id}';
+        }),
       ),
       'Form' => Column(
         children: [

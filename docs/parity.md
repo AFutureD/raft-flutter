@@ -754,6 +754,69 @@ rasterisation (Chromium's glyphs are darker, see "Text rendering"), which
 keeps text-dense cards at 89–96 %. Not covered: the failed-write error
 notice (Web `toast.error`; Flutter uses a SnackBar), hover states.
 
+### Composer attachment cases (29 states x 3 themes = 87)
+
+Derived from Web `MessageInput.tsx` (`SortableAttachment`, `<ComposerAttachments>`,
+failed-upload alert rows, limit `Banner`, `isDraggingFiles` overlay, `addFiles`)
+and the raft-ui `composerAttachment` recipe. `tool/parity-ext/build-composer-attachments.py`
+appends `components.composerattachments.<platform>.<kind>.<theme>` (run it after
+`build-announcements.py` and `build-search-overlay-cases.py`); the state of each
+kind lives in `fixtures/composer-attachments.json` (`kinds`, `routeSets`), read
+by both providers. The React host (`host/ComposerAttachmentCases.tsx`) mounts the
+real `MessageInput`, puts the fixture files on the hidden file input (the same
+`change` the picker fires) and answers `upload-capabilities` / `POST
+/attachments/upload` from the fixture routes (ready, never answers, fails, quota,
+4 KB ceiling); `data-visual-case` appears once the expected state is rendered.
+Flutter (`cases/ext_composer_attachments.dart`) feeds the same bytes to the product
+`attachSelection` over a fixture client, so checking / uploading / failed / limit
+are produced by product code.
+
+* desktop (760px column): one image, three images, file, long names + unknown
+  type, mixed (wraps), checking, uploading (0 %, 42 %, 99 % "Finishing upload"),
+  failed (alert rows), quota failure (chip + banner), over-size, 11 files, empty
+  file, drag-over overlay, hover (remove badge), thread composer (no As Task);
+* mobile (390 wide, 3x, `viewport.touch` = CDP touch emulation so the browser
+  reports `(hover: none)` and the remove badge is always visible, 24px): the same
+  states except empty file, finishing, drag (touch never fires drag events) and hover.
+
+What changed in Flutter (all of it Web behaviour, none invented):
+
+* pending files sit inside the composer root below its rule (they used to float
+  above it as Material chips) with no "N attachments" label; `RaftComposerAttachments`
+  draws 64px image thumbnails and 176x64 file cards (name + MIME, `file` fallback)
+  from the recipe, checking / uploading / finishing / failed overlays, the 4px
+  progress bar and the remove badge (`top:-6 right:-6`, hover on desktop, always
+  on touch; its layout box carries the 6px overhang so hover and taps reach it);
+* failed uploads leave the chips for a warning alert row with "Tap to retry"
+  (not for the interrupted check) and remove; a billing-quota failure keeps its
+  chip and shows its banner;
+* `attachSelection` shows every file at once as a checking chip, decides on the
+  server ceiling in selection order, drops empty / oversize / extra files with
+  Web's singular and plural messages, uploads accepted files concurrently, and
+  marks a check whose scope changed as interrupted (not retryable);
+* Send shows its spinner and tooltip while files are checked or uploaded, and a
+  blocked Ctrl+Enter reports "Wait for ..." / "Remove or retry ..." in the banner;
+* the media button is "Attach media" and picks images and videos
+  (`image/*,video/*`), the file button anything; local images open in the lightbox;
+* the drop overlay starts below the composer rule, uses Blink's dash fit and
+  8-bit alpha; the warning banner honours dark.
+
+Result (run `20261010T19*`, this branch): 87/87 captured, identical sizes, mean
+pixel-perfect 95.9 % (brutal 97.9 %, elegant-dark 95.7 %, elegant 94.0 %), 41/87
+above 96 %. Geometry, sizes, colours and spacing of the attachment surfaces match;
+what remains is (a) the shared elegant composer card (ring and `shadow-sm` differ by
+1-3 levels, rows y=86 and 177-181 of every elegant case; official brutal composer
+cases are unaffected), (b) Chromium's 8-bit truncating blend of the translucent
+overlays (1-level fills), (c) the frozen spinner frame and text rasterisation,
+(d) Blink's dash phase on the drag-over frame. Official `components.thread.composer.*`:
+all seven unchanged to four decimals (empty 98.40, states 97.22, pending-mention
+96.83, as-task 97.20, member-suggestions 97.83, channel-suggestions 98.57,
+image-preview 98.04).
+
+Not ported: drag-to-reorder of chips (dnd-kit), the "recoverable uploads" banner
+(needs the direct-upload session API), the billing link of the quota banner (no
+billing page in Flutter), multi-image lightbox navigation from the composer.
+
 ### Outlier review (select-all, bulk-restart, workspace-scan)
 
 The official `pixelPerfectSimilarity` (visual-testing

@@ -18869,6 +18869,3771 @@
     "ignoreAntialiasing": true
    },
    "notes": "Typed through the overlay input (Web: Playwright fill; Flutter: enterText on key quick-switcher-input), then wait 600ms (200ms request debounce). The From filter is pre-set through the URL (Web: ?senderId=visual-human-jiacheng, so the chip reads \"From: Jiacheng\" and the request carries senderId); Flutter seeds the same filter from the case prop senderId."
+  },
+  {
+   "id": "components.composerattachments.desktop.one-image.brutal",
+   "title": "Composer attachments desktop one-image (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.one-image",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "one-image",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.one-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.one-image.elegant",
+   "title": "Composer attachments desktop one-image (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.one-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "one-image",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.one-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.one-image.elegant-dark",
+   "title": "Composer attachments desktop one-image (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.one-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "one-image",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.one-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.images.brutal",
+   "title": "Composer attachments desktop images (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.images",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "images",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.images'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.images.elegant",
+   "title": "Composer attachments desktop images (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.images",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "images",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.images'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.images.elegant-dark",
+   "title": "Composer attachments desktop images (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.images",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "images",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.images'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.file.brutal",
+   "title": "Composer attachments desktop file (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.file",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "file",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.file.elegant",
+   "title": "Composer attachments desktop file (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.file",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "file",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.file.elegant-dark",
+   "title": "Composer attachments desktop file (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.file",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "file",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.file-long.brutal",
+   "title": "Composer attachments desktop file-long (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.file-long",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "file-long",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.file-long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.file-long.elegant",
+   "title": "Composer attachments desktop file-long (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.file-long",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "file-long",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.file-long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.file-long.elegant-dark",
+   "title": "Composer attachments desktop file-long (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.file-long",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "file-long",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.file-long'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.mixed.brutal",
+   "title": "Composer attachments desktop mixed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.mixed",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "mixed",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.mixed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.mixed.elegant",
+   "title": "Composer attachments desktop mixed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.mixed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "mixed",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.mixed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.mixed.elegant-dark",
+   "title": "Composer attachments desktop mixed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.mixed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "mixed",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.mixed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.checking.brutal",
+   "title": "Composer attachments desktop checking (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.checking",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "checking",
+      "width": "760",
+      "routeSet": "composer-checking"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.checking'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.checking.elegant",
+   "title": "Composer attachments desktop checking (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.checking",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "checking",
+      "width": "760",
+      "routeSet": "composer-checking"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.checking'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.checking.elegant-dark",
+   "title": "Composer attachments desktop checking (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.checking",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "checking",
+      "width": "760",
+      "routeSet": "composer-checking"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.checking'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading.brutal",
+   "title": "Composer attachments desktop uploading (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "uploading",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading.elegant",
+   "title": "Composer attachments desktop uploading (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "uploading",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading.elegant-dark",
+   "title": "Composer attachments desktop uploading (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "uploading",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading-progress.brutal",
+   "title": "Composer attachments desktop uploading-progress (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading-progress",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "uploading-progress",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading-progress.elegant",
+   "title": "Composer attachments desktop uploading-progress (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading-progress",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "uploading-progress",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading-progress.elegant-dark",
+   "title": "Composer attachments desktop uploading-progress (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading-progress",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "uploading-progress",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading-finishing.brutal",
+   "title": "Composer attachments desktop uploading-finishing (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading-finishing",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "uploading-finishing",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading-finishing'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading-finishing.elegant",
+   "title": "Composer attachments desktop uploading-finishing (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading-finishing",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "uploading-finishing",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading-finishing'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.uploading-finishing.elegant-dark",
+   "title": "Composer attachments desktop uploading-finishing (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.uploading-finishing",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "uploading-finishing",
+      "width": "760",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.uploading-finishing'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.failed.brutal",
+   "title": "Composer attachments desktop failed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.failed",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "failed",
+      "width": "760",
+      "routeSet": "composer-failed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.failed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.failed.elegant",
+   "title": "Composer attachments desktop failed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.failed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "failed",
+      "width": "760",
+      "routeSet": "composer-failed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.failed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.failed.elegant-dark",
+   "title": "Composer attachments desktop failed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.failed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "failed",
+      "width": "760",
+      "routeSet": "composer-failed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.failed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.failed-quota.brutal",
+   "title": "Composer attachments desktop failed-quota (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.failed-quota",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "failed-quota",
+      "width": "760",
+      "routeSet": "composer-quota"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.failed-quota'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.failed-quota.elegant",
+   "title": "Composer attachments desktop failed-quota (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.failed-quota",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "failed-quota",
+      "width": "760",
+      "routeSet": "composer-quota"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.failed-quota'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.failed-quota.elegant-dark",
+   "title": "Composer attachments desktop failed-quota (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.failed-quota",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "failed-quota",
+      "width": "760",
+      "routeSet": "composer-quota"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.failed-quota'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.over-size.brutal",
+   "title": "Composer attachments desktop over-size (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.over-size",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "over-size",
+      "width": "760",
+      "routeSet": "composer-small-limit"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.over-size'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.over-size.elegant",
+   "title": "Composer attachments desktop over-size (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.over-size",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "over-size",
+      "width": "760",
+      "routeSet": "composer-small-limit"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.over-size'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.over-size.elegant-dark",
+   "title": "Composer attachments desktop over-size (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.over-size",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "over-size",
+      "width": "760",
+      "routeSet": "composer-small-limit"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.over-size'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.over-count.brutal",
+   "title": "Composer attachments desktop over-count (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.over-count",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "over-count",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.over-count'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.over-count.elegant",
+   "title": "Composer attachments desktop over-count (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.over-count",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "over-count",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.over-count'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.over-count.elegant-dark",
+   "title": "Composer attachments desktop over-count (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.over-count",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "over-count",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.over-count'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.empty-file.brutal",
+   "title": "Composer attachments desktop empty-file (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.empty-file",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "empty-file",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.empty-file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.empty-file.elegant",
+   "title": "Composer attachments desktop empty-file (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.empty-file",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "empty-file",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.empty-file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.empty-file.elegant-dark",
+   "title": "Composer attachments desktop empty-file (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.empty-file",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "empty-file",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.empty-file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.drag-over.brutal",
+   "title": "Composer attachments desktop drag-over (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.drag-over",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "drag-over",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.drag-over'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.drag-over.elegant",
+   "title": "Composer attachments desktop drag-over (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.drag-over",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "drag-over",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.drag-over'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.drag-over.elegant-dark",
+   "title": "Composer attachments desktop drag-over (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.drag-over",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "drag-over",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.drag-over'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.hover-remove.brutal",
+   "title": "Composer attachments desktop hover-remove (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.hover-remove",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "hover-remove",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "[data-slot=\"composer-attachment\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "hover",
+      "key": "composer-attachment-0"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.hover-remove'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.hover-remove.elegant",
+   "title": "Composer attachments desktop hover-remove (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.hover-remove",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "hover-remove",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "[data-slot=\"composer-attachment\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "hover",
+      "key": "composer-attachment-0"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.hover-remove'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.hover-remove.elegant-dark",
+   "title": "Composer attachments desktop hover-remove (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.hover-remove",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "hover-remove",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case",
+    "interactions": [
+     {
+      "type": "hover",
+      "target": "[data-slot=\"composer-attachment\"]"
+     }
+    ],
+    "androidInteractions": [
+     {
+      "type": "hover",
+      "key": "composer-attachment-0"
+     }
+    ]
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.hover-remove'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.thread-image.brutal",
+   "title": "Composer attachments desktop thread-image (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.thread-image",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "desktop",
+      "kind": "thread-image",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.thread-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.thread-image.elegant",
+   "title": "Composer attachments desktop thread-image (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.thread-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "desktop",
+      "kind": "thread-image",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.thread-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.desktop.thread-image.elegant-dark",
+   "title": "Composer attachments desktop thread-image (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 1280,
+    "height": 800,
+    "density": 1
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "desktop.thread-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "desktop",
+      "kind": "thread-image",
+      "width": "760"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'desktop.thread-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.one-image.brutal",
+   "title": "Composer attachments mobile one-image (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.one-image",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "one-image",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.one-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.one-image.elegant",
+   "title": "Composer attachments mobile one-image (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.one-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "one-image",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.one-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.one-image.elegant-dark",
+   "title": "Composer attachments mobile one-image (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.one-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "one-image",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.one-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.images.brutal",
+   "title": "Composer attachments mobile images (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.images",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "images",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.images'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.images.elegant",
+   "title": "Composer attachments mobile images (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.images",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "images",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.images'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.images.elegant-dark",
+   "title": "Composer attachments mobile images (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.images",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "images",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.images'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.file.brutal",
+   "title": "Composer attachments mobile file (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.file",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "file",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.file.elegant",
+   "title": "Composer attachments mobile file (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.file",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "file",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.file.elegant-dark",
+   "title": "Composer attachments mobile file (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.file",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "file",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.file'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.mixed.brutal",
+   "title": "Composer attachments mobile mixed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.mixed",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "mixed",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.mixed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.mixed.elegant",
+   "title": "Composer attachments mobile mixed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.mixed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "mixed",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.mixed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.mixed.elegant-dark",
+   "title": "Composer attachments mobile mixed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.mixed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "mixed",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.mixed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.checking.brutal",
+   "title": "Composer attachments mobile checking (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.checking",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "checking",
+      "width": "390",
+      "routeSet": "composer-checking"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.checking'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.checking.elegant",
+   "title": "Composer attachments mobile checking (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.checking",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "checking",
+      "width": "390",
+      "routeSet": "composer-checking"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.checking'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.checking.elegant-dark",
+   "title": "Composer attachments mobile checking (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.checking",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "checking",
+      "width": "390",
+      "routeSet": "composer-checking"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.checking'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.uploading.brutal",
+   "title": "Composer attachments mobile uploading (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.uploading",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "uploading",
+      "width": "390",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.uploading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.uploading.elegant",
+   "title": "Composer attachments mobile uploading (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.uploading",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "uploading",
+      "width": "390",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.uploading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.uploading.elegant-dark",
+   "title": "Composer attachments mobile uploading (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.uploading",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "uploading",
+      "width": "390",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.uploading'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.uploading-progress.brutal",
+   "title": "Composer attachments mobile uploading-progress (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.uploading-progress",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "uploading-progress",
+      "width": "390",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.uploading-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.uploading-progress.elegant",
+   "title": "Composer attachments mobile uploading-progress (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.uploading-progress",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "uploading-progress",
+      "width": "390",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.uploading-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.uploading-progress.elegant-dark",
+   "title": "Composer attachments mobile uploading-progress (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.uploading-progress",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "uploading-progress",
+      "width": "390",
+      "routeSet": "composer-uploading"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.uploading-progress'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.failed.brutal",
+   "title": "Composer attachments mobile failed (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.failed",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "failed",
+      "width": "390",
+      "routeSet": "composer-failed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.failed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.failed.elegant",
+   "title": "Composer attachments mobile failed (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.failed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "failed",
+      "width": "390",
+      "routeSet": "composer-failed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.failed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.failed.elegant-dark",
+   "title": "Composer attachments mobile failed (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.failed",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "failed",
+      "width": "390",
+      "routeSet": "composer-failed"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.failed'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.failed-quota.brutal",
+   "title": "Composer attachments mobile failed-quota (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.failed-quota",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "failed-quota",
+      "width": "390",
+      "routeSet": "composer-quota"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.failed-quota'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.failed-quota.elegant",
+   "title": "Composer attachments mobile failed-quota (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.failed-quota",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "failed-quota",
+      "width": "390",
+      "routeSet": "composer-quota"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.failed-quota'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.failed-quota.elegant-dark",
+   "title": "Composer attachments mobile failed-quota (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.failed-quota",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "failed-quota",
+      "width": "390",
+      "routeSet": "composer-quota"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.failed-quota'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.over-size.brutal",
+   "title": "Composer attachments mobile over-size (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.over-size",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "over-size",
+      "width": "390",
+      "routeSet": "composer-small-limit"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.over-size'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.over-size.elegant",
+   "title": "Composer attachments mobile over-size (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.over-size",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "over-size",
+      "width": "390",
+      "routeSet": "composer-small-limit"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.over-size'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.over-size.elegant-dark",
+   "title": "Composer attachments mobile over-size (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.over-size",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "over-size",
+      "width": "390",
+      "routeSet": "composer-small-limit"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.over-size'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.over-count.brutal",
+   "title": "Composer attachments mobile over-count (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.over-count",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "over-count",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.over-count'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.over-count.elegant",
+   "title": "Composer attachments mobile over-count (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.over-count",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "over-count",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.over-count'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.over-count.elegant-dark",
+   "title": "Composer attachments mobile over-count (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.over-count",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "over-count",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.over-count'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.thread-image.brutal",
+   "title": "Composer attachments mobile thread-image (brutal-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "brutal-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.thread-image",
+      "extKind": "composerattachments",
+      "parityTheme": "brutal-light",
+      "platform": "mobile",
+      "kind": "thread-image",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.thread-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.thread-image.elegant",
+   "title": "Composer attachments mobile thread-image (elegant-light)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-light",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.thread-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-light",
+      "platform": "mobile",
+      "kind": "thread-image",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.thread-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
+  },
+  {
+   "id": "components.composerattachments.mobile.thread-image.elegant-dark",
+   "title": "Composer attachments mobile thread-image (elegant-dark)",
+   "captureType": "component-fixture",
+   "surface": "composer-attachments",
+   "category": "extension/composer-attachments",
+   "suite": "raft-flutter-extension",
+   "viewport": {
+    "width": 390,
+    "height": 844,
+    "density": 3,
+    "touch": true
+   },
+   "theme": "elegant-dark",
+   "locale": "en",
+   "variants": [
+    {
+     "id": "default",
+     "name": "Default",
+     "props": {
+      "extCase": "mobile.thread-image",
+      "extKind": "composerattachments",
+      "parityTheme": "elegant-dark",
+      "platform": "mobile",
+      "kind": "thread-image",
+      "width": "390"
+     }
+    }
+   ],
+   "capture": {
+    "selector": "[data-visual-case]",
+    "crop": "element",
+    "contract": "component-bounds",
+    "androidKey": "composer-attachments-case"
+   },
+   "reactPathHint": "packages/web/src/components/message/MessageInput.tsx (+ raft-ui composerAttachment recipe)",
+   "androidCaseHint": "apps/raft_flutter/test/parity/cases/ext_composer_attachments.dart 'mobile.thread-image'",
+   "tolerance": {
+    "pixelRatio": 0.02,
+    "layoutDp": 1,
+    "ignoreAntialiasing": true
+   }
   }
  ]
 }
