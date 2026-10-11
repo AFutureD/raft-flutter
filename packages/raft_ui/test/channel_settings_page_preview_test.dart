@@ -39,7 +39,11 @@ void main() {
         expect(find.byType(RaftMobilePageHeader), findsNothing);
         final back = find.byKey(const ValueKey('channel-overflow-back'));
         expect(t.getSize(back), const Size.square(28));
-        expect(t.getCenter(back).dx, 16 + 14);
+        // ... inside the Brutal drawer's `border-l-2`, which the phone keeps.
+        expect(
+          t.getCenter(back).dx,
+          16 + 14 + (family == RaftFamily.brutal ? 2 : 0),
+        );
         // Centred in the border-box less its bottom edge (2px brutal, 1px).
         expect(
           t.getTopLeft(back).dy,

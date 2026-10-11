@@ -194,7 +194,11 @@ class RaftOverflowSheet extends StatelessWidget {
 /// `OverflowSheet bare`: the same drawer popup without its header, holding a
 /// page that brings its own (the members page).
 class RaftOverflowBareSheet extends StatelessWidget {
-  const RaftOverflowBareSheet({super.key, required this.child, this.page = false});
+  const RaftOverflowBareSheet({
+    super.key,
+    required this.child,
+    this.page = false,
+  });
   final Widget child;
   final bool page;
   @override
@@ -219,7 +223,9 @@ class _OverflowDrawerFrame extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: SizedBox(
         key: const ValueKey('channel-overflow-sheet'),
-        width: page ? size.width : RaftOverflowSheet.widthFor(size.width, brutal: t.brutal),
+        width: page
+            ? size.width
+            : RaftOverflowSheet.widthFor(size.width, brutal: t.brutal),
         height: double.infinity,
         child: Material(
           color: paper,
@@ -230,7 +236,9 @@ class _OverflowDrawerFrame extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Container(
             decoration: BoxDecoration(
-              border: t.brutal && !page
+              // Web keeps `theme-brutal:border-l-2` on the phone's full-width
+              // drawer too (the content column starts 2px in).
+              border: t.brutal
                   ? Border(
                       left: BorderSide(
                         color: t.colors['line-strong']!,

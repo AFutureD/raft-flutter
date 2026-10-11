@@ -303,7 +303,11 @@ class RaftChannelMembersModal extends StatelessWidget {
     );
   }
 
-  List<Widget> _addView(BuildContext context, RaftTokens t, {bool fill = false}) {
+  List<Widget> _addView(
+    BuildContext context,
+    RaftTokens t, {
+    bool fill = false,
+  }) {
     final query = search.text;
     Widget eyebrow(String text) => RaftDialogSectionEyebrow(
       text,
@@ -752,7 +756,6 @@ class _SelectedChip extends StatelessWidget {
   }
 }
 
-
 // ---------------------------------------------------------------------------
 // The drawer-internal members page (ChannelMembers presentation="page"): the
 // page the Web OverflowSheet mounts, bare, when the Members strip is opened
@@ -815,7 +818,9 @@ class _MembersPageState extends State<_MembersPage> {
       height: RaftMetrics.brutalPanelHeader,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: t.brutal ? t.colors['color-soft-signal'] : t.colors['layer-inset'],
+        color: t.brutal
+            ? t.colors['color-soft-signal']
+            : t.colors['layer-inset'],
         border: Border(
           bottom: BorderSide(
             color: t.brutal ? Colors.black : t.colors['line-muted']!,
@@ -907,8 +912,14 @@ class _MembersPageState extends State<_MembersPage> {
     final query = rosterSearch.text.trim().toLowerCase();
     bool matches(RaftMemberRowData r) =>
         query.isEmpty || r.label.toLowerCase().contains(query);
-    final humans = [for (final h in m.humans) if (matches(h)) h];
-    final agents = [for (final a in m.agents) if (matches(a)) a];
+    final humans = [
+      for (final h in m.humans)
+        if (matches(h)) h,
+    ];
+    final agents = [
+      for (final a in m.agents)
+        if (matches(a)) a,
+    ];
     final total = m.humans.length + m.agents.length;
     final muted = t.colors['foreground-muted'];
     TextStyle note() => raftCssTextStyle(
@@ -994,10 +1005,7 @@ class _MembersPageState extends State<_MembersPage> {
                       style: note(),
                     ),
                   ),
-                if (!m.loading &&
-                    total > 0 &&
-                    humans.isEmpty &&
-                    agents.isEmpty)
+                if (!m.loading && total > 0 && humans.isEmpty && agents.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -1097,7 +1105,10 @@ class _MemberSectionState extends State<_MemberSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.only(top: brutal ? 12 : 16, bottom: brutal ? 4 : 0),
+          padding: EdgeInsets.only(
+            top: brutal ? 12 : 16,
+            bottom: brutal ? 4 : 0,
+          ),
           child: SizedBox(
             height: brutal ? 24 : 32,
             child: Padding(
@@ -1154,7 +1165,8 @@ class _MemberSectionState extends State<_MemberSection> {
             ),
           ),
         ),
-        if (open) for (final r in widget.rows) _MemberPageRow(row: r),
+        if (open)
+          for (final r in widget.rows) _MemberPageRow(row: r),
       ],
     );
   }

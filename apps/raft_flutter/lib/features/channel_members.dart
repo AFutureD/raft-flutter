@@ -290,22 +290,20 @@ class _ChannelMembersState extends State<ChannelMembers> {
       final description = '${m['description'] ?? ''}'.trim();
       return RaftMemberRowData(
         human: kind != 'agent',
-        secondary: kind == 'agent' &&
+        secondary:
+            kind == 'agent' &&
                 (presence?.activity == RaftAvatarActivity.working ||
                     presence?.activity == RaftAvatarActivity.thinking) &&
                 '${m['activityDetail'] ?? ''}'.trim().isNotEmpty
             ? '${m['activityDetail']}'.trim()
             : kind == 'agent'
-            ? raftText(
-                context,
-                switch (presence?.activity) {
-                  RaftAvatarActivity.thinking => 'Thinking',
-                  RaftAvatarActivity.working => 'Working',
-                  RaftAvatarActivity.error => 'Error',
-                  RaftAvatarActivity.offline => 'Offline',
-                  _ => 'Online',
-                },
-              )
+            ? raftText(context, switch (presence?.activity) {
+                RaftAvatarActivity.thinking => 'Thinking',
+                RaftAvatarActivity.working => 'Working',
+                RaftAvatarActivity.error => 'Error',
+                RaftAvatarActivity.offline => 'Offline',
+                _ => 'Online',
+              })
             : (description.isEmpty ? null : description),
         secondaryMono: kind == 'agent',
         roleLabel: switch (role) {

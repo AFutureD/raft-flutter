@@ -152,26 +152,30 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
     );
   }
 
-  Widget _header(BuildContext context, RaftTokens t, String label, String text) =>
-      Padding(
-        // `px-5 py-3`
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            RaftSectionHeader(label: label),
-            const SizedBox(height: 4),
-            RaftCssText(
-              text,
-              style: RaftPanelText.caption(t).copyWith(
-                color: t.brutal
-                    ? Colors.black.withValues(alpha: .6)
-                    : t.colors['foreground-muted'],
-              ),
-            ),
-          ],
+  Widget _header(
+    BuildContext context,
+    RaftTokens t,
+    String label,
+    String text,
+  ) => Padding(
+    // `px-5 py-3`
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RaftSectionHeader(label: label),
+        const SizedBox(height: 4),
+        RaftCssText(
+          text,
+          style: RaftPanelText.caption(t).copyWith(
+            color: t.brutal
+                ? Colors.black.withValues(alpha: .6)
+                : t.colors['foreground-muted'],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 
   /// `flex items-center gap-3 border ... bg-fill-muted px-3 py-2` inside `px-4 pb-4`.
   Widget _inlineEmpty(
@@ -252,7 +256,10 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
           context,
           t,
           raftText(context, 'Channels'),
-          raftText(context, 'Channels where this agent can read or participate.'),
+          raftText(
+            context,
+            'Channels where this agent can read or participate.',
+          ),
         ),
         if (widget.channels.isEmpty)
           _inlineEmpty(
@@ -260,7 +267,10 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
             t,
             icon: const RaftIcon(RaftGlyph.hash, size: 18),
             title: raftText(context, 'No channels yet'),
-            description: raftText(context, 'Channel memberships will appear here.'),
+            description: raftText(
+              context,
+              'Channel memberships will appear here.',
+            ),
           )
         else
           Padding(
@@ -291,7 +301,11 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
     );
   }
 
-  Widget _channelCard(BuildContext context, RaftTokens t, RaftAgentChannelRow c) {
+  Widget _channelCard(
+    BuildContext context,
+    RaftTokens t,
+    RaftAgentChannelRow c,
+  ) {
     final placeholder = t.brutal
         ? Colors.black.withValues(alpha: .45)
         : t.colors['foreground-placeholder']!;
@@ -407,7 +421,8 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 12,
             children: [
-              for (final d in widget.dms) RaftConversationPreviewCard.agentDm(d),
+              for (final d in widget.dms)
+                RaftConversationPreviewCard.agentDm(d),
             ],
           ),
         ),
