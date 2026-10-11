@@ -46,7 +46,7 @@ with tempfile.TemporaryDirectory(prefix='raft-ios-simulator-sign-') as temporary
         subprocess.run(['codesign', '--force', '--sign', '-', '--timestamp=none',
                         '--entitlements', str(entitlements), str(target)], check=True)
         subprocess.run(['codesign', '--verify', '--strict', str(target)], check=True)
-        result = subprocess.check_output(['codesign', '--display', '--entitlements', '-',
+        result = subprocess.check_output(['codesign', '--display', '--xml', '--entitlements', '-',
                                           str(target)], stderr=subprocess.PIPE)
         if plistlib.loads(result).get('com.apple.security.application-groups') != [group]:
             sys.exit('Signed App Group mismatch. Build stopped.')
