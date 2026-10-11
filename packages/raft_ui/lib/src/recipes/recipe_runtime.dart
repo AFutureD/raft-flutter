@@ -17,6 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import '../css_recipe_decoration.dart';
+import '../lru_cache.dart';
 export '../css_recipe_decoration.dart';
 
 // ---------------------------------------------------------------- CSS values
@@ -497,7 +498,59 @@ final class RaftRecipeAxis {
   int get optionCount => values.length + (allowsUnset ? 1 : 0);
 }
 
-/// Resolves every slot of a generated recipe for one combination.
+final _generatedSlotTemplates =
+    Expando<RaftLruCache<_SlotTemplateKey, RaftSlotStyle>>('generated recipe slots');
+
+class _SlotTemplateKey {
+  _SlotTemplateKey(List<int> classes, RaftRecipeStates states)
+      : classes = List.of(classes),
+        flags = states.flags.toList()..sort(),
+        width = states.viewportWidth,
+        height = states.viewportHeight,
+        containerWidth = states.containerWidth;
+  final List<int> classes;
+  final List<String> flags;
+  final double? width, height, containerWidth;
+
+  @override
+  bool operator ==(Object other) => other is _SlotTemplateKey &&
+      width == other.width && height == other.height &&
+      containerWidth == other.containerWidth &&
+      listEquals(classes, other.classes) && listEquals(flags, other.flags);
+  @override
+  int get hashCode => Object.hash(Object.hashAll(classes), Object.hashAll(flags),
+      width, height, containerWidth);
+}
+
+// Returned styles retain their existing mutable collection API. No caller can
+// mutate another caller's cached template, including nested CSS value lists.
+CssValue _copySlotValue(CssValue value) => switch (value) {
+  CssFunction(:final name, :final args) =>
+    CssFunction(name, [for (final v in args) _copySlotValue(v)]),
+  CssSeq(:final items) => CssSeq([for (final v in items) _copySlotValue(v)]),
+  CssList(:final items) => CssList([for (final v in items) _copySlotValue(v)]),
+  CssCalc(:final expr) => CssCalc(_copySlotValue(expr)),
+  CssOp(:final op, :final a, :final b) =>
+    CssOp(op, _copySlotValue(a), _copySlotValue(b)),
+  CssVar(:final name, :final fallback, :final token) =>
+    CssVar(name, fallback == null ? null : _copySlotValue(fallback), token),
+  _ => value,
+};
+
+RaftSlotStyle _bindSlotTemplate(RaftSlotStyle template, RaftTokenResolver? tokens) =>
+    RaftSlotStyle(
+      {for (final e in template.properties.entries) e.key: _copySlotValue(e.value)},
+      {for (final e in template.targets.entries) e.key:
+        {for (final p in e.value.entries) p.key: _copySlotValue(p.value)}},
+      List.of(template.classes),
+      tokens,
+    );
+
+/// Resolves every slot of an immutable generated recipe for one combination.
+///
+/// Cascaded templates are bounded and shared; the current [tokens] are bound
+/// separately on every call. Use [RaftRecipeEngine.resolveSlot] directly for
+/// rule tables that change at runtime.
 List<RaftSlotStyle> raftResolveRecipe(
   RaftRecipeEngine engine,
   List<RaftRecipeAxis> axes,
@@ -511,7 +564,13 @@ List<RaftSlotStyle> raftResolveRecipe(
   for (var k = 0; k < axes.length; k++) {
     index = index * axes[k].optionCount + axes[k].optionIndex(values[k]);
   }
-  return [for (final list in combos[index]) engine.resolveSlot(lists[list], states, tokens)];
+  final cache = _generatedSlotTemplates[engine] ??=
+      RaftLruCache<_SlotTemplateKey, RaftSlotStyle>(512);
+  return [for (final list in combos[index]) _bindSlotTemplate(
+    cache.putIfAbsent(_SlotTemplateKey(lists[list], states),
+      () => engine.resolveSlot(lists[list], states)),
+    tokens,
+  )];
 }
 
 // -------------------------------------------------------------------- engine
@@ -532,6 +591,10 @@ final class RaftRecipeEngine {
   /// `@property` registered (non-inheriting) custom properties and their
   /// initial values (null when the registration has no initial value).
   final Map<String, CssValue?> registered;
+
+  /// Entries retained by [raftResolveRecipe], capped at 512 per engine.
+  @visibleForTesting
+  int get debugTemplateCacheSize => _generatedSlotTemplates[this]?.length ?? 0;
 
   RaftSlotStyle resolveSlot(List<int> classIndices, RaftRecipeStates states, [RaftTokenResolver? tokens]) {
     final byTarget = <String, List<_Entry>>{};
