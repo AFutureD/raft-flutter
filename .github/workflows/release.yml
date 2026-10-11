@@ -69,6 +69,8 @@ jobs:
           cache: true
       - name: Select the pinned SDK wrapper
         run: python tool/release.py sdk
+      - name: Initialize the downloaded Flutter SDK
+        run: flutter --version --machine
       - name: Set up Java for Android
         if: matrix.platform == 'android'
         uses: actions/setup-java@v4
