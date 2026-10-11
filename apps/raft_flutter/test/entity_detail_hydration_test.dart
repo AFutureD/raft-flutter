@@ -109,9 +109,11 @@ void main() {
           expect(find.text('Loading...'), findsNothing);
           expect(find.text('null'), findsNothing);
           // A revisit never re-reads the shared lists; only detail-only
-          // fields (agent runtime profile, member profile) are fetched.
+          // fields (agent runtime profile and, like Web's embedded
+          // AgentSkills, its `/skills` list; member profile) are fetched,
+          // and none of them gates the first frame.
           expect(w.pending.keys, switch (kind) {
-            'agent' => ['/agents/a'],
+            'agent' => unorderedEquals(['/agents/a', '/agents/a/skills']),
             'computer' => isEmpty,
             _ => ['/servers/s/members/u/profile'],
           });
@@ -235,39 +237,40 @@ void main() {
       expect(w.entityDirectory.member('u'), isNull);
     },
   );
-  testWidgets('[L10d] changing server cannot repaint an old held member profile', (
-    t,
-  ) async {
-    // Source serverStore membership and ProfilePanel scope are authoritative,
-    // even while a real old-server detail request is still outstanding.
-    await w.entityDirectory.preload();
-    w.hold = true;
-    await host(
-      t,
-      MemberProfileView(controller: w, userId: 'u', onClose: () {}),
-      RaftFamily.brutal,
-      false,
-    );
-    expect(find.text('Source Human'), findsWidgets);
-    final old = w.pending['/servers/s/members/u/profile']!.single;
-    final generation = client.generation;
-    client.selectServer('other');
-    w.server = RaftRecord({'id': 'other', 'role': 'owner'});
-    w.notifyListeners();
-    await t.pump();
-    expect(client.generation, greaterThan(generation));
-    expect(find.text('Source Human'), findsNothing);
-    expect(w.entityDirectory.member('u'), isNull);
-    expect(w.pending['/servers/other/members/u/profile'], isNotEmpty);
-    old.complete({...member, 'description': 'Old server secret description'});
-    for (var frame = 0; frame < 4; frame++) {
-      await t.pump(const Duration(milliseconds: 16));
+  testWidgets(
+    '[L10d] changing server cannot repaint an old held member profile',
+    (t) async {
+      // Source serverStore membership and ProfilePanel scope are authoritative,
+      // even while a real old-server detail request is still outstanding.
+      await w.entityDirectory.preload();
+      w.hold = true;
+      await host(
+        t,
+        MemberProfileView(controller: w, userId: 'u', onClose: () {}),
+        RaftFamily.brutal,
+        false,
+      );
+      expect(find.text('Source Human'), findsWidgets);
+      final old = w.pending['/servers/s/members/u/profile']!.single;
+      final generation = client.generation;
+      client.selectServer('other');
+      w.server = RaftRecord({'id': 'other', 'role': 'owner'});
+      w.notifyListeners();
+      await t.pump();
+      expect(client.generation, greaterThan(generation));
       expect(find.text('Source Human'), findsNothing);
-      expect(find.text('Old server secret description'), findsNothing);
       expect(w.entityDirectory.member('u'), isNull);
-    }
-    expect(t.takeException(), isNull);
-  });
+      expect(w.pending['/servers/other/members/u/profile'], isNotEmpty);
+      old.complete({...member, 'description': 'Old server secret description'});
+      for (var frame = 0; frame < 4; frame++) {
+        await t.pump(const Duration(milliseconds: 16));
+        expect(find.text('Source Human'), findsNothing);
+        expect(find.text('Old server secret description'), findsNothing);
+        expect(w.entityDirectory.member('u'), isNull);
+      }
+      expect(t.takeException(), isNull);
+    },
+  );
 
   testWidgets('directory row delegates an accepted record to URI navigation', (
     t,

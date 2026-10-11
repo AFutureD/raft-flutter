@@ -63,6 +63,7 @@ class _Workspace extends WorkspaceController {
   bool holdLists = false;
   final detailReads = <String>[];
   final pending = <Completer<dynamic>>[];
+  final pendingByPath = <String, Completer<dynamic>>{};
   @override
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) async {
     if (holdLists && (path == '/agents' || path.endsWith('/machines'))) {
@@ -77,6 +78,7 @@ class _Workspace extends WorkspaceController {
       detailReads.add(path);
       final held = Completer<dynamic>();
       pending.add(held);
+      pendingByPath[path] = held;
       return held.future;
     }
     return [];
@@ -141,9 +143,16 @@ void main() {
           await tester.tap(row(0));
           await tester.pump();
           expect(detail, findsOneWidget);
-          // An agent's detail-only read is open, a computer has none; either
-          // way nothing but the accepted directory is on screen.
-          if (!computers) expect(w.detailReads, ['/agents/a']);
+          // An agent's detail-only reads are open (its runtime profile and,
+          // like Web's embedded AgentSkills, the `/skills` list), a computer
+          // has none; either way nothing but the accepted directory is on
+          // screen.
+          if (!computers) {
+            expect(
+              w.detailReads,
+              unorderedEquals(['/agents/a', '/agents/a/skills']),
+            );
+          }
           expect(w.pending.every((p) => !p.isCompleted), isTrue);
           expect(inDetail(rows[0]['name'] as String), findsWidgets);
           expect(
@@ -173,8 +182,16 @@ void main() {
 
           // An older detail answer for the first entity cannot repaint it.
           if (!computers) {
-            expect(w.detailReads, ['/agents/a', '/agents/b']);
-            w.pending.first.complete({
+            expect(
+              w.detailReads,
+              unorderedEquals([
+                '/agents/a',
+                '/agents/a/skills',
+                '/agents/b',
+                '/agents/b/skills',
+              ]),
+            );
+            w.pendingByPath['/agents/a']!.complete({
               ...rows[0],
               'description': 'Late first answer',
             });
