@@ -59,7 +59,8 @@ function ParityExtCompStPatch({ p }: { p: NonNullable<ReturnType<typeof parityEx
     useChannelStore.setState((s) => ({
       channels: [
         ...s.channels.map((c) => (c.id === p.state.selected ? { ...c, ...p.state.patch } : c)),
-        ...p.state.extraChannels,
+        // Idempotent: React StrictMode runs layout effects twice.
+        ...p.state.extraChannels.filter((x) => !s.channels.some((c) => c.id === (x as { id: string }).id)),
       ] as never,
       dmChannels: s.dmChannels.map((c) => (c.id === p.state.selected ? { ...c, ...p.state.patch } : c)) as never,
     }));

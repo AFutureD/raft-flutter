@@ -93,7 +93,7 @@ STATES = {
                        receipt=receipt(CHANNEL, UNRESOLVED, unresolvedMentionHandles=['ghostwriter', 'nobody'])),
     'conversion': dict(scene='channel', draft='Waiting for the conversion to finish.',
                        patch={'conversionJob': CONVERSION}),
-    'archived': dict(scene='channel', draft='#', extraChannels=[ARCHIVED]),
+    'archived': dict(scene='channel', draft='#launch', extraChannels=[ARCHIVED]),
 }
 
 scenes = {'channel': CHANNEL_SCENE, 'dm-agent': DM_SCENE}
@@ -191,7 +191,7 @@ for platform in ('desktop', 'mobile'):
     add('warning', platform, 'conversion', 'Channel conversion in progress (Send disabled)', height=200,
         interactions=web, android=flutter)
 # 3.24 archived badge in the #channel popover (desktop; the phone popover is the same list).
-web, flutter = type_only('#')
+web, flutter = type_only(STATES['archived']['draft'])
 add('suggestions', 'desktop', 'archived', '#channel suggestions with an archived channel', height=340,
     interactions=web, android=flutter)
 add('suggestions', 'mobile', 'archived', '#channel suggestions with an archived channel', height=340,

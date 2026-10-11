@@ -1320,7 +1320,7 @@
   },
   "archived": {
    "selected": "shell-design",
-   "draft": "#",
+   "draft": "#launch",
    "routes": {
     "GET /messages/channel/shell-design": {
      "messages": [
