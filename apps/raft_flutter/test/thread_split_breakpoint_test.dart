@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'chat_focus_receipt_test.dart' show contextRows, paintedMessage;
 import 'message_context_transition_test.dart' show row;
@@ -14,11 +15,11 @@ import 'mounted_message_navigation_test.dart'
 // Driven through the mounted WorkspaceView with a real canonical thread whose
 // URL owns a focused reply; resizing must keep that location and focus.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[N23] $family/$dark thread splits only at portrait>=1280 or landscape with container>=680; resize keeps location and msg focus',
       (tester) async {

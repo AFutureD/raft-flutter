@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'activity_incremental_refresh_test.dart'
     show
@@ -16,11 +17,11 @@ import 'activity_incremental_refresh_test.dart'
 /// Web ThreadsInbox: a reader scrolled away from the top keeps their place
 /// when rows land above them, and an "N new updates" pill leads back up.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     final label = '${family.name}${dark ? ' dark' : ''}';
     late ActivityClient client;
     late ActivityWorkspace w;

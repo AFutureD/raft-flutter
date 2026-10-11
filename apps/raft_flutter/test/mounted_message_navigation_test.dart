@@ -9,6 +9,7 @@ import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_focus_receipt_test.dart' show paintedMessage;
@@ -105,11 +106,11 @@ Future<void> pageFrames(
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final switchThread in [false, true]) {
       testWidgets(
         '${switchThread ? '[N07b]' : '[N07a]'} $family/$dark actual side-thread ${switchThread ? 'retarget' : 'close'} replaces only its slot',

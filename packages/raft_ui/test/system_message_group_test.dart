@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Widget _host(Widget child, RaftAppearance appearance) => MaterialApp(
   theme: raftTheme(appearance.light, dark: appearance.mode == ThemeMode.dark),
@@ -13,11 +14,11 @@ Widget _host(Widget child, RaftAppearance appearance) => MaterialApp(
 );
 
 void main() {
-  for (final appearance in [
+  for (final appearance in raftThemeMatrix([
     const RaftAppearance(light: RaftFamily.brutal),
     const RaftAppearance(light: RaftFamily.elegant),
     const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.dark),
-  ]) {
+  ])) {
     testWidgets(
       'system group shows the summary, hides rows until expanded ${appearance.light} ${appearance.mode}',
       (t) async {

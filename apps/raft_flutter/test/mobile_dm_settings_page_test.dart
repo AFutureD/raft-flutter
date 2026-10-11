@@ -6,16 +6,17 @@ import 'package:raft_flutter/features/channel_settings.dart';
 import 'package:raft_flutter/features/mobile_workspace_pages.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_channel_settings_identity_test.dart' show settingsFixture;
 import 'task_surface_test.dart' show flush;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'Mobile DM settings push a page with no metadata editor $family/$dark',
       (t) async {

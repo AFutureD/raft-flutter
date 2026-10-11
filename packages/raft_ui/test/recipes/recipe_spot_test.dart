@@ -24,6 +24,8 @@ class _FakeTokens extends RaftTokenResolver {
 int _utility(String name) =>
     raftRecipeUtilities.indexWhere((u) => u.name == name);
 
+// Full theme matrix on purpose (theme/token/recipe test): never sampled, see
+// package:raft_ui/test_themes.dart.
 void main() {
   RaftButtonRecipeStyle button(
     RaftRecipeTheme theme, {

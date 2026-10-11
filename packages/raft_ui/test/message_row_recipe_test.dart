@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/src/message_row_recipe.dart';
 import 'package:raft_ui/src/theme.dart';
+import 'package:raft_ui/test_themes.dart';
 
 const avatarKey = Key('public-avatar');
 const bodyKey = Key('public-body');
@@ -54,11 +55,11 @@ Widget host(
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ], full: true)) {
     testWidgets(
       'header preserves intrinsic author/model/clock and shrinks description only $family/$dark',
       (tester) async {
@@ -227,34 +228,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('long author stays one header line rather than wrapping metadata', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
-        home: const Scaffold(
-          body: SizedBox(
-            width: 390,
-            child: RaftMessageRow(
-              author:
-                  'Public long author with more characters than the reserved heading can hold',
-              timestamp: '14:30',
-              content: Text('Body'),
+  testWidgets(
+    'long author stays one header line rather than wrapping metadata',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: const Scaffold(
+            body: SizedBox(
+              width: 390,
+              child: RaftMessageRow(
+                author: 'Public long author with more characters than the reserved heading can hold',
+                timestamp: '14:30',
+                content: Text('Body'),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    final author = tester.widget<Text>(
-      find.text(
-        'Public long author with more characters than the reserved heading can hold',
-      ),
-    );
-    expect(author.maxLines, 1);
-    expect(author.overflow, TextOverflow.ellipsis);
-    expect(tester.takeException(), isNull);
-  });
+      );
+      final author = tester.widget<Text>(
+        find.text(
+          'Public long author with more characters than the reserved heading can hold',
+        ),
+      );
+      expect(author.maxLines, 1);
+      expect(author.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   test(
     'source grouping and breakpoint overrides remain independent of pointer',

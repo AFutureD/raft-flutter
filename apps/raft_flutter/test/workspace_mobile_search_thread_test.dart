@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/raft_navigation_history.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_activity_activation_test.dart' show message;
 import 'workspace_source_location_contract_test.dart'
@@ -16,11 +17,11 @@ import 'workspace_source_location_contract_test.dart'
 // Its explicit close-slot owner replaces the Search URI. It does not supply
 // Activity's onFocusedMessageConsumed callback (899–910), so expiry is visual.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 1440.0]) {
       testWidgets(
         '[N02c] $family/$dark ${width == 390 ? 'mobile' : 'desktop'} Search direct thread preserves URI through focus expiry and owned close',

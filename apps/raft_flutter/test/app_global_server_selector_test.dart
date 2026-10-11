@@ -16,6 +16,7 @@ import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_flutter/platform/background_notifications.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter;
@@ -404,7 +405,11 @@ class RootFixture {
 }
 
 void main() {
-  for (final theme in ['brutal', 'elegant-light', 'elegant-dark']) {
+  for (final theme in raftThemeMatrix([
+    'brutal',
+    'elegant-light',
+    'elegant-dark',
+  ])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
         'actual RaftApp $theme/$width root selection, URI, return and draft',

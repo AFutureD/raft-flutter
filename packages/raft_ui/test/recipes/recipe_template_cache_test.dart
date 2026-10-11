@@ -73,6 +73,8 @@ Map<String, Object?> _values(RaftSlotStyle style) => {
   'classes': style.classes,
 };
 
+// Full theme matrix on purpose (theme/token/recipe test): never sampled, see
+// package:raft_ui/test_themes.dart.
 void main() {
   test('templates reuse cascades and bind the current token resolver', () {
     const states = RaftRecipeStates({'hover', 'dark'});

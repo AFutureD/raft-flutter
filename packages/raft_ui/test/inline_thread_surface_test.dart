@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/src/inline_thread_surface.dart';
 import 'package:raft_ui/src/theme.dart';
+import 'package:raft_ui/test_themes.dart';
 
 const publicReplies = [
   RaftInlineReply(
@@ -69,11 +70,11 @@ Widget host({
 );
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('one parent surface uses source row geometry $family/$dark', (
       tester,
     ) async {

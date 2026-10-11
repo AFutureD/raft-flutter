@@ -3,15 +3,16 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 // Source ServerSwitcherMenu.tsx120–185/242–307/363–448. Actual browser
 // geometry/input receipts are in .local/k08-server-menu-v1, not inferred here.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark Source mobile Home menu uses full header anchor, viewport gutters and container keyboard focus',
       (t) async {

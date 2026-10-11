@@ -7,6 +7,7 @@ import 'package:raft_flutter/features/composer_directory.dart';
 import 'package:raft_flutter/features/message_agent_presentation.dart';
 import 'package:raft_flutter/features/message_reference_directory.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'message_presentation_test.dart' show fixture;
 
@@ -17,11 +18,11 @@ Future<void> settled() async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'mention avatar follows borrowed activity and revocation $family/$dark',
       (tester) async {
