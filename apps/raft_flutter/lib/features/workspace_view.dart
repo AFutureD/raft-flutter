@@ -892,6 +892,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           );
         }
         retainedSettingsContent = null;
+        conversationInstance = null;
         accountSettingsWidget = null;
         accountSettingsInputs = null;
         lastAuthority = authority;
@@ -1140,7 +1141,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                   )
                 : RaftChannelResolutionBody(label: tr('Loading channel'))
           : route == 'chat' || route == 'home'
-          ? conversation()
+          ? shownConversation(conversation)
           : route == 'search' && channelSearchRevoked
           ? Center(child: Text(tr('Channel is no longer available')))
           : ResourceView(
@@ -1277,7 +1278,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           builder: (context, id) => id == 'conversation'
               ? showingConversation
                     ? currentContent
-                    : conversation()
+                    : hiddenConversation(conversation)
               : showingConversation
               ? retainedSettingsContent ?? const SizedBox.expand()
               : currentContent,
@@ -1313,7 +1314,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           },
           child: Scaffold(
             key: scaffold,
-            drawer: wide ? null : Drawer(child: sidebar()),
+            // The drawer opens rarely; project the sidebar only when it does.
+            drawer: wide
+                ? null
+                : Drawer(child: Builder(builder: (_) => sidebar())),
             body: RaftSystemBarSurface(
               statusBarBackground: wide ? t.canvas : headerBackground,
               navigationBarBackground: immersiveNavigation ? null : t.panel,
@@ -1366,8 +1370,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                             gridActive ||
                             DesktopNavigationPolicy.forSection(route)
                                 .usesConversationSidebar,
-                        sidebar: sidebar(),
-                        rail: workspaceRail(),
+                        // Phones mount neither; only desktop widths consume them.
+                        sidebar: wide ? sidebar() : const SizedBox.shrink(),
+                        rail: wide ? workspaceRail() : const SizedBox.shrink(),
                         mobileNavigationFloating: !t.brutal,
                         mobileNavigation:
                             mobileWorkspaceRootTabForLocation(location) ==
@@ -2749,6 +2754,18 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     }
     return sidebarAgentRows;
   }
+
+  // The conversation page stays mounted (hidden) while another section is in
+  // front. Handing the framework the very widget it last built for that page
+  // lets it skip the hidden subtree, instead of rebuilding every cached row on
+  // each navigation frame; the page's own listeners keep it current, and the
+  // next visit builds a fresh widget. Authority changes drop the cache.
+  Widget? conversationInstance;
+  Widget shownConversation(Widget Function() build) =>
+      conversationInstance = build();
+
+  Widget hiddenConversation(Widget Function() build) =>
+      conversationInstance ??= build();
 
   List<SidebarGroup> get sidebarGroups {
     final activity = <String, DateTime>{};

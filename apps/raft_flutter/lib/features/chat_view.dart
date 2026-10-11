@@ -403,7 +403,8 @@ class _RaftChatViewState extends State<RaftChatView>
       copiedSelectionMarkdown = false;
     }
     widget.selectionHandle?.update(selection.active, selection.exit);
-    if (mounted) setState(() {});
+    // A hidden retained page repaints nothing; it rebuilds when shown again.
+    if (mounted && presentationActive) setState(() {});
   }
 
   Widget selectionToolbar() {
@@ -659,7 +660,7 @@ class _RaftChatViewState extends State<RaftChatView>
       sources[message] ?? RaftMessage(message.metadata!);
 
   void referencesChanged() {
-    if (mounted) setState(() {});
+    if (mounted && presentationActive) setState(() {});
   }
 
   @override
@@ -841,8 +842,11 @@ class _RaftChatViewState extends State<RaftChatView>
     w.translations.ensureSettings();
     // Upload drafts and composer authority are independent of the chat
     // adapter's message diff. Rebuild them on this view's own listener even
-    // when an adaptive/setup parent retains the same child instance.
-    if (mounted) setState(() {});
+    // when an adaptive/setup parent retains the same child instance. A hidden
+    // retained page (another section or route in front) is not painted, and
+    // becoming active again calls sync() once more, so it does not rebuild its
+    // composer and chrome on every notification while a transition plays.
+    if (mounted && presentationActive) setState(() {});
     final revision = bindingRevision, controller = w, thread = widget.thread;
     bool currentBinding() =>
         mounted &&

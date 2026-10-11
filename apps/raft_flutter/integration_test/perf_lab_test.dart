@@ -721,8 +721,10 @@ void main() {
       // a phone-sized view with populated Agents/Members/channels. Each scenario
       // repeats forward/back transitions; every transition is an `opens` entry
       // so the summary reports the worst UI/raster frame inside it.
+      var navMisses = <String, int>{};
       if (only.any((o) => o.startsWith('nav-'))) {
         final (nw, napi, _) = await labWorkspace(channels, images, mobile: true);
+        navMisses = napi.misses;
         final navAgents = [
           for (final (i, a) in const [
             ('Cindy', 'Engineering operator: turns your ideas into working software'),
@@ -911,6 +913,12 @@ void main() {
         }, kind: 'transitions');
       }
 
+      if (only.any((o) => o.startsWith('nav-'))) {
+        // The nav workspace owns its own adapter; report what it still misses.
+        if (navMisses.isNotEmpty) {
+          await sampler.send('note', {'theme': name, 'unmatchedRoutes': navMisses.entries.map((e) => '${e.key} x${e.value}').toList()});
+        }
+      }
       if (api.misses.isNotEmpty) {
         await sampler.send('note', {'theme': name, 'unmatchedRoutes': api.misses.entries.map((e) => '${e.key} x${e.value}').toList()});
       }

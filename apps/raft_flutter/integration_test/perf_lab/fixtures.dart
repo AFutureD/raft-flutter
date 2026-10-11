@@ -298,6 +298,11 @@ Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChanne
   api.routes['GET /servers/s1/members'] = (_) => [];
   api.routes['GET /tasks'] = (_) => [];
   api.routes['GET /channels/unread'] = (_) => {'channels': {}};
+  // The workspace's one-time reads, answered as a server without these features
+  // would (same state the product reaches from a 404, without a fixture miss).
+  api.routes['GET /servers/s1/translation-settings'] = (_) => {'translationEnabled': false, 'translationAvailable': false, 'canManageTranslation': false};
+  api.routes['POST /feature-flags/evaluate'] = (_) => {'evaluations': []};
+  api.routes['GET /servers/s1/setup-projection'] = (_) => {'phase': 'complete', 'surface': 'complete', 'blocksChat': false};
   api.routes['GET /channels/dm'] = (_) => [];
   api.routes['GET /channels'] = (_) => [for (final c in channels) c.record.json];
   api.patterns.add((

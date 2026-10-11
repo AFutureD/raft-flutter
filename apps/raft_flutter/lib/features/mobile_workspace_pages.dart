@@ -122,13 +122,20 @@ class _MobileWorkspacePagesState extends State<MobileWorkspacePages> {
   @override
   void didUpdateWidget(MobileWorkspacePages oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final next = reconcile(mobilePageEntries(widget.navigation), entries);
-    if (next.last.id != active) frames[active]?.currentState?.freeze();
+    var next = reconcile(mobilePageEntries(widget.navigation), entries);
     rootChanged =
         entries.first.identity != next.first.identity &&
         !entries.any(
           (entry) => next.any((item) => item.identity == entry.identity),
         );
+    // A tab switch replaces the whole stack without animation. Keep the page
+    // that already hosts the live workspace instead of minting a new one:
+    // moving the live subtree to another page deactivates and reactivates
+    // every element in it, rebuilding the entire workspace for nothing.
+    if (rootChanged && next.length == 1) {
+      next = [_MobilePageEntry(next.first.identity, active)];
+    }
+    if (next.last.id != active) frames[active]?.currentState?.freeze();
     entries = next;
     changed.value++;
   }

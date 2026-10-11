@@ -48,6 +48,12 @@ class _DesktopMasterDetailState extends State<DesktopMasterDetail> {
   late double wideWidth = widget.wideWidth;
   late double compactWidth = widget.compactWidth;
   late double? directoryWidth = widget.directoryWidth;
+
+  // While a detail covers the folded master (phones), the framework is handed
+  // the master widget it last built when it was visible, so the hidden list is
+  // not rebuilt on every navigation frame. Its own listeners keep it current,
+  // and showing it again builds the fresh widget.
+  Widget? lastVisibleMaster;
   @override
   void didUpdateWidget(DesktopMasterDetail oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -82,6 +88,15 @@ class _DesktopMasterDetailState extends State<DesktopMasterDetail> {
               compactWidth: compactWidth,
             )
           : size.maxWidth;
+      final masterHidden = folded && split;
+      final previous = lastVisibleMaster;
+      final master =
+          masterHidden &&
+              previous != null &&
+              previous.runtimeType == widget.master.runtimeType &&
+              previous.key == widget.master.key
+          ? previous
+          : lastVisibleMaster = widget.master;
       void resize(double next) {
         final accepted = directoryWidth != null
             ? next.clamp(180.0, 320.0)
@@ -114,7 +129,7 @@ class _DesktopMasterDetailState extends State<DesktopMasterDetail> {
                     child: SizedBox(
                       key: const Key('desktop-master-panel'),
                       width: folded ? size.maxWidth : width.toDouble(),
-                      child: widget.master,
+                      child: master,
                     ),
                   ),
                 ),
