@@ -263,7 +263,7 @@ void main() {
     await w.markRead('c');
     expect(c.calls, contains('POST:/channels/c/read'));
   });
-  test('Home retains selected channel without suppressing its notification; actual Chat suppresses', () async {
+  test('foreground suppresses push alerts on Home and Chat (owner decision 2fbb2ed)', () async {
     final c = _Client();
     c.selectServer('s');
     final w = WorkspaceController(c, mobileNavigation: true)
@@ -290,15 +290,18 @@ void main() {
       'title': 'Raft',
       'body': 'Public fixture',
     };
+    // Owner decision 2fbb2ed: while the app is foregrounded the live inbox
+    // owns alerts, so push arrivals never raise an OS notification, on Home
+    // or in Chat.
     c.stream.add(RaftEvent('notification:push', event));
     await Future<void>.delayed(Duration.zero);
-    expect(n.sent, hasLength(1));
+    expect(n.sent, isEmpty);
     w.section = 'chat';
     c.stream.add(
       RaftEvent('notification:push', {...event, 'messageId': 'new'}),
     );
     await Future<void>.delayed(Duration.zero);
-    expect(n.sent, hasLength(1));
+    expect(n.sent, isEmpty);
   });
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
