@@ -56,6 +56,7 @@ void main() {
               parentMessage.future;
           api.routes['GET /channels/c2/threads/parent'] = (_) =>
               resolution.future;
+          api.routes['GET /messages/context/reply'] = (_) => reply.future;
           api.routes['GET /messages/context/mention-reply'] = (_) =>
               reply.future;
           api.routes['GET /messages/channel/c2'] = (_) => tail.future;
@@ -88,9 +89,14 @@ void main() {
           w.addListener(observe);
           addTearDown(() => w.removeListener(observe));
           final card = find.byKey(const ValueKey('activity-thread-t2'));
-          await tester.tap(card);
+          final point = tester.getCenter(card);
+          await tester.tapAt(point);
+          expect(w.location.content?.id, 't2');
           await tester.pump(const Duration(milliseconds: 80));
-          await tester.tap(card);
+          // The first preview narrows the list; continue inside its new bounds.
+          final secondPoint = tester.getCenter(card);
+          expect(tester.getRect(card).contains(secondPoint), true);
+          await tester.tapAt(secondPoint);
           for (var frame = 0; frame < 6; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(w.location.route, RaftRoute.channel);
@@ -122,12 +128,14 @@ void main() {
             api.calls.where((r) => r.path == '/channels/c2/threads/parent'),
             hasLength(1),
           );
+          final parentRequests = api.calls.where(
+            (r) => r.path == '/messages/context/parent',
+          );
+          // Cold preview and its canonical replacement each own their fences.
+          expect(parentRequests, hasLength(2));
           expect(
-            api.calls
-                .where((r) => r.path == '/messages/context/parent')
-                .single
-                .queryParameters['channelId'],
-            'c2',
+            parentRequests.every((r) => r.queryParameters['channelId'] == 'c2'),
+            true,
           );
           await tester.runAsync(() async {
             resolution.complete({'threadChannelId': 't2'});
@@ -164,10 +172,12 @@ void main() {
           expect(
             locations.every(
               (uri) =>
-                  uri.route == RaftRoute.channel &&
-                  uri.entityId == 'c2' &&
-                  uri.content == null &&
-                  uri.thread?.itemId == 'parent',
+                  (uri.route == RaftRoute.activity &&
+                      uri.content?.id == 't2') ||
+                  (uri.route == RaftRoute.channel &&
+                      uri.entityId == 'c2' &&
+                      uri.content == null &&
+                      uri.thread?.itemId == 'parent'),
             ),
             isTrue,
           );

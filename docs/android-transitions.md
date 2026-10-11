@@ -52,7 +52,7 @@ Themes: `brutal-light` and `elegant-light`. Default semantics mode `platform` (A
 - With semantics enabled, the semantics phase costs 1 to 7 ms on every frame of the 450 ms route animation (and 35 to 60 percent of UI time overall), because the whole page is translated each frame.
 - Worst-frame app code is the workspace shell (`_WorkspaceViewState.sidebarGroups`, `conversationSlivers`, `sidebar`, `workspace`), which rebuilds for every navigation.
 
-## Changes and how to measure each
+## Historical snapshot optimizations (removed 2026-10-11)
 
 | Change | Where | Toggle |
 |---|---|---|
@@ -63,3 +63,17 @@ Themes: `brutal-light` and `elegant-light`. Default semantics mode `platform` (A
 | The live page is drawn from a snapshot during the fade (live subtree stays mounted and tappable, fully transparent) and the outgoing page is a single image draw | `mobile_workspace_pages.dart` | `--define RAFT_NAV_FADE_SNAPSHOTS=false` restores |
 
 The visible transition (Android default, FadeForwards, 450 ms) is unchanged. Compare runs with `python3 tool/performance/lab.py compare <before>/run <after>/run`.
+
+## Current route implementation (2026-10-11)
+
+Manual route images and the two `RAFT_NAV_*` switches above have been removed.
+MaterialPage also disables Flutter route snapshotting. Each route now owns its
+live widgets while sharing accepted workspace data and commands; ordinary
+notifications do not rebuild covered shells. Semantics of the current page are
+available during the platform transition. Android stretch remains enabled.
+Phones have no drawer after the upstream change in `521c2f1`.
+
+The NOISY baseline is a diagnostic observation, not a measured saving from
+snapshotting. There is no new before/after device profile result for this
+refactor. Use the same isolated, precompiled APK workflow for a future profile
+comparison; host Widget rebuild tests do not establish a frame-time improvement.

@@ -387,13 +387,21 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   /// ServerSetupProjectionGate `StepContainer`: `flex min-h-full w-full
   /// overflow-y-auto p-4` around a `m-auto` step.
   Widget stepPage(Widget step) => LayoutBuilder(
-    builder: (context, box) => SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: box.maxHeight - 32),
-        child: Center(child: step),
-      ),
-    ),
+    builder: (context, box) {
+      final padding = raftScrollPadding(context, const EdgeInsets.all(16));
+      return SingleChildScrollView(
+        padding: padding,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (box.maxHeight - padding.vertical).clamp(
+              0,
+              double.infinity,
+            ),
+          ),
+          child: Center(child: step),
+        ),
+      );
+    },
   );
 
   Future<void> reset() async {
@@ -428,7 +436,12 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     if (current['surface'] == 'create_agent') {
       return PopScope(
         canPop: false,
-        child: Center(child: SingleChildScrollView(child: cindyStep())),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: raftScrollPadding(context),
+            child: cindyStep(),
+          ),
+        ),
       );
     }
     final post = managementMap(current['postSetup']);

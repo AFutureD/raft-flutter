@@ -128,16 +128,8 @@ class _MountedActivity {
   }
 
   Future<void> reachFirstThreadFrame(WidgetTester tester) async {
-    await tester.pump(const Duration(milliseconds: 219));
-    expect(workspace.location.content, isNull);
-    expect(workspace.threadIdentity, isNull);
-    expect(
-      api.calls.where((r) => r.path.startsWith('/messages/context/')),
-      isEmpty,
-    );
-    await tester.pump(const Duration(milliseconds: 1));
-    // Assert the actual 220ms timer frame itself, before another dispatch or
-    // 16ms frame can conceal a transient parent-channel presentation.
+    await tester.pump();
+    // The actual first frame must already own the thread slot.
     assertThreadFirstFrame(tester);
     await _dispatch(tester);
     for (final pair in [
@@ -216,7 +208,7 @@ void main() {
     for (final authority in ['principal', 'server']) {
       for (final pending in [false, true]) {
         testWidgets(
-          '[K07] $family/$dark actual row input retires $authority ${pending ? 'after the 220ms first thread frame' : 'before the 220ms activation'} without private late paint',
+          '[K07] $family/$dark actual row input retires $authority ${pending ? 'after the first thread frame' : 'before the first frame'} without private late paint',
           (tester) async {
             final page = await _MountedActivity.mount(tester, family, dark);
             try {
@@ -228,8 +220,7 @@ void main() {
                   page.assertThreadFirstFrame(tester);
                 }
               } else {
-                await tester.pump(const Duration(milliseconds: 120));
-                expect(page.workspace.location.content, isNull);
+                expect(page.workspace.location.content?.id, 'thread-1');
               }
               page.retire(authority);
               await _dispatch(
@@ -237,7 +228,7 @@ void main() {
                 afterFrame: () => page.assertNoPrivatePaint(tester),
               );
               final reads = page.oldReads;
-              if (pending) {
+              {
                 page.replies.complete({
                   'messages': [message('reply', 'thread-1')],
                 });
@@ -254,17 +245,6 @@ void main() {
                 await tester.pump(const Duration(milliseconds: 16));
                 page.assertNoPrivatePaint(tester);
                 expect(page.oldReads, reads);
-              }
-              if (!pending) {
-                // Timer expiry in the retired authority must not launch either
-                // old context request, even though the original input was real.
-                expect(
-                  page.api.calls.where(
-                    (r) => r.path.startsWith('/messages/context/'),
-                  ),
-                  isEmpty,
-                );
-                expect(find.byType(RaftThreadHeader), findsNothing);
               }
               expect(tester.takeException(), isNull);
             } finally {

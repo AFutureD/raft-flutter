@@ -24,6 +24,47 @@ import 'raft_ui.dart';
 )
 Widget mobileComputersPreview() => const _ComputersPreview();
 
+@RaftPreviews(
+  'Computer directory · long list with bottom inset',
+  size: Size(390, 844),
+)
+Widget computerDirectoryInsetPreview() => Builder(
+  builder: (context) {
+    final metrics = MediaQuery.of(context);
+    return MediaQuery(
+      data: metrics.copyWith(
+        padding: metrics.padding.copyWith(bottom: 48),
+        viewPadding: metrics.viewPadding.copyWith(bottom: 48),
+      ),
+      child: Column(
+        children: [
+          const RaftMobileRootHeader(title: 'Computers'),
+          Expanded(
+            child: RaftMobileComputerList(
+              emptyTitle: 'No computers yet',
+              emptyDetail: 'Add a computer',
+              addLabel: 'Add computer',
+              retryLabel: 'Retry',
+              rows: [
+                for (var i = 1; i <= 16; i++)
+                  RaftComputerRow(
+                    mobile: true,
+                    name: 'Computer $i',
+                    description: 'Shared development machine',
+                    runLabel: 'Online',
+                    offline: false,
+                    dot: RaftComputerDot.online,
+                    onTap: () {},
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  },
+);
+
 class _ComputersPreview extends StatefulWidget {
   const _ComputersPreview();
   @override

@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, SemanticsActionEvent;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +12,7 @@ void main() {
     (RaftFamily.elegant, true),
   ]) {
     testWidgets(
-      'N24 220ms signal $family/$dark first click is immediate; keyboard and nested actions stay distinct',
+      'N24 activation $family/$dark first click is immediate; keyboard and nested actions stay distinct',
       (tester) async {
         final activation = <int>[];
         var legacy = 0, nested = 0;
@@ -98,6 +100,30 @@ void main() {
       expect(opened, 1);
     },
   );
+  testWidgets(
+    'host system interval changes recognition, never first-click latency',
+    (tester) async {
+      final details = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RaftConversationCard(
+            onOpen: () {},
+            onActivate: details.add,
+            doubleClickInterval: const Duration(milliseconds: 500),
+            child: const SizedBox(height: 64, child: Text('System interval')),
+          ),
+        ),
+      );
+      await tester.tap(find.text('System interval'));
+      expect(details, [1]);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('System interval'));
+      expect(details, [1, 2]);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.tap(find.text('System interval'));
+      expect(details, [1, 2, 1]);
+    },
+  );
   testWidgets('adaptive reparent does not dispatch a conversation activation', (
     tester,
   ) async {
@@ -129,4 +155,56 @@ void main() {
     await tester.tap(find.text('Retained card'));
     expect(details, [1]);
   });
+  testWidgets(
+    'pointer override excludes keyboard, semantics and nested actions',
+    (tester) async {
+      final pointer = <int>[], activation = <int>[];
+      var nested = 0;
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(
+            body: RaftConversationCard(
+              onOpen: () {},
+              onActivate: activation.add,
+              onPointerActivate: pointer.add,
+              actions: RaftIconButton(
+                glyph: RaftGlyph.check,
+                tooltip: 'Done',
+                onPressed: () => nested++,
+              ),
+              child: const SizedBox(
+                height: 64,
+                child: Text('Pointer override'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Pointer override'));
+      expect(pointer, [1]);
+      expect(activation, isEmpty);
+      Focus.of(tester.element(find.text('Pointer override'))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(activation, [1]);
+      expect(pointer, [1]);
+      tester.binding.performSemanticsAction(
+        SemanticsActionEvent(
+          type: SemanticsAction.tap,
+          viewId: tester.view.viewId,
+          nodeId: tester.getSemantics(find.byType(RaftConversationCard)).id,
+        ),
+      );
+      expect(activation, [1, 1]);
+      expect(pointer, [1]);
+      await tester.tap(find.byTooltip('Done'));
+      expect(nested, 1);
+      expect(pointer, [1]);
+      expect(activation, [1, 1]);
+      await tester.pumpWidget(const SizedBox());
+      semantics.dispose();
+    },
+  );
 }

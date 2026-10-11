@@ -130,7 +130,11 @@ class _RaftSectionPagerState<T extends Object>
         },
         child: _SystemBackEdgeBoundary(
           view: View.of(context),
-          insets: Theme.of(context).platform == TargetPlatform.android
+          // A non-swiping host has no competing drag recognizer. Reserving
+          // its edges would also swallow ordinary controls such as Home's bell.
+          insets:
+              widget.swipeEnabled &&
+                  Theme.of(context).platform == TargetPlatform.android
               ? MediaQuery.systemGestureInsetsOf(context)
               : EdgeInsets.zero,
           child: PageView.builder(

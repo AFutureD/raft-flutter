@@ -331,12 +331,20 @@ void main() {
         final hiddenMain = reads('c2');
         await live('live-hidden-activity', 'c2', 4);
         expect(reads('c2'), hiddenMain);
+        final activityEntries = w.navigation.entries.length;
         await t.tap(find.byKey(const ValueKey('activity-channel-c')));
-        // The mounted Activity consumer owns Source's 220 ms single-open wait.
-        await t.pump(const Duration(milliseconds: 250));
+        // First click selects immediately; the empty/full-width and read
+        // admission assertions above and below retain their original contract.
+        expect(w.location.route.name, 'activity');
+        expect(w.location.content?.id, 'c');
+        expect(w.location.messageId, 'act');
+        expect(w.navigation.entries.length, activityEntries);
+        await t.pump();
+        expect(headerTitle(), 'design');
         await t.pumpAndSettle();
         expectPreview('activity', 'c', 'design');
         expect(w.location.messageId, 'act');
+        expect(w.navigation.entries.length, activityEntries);
         // Control: the visible preview does accept a live read.
         final visiblePreview = reads('c');
         await live('live-visible-preview', 'c', 5);

@@ -353,6 +353,7 @@ void main() {
           api.routes['GET /messages/channel/c2'] = (_) => latest.future;
           await mountPage(tester, w, family, dark);
           await tester.tap(find.byKey(const ValueKey('activity-channel-c1')));
+          // Different item identities switch previews even inside the time window.
           await tester.pump(const Duration(milliseconds: 220));
           await tester.runAsync(() async {
             for (

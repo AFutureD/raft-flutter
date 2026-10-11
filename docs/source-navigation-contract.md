@@ -87,7 +87,7 @@ Activity 单击、双击、移动点击有实际不同合同，不能合并成�
 
 | 操作 | 结果与定位 |
 | --- | --- |
-| 可 master/detail 的桌面单击 | 延迟220ms，留在 Activity 内容槽；channel/DM 取 unread 时 firstUnread 或 last，已读取 last；thread 取 unread 时 firstUnread 或 latest，否则 latest。thread 内容槽直接占详情列，不另外增加同一个 thread 的右侧副本。 |
+| 可 master/detail 的桌面单击 | 首击即时呈现 Activity 内容槽（Kevin 2026-10-11 覆盖旧 220ms 时序）；channel/DM 取 unread 时 firstUnread 或 last，已读取 last；thread 取 unread 时 firstUnread 或 latest，否则 latest。thread 内容槽直接占详情列，不另外增加同一个 thread 的右侧副本。 |
 | 桌面双击 | 取消单击 timer，PUSH 完整 channel/DM route。channel/DM 取 firstUnread 或 last；thread 优先 firstMention，再 unread firstUnread/latest，再 latest，并携带 parent 的 route kind 与 thread anchor。 |
 | 移动/不够宽立即点击 | 不等 timer，PUSH canonical route；channel/DM 优先 firstMention，再 unread firstUnread/last，再 last；thread 取 unread firstUnread/latest 或 latest，保持 Source 与双击的区别。 |
 | mention_action | 取该 action 自身的 messageId；桌面双击区分 channelType=dm，不能被 additive firstMentionMessageId 覆盖。当前单击路径直接构造 channel 内容槽/route，这是实际 Source 的分支，后续如修正需另行审查。 |
@@ -158,7 +158,7 @@ OS/PWA 通知也从 URI 进入同一 router：ServiceWorker 点击关闭系统�
 | N21 | W：各已挂载路径与thread/content槽 | 根4tab可见；已列详情均隐藏；guest隐藏Members；embed首帧无tab | [MainLayout:227–330][S34] |
 | N22 | P/W：767/768/1023/1024，old/newInbox两组 | 一般rail为768；old Activity预览1024，new为768；grid低于1024禁止 | [ThreadsInbox:572–574][S29]、[MainLayout:1691–1715][S26] |
 | N23 | W：portrait1279/1280；landscape；内容679.98/680 | 同排仅满足orientation/xl且实际容器680；resize保留位置/消息anchor | [index.css:857–979][S31] |
-| N24 | W：desktop Activity单击channel、DM、thread；双击 | 单击220ms后preview；双击取消timer，只PUSHcanonical一次；正确msg优先级 | [inbox行为:255–562][T1] |
+| N24 | W：desktop Activity单击channel、DM、thread；双击 | 未选中全宽，首击即时preview并分栏；识别期间保留已读行顺序/高度；系统窗内第二次相同条目身份点击升级该条；A→B即时预览B并重启时间窗，A→B→B打开B，空白结束识别，详情/工具栏/键盘普通处理，只PUSHcanonical一次，使用首击原始DTO的msg优先级 | [inbox行为:255–562][T1] |
 | N25 | W：mobile channel/DM mention与thread点击 | 即刻PUSH；channel/DM先mention；thread保留Source unread/latest规则；无预open第二PUSH | [inbox行为:322–401,583–634][T1] |
 | N26 | P/W：Electron Search背景跨server、search背景、page marker | 拒绝不合法背景；同server回退顺序；仅page marker允许完整页；Web忽略背景 | [searchOverlayLocation:47–175][S13] |
 | N27 | W：保留Activity/Search选中channel，Data loader写section/chat | 标题、rail、master、detail、tab/back仍投影同一location；隐藏频道不误ACK | Flutter现有保留测试 + 单location迁移新用例 |

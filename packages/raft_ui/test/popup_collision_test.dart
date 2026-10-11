@@ -3,6 +3,76 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 void main() {
+  for (final keyboard in [0.0, 120.0]) {
+    testWidgets(
+      'oversized popup respects window insets after SafeArea/IME $keyboard',
+      (t) async {
+        t.view.physicalSize = const Size(320, 300);
+        t.view.devicePixelRatio = 1;
+        t.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+        t.view.padding = FakeViewPadding(
+          top: 24,
+          bottom: keyboard == 0 ? 48 : 0,
+        );
+        t.view.viewInsets = FakeViewPadding(bottom: keyboard);
+        addTearDown(t.view.reset);
+        String? selected;
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(RaftFamily.elegant),
+            home: Scaffold(
+              body: SafeArea(
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: RaftInlineBadgeEditor(
+                    label: 'Status',
+                    selectedId: '0',
+                    background: Colors.yellow,
+                    foreground: Colors.black,
+                    options: [
+                      for (var i = 0; i < 20; i++)
+                        RaftInlineBadgeOption(id: '$i', label: 'Option $i'),
+                    ],
+                    onSelect: (id) => selected = id,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await t.tap(find.text('Status'));
+        await t.pumpAndSettle();
+        final viewport = t.getRect(find.byType(SingleChildScrollView));
+        expect(viewport.top, greaterThanOrEqualTo(24 + 8));
+        expect(
+          viewport.bottom,
+          lessThanOrEqualTo(300 - (keyboard == 0 ? 48 : keyboard) - 8),
+        );
+        // A portal below SafeArea must react even to consumed inset changes.
+        if (keyboard == 0) {
+          t.view.viewPadding = const FakeViewPadding(top: 24, bottom: 72);
+          t.view.padding = const FakeViewPadding(top: 24, bottom: 72);
+        } else {
+          t.view.viewInsets = const FakeViewPadding(bottom: 160);
+        }
+        await t.pumpAndSettle();
+        expect(
+          t.getRect(find.byType(SingleChildScrollView)).bottom,
+          lessThanOrEqualTo(300 - (keyboard == 0 ? 72 : 160) - 8),
+        );
+        await t.scrollUntilVisible(
+          find.text('Option 19'),
+          100,
+          scrollable: find.byType(Scrollable),
+        );
+        expect(find.text('Option 19').hitTestable(), findsOneWidget);
+        await t.tap(find.text('Option 19'));
+        await t.pumpAndSettle();
+        expect(selected, '19');
+        expect(t.takeException(), isNull);
+      },
+    );
+  }
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

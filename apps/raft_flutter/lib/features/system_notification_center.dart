@@ -246,28 +246,31 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
     final box = anchor.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     final anchorRect = box.localToGlobal(Offset.zero) & box.size;
-    final size = MediaQuery.sizeOf(context);
-    final width = math.min(320.0, math.max(0.0, size.width - 16));
-    final height = math.min(288.0, math.max(0.0, size.height - 16));
-    final left = widget.mobile
-        ? (anchorRect.right - width).clamp(
-            8.0,
-            math.max(8.0, size.width - width - 8),
-          )
-        : (anchorRect.right + 8).clamp(
-            8.0,
-            math.max(8.0, size.width - width - 8),
-          );
-    final top = widget.mobile
-        ? (anchorRect.bottom + 8).clamp(
-            8.0,
-            math.max(8.0, size.height - height - 8),
-          )
-        : (anchorRect.bottom - height).clamp(
-            8.0,
-            math.max(8.0, size.height - height - 8),
-          );
     final overlay = Overlay.of(context, rootOverlay: true);
+    // The trigger can live below SafeArea/Scaffold, which consume insets.
+    // This popup paints in the root overlay and needs that window's metrics.
+    final metrics = MediaQuery.of(overlay.context);
+    final size = metrics.size;
+    final safe = metrics.padding;
+    final bottom = math.max(safe.bottom, metrics.viewInsets.bottom);
+    final width = math.min(
+      320.0,
+      math.max(0.0, size.width - safe.horizontal - 16),
+    );
+    final height = math.min(
+      288.0,
+      math.max(0.0, size.height - safe.top - bottom - 16),
+    );
+    final minLeft = safe.left + 8;
+    final maxLeft = math.max(minLeft, size.width - safe.right - width - 8);
+    final minTop = safe.top + 8;
+    final maxTop = math.max(minTop, size.height - bottom - height - 8);
+    final left = widget.mobile
+        ? (anchorRect.right - width).clamp(minLeft, maxLeft)
+        : (anchorRect.right + 8).clamp(minLeft, maxLeft);
+    final top = widget.mobile
+        ? (anchorRect.bottom + 8).clamp(minTop, maxTop)
+        : (anchorRect.bottom - height).clamp(minTop, maxTop);
     final themes = InheritedTheme.capture(from: context, to: overlay.context);
     final entry = OverlayEntry(
       builder: (_) => themes.wrap(

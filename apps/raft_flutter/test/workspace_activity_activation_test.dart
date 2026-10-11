@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -150,16 +151,9 @@ void main() {
           await tester.tap(
             find.byKey(const ValueKey('activity-thread-thread-1')),
           );
-          // The first activation is delivered immediately by the SDK; the
-          // actual mounted Activity consumer alone owns Source's 220 ms wait.
-          await tester.pump(const Duration(milliseconds: 219));
-          expect(w.location.content, isNull);
-          expect(w.threadIdentity, isNull);
-          expect(
-            api.calls.where((r) => r.path == '/messages/context/parent'),
-            isEmpty,
-          );
-          await tester.pump(const Duration(milliseconds: 1));
+          // First click publishes the preview before the next frame.
+          expect(w.location.content?.id, 'thread-1');
+          await tester.pump();
           for (var frame = 0; frame < 5; ++frame) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(w.location.route, RaftRoute.activity);
@@ -213,6 +207,8 @@ void main() {
           );
           expect(w.navigation.entries.length, entries);
           if (channelAfterThread) {
+            // A different row retargets immediately, without waiting out the
+            // pointer double-click window.
             observed.clear();
             await tester.tap(
               find.byKey(
@@ -271,7 +267,7 @@ void main() {
     }
     for (final thread in [true, false]) {
       testWidgets(
-        '[N24d] double-${thread ? 'thread' : 'channel'} $family/$dark actual Activity cancels 220ms slot and pushes one canonical route',
+        '[N24d] double-${thread ? 'thread' : 'channel'} $family/$dark actual Activity upgrades immediate preview and pushes one canonical route',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           tester.view.physicalSize = const Size(1440, 900);
@@ -291,6 +287,7 @@ void main() {
           api.routes['GET /messages/context/parent'] = (_) => parent.future;
           api.routes['GET /channels/c1/threads/parent'] = (_) =>
               resolution.future;
+          api.routes['GET /messages/context/reply'] = (_) => target.future;
           api.routes['GET /messages/context/mention-reply'] = (_) =>
               target.future;
           api.routes['GET /messages/context/first-channel'] = (_) =>
@@ -338,11 +335,22 @@ void main() {
               thread ? 'activity-thread-thread-1' : 'activity-channel-c1',
             ),
           );
-          await tester.tap(card);
+          final point = tester.getCenter(card);
+          await tester.tapAt(point);
           await tester.pump(const Duration(milliseconds: 80));
           expect(w.location.route, RaftRoute.activity);
-          expect(w.location.content, isNull);
-          await tester.tap(card);
+          expect(w.location.content?.id, thread ? 'thread-1' : 'c1');
+          final dynamic activation = tester.state(find.byType(ResourceView));
+          expect(
+            activation.activityGestureCurrent,
+            true,
+            reason:
+                'gesture=${activation.activityGestureRevision} current=${w.navigationRevision}',
+          );
+          // The first preview narrows the list; continue inside its new bounds.
+          final secondPoint = tester.getCenter(card);
+          expect(tester.getRect(card).contains(secondPoint), true);
+          await tester.tapAt(secondPoint);
           for (var frame = 0; frame < 20; ++frame) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(w.location.route, RaftRoute.channel);
@@ -362,7 +370,9 @@ void main() {
           expect(observed, isNotEmpty);
           expect(
             observed.every(
-              (uri) => uri.route == RaftRoute.channel && uri.content == null,
+              (uri) =>
+                  (uri.route == RaftRoute.activity && uri.content != null) ||
+                  (uri.route == RaftRoute.channel && uri.content == null),
             ),
             isTrue,
           );

@@ -18,8 +18,10 @@ import '../data/workspace_controller.dart';
 class SavedCountStore extends ChangeNotifier {
   SavedCountStore._(this.w);
   static final _stores = Expando<SavedCountStore>('saved count');
-  static SavedCountStore of(WorkspaceController w) =>
-      _stores[w] ??= SavedCountStore._(w);
+  static SavedCountStore of(WorkspaceController w) {
+    final source = w.presentationSource ?? w;
+    return _stores[source] ??= SavedCountStore._(source);
+  }
 
   final WorkspaceController w;
   int? count;

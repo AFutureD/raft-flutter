@@ -29,6 +29,27 @@ List<String> watchAppExit(WidgetTester t) {
   return exits;
 }
 
+Future<void> finishBackTransition(WidgetTester tester) async {
+  for (var frame = 0; frame < 24; frame++) {
+    final routes = tester
+        .elementList(find.byType(Scaffold, skipOffstage: false))
+        .map(ModalRoute.of)
+        .whereType<ModalRoute<dynamic>>()
+        .toSet();
+    bool moving(ModalRoute<dynamic> route) =>
+        route.animation?.status == AnimationStatus.forward ||
+        route.animation?.status == AnimationStatus.reverse ||
+        route.secondaryAnimation?.status == AnimationStatus.forward ||
+        route.secondaryAnimation?.status == AnimationStatus.reverse;
+    if (!routes.any(moving)) {
+      await tester.pump();
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  fail('Platform Back transition did not finish within 1200ms');
+}
+
 void main() {
   for (final theme in ['brutal', 'elegant-light']) {
     // mobileBackNavigation.test.ts:110–124 [T9]: a notification cold start at
@@ -72,6 +93,7 @@ void main() {
 
         expect(await t.binding.handlePopRoute(), isTrue);
         await f.flush(t);
+        await finishBackTransition(t);
         expect(exits, isEmpty);
         expect(w.location.toString(), '/s/alpha/channel/ca');
         expect(w.location.route, RaftRoute.channel);
@@ -86,6 +108,7 @@ void main() {
 
         expect(await t.binding.handlePopRoute(), isTrue);
         await f.flush(t);
+        await finishBackTransition(t);
         expect(exits, isEmpty);
         expect(w.location.toString(), '/s/alpha');
         expect(find.byKey(const Key('workspace-mobile-home')), findsOneWidget);
@@ -175,6 +198,7 @@ void main() {
 
         expect(await t.binding.handlePopRoute(), isTrue);
         await f.flush(t);
+        await finishBackTransition(t);
         expect(exits, isEmpty);
         expect(w.location.route, RaftRoute.search);
         expect(w.location.query('q'), 'needle');
@@ -185,6 +209,7 @@ void main() {
 
         expect(await t.binding.handlePopRoute(), isTrue);
         await f.flush(t);
+        await finishBackTransition(t);
         expect(exits, isEmpty);
         expect(w.location.toString(), '/s/alpha');
         expect(w.navigation.index, root);
@@ -220,6 +245,7 @@ void main() {
         // Unknown predecessor: semantic fallback, not a pop and not an exit.
         expect(await t.binding.handlePopRoute(), isTrue);
         await f.flush(t);
+        await finishBackTransition(t);
         expect(exits, isEmpty);
         expect(w.location.toString(), '/s/alpha');
         expect(w.navigation.entries, hasLength(1));
@@ -244,6 +270,7 @@ void main() {
         // Back on the same-URL origin entry is a real step to index 0 ...
         await t.tap(find.byKey(const Key('mobile-detail-back')));
         await f.flush(t);
+        await finishBackTransition(t);
         expect(w.location.toString(), '/s/alpha');
         expect(w.navigation.index, 0);
         expect(find.byType(RaftChannelHeader), findsNothing);
@@ -252,6 +279,7 @@ void main() {
         // next Back leaves the root instead of reopening the channel.
         await t.binding.handlePopRoute();
         await f.flush(t);
+        await finishBackTransition(t);
         expect(exits, ['SystemNavigator.pop']);
         expect(w.location.toString(), '/s/alpha');
         expect(find.byType(RaftChannelHeader), findsNothing);
