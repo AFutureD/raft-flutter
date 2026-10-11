@@ -5,6 +5,7 @@
 // "harnessTodo".
 import 'cases/ext_announcements.dart';
 import 'cases/ext_auth.dart';
+import 'cases/ext_auth_pages.dart';
 import 'cases/ext_channel_header.dart';
 import 'cases/ext_composer_attachments.dart';
 import 'cases/ext_channel_settings.dart';
@@ -54,6 +55,7 @@ final Map<String, ParityCase> parityCases = {
   ...extWp6Cases,
   ...extMemberCases,
   ...extAuthCases,
+  ...extAuthPagesCases,
   ...extDialogCases,
 };
 
@@ -64,4 +66,5 @@ final Map<String, ParityUncovered> parityUncovered = {
   ...homeTaskUncovered,
   ...membersSettingsUncovered,
   ...screenUncovered,
+  ...extAuthPagesUncovered,
 };
