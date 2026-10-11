@@ -134,17 +134,18 @@ class _RaftSidebarContextMenuState extends State<RaftSidebarContextMenu> {
       return const SizedBox.shrink();
     }
     final t = RaftTokens.of(menuContext);
-    final inset = RaftContextMenuRecipe.resolve(
+    final content = RaftContextMenuRecipe.resolve(
       theme: t.recipeTheme,
       states: t.recipeStates(),
       tokens: RaftRecipeTokens(t),
-    ).content.padding;
+    ).content;
     final origin = main.localToGlobal(Offset.zero, ancestor: overlay);
     return CustomSingleChildLayout(
       delegate: _SubmenuLayout(
         left: origin.dx,
         right: origin.dx + main.size.width,
-        top: origin.dy + inset.top,
+        // The trigger row's top: below the popup's border and padding.
+        top: origin.dy + content.borderWidth.top + content.padding.top,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -203,7 +204,7 @@ class _RaftSidebarContextMenuState extends State<RaftSidebarContextMenu> {
                   RaftTypography.heading(
                     t,
                     size: 10,
-                    line: 16,
+                    line: 15,
                     weight: FontWeight.w700,
                   ).copyWith(
                     letterSpacing: 1.5,
