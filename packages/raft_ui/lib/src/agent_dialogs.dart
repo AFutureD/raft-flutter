@@ -290,11 +290,11 @@ class _RaftAgentProfileEditDialogState
   double fieldGap(RaftTokens t) =>
       4 +
       (field_recipe.RaftFieldRecipe.resolve(
-                theme: raftRecipeThemeOf(t),
-                states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
-                tokens: RaftRecipeTokens(t),
-              ).root.rowGap ??
-              0);
+            theme: raftRecipeThemeOf(t),
+            states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
+            tokens: RaftRecipeTokens(t),
+          ).root.rowGap ??
+          0);
 
   Widget label(RaftTokens t, String text) => RaftCssText(
     raftText(context, text),

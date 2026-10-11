@@ -9,8 +9,9 @@ import 'package:raft_ui/raft_ui.dart';
 
 Directory _repoRoot() {
   var dir = Directory.current.absolute;
-  while (!File('${dir.path}/tool/design-source/chrome-oracle.json')
-      .existsSync()) {
+  while (!File(
+    '${dir.path}/tool/design-source/chrome-oracle.json',
+  ).existsSync()) {
     final parent = dir.parent;
     if (parent.path == dir.path) throw StateError('repository root not found');
     dir = parent;
@@ -39,10 +40,13 @@ void main() {
   const fitBackdrops = ['white', 'black', 'canvas'];
 
   test('opaque tokens equal the Chrome oracle bytes exactly', () {
-    final oracle = jsonDecode(
-      File('${_repoRoot().path}/tool/design-source/chrome-oracle.json')
-          .readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final oracle =
+        jsonDecode(
+              File(
+                '${_repoRoot().path}/tool/design-source/chrome-oracle.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     var compared = 0;
     for (final MapEntry(key: theme, value: id) in scopes.entries) {
       final colors = raftColorMap(RaftTokenSet.of(id));
@@ -65,10 +69,13 @@ void main() {
   });
 
   test('translucent tokens composite to Chrome bytes in Flutter', () async {
-    final oracle = jsonDecode(
-      File('${_repoRoot().path}/tool/design-source/chrome-oracle.json')
-          .readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final oracle =
+        jsonDecode(
+              File(
+                '${_repoRoot().path}/tool/design-source/chrome-oracle.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     final backdropNames = (oracle['backdrops'] as Map).keys
         .cast<String>()
         .toList();

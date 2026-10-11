@@ -40,32 +40,35 @@ Map<String, dynamic> bundle() => {
   ],
 };
 void main() {
-  test('projection strips private pointers and excluded attachments; parent precedes chronologically sorted replies', () {
-    final rows = raftForwardedItems(bundle());
-    expect(rows.map((r) => r.index), [0, 2, 1]);
-    expect(rows.first.sourceLabel, isNull);
-    expect(rows.first.attachments, isEmpty);
-    expect(rows[1].attachments.single.keys, [
-      'id',
-      'filename',
-      'mimeType',
-      'sizeBytes',
-    ]);
-    expect(
-      rows[1].attachments.single.toString(),
-      isNot(contains('secret.invalid')),
-    );
-    expect(raftForwardedItems({...bundle(), 'version': 2}), isEmpty);
-    expect(
-      raftForwardedItems({
-        ...bundle(),
-        'forwardedItems': [
-          {'contentSnapshot': 'untrusted'},
-        ],
-      }),
-      isEmpty,
-    );
-  });
+  test(
+    'projection strips private pointers and excluded attachments; parent precedes chronologically sorted replies',
+    () {
+      final rows = raftForwardedItems(bundle());
+      expect(rows.map((r) => r.index), [0, 2, 1]);
+      expect(rows.first.sourceLabel, isNull);
+      expect(rows.first.attachments, isEmpty);
+      expect(rows[1].attachments.single.keys, [
+        'id',
+        'filename',
+        'mimeType',
+        'sizeBytes',
+      ]);
+      expect(
+        rows[1].attachments.single.toString(),
+        isNot(contains('secret.invalid')),
+      );
+      expect(raftForwardedItems({...bundle(), 'version': 2}), isEmpty);
+      expect(
+        raftForwardedItems({
+          ...bundle(),
+          'forwardedItems': [
+            {'contentSnapshot': 'untrusted'},
+          ],
+        }),
+        isEmpty,
+      );
+    },
+  );
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

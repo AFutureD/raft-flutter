@@ -148,8 +148,11 @@ class _PopupLayout extends SingleChildLayoutDelegate {
       );
     }
     final right = math.max(gutter, size.width - gutter - childSize.width);
-    final double left = (alignRight ? anchor.right - childSize.width : anchor.left)
-        .clamp(gutter, right);
+    final double left =
+        (alignRight ? anchor.right - childSize.width : anchor.left).clamp(
+          gutter,
+          right,
+        );
     final below = anchor.bottom + gap;
     final upper = anchor.top - gap - childSize.height;
     final bottomFits = below + childSize.height <= size.height - gutter;

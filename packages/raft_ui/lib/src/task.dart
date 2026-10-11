@@ -800,7 +800,9 @@ class RaftTaskLaneEmpty extends StatelessWidget {
         ? Colors.black.withValues(alpha: board ? .2 : .3)
         : t.colors['line-muted']!;
     final radius = t.brutal ? 0.0 : 8.0;
-    final fillColor = board ? (t.brutal ? null : t.colors['layer-panel']) : fill;
+    final fillColor = board
+        ? (t.brutal ? null : t.colors['layer-panel'])
+        : fill;
     return SizedBox(
       width: double.infinity,
       child: CustomPaint(

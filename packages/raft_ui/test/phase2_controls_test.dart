@@ -30,8 +30,9 @@ void main() {
     expect(clicks, 1);
     final context = tester.element(find.text('Default'));
     expect(
-      Actions.find<ButtonActivateIntent>(context)
-          .isEnabled(const ButtonActivateIntent()),
+      Actions.find<ButtonActivateIntent>(
+        context,
+      ).isEnabled(const ButtonActivateIntent()),
       isTrue,
     );
     Actions.invoke(context, const ButtonActivateIntent());

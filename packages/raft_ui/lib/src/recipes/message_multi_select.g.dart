@@ -8,16 +8,26 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftMessageMultiSelectRecipe].
 class RaftMessageMultiSelectRecipeStyle {
-  const RaftMessageMultiSelectRecipeStyle({required this.root, required this.checkbox, required this.toolbar});
+  const RaftMessageMultiSelectRecipeStyle({
+    required this.root,
+    required this.checkbox,
+    required this.toolbar,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `checkbox`.
   final RaftSlotStyle checkbox;
+
   /// Slot `toolbar`.
   final RaftSlotStyle toolbar;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'checkbox': checkbox, 'toolbar': toolbar};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'checkbox': checkbox,
+    'toolbar': toolbar,
+  };
 }
 
 /// raft-ui recipe `messageMultiSelect` (`src/components/message-item/message-multi-select.recipe.ts`, index.mjs:10032).
@@ -33,14 +43,42 @@ abstract final class RaftMessageMultiSelectRecipe {
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftMessageMultiSelectRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftMessageMultiSelectRecipeStyle(root: s[0], checkbox: s[1], toolbar: s[2]);
+  static RaftMessageMultiSelectRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftMessageMultiSelectRecipeStyle(
+      root: s[0],
+      checkbox: s[1],
+      toolbar: s[2],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -54,6 +92,7 @@ abstract final class RaftMessageMultiSelectRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2], [0, 1, 3],
+    [0, 1, 2],
+    [0, 1, 3],
   ];
 }

@@ -58,8 +58,9 @@ class _NotificationInteractionPreviewState
   void record(String action) => setState(() => lastAction = action);
   @override
   Widget build(BuildContext context) => MediaQuery(
-    data: MediaQuery.of(context)
-        .copyWith(textScaler: TextScaler.linear(widget.textScale)),
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(widget.textScale)),
     child: RaftDensityScope(
       density: widget.density,
       child: Center(
@@ -224,8 +225,9 @@ class _NotificationComputerPreviewState
               if (!dismissed)
                 RaftNotificationEntry(
                   id: 'computers',
-                  iconForeground: RaftTokens.of(context)
-                      .colors['foreground-strong'],
+                  iconForeground: RaftTokens.of(
+                    context,
+                  ).colors['foreground-strong'],
                   kind: RaftNotificationKind.warning,
                   glyph: RaftGlyph.monitor,
                   title: 'Computers need attention',

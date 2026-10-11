@@ -37,8 +37,9 @@ class RaftConversationSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: RaftConversationSurfaceRecipe(RaftTokens.of(context))
-        .background(role),
+    color: RaftConversationSurfaceRecipe(
+      RaftTokens.of(context),
+    ).background(role),
     child: child,
   );
 }

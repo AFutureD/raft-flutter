@@ -19,20 +19,36 @@ enum RaftFieldRecipeSize {
 
 /// Resolved slots of [RaftFieldRecipe].
 class RaftFieldRecipeStyle {
-  const RaftFieldRecipeStyle({required this.root, required this.item, required this.label, required this.description, required this.error});
+  const RaftFieldRecipeStyle({
+    required this.root,
+    required this.item,
+    required this.label,
+    required this.description,
+    required this.error,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `item`.
   final RaftSlotStyle item;
+
   /// Slot `label`.
   final RaftSlotStyle label;
+
   /// Slot `description`.
   final RaftSlotStyle description;
+
   /// Slot `error`.
   final RaftSlotStyle error;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'item': item, 'label': label, 'description': description, 'error': error};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'item': item,
+    'label': label,
+    'description': description,
+    'error': error,
+  };
 }
 
 /// raft-ui recipe `field` (`src/components/field/field.tsx`, index.mjs:6329).
@@ -43,20 +59,57 @@ class RaftFieldRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftFieldRecipe {
   static const String recipeName = 'field';
-  static const List<String> slotNames = ['root', 'item', 'label', 'description', 'error'];
+  static const List<String> slotNames = [
+    'root',
+    'item',
+    'label',
+    'description',
+    'error',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
     RaftRecipeAxis('size', ['sm', 'md'], 'md', false),
   ];
 
-  static RaftFieldRecipeStyle resolve({required RaftRecipeTheme theme, RaftFieldRecipeSize? size, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, size?.css], states, tokens);
-    return RaftFieldRecipeStyle(root: s[0], item: s[1], label: s[2], description: s[3], error: s[4]);
+  static RaftFieldRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftFieldRecipeSize? size,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, size?.css],
+      states,
+      tokens,
+    );
+    return RaftFieldRecipeStyle(
+      root: s[0],
+      item: s[1],
+      label: s[2],
+      description: s[3],
+      error: s[4],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -77,6 +130,9 @@ abstract final class RaftFieldRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4], [0, 1, 5, 3, 4], [6, 1, 7, 8, 9], [6, 1, 10, 8, 9],
+    [0, 1, 2, 3, 4],
+    [0, 1, 5, 3, 4],
+    [6, 1, 7, 8, 9],
+    [6, 1, 10, 8, 9],
   ];
 }

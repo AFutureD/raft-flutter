@@ -34,7 +34,10 @@ void main() {
                   expanded: expanded,
                   onToggle: () => set(() => expanded = !expanded),
                   children: const [
-                    RaftSystemMessage(content: 'Cindy joined', timestamp: '10:05'),
+                    RaftSystemMessage(
+                      content: 'Cindy joined',
+                      timestamp: '10:05',
+                    ),
                   ],
                 );
               },
@@ -61,7 +64,8 @@ void main() {
         RaftBanner(
           size: RaftBannerRecipeSize.sm,
           textAlign: TextAlign.center,
-          description: 'Message history is limited to 30 days on the Free plan.',
+          description:
+              'Message history is limited to 30 days on the Free plan.',
           descriptionTail: (label: 'View Billing', onPressed: () => taps++),
         ),
         const RaftAppearance(light: RaftFamily.elegant),

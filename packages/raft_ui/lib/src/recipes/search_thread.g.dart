@@ -8,22 +8,41 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftSearchThreadRecipe].
 class RaftSearchThreadRecipeStyle {
-  const RaftSearchThreadRecipeStyle({required this.thread, required this.threadHeader, required this.threadMeta, required this.threadTimestamp, required this.threadTitle, required this.threadMessages});
+  const RaftSearchThreadRecipeStyle({
+    required this.thread,
+    required this.threadHeader,
+    required this.threadMeta,
+    required this.threadTimestamp,
+    required this.threadTitle,
+    required this.threadMessages,
+  });
 
   /// Slot `thread`.
   final RaftSlotStyle thread;
+
   /// Slot `threadHeader`.
   final RaftSlotStyle threadHeader;
+
   /// Slot `threadMeta`.
   final RaftSlotStyle threadMeta;
+
   /// Slot `threadTimestamp`.
   final RaftSlotStyle threadTimestamp;
+
   /// Slot `threadTitle`.
   final RaftSlotStyle threadTitle;
+
   /// Slot `threadMessages`.
   final RaftSlotStyle threadMessages;
 
-  Map<String, RaftSlotStyle> get slots => {'thread': thread, 'threadHeader': threadHeader, 'threadMeta': threadMeta, 'threadTimestamp': threadTimestamp, 'threadTitle': threadTitle, 'threadMessages': threadMessages};
+  Map<String, RaftSlotStyle> get slots => {
+    'thread': thread,
+    'threadHeader': threadHeader,
+    'threadMeta': threadMeta,
+    'threadTimestamp': threadTimestamp,
+    'threadTitle': threadTitle,
+    'threadMessages': threadMessages,
+  };
 }
 
 /// raft-ui recipe `searchThread` (`src/components/search/search-thread.recipe.ts`, index.mjs:20689).
@@ -34,19 +53,57 @@ class RaftSearchThreadRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftSearchThreadRecipe {
   static const String recipeName = 'searchThread';
-  static const List<String> slotNames = ['thread', 'threadHeader', 'threadMeta', 'threadTimestamp', 'threadTitle', 'threadMessages'];
+  static const List<String> slotNames = [
+    'thread',
+    'threadHeader',
+    'threadMeta',
+    'threadTimestamp',
+    'threadTitle',
+    'threadMessages',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftSearchThreadRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftSearchThreadRecipeStyle(thread: s[0], threadHeader: s[1], threadMeta: s[2], threadTimestamp: s[3], threadTitle: s[4], threadMessages: s[5]);
+  static RaftSearchThreadRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftSearchThreadRecipeStyle(
+      thread: s[0],
+      threadHeader: s[1],
+      threadMeta: s[2],
+      threadTimestamp: s[3],
+      threadTitle: s[4],
+      threadMessages: s[5],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -58,7 +115,24 @@ abstract final class RaftSearchThreadRecipe {
     [2612, 1689, 2961],
     [3017, 1684, 2956],
     [1620, 1622, 220],
-    [2656, 2817, 867, 896, 825, 2865, 3062, 1602, 2185, 1317, 1318, 1322, 1320, 1321, 1026, 1009],
+    [
+      2656,
+      2817,
+      867,
+      896,
+      825,
+      2865,
+      3062,
+      1602,
+      2185,
+      1317,
+      1318,
+      1322,
+      1320,
+      1321,
+      1026,
+      1009,
+    ],
     [2765, 2753, 2736, 2683],
     [2491, 1620, 1626, 2312, 1698, 2920, 1688, 2981],
     [2612, 1691, 2911, 2982],
@@ -68,6 +142,7 @@ abstract final class RaftSearchThreadRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11],
+    [0, 1, 2, 3, 4, 5],
+    [6, 7, 8, 9, 10, 11],
   ];
 }

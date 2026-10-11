@@ -69,8 +69,8 @@ void main() {
                 )
                 .first,
           );
-          final edge = ((box.decoration! as BoxDecoration).border! as Border)
-              .bottom;
+          final edge =
+              ((box.decoration! as BoxDecoration).border! as Border).bottom;
           expect(edge.width, tokens.brutal ? 2 : 1);
           if (tokens.brutal) expect(edge.color, Colors.black);
         }

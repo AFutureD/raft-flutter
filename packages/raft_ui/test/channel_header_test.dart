@@ -26,7 +26,8 @@ void main() {
                   RaftChannelHeader(
                     name: '首页专修',
                     kind: 'private',
-                    description: 'Public description across more than one line and still inside the identity header.',
+                    description:
+                        'Public description across more than one line and still inside the identity header.',
                     onBack: () => ++backs,
                     onSearch: () => ++searches,
                     onSettings: () => ++settings,

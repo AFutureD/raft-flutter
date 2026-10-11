@@ -398,9 +398,13 @@ class RaftPanelHeaderBar extends StatelessWidget {
           ? s.header.padding
           : s.header.padding.copyWith(left: leftPadding),
       decoration: bottomRule
-          ? s.header.decoration(rt).copyWith(
-              border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
-            )
+          ? s.header
+                .decoration(rt)
+                .copyWith(
+                  border: Border(
+                    bottom: BorderSide(color: t.colors['line-muted']!),
+                  ),
+                )
           : s.header.decoration(rt),
       child: Row(
         children: [
@@ -574,7 +578,8 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: t.colors['line-hairline'] ?? t.colors['line-muted']!,
+                      color:
+                          t.colors['line-hairline'] ?? t.colors['line-muted']!,
                     ),
                   ),
                 ),
@@ -607,8 +612,12 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
     final fg = s.color?.resolve(rt) ?? t.strong;
     final iconColor = s.target('& svg')?.color?.resolve(rt) ?? fg;
     final label = raftCssText.merge(
-      RaftTypography.heading(t, size: 13, line: 19.5, weight: FontWeight.w500)
-          .copyWith(color: fg, letterSpacing: -0.065),
+      RaftTypography.heading(
+        t,
+        size: 13,
+        line: 19.5,
+        weight: FontWeight.w500,
+      ).copyWith(color: fg, letterSpacing: -0.065),
     );
     return MouseRegion(
       key: keys.putIfAbsent(tab.id, GlobalKey.new),
@@ -656,8 +665,7 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
                   bottom: 0,
                   height: 2,
                   child: ColoredBox(
-                    color:
-                        recipe.indicator.backgroundColor?.resolve(rt) ?? fg,
+                    color: recipe.indicator.backgroundColor?.resolve(rt) ?? fg,
                   ),
                 ),
             ],

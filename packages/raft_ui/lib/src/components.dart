@@ -2774,8 +2774,7 @@ class _RaftComposerState extends State<RaftComposer> {
                                         RaftComposerAction(
                                           glyph: RaftGlyph.send,
                                           tooltip:
-                                              widget.submitTooltip ??
-                                              'Send',
+                                              widget.submitTooltip ?? 'Send',
                                           submit: true,
                                           busy: busy,
                                           spinner: widget.submitSpinner,

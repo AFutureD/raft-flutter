@@ -66,14 +66,16 @@ void main() {
           expect(
             selection.isCollapsed,
             isFalse,
-            reason: 'A real source text selection must exist before highlight expiry.',
+            reason:
+                'A real source text selection must exist before highlight expiry.',
           );
           highlighted.value = false;
           await tester.pumpAndSettle();
           expect(
             find.text(code),
             findsOneWidget,
-            reason: 'Highlight paint expiry must not replace the selected code view.',
+            reason:
+                'Highlight paint expiry must not replace the selected code view.',
           );
           expect(tester.getRect(find.byType(RaftMermaidBlock)), sourceRect);
           expect(

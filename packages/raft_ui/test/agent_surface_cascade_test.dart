@@ -59,9 +59,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        DefaultTextStyle.of(tester.element(find.byType(RaftStableField)))
-            .style
-            .fontFamily,
+        DefaultTextStyle.of(
+          tester.element(find.byType(RaftStableField)),
+        ).style.fontFamily,
         tokens.bodyFont,
       );
       expect(
@@ -279,9 +279,9 @@ void main() {
         );
         await tester.pumpWidget(buttons(false));
         await tester.pumpAndSettle();
-        final before = DefaultTextStyle.of(tester.element(find.text('Create')))
-            .style
-            .color;
+        final before = DefaultTextStyle.of(
+          tester.element(find.text('Create')),
+        ).style.color;
         await tester.pumpWidget(buttons(true));
         await tester.pumpAndSettle();
         expect(

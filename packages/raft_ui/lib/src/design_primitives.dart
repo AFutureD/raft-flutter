@@ -274,9 +274,9 @@ class RaftAttachmentRecipe {
         : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
-  TextStyle get title =>
-      RaftTypography.attachmentTitle(tokens)
-          .copyWith(fontWeight: FontWeight.w700);
+  TextStyle get title => RaftTypography.attachmentTitle(
+    tokens,
+  ).copyWith(fontWeight: FontWeight.w700);
   TextStyle get metadata => RaftTypography.attachmentMeta(tokens);
 }
 
@@ -1784,11 +1784,12 @@ enum RaftDropdownSide { bottom, top, right }
 enum RaftDropdownAlign { start, end }
 
 /// The popup retains ownership of its trigger focus and dismissal callbacks.
-typedef RaftDropdownTriggerBuilder = Widget Function(
-  BuildContext context,
-  FocusNode focusNode,
-  VoidCallback? onPressed,
-);
+typedef RaftDropdownTriggerBuilder =
+    Widget Function(
+      BuildContext context,
+      FocusNode focusNode,
+      VoidCallback? onPressed,
+    );
 
 class RaftDropdownMenu extends StatefulWidget {
   const RaftDropdownMenu({
@@ -1874,6 +1875,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       });
     }
   }
+
   RaftMenuController get controller => widget.controller ?? ownedController;
   @override
   void initState() {
@@ -3092,7 +3094,8 @@ class _RaftInteractiveState extends State<RaftInteractive> {
       // TouchTarget supplies this boundary and its larger semantics rect on
       // touch devices, including controls whose inner density is desktop to
       // preserve visual geometry. Other desktop controls own their boundary.
-      container: !touch &&
+      container:
+          !touch &&
           context.findAncestorWidgetOfExactType<RaftTouchTarget>() == null,
       label: widget.semanticLabel,
       excludeSemantics: widget.busy,

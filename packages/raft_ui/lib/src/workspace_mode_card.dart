@@ -23,60 +23,60 @@ class RaftWorkspaceModeCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
-      key: const ValueKey('workspace-mode-card'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: t.brutal
-            ? t.colors['brutal-cream']
-            : t.colors['layer-canvas-muted'],
-        border: Border.all(
-          color: t.brutal ? Colors.black : t.colors['line-muted']!,
-          width: t.brutal ? 2 : 1,
+        key: const ValueKey('workspace-mode-card'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: t.brutal
+              ? t.colors['brutal-cream']
+              : t.colors['layer-canvas-muted'],
+          border: Border.all(
+            color: t.brutal ? Colors.black : t.colors['line-muted']!,
+            width: t.brutal ? 2 : 1,
+          ),
+          boxShadow: t.brutal
+              ? RaftProductShadows.shadowBrutalSm.outer.reversed.toList()
+              : t.themeShadows.sm.outer.reversed.toList(),
         ),
-        boxShadow: t.brutal
-            ? RaftProductShadows.shadowBrutalSm.outer.reversed.toList()
-            : t.themeShadows.sm.outer.reversed.toList(),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  raftText(context, 'Workspace mode'),
-                  style: inherited.copyWith(
-                    fontSize: 14,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w700,
-                    color: t.ink,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    raftText(context, 'Workspace mode'),
+                    style: inherited.copyWith(
+                      fontSize: 14,
+                      height: 20 / 14,
+                      fontWeight: FontWeight.w700,
+                      color: t.ink,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  raftText(
-                    context,
-                    'Use the Activity Bar, Sidebar, and draggable editor groups.',
+                  const SizedBox(height: 4),
+                  Text(
+                    raftText(
+                      context,
+                      'Use the Activity Bar, Sidebar, and draggable editor groups.',
+                    ),
+                    style: inherited.copyWith(
+                      fontSize: 12,
+                      height: 20 / 12,
+                      color: t.brutal
+                          ? Colors.black.withValues(alpha: .6)
+                          : t.colors['foreground-muted'],
+                    ),
                   ),
-                  style: inherited.copyWith(
-                    fontSize: 12,
-                    height: 20 / 12,
-                    color: t.brutal
-                        ? Colors.black.withValues(alpha: .6)
-                        : t.colors['foreground-muted'],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          RaftCheckbox(
-            value: enabled,
-            onChanged: onChanged,
-            semanticLabel: raftText(context, 'Workspace mode'),
-          ),
-        ],
-      ),
+            const SizedBox(width: 16),
+            RaftCheckbox(
+              value: enabled,
+              onChanged: onChanged,
+              semanticLabel: raftText(context, 'Workspace mode'),
+            ),
+          ],
+        ),
       ),
     );
   }

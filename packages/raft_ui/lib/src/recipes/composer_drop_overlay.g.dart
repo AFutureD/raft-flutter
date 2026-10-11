@@ -8,18 +8,31 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftComposerDropOverlayRecipe].
 class RaftComposerDropOverlayRecipeStyle {
-  const RaftComposerDropOverlayRecipeStyle({required this.dropOverlay, required this.dropOverlayLabel, required this.dropOverlayIconCluster, required this.dropOverlayIcon});
+  const RaftComposerDropOverlayRecipeStyle({
+    required this.dropOverlay,
+    required this.dropOverlayLabel,
+    required this.dropOverlayIconCluster,
+    required this.dropOverlayIcon,
+  });
 
   /// Slot `dropOverlay`.
   final RaftSlotStyle dropOverlay;
+
   /// Slot `dropOverlayLabel`.
   final RaftSlotStyle dropOverlayLabel;
+
   /// Slot `dropOverlayIconCluster`.
   final RaftSlotStyle dropOverlayIconCluster;
+
   /// Slot `dropOverlayIcon`.
   final RaftSlotStyle dropOverlayIcon;
 
-  Map<String, RaftSlotStyle> get slots => {'dropOverlay': dropOverlay, 'dropOverlayLabel': dropOverlayLabel, 'dropOverlayIconCluster': dropOverlayIconCluster, 'dropOverlayIcon': dropOverlayIcon};
+  Map<String, RaftSlotStyle> get slots => {
+    'dropOverlay': dropOverlay,
+    'dropOverlayLabel': dropOverlayLabel,
+    'dropOverlayIconCluster': dropOverlayIconCluster,
+    'dropOverlayIcon': dropOverlayIcon,
+  };
 }
 
 /// raft-ui recipe `composerDropOverlay` (`src/components/composer/composer-drop-overlay.recipe.ts`, index.mjs:13728).
@@ -30,19 +43,53 @@ class RaftComposerDropOverlayRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftComposerDropOverlayRecipe {
   static const String recipeName = 'composerDropOverlay';
-  static const List<String> slotNames = ['dropOverlay', 'dropOverlayLabel', 'dropOverlayIconCluster', 'dropOverlayIcon'];
+  static const List<String> slotNames = [
+    'dropOverlay',
+    'dropOverlayLabel',
+    'dropOverlayIconCluster',
+    'dropOverlayIcon',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftComposerDropOverlayRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftComposerDropOverlayRecipeStyle(dropOverlay: s[0], dropOverlayLabel: s[1], dropOverlayIconCluster: s[2], dropOverlayIcon: s[3]);
+  static RaftComposerDropOverlayRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftComposerDropOverlayRecipeStyle(
+      dropOverlay: s[0],
+      dropOverlayLabel: s[1],
+      dropOverlayIconCluster: s[2],
+      dropOverlayIcon: s[3],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -60,6 +107,7 @@ abstract final class RaftComposerDropOverlayRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3], [4, 5, 6, 7],
+    [0, 1, 2, 3],
+    [4, 5, 6, 7],
   ];
 }

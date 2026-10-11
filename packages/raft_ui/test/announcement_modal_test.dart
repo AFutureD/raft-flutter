@@ -112,7 +112,10 @@ void main() {
         locale: const Locale('zh', 'CN'),
       ),
     );
-    expect(find.byKey(const ValueKey('announcement-page-indicator')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('announcement-page-indicator')),
+      findsNothing,
+    );
     expect(find.text('确定'), findsOneWidget);
   });
 }

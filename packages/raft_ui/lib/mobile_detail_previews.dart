@@ -96,7 +96,8 @@ class _AttachmentPagePreviewState extends State<_AttachmentPagePreview> {
               ? const RaftDocumentPreview(
                   data: {
                     'kind': 'text',
-                    'text': '# Research\n\nA document attachment opened as a mobile page.',
+                    'text':
+                        '# Research\n\nA document attachment opened as a mobile page.',
                   },
                 )
               : Center(

@@ -25,7 +25,9 @@ void main() {
       final failures = <String>[];
       for (final c in cases) {
         final resolve = raftRecipes[c['recipe']]!;
-        final props = (c['props'] as Map).map((k, v) => MapEntry(k as String, v as String?));
+        final props = (c['props'] as Map).map(
+          (k, v) => MapEntry(k as String, v as String?),
+        );
         final states = RaftRecipeStates(
           {...(c['flags'] as List).cast<String>()},
           (c['width'] as num?)?.toDouble(),
@@ -38,15 +40,20 @@ void main() {
           for (final e in style.targets.entries) e.key: _canon(e.value),
         };
         final expected = (c['expected'] as Map).map(
-          (k, v) => MapEntry(k as String, (v as Map).map((p, x) => MapEntry(p as String, x as String))),
+          (k, v) => MapEntry(
+            k as String,
+            (v as Map).map((p, x) => MapEntry(p as String, x as String)),
+          ),
         );
         if (expected['self'] == null) expected['self'] = {};
-        final where = '${c['recipe']}.${c['slot']} ${jsonEncode(props)} ${c['flags']}';
+        final where =
+            '${c['recipe']}.${c['slot']} ${jsonEncode(props)} ${c['flags']}';
         for (final target in {...expected.keys, ...actual.keys}) {
           final e = expected[target] ?? const {};
           final a = actual[target] ?? const {};
           for (final p in {...e.keys, ...a.keys}) {
-            if (e[p] != a[p]) failures.add('$where $target $p: expected ${e[p]} got ${a[p]}');
+            if (e[p] != a[p])
+              failures.add('$where $target $p: expected ${e[p]} got ${a[p]}');
           }
         }
       }
@@ -56,6 +63,6 @@ void main() {
 }
 
 Map<String, String> _canon(Map<String, CssValue> m) => {
-      for (final e in m.entries)
-        if (!e.key.startsWith('--')) e.key: raftCssCanonical(e.value),
-    };
+  for (final e in m.entries)
+    if (!e.key.startsWith('--')) e.key: raftCssCanonical(e.value),
+};

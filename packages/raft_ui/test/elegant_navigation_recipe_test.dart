@@ -213,9 +213,9 @@ void main() {
                 : 28,
           );
           if (family == RaftFamily.elegant) {
-            final primary = RaftTokens.of(tester.element(strip))
-                .colors['primary-400']!
-                .toARGB32();
+            final primary = RaftTokens.of(
+              tester.element(strip),
+            ).colors['primary-400']!.toARGB32();
             final render =
                 boundary.currentContext!.findRenderObject()!
                     as RenderRepaintBoundary;

@@ -196,7 +196,9 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
                           ? RaftGlyph.chevronDown
                           : RaftGlyph.chevronUp,
                       glyphSize: 10,
-                      tooltip: sheet!.expanded ? 'Collapse comments' : 'Expand comments',
+                      tooltip: sheet!.expanded
+                          ? 'Collapse comments'
+                          : 'Expand comments',
                       onPressed: sheet!.onToggle,
                     ),
                   ],
@@ -204,74 +206,78 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
               ),
             ),
             if (!collapsedBody)
-            Expanded(
-              child: list == null || loading
-                  ? Center(
-                      child: error != null
-                          ? Text(error!)
-                          : Semantics(
-                              label: raftText(context, 'Loading'),
-                              child: const RaftSpinner(),
-                            ),
-                    )
-                  : list.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                      child: Text(
-                        raftFormat(
-                          context,
-                          'Comments here are pinned to {filename}. For general discussion, reply in the thread.',
-                          {'filename': filename},
+              Expanded(
+                child: list == null || loading
+                    ? Center(
+                        child: error != null
+                            ? Text(error!)
+                            : Semantics(
+                                label: raftText(context, 'Loading'),
+                                child: const RaftSpinner(),
+                              ),
+                      )
+                    : list.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                        child: Text(
+                          raftFormat(
+                            context,
+                            'Comments here are pinned to {filename}. For general discussion, reply in the thread.',
+                            {'filename': filename},
+                          ),
+                          style: TextStyle(
+                            fontFamily: t.headingFont,
+                            fontSize: 11,
+                            height: 1.625,
+                            color: t.brutal
+                                ? RaftPrimitiveColors.black.withValues(
+                                    alpha: .45,
+                                  )
+                                : muted,
+                          ),
                         ),
-                        style: TextStyle(
-                          fontFamily: t.headingFont,
-                          fontSize: 11,
-                          height: 1.625,
-                          color: t.brutal
-                              ? RaftPrimitiveColors.black.withValues(alpha: .45)
-                              : muted,
+                      )
+                    : ListView(
+                        // `px-3 py-2`, cards `gap-3`.
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                      ),
-                    )
-                  : ListView(
-                      // `px-3 py-2`, cards `gap-3`.
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      children: [
-                        for (var i = 0; i < list.length; i++) ...[
-                          if (i > 0) const SizedBox(height: 12),
-                          _CommentCard(comment: list[i], filename: filename),
+                        children: [
+                          for (var i = 0; i < list.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 12),
+                            _CommentCard(comment: list[i], filename: filename),
+                          ],
                         ],
-                      ],
-                    ),
-            ),
+                      ),
+              ),
             // `border-t-2 p-2`.
             if (!collapsedBody)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(border: Border(top: rule)),
-              child: blockedMessage != null
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 6,
-                      ),
-                      child: Text(
-                        blockedMessage!,
-                        style: TextStyle(
-                          fontFamily: t.headingFont,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: t.brutal
-                              ? RaftPrimitiveColors.black.withValues(alpha: .45)
-                              : muted,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(border: Border(top: rule)),
+                child: blockedMessage != null
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 6,
                         ),
-                      ),
-                    )
-                  : composer,
-            ),
+                        child: Text(
+                          blockedMessage!,
+                          style: TextStyle(
+                            fontFamily: t.headingFont,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: t.brutal
+                                ? RaftPrimitiveColors.black.withValues(
+                                    alpha: .45,
+                                  )
+                                : muted,
+                          ),
+                        ),
+                      )
+                    : composer,
+              ),
           ],
         ),
       ),

@@ -249,7 +249,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                     width: 112,
                     child: RaftSelectField<String>(
                       value: invitee.role,
-                    height: 36, // chrome="field": the Input's box
+                      height: 36, // chrome="field": the Input's box
                       label: raftText(context, 'Role'),
                       items: [
                         DropdownMenuItem(

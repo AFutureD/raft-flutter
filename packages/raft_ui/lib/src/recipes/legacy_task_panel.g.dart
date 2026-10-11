@@ -8,38 +8,81 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftLegacyTaskPanelRecipe].
 class RaftLegacyTaskPanelRecipeStyle {
-  const RaftLegacyTaskPanelRecipeStyle({required this.frame, required this.icon, required this.title, required this.body, required this.status, required this.section, required this.field, required this.fieldLabel, required this.fieldTitle, required this.fieldText, required this.meta, required this.metaRow, required this.metaLabel, required this.metaValue});
+  const RaftLegacyTaskPanelRecipeStyle({
+    required this.frame,
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.status,
+    required this.section,
+    required this.field,
+    required this.fieldLabel,
+    required this.fieldTitle,
+    required this.fieldText,
+    required this.meta,
+    required this.metaRow,
+    required this.metaLabel,
+    required this.metaValue,
+  });
 
   /// Slot `frame`.
   final RaftSlotStyle frame;
+
   /// Slot `icon`.
   final RaftSlotStyle icon;
+
   /// Slot `title`.
   final RaftSlotStyle title;
+
   /// Slot `body`.
   final RaftSlotStyle body;
+
   /// Slot `status`.
   final RaftSlotStyle status;
+
   /// Slot `section`.
   final RaftSlotStyle section;
+
   /// Slot `field`.
   final RaftSlotStyle field;
+
   /// Slot `fieldLabel`.
   final RaftSlotStyle fieldLabel;
+
   /// Slot `fieldTitle`.
   final RaftSlotStyle fieldTitle;
+
   /// Slot `fieldText`.
   final RaftSlotStyle fieldText;
+
   /// Slot `meta`.
   final RaftSlotStyle meta;
+
   /// Slot `metaRow`.
   final RaftSlotStyle metaRow;
+
   /// Slot `metaLabel`.
   final RaftSlotStyle metaLabel;
+
   /// Slot `metaValue`.
   final RaftSlotStyle metaValue;
 
-  Map<String, RaftSlotStyle> get slots => {'frame': frame, 'icon': icon, 'title': title, 'body': body, 'status': status, 'section': section, 'field': field, 'fieldLabel': fieldLabel, 'fieldTitle': fieldTitle, 'fieldText': fieldText, 'meta': meta, 'metaRow': metaRow, 'metaLabel': metaLabel, 'metaValue': metaValue};
+  Map<String, RaftSlotStyle> get slots => {
+    'frame': frame,
+    'icon': icon,
+    'title': title,
+    'body': body,
+    'status': status,
+    'section': section,
+    'field': field,
+    'fieldLabel': fieldLabel,
+    'fieldTitle': fieldTitle,
+    'fieldText': fieldText,
+    'meta': meta,
+    'metaRow': metaRow,
+    'metaLabel': metaLabel,
+    'metaValue': metaValue,
+  };
 }
 
 /// raft-ui recipe `legacyTaskPanel` (`src/components/legacy-task-panel/legacy-task-panel.recipe.ts`, index.mjs:19419).
@@ -50,20 +93,75 @@ class RaftLegacyTaskPanelRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftLegacyTaskPanelRecipe {
   static const String recipeName = 'legacyTaskPanel';
-  static const List<String> slotNames = ['frame', 'icon', 'title', 'body', 'status', 'section', 'field', 'fieldLabel', 'fieldTitle', 'fieldText', 'meta', 'metaRow', 'metaLabel', 'metaValue'];
+  static const List<String> slotNames = [
+    'frame',
+    'icon',
+    'title',
+    'body',
+    'status',
+    'section',
+    'field',
+    'fieldLabel',
+    'fieldTitle',
+    'fieldText',
+    'meta',
+    'metaRow',
+    'metaLabel',
+    'metaValue',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
     RaftRecipeAxis('framed', ['true', 'false'], null, true),
   ];
 
-  static RaftLegacyTaskPanelRecipeStyle resolve({required RaftRecipeTheme theme, bool? framed, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, framed?.toString()], states, tokens);
-    return RaftLegacyTaskPanelRecipeStyle(frame: s[0], icon: s[1], title: s[2], body: s[3], status: s[4], section: s[5], field: s[6], fieldLabel: s[7], fieldTitle: s[8], fieldText: s[9], meta: s[10], metaRow: s[11], metaLabel: s[12], metaValue: s[13]);
+  static RaftLegacyTaskPanelRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    bool? framed,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, framed?.toString()],
+      states,
+      tokens,
+    );
+    return RaftLegacyTaskPanelRecipeStyle(
+      frame: s[0],
+      icon: s[1],
+      title: s[2],
+      body: s[3],
+      status: s[4],
+      section: s[5],
+      field: s[6],
+      fieldLabel: s[7],
+      fieldTitle: s[8],
+      fieldText: s[9],
+      meta: s[10],
+      metaRow: s[11],
+      metaLabel: s[12],
+      metaValue: s[13],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -96,6 +194,11 @@ abstract final class RaftLegacyTaskPanelRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], [14, 15, 2, 3, 4, 16, 6, 17, 18, 19, 20, 11, 21, 22], [14, 15, 2, 3, 4, 16, 6, 17, 18, 19, 20, 11, 21, 22], [14, 15, 2, 3, 4, 16, 6, 17, 18, 19, 20, 11, 21, 22],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    [14, 15, 2, 3, 4, 16, 6, 17, 18, 19, 20, 11, 21, 22],
+    [14, 15, 2, 3, 4, 16, 6, 17, 18, 19, 20, 11, 21, 22],
+    [14, 15, 2, 3, 4, 16, 6, 17, 18, 19, 20, 11, 21, 22],
   ];
 }

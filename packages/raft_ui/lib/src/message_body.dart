@@ -1154,32 +1154,38 @@ class _MermaidToolbar extends StatelessWidget {
             onCopy,
           ),
           SizedBox(width: toolbarRecipe.gap),
-          RaftTooltip(message: raftText(context, 'Download Mermaid diagram'), child: PopupMenuButton<String>(
-            enabled: onExport != null,
-            onSelected: onExport,
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'mmd', child: Text('Download source')),
-              PopupMenuItem(
-                value: 'png',
-                enabled: valid,
-                child: const Text('Download PNG'),
-              ),
-              PopupMenuItem(
-                value: 'svg',
-                enabled: valid,
-                child: const Text('Download SVG'),
-              ),
-            ],
-            padding: EdgeInsets.zero,
-            child: IgnorePointer(
-              child: control(
-                RaftGlyph.download,
-                'Download Mermaid diagram',
-                onExport == null ? null : () {},
-                ownTooltip: false,
+          RaftTooltip(
+            message: raftText(context, 'Download Mermaid diagram'),
+            child: PopupMenuButton<String>(
+              enabled: onExport != null,
+              onSelected: onExport,
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'mmd',
+                  child: Text('Download source'),
+                ),
+                PopupMenuItem(
+                  value: 'png',
+                  enabled: valid,
+                  child: const Text('Download PNG'),
+                ),
+                PopupMenuItem(
+                  value: 'svg',
+                  enabled: valid,
+                  child: const Text('Download SVG'),
+                ),
+              ],
+              padding: EdgeInsets.zero,
+              child: IgnorePointer(
+                child: control(
+                  RaftGlyph.download,
+                  'Download Mermaid diagram',
+                  onExport == null ? null : () {},
+                  ownTooltip: false,
+                ),
               ),
             ),
-          )),
+          ),
           if (!showSource) ...[
             SizedBox(width: toolbarRecipe.gap),
             control(

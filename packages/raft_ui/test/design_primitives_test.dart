@@ -104,64 +104,66 @@ void main() {
       }
     },
   );
-  BoxDecoration buttonDecoration(WidgetTester tester, Finder button) =>
-      tester
-              .widgetList<Container>(
-                find.descendant(of: button, matching: find.byType(Container)),
-              )
-              .map(
-                (c) => switch (c.decoration) {
-                  RaftLayeredDecoration(:final base) => base,
-                  final BoxDecoration d => d,
-                  _ => null,
-                },
-              )
-              .whereType<BoxDecoration>()
-              .first;
+  BoxDecoration buttonDecoration(WidgetTester tester, Finder button) => tester
+      .widgetList<Container>(
+        find.descendant(of: button, matching: find.byType(Container)),
+      )
+      .map(
+        (c) => switch (c.decoration) {
+          RaftLayeredDecoration(:final base) => base,
+          final BoxDecoration d => d,
+          _ => null,
+        },
+      )
+      .whereType<BoxDecoration>()
+      .first;
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
     final name = '${family.name} ${dark ? 'dark' : 'light'}';
-    testWidgets('$name destructive button paints the buttonVariants danger recipe', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(
-            body: RaftButton(
-              label: 'Delete',
-              destructive: true,
-              onPressed: () {},
+    testWidgets(
+      '$name destructive button paints the buttonVariants danger recipe',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            home: Scaffold(
+              body: RaftButton(
+                label: 'Delete',
+                destructive: true,
+                onPressed: () {},
+              ),
             ),
           ),
-        ),
-      );
-      final t = RaftTokens.of(tester.element(find.text('Delete')));
-      final decoration = buttonDecoration(tester, find.byType(RaftButton));
-      // brutal: bg-brutal-red text-foreground-strong; elegant: bg-danger
-      // text-danger-foreground.
-      expect(
-        decoration.color,
-        family == RaftFamily.brutal
-            ? const Color(0xfff97264)
-            : dark
-            // [dark] background-color override of variant=danger.
-            ? const Color(0xffdb2c2b)
-            : t.semantic.danger,
-      );
-      final style = DefaultTextStyle.of(tester.element(find.text('Delete'))).style;
-      expect(
-        style.color,
-        family == RaftFamily.brutal
-            ? const Color(0xff141110)
-            : dark
-            ? const Color(0xfffafaf7)
-            : t.semantic.dangerForeground,
-      );
-    });
+        );
+        final t = RaftTokens.of(tester.element(find.text('Delete')));
+        final decoration = buttonDecoration(tester, find.byType(RaftButton));
+        // brutal: bg-brutal-red text-foreground-strong; elegant: bg-danger
+        // text-danger-foreground.
+        expect(
+          decoration.color,
+          family == RaftFamily.brutal
+              ? const Color(0xfff97264)
+              : dark
+              // [dark] background-color override of variant=danger.
+              ? const Color(0xffdb2c2b)
+              : t.semantic.danger,
+        );
+        final style = DefaultTextStyle.of(
+          tester.element(find.text('Delete')),
+        ).style;
+        expect(
+          style.color,
+          family == RaftFamily.brutal
+              ? const Color(0xff141110)
+              : dark
+              ? const Color(0xfffafaf7)
+              : t.semantic.dangerForeground,
+        );
+      },
+    );
     testWidgets(
       '$name touch hit area meets 48 px and keyboard activation works',
       (tester) async {
@@ -239,7 +241,9 @@ void main() {
             .transform;
         // active: brutal `translate: 1px 1px`, elegant `scale: 0.985`.
         expect(
-          family == RaftFamily.brutal ? pressed.storage[12] : pressed.storage[0],
+          family == RaftFamily.brutal
+              ? pressed.storage[12]
+              : pressed.storage[0],
           family == RaftFamily.brutal ? 1 : .985,
         );
         await gesture.moveBy(const Offset(300, 0));

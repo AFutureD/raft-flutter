@@ -174,18 +174,18 @@ class RaftLanguageRegionView extends StatelessWidget {
               // Select a 12px bottom margin inside its block.
               _selectBlock(
                 RaftSettingsPreference(
-                title: 'Display language',
-                description:
-                    'Choose the language for the app interface. This is separate from message translation.',
-                child: _select(
-                  context,
-                  key: const ValueKey('display-language-select'),
-                  label: 'Display language',
-                  value: displayLanguage,
-                  options: displayLanguageOptions,
-                  onChanged: onDisplayLanguage,
+                  title: 'Display language',
+                  description:
+                      'Choose the language for the app interface. This is separate from message translation.',
+                  child: _select(
+                    context,
+                    key: const ValueKey('display-language-select'),
+                    label: 'Display language',
+                    value: displayLanguage,
+                    options: displayLanguageOptions,
+                    onChanged: onDisplayLanguage,
+                  ),
                 ),
-              ),
               ),
               if (showChineseCoverageNotice)
                 Padding(
@@ -196,9 +196,7 @@ class RaftLanguageRegionView extends StatelessWidget {
                       'Simplified Chinese is still being refined; some pages may still appear in English.',
                       '简体中文仍在完善，部分页面可能仍显示英文。',
                     ),
-                    style: RaftSettingsText(
-                      RaftTokens.of(context),
-                    ).description,
+                    style: RaftSettingsText(RaftTokens.of(context)).description,
                   ),
                 ),
               RaftSettingsPreference(
@@ -223,18 +221,18 @@ class RaftLanguageRegionView extends StatelessWidget {
               if (translationMode != 'off') ...[
                 _selectBlock(
                   RaftSettingsPreference(
-                  gapBefore: 16,
-                  title: 'Translation target',
-                  description: translationTargetDescription,
-                  child: _select(
-                    context,
-                    key: const ValueKey('translation-target'),
-                    label: 'Translation target',
-                    value: translationTarget,
-                    options: translationTargetOptions,
-                    onChanged: onTranslationTarget,
+                    gapBefore: 16,
+                    title: 'Translation target',
+                    description: translationTargetDescription,
+                    child: _select(
+                      context,
+                      key: const ValueKey('translation-target'),
+                      label: 'Translation target',
+                      value: translationTarget,
+                      options: translationTargetOptions,
+                      onChanged: onTranslationTarget,
+                    ),
                   ),
-                ),
                 ),
                 RaftSettingsPreference(
                   gapBefore: 16,
@@ -257,7 +255,10 @@ class RaftLanguageRegionView extends StatelessWidget {
               ],
               if (languageError != null) ...[
                 gap,
-                RaftBanner(description: languageError!, size: RaftBannerRecipeSize.sm),
+                RaftBanner(
+                  description: languageError!,
+                  size: RaftBannerRecipeSize.sm,
+                ),
               ],
               gap,
               _save(
@@ -306,7 +307,10 @@ class RaftLanguageRegionView extends StatelessWidget {
               ),
               if (dateTimeError != null) ...[
                 gap,
-                RaftBanner(description: dateTimeError!, size: RaftBannerRecipeSize.sm),
+                RaftBanner(
+                  description: dateTimeError!,
+                  size: RaftBannerRecipeSize.sm,
+                ),
               ],
               gap,
               _save(

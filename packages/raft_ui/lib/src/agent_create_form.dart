@@ -45,9 +45,8 @@ RaftRecipeStates _states(RaftTokens t, [Set<String> flags = const {}]) =>
 const double _tw = 4;
 
 /// Modal.tsx backdrop: `bg-layer-backdrop … theme-brutal:bg-black/60`.
-Color raftAgentModalBarrier(RaftTokens t) => t.brutal
-    ? Colors.black.withValues(alpha: .6)
-    : t.colors['layer-backdrop']!;
+Color raftAgentModalBarrier(RaftTokens t) =>
+    t.brutal ? Colors.black.withValues(alpha: .6) : t.colors['layer-backdrop']!;
 
 /// Opens [builder] like Web `Modal`: full-window backdrop that does not close
 /// on tap (closeOnBackdrop=false), Escape closes, content scrolls inside a
@@ -109,11 +108,13 @@ class RaftAgentDialogCard extends StatelessWidget {
           // CSS line boxes: half the leading above, half below.
           leadingDistribution: TextLeadingDistribution.even,
         );
-    final titleStyle = card.title.textStyle(tokens).copyWith(
-      fontSize: 18, // text-lg: 1.125rem / 1.75rem
-      height: 28 / 18,
-      fontWeight: FontWeight.w700, // font-bold
-    );
+    final titleStyle = card.title
+        .textStyle(tokens)
+        .copyWith(
+          fontSize: 18, // text-lg: 1.125rem / 1.75rem
+          height: 28 / 18,
+          fontWeight: FontWeight.w700, // font-bold
+        );
     return LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
         padding: const EdgeInsets.all(4 * _tw), // Modal inner `p-4`
@@ -149,7 +150,8 @@ class RaftAgentDialogCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (onClose != null) RaftAgentCloseButton(onPressed: onClose),
+                            if (onClose != null)
+                              RaftAgentCloseButton(onPressed: onClose),
                           ],
                         ),
                         const SizedBox(height: 4 * _tw), // mb-4
@@ -316,7 +318,9 @@ class RaftStableField extends StatelessWidget {
                       // theme-brutal:text-black/50`
                       fontFamily: counterRecipe.fontFamily ?? t.monoFont,
                       fontFeatures: const [FontFeature.tabularFigures()],
-                      color: t.brutal ? t.strong.withValues(alpha: .5) : t.muted,
+                      color: t.brutal
+                          ? t.strong.withValues(alpha: .5)
+                          : t.muted,
                     ),
                   ),
                 ],
