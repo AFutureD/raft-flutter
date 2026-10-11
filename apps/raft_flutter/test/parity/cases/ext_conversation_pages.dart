@@ -1,0 +1,266 @@
+// raft-flutter parity EXTENSION suite builders (tool/parity-ext): conversation
+// pages that had no case (inventory area 3, rows 3.03, 3.06-3.08, 3.11-3.14, 3.16,
+// 3.18, 3.26-3.31, 3.34, 3.37-3.39). NOT official cases; ids are
+// `components.conversation.<scene>.<platform>.<state>.<theme>`, dispatched on props
+// like tool/parity-ext/host/ConversationPageCases.tsx.
+//
+//   view=window  the REAL WorkspaceView mounted at the case viewport; the capture is
+//                the same window the React host clips: `(winY, winH)` of the desktop
+//                main column (viewport - rail - 240 sidebar), of the 400px side thread
+//                column or of the 390 mobile page (`winY < 0` counts from the bottom)
+//
+// Data: tool/parity-ext/fixtures/conversation.json (fixtures['ext:conversation']):
+// `routes` + the case's `routeSet`.
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart' show addTearDown;
+import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/source_time_formatter.dart';
+import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_ui/raft_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../parity_harness.dart';
+import 'thread_composer/fake_workspace.dart';
+import 'thread_messages/chat_stage.dart' show ParityIdentities;
+
+Map<String, dynamic> _fx(ParityContext ctx) =>
+    ctx.fixtures['ext:conversation'] as Map<String, dynamic>;
+
+/// ParityFakeClient plus the fixture's `{"$pending": true}` (never answers)
+/// and `{"$status": N, "$body": {...}}` (fails) route bodies.
+class _ConvClient extends ParityFakeClient {
+  _ConvClient({required super.user, required super.routes});
+
+  Object? _special(String method, String path) {
+    final answer = routes['$method $path'];
+    if (answer is Map && answer['\$pending'] == true) {
+      return Completer<Never>().future;
+    }
+    if (answer is Map && answer['\$status'] != null) {
+      return Future<Never>.error(
+        RaftApiException(
+          '${(answer['\$body'] as Map?)?['error'] ?? 'fixture error'}',
+          status: (answer['\$status'] as num).toInt(),
+        ),
+      );
+    }
+    return null;
+  }
+
+  @override
+  Future<Map<String, dynamic>> messagePage(
+    String id, {
+    int limit = 50,
+    BigInt? before,
+    BigInt? after,
+  }) {
+    final special = _special('GET', '/messages/channel/$id');
+    if (special != null) return special as Future<Map<String, dynamic>>;
+    return super.messagePage(id, limit: limit, before: before, after: after);
+  }
+
+  @override
+  Future<dynamic> request(
+    String method,
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? query,
+    bool authorized = true,
+    bool retried = false,
+    UploadCancellation? cancellation,
+    void Function(int, int)? onSendProgress,
+    Map<String, dynamic>? headers,
+    bool acceptServerExit = false,
+    Duration? receiveTimeout,
+  }) {
+    final special = _special(method, path);
+    if (special != null) return special as Future<dynamic>;
+    return super.request(
+      method,
+      path,
+      data: data,
+      query: query,
+      authorized: authorized,
+      retried: retried,
+      cancellation: cancellation,
+      onSendProgress: onSendProgress,
+      headers: headers,
+      acceptServerExit: acceptServerExit,
+      receiveTimeout: receiveTimeout,
+    );
+  }
+}
+
+WorkspaceController _workspace(ParityContext ctx) {
+  SharedPreferences.setMockInitialValues({});
+  // The React provider pins its clock to the fixture instant.
+  final clockIso = ctx.props['clockIso'] as String?;
+  final now = clockIso != null
+      ? DateTime.parse(clockIso)
+      : DateTime.fromMillisecondsSinceEpoch(
+          (ctx.fixtureData['locale']['nowEpochMillis'] as num).toInt(),
+        );
+  sourceTimeNow = () => now;
+  addTearDown(() => sourceTimeNow = DateTime.now);
+  final fx = _fx(ctx);
+  final base = ParityThreadFixture(ctx.fixtureData);
+  final ids = ParityIdentities(ctx);
+  final routeSet =
+      (fx['routeSets'] as Map)[ctx.props['routeSet']] as Map? ?? {};
+  final client = _ConvClient(
+    user: base.authUser,
+    routes: {
+      ...Map<String, dynamic>.from(fx['routes'] as Map),
+      // Same directory the React host seeds (visualAgents / visualMembers).
+      'GET /agents': ids.agents,
+      'GET /servers/visual-server/members': ids.members,
+      ...Map<String, dynamic>.from(routeSet),
+    },
+  );
+  final channels = [
+    for (final c in fx['channels'] as List)
+      RaftChannel(Map<String, dynamic>.from(c as Map)),
+  ];
+  final dms = [
+    for (final c in fx['dms'] as List)
+      RaftChannel(Map<String, dynamic>.from(c as Map)),
+  ];
+  final role = ctx.props['serverRole'] as String? ?? 'owner';
+  final w = WorkspaceController(client)
+    ..server = RaftRecord({...base.serverRecord, 'role': role})
+    ..channels = channels
+    ..dms = dms;
+  w.ledger.switchServer('visual-server');
+  return w;
+}
+
+/// Window the React host clips, in viewport coordinates.
+Rect _window(ParityContext ctx) {
+  final h = (ctx.props['winH'] as num).toDouble();
+  final y = (ctx.props['winY'] as num).toDouble();
+  final top = y < 0 ? ctx.height + y : y;
+  if (ctx.props['platform'] == 'mobile') {
+    return Rect.fromLTWH(0, top, ctx.width, h);
+  }
+  final rail = ctx.family == RaftFamily.brutal ? 64.0 : 56.0;
+  return switch (ctx.props['surface']) {
+    'thread' => Rect.fromLTWH(ctx.width - 400, top, 400, h),
+    _ => Rect.fromLTWH(rail + 240, top, ctx.width - rail - 240, h),
+  };
+}
+
+class _Host extends StatefulWidget {
+  const _Host({required this.ctx});
+  final ParityContext ctx;
+  @override
+  State<_Host> createState() => _HostState();
+}
+
+class _HostState extends State<_Host> {
+  late final WorkspaceController w = _workspace(widget.ctx);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _open());
+  }
+
+  Future<void> _open() async {
+    final ctx = widget.ctx;
+    final fx = _fx(ctx);
+    final id = ctx.props['channel'] as String? ?? '';
+    if (id.isEmpty) return;
+    final channel = [...w.channels, ...w.dms].firstWhere((c) => c.id == id);
+    final msg = ctx.props['msg'] as String?;
+    if (msg != null) {
+      unawaited(w.jumpToMessage(id, msg));
+    } else {
+      unawaited(w.selectChannel(channel));
+    }
+    if (ctx.props['surface'] == 'thread') {
+      final thread = Map<String, dynamic>.from(fx['thread'] as Map);
+      await w.openThreadIdentity(
+        parentChannelId: thread['parentChannelId'] as String,
+        parentMessageId: thread['parentMessageId'] as String,
+        initialThreadChannelId: thread['threadChannelId'] as String,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => WorkspaceView(
+    controller: w,
+    appearance: RaftAppearance(
+      mode: widget.ctx.dark ? ThemeMode.dark : ThemeMode.light,
+      light: widget.ctx.family,
+    ),
+    onAppearance: (_) async {},
+    onLogout: () async {},
+  );
+}
+
+Widget _buildWindow(ParityContext ctx) {
+  final window = _window(ctx);
+  return Align(
+    alignment: Alignment.topLeft,
+    child: ctx.target(
+      SizedBox.fromSize(
+        size: window.size,
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: ctx.width,
+            maxWidth: ctx.width,
+            minHeight: ctx.height,
+            maxHeight: ctx.height,
+            child: Transform.translate(
+              offset: -window.topLeft,
+              child: _Host(ctx: ctx),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+final ParityCase _windowCase = ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:RaftChatView',
+    'raft_ui:RaftConversationSurface',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView, clipped window.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+);
+
+/// Every extension conversation-page case, keyed by id (3 themes each).
+final Map<String, ParityCase> extConversationCases = () {
+  final cases = <String, ParityCase>{};
+  void add(String scene, String platform, String state, ParityCase c) {
+    for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
+      cases['components.conversation.$scene.$platform.$state.$theme'] = c;
+    }
+  }
+
+  add('empty', 'desktop', 'no-channel', _windowCase);
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const [
+      'archived',
+      'archived-header',
+      'guest-readonly',
+      'guest-join',
+      'join',
+      'joint-locked',
+      'joint-grace',
+      'message-not-found',
+    ]) {
+      add('banner', platform, state, _windowCase);
+    }
+  }
+  return cases;
+}();

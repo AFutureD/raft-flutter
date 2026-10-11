@@ -1,0 +1,336 @@
+{
+ "name": "raft-flutter parity extension: conversation pages",
+ "scope": "Public deterministic test data; no credentials.",
+ "sourceCommit": "26f77ef97c40d3d91aa2c5e42b0fd66b8bf39fe6",
+ "channels": [
+  {
+   "id": "channel-cv-open",
+   "serverId": "visual-server",
+   "name": "design",
+   "description": "Visual testing release gates",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true
+  },
+  {
+   "id": "channel-cv-archived",
+   "serverId": "visual-server",
+   "name": "design-archive",
+   "description": "Visual testing release gates",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true,
+   "archivedAt": "2026-06-10T08:00:00.000Z"
+  },
+  {
+   "id": "channel-cv-guest",
+   "serverId": "visual-server",
+   "name": "guest-room",
+   "description": "Visual testing release gates",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true
+  },
+  {
+   "id": "channel-cv-guest-join",
+   "serverId": "visual-server",
+   "name": "guest-lobby",
+   "description": "Visual testing release gates",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": false,
+   "guestJoinable": true
+  },
+  {
+   "id": "channel-cv-join",
+   "serverId": "visual-server",
+   "name": "product",
+   "description": "Visual testing release gates",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": false
+  },
+  {
+   "id": "channel-cv-joint-locked",
+   "serverId": "visual-server",
+   "name": "joint-design",
+   "description": "Visual testing release gates",
+   "type": "joint",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true,
+   "jointBillingLocked": true
+  },
+  {
+   "id": "channel-cv-joint-grace",
+   "serverId": "visual-server",
+   "name": "joint-review",
+   "description": "Visual testing release gates",
+   "type": "joint",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true,
+   "jointOverLimitGraceEndsAt": "2026-06-21T09:00:00.000Z"
+  }
+ ],
+ "dms": [],
+ "thread": {
+  "parentChannelId": "channel-cv-open",
+  "parentMessageId": "msg-thread-parent",
+  "threadChannelId": "thread-cv-1"
+ },
+ "routes": {
+  "GET /channels/threads/followers": {
+   "threads": []
+  },
+  "GET /channels/threads/followed": {
+   "threads": []
+  },
+  "GET /messages/channel/channel-cv-open": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-open-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-open",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-open-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-open",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-open": {
+   "tasks": []
+  },
+  "GET /messages/channel/channel-cv-archived": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-archived-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-archived",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-archived-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-archived",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-archived": {
+   "tasks": []
+  },
+  "GET /messages/channel/channel-cv-guest": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-guest-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-guest",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-guest-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-guest",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-guest": {
+   "tasks": []
+  },
+  "GET /messages/channel/channel-cv-guest-join": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-guest-join-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-guest-join",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-guest-join-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-guest-join",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-guest-join": {
+   "tasks": []
+  },
+  "GET /messages/channel/channel-cv-join": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-join-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-join",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-join-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-join",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-join": {
+   "tasks": []
+  },
+  "GET /messages/channel/channel-cv-joint-locked": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-joint-locked-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-joint-locked",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-joint-locked-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-joint-locked",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-joint-locked": {
+   "tasks": []
+  },
+  "GET /messages/channel/channel-cv-joint-grace": {
+   "messages": [
+    {
+     "id": "msg-channel-cv-joint-grace-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-joint-grace",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-channel-cv-joint-grace-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-joint-grace",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/channel-cv-joint-grace": {
+   "tasks": []
+  }
+ },
+ "routeSets": {
+  "cv-msg-missing": {
+   "GET /messages/context/msg-missing": {
+    "$status": 404,
+    "$body": {
+     "error": "Message not found"
+    }
+   }
+  }
+ }
+}
