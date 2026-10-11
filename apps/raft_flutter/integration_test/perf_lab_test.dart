@@ -98,6 +98,11 @@ class _HintLabBinding extends IntegrationTestWidgetsFlutterBinding with AndroidP
 void main() {
   final binding = _HintLabBinding();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
+  tearDownAll(() {
+    // fullyLive otherwise keeps requesting idle frames after the driver exits.
+    // Stop that loop so the UI hint session can expire while the APK remains.
+    binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmark;
+  });
   final sampler = LabSampler();
   testWidgets('perf lab', (t) async {
     expect(kProfileMode, true, reason: 'Only profile-mode timings are meaningful.');
