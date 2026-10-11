@@ -72,10 +72,22 @@
   }
  ],
  "dms": [],
- "thread": {
-  "parentChannelId": "channel-cv-open",
-  "parentMessageId": "msg-thread-parent",
-  "threadChannelId": "thread-cv-1"
+ "threads": {
+  "main": {
+   "parentChannelId": "channel-cv-open",
+   "parentMessageId": "msg-cv-tp",
+   "threadChannelId": "thread-cv-1"
+  },
+  "joint": {
+   "parentChannelId": "channel-cv-joint-locked",
+   "parentMessageId": "msg-cvj-tp",
+   "threadChannelId": "thread-cvj-1"
+  },
+  "join": {
+   "parentChannelId": "channel-cv-join",
+   "parentMessageId": "msg-cvn-tp",
+   "threadChannelId": "thread-cvn-1"
+  }
  },
  "rows": {
   "profile-agent": {
@@ -447,33 +459,35 @@
   "GET /messages/channel/channel-cv-open": {
    "messages": [
     {
-     "id": "msg-channel-cv-open-1",
+     "id": "msg-cv-tp",
      "seq": 1,
-     "serverId": "visual-server",
-     "channelId": "channel-cv-open",
-     "messageType": "chat",
-     "senderType": "user",
-     "senderId": "visual-user",
-     "senderName": "artin",
-     "content": "Release gates are green for the Android capture.",
-     "createdAt": "2026-06-22T02:10:00.000Z"
-    },
-    {
-     "id": "msg-channel-cv-open-2",
-     "seq": 2,
      "serverId": "visual-server",
      "channelId": "channel-cv-open",
      "messageType": "chat",
      "senderType": "agent",
      "senderId": "agent-cindy",
      "senderName": "Cindy",
-     "content": "Captured the visual baselines and queued React parity.",
-     "createdAt": "2026-06-22T02:30:00.000Z"
+     "content": "Captured the Android visual artifact for the parity run and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "threadId": "thread-cv-1"
     }
    ],
    "hasMore": false,
    "historyLimited": false,
-   "threadSummariesByParentMessageId": {}
+   "threadSummariesByParentMessageId": {
+    "msg-cv-tp": {
+     "threadChannelId": "thread-cv-1",
+     "replyCount": 3,
+     "lastReplyAt": "2026-06-22T03:02:00.000Z",
+     "participantIds": [
+      "visual-user",
+      "agent-cindy",
+      "visual-human-designer"
+     ],
+     "unreadCount": 0,
+     "firstUnreadMessageId": null
+    }
+   }
   },
   "GET /tasks/channel/channel-cv-open": {
    "tasks": []
@@ -583,33 +597,35 @@
   "GET /messages/channel/channel-cv-join": {
    "messages": [
     {
-     "id": "msg-channel-cv-join-1",
+     "id": "msg-cvn-tp",
      "seq": 1,
-     "serverId": "visual-server",
-     "channelId": "channel-cv-join",
-     "messageType": "chat",
-     "senderType": "user",
-     "senderId": "visual-user",
-     "senderName": "artin",
-     "content": "Release gates are green for the Android capture.",
-     "createdAt": "2026-06-22T02:10:00.000Z"
-    },
-    {
-     "id": "msg-channel-cv-join-2",
-     "seq": 2,
      "serverId": "visual-server",
      "channelId": "channel-cv-join",
      "messageType": "chat",
      "senderType": "agent",
      "senderId": "agent-cindy",
      "senderName": "Cindy",
-     "content": "Captured the visual baselines and queued React parity.",
-     "createdAt": "2026-06-22T02:30:00.000Z"
+     "content": "Captured the Android visual artifact for the parity run and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "threadId": "thread-cvn-1"
     }
    ],
    "hasMore": false,
    "historyLimited": false,
-   "threadSummariesByParentMessageId": {}
+   "threadSummariesByParentMessageId": {
+    "msg-cvn-tp": {
+     "threadChannelId": "thread-cvn-1",
+     "replyCount": 3,
+     "lastReplyAt": "2026-06-22T03:02:00.000Z",
+     "participantIds": [
+      "visual-user",
+      "agent-cindy",
+      "visual-human-designer"
+     ],
+     "unreadCount": 0,
+     "firstUnreadMessageId": null
+    }
+   }
   },
   "GET /tasks/channel/channel-cv-join": {
    "tasks": []
@@ -617,33 +633,35 @@
   "GET /messages/channel/channel-cv-joint-locked": {
    "messages": [
     {
-     "id": "msg-channel-cv-joint-locked-1",
+     "id": "msg-cvj-tp",
      "seq": 1,
-     "serverId": "visual-server",
-     "channelId": "channel-cv-joint-locked",
-     "messageType": "chat",
-     "senderType": "user",
-     "senderId": "visual-user",
-     "senderName": "artin",
-     "content": "Release gates are green for the Android capture.",
-     "createdAt": "2026-06-22T02:10:00.000Z"
-    },
-    {
-     "id": "msg-channel-cv-joint-locked-2",
-     "seq": 2,
      "serverId": "visual-server",
      "channelId": "channel-cv-joint-locked",
      "messageType": "chat",
      "senderType": "agent",
      "senderId": "agent-cindy",
      "senderName": "Cindy",
-     "content": "Captured the visual baselines and queued React parity.",
-     "createdAt": "2026-06-22T02:30:00.000Z"
+     "content": "Captured the Android visual artifact for the parity run and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "threadId": "thread-cvj-1"
     }
    ],
    "hasMore": false,
    "historyLimited": false,
-   "threadSummariesByParentMessageId": {}
+   "threadSummariesByParentMessageId": {
+    "msg-cvj-tp": {
+     "threadChannelId": "thread-cvj-1",
+     "replyCount": 3,
+     "lastReplyAt": "2026-06-22T03:02:00.000Z",
+     "participantIds": [
+      "visual-user",
+      "agent-cindy",
+      "visual-human-designer"
+     ],
+     "unreadCount": 0,
+     "firstUnreadMessageId": null
+    }
+   }
   },
   "GET /tasks/channel/channel-cv-joint-locked": {
    "tasks": []
@@ -681,6 +699,192 @@
   },
   "GET /tasks/channel/channel-cv-joint-grace": {
    "tasks": []
+  },
+  "GET /messages/channel/thread-cv-1": {
+   "messages": [
+    {
+     "id": "msg-cv-tp-r1",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "thread-cv-1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Looks good. Can you also attach the elegant-dark capture?",
+     "createdAt": "2026-06-22T02:35:00.000Z"
+    },
+    {
+     "id": "msg-cv-tp-r2",
+     "seq": 3,
+     "serverId": "visual-server",
+     "channelId": "thread-cv-1",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Done: the dark baseline is attached to the task and the parity diff is under 2%.",
+     "createdAt": "2026-06-22T02:41:00.000Z"
+    },
+    {
+     "id": "msg-cv-tp-r3",
+     "seq": 4,
+     "serverId": "visual-server",
+     "channelId": "thread-cv-1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-human-designer",
+     "senderName": "designer",
+     "content": "One spacing question on the composer: is the 12px gap intentional?",
+     "createdAt": "2026-06-22T03:02:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /messages/context/msg-cv-tp": {
+   "messages": [
+    {
+     "id": "msg-cv-tp",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-open",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the Android visual artifact for the parity run and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "threadId": "thread-cv-1"
+    }
+   ],
+   "hasMore": false,
+   "hasNewer": false
+  },
+  "GET /messages/channel/thread-cvj-1": {
+   "messages": [
+    {
+     "id": "msg-cvj-tp-r1",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "thread-cvj-1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Looks good. Can you also attach the elegant-dark capture?",
+     "createdAt": "2026-06-22T02:35:00.000Z"
+    },
+    {
+     "id": "msg-cvj-tp-r2",
+     "seq": 3,
+     "serverId": "visual-server",
+     "channelId": "thread-cvj-1",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Done: the dark baseline is attached to the task and the parity diff is under 2%.",
+     "createdAt": "2026-06-22T02:41:00.000Z"
+    },
+    {
+     "id": "msg-cvj-tp-r3",
+     "seq": 4,
+     "serverId": "visual-server",
+     "channelId": "thread-cvj-1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-human-designer",
+     "senderName": "designer",
+     "content": "One spacing question on the composer: is the 12px gap intentional?",
+     "createdAt": "2026-06-22T03:02:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /messages/context/msg-cvj-tp": {
+   "messages": [
+    {
+     "id": "msg-cvj-tp",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-joint-locked",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the Android visual artifact for the parity run and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "threadId": "thread-cvj-1"
+    }
+   ],
+   "hasMore": false,
+   "hasNewer": false
+  },
+  "GET /messages/channel/thread-cvn-1": {
+   "messages": [
+    {
+     "id": "msg-cvn-tp-r1",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "thread-cvn-1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Looks good. Can you also attach the elegant-dark capture?",
+     "createdAt": "2026-06-22T02:35:00.000Z"
+    },
+    {
+     "id": "msg-cvn-tp-r2",
+     "seq": 3,
+     "serverId": "visual-server",
+     "channelId": "thread-cvn-1",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Done: the dark baseline is attached to the task and the parity diff is under 2%.",
+     "createdAt": "2026-06-22T02:41:00.000Z"
+    },
+    {
+     "id": "msg-cvn-tp-r3",
+     "seq": 4,
+     "serverId": "visual-server",
+     "channelId": "thread-cvn-1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-human-designer",
+     "senderName": "designer",
+     "content": "One spacing question on the composer: is the 12px gap intentional?",
+     "createdAt": "2026-06-22T03:02:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /messages/context/msg-cvn-tp": {
+   "messages": [
+    {
+     "id": "msg-cvn-tp",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-join",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the Android visual artifact for the parity run and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "threadId": "thread-cvn-1"
+    }
+   ],
+   "hasMore": false,
+   "hasNewer": false
   }
  },
  "routeSets": {
@@ -1045,6 +1249,86 @@
   "cv-tasks-empty": {
    "GET /tasks/channel/channel-cv-open": {
     "tasks": []
+   }
+  },
+  "cv-thread-failed": {
+   "GET /channels/channel-cv-open/threads/msg-cv-tp": {
+    "$status": 500,
+    "$body": {
+     "error": "Internal Server Error"
+    }
+   }
+  },
+  "cv-followers": {
+   "GET /channels/threads/followers": {
+    "threads": [
+     {
+      "threadChannelId": "thread-cv-1",
+      "canManage": true,
+      "agents": [
+       {
+        "id": "agent-cindy",
+        "name": "Cindy",
+        "displayName": "Cindy",
+        "status": "active",
+        "avatarUrl": "pixel:robot",
+        "isCurrentServer": true,
+        "canRemove": true
+       },
+       {
+        "id": "agent-product-ux",
+        "name": "product-ux",
+        "displayName": "Product UX",
+        "status": "active",
+        "avatarUrl": "pixel:robot",
+        "isCurrentServer": true,
+        "canRemove": true
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "cv-followers-error": {
+   "GET /channels/threads/followers": {
+    "$status": 500,
+    "$body": {
+     "error": "Internal Server Error"
+    }
+   }
+  },
+  "cv-followers-remove": {
+   "GET /channels/threads/followers": {
+    "threads": [
+     {
+      "threadChannelId": "thread-cv-1",
+      "canManage": true,
+      "agents": [
+       {
+        "id": "agent-cindy",
+        "name": "Cindy",
+        "displayName": "Cindy",
+        "status": "active",
+        "avatarUrl": "pixel:robot",
+        "isCurrentServer": true,
+        "canRemove": true
+       },
+       {
+        "id": "agent-product-ux",
+        "name": "product-ux",
+        "displayName": "Product UX",
+        "status": "active",
+        "avatarUrl": "pixel:robot",
+        "isCurrentServer": true,
+        "canRemove": true
+       }
+      ]
+     }
+    ]
+   },
+   "DELETE /channels/threads/thread-cv-1/followers/agents/agent-product-ux": {
+    "removed": true,
+    "undoToken": "undo-1"
    }
   }
  }

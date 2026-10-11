@@ -202,11 +202,16 @@ class _HostState extends State<_Host> {
       unawaited(w.selectChannel(channel));
     }
     if (ctx.props['surface'] == 'thread') {
-      final thread = Map<String, dynamic>.from(fx['thread'] as Map);
+      final thread = Map<String, dynamic>.from(
+        (fx['threads'] as Map)[ctx.props['threadKey'] ?? 'main'] as Map,
+      );
+      final failed = ctx.props['resolveFailed'] == true;
       await w.openThreadIdentity(
         parentChannelId: thread['parentChannelId'] as String,
         parentMessageId: thread['parentMessageId'] as String,
-        initialThreadChannelId: thread['threadChannelId'] as String,
+        initialThreadChannelId: failed
+            ? null
+            : thread['threadChannelId'] as String,
       );
     }
   }
@@ -275,6 +280,17 @@ final ParityCase _tabCase = ParityCase(
       await t.pump(const Duration(milliseconds: 50));
     }
   },
+);
+
+final ParityCase _threadCase = ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:RaftChatView',
+    'raft_ui:RaftThreadPanel',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView thread panel, clipped window.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
 );
 
 final ParityCase _windowCase = ParityCase(
@@ -502,6 +518,16 @@ final Map<String, ParityCase> extConversationCases = () {
 
   add('empty', 'desktop', 'no-channel', _windowCase);
   for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const [
+      'load-failed',
+      'guest-readonly',
+      'joint-locked',
+      'join-parent',
+    ]) {
+      add('threadstate', platform, state, _threadCase);
+    }
+  }
+  for (final platform in const ['desktop', 'mobile']) {
     for (final state in const ['list', 'more', 'empty', 'loading', 'error']) {
       add('files', platform, state, _tabCase);
     }
@@ -586,4 +612,34 @@ final Map<String, ParityCase> extConversationCases = () {
     }
   }
   return cases;
+}();
+
+/// Cases whose Web page has no Flutter counterpart (`Flutter page missing`):
+/// they stay in the manifest as honest gaps instead of faked captures.
+final Map<String, ParityUncovered> extConversationUncovered = () {
+  final gaps = <String, ParityUncovered>{};
+  void gap(String scene, List<String> states, String reason) {
+    for (final platform in const ['desktop', 'mobile']) {
+      for (final state in states) {
+        for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
+          gaps['components.conversation.$scene.$platform.$state.$theme'] =
+              ParityUncovered(ParityGap.noFlutterSurface, reason);
+        }
+      }
+    }
+  }
+
+  gap(
+    'threadsearch',
+    const ['open', 'matches', 'none'],
+    'Flutter has no in-thread search: ThreadActions.onSearch is never wired, so '
+        'the thread overflow menu has no "Search this thread" item and no search bar.',
+  );
+  gap(
+    'followers',
+    const ['header', 'popover', 'error'],
+    'Flutter has no thread agent followers control: RaftThreadHeader accepts a '
+        '`followers` slot that the app never fills.',
+  );
+  return gaps;
 }();

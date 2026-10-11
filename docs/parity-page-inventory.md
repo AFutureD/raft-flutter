@@ -32,12 +32,12 @@ list of pages that default-theme coverage must reach.
 - Pages (rows) in the inventory: **180** in 9 areas, of which **9** are excluded as dead,
   obsolete or not shown to normal users (below), leaving **171** pages that count. 7 dev-only / entry-less
   routes are excluded on top (end of the document). 20 counted pages are flagged "verify" (reachability unclear).
-- Fully covered on every platform they exist on: **80**; partly covered (partial / wip): **5**; with at least one MISSING platform: **86**.
+- Fully covered on every platform they exist on: **83**; partly covered (partial / wip): **5**; with at least one MISSING platform: **83**.
 
 | platform | pages that exist there | ok | partial | wip | MISSING |
 | --- | --- | --- | --- | --- | --- |
-| Desktop (D) | 165 | 93 | 2 | 1 | 69 |
-| Phone (P) | 160 | 90 | 5 | 0 | 65 |
+| Desktop (D) | 165 | 96 | 2 | 1 | 66 |
+| Phone (P) | 160 | 93 | 5 | 0 | 62 |
 
 Excluded pages by reason (rows / extra routes):
 
@@ -54,7 +54,7 @@ Findings:
 
 - The official suite covers phone only, so every desktop page depends on the extension suite; the extension
   suite is concentrated on Settings, Auth, Thread and Shell components and has almost no composed desktop screens.
-- 69 desktop and 65 phone page-platforms have no case.
+- 66 desktop and 62 phone page-platforms have no case.
 - Agent detail: `AgentDetailPanel` has seven tabs (profile, activity, chat, reminders, workspace, apps, MCP). The
   base branch already has desktop cases for six of them (`components.members-ext.agent.*`, including `mcp*`). Chat has
   no case on either platform and MCP has none on phone. Desktop agent-detail work is in progress on
@@ -109,49 +109,46 @@ Ordered by priority, then pages not flagged "verify" first, then missing on both
 | 41 | 3.18 | Mermaid full-screen viewer | D+P | P3 rare / admin / edge |
 | 42 | 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | D+P | P3 rare / admin / edge |
 | 43 | 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | D+P | P3 rare / admin / edge |
-| 44 | 3.37 | Thread load failed (retry), guest read-only, joint locked | D+P | P3 rare / admin / edge |
-| 45 | 3.38 | In-thread search (search bar, next / previous match) | D+P | P3 rare / admin / edge |
-| 46 | 3.39 | Thread agent followers (list, remove, undo) | D+P | P3 rare / admin / edge |
-| 47 | 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | D+P | P3 rare / admin / edge |
-| 48 | 4.03 | Create shared (joint) channel dialog | D+P | P3 rare / admin / edge |
-| 49 | 4.07 | Remove channel member confirm | D+P | P3 rare / admin / edge |
-| 50 | 5.08 | Activity item context menu (mark read / unread, follow, done) | D+P | P3 rare / admin / edge |
-| 51 | 5.11 | Saved item actions (copy link, copy Markdown, remove) | D+P | P3 rare / admin / edge |
-| 52 | 6.10 | Tasks loading and load-more states | D+P | P3 rare / admin / edge |
-| 53 | 7.05 | Role permission help dialog | D+P | P3 rare / admin / edge |
-| 54 | 7.19 | Report issue dialog | D+P | P3 rare / admin / edge |
-| 55 | 7.23 | External agent setup (token, setup tabs) | D+P | P3 rare / admin / edge |
-| 56 | 7.25 | Member graph (/members/graph) | D+P | P3 rare / admin / edge |
-| 57 | 9.03 | Account: change password, sign out | D+P | P3 rare / admin / edge |
-| 58 | 9.10 | Archived channels list (Unarchive) | D+P | P3 rare / admin / edge |
-| 59 | 9.12 | Billing: downgrade warning card | D+P | P3 rare / admin / edge |
-| 60 | 9.15 | Application editor (register app, redirect URLs, declared scopes, scope list) | D+P | P3 rare / admin / edge |
-| 61 | 2.10 | Section dialogs (new, rename, delete) | P | P3 rare / admin / edge |
-| 62 | 2.12 | Archive channel confirm (from the sidebar menu) | P | P3 rare / admin / edge |
-| 63 | 3.13 | Message selection mode (toolbar, share-as-image lightbox) | D | P3 rare / admin / edge |
-| 64 | 3.22 | Composer pending-mention action strip (agent outside the channel) | D | P3 rare / admin / edge |
-| 65 | 3.26 | Audio, video, PDF and diff / patch previews | P | P3 rare / admin / edge |
-| 66 | 5.03 | Search channel filter dropdown | D | P3 rare / admin / edge |
-| 67 | 5.06 | Activity empty / loading / error | P | P3 rare / admin / edge |
-| 68 | 5.10 | Saved empty / loading / error | P | P3 rare / admin / edge |
-| 69 | 6.05 | Tasks list / board view toggle (the non-default view) | D | P3 rare / admin / edge |
-| 70 | 6.06 | Task status menu | D | P3 rare / admin / edge |
-| 71 | 7.02 | Members list empty / loading / error | P | P3 rare / admin / edge |
-| 72 | 7.04 | Human profile actions (edit role, remove member confirm) | P | P3 rare / admin / edge |
-| 73 | 7.07 | Avatar management (upload, view) | D | P3 rare / admin / edge |
-| 74 | 7.16 | Agent profile edit dialogs (name, description, role) | P | P3 rare / admin / edge |
-| 75 | 8.04 | Add computer dialog (type step, connect step) | P | P3 rare / admin / edge |
-| 76 | 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | P | P3 rare / admin / edge |
-| 77 | 9.23 | Release notes (current, retracted, older, loading, error, empty) | P | P3 rare / admin / edge |
-| 78 | 1.20 | Public server: join confirm dialog and guest join (verify) | D+P | P3 rare / admin / edge |
-| 79 | 1.26 | App login handoff (/login/app) (verify) | D+P | P3 rare / admin / edge |
-| 80 | 1.27 | Login with Raft setup (/login-with-raft/setup, scope consent) (verify) | D+P | P3 rare / admin / edge |
-| 81 | 1.28 | Integration invite (/integration-invite): install app, not found, needs admin (verify) | D+P | P3 rare / admin / edge |
-| 82 | 1.30 | Mobile download chooser (/download) (verify) | D+P | P3 rare / admin / edge |
-| 83 | 1.31 | Chinese community page (verify) | D+P | P3 rare / admin / edge |
-| 84 | 1.34 | App update gate (stale build, refresh to continue) (verify) | D+P | P3 rare / admin / edge |
-| 85 | 3.29 | External identity preview card and detail panel (verify) | D+P | P3 rare / admin / edge |
-| 86 | 1.32 | PWA install prompt (iOS Safari add-to-home steps) (verify) | P | P3 rare / admin / edge |
+| 44 | 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | D+P | P3 rare / admin / edge |
+| 45 | 4.03 | Create shared (joint) channel dialog | D+P | P3 rare / admin / edge |
+| 46 | 4.07 | Remove channel member confirm | D+P | P3 rare / admin / edge |
+| 47 | 5.08 | Activity item context menu (mark read / unread, follow, done) | D+P | P3 rare / admin / edge |
+| 48 | 5.11 | Saved item actions (copy link, copy Markdown, remove) | D+P | P3 rare / admin / edge |
+| 49 | 6.10 | Tasks loading and load-more states | D+P | P3 rare / admin / edge |
+| 50 | 7.05 | Role permission help dialog | D+P | P3 rare / admin / edge |
+| 51 | 7.19 | Report issue dialog | D+P | P3 rare / admin / edge |
+| 52 | 7.23 | External agent setup (token, setup tabs) | D+P | P3 rare / admin / edge |
+| 53 | 7.25 | Member graph (/members/graph) | D+P | P3 rare / admin / edge |
+| 54 | 9.03 | Account: change password, sign out | D+P | P3 rare / admin / edge |
+| 55 | 9.10 | Archived channels list (Unarchive) | D+P | P3 rare / admin / edge |
+| 56 | 9.12 | Billing: downgrade warning card | D+P | P3 rare / admin / edge |
+| 57 | 9.15 | Application editor (register app, redirect URLs, declared scopes, scope list) | D+P | P3 rare / admin / edge |
+| 58 | 2.10 | Section dialogs (new, rename, delete) | P | P3 rare / admin / edge |
+| 59 | 2.12 | Archive channel confirm (from the sidebar menu) | P | P3 rare / admin / edge |
+| 60 | 3.13 | Message selection mode (toolbar, share-as-image lightbox) | D | P3 rare / admin / edge |
+| 61 | 3.22 | Composer pending-mention action strip (agent outside the channel) | D | P3 rare / admin / edge |
+| 62 | 3.26 | Audio, video, PDF and diff / patch previews | P | P3 rare / admin / edge |
+| 63 | 5.03 | Search channel filter dropdown | D | P3 rare / admin / edge |
+| 64 | 5.06 | Activity empty / loading / error | P | P3 rare / admin / edge |
+| 65 | 5.10 | Saved empty / loading / error | P | P3 rare / admin / edge |
+| 66 | 6.05 | Tasks list / board view toggle (the non-default view) | D | P3 rare / admin / edge |
+| 67 | 6.06 | Task status menu | D | P3 rare / admin / edge |
+| 68 | 7.02 | Members list empty / loading / error | P | P3 rare / admin / edge |
+| 69 | 7.04 | Human profile actions (edit role, remove member confirm) | P | P3 rare / admin / edge |
+| 70 | 7.07 | Avatar management (upload, view) | D | P3 rare / admin / edge |
+| 71 | 7.16 | Agent profile edit dialogs (name, description, role) | P | P3 rare / admin / edge |
+| 72 | 8.04 | Add computer dialog (type step, connect step) | P | P3 rare / admin / edge |
+| 73 | 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | P | P3 rare / admin / edge |
+| 74 | 9.23 | Release notes (current, retracted, older, loading, error, empty) | P | P3 rare / admin / edge |
+| 75 | 1.20 | Public server: join confirm dialog and guest join (verify) | D+P | P3 rare / admin / edge |
+| 76 | 1.26 | App login handoff (/login/app) (verify) | D+P | P3 rare / admin / edge |
+| 77 | 1.27 | Login with Raft setup (/login-with-raft/setup, scope consent) (verify) | D+P | P3 rare / admin / edge |
+| 78 | 1.28 | Integration invite (/integration-invite): install app, not found, needs admin (verify) | D+P | P3 rare / admin / edge |
+| 79 | 1.30 | Mobile download chooser (/download) (verify) | D+P | P3 rare / admin / edge |
+| 80 | 1.31 | Chinese community page (verify) | D+P | P3 rare / admin / edge |
+| 81 | 1.34 | App update gate (stale build, refresh to continue) (verify) | D+P | P3 rare / admin / edge |
+| 82 | 3.29 | External identity preview card and detail panel (verify) | D+P | P3 rare / admin / edge |
+| 83 | 1.32 | PWA install prompt (iOS Safari add-to-home steps) (verify) | P | P3 rare / admin / edge |
 
 ## 1. Auth, onboarding and public entry
 
@@ -264,9 +261,9 @@ Web: components/message (ChatPanel, MessageItem, MessageTimeline, MessageInput, 
 | 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | `components/message/MessageItem.tsx` | MISSING | MISSING |  |  | The Language & Region settings page has cases (9.05). [P3] |
 | 3.35 | Thread panel (replies, empty, loading, history limited, overflow menu) | `components/message/ThreadPanel.tsx, ThreadOverflowMenu.tsx` | ok | ok |  | D: `components.thread-ext.thread.desktop.*`<br>P: `components.thread-ext.thread.mobile.*` |  |
 | 3.36 | Inline thread replies preview | `components/message/InlineThreadReplies.tsx` | ok | ok |  | D: `components.thread-ext.inline.desktop.*`<br>P: `components.thread-ext.inline.mobile.*` |  |
-| 3.37 | Thread load failed (retry), guest read-only, joint locked | `components/message/ThreadPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.38 | In-thread search (search bar, next / previous match) | `components/message/ThreadPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.39 | Thread agent followers (list, remove, undo) | `components/thread/ThreadAgentFollowers.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.37 | Thread load failed (retry), guest read-only, joint locked | `components/message/ThreadPanel.tsx` | ok | ok |  | D: `components.conversation.threadstate.desktop.*`<br>P: `components.conversation.threadstate.mobile.*` | Also the Join-parent-channel CTA. Flutter gates a guest's channel / thread open on the viewChannel capability the role matrix denies guests, so the guest case cannot open the thread on desktop. |
+| 3.38 | In-thread search (search bar, next / previous match) | `components/message/ThreadPanel.tsx` | ok | ok |  | D: `components.conversation.threadsearch.desktop.*`<br>P: `components.conversation.threadsearch.mobile.*` | Flutter page missing: ThreadActions.onSearch is never wired (no "Search this thread" item, no search bar). |
+| 3.39 | Thread agent followers (list, remove, undo) | `components/thread/ThreadAgentFollowers.tsx` | ok | ok |  | D: `components.conversation.followers.desktop.*`<br>P: `components.conversation.followers.mobile.*` | Flutter page missing: RaftThreadHeader has a `followers` slot the app never fills. Remove / undo have no case. |
 | 3.40 | Channel overflow menu (members summary, inline edit, stop all agents confirm) | `components/channel/ChannelOverflowMenu.tsx` | excluded | excluded |  |  | [excluded: duplicate] |
 
 ## 4. Channel management dialogs

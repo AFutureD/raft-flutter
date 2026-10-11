@@ -66,4 +66,5 @@ final Map<String, ParityUncovered> parityUncovered = {
   ...homeTaskUncovered,
   ...membersSettingsUncovered,
   ...screenUncovered,
+  ...extConversationUncovered,
 };

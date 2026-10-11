@@ -225,14 +225,53 @@ route_sets.update({
     'tasks-empty': {TASKS_ROUTE: {'tasks': []}},
 })
 
+# ---- threads (3.37 states, 3.38 search, 3.39 followers) -----------------------------------------
+THREADS = {
+    'main': {'parentChannelId': 'channel-cv-open', 'parentMessageId': 'msg-cv-tp', 'threadChannelId': 'thread-cv-1'},
+    'joint': {'parentChannelId': 'channel-cv-joint-locked', 'parentMessageId': 'msg-cvj-tp', 'threadChannelId': 'thread-cvj-1'},
+    'join': {'parentChannelId': 'channel-cv-join', 'parentMessageId': 'msg-cvn-tp', 'threadChannelId': 'thread-cvn-1'},
+}
+THREAD_SET = {}
+for key, t in THREADS.items():
+    Seq.n = 0
+    parent = msg(t['parentMessageId'], t['parentChannelId'], CINDY,
+                 'Captured the Android visual artifact for the parity run and queued React parity.',
+                 '2026-06-22T02:30:00.000Z', threadId=t['threadChannelId'])
+    replies = [
+        msg(f'{t["parentMessageId"]}-r1', t['threadChannelId'], OWNER, 'Looks good. Can you also attach the elegant-dark capture?', '2026-06-22T02:35:00.000Z'),
+        msg(f'{t["parentMessageId"]}-r2', t['threadChannelId'], CINDY, 'Done: the dark baseline is attached to the task and the parity diff is under 2%.', '2026-06-22T02:41:00.000Z'),
+        msg(f'{t["parentMessageId"]}-r3', t['threadChannelId'], DESIGNER, 'One spacing question on the composer: is the 12px gap intentional?', '2026-06-22T03:02:00.000Z'),
+    ]
+    summary = {'threadChannelId': t['threadChannelId'], 'replyCount': 3, 'lastReplyAt': '2026-06-22T03:02:00.000Z',
+               'participantIds': [OWNER['id'], CINDY['id'], DESIGNER['id']], 'unreadCount': 0, 'firstUnreadMessageId': None}
+    THREAD_SET.update({
+        f'GET /messages/channel/{t["threadChannelId"]}': page(replies),
+        f'GET /messages/context/{t["parentMessageId"]}': {'messages': [parent], 'hasMore': False, 'hasNewer': False},
+        f'GET /messages/channel/{t["parentChannelId"]}': page([parent], summaries={t['parentMessageId']: summary}),
+    })
+routes.update(THREAD_SET)
+FOLLOWERS = {'GET /channels/threads/followers': {'threads': [{
+    'threadChannelId': 'thread-cv-1', 'canManage': True,
+    'agents': [{'id': CINDY['id'], 'name': 'Cindy', 'displayName': 'Cindy', 'status': 'active', 'avatarUrl': 'pixel:robot',
+                'isCurrentServer': True, 'canRemove': True},
+               {'id': 'agent-product-ux', 'name': 'product-ux', 'displayName': 'Product UX', 'status': 'active',
+                'avatarUrl': 'pixel:robot', 'isCurrentServer': True, 'canRemove': True}]}]}}
+route_sets.update({
+    # The thread open (resolution) fails: Flutter's ThreadPanel shows its load error with Retry.
+    'thread-failed': {'GET /channels/channel-cv-open/threads/msg-cv-tp': {'$status': 500, '$body': {'error': 'Internal Server Error'}}},
+    'followers': FOLLOWERS,
+    'followers-error': {'GET /channels/threads/followers': {'$status': 500, '$body': {'error': 'Internal Server Error'}}},
+    'followers-remove': {**FOLLOWERS,
+                         'DELETE /channels/threads/thread-cv-1/followers/agents/agent-product-ux': {'removed': True, 'undoToken': 'undo-1'}},
+})
+
 fixture = {
     'name': 'raft-flutter parity extension: conversation pages',
     'scope': 'Public deterministic test data; no credentials.',
     'sourceCommit': '26f77ef97c40d3d91aa2c5e42b0fd66b8bf39fe6',
     'channels': channels,
     'dms': [],
-    'thread': {'parentChannelId': 'channel-cv-open', 'parentMessageId': 'msg-thread-parent',
-               'threadChannelId': 'thread-cv-1'},
+    'threads': THREADS,
     'rows': rows,
     'routes': routes,
     'routeSets': {f'cv-{k}': v for k, v in route_sets.items()},
@@ -361,6 +400,42 @@ for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
     for state in ('list', 'empty'):
         add('tasks', platform, state, f'Channel Tasks tab ({state})', props={**chat, 'convTab': 'tasks'}, win=full,
             route_set=f'tasks-{state}', interactions=TAB('tasks'), hint='packages/web/src/components/task/TasksPanel.tsx')
+
+# ---- 3.37 thread states, 3.38 in-thread search, 3.39 thread agent followers ---------------------
+OVERFLOW = '[data-testid="thread-overflow-trigger"]'
+SEARCH_OPEN = [{'type': 'click', 'target': OVERFLOW}, {'type': 'click', 'target': '[data-testid="thread-overflow-search"]'},
+               {'type': 'wait', 'ms': 400}]
+for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
+    th = {'surface': 'thread', 'chan': 'channel-cv-open', 'threadKey': 'main'}
+    add('threadstate', platform, 'load-failed', 'Thread load failed (Retry)', props={**th, 'resolveFailed': True}, win=full, route_set='thread-failed',
+        hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('threadstate', platform, 'guest-readonly', 'Thread guest read-only footer', props={**th, 'serverRole': 'guest'},
+        win=(-140, 140), hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('threadstate', platform, 'joint-locked', 'Thread joint locked footer',
+        props={**th, 'chan': 'channel-cv-joint-locked', 'threadKey': 'joint'}, win=(-180, 180),
+        hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('threadstate', platform, 'join-parent', 'Thread join parent channel footer',
+        props={**th, 'chan': 'channel-cv-join', 'threadKey': 'join'}, win=(-140, 140),
+        hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('threadsearch', platform, 'open', 'In-thread search bar', props=th, win=(0, 260), interactions=SEARCH_OPEN,
+        hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('threadsearch', platform, 'matches', 'In-thread search with matches', props=th, win=(0, 360),
+        interactions=SEARCH_OPEN + [{'type': 'fill', 'target': '[data-testid="thread-search-input"]', 'value': 'parity'},
+                                    {'type': 'wait', 'ms': 600}],
+        hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('threadsearch', platform, 'none', 'In-thread search without matches', props=th, win=(0, 260),
+        interactions=SEARCH_OPEN + [{'type': 'fill', 'target': '[data-testid="thread-search-input"]', 'value': 'zzzz'},
+                                    {'type': 'wait', 'ms': 600}],
+        hint='packages/web/src/components/message/ThreadPanel.tsx')
+    add('followers', platform, 'header', 'Thread agent followers trigger', props=th, win=(0, 120), route_set='followers',
+        hint='packages/web/src/components/thread/ThreadAgentFollowers.tsx')
+    add('followers', platform, 'popover', 'Thread agent followers list', props=th, win=(0, 340), route_set='followers',
+        interactions=[{'type': 'click', 'target': '[data-testid="thread-followers-header-trigger"]'}, {'type': 'wait', 'ms': 500}],
+        hint='packages/web/src/components/thread/ThreadAgentFollowers.tsx')
+    add('followers', platform, 'error', 'Thread agent followers load failed', props=th, win=(0, 340),
+        route_set='followers-error',
+        interactions=[{'type': 'click', 'target': '[data-testid="thread-followers-header-trigger"]'}, {'type': 'wait', 'ms': 500}],
+        hint='packages/web/src/components/thread/ThreadAgentFollowers.tsx')
 
 manifest_out = manifest_path()
 manifest = json.loads(manifest_out.read_text())

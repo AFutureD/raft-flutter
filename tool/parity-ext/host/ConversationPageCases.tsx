@@ -14,6 +14,7 @@
 // Data: tool/parity-ext/fixtures/conversation.json (`routes` + `routeSets` are
 // answered by the provider spec for React and by the fake client for Flutter).
 import ParityExtCvThreadPanel from "../src/components/message/ThreadPanel";
+import { useThreadStore as parityExtCvThreadStore } from "../src/store/threadStore";
 import parityExtCvFixture from "virtual:parity-ext/conversation";
 import type { CSSProperties as ParityExtCvCSSProperties } from "react";
 
@@ -27,6 +28,8 @@ type ParityExtCvProps = {
   winY: number;
   winH: number;
   serverRole: string;
+  threadKey: string;
+  resolveFailed: boolean;
   row: string;
   boxWidth: number | null;
   boxHeight: number | null;
@@ -52,6 +55,8 @@ function parityExtCvProps(): ParityExtCvProps | null {
     winY: Number(params.get("winY") ?? 0),
     winH: Number(params.get("winH") ?? 120),
     serverRole: params.get("serverRole") ?? "owner",
+    threadKey: params.get("threadKey") ?? "main",
+    resolveFailed: params.get("resolveFailed") === "true",
     row: params.get("row") ?? "",
     boxWidth: num("boxWidth"),
     boxHeight: num("boxHeight"),
@@ -72,6 +77,14 @@ function parityExtCvPrimeStores(p: ParityExtCvProps) {
     loading: false,
   });
   useMessageStore.setState({ currentChannelId: p.channel || null, currentUserId: fxOwner.id });
+  if (p.resolveFailed) {
+    // ThreadPanel with no thread channel and a failed open: "Couldn't load" + Retry.
+    const t = (parityExtCvFixture.threads as Record<string, { parentChannelId: string; parentMessageId: string }>)[p.threadKey];
+    parityExtCvThreadStore.setState({
+      openThreadError: { parentChannelId: t.parentChannelId, parentMessageId: t.parentMessageId },
+      openThreadLoading: false,
+    } as never);
+  }
   if (p.serverRole !== "owner") {
     useServerStore.setState((s) => ({ current: s.current ? { ...s.current, role: p.serverRole as never } : s.current }));
   }
@@ -86,7 +99,7 @@ function ParityExtCvWindowView({ p }: { p: ParityExtCvProps }) {
   const viewportHeight = window.innerHeight;
   const width = mobile ? 390 : p.surface === "thread" ? 400 : 1280 - (brutal ? 64 : 56) - 240;
   const channel = useChannelStore((s) => [...s.channels, ...s.dmChannels].find((c) => c.id === p.channel) ?? null);
-  const t = parityExtCvFixture.thread;
+  const t = (parityExtCvFixture.threads as Record<string, { parentChannelId: string; parentMessageId: string; threadChannelId: string }>)[p.threadKey];
   const top = p.winY < 0 ? viewportHeight + p.winY : p.winY;
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
@@ -102,7 +115,7 @@ function ParityExtCvWindowView({ p }: { p: ParityExtCvProps }) {
           {p.surface === "thread" ? (
             <ParityExtCvThreadPanel
               presentation="side"
-              threadIdentity={{ parentMessageId: t.parentMessageId, parentChannelId: t.parentChannelId, threadChannelId: t.threadChannelId }}
+              threadIdentity={{ parentMessageId: t.parentMessageId, parentChannelId: t.parentChannelId, threadChannelId: p.resolveFailed ? undefined : t.threadChannelId }}
               onClose={() => undefined}
             />
           ) : (
