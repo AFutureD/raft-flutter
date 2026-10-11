@@ -247,7 +247,11 @@ class RaftRecipeInput extends StatefulWidget {
     this.maxLength,
     this.recipeText = false,
     this.obscure = false,
+    this.readOnly = false,
   });
+
+  /// `readOnly`.
+  final bool readOnly;
 
   /// `type="password"`.
   final bool obscure;
@@ -348,6 +352,7 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         focusNode: focus,
         autofocus: widget.autofocus,
         enabled: widget.enabled,
+        readOnly: widget.readOnly,
         obscureText: widget.obscure,
         enableSuggestions: !widget.obscure,
         autocorrect: !widget.obscure,

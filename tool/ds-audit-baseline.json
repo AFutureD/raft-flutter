@@ -15,7 +15,6 @@
   "style.sized_box": 55,
   "style.text_metrics": 1,
   "style.text_style": 9,
-  "widget.app_bar": 1,
   "widget.button": 36,
   "widget.chip": 4,
   "widget.dialog": 42,
@@ -23,9 +22,9 @@
   "widget.ink": 1,
   "widget.list_tile": 25,
   "widget.menu": 15,
-  "widget.other": 12,
+  "widget.other": 11,
   "widget.progress": 13,
-  "widget.scaffold": 6,
+  "widget.scaffold": 5,
   "widget.select": 3,
   "widget.snackbar": 26,
   "widget.surface": 4,
@@ -154,11 +153,6 @@
    "widget.list_tile": 3,
    "widget.progress": 1,
    "widget.text_field": 4
-  },
-  "apps/raft_flutter/lib/features/integrations_views.dart": {
-   "widget.app_bar": 1,
-   "widget.other": 1,
-   "widget.scaffold": 1
   },
   "apps/raft_flutter/lib/features/joint_channel_views.dart": {
    "style.material_theme": 1,

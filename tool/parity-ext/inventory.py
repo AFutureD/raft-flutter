@@ -385,7 +385,7 @@ SECTIONS = [
           d=['components.ext-settings.integrations.*', '!*.mobile*'], p=['components.ext-settings.integrations.mobile*']),
         R('9.15', 'Application editor (register app, redirect URLs, declared scopes, scope list)', 'components/settings/SettingsPanel.tsx ConnectedAppEditorSection, DeclaredScopesPicker', 'DP',
           d=['components.auth-pages.desktop.settings.app-editor'], p=['components.auth-pages.mobile.settings.app-editor'], prio=3,
-          note='Flutter shows a generic form dialog, not the Web rail + sections editor.'),
+          note='Flutter: RaftConnectedAppEditorCard (rail + six sections) in connected_app_editor.dart; only the register (new app) state has a case.'),
         R('9.16', 'MCP Servers tab', 'components/settings/SettingsPanel.tsx McpSettingsSection', 'DP', d=['components.ext-settings.mcp.*', '!*.mobile'], p=['components.ext-settings.mcp.mobile'], prio=3),
         R('9.17', 'AI Providers tab (connections list)', 'components/settings/ProviderConnectionsSettings.tsx', 'DP', d=['components.ext-settings.providers.*', '!*.mobile'], p=['components.ext-settings.providers.mobile'], prio=3),
         R('9.18', 'AI provider edit modal (gateway, preset, save failed)', 'components/settings/EditProviderConnectionModal.tsx', 'DP',
