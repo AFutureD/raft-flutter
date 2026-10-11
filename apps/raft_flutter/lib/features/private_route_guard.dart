@@ -7,6 +7,11 @@ import '../data/workspace_controller.dart';
 /// All application overlays belong to the account/workspace authority in which
 /// they opened. Remove them directly on revocation, including busy PopScopes.
 class PrivateRouteGuard extends NavigatorObserver {
+  /// Settings name of an overlay the app root itself owns (not a workspace):
+  /// a scope change does not remove it; the root closes it when its own
+  /// condition ends (the community agreement over the not-found page).
+  static const rootOwnedRoute = 'raft-root-owned';
+
   final List<Route<dynamic>> _routes = [];
   final Map<String, String> _scopes = {};
   @override
@@ -39,6 +44,7 @@ class PrivateRouteGuard extends NavigatorObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final route in stale) {
         if (route is AccountScopedRoute && route.valid()) continue;
+        if (route.settings.name == rootOwnedRoute) continue;
         if (_routes.contains(route) && route.isActive) {
           navigator?.removeRoute(route);
         }

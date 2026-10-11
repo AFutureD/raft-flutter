@@ -290,7 +290,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Approve agent login').last);
+      await tester.tap(find.text('Approve Login').last);
       await tester.pumpAndSettle();
       final request = a.calls.singleWhere(
         (r) => r.path == '/actions/m1/execute',
@@ -300,7 +300,8 @@ void main() {
         'expectedConfirmationVersion': 7,
       });
       expect(find.text('Committed by Alice'), findsOneWidget);
-      expect(find.text('Approve agent login'), findsOneWidget);
+      // Executed: the verb button is gone.
+      expect(find.text('Approve Login'), findsNothing);
     },
   );
   testWidgets(
@@ -316,10 +317,10 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Guests cannot confirm actions.'), findsOneWidget);
+      expect(find.text("Guests can't run channel actions."), findsOneWidget);
       expect(
-        tester.widget<RaftButton>(find.byType(RaftButton)).onPressed,
-        isNull,
+        tester.widget<RaftRecipeButton>(find.byType(RaftRecipeButton)).disabled,
+        isTrue,
       );
       await tester.pumpWidget(
         host(
@@ -330,7 +331,9 @@ void main() {
         ),
       );
       expect(
-        find.text('Switch to the target workspace to use this action.'),
+        find.text(
+          'This is a history copy. Only the source workspace can run this action.',
+        ),
         findsOneWidget,
       );
       expect(a.calls.where((r) => r.path.startsWith('/actions/')), isEmpty);
@@ -371,7 +374,7 @@ void main() {
       await tester.pumpWidget(
         host(MessageActionCard(controller: w, message: card('channel:create'))),
       );
-      await tester.tap(find.text('Create channel').last);
+      await tester.tap(find.text('Create Channel').last);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('field-name')),
