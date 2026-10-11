@@ -25,6 +25,8 @@ class _RaftCollapsibleState extends State<RaftCollapsible> {
   /// overflow is decided in that same layout, never by a later rebuild.
   double natural = 0;
   bool expanded = false;
+  String? toggleLabel;
+  Widget? toggleWidget;
   final contentKey = GlobalKey();
   bool get overflow => natural > MessageContentPrimitive.collapseHeight;
   bool get collapsed => widget.enabled && overflow && !expanded;
@@ -85,9 +87,17 @@ class _RaftCollapsibleState extends State<RaftCollapsible> {
   @override
   Widget build(BuildContext context) {
     final label = raftText(context, expanded ? 'Collapse' : 'Show more');
+    if (toggleLabel != label) {
+      toggleLabel = label;
+      toggleWidget = Padding(
+        padding: const EdgeInsets.only(top: MessageContentPrimitive.toggleGap),
+        child: RaftShowMoreToggle(label: label, onPressed: toggle),
+      );
+    }
     final fade = MessageContentSemantic(RaftTokens.of(context)).collapseFade;
     final scope = RaftMessageSemanticsScope.maybeOf(context);
     return _CollapsibleLayout(
+      enabled: widget.enabled,
       overflow: currentOverflow,
       visibleShare: visibleShare,
       semanticsFraction: scope?.visibleFraction,
@@ -122,14 +132,7 @@ class _RaftCollapsibleState extends State<RaftCollapsible> {
       ),
       // Built during layout, once the natural height is known, so a long
       // message shows its toggle in the frame it first appears.
-      toggle: (overflow) => overflow
-          ? Padding(
-              padding: const EdgeInsets.only(
-                top: MessageContentPrimitive.toggleGap,
-              ),
-              child: RaftShowMoreToggle(label: label, onPressed: toggle),
-            )
-          : null,
+      toggle: toggleWidget!,
     );
   }
 }
@@ -141,6 +144,7 @@ enum _CollapsibleSlot { content, toggle }
 /// and which paints the collapse fade over the clipped content.
 class _CollapsibleLayout extends RenderObjectWidget {
   const _CollapsibleLayout({
+    required this.enabled,
     required this.content,
     required this.toggle,
     required this.overflow,
@@ -150,7 +154,8 @@ class _CollapsibleLayout extends RenderObjectWidget {
     required this.textDirection,
   });
   final Widget content;
-  final Widget? Function(bool overflow) toggle;
+  final Widget toggle;
+  final bool enabled;
   final bool Function() overflow;
   final double? Function() visibleShare;
   final ValueNotifier<double?>? semanticsFraction;
@@ -210,9 +215,13 @@ class _CollapsibleLayoutElement extends RenderObjectElement {
 
   @override
   void update(_CollapsibleLayout newWidget) {
+    final oldWidget = widget as _CollapsibleLayout;
     super.update(newWidget);
     content = updateChild(content, newWidget.content, _CollapsibleSlot.content);
-    renderObject.markToggleNeedsBuild();
+    if (!identical(oldWidget.toggle, newWidget.toggle) ||
+        oldWidget.enabled != newWidget.enabled) {
+      renderObject.markToggleNeedsBuild();
+    }
   }
 
   @override
@@ -225,7 +234,7 @@ class _CollapsibleLayoutElement extends RenderObjectElement {
     owner!.buildScope(this, () {
       toggle = updateChild(
         toggle,
-        (widget as _CollapsibleLayout).toggle(overflow),
+        overflow ? (widget as _CollapsibleLayout).toggle : null,
         _CollapsibleSlot.toggle,
       );
     });

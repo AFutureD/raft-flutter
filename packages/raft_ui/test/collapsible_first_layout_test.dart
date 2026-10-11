@@ -13,6 +13,83 @@ Widget _host(Widget child) => MaterialApp(
 );
 
 void main() {
+  testWidgets('unchanged parent updates do not relayout collapsed content', (
+    tester,
+  ) async {
+    late StateSetter update;
+    var layouts = 0;
+    final collapseKey = GlobalKey();
+    await tester.pumpWidget(
+      _host(
+        _LayoutProbe(
+          onLayout: () => layouts++,
+          child: StatefulBuilder(
+            builder: (_, setState) {
+              update = setState;
+              return RaftCollapsible(
+                key: collapseKey,
+                child: const SizedBox(
+                  height: 700,
+                  width: 300,
+                  child: Text('Content'),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final before = layouts;
+    for (var i = 0; i < 20; i++) {
+      update(() {});
+      await tester.pump();
+    }
+    expect(layouts, before);
+    expect(find.text('Show more'), findsOneWidget);
+    await tester.tap(find.text('Show more'));
+    await tester.pumpAndSettle();
+    expect(layouts, greaterThan(before));
+    expect(find.text('Collapse'), findsOneWidget);
+  });
+
+  testWidgets('a retained toggle accepts locale and theme updates', (
+    tester,
+  ) async {
+    Widget frame(Locale locale, bool dark) => MaterialApp(
+      theme: raftTheme(RaftFamily.elegant, dark: dark),
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => Localizations.override(
+            context: context,
+            locale: locale,
+            child: const SingleChildScrollView(
+              child: RaftCollapsible(
+                child: SizedBox(
+                  height: 700,
+                  width: 300,
+                  child: Text('Content'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(frame(const Locale('en'), false));
+    await tester.pumpAndSettle();
+    expect(find.text('Show more'), findsOneWidget);
+    await tester.pumpWidget(frame(const Locale('zh'), true));
+    await tester.pumpAndSettle();
+    expect(find.text('Show more'), findsNothing);
+    expect(find.text('展开全文'), findsOneWidget);
+    await tester.tap(find.text('展开全文'));
+    await tester.pumpAndSettle();
+    expect(find.text('Collapse'), findsNothing);
+    expect(tester.getSize(find.byType(ClipRect).last).height, 700);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'first layout caps the viewport but measures true natural height',
     (tester) async {
@@ -218,4 +295,22 @@ void main() {
     expect(tester.getSize(find.byType(RaftContentMeasure)).height, 320);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _LayoutProbe extends SingleChildRenderObjectWidget {
+  const _LayoutProbe({required this.onLayout, required super.child});
+  final VoidCallback onLayout;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderLayoutProbe(onLayout);
+}
+
+class _RenderLayoutProbe extends RenderProxyBox {
+  _RenderLayoutProbe(this.onLayout);
+  final VoidCallback onLayout;
+  @override
+  void performLayout() {
+    onLayout();
+    super.performLayout();
+  }
 }
