@@ -102,6 +102,12 @@ Future<void> _openPhoneChannel(WidgetTester t, String theme, _Kind kind) async {
   await t.tap(find.byKey(ValueKey('sidebar-channel-${kind.id}')));
   await f.flush(t);
   await _settle(t);
+  // The probe must run on the conversation under test, not the sidebar.
+  expect(
+    find.text(kind == _Kind.channel ? 'Message #general-a' : 'Message @Peer'),
+    findsOneWidget,
+    reason: 'composer of ${kind.name} is not on screen',
+  );
 }
 
 /// Hit-testable bounds (dp) of [action], found by probing a grid around it.
