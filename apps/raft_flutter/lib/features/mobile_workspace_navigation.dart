@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/mobile_tabbar_preferences.dart';
+import '../data/source_activity_unread_store.dart';
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_navigation.dart';
@@ -54,18 +55,31 @@ class WorkspaceMobileTabBar extends StatelessWidget {
     required this.onSelected,
     this.bottomInset = 0,
     this.tabs,
+    this.activityUnread,
   });
   final WorkspaceController controller;
 
   /// The configurable tabs to show, in order (Settings is appended). Null is
   /// the default bar; callers pass the account-filtered device choice.
   final List<String>? tabs;
+
+  /// The shared Activity unread total (the one the desktop rail's Activity
+  /// attention reads); its count badges the Activity tab. The workspace owns
+  /// the acquisition, so the bar starts no requests of its own.
+  final SourceActivityUnreadStore? activityUnread;
   final String selectedId;
   final ValueChanged<String> onSelected;
   final double bottomInset;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => activityUnread == null
+      ? bar(context)
+      : ListenableBuilder(
+          listenable: activityUnread!,
+          builder: (context, _) => bar(context),
+        );
+
+  Widget bar(BuildContext context) {
     String tr(String s) => raftText(context, s);
     final w = controller;
     final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -99,6 +113,7 @@ class WorkspaceMobileTabBar extends StatelessWidget {
         id: id,
         label: tr('Activity'),
         glyph: RaftGlyph.activity,
+        badgeCount: activityUnread?.totalUnreadCount ?? 0,
         key: const Key('mobile-tab-activity'),
       ),
       _ => RaftMobileNavItem(

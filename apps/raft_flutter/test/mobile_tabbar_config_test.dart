@@ -409,6 +409,46 @@ void main() {
       },
     );
 
+    testWidgets(
+      '$theme a computer opens from the Computers root as a platform route',
+      (t) async {
+        final f = RootFixture();
+        f.overrides['GET /servers/a/machines'] = (_) => {
+          'machines': [
+            {
+              'id': 'computer-a',
+              'name': 'Build Computer',
+              'isComputer': true,
+              'status': 'online',
+              'userId': 'alice',
+            },
+          ],
+        };
+        await f.mount(
+          t,
+          theme,
+          390,
+          uri: Uri.parse('/s/alpha'),
+          preferences: {MobileTabbarStore.preferenceKey: fullBar},
+        );
+        final w = f.workspace(t);
+        await tapTab(f, t, 'computers');
+        await settleRoute(t);
+        await t.tap(find.byKey(const ValueKey('fleet-computer-a')));
+        await f.flush(t);
+        await settleRoute(t);
+        expect(w.location.route, RaftRoute.computer);
+        expect(find.byKey(tabBar), findsNothing);
+        expect(await t.binding.handlePopRoute(), isTrue);
+        await f.flush(t);
+        await settleRoute(t);
+        expect(w.location.route, RaftRoute.computers);
+        expect(selected(t), 'computers');
+        expect(find.byKey(tabBar), findsOneWidget);
+        await f.close(t);
+      },
+    );
+
     testWidgets('$theme Settings drops its Computers row while it is a tab', (
       t,
     ) async {

@@ -2644,6 +2644,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       controller: w,
       selectedId: w.navigation.mobileRootTabOf(w.location) ?? 'chat',
       tabs: mobileTabIds,
+      activityUnread: activityUnread,
       // Android's tab bar consumes this inset; other hosts retain shell padding.
       bottomInset: 0,
       onSelected: (tab) => selectMobileTab(tab, scope),
@@ -3174,7 +3175,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                                 onTap: () => select('search'),
                               ),
                             ),
-                          if (mobileHome)
+                          // Activity is a bottom-bar tab: no second entry here.
+                          if (mobileHome &&
+                              !mobileTabIds.contains(MobileTabs.activity))
                             SliverToBoxAdapter(
                               child: RaftNavItem(
                                 key: const Key('nav-activity'),
