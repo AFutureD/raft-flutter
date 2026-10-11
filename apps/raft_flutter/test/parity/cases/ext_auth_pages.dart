@@ -14,7 +14,10 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/account_onboarding.dart';
 import 'package:raft_flutter/features/auth_view.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/community_join.dart'
+    show communityAgreementError;
 import 'package:raft_flutter/features/global_server_selector.dart';
 import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -139,6 +142,45 @@ class _SetupGateHostState extends State<_SetupGateHost> {
   );
 }
 
+/// CommunityAgreementDialog over a blank page: `props.kind` 'error' fails the join with
+/// agreement_changed, 'pending' never answers (the interaction presses "Agree & Continue").
+Widget _communityAgreement(ParityContext ctx) {
+  final agreement = _fx(ctx)['agreement'] as Map<String, dynamic>;
+  final kind = ctx.props['kind'];
+  return Stack(
+    children: [
+      const Positioned.fill(child: ColoredBox(color: Colors.white)),
+      Positioned.fill(
+        child: RaftCommunityAgreementDialog(
+          title: agreement['title'] as String,
+          version: agreement['version'] as int,
+          bodyMarkdown: agreement['bodyMarkdown'] as String,
+          errorMessage: communityAgreementError,
+          onClose: () {},
+          onAgree: () async {
+            if (kind == 'pending') await Completer<void>().future;
+            if (kind == 'error') {
+              throw const RaftApiException('agreement_changed');
+            }
+          },
+        ),
+      ),
+    ],
+  );
+}
+
+Future<void> _agree(WidgetTester t, ParityContext ctx) async {
+  for (var i = 0; i < 4; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+  }
+  if (ctx.props['kind'] == 'error' || ctx.props['kind'] == 'pending') {
+    await t.tap(find.text('Agree & Continue'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+  }
+}
+
 Widget _serversLoading(ParityContext ctx) {
   final fx = _fx(ctx);
   return GlobalServerSelector(
@@ -194,13 +236,17 @@ Widget _serverSelector(ParityContext ctx) {
   );
 }
 
-ParityCase _case(Widget Function(ParityContext) build, {String? note}) =>
-    ParityCase(
-      widgets: const ['raft_flutter:AuthView', 'raft_ui:RaftAuthPage'],
-      notes: 'Extension suite (not official).${note == null ? '' : ' $note'}',
-      settle: const Duration(milliseconds: 300),
-      build: build,
-    );
+ParityCase _case(
+  Widget Function(ParityContext) build, {
+  String? note,
+  ParityInteraction? interact,
+}) => ParityCase(
+  interact: interact,
+  widgets: const ['raft_flutter:AuthView', 'raft_ui:RaftAuthPage'],
+  notes: 'Extension suite (not official).${note == null ? '' : ' $note'}',
+  settle: const Duration(milliseconds: 300),
+  build: build,
+);
 
 /// surface name -> builder; the platform lists are in [_platforms].
 final Map<String, ParityCase> _surfaces = {
@@ -250,6 +296,10 @@ final Map<String, ParityCase> _surfaces = {
   'bootstrap.loading': _case((_) => _splash('Loading…')),
   'servers.loading': _case(_serversLoading),
   'root-error.default': _case(_rootError),
+  'servers.joining-community': _case((_) => _splash('Joining community…')),
+  'community-agreement.default': _case(_communityAgreement, interact: _agree),
+  'community-agreement.error': _case(_communityAgreement, interact: _agree),
+  'community-agreement.joining': _case(_communityAgreement, interact: _agree),
   'setup-gate.resume-bar': _case(_setupGate),
   'server-denied.with-server': _case(_serverDenied),
   'server-denied.no-server': _case(_serverDenied),
@@ -286,8 +336,6 @@ final Map<String, ParityCase> extAuthPagesCases = {
 
 /// Web pages the Flutter app has no widget for: surface name -> why.
 const _missing = <String, String>{
-  'servers.joining-community':
-      'Flutter page missing: the app has no community-by-slug join route, so no "Joining community…" splash.',
   'invite.signed-out':
       'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
   'invite.signed-in':
@@ -308,12 +356,6 @@ const _missing = <String, String>{
       'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
   'invite.accept-error':
       'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'community-agreement.default':
-      'Flutter page missing: the app has no community-agreement dialog (the invite flow shows the agreement as text in a form dialog).',
-  'community-agreement.error':
-      'Flutter page missing: the app has no community-agreement dialog (the invite flow shows the agreement as text in a form dialog).',
-  'community-agreement.joining':
-      'Flutter page missing: the app has no community-agreement dialog (the invite flow shows the agreement as text in a form dialog).',
   'setup-gate.loading':
       'Flutter page missing: the dedicated native setup surface is a Web page for native WebView hosts; the app renders setup natively with no loading page.',
   'setup-gate.unavailable':

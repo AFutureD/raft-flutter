@@ -927,6 +927,17 @@ Widget setupResumeBarOpeningPreview() => Align(
   child: RaftSetupResumeBar(onResume: () {}, loading: true),
 );
 
+@RaftPreviews('Community agreement', size: Size(560, 640))
+Widget communityAgreementPreview() => RaftCommunityAgreementDialog(
+  title: 'Community agreement',
+  version: 3,
+  bodyMarkdown:
+      'Welcome to the Raft community.\n\n1. Be kind and assume good intent.\n2. No spam.\n\nModerators may remove content that breaks these rules.',
+  onClose: () {},
+  onAgree: () async {},
+  errorMessage: (_, _) => 'Failed to join community server',
+);
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;

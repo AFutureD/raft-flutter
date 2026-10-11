@@ -51,6 +51,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
     'archivedChannelName',
     'archivedChannelType',
     'canUnarchiveArchivedChannel',
+    // agreement_required / agreement_changed: the agreement the caller must
+    // accept before joining (a community server or an invite).
+    'agreement',
   };
   dynamic freeze(dynamic value) {
     if (value is Map) {
@@ -78,6 +81,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
         'transferIntentIds',
         'reservationIds',
       });
+    if (key == 'agreement') {
+      return receipt(value, {'id', 'title', 'bodyMarkdown', 'version'});
+    }
     if (key == 'conversionCommand')
       return receipt(value, {
         'id',

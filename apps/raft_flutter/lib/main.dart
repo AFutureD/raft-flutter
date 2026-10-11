@@ -21,6 +21,7 @@ import 'features/incoming_share_picker.dart';
 import 'features/incoming_share_review.dart';
 import 'data/raft_navigation_history.dart';
 import 'features/app_root_router.dart';
+import 'features/community_join.dart';
 import 'features/global_server_selector.dart';
 import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
@@ -122,6 +123,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   String? deniedSlug;
   RaftRecord? deniedFallback;
   Timer? deniedTimer;
+
+  /// `/s/community` for an account that has not joined it: the app joins on
+  /// arrival ("Joining community…"); an agreement to accept opens the dialog
+  /// over the not-found page (App.tsx ServerResolver + useJoinCommunityFlow).
+  String? joiningCommunitySlug, communityAttempt;
+  bool communityDialogOpen = false;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
   Object? workspaceRootInputs;
@@ -643,6 +650,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               ? null
               : Uri.tryParse(remembered),
         );
+      } else if (explicit && isAutoJoinCommunitySlug(slug)) {
+        showServerSelector = true;
+        await joinCommunityFromRoute(slug!, current);
       } else if (explicit && servers.isNotEmpty && slug != null) {
         showServerSelector = true;
         await showAccessDenied(slug, current);
@@ -668,7 +678,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final live = serverSurfaces[server.id];
     if (live != null) return live;
     final prefs = await SharedPreferences.getInstance();
-    final stored = Uri.tryParse(prefs.getString('$serverMemoryKey.${server.id}') ?? '');
+    final stored = Uri.tryParse(
+      prefs.getString('$serverMemoryKey.${server.id}') ?? '',
+    );
     return stored != null &&
             !stored.hasScheme &&
             stored.pathSegments.length >= 2 &&
@@ -681,10 +693,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   /// ServerAccessDeniedPage: names the server the redirect goes to (the
   /// current one, else the last used, else the first) and goes there after
   /// 3 seconds, or when the button is pressed.
-  Future<void> showAccessDenied(
-    String slug, [
-    bool Function()? current,
-  ]) async {
+  Future<void> showAccessDenied(String slug, [bool Function()? current]) async {
     final w = workspace;
     if (w == null || w.servers.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
@@ -704,10 +713,77 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   void clearAccessDenied() {
+    // The agreement dialog belongs to the not-found page: leaving it closes it.
+    if (communityDialogOpen) {
+      communityDialogOpen = false;
+      appRouter.navigatorKey.currentState?.pop();
+    }
     deniedTimer?.cancel();
     deniedTimer = null;
     deniedSlug = null;
     deniedFallback = null;
+  }
+
+  /// Joins the community the URL names, then opens it.
+  Future<void> joinCommunityFromRoute(
+    String slug, [
+    bool Function()? current,
+  ]) async {
+    final w = workspace, c = client;
+    if (w == null || c?.user == null || communityAttempt == slug) return;
+    communityAttempt = slug;
+    final principal = c!.user!.id;
+    bool live() =>
+        mounted &&
+        identical(client, c) &&
+        identical(workspace, w) &&
+        c.user?.id == principal &&
+        (current?.call() ?? true);
+    setState(() => joiningCommunitySlug = slug);
+    try {
+      final joined = await joinCommunity(
+        () => appRouter.navigatorKey.currentState!.overlay!.context,
+        c,
+        slug,
+        beforeDialog: () {
+          if (!live()) return;
+          communityDialogOpen = true;
+          setState(() => joiningCommunitySlug = null);
+          unawaited(showAccessDenied(slug, live));
+        },
+      );
+      communityDialogOpen = false;
+      if (!live()) return;
+      if (!joined) {
+        setState(() => joiningCommunitySlug = null);
+        return;
+      }
+      if (!await w.loadServerDirectory() || !live()) return;
+      final server = w.servers
+          .where((s) => s.string('slug') == slug)
+          .firstOrNull;
+      if (server == null) {
+        if (!mounted) return;
+        throw RaftApiException(
+          raftText(
+            context,
+            "Joined community server but it's missing from the list",
+          ),
+        );
+      }
+      joiningCommunitySlug = null;
+      await chooseServer(server, location: Uri(path: '/s/$slug'));
+    } catch (e) {
+      communityDialogOpen = false;
+      debugPrint('[Community] Failed to join $slug from the route: $e');
+      if (!live()) return;
+      // Web re-arms the attempt on an error; the not-found page or the
+      // server list shows meanwhile.
+      communityAttempt = null;
+      selectorError = '$e';
+      setState(() => joiningCommunitySlug = null);
+      if (w.servers.isNotEmpty) await showAccessDenied(slug, live);
+    }
   }
 
   Future<void> leaveAccessDenied() async {
@@ -847,7 +923,17 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? w.servers.where((s) => s.string('slug') == segments[1]).firstOrNull
         : null;
     if (target == null) {
-      if (segments.length >= 2 && segments.first == 's' && w.servers.isNotEmpty) {
+      if (segments.length >= 2 &&
+          segments.first == 's' &&
+          isAutoJoinCommunitySlug(segments[1])) {
+        openServerSelector();
+        requestedLocation = location;
+        await joinCommunityFromRoute(segments[1]);
+        return;
+      }
+      if (segments.length >= 2 &&
+          segments.first == 's' &&
+          w.servers.isNotEmpty) {
         openServerSelector();
         requestedLocation = location;
         await showAccessDenied(segments[1]);
@@ -1110,6 +1196,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
     if (workspace == null) {
       return const RaftServerResolutionBody(label: 'Loading…');
+    }
+    if (joiningCommunitySlug != null) {
+      return const RaftServerResolutionBody(
+        key: ValueKey('joining-community'),
+        label: 'Joining community…',
+      );
     }
     if (showServerSelector &&
         deniedSlug != null &&
