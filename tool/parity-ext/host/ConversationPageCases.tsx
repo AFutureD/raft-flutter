@@ -48,7 +48,7 @@ function parityExtCvProps(): ParityExtCvProps | null {
     view: params.get("view") === "row" ? "row" : "window",
     platform: params.get("platform") === "mobile" ? "mobile" : "desktop",
     surface: params.get("surface") === "thread" ? "thread" : "chat",
-    channel: params.get("channel") ?? "",
+    channel: params.get("chan") ?? "",
     winY: Number(params.get("winY") ?? 0),
     winH: Number(params.get("winH") ?? 120),
     serverRole: params.get("serverRole") ?? "owner",

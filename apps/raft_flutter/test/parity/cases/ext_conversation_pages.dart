@@ -82,6 +82,23 @@ class _ConvClient extends ParityFakeClient {
   }) {
     final special = _special(method, path);
     if (special != null) return special as Future<dynamic>;
+    // The server honours `?status=` on the channel task list (one board lane
+    // per call) and answers `next_cursor: null` for a short window.
+    final status = query?['status'];
+    final tasks = routes['GET $path'];
+    if (method == 'GET' &&
+        path.startsWith('/tasks/channel/') &&
+        status is String &&
+        tasks is Map &&
+        tasks['tasks'] is List) {
+      return Future<dynamic>.value({
+        'tasks': [
+          for (final row in tasks['tasks'] as List)
+            if ((row as Map)['status'] == status) row,
+        ],
+        'next_cursor': null,
+      });
+    }
     return super.request(
       method,
       path,
@@ -175,7 +192,7 @@ class _HostState extends State<_Host> {
   Future<void> _open() async {
     final ctx = widget.ctx;
     final fx = _fx(ctx);
-    final id = ctx.props['channel'] as String? ?? '';
+    final id = ctx.props['chan'] as String? ?? '';
     if (id.isEmpty) return;
     final channel = [...w.channels, ...w.dms].firstWhere((c) => c.id == id);
     final msg = ctx.props['msg'] as String?;
@@ -230,6 +247,35 @@ Widget _buildWindow(ParityContext ctx) {
     ),
   );
 }
+
+/// Window case that first opens a conversation tab (`props.tab`: files / tasks).
+final ParityCase _tabCase = ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:ConversationPanel',
+    'raft_ui:RaftConversationTabs',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView, channel tab, clipped window.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+  interact: (t, ctx) async {
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    final tab = ctx.props['convTab'] == 'files' ? 'Files' : 'Tasks';
+    await t.tap(
+      find
+          .descendant(
+            of: find.byKey(const Key('conversation-tabs')),
+            matching: find.text(tab),
+          )
+          .first,
+    );
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+  },
+);
 
 final ParityCase _windowCase = ParityCase(
   widgets: const [
@@ -455,9 +501,65 @@ final Map<String, ParityCase> extConversationCases = () {
   }
 
   add('empty', 'desktop', 'no-channel', _windowCase);
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const ['list', 'more', 'empty', 'loading', 'error']) {
+      add('files', platform, state, _tabCase);
+    }
+    for (final state in const ['list', 'empty']) {
+      add('tasks', platform, state, _tabCase);
+    }
+  }
   for (final state in const ['agent', 'agent-activity', 'human']) {
     add('profile', 'desktop', state, _profileCase);
   }
+  for (final state in const ['default', 'task']) {
+    add(
+      'menu',
+      'desktop',
+      state,
+      _rowCase(
+        widgets: const ['raft_ui:RaftMessageContextMenu'],
+        act: (t, ctx, stage) async {
+          // A device runs resumed: the body's SelectableRegion clears its
+          // collapsed right-click selection when the opened menu takes focus.
+          t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+          final row = find.byType(RaftMessageRow).first;
+          final box = find
+              .descendant(of: row, matching: find.byType(Container))
+              .first;
+          await t.tapAt(
+            t.getCenter(box),
+            kind: PointerDeviceKind.mouse,
+            buttons: kSecondaryMouseButton,
+          );
+          await _pumpFrames(t, 12);
+        },
+      ),
+    );
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const ['single', 'multi']) {
+      add(
+        'reactions',
+        platform,
+        state,
+        _rowCase(widgets: const ['raft_ui:RaftMountedReaction']),
+      );
+    }
+  }
+  add(
+    'reactions',
+    'desktop',
+    'tooltip',
+    _rowCase(
+      widgets: const ['raft_ui:RaftMountedReaction'],
+      act: (t, ctx, stage) async {
+        final mouse = await _mouse(t);
+        await mouse.moveTo(t.getCenter(find.byType(RaftMountedReaction).first));
+        await _pumpFrames(t, 14);
+      },
+    ),
+  );
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'install-app',

@@ -135,6 +135,37 @@ rows['action-executed'] = action_row(
     {'type': 'agent:create', 'name': 'release-bot', 'description': 'Watches the release gates and posts diff links.'},
     state='executed', executedAt='2026-06-22T02:40:00.000Z', executedByUserId='visual-user',
     executedByUserName='artin', result={'kind': 'agent', 'id': 'agent-release-bot', 'name': 'release-bot'})
+
+# message context menu rows (same message / thread / task as the official menu cases)
+MENU_THREAD = {'threadChannelId': 'thread-cv-menu', 'replyCount': 3, 'participantIds': [CINDY['id'], OWNER['id']],
+               'unreadCount': 0, 'firstUnreadMessageId': None, 'lastReplyAt': '2026-06-22T02:35:00.000Z'}
+rows['menu-default'] = {'message': row_msg('msg-cv-menu-default', CINDY, 'Captured the visual baselines and queued React parity.',
+                                           threadId='thread-cv-menu', reactions=[{'emoji': '\U0001F44D', 'count': 2, 'reactorIds': [OWNER['id']], 'reactorNames': [OWNER['name']]}]),
+                        'threadSummary': MENU_THREAD}
+rows['menu-task'] = {'message': rows['menu-default']['message'] | {'id': 'msg-cv-menu-task'},
+                     'threadSummary': MENU_THREAD,
+                     'linkedTask': {'id': 'task-cv-246', 'messageId': 'msg-cv-menu-task', 'channelId': 'channel-design',
+                                    'channelName': 'design', 'channelType': 'channel', 'taskNumber': 246,
+                                    'title': 'Message context menu visual coverage', 'status': 'in_progress',
+                                    'claimedByType': 'agent', 'claimedById': CINDY['id'], 'claimedByName': CINDY['displayName'],
+                                    'claimedAt': '2026-06-22T02:31:00.000Z', 'completedAt': None, 'createdById': OWNER['id'],
+                                    'createdByType': 'user', 'createdByName': OWNER['name'],
+                                    'createdAt': '2026-06-22T02:30:00.000Z', 'updatedAt': '2026-06-22T02:31:00.000Z'}}
+
+# reaction chip rows
+rows['reactions-single'] = {'message': row_msg('msg-cv-react-single', CINDY, 'Captured the visual baselines and queued React parity.',
+                                               reactions=[{'emoji': '\U0001F44D', 'count': 2, 'reactorIds': [OWNER['id'], DESIGNER['id']],
+                                                           'reactorNames': [OWNER['name'], DESIGNER['displayName']]}])}
+rows['reactions-multi'] = {'message': row_msg('msg-cv-react-multi', CINDY, 'Captured the visual baselines and queued React parity.',
+                                              reactions=[
+                                                  {'emoji': '\U0001F44D', 'count': 2, 'reactorIds': [OWNER['id'], DESIGNER['id']],
+                                                   'reactorNames': [OWNER['name'], DESIGNER['displayName']]},
+                                                  {'emoji': '\U0001F389', 'count': 1, 'reactorIds': [DESIGNER['id']],
+                                                   'reactorNames': [DESIGNER['displayName']]},
+                                                  {'emoji': '\u2764\ufe0f', 'count': 12, 'reactorIds': [DESIGNER['id']],
+                                                   'reactorNames': [DESIGNER['displayName']]},
+                                                  {'emoji': '\U0001F680', 'count': 3, 'reactorIds': [CINDY['id']],
+                                                   'reactorNames': [CINDY['displayName']]}])}
 ACTIVITY_LOG = [
     {'timestamp': 1782095100000, 'entry': {'kind': 'thinking', 'text': 'Planning the Android capture run'}},
     {'timestamp': 1782095160000, 'entry': {'kind': 'tool_start', 'toolName': 'Bash'}},
@@ -148,6 +179,51 @@ route_sets = {
     # ?msg=<missing id>: the message context 404s -> "message not found" banner.
     'msg-missing': {'GET /messages/context/msg-missing': {'$status': 404, '$body': {'error': 'Message not found'}}},
 }
+
+# ---- channel Files / Tasks tabs ---------------------------------------------------------------
+def file_entry(i, name, mime, size, at, uploader=OWNER):
+    return {'id': f'file-cv-{i}', 'messageId': f'msg-cv-file-{i}', 'channelId': 'channel-cv-open', 'filename': name,
+            'mimeType': mime, 'sizeBytes': size, 'width': None, 'height': None, 'thumbnailUrl': None, 'createdAt': at,
+            'uploader': {'type': uploader['type'], 'id': uploader['id'], 'name': uploader['name'],
+                         'displayName': uploader['displayName']},
+            'source': {'type': 'channel', 'channelId': 'channel-cv-open', 'parentMessageId': None,
+                       'parentMessageShortId': None}}
+
+
+FILES = [
+    file_entry(1, 'visual-parity-notes.pdf', 'application/pdf', 188416, '2026-06-22T02:30:00.000Z'),
+    file_entry(2, 'release-checklist.md', 'text/markdown', 4096, '2026-06-21T09:10:00.000Z', CINDY),
+    file_entry(3, 'android-baselines.zip', 'application/zip', 52428800, '2026-06-20T15:45:00.000Z', DESIGNER),
+    file_entry(4, 'capture-log.txt', 'text/plain', 1536, '2026-06-19T11:00:00.000Z', CINDY),
+]
+FILES_ROUTE = 'GET /channels/channel-cv-open/files'
+TASKS_ROUTE = 'GET /tasks/channel/channel-cv-open'
+
+
+def task_row(i, number, title, status, claimed=True, at='2026-06-22T02:30:00.000Z'):
+    return {'id': f'task-cv-{i}', 'messageId': f'msg-cv-task-{i}', 'channelId': 'channel-cv-open', 'channelName': 'design',
+            'channelType': 'channel', 'taskNumber': number, 'title': title, 'status': status,
+            'claimedByType': 'agent' if claimed else None, 'claimedById': CINDY['id'] if claimed else None,
+            'claimedByName': CINDY['displayName'] if claimed else None, 'claimedAt': at if claimed else None,
+            'completedAt': at if status == 'done' else None, 'createdById': OWNER['id'], 'createdByType': 'user',
+            'createdByName': OWNER['name'], 'createdAt': at, 'updatedAt': at}
+
+
+TASKS = [
+    task_row(1, 41, 'Compare the elegant-dark borders', 'in_progress'),
+    task_row(2, 42, 'Review the composer attachment cases', 'todo', claimed=False),
+    task_row(3, 43, 'Publish the parity report', 'in_review'),
+    task_row(4, 40, 'Capture the Android baselines', 'done'),
+]
+route_sets.update({
+    'files-list': {FILES_ROUTE: {'files': FILES, 'nextCursor': None}},
+    'files-more': {FILES_ROUTE: {'files': FILES, 'nextCursor': 'cursor-2'}},
+    'files-empty': {FILES_ROUTE: {'files': [], 'nextCursor': None}},
+    'files-loading': {FILES_ROUTE: {'$pending': True}},
+    'files-error': {FILES_ROUTE: {'$status': 500, '$body': {'error': 'Internal Server Error'}}},
+    'tasks-list': {TASKS_ROUTE: {'tasks': TASKS}},
+    'tasks-empty': {TASKS_ROUTE: {'tasks': []}},
+})
 
 fixture = {
     'name': 'raft-flutter parity extension: conversation pages',
@@ -202,29 +278,29 @@ def add(scene, platform, state, title, *, props=None, win=(0, 120), interactions
 
 
 # ---- 3.03 no conversation selected (desktop main column) ---------------------
-add('empty', 'desktop', 'no-channel', 'No conversation selected', props={'surface': 'chat', 'channel': ''},
+add('empty', 'desktop', 'no-channel', 'No conversation selected', props={'surface': 'chat', 'chan': ''},
     win=(0, 800), notes='ChatPanel channel=null: the centred "Select a channel" line.')
 
 # ---- 3.06 channel state banners ----------------------------------------------
 for platform in ('desktop', 'mobile'):
     footer = (-140, 140)
     chat = {'surface': 'chat'}
-    add('banner', platform, 'archived', 'Archived channel footer', props={**chat, 'channel': 'channel-cv-archived'},
+    add('banner', platform, 'archived', 'Archived channel footer', props={**chat, 'chan': 'channel-cv-archived'},
         win=footer)
     add('banner', platform, 'archived-header', 'Archived channel header badge',
-        props={**chat, 'channel': 'channel-cv-archived'}, win=(0, 120))
+        props={**chat, 'chan': 'channel-cv-archived'}, win=(0, 120))
     add('banner', platform, 'guest-readonly', 'Guest read-only footer',
-        props={**chat, 'channel': 'channel-cv-guest', 'serverRole': 'guest'}, win=footer)
+        props={**chat, 'chan': 'channel-cv-guest', 'serverRole': 'guest'}, win=footer)
     add('banner', platform, 'guest-join', 'Guest join footer',
-        props={**chat, 'channel': 'channel-cv-guest-join', 'serverRole': 'guest'}, win=footer)
-    add('banner', platform, 'join', 'Join channel footer', props={**chat, 'channel': 'channel-cv-join'},
+        props={**chat, 'chan': 'channel-cv-guest-join', 'serverRole': 'guest'}, win=footer)
+    add('banner', platform, 'join', 'Join channel footer', props={**chat, 'chan': 'channel-cv-join'},
         win=footer)
     add('banner', platform, 'joint-locked', 'Joint channel locked footer',
-        props={**chat, 'channel': 'channel-cv-joint-locked'}, win=footer)
+        props={**chat, 'chan': 'channel-cv-joint-locked'}, win=footer)
     add('banner', platform, 'joint-grace', 'Joint channel over-limit grace banner above the composer',
-        props={**chat, 'channel': 'channel-cv-joint-grace'}, win=(-240, 240))
+        props={**chat, 'chan': 'channel-cv-joint-grace'}, win=(-240, 240))
     add('banner', platform, 'message-not-found', 'Message not found banner',
-        props={**chat, 'channel': 'channel-cv-open', 'msg': 'msg-missing'}, win=(0, 240),
+        props={**chat, 'chan': 'channel-cv-open', 'msg': 'msg-missing'}, win=(0, 240),
         route_set='msg-missing')
 
 # ---- 3.27 profile preview card / 3.28 mention hover activity preview (desktop: hover only) --------
@@ -252,6 +328,39 @@ for state, row in (('install-app', 'action-install-app'), ('create-agent', 'acti
         props={'row': row, 'boxWidth': 560, 'padX': 16, 'padTop': 8}, hint='packages/web/src/components/actions/ActionCard.tsx')
     add('action', 'mobile', state, f'Action card ({state})', view='row',
         props={'row': row, 'boxWidth': 390, 'padX': 24, 'padTop': 8}, hint='packages/web/src/components/actions/ActionCard.tsx')
+
+# ---- 3.11 message context menu (desktop right-click; the phone long-press is official) ---------
+MENU = '[role="menu"][aria-label="Message context menu"]'
+for state, row in (('default', 'menu-default'), ('task', 'menu-task')):
+    rid = rows[row]['message']['id']
+    add('menu', 'desktop', state, f'Message context menu ({state})', view='row',
+        props={'row': row, 'boxWidth': 560, 'boxHeight': 520, 'padX': 16, 'padTop': 32}, selector=MENU,
+        android_key='raft-message-context-menu', hint='packages/web/src/components/message/MessageItem.tsx',
+        interactions=[{'type': 'rightclick', 'target': f'#message-{rid}'}, {'type': 'wait', 'ms': 300}])
+
+# ---- 3.12 reaction chips row and the reactors tooltip ------------------------------------
+CHIP = 'span.inline-flex > button.inline-flex.h-5'
+for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
+    add('reactions', platform, 'single', 'Reaction chips (one)', view='row',
+        props={'row': 'reactions-single', 'boxWidth': box, 'padX': padx, 'padTop': 8})
+    add('reactions', platform, 'multi', 'Reaction chips (several)', view='row',
+        props={'row': 'reactions-multi', 'boxWidth': box, 'padX': padx, 'padTop': 8})
+add('reactions', 'desktop', 'tooltip', 'Reactors tooltip on a chip', view='row',
+    props={'row': 'reactions-single', 'boxWidth': 560, 'boxHeight': 140, 'padX': 16, 'padTop': 8},
+    selector='[data-message-affordance="reaction-reactors-popover"]', android_key='reaction-reactors-popover',
+    interactions=[{'type': 'hover', 'target': f'#message-{rows["reactions-single"]["message"]["id"]} {CHIP}'},
+                  {'type': 'wait', 'ms': 400}])
+
+# ---- 3.07 channel Files tab / 3.08 channel Tasks tab (desktop main column / phone page) -------
+TAB = lambda name: [{'type': 'click', 'target': f'[data-testid="panel-tab-{name}"]'}, {'type': 'wait', 'ms': 700}]
+for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
+    chat = {'surface': 'chat', 'chan': 'channel-cv-open'}
+    for state in ('list', 'more', 'empty', 'loading', 'error'):
+        add('files', platform, state, f'Channel Files tab ({state})', props={**chat, 'convTab': 'files'}, win=full,
+            route_set=f'files-{state}', interactions=TAB('files'), hint='packages/web/src/components/message/ChannelFilesPanel.tsx')
+    for state in ('list', 'empty'):
+        add('tasks', platform, state, f'Channel Tasks tab ({state})', props={**chat, 'convTab': 'tasks'}, win=full,
+            route_set=f'tasks-{state}', interactions=TAB('tasks'), hint='packages/web/src/components/task/TasksPanel.tsx')
 
 manifest_out = manifest_path()
 manifest = json.loads(manifest_out.read_text())
