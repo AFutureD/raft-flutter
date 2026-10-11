@@ -242,3 +242,35 @@ The final pass has lower build peaks on all three Chat returns than the accepted
 | 13-settings-warm | 20.529 | 15.600 | 20.042 | 3.136 | 2.946 |
 
 The review packet includes all three sets of raw frames, matching source manifests, build receipts, comparison JSON, original failing regressions and final validation logs. Native binaries, CPU traces and authenticated VM endpoints stay local.
+
+
+## Message extent preparation across native resize (baeaa8d, based on f0b3e07)
+
+The remaining resize CPU sample identified the timeline extent index as a larger application hotspot than visible row layout: 487 inclusive samples reached the index constructor, 475 the guess cache, and 400 the full content estimator, out of 4,245 samples within the exact 10-second native action. These overlapping counts are not additive and this separate profiler-enabled pass is excluded from frame acceptance. A preceding responsive-style cache experiment reduced duplicate cascade work in regressions but did not produce a stable native frame improvement; that experiment remains parked and is excluded from this change.
+
+Each changed width previously split and counted characters in roughly 600 message bodies again. The guess cache now prepares numeric per-line widths once per canonical message metadata revision and recalculates wrapping with the current width. It uses a bounded 4,000-entry numeric preparation pool and a bounded guess cache. Opaque keys in those bounded pools do not retain message Maps or body strings. Revision strings belong to weak canonical metadata keys. Body edits retire the old preparation; attachment count and reaction presence are checked on every estimate. Null metadata uses the existing default before consulting old estimates. Measured row heights, theme/host scopes and the original rough-height arithmetic remain in place.
+
+The real chat model creates a fresh unmodifiable metadata wrapper on each getter call. The chat view therefore supplies the existing source record's canonical JSON Map to the estimator through its existing projection/source association. A mounted 600-message regression failed with the initial wrapper-keyed implementation: twelve width changes added 7,200 content preparations. The canonical-source implementation adds none. Eight pure cases cover the same reuse, same-width edits, metadata replacement, null/empty/non-list fallback, fences/blank lines/CJK/emoji/clipping, 4,000-entry bounds and repeated revision replacement. The old implementation failed four corrected repro cases. A separate initial repro used an incorrect clipping expectation and is excluded from the review evidence.
+
+Validation: 35 related application cases passed, application static analysis reported no issues, and the design-system audit passed with unchanged counts (214 application files; 480 calls, comprising 221 widgets and 259 styles; 17 allow-list entries). Full repository validation remains with the integration reviewer. The code commit changes two production files and adds two test files. All 597 tracked production library files and the three local diagnostic sources were hash-verified in the native Lab before the build; production differences from accepted f0b3e07 are only chat_view.dart and row_extents.dart.
+
+The clean Profile AOT comparison uses the same synthetic workspace-mac-v4 fixture, enabled semantics, reported 120Hz display and DPR 2. Both builds execute eight seconds of actual timeline animateTo scrolling at 1,200 logical pixels per second, followed by ten seconds of native NSWindow setFrame changes between 1200x800 and 900x700 logical points. The local diagnostic button is clicked through background Computer Use. Native resize guards verify that the app is inactive and the window non-key at every step, and restore its original size. This programmatic resize is not a human NSWindow.inLiveResize gesture. It requests 120 timer ticks per second but does not achieve that native step rate: baseline 349 steps/350 observed engine metrics; candidate 356 steps/357 metrics. See [Apple NSWindow setFrame documentation](https://developer.apple.com/documentation/appkit/nswindow/setframe(_:display:animate:)).
+
+The frame files use the native CLOCK_MONOTONIC_RAW phase receipt to select only vsync timestamps inside each action, retain excluded frames separately, and use nearest-rank p99. No CPU sampling, widget/layout tracing or synthetic engine-size override was enabled. Both actions on both builds have no runtime errors or fixture misses. The window was closed in the background after verification. Source manifests, AOT binary hashes and the full local binaries are preserved; binaries and raw CPU/VM data are excluded from the review packet.
+
+| phase / metric | accepted f0b3e07 | candidate baeaa8d |
+| --- | ---: | ---: |
+| scroll duration / frames | 8.001930s / 959 | 8.008229s / 959 |
+| scroll build p99 / max ms | 6.121 / 10.536 | 5.699 / 7.900 |
+| scroll build frames above 8.33ms | 3 | 0 |
+| scroll raster p99 / max ms | 6.407 / 14.677 | 6.370 / 13.849 |
+| scroll total p99 / max ms | 9.876 / 18.869 | 9.209 / 14.475 |
+| scroll vsync gaps above 12.5ms | 1 | 2 |
+| resize duration / frames | 10.029448s / 758 | 10.024366s / 832 |
+| resize build p99 / max ms | 19.539 / 21.800 | 14.724 / 18.113 |
+| resize build frames above 8.33ms | 327 | 195 |
+| resize raster p99 / max ms | 3.844 / 12.574 | 3.956 / 12.073 |
+| resize total p99 / max ms | 46.010 / 70.961 | 52.000 / 68.648 |
+| resize vsync gaps above 12.5ms | 190 | 136 |
+
+Content preparation reuse is proven by the pure and mounted regressions. In this matched native pair the resize build p99 and over-budget build count improve, while total p99 does not. Host foreground load is uncontrolled and these are single passes; no stable aggregate frame-rate gain or 120fps acceptance is claimed. Engine build timing excludes semantics/finalize/post-frame work, and total timing includes pipeline latency rather than measuring all UI-thread work directly. Broad transitions, resize, semantics and other page costs still require further investigation; task #3 remains open.
