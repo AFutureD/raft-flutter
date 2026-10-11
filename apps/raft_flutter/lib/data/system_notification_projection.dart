@@ -37,8 +37,15 @@ List<SystemNotice> projectSystemNotifications({
 }) {
   if (server == null) return const [];
   final notices = <SystemNotice>[];
-  final downgraded = DateTime.tryParse('${server['planDowngradedAt'] ?? ''}');
-  if (server['plan'] == 'free' && downgraded != null) {
+  // Only Free plans use this date. Empty inputs otherwise throw and catch a
+  // FormatException on every notification-bell rebuild.
+  final downgradedAt = server['plan'] == 'free'
+      ? '${server['planDowngradedAt'] ?? ''}'
+      : '';
+  final downgraded = downgradedAt.isEmpty
+      ? null
+      : DateTime.tryParse(downgradedAt);
+  if (downgraded != null) {
     final deadline = downgraded.add(const Duration(days: 7));
     final expired = !now.isBefore(deadline);
     final days =
