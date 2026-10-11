@@ -5,7 +5,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_ui/raft_ui.dart' show raftChinese, raftChineseLateAdditions;
+import 'package:raft_ui/raft_ui.dart'
+    show raftChinese, raftChineseLateAdditions;
 import 'package:raft_ui/src/l10n/zh_index.g.dart'
     show zhCatalogAll, zhCatalogParts;
 
@@ -40,7 +41,11 @@ void main() {
   });
 
   test('the generated index lists every zh_*.dart catalog file', () {
-    final dir = Directory('lib/src/l10n');
+    // check-project runs every test from apps/raft_flutter; package tests run from raft_ui.
+    final dir = [
+      Directory('lib/src/l10n'),
+      Directory('../../packages/raft_ui/lib/src/l10n'),
+    ].firstWhere((d) => d.existsSync());
     final files =
         dir
             .listSync()
@@ -49,7 +54,7 @@ void main() {
             .where((n) => n.startsWith('zh_') && !n.endsWith('.g.dart'))
             .toList()
           ..sort();
-    final index = File('lib/src/l10n/zh_index.g.dart').readAsStringSync();
+    final index = File('${dir.path}/zh_index.g.dart').readAsStringSync();
     for (final file in files) {
       expect(index, contains("import '$file' show"), reason: file);
     }
