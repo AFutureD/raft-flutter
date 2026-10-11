@@ -24,6 +24,7 @@ import 'cases/ext_thread_attachments.dart';
 import 'cases/ext_thread_messages.dart';
 import 'cases/ext_notifications.dart';
 import 'cases/ext_task_detail.dart';
+import 'cases/ext_row_menus.dart';
 import 'cases/ext_shell.dart';
 import 'cases/ext_wp6.dart';
 import 'cases/home_tasks.dart';
@@ -56,6 +57,7 @@ final Map<String, ParityCase> parityCases = {
   ...extComposerAttachmentCases,
   ...extChannelSettingsCases,
   ...extShellCases,
+  ...extRowMenuCases,
   ...extWp6Cases,
   ...extMemberCases,
   ...extMembersPagesCases,

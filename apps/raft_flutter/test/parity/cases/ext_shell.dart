@@ -262,6 +262,10 @@ Widget _mobile(ParityContext ctx) {
   );
 }
 
+/// The mobile Home / desktop rail cases, shared with ext_row_menus.dart.
+ParityCase get extShellMobileCase => _mobileCase;
+ParityCase get extShellDesktopCase => _desktopCase;
+
 final ParityCase _mobileCase = ParityCase(
   widgets: const ['raft_flutter:WorkspaceView', 'raft_ui:RaftNavItem'],
   notes: 'Extension suite (not official). Real WorkspaceView, mobile Home.',

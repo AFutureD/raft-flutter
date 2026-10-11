@@ -32,12 +32,12 @@ list of pages that default-theme coverage must reach.
 - Pages (rows) in the inventory: **180** in 9 areas, of which **21** are excluded as dead,
   obsolete or not shown to normal users (below), leaving **159** pages that count. 7 dev-only / entry-less
   routes are excluded on top (end of the document). 9 counted pages are flagged "verify" (reachability unclear).
-- Fully covered on every platform they exist on: **133**; partly covered (partial / wip): **5**; with at least one MISSING platform: **21**.
+- Fully covered on every platform they exist on: **134**; partly covered (partial / wip): **4**; with at least one MISSING platform: **21**.
 
 | platform | pages that exist there | ok | partial | wip | MISSING |
 | --- | --- | --- | --- | --- | --- |
 | Desktop (D) | 154 | 132 | 2 | 1 | 19 |
-| Phone (P) | 149 | 131 | 4 | 0 | 14 |
+| Phone (P) | 149 | 132 | 3 | 0 | 14 |
 
 Excluded pages by reason (rows / extra routes):
 
@@ -143,7 +143,7 @@ Web: components/layout (MainLayout, LeftRail, Sidebar, NotificationCenter, Mobil
 | 2.05 | Notification center (popover on desktop, sheet on phone) | `components/layout/NotificationCenter.tsx` | ok | ok | `components.home.notification-center.states` | D: `components.list-pages.notification.desktop-center` |  |
 | 2.06 | Server switcher menu | `components/ui/ServerSwitcherMenu.tsx` | ok | ok | `components.home.server-switcher.open` | D: `components.shell.desktop.server.menu` |  |
 | 2.07 | Rail help menu (docs, mobile app, community) | `components/layout/LeftRail.tsx` | ok | n/a |  | D: `components.shell.desktop.rail.help-menu` |  |
-| 2.08 | Row context menus (channel, muted channel, DM, agent DM, section, custom section, surface, Move to section) | `components/layout/Sidebar.tsx` | ok | partial |  | D: `components.shell.desktop.menu.*`<br>P: `components.shell.mobile.menu.*` | Phone: channel row menu only. |
+| 2.08 | Row context menus (channel, muted channel, DM, agent DM, section, custom section, surface, Move to section) | `components/layout/Sidebar.tsx` | ok | ok |  | D: `components.shell.desktop.menu.*`<br>`components.row-menus.desktop.menu.*`<br>P: `components.shell.mobile.menu.*`<br>`components.row-menus.mobile.menu.*` |  |
 | 2.09 | Section sort menu | `components/layout/Sidebar.tsx` | ok | ok |  | D: `components.shell.desktop.sidebar.sort-menu`<br>P: `components.shell.mobile.sidebar.sort-menu` |  |
 | 2.10 | Section dialogs (new, rename, delete) | `components/layout/SidebarSectionDialog.tsx` | ok | ok |  | D: `components.shell.desktop.dialog.*-section`<br>P: `components.list-pages.dialogs.phone-*-section` |  |
 | 2.11 | Section emoji picker | `components/layout/SidebarSectionEmojiPicker.tsx` | ok | ok |  | D: `components.list-pages.dialogs.desktop-emoji-picker`<br>P: `components.list-pages.dialogs.phone-emoji-picker` | Flutter page missing: the section dialog emoji button is inert (no picker). |
