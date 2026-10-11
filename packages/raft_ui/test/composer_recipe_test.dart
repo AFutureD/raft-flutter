@@ -83,11 +83,14 @@ void main() {
         await gesture.cancel();
         await tester.pump();
         expect(sends, 0);
-        await tester.tapAt(
-          Offset(image.right + (file.left - image.right) / 2, image.center.dy),
-        );
+        // Touch slop: the gap between the two small buttons is split between
+        // them (nearest button wins), it is not dead space.
+        await tester.tapAt(Offset(image.right + 1, image.center.dy));
         await tester.pump();
-        expect((images, files, sends), (1, 1, 0));
+        expect((images, files, sends), (2, 1, 0));
+        await tester.tapAt(Offset(file.left - 1, file.center.dy));
+        await tester.pump();
+        expect((images, files, sends), (2, 2, 0));
         expect(
           tester
               .widget<EditableText>(find.byType(EditableText))
@@ -105,6 +108,20 @@ void main() {
         await tester.tapAt(Offset(send.center.dx, send.bottom - 1));
         await tester.pump();
         expect(sends, 1);
+        // 28dp Send keeps its visual box but accepts a 48dp touch target.
+        await tester.tapAt(Offset(send.right + 9, send.center.dy));
+        await tester.pump();
+        expect(sends, 2);
+        await tester.tapAt(Offset(send.center.dx, send.top - 9));
+        await tester.pump();
+        expect(sends, 3);
+        await tester.tapAt(Offset(send.left - 9, send.center.dy));
+        await tester.pump();
+        expect(sends, 4);
+        // Beyond 48dp nothing reroutes to it.
+        await tester.tapAt(Offset(send.center.dx, send.top - 14));
+        await tester.pump();
+        expect(sends, 4);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pump();

@@ -76,11 +76,11 @@ void main() {
         expect(find.byType(RaftChannelSettingsSheet), findsNothing);
         expect(find.byType(RaftChannelInfoForm), findsNothing);
         expect(find.byType(RaftMembersStrip), findsNothing);
-        // Web's Drawer Back: px-4 + half of the 28px button, inside the
-        // Brutal drawer's `border-l-2` (also on the phone).
+        // Web's Drawer Back: px-4 + half of the 28px button; no left
+        // edge line on the phone (owner decision 2026-10-12).
         expect(
           t.getCenter(find.byKey(const ValueKey('channel-overflow-back'))).dx,
-          16 + 14 + (family == RaftFamily.brutal ? 2 : 0),
+          16 + 14,
         );
         expect(
           api.calls.where((r) => r.path == '/channels/c1/members'),

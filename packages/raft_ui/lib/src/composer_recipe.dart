@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'tap_slop.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
@@ -289,28 +290,35 @@ class _RaftComposerActionState extends State<RaftComposerAction> {
         : t.brutal
         ? 26.0
         : 28.0;
+    // Web sizes these buttons 26-28px with no touch inflation; Android's
+    // 48dp guideline is met by routing nearby touches to them instead
+    // (RaftTapSlopHost in the composer). Desktop keeps the exact box.
+    final touch = RaftDensityScope.of(context) == RaftDensity.touch;
     return Listener(
       onPointerDown: (_) {},
       onPointerUp: (_) => focus.canRequestFocus = true,
       onPointerCancel: (_) => focus.canRequestFocus = true,
-      child: RaftControl(
-        focusNode: focus,
-        focusOnPointer: false,
-        visualWidth: size,
-        visualHeight: size,
-        minimumTargetSize: size,
-        padding: widget.submit ? EdgeInsets.zero : null,
-        variant: widget.submit
-            ? RaftControlVariant.accent
-            : RaftControlVariant.ghost,
-        recipe: widget.submit ? null : _ComposerAttachRecipe(t),
-        busy: widget.busy,
-        semanticLabel: raftText(context, widget.tooltip),
-        tooltip: raftText(context, widget.tooltip),
-        onPressed: widget.onPressed,
-        child: widget.busy || widget.spinner
-            ? const RaftSpinner()
-            : RaftIcon(widget.glyph, size: 14),
+      child: RaftTapSlopAnchor(
+        minSize: touch ? const Size.square(RaftMetrics.touchTarget) : Size.zero,
+        child: RaftControl(
+          focusNode: focus,
+          focusOnPointer: false,
+          visualWidth: size,
+          visualHeight: size,
+          minimumTargetSize: size,
+          padding: widget.submit ? EdgeInsets.zero : null,
+          variant: widget.submit
+              ? RaftControlVariant.accent
+              : RaftControlVariant.ghost,
+          recipe: widget.submit ? null : _ComposerAttachRecipe(t),
+          busy: widget.busy,
+          semanticLabel: raftText(context, widget.tooltip),
+          tooltip: raftText(context, widget.tooltip),
+          onPressed: widget.onPressed,
+          child: widget.busy || widget.spinner
+              ? const RaftSpinner()
+              : RaftIcon(widget.glyph, size: 14),
+        ),
       ),
     );
   }

@@ -7,6 +7,8 @@
 /// docs/ds-migration.md ("Audit rules").
 library;
 
+import 'dart:convert';
+
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
@@ -328,7 +330,7 @@ class _NumericLiteralFinder extends RecursiveAstVisitor<void> {
 class DsAuditVisitor extends RecursiveAstVisitor<void> {
   DsAuditVisitor(this.relativePath, ResolvedUnitResult unit)
     : _lineInfo = unit.lineInfo,
-      _lines = unit.content.split('\n');
+      _lines = const LineSplitter().convert(unit.content);
 
   final String relativePath;
   final LineInfo _lineInfo;
