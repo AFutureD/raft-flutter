@@ -407,7 +407,7 @@ void main() {
       expect(t.state(find.byType(DesktopDirectoryView)), same(directory));
       // Web's desktop human panel has no close control (the panel header is
       // the profile band); closing is the shell's detail-close action.
-      t.widget<MemberProfileView>(find.byType(MemberProfileView)).onClose!();
+      t.widget<MemberProfileView>(find.byType(MemberProfileView)).onClose();
       await t.pumpAndSettle();
       expect(find.byType(MemberProfileView), findsNothing);
       expect(t.state(find.byType(DesktopDirectoryView)), same(directory));
