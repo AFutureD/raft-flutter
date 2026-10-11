@@ -400,10 +400,8 @@ class _AuthState extends State<AuthView> {
       );
     }
     final t = RaftTokens.of(context);
-    Widget bars(Widget page) => RaftSystemBarSurface(
-      statusBarBackground: t.brutal ? t.product.softSignal : t.panel,
-      child: page,
-    );
+    Widget bars(Widget page) =>
+        RaftSystemBarSurface(statusBarFallback: t.canvas, child: page);
     final page = AutofillGroup(
       key: ValueKey(mode),
       onDisposeAction: mode == 'login'

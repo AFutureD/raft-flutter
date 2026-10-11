@@ -46,11 +46,11 @@ void main() {
       await tester.pumpAndSettle();
       final context = tester.element(find.byType(AuthView));
       final tokens = RaftTokens.of(context);
-      final surface = tester.widget<RaftSystemBarSurface>(
-        find.byType(RaftSystemBarSurface),
+      final stripColor = raftStatusBarResolvedColor(
+        tester.renderObject(find.byType(RaftStatusBarStrip)),
       );
       expect(
-        surface.statusBarBackground,
+        stripColor,
         tokens.brutal ? tokens.product.softSignal : tokens.panel,
       );
       final boundary =
@@ -70,7 +70,7 @@ void main() {
         ).toARGB32();
       }
 
-      expect(pixel(4, 16), surface.statusBarBackground.toARGB32());
+      expect(pixel(4, 16), stripColor.toARGB32());
       expect(pixel(4, 16), pixel(4, 40));
       expect(pixel(4, 903), tokens.canvas.toARGB32());
       image.dispose();

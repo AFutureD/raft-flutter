@@ -9,6 +9,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
+import '../platform/system_bars.dart';
 import 'runtime_form_dialog.dart';
 import 'managed_agent_launcher.dart';
 import 'agent_scopes_view.dart';
@@ -63,7 +64,10 @@ Future<T?> _fleetDialog<T>(
   final navigator = Navigator.of(context, rootNavigator: true);
   final route = RaftDialogRoute<T>(
     builder: builder,
-    capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
+    capturedThemes: InheritedTheme.capture(
+      from: context,
+      to: navigator.context,
+    ),
   );
   void changed() {
     if (!authorized() && route.isActive) route.navigator?.removeRoute(route);
@@ -391,13 +395,16 @@ class _FleetViewState extends State<FleetView> {
                     context,
                     MaterialPageRoute<void>(
                       // ds-allow: Standalone native route supplies the Material host and system insets; workspace routes already own them.
-                      builder: (_) => Scaffold(
-                        body: SafeArea(
-                          bottom: false,
-                          child: FleetDetail(
-                            controller: w,
-                            computers: true,
-                            initial: row,
+                      builder: (context) => Scaffold(
+                        body: RaftSystemBarSurface(
+                          statusBarFallback: RaftTokens.of(context).panel,
+                          child: SafeArea(
+                            bottom: false,
+                            child: FleetDetail(
+                              controller: w,
+                              computers: true,
+                              initial: row,
+                            ),
                           ),
                         ),
                       ),

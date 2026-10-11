@@ -14,6 +14,8 @@ import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import java.io.File
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : FlutterActivity() {
     private var shareReceiverReady = false
@@ -80,6 +82,10 @@ class MainActivity : FlutterActivity() {
         sharing = NativeSharingBridge(this, flutterEngine, ::shareReceiverAttached)
         systemFonts = NativeSystemFontsBridge(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/ime")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "visible") result.success(imeVisible()) else result.notImplemented()
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/local-network")
             .setMethodCallHandler { call, result ->
                 if (call.method != "ensure") {
@@ -153,6 +159,18 @@ class MainActivity : FlutterActivity() {
                 }
             }
     }
+
+    // The IME closes with the window when the app is backgrounded; the engine can
+    // keep the old viewInsets.bottom (flutter#118761). Ask the system to deliver
+    // the current insets again, and expose the IME state so Dart can reconcile.
+    override fun onResume() {
+        super.onResume()
+        ViewCompat.requestApplyInsets(window.decorView)
+    }
+
+    // null when the insets are not attached yet: Dart then trusts the engine.
+    private fun imeVisible(): Boolean? =
+        ViewCompat.getRootWindowInsets(window.decorView)?.isVisible(WindowInsetsCompat.Type.ime())
 
     override fun onNewIntent(intent: Intent) {
         prepareSharedUris(intent)
