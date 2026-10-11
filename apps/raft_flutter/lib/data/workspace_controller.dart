@@ -467,14 +467,23 @@ class WorkspaceController extends ChangeNotifier {
     return false;
   }
 
-  // Attachments in channels the member can currently view, keyed by channel
-  // then attachment id. Rebuilt whenever messages, channel lists, revocations,
-  // permissions or the image scope change; never reused across them.
+  // Attachments in currently admitted channels, keyed by channel then file.
+  // Notifications recheck admission; history is scanned only when the ledger,
+  // image scope or admitted channel ids change.
   Object? _retainedIndexStamp;
   Map<String, Map<String, List<Map<String, dynamic>>>> _retainedIndex = {};
+  Object? _retainedAdmissionStamp;
+  List<String> _retainedChannelIds = const [];
+  int _retainedIndexBuilds = 0;
 
-  Map<String, Map<String, List<Map<String, dynamic>>>>
-  _retainedAttachmentIndex() {
+  /// Number of complete history scans used for attachment retention.
+  @visibleForTesting
+  int get debugRetainedAttachmentIndexBuilds => _retainedIndexBuilds;
+
+  List<String> _admittedAttachmentChannels() {
+    // Keep every former index invalidation boundary. In particular a normal
+    // notification still reevaluates can() and revocations before reusing any
+    // metadata, even when the channel list has the same identity and length.
     final stamp = (
       ledger.revision,
       _stateStamp,
@@ -485,15 +494,30 @@ class WorkspaceController extends ChangeNotifier {
       dms.length,
       _revokedChannels.length,
     );
+    if (stamp == _retainedAdmissionStamp) return _retainedChannelIds;
+    final admitted = [
+      for (final channel in [...channels, ...dms])
+        if (!_revokedChannels.contains(channel.id) &&
+            can('viewChannel', resource: channel))
+          channel.id,
+    ];
+    if (!listEquals(admitted, _retainedChannelIds)) {
+      _retainedChannelIds = List.unmodifiable(admitted);
+    }
+    _retainedAdmissionStamp = stamp;
+    return _retainedChannelIds;
+  }
+
+  Map<String, Map<String, List<Map<String, dynamic>>>>
+  _retainedAttachmentIndex() {
+    final admitted = _admittedAttachmentChannels();
+    final stamp = (ledger.revision, attachmentImageScope, admitted);
     if (stamp == _retainedIndexStamp) return _retainedIndex;
+    ++_retainedIndexBuilds;
     final index = <String, Map<String, List<Map<String, dynamic>>>>{};
-    for (final channel in [...channels, ...dms]) {
-      if (_revokedChannels.contains(channel.id) ||
-          !can('viewChannel', resource: channel)) {
-        continue;
-      }
-      final channelIds = <String>{channel.id};
-      for (final message in ledger.messages(channel.id)) {
+    for (final id in admitted) {
+      final channelIds = <String>{id};
+      for (final message in ledger.messages(id)) {
         final thread = RaftMessage(message).threadId;
         if (thread != null) channelIds.add(thread);
       }
