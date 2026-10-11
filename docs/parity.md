@@ -1240,6 +1240,27 @@ around ThreadsInbox at 390px, 3x), but Flutter does not draw it. The ext cases
 `components.shell.mobile.activity.frame.*` therefore differ from Web by that
 1px vertical line by design; the owner decision overrides the Web analysis.
 
+Owner decision 2026-10-12: no left panel border on phone (intended difference
+from Web). "On mobile, don't draw the black line on the left anywhere." Web's
+`Panel edge="attached"` (`border-l-2 border-black`, Elegant `border-l
+border-line-muted`) and the Brutal drawer `border-l-2` carry no breakpoint, so
+Web draws them on phones too, 2px (Brutal) / 1px (Elegant) inside the screen
+edge. Flutter draws them only at width >= 768 (`RaftLayoutMetrics.desktopBreakpoint`):
+`RaftSettingsPanelFrame`, the channel overflow/settings drawer frames
+(`_OverflowDrawerFrame`, `RaftChannelSettingsSheet`; the full-width phone page
+and the members page's `RaftOverflowBareSheet(page: true)` draw none), and the
+`RaftTaskSurface` ThreadPanel edge. Header/footer top and bottom rules, the
+bottom tab bar and the rail are unchanged, as is every desktop border. The
+phone content column therefore starts at x = 0 and the Drawer Back sits at
+16 + 14 (Settings Back at 20 + half the action width). Parity cases whose
+phone captures contain that line differ from Web by that 1-2px vertical line by
+design: the 6 official + 22 ext phone Settings sub-page cases, the 13 channel /
+DM settings drawer cases, the members page and the phone task detail; the
+owner decision overrides the Web analysis (this reverses the phone half of
+`docs/alignment-audit.md` fixes 1-4; their desktop halves stay).
+`packages/raft_ui/test/phone_no_left_border_test.dart` pins the absence on
+phone and the presence on desktop.
+
 Remaining gaps: the OverflowSheet (Drawer) shell, the emoji picker popover
 (third-party grid), the Electron-only "Find a conversation" sidebar box, the
 toast action variant (the Web toast manager ignores `actionProps` here), the

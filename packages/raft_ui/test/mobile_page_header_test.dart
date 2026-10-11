@@ -87,13 +87,12 @@ void main() {
             : const Size(32, 32);
         for (var index = 0; index < 3; index++) {
           expect(tester.getSize(backs.at(index)), actionSize);
-          // The settings header sits inside a Panel, whose own left edge
-          // (brutal 2px, elegant 1px) Web draws at every width; then brutal
-          // px-5 / elegant max-md:pl-5, then half the action width.
-          final panelEdge = index == 1 ? (tokens.brutal ? 2 : 1) : 0;
+          // The settings Panel's left edge is desktop-only (owner decision
+          // 2026-10-12): none on the phone; then brutal px-5 / elegant
+          // max-md:pl-5, then half the action width.
           expect(
             tester.getCenter(backs.at(index)).dx,
-            panelEdge + 20 + actionSize.width / 2,
+            20 + actionSize.width / 2,
           );
           // The visual is Web's size; the touch target is still >= 48.
           expect(

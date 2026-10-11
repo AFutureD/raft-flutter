@@ -414,7 +414,9 @@ class RaftChannelSettingsSheet extends StatelessWidget {
           // like the CSS border box.
           child: Container(
             decoration: BoxDecoration(
-              border: t.brutal
+              // Desktop drawer only: no left edge line on the phone (owner
+              // decision 2026-10-12).
+              border: t.brutal && width >= RaftLayoutMetrics.desktopBreakpoint
                   ? Border(
                       left: BorderSide(
                         color: t.colors['line-strong']!,
