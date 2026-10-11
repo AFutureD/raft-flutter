@@ -530,6 +530,21 @@ void main() {
       try {
         await tester.pumpWidget(mountedView());
         await waitImage();
+        final imageFinder = find.byType(Image);
+        final coldOpacity = tester.widget<Image>(imageFinder).opacity;
+        expect(coldOpacity, isNotNull);
+        expect(coldOpacity!.value, 0);
+        expect(
+          find.ancestor(of: imageFinder, matching: find.byType(Opacity)),
+          findsNothing,
+        );
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(
+          tester.widget<Image>(imageFinder).opacity!.value,
+          inExclusiveRange(0, 1),
+        );
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(tester.widget<Image>(imageFinder).opacity!.value, 1);
         final provider =
             tester.widget<Image>(find.byType(Image)).image
                 as AttachmentBitmapImage;
@@ -537,6 +552,7 @@ void main() {
         await tester.pumpWidget(mountedView());
         await waitImage();
         expect(tester.widget<Image>(find.byType(Image)).image, same(provider));
+        expect(tester.widget<Image>(find.byType(Image)).opacity, isNull);
         expect(client.resolutions, 1);
         expect(files.downloads, 1);
         w.revokeServer('server');

@@ -3,13 +3,9 @@ import 'package:flutter/widgets.dart';
 
 /// Last measured (width, height) of message rows, grouped by a theme/host
 /// scope and keyed by message id. Feeds the timeline's total-extent estimate
-/// so the scrollbar stays stable. Lookups allocate nothing: the estimate runs
-/// for every unbuilt row on every layout.
+/// so the scrollbar stays stable. The timeline seeds its extent index from
+/// these measurements and records actual row heights incrementally.
 final raftRowExtents = _RowExtentCache(4000);
-
-/// Width of the most recently measured row, used for estimates of rows that
-/// have never been laid out.
-double raftLastRowWidth = 0;
 
 class _RowExtentCache {
   _RowExtentCache(this.limit);
@@ -80,7 +76,6 @@ class _RenderRowExtentRecorder extends RenderProxyBox
   void performLayout() {
     super.performLayout();
     raftRowExtents.record(scope, id, size.width, size.height);
-    raftLastRowWidth = size.width;
   }
 }
 

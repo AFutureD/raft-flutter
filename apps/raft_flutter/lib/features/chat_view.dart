@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -22,6 +23,7 @@ import '../data/personal_presentation.dart';
 import '../platform/file_selection.dart';
 import 'attachment_view.dart';
 import 'message_presentation.dart';
+import 'message_preparation.dart';
 import 'pending_mention_actions.dart';
 import 'message_reference_directory.dart';
 import 'share_message_link.dart';
@@ -124,6 +126,58 @@ class _RaftChatViewState extends State<RaftChatView>
   int? scrolledWindow, adapterWindow;
   int bindingRevision = 0;
   int selectionCaptureTicket = 0;
+  late final bodyPreparation = MessagePreparation(
+    isIdle: () => mounted && presentationActive && RaftFontWarmUp.isIdle,
+  );
+  Object? bodyPreparationInputs;
+
+  void scheduleBodyPreparation(BuildContext context) {
+    if (kDebugMode || !presentationActive) return;
+    final tokens = RaftTokens.of(context);
+    final fontSize = PersonalPresentationScope.bodyFontSize(
+      context,
+      w.client.user?.string('preferredMessageBodyFontSize'),
+    );
+    final inputs = (
+      workspaceAuthority(w),
+      bindingRevision,
+      listRevision,
+      referenceDirectory.references,
+      taskProjection.byMessage,
+      tokens,
+      fontSize,
+    );
+    if (bodyPreparationInputs == inputs) return;
+    bodyPreparationInputs = inputs;
+    final window = rows;
+    final nearest = widget.thread ? window : window.reversed;
+    bodyPreparation.replace(
+      nearest
+          .take(64)
+          .map(
+            (message) => () {
+              if (bodyPreparationInputs != inputs ||
+                  workspaceAuthority(w) != inputs.$1 ||
+                  bindingRevision != inputs.$2 ||
+                  listRevision != inputs.$3) {
+                return;
+              }
+              final translation = w.translations.present(message);
+              if (translation.skeleton) return;
+              MessagePresentation(
+                controller: w,
+                message: message,
+                content: translation.translatedContent,
+                taskByNumber: taskProjection.taskByNumber,
+                directoryReferences: referenceDirectory.references,
+                fontSize: fontSize,
+                onExternalLink: link,
+              ).prepareCache(tokens);
+            },
+          ),
+    );
+  }
+
   bool presentationActive = true;
   int presentationRevision = 0;
   final timelineKeys = <int, GlobalKey>{};
@@ -231,7 +285,11 @@ class _RaftChatViewState extends State<RaftChatView>
     if (active != presentationActive) {
       presentationActive = active;
       ++presentationRevision;
-      if (!active) closeReactionPicker();
+      if (!active) {
+        closeReactionPicker();
+        bodyPreparation.cancel();
+        bodyPreparationInputs = null;
+      }
       if (active) sync();
     }
   }
@@ -615,6 +673,7 @@ class _RaftChatViewState extends State<RaftChatView>
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
     copiedSelectionTimer?.cancel();
+    bodyPreparation.dispose();
     highlightTimer?.cancel();
     selectionToast.dispose();
     widget.selectionHandle?.update(false, null);
@@ -2413,8 +2472,8 @@ class _RaftChatViewState extends State<RaftChatView>
     Map<String, (double, double)> measuredRows,
     List<chat.Message> list,
     int index,
+    double width,
   ) {
-    final width = raftLastRowWidth;
     if (index < 0 || index >= list.length) return 96;
     final message = list[index];
     final measured = measuredRows[message.id];
@@ -2541,45 +2600,59 @@ class _RaftChatViewState extends State<RaftChatView>
         scrollToBottomBuilder: (_, animation, callback) =>
             const SizedBox.shrink(),
         composerBuilder: (_) => const SizedBox.shrink(),
-        chatAnimatedListBuilder: (context, _) => RaftMessageTimeline(
-          key: ValueKey('chat-list-${widget.thread ? 'thread' : 'channel'}'),
-          controller: viewport,
-          messages: messages,
-          centerIndex: centerIndex(),
-          epoch: centerEpoch,
-          indexOfId: windowIndexOf,
-          rowBuilder: (context, index) => datedTile(source(messages[index])),
-          estimateRow: (index) => estimateRow(measuredRows, messages, index),
-          slivers: (history, forward) => recipe.centeredSlivers(
-            header: header,
-            history: history,
-            forward: forward,
-            footer: const RaftTimelineFooter(),
-          ),
-          hasOlder: widget.thread ? w.threadHasMore : w.hasMore,
-          loadingOlder: w.loadingOlder,
-          onLoadOlder: presentationActive
-              ? () => w.older(thread: widget.thread)
-              : null,
-          onRecenter: (index, alignment) =>
-              recenter(first: messages[index].id, alignment: alignment),
-          empty: widget.thread
-              ? null
-              : loading
-              ? Center(
-                  child: Text(
-                    raftText(context, 'Loading...'),
-                    style: RaftTypography.mono(
-                      RaftTokens.of(context),
-                      size: 14,
-                      line: 20,
+        chatAnimatedListBuilder: (context, _) => LayoutBuilder(
+          builder: (context, constraints) => RaftMessageTimeline(
+            key: ValueKey('chat-list-${widget.thread ? 'thread' : 'channel'}'),
+            controller: viewport,
+            canPrepareNearbyRows:
+                kDebugMode || defaultTargetPlatform != TargetPlatform.macOS
+                ? null
+                : () => presentationActive && RaftFontWarmUp.isIdle,
+            messages: messages,
+            centerIndex: centerIndex(),
+            epoch: centerEpoch,
+            indexOfId: windowIndexOf,
+            rowBuilder: (context, index) => datedTile(source(messages[index])),
+            estimateRow: (index) => estimateRow(
+              measuredRows,
+              messages,
+              index,
+              constraints.maxWidth,
+            ),
+            slivers: (history, forward) => recipe.centeredSlivers(
+              header: header,
+              history: history,
+              forward: forward,
+              footer: const RaftTimelineFooter(),
+            ),
+            hasOlder: widget.thread ? w.threadHasMore : w.hasMore,
+            loadingOlder: w.loadingOlder,
+            onLoadOlder: presentationActive
+                ? () => w.older(thread: widget.thread)
+                : null,
+            onRecenter: (index, alignment) =>
+                recenter(first: messages[index].id, alignment: alignment),
+            empty: widget.thread
+                ? null
+                : loading
+                ? Center(
+                    child: Text(
+                      raftText(context, 'Loading...'),
+                      style: RaftTypography.mono(
+                        RaftTokens.of(context),
+                        size: 14,
+                        line: 20,
+                      ),
+                    ),
+                  )
+                : RaftEmptyState(
+                    title: raftText(context, 'Start the conversation'),
+                    detail: raftText(
+                      context,
+                      'Send a message to this channel.',
                     ),
                   ),
-                )
-              : RaftEmptyState(
-                  title: raftText(context, 'Start the conversation'),
-                  detail: raftText(context, 'Send a message to this channel.'),
-                ),
+          ),
         ),
       ),
     );
@@ -2596,6 +2669,7 @@ class _RaftChatViewState extends State<RaftChatView>
 
   @override
   Widget build(BuildContext context) {
+    scheduleBodyPreparation(context);
     if (widget.thread &&
         w.threadChannelId == null &&
         (w.threadResolutionLoading || w.threadResolutionError != null)) {

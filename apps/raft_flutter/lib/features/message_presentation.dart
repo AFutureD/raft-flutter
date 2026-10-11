@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
 import '../data/source_time_formatter.dart';
+
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -40,6 +42,56 @@ final _messageReference = RegExp(
 final _referencesMemo = RaftLruCache<_ReferenceInputs, List<RaftTextReference>>(
   1024,
 );
+
+// The authority projection replaces its lists on change. Weak indexes avoid
+// retaining a retired server's directory beyond the existing bounded memo.
+final _directoryTextIndexes = Expando<_ReferenceTextIndex>();
+final _channelTextIndexes = Expando<_ReferenceTextIndex>();
+
+class _ReferenceTextNode {
+  final children = <int, _ReferenceTextNode>{};
+  final terminals = <int>[];
+}
+
+// A prefix tree searches only at a possible reference start, instead of
+// scanning a long message once for every person/channel in the directory.
+// Every terminal is retained, including overlapping names and duplicate text.
+class _ReferenceTextIndex {
+  _ReferenceTextIndex(this.sourceLength, this.references) {
+    for (var i = 0; i < references.length; i++) {
+      var node = root;
+      for (final unit in references[i].text.codeUnits) {
+        node = node.children.putIfAbsent(unit, _ReferenceTextNode.new);
+      }
+      node.terminals.add(i);
+    }
+  }
+  final int sourceLength;
+  final List<RaftTextReference> references;
+  final root = _ReferenceTextNode();
+
+  Iterable<RaftTextReference> matching(String content) sync* {
+    final found = <int>{...root.terminals};
+    for (final prefix in root.children.keys) {
+      final start = String.fromCharCode(prefix);
+      var offset = content.indexOf(start);
+      while (offset >= 0) {
+        var node = root;
+        for (var i = offset; i < content.length; i++) {
+          final next = node.children[content.codeUnitAt(i)];
+          if (next == null) break;
+          node = next;
+          found.addAll(node.terminals);
+        }
+        offset = content.indexOf(start, offset + 1);
+      }
+    }
+    // Keep projection order: later duplicate entries win as before.
+    for (final i in found.toList()..sort()) {
+      yield references[i];
+    }
+  }
+}
 
 /// Everything [MessagePresentation.references] reads. Lists compare by
 /// identity (the controller and directory replace them on change) and by
@@ -142,21 +194,39 @@ class MessagePresentation extends StatelessWidget {
     final content = text;
     // Only references whose text occurs in this message can match; building
     // one per channel/member for every row made each new row cost ~1ms.
+    var directoryIndex = _directoryTextIndexes[directoryReferences];
+    if (directoryIndex == null ||
+        directoryIndex.sourceLength != directoryReferences.length) {
+      directoryIndex = _ReferenceTextIndex(
+        directoryReferences.length,
+        directoryReferences,
+      );
+      _directoryTextIndexes[directoryReferences] = directoryIndex;
+    }
     final refs = {
-      for (final ref in directoryReferences)
-        if (content.contains(ref.text)) ref.text: ref,
+      for (final ref in directoryIndex.matching(content)) ref.text: ref,
     };
-    final channels = controller.channels.where((c) => !c.archived).toList();
+    final hasHash = content.contains('#');
+    final channels = hasHash
+        ? controller.channels.where((c) => !c.archived).toList()
+        : const <RaftChannel>[];
     String href(String kind, List<String> parts) =>
         Uri(scheme: 'raft-ref', host: kind, pathSegments: parts).toString();
-    if (content.contains('#')) {
-      for (final c in channels) {
-        final text = '#${c.string('name')}';
-        if (!content.contains(text)) continue;
-        refs[text] = RaftTextReference(
-          text: text,
-          href: href('channel', [c.id]),
-        );
+    if (hasHash) {
+      var channelIndex = _channelTextIndexes[controller.channels];
+      if (channelIndex == null ||
+          channelIndex.sourceLength != controller.channels.length) {
+        channelIndex = _ReferenceTextIndex(controller.channels.length, [
+          for (final c in channels)
+            RaftTextReference(
+              text: '#${c.string('name')}',
+              href: href('channel', [c.id]),
+            ),
+        ]);
+        _channelTextIndexes[controller.channels] = channelIndex;
+      }
+      for (final ref in channelIndex.matching(content)) {
+        refs[ref.text] = ref;
       }
     }
     RaftChannel? dm(String token) {
@@ -180,7 +250,10 @@ class MessagePresentation extends StatelessWidget {
       return matches.length == 1 ? matches.single : null;
     }
 
-    for (final m in _dmReference.allMatches(content)) {
+    for (final m
+        in content.contains('dm:@')
+            ? _dmReference.allMatches(content)
+            : const <RegExpMatch>[]) {
       final c = dm(m[1]!);
       if (c == null) continue;
       refs[m[0]!] = RaftTextReference(
@@ -190,7 +263,10 @@ class MessagePresentation extends StatelessWidget {
             : href('thread', [c.id, m[2]!]),
       );
     }
-    for (final m in _threadReference.allMatches(content)) {
+    for (final m
+        in hasHash
+            ? _threadReference.allMatches(content)
+            : const <RegExpMatch>[]) {
       final c = channels
           .where((c) => c.string('name').toLowerCase() == m[1]!.toLowerCase())
           .firstOrNull;
@@ -201,7 +277,10 @@ class MessagePresentation extends StatelessWidget {
         );
       }
     }
-    for (final m in _messageReference.allMatches(content)) {
+    for (final m
+        in hasHash && content.contains('msg=')
+            ? _messageReference.allMatches(content)
+            : const <RegExpMatch>[]) {
       final c = channels.where((c) => c.string('name') == m[1]).firstOrNull;
       if (c != null) {
         refs[m[0]!] = RaftTextReference(
@@ -224,6 +303,24 @@ class MessagePresentation extends StatelessWidget {
     }
     return refs.values.toList();
   }
+
+  /// Prepares this message's text using only accepted local projections.
+  void prepareCache(RaftTokens tokens) => RaftMessageBody.prepareCache(
+    content: text,
+    tokens: tokens,
+    references: references,
+    fontSize: fontSize,
+    taskHref: localAuthority
+        ? (n) => Uri(
+            scheme: 'raft-ref',
+            host: 'task',
+            pathSegments: ['$n'],
+          ).toString()
+        : null,
+    knownTaskNumber:
+        knownTaskNumber ??
+        (taskByNumber == null ? null : (n) => taskByNumber!(n) != null),
+  );
 
   Future<void> open(BuildContext context, String href) async {
     final uri = Uri.tryParse(href);

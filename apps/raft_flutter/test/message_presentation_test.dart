@@ -90,74 +90,139 @@ Widget host(Widget child, {PrivateRouteGuard? guard}) => MaterialApp(
 );
 void main() {
   test(
-    'ambiguous directory names and bare DM handles require an explicit identity type',
+    'large reference projections preserve overlaps, Unicode and authority',
     () async {
-      final (w, a) = await fixture('owner');
-      a.routes['GET /agents'] = (_) => [
-        {'id': 'agent-same', 'name': 'same'},
+      final (w, _) = await fixture('owner');
+      addTearDown(w.dispose);
+      final directory = [
+        for (var i = 0; i < 1000; i++)
+          RaftTextReference(
+            text: '@member-$i',
+            href: 'raft-ref://mention/user/u$i',
+          ),
+        const RaftTextReference(text: '@jo', href: 'short'),
+        const RaftTextReference(text: '@john', href: 'old'),
+        const RaftTextReference(text: '@john~agent', href: 'typed'),
+        const RaftTextReference(text: '@john', href: 'new'),
+        const RaftTextReference(text: '🖥电脑', href: 'unicode'),
       ];
-      a.routes['GET /servers/s1/members'] = (_) => [
-        {'userId': 'user-same', 'name': 'same'},
+      w.channels = [
+        RaftChannel({'id': 'a', 'name': 'alpha'}),
+        RaftChannel({'id': 'b', 'name': 'alpha-long'}),
       ];
-      final directory = MessageReferenceDirectory(w);
-      // Complete both fresh directory reads without using any native fixture.
-      // Agents and members settle independently; wait for both, not a count.
-      for (
-        var i = 0;
-        i < 40 && !directory.references.any((r) => r.text == '@same~human');
-        i++
-      ) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      expect(
-        directory.references.map((r) => r.text),
-        unorderedEquals(['@same~agent', '@same~human']),
-      );
-      w.dms = [
-        RaftChannel({
-          'id': 'dm-agent',
-          'type': 'dm',
-          'peerType': 'agent',
-          'peerId': 'agent-same',
-          'peerName': 'same',
-        }),
-        RaftChannel({
-          'id': 'dm-user',
-          'type': 'dm',
-          'peerType': 'user',
-          'peerId': 'user-same',
-          'peerName': 'same',
-        }),
-      ];
-      final presentation = MessagePresentation(
+      MessagePresentation view(
+        String text, {
+        String source = 's1',
+        List? mentions,
+      }) => MessagePresentation(
         controller: w,
         message: RaftMessage({
-          'id': 'm',
-          'content': 'dm:@same dm:@same~agent dm:@same~human',
+          'id': 'reference-fixture',
+          'content': text,
+          'sourceServerId': source,
+          'mentions': ?mentions,
         }),
+        directoryReferences: directory,
         onExternalLink: (_) {},
-        directoryReferences: directory.references,
       );
+      final text = '${'长段落内容 ' * 300}@john~agent 🖥电脑 #alpha-long @member-999';
+      final refs = {for (final r in view(text).references) r.text: r.href};
+      expect(refs, {
+        '@member-9': 'raft-ref://mention/user/u9',
+        '@member-99': 'raft-ref://mention/user/u99',
+        '@member-999': 'raft-ref://mention/user/u999',
+        '@jo': 'short',
+        '@john': 'new',
+        '@john~agent': 'typed',
+        '🖥电脑': 'unicode',
+        '#alpha': 'raft-ref://channel/a',
+        '#alpha-long': 'raft-ref://channel/b',
+      });
+      expect(view(text, source: 'other-server').references, isEmpty);
+      expect(view('ordinary text without references').references, isEmpty);
       expect(
-        presentation.references.map((r) => r.text),
-        isNot(contains('dm:@same')),
+        view(
+          '@john',
+          mentions: [
+            {'id': 'identity', 'name': 'john', 'type': 'user'},
+          ],
+        ).references.singleWhere((r) => r.text == '@john').href,
+        'raft-ref://mention/user/identity',
       );
-      expect(
-        presentation.references
-            .singleWhere((r) => r.text == 'dm:@same~agent')
-            .href,
-        'raft-ref://channel/dm-agent',
-      );
-      expect(
-        presentation.references
-            .singleWhere((r) => r.text == 'dm:@same~human')
-            .href,
-        'raft-ref://channel/dm-user',
-      );
-      directory.dispose();
-      w.dispose();
+      w.channels = [
+        RaftChannel({'id': 'a', 'name': 'renamed'}),
+      ];
+      expect(view('#alpha #renamed').references.map((r) => r.text), [
+        '#renamed',
+      ]);
     },
   );
+  test('ambiguous directory names and bare DM handles require an explicit identity type', () async {
+    final (w, a) = await fixture('owner');
+    a.routes['GET /agents'] = (_) => [
+      {'id': 'agent-same', 'name': 'same'},
+    ];
+    a.routes['GET /servers/s1/members'] = (_) => [
+      {'userId': 'user-same', 'name': 'same'},
+    ];
+    final directory = MessageReferenceDirectory(w);
+    // Complete both fresh directory reads without using any native fixture.
+    // Agents and members settle independently; wait for both, not a count.
+    for (
+      var i = 0;
+      i < 40 && !directory.references.any((r) => r.text == '@same~human');
+      i++
+    ) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(
+      directory.references.map((r) => r.text),
+      unorderedEquals(['@same~agent', '@same~human']),
+    );
+    w.dms = [
+      RaftChannel({
+        'id': 'dm-agent',
+        'type': 'dm',
+        'peerType': 'agent',
+        'peerId': 'agent-same',
+        'peerName': 'same',
+      }),
+      RaftChannel({
+        'id': 'dm-user',
+        'type': 'dm',
+        'peerType': 'user',
+        'peerId': 'user-same',
+        'peerName': 'same',
+      }),
+    ];
+    final presentation = MessagePresentation(
+      controller: w,
+      message: RaftMessage({
+        'id': 'm',
+        'content': 'dm:@same dm:@same~agent dm:@same~human',
+      }),
+      onExternalLink: (_) {},
+      directoryReferences: directory.references,
+    );
+    expect(
+      presentation.references.map((r) => r.text),
+      isNot(contains('dm:@same')),
+    );
+    expect(
+      presentation.references
+          .singleWhere((r) => r.text == 'dm:@same~agent')
+          .href,
+      'raft-ref://channel/dm-agent',
+    );
+    expect(
+      presentation.references
+          .singleWhere((r) => r.text == 'dm:@same~human')
+          .href,
+      'raft-ref://channel/dm-user',
+    );
+    directory.dispose();
+    w.dispose();
+  });
 
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
@@ -178,8 +243,7 @@ void main() {
             message: RaftMessage({
               'id': 'm1',
               'channelId': 'c1',
-              'content':
-                  'Review [#1487 link title](https://example.org/review/1487) then task #1487.',
+              'content': 'Review [#1487 link title](https://example.org/review/1487) then task #1487.',
             }),
             taskByNumber: (n) => n == 1487 ? linked : null,
             knownTaskNumber: (_) => known,
@@ -418,8 +482,7 @@ void main() {
       expect(
         mountedAtRemoval,
         isTrue,
-        reason:
-            'the old route state is still mounted when the same-frame submission completes',
+        reason: 'the old route state is still mounted when the same-frame submission completes',
       );
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Private editor'), findsNothing);

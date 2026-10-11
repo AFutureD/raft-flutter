@@ -770,8 +770,9 @@ class _AttachmentViewState extends State<AttachmentView> {
   );
 
   Widget previewImage(ImageProvider provider) {
-    final image = Image(
+    Widget image({Animation<double>? opacity}) => Image(
       image: provider,
+      opacity: opacity,
       fit: widget.imageFit,
       gaplessPlayback: true,
       errorBuilder: (_, _, _) => const Padding(
@@ -779,12 +780,13 @@ class _AttachmentViewState extends State<AttachmentView> {
         child: Text('Preview unavailable. Download the original file.'),
       ),
     );
-    if (!fadeIn) return image;
+    if (!fadeIn) return image();
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: AttachmentPrimitive.previewFade,
-      builder: (_, opacity, child) => Opacity(opacity: opacity, child: child),
-      child: image,
+      // Image.opacity blends pixels directly and avoids an offscreen layer.
+      builder: (_, opacity, _) =>
+          image(opacity: AlwaysStoppedAnimation(opacity)),
     );
   }
 }

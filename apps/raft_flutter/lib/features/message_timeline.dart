@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' as chat;
 
+import 'message_preparation.dart';
 import 'timeline_scrollbar.dart';
 
 /// A two-sided message timeline: older history grows away from a fixed
@@ -34,6 +35,7 @@ class RaftMessageTimeline extends StatefulWidget {
     this.onLoadOlder,
     this.onRecenter,
     this.cacheExtent,
+    this.canPrepareNearbyRows,
   });
 
   final RaftTimelineScrollController controller;
@@ -60,6 +62,12 @@ class RaftMessageTimeline extends StatefulWidget {
   final void Function(int index, RaftTimelineAlignment alignment)? onRecenter;
   final double? cacheExtent;
 
+  /// Whether this visible pane can prepare nearby rows between input frames.
+  ///
+  /// When supplied, the default cache grows in small steps while idle, up to
+  /// four viewports on either side. An explicit [cacheExtent] takes precedence.
+  final bool Function()? canPrepareNearbyRows;
+
   /// Older history is requested within this many viewports of the top.
   static const double prefetchViewports = 2;
 
@@ -74,6 +82,79 @@ class RaftMessageTimeline extends StatefulWidget {
 class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     implements RaftTimelineThumbDriver {
   final edges = _TimelineEdges();
+  double nearbyCache = 250;
+  RaftMessageTimeline? listsOwner;
+  Widget? historyList, forwardList;
+  final retainedRows = <String, ValueNotifier<bool>>{};
+  final retiredRows = <ValueNotifier<bool>>[];
+  bool retiringRows = false;
+
+  ValueNotifier<bool> retainRow(String id) {
+    final retained = retainedRows.remove(id) ?? ValueNotifier(true);
+    retainedRows[id] = retained;
+    while (retainedRows.length > 32) {
+      retiredRows.add(retainedRows.remove(retainedRows.keys.first)!);
+    }
+    if (retiredRows.isNotEmpty && !retiringRows) {
+      retiringRows = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        retiringRows = false;
+        for (final row in retiredRows) {
+          row.value = false;
+        }
+        retiredRows.clear();
+      });
+    }
+    return retained;
+  }
+
+  late final nearbyPreparation = MessagePreparation(
+    isIdle: () =>
+        mounted &&
+        TickerMode.valuesOf(context).enabled &&
+        widget.cacheExtent == null &&
+        (widget.canPrepareNearbyRows?.call() ?? false),
+  );
+
+  void prepareNearbyRows() {
+    nearbyPreparation.replace(
+      List.generate(
+        64,
+        (_) => () {
+          final position = singlePosition;
+          if (position == null) return;
+          final target = position.viewportDimension * 4;
+          if (nearbyCache >= target) {
+            if (nearbyCache > target) setState(() => nearbyCache = target);
+            nearbyPreparation.cancel();
+            return;
+          }
+          setState(() => nearbyCache = math.min(target, nearbyCache + 128));
+        },
+      ),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (TickerMode.valuesOf(context).enabled &&
+        widget.canPrepareNearbyRows != null) {
+      prepareNearbyRows();
+    } else {
+      nearbyPreparation.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    nearbyPreparation.dispose();
+    for (final row in retainedRows.values) {
+      row.dispose();
+    }
+    retainedRows.clear();
+    super.dispose();
+  }
 
   /// The user's scroll direction ([UserScrollNotification]); programmatic
   /// moves (jumps, alignments, animations) leave it idle.
@@ -89,6 +170,15 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   @override
   void didUpdateWidget(RaftMessageTimeline oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.epoch != widget.epoch ||
+        !identical(oldWidget.controller, widget.controller)) {
+      nearbyCache = 250;
+    }
+    if (widget.canPrepareNearbyRows != null && widget.cacheExtent == null) {
+      prepareNearbyRows();
+    } else {
+      nearbyPreparation.cancel();
+    }
     if (!identical(oldWidget.controller, widget.controller)) {
       spent = false;
       userDirection = ScrollDirection.idle;
@@ -150,6 +240,15 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     // Only the timeline itself, not scrollables inside rows.
     if (notification is ScrollNotification && notification.depth != 0) {
       return false;
+    }
+    if (notification is ScrollStartNotification &&
+        widget.cacheExtent == null &&
+        widget.canPrepareNearbyRows != null) {
+      nearbyPreparation.cancel();
+      if (nearbyCache != 250) setState(() => nearbyCache = 250);
+    } else if (notification is ScrollEndNotification &&
+        widget.canPrepareNearbyRows != null) {
+      prepareNearbyRows();
     }
     if (notification is UserScrollNotification) {
       userDirection = notification.direction;
@@ -297,43 +396,67 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     edges.olderPending = widget.controller.olderPending = widget.hasOlder;
     final messages = widget.messages;
     final center = widget.centerIndex.clamp(0, messages.length);
-    final estimate = widget.estimateRow;
-    Widget row(BuildContext context, int index) {
-      RaftMessageTimeline.debugRowBuilds++;
-      return KeyedSubtree(
-        key: ValueKey<String>(messages[index].id),
-        child: widget.rowBuilder(context, index),
+    if (!identical(listsOwner, widget)) {
+      listsOwner = widget;
+      final estimate = widget.estimateRow;
+      // Seed once for this presentation. Layout updates the measured entries;
+      // scrolling queries sums without walking the unbuilt history again.
+      final extents = estimate == null
+          ? null
+          : _TimelineExtentIndex(messages.length, estimate);
+      Widget row(BuildContext context, int index) {
+        RaftMessageTimeline.debugRowBuilds++;
+        final body = extents == null
+            ? widget.rowBuilder(context, index)
+            : _TimelineExtentRecorder(
+                onExtent: (height) => extents.update(index, height),
+                child: widget.rowBuilder(context, index),
+              );
+        return KeyedSubtree(
+          key: ValueKey<String>(messages[index].id),
+          child: widget.canPrepareNearbyRows == null
+              ? body
+              : _PreparedTimelineRow(
+                  retained: retainRow(messages[index].id),
+                  child: body,
+                ),
+        );
+      }
+
+      historyList = SliverList(
+        key: ValueKey('timeline-history-${widget.epoch}'),
+        delegate: _EstimatingChildDelegate(
+          (context, i) => row(context, center - 1 - i),
+          childCount: center,
+          remainingExtent: extents == null
+              ? null
+              : (first) => extents.sum(0, center - first),
+          findChildIndexCallback: (key) {
+            if (key is! ValueKey<String>) return null;
+            final index = widget.indexOfId(key.value);
+            return index == null || index >= center ? null : center - 1 - index;
+          },
+        ),
+      );
+      final forwardKey = ValueKey('timeline-forward-${widget.epoch}');
+      forwardList = SliverList(
+        key: forwardKey,
+        delegate: _EstimatingChildDelegate(
+          (context, i) => row(context, center + i),
+          childCount: messages.length - center,
+          remainingExtent: extents == null
+              ? null
+              : (first) => extents.sum(center + first, messages.length),
+          findChildIndexCallback: (key) {
+            if (key is! ValueKey<String>) return null;
+            final index = widget.indexOfId(key.value);
+            return index == null || index < center ? null : index - center;
+          },
+        ),
       );
     }
-
-    final history = SliverList(
-      key: ValueKey('timeline-history-${widget.epoch}'),
-      delegate: _EstimatingChildDelegate(
-        (context, i) => row(context, center - 1 - i),
-        childCount: center,
-        estimate: estimate == null ? null : (i) => estimate(center - 1 - i),
-        findChildIndexCallback: (key) {
-          if (key is! ValueKey<String>) return null;
-          final index = widget.indexOfId(key.value);
-          return index == null || index >= center ? null : center - 1 - index;
-        },
-      ),
-    );
     final forwardKey = ValueKey('timeline-forward-${widget.epoch}');
-    final forward = SliverList(
-      key: forwardKey,
-      delegate: _EstimatingChildDelegate(
-        (context, i) => row(context, center + i),
-        childCount: messages.length - center,
-        estimate: estimate == null ? null : (i) => estimate(center + i),
-        findChildIndexCallback: (key) {
-          if (key is! ValueKey<String>) return null;
-          final index = widget.indexOfId(key.value);
-          return index == null || index < center ? null : index - center;
-        },
-      ),
-    );
-    final slivers = widget.slivers(history, forward);
+    final slivers = widget.slivers(historyList!, forwardList!);
     final behavior = ScrollConfiguration.of(context);
     final scrollbar = switch (behavior.getPlatform(context)) {
       TargetPlatform.linux ||
@@ -352,9 +475,9 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         physics: _TimelinePhysics(edges),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         semanticChildCount: messages.length,
-        scrollCacheExtent: widget.cacheExtent == null
-            ? null
-            : ScrollCacheExtent.pixels(widget.cacheExtent!),
+        scrollCacheExtent: ScrollCacheExtent.pixels(
+          widget.cacheExtent ?? nearbyCache,
+        ),
         slivers: slivers,
       ),
     );
@@ -373,6 +496,50 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         Positioned.fill(child: empty),
       ],
     );
+  }
+}
+
+// Keep a bounded set of prepared rows alive when the active cache contracts.
+// Their existing render objects are reused on subsequent wheel events; newly
+// mounted distant rows retire the oldest entries instead of retaining history.
+class _PreparedTimelineRow extends StatefulWidget {
+  const _PreparedTimelineRow({required this.retained, required this.child});
+  final ValueNotifier<bool> retained;
+  final Widget child;
+  @override
+  State<_PreparedTimelineRow> createState() => _PreparedTimelineRowState();
+}
+
+class _PreparedTimelineRowState extends State<_PreparedTimelineRow>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => widget.retained.value;
+  @override
+  void initState() {
+    super.initState();
+    widget.retained.addListener(updateKeepAlive);
+  }
+
+  @override
+  void didUpdateWidget(_PreparedTimelineRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.retained, widget.retained)) {
+      oldWidget.retained.removeListener(updateKeepAlive);
+      widget.retained.addListener(updateKeepAlive);
+      updateKeepAlive();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.retained.removeListener(updateKeepAlive);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
@@ -888,10 +1055,10 @@ class _EstimatingChildDelegate extends SliverChildBuilderDelegate {
   _EstimatingChildDelegate(
     super.builder, {
     required int super.childCount,
-    required this.estimate,
+    required this.remainingExtent,
     super.findChildIndexCallback,
   });
-  final double Function(int index)? estimate;
+  final double Function(int firstUnbuiltIndex)? remainingExtent;
 
   @override
   double? estimateMaxScrollOffset(
@@ -900,13 +1067,71 @@ class _EstimatingChildDelegate extends SliverChildBuilderDelegate {
     double leadingScrollOffset,
     double trailingScrollOffset,
   ) {
-    final perItem = estimate;
-    final count = childCount;
-    if (perItem == null || count == null) return null;
-    var extent = trailingScrollOffset;
-    for (var i = lastIndex + 1; i < count; i++) {
-      extent += perItem(i);
+    final remaining = remainingExtent;
+    if (remaining == null) return null;
+    return trailingScrollOffset + remaining(lastIndex + 1);
+  }
+}
+
+// Fenwick sums retain measured variable row heights with O(log n) updates and
+// range queries. Both sides of the center share the same message index.
+class _TimelineExtentIndex {
+  _TimelineExtentIndex(int count, double Function(int) estimate)
+    : values = Float64List(count),
+      tree = Float64List(count + 1) {
+    for (var i = 0; i < count; i++) {
+      final value = estimate(i);
+      values[i] = value;
+      tree[i + 1] += value;
+      final parent = i + 1 + ((i + 1) & -(i + 1));
+      if (parent < tree.length) tree[parent] += tree[i + 1];
     }
-    return extent;
+  }
+  final Float64List values, tree;
+  void update(int index, double height) {
+    final delta = height - values[index];
+    if (delta == 0) return;
+    values[index] = height;
+    for (var i = index + 1; i < tree.length; i += i & -i) {
+      tree[i] += delta;
+    }
+  }
+
+  double prefix(int end) {
+    var value = 0.0;
+    for (var i = end; i > 0; i -= i & -i) {
+      value += tree[i];
+    }
+    return value;
+  }
+
+  double sum(int start, int end) => prefix(end) - prefix(start);
+}
+
+class _TimelineExtentRecorder extends SingleChildRenderObjectWidget {
+  const _TimelineExtentRecorder({required this.onExtent, required super.child});
+  final ValueChanged<double> onExtent;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTimelineExtentRecorder(onExtent);
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderTimelineExtentRecorder renderObject,
+  ) {
+    renderObject.onExtent = onExtent;
+    // A new delegate may retain an already laid-out child without another
+    // layout. Seed its new index from that size, then update if layout changes.
+    if (renderObject.hasSize) onExtent(renderObject.size.height);
+  }
+}
+
+class _RenderTimelineExtentRecorder extends RenderProxyBox {
+  _RenderTimelineExtentRecorder(this.onExtent);
+  ValueChanged<double> onExtent;
+  @override
+  void performLayout() {
+    super.performLayout();
+    onExtent(size.height);
   }
 }

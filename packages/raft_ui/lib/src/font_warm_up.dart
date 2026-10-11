@@ -45,6 +45,9 @@ abstract final class RaftFontWarmUp {
   static bool _inputHooked = false;
   static final _sinceInput = Stopwatch();
 
+  /// Whether input and watched scrolling are quiet enough for preparation.
+  static bool get isIdle => _sinceInput.elapsed >= quietPeriod && !_scrolling;
+
   /// Pending samples (for tests and diagnostics).
   @visibleForTesting
   static int get pending => _queue.length;

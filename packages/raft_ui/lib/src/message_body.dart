@@ -399,6 +399,45 @@ class RaftMessageBody extends StatelessWidget {
     this.compactSemantics = false,
   });
 
+  /// Prepares immutable Markdown and code caches without mounting widgets.
+  ///
+  /// Callers should schedule one message at a time while input is idle.
+  /// [references], [taskHref], and [knownTaskNumber] must be the same accepted
+  /// projections used for rendering; they never initiate reads or translations.
+  static void prepareCache({
+    required String content,
+    required RaftTokens tokens,
+    List<RaftTextReference> references = const [],
+    String Function(int)? taskHref,
+    bool Function(int)? knownTaskNumber,
+    double fontSize = 14,
+  }) {
+    final key = _ReferencesKey(content, references, taskHref, knownTaskNumber);
+    final chunks = _bodyChunkCache.putIfAbsent(
+      key,
+      () => _splitBody(
+        raftMessageReferences(
+          content,
+          references: references,
+          taskHref: taskHref,
+          knownTaskNumber: knownTaskNumber,
+        ),
+      ),
+    );
+    final code = RaftCodeRecipe(tokens);
+    final style = code.textStyle.copyWith(
+      fontSize: fontSize,
+      color: code.foreground,
+    );
+    for (final chunk in chunks) {
+      if (chunk.markdown) {
+        _parseMarkdown(chunk.text);
+      } else if (!chunk.mermaid) {
+        raftCodeSpan(chunk.text, chunk.language, style, dark: tokens.dark);
+      }
+    }
+  }
+
   /// Inside a compact timeline row whose label already announces the text:
   /// prose contributes only its links (see [RaftMessageProseSemantics]).
   final bool compactSemantics;
