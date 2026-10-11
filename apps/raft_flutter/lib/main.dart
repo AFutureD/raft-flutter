@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:path_provider/path_provider.dart';
@@ -34,6 +35,7 @@ import 'platform/session_store.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
+import 'platform/incoming_share_staging.dart';
 import 'platform/content_coordinator.dart';
 import 'platform/workspace_cache.dart';
 import 'platform/system_bars.dart';
@@ -131,7 +133,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   late final content = widget.nativeContent ?? NativeContentCoordinator();
   late final sharing = widget.nativeSharing ?? NativeSharing();
   VoidCallback? removeShareReceiver;
-  final pendingShares = <IncomingShare>[];
+  final pendingShares = <IncomingShareStaging>[];
   bool sharePickerOpen = false, shareDrainScheduled = false;
   int shareEpoch = 0;
   late final RaftAppRouter appRouter;
@@ -235,33 +237,38 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     restore();
   }
 
+  /// The picker appears at once; the attachments are copied into the private
+  /// inbox in the background ([IncomingShareStaging]) and the hand-off waits
+  /// for that copy only when the user continues.
   void receiveSharedContent(IncomingShare raw) {
     final epoch = shareEpoch, owner = client, principal = client?.user?.id;
-    unawaited(() async {
-      try {
-        if (raw.text != null && unsafeSharedText(raw.text!)) {
-          throw const FormatException('Unsafe shared link');
-        }
-        final share = await sharing.inbox.stage(
-          raw,
-          current: () => mounted && epoch == shareEpoch,
-        );
-        if (!mounted || epoch != shareEpoch) return;
-        if (owner != null &&
-            principal != null &&
-            !await sharing.inbox.claim(share.token!, owner.origin, principal)) {
-          return;
-        }
-        if (!pendingShares.any((s) => s.token == share.token)) {
-          pendingShares.add(share);
-        }
-        scheduleShares();
-      } catch (_) {
-        if (mounted && epoch == shareEpoch) {
-          showShareError();
-        }
+    if (raw.text != null && unsafeSharedText(raw.text!)) {
+      showShareError();
+      return;
+    }
+    if (raw.token != null &&
+        pendingShares.any((s) => s.raw.token == raw.token)) {
+      return;
+    }
+    final staging = IncomingShareStaging(raw);
+    staging.start((progress) async {
+      final share = await sharing.inbox.stage(
+        raw,
+        current: () => mounted && epoch == shareEpoch && !staging.cancelled,
+        onProgress: progress,
+      );
+      if (!mounted || epoch != shareEpoch || staging.cancelled) {
+        throw const FormatException('Cancelled');
       }
-    }());
+      if (owner != null &&
+          principal != null &&
+          !await sharing.inbox.claim(share.token!, owner.origin, principal)) {
+        throw const FormatException('Share owner changed');
+      }
+      return share;
+    });
+    pendingShares.add(staging);
+    scheduleShares();
   }
 
   Future<void> clearSharesForAccount(
@@ -277,6 +284,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  /// A new account scope invalidates queued and copying shares.
+  void retireShares() {
+    shareEpoch++;
+    for (final pending in pendingShares) {
+      pending.cancel();
+    }
+    pendingShares.clear();
+  }
+
   void showShareError() {
     if (!mounted) return;
     const message = 'The shared content could not be added.';
@@ -290,12 +306,22 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         sharePickerOpen ||
         pendingShares.isEmpty ||
         restoring ||
-        directoryLoading ||
         client?.user == null ||
-        workspace == null) {
+        workspace == null ||
+        // Only a device with no saved directory has nothing to show yet.
+        directoryLoading && workspace!.servers.isEmpty) {
       return;
     }
     shareDrainScheduled = true;
+    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+      // Outside a frame the route can be pushed now, so the picker is built by
+      // the very next frame instead of one frame later.
+      scheduleMicrotask(() {
+        shareDrainScheduled = false;
+        unawaited(openNextShare());
+      });
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       shareDrainScheduled = false;
       unawaited(openNextShare());
@@ -315,7 +341,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         navigator == null) {
       return;
     }
-    final share = pendingShares.removeAt(0),
+    final staging = pendingShares.removeAt(0),
         principal = c!.user!.id,
         epoch = shareEpoch;
     bool valid() =>
@@ -327,21 +353,37 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     sharePickerOpen = true;
     var handedOff = false;
     try {
-      if (!await sharing.inbox.claim(share.token!, c.origin, principal) ||
-          !valid()) {
+      if (staging.failed) {
+        if (valid()) showShareError();
         return;
       }
-      final servers = await c.servers();
-      if (!valid()) return;
+      // Bind the copied files to this account as soon as they are staged, in
+      // the background, so Continue finds the claim already done.
+      final owned = staging.result.then((share) async {
+        if (!await sharing.inbox.claim(share.token!, c.origin, principal)) {
+          throw const RaftApiException('The conversation changed.');
+        }
+        return share;
+      });
+      unawaited(owned.then<void>((_) {}, onError: (Object _) {}));
+      // Present immediately from the accepted on-device directory; the picker
+      // revalidates servers and destinations in place and the hand-off below
+      // re-reads authority before anything is added.
       await navigator.push<bool>(
         AccountScopedRoute<bool>(
           valid: valid,
           builder: (_) => IncomingSharePicker(
             client: c,
-            servers: servers,
+            servers: w.servers,
             initialServer: c.serverId,
             valid: valid,
+            staging: staging,
+            cachedTargets: (server) => cachedShareTargets(w, server),
             onContinue: (server, target) async {
+              final share = await owned;
+              if (!valid()) {
+                throw const RaftApiException('The conversation changed.');
+              }
               final freshServers = await c.servers();
               if (!valid() || !freshServers.any((s) => s.id == server.id)) {
                 throw const RaftApiException('Server membership changed.');
@@ -440,10 +482,18 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           ),
         ),
       );
+      if (!handedOff && staging.failed && valid()) showShareError();
     } catch (_) {
       if (valid()) showShareError();
     } finally {
-      if (!handedOff && valid()) await sharing.inbox.discard(share.token!);
+      if (!handedOff) {
+        // Dismissed or failed: stop a copy still running and drop its files.
+        staging.cancel();
+        final staged = await staging.settled;
+        if (staged?.token != null && valid()) {
+          await sharing.inbox.discard(staged!.token!);
+        }
+      }
       sharePickerOpen = false;
       scheduleShares();
     }
@@ -546,8 +596,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       if (oldClient != null &&
           oldPrincipal != null &&
           (oldClient.origin != c.origin || oldPrincipal != c.user?.id)) {
-        shareEpoch++;
-        pendingShares.clear();
+        retireShares();
         unawaited(clearSharesForAccount(oldClient.origin, oldPrincipal));
       }
       await oldWorkspace?.flushCache();
@@ -1561,8 +1610,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       if (e.name == 'session:ended' && mounted && identical(c, client)) {
         authAttempt++;
         rootRequest++;
-        shareEpoch++;
-        pendingShares.clear();
+        retireShares();
         unawaited(clearSharesForAccount(c.origin, principal));
         // Nothing more is written for this account once its data is cleared.
         final flushed = workspace?.retireCache() ?? Future<void>.value();
@@ -1596,8 +1644,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     content.bindWorkspace(null);
     final c = client, oldWorkspace = workspace;
     final principal = previousPrincipal ?? c?.user?.id;
-    shareEpoch++;
-    pendingShares.clear();
+    retireShares();
 
     final clearSession = c == null
         ? Future<Session?>.value()

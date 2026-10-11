@@ -567,7 +567,7 @@ class _AttachmentViewState extends State<AttachmentView> {
             return Scaffold(
               backgroundColor: surface,
               body: RaftSystemBarSurface(
-                statusBarBackground: surface,
+                statusBarFallback: surface,
                 child: builder(context),
               ),
             );

@@ -10,6 +10,7 @@ import 'dialog_card.dart';
 import 'icons.dart';
 import 'recipes/button_variants.g.dart';
 import 'system_inset.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -118,66 +119,69 @@ class RaftLightboxHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final rule = t.brutal ? 2.0 : borderWidth;
-    return DefaultTextHeightBehavior(
-      textHeightBehavior: raftCssTextHeightBehavior,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: t.brutal ? Colors.white : t.panel,
-          border: Border(
-            bottom: BorderSide(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: rule,
+    return RaftStatusBarSource(
+      color: t.brutal ? Colors.white : t.panel,
+      child: DefaultTextHeightBehavior(
+        textHeightBehavior: raftCssTextHeightBehavior,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: t.brutal ? Colors.white : t.panel,
+            border: Border(
+              bottom: BorderSide(
+                color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                width: rule,
+              ),
             ),
           ),
-        ),
-        child: SizedBox(
-          height: raftLightboxHeaderRow + rule,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 0, 16, rule),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (leading != null) ...[
-                        leading!,
-                        const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: t.headingFont,
-                            fontSize: 14,
-                            height: 20 / 14,
-                            fontWeight: titleBold
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                            color: t.brutal ? Colors.black : t.strong,
+          child: SizedBox(
+            height: raftLightboxHeaderRow + rule,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, rule),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (leading != null) ...[
+                          leading!,
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: t.headingFont,
+                              fontSize: 14,
+                              height: 20 / 14,
+                              fontWeight: titleBold
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                              color: t.brutal ? Colors.black : t.strong,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                if (meta != null) ...[const SizedBox(width: 12), meta!],
-                const SizedBox(width: 12),
-                for (final action in actions) ...[
-                  action,
-                  const SizedBox(width: 6),
+                  if (meta != null) ...[const SizedBox(width: 12), meta!],
+                  const SizedBox(width: 12),
+                  for (final action in actions) ...[
+                    action,
+                    const SizedBox(width: 6),
+                  ],
+                  RaftTooltip(
+                    message: closeLabel,
+                    excludeFromSemantics: true,
+                    child: RaftCloseButton(
+                      onPressed: onClose,
+                      tooltip: closeLabel,
+                    ),
+                  ),
                 ],
-                RaftTooltip(
-                  message: closeLabel,
-                  excludeFromSemantics: true,
-                  child: RaftCloseButton(
-                    onPressed: onClose,
-                    tooltip: closeLabel,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

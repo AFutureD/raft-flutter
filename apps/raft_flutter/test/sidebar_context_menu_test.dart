@@ -96,11 +96,11 @@ void main() {
     }
     await tester.tap(find.text('Pin'));
     await tester.pumpAndSettle();
+    // Source togglePinnedRef: no section write when no placement is dropped.
     expect(patches.single, {
       'pinned': [
         {'kind': 'channel', 'id': 'c1'},
       ],
-      'sectionPlacements': <Object?>[],
     });
     expect(find.text('Pin'), findsNothing, reason: 'the menu closed');
   });

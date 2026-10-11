@@ -19,6 +19,7 @@ import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 import 'tooltip.dart';
 import 'recipes/button_variants.g.dart';
 import 'settings_controls.dart' show RaftSettingsRecipeButton;
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// The drawer popup of `OverflowSheet`: `inset-y-0 right-0 h-dvh w-full
@@ -127,36 +128,39 @@ class RaftOverflowSheet extends StatelessWidget {
           ),
       ],
     );
-    final header = Container(
-      height: headerHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: headerColor,
-        border: Border(
-          bottom: BorderSide(color: edge, width: t.brutal ? 2 : 1),
+    final header = RaftStatusBarSource(
+      color: headerColor,
+      child: Container(
+        height: headerHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: headerColor,
+          border: Border(
+            bottom: BorderSide(color: edge, width: t.brutal ? 2 : 1),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          if (mobile) ...[
-            // Web's 28px drawer Back; touch area extended around it.
-            RaftTouchTargetExpander(
-              minSize: const Size.square(RaftMetrics.touchTarget),
-              child: RaftSettingsRecipeButton(
-                key: const ValueKey('channel-overflow-back'),
-                label: '',
-                variant: RaftButtonRecipeVariant.default_,
-                glyph: RaftGlyph.arrowLeft,
-                glyphSize: 16,
-                size: RaftButtonRecipeSize.iconSm,
-                semanticLabel: raftText(context, closeLabel),
-                onPressed: onClose,
+        child: Row(
+          children: [
+            if (mobile) ...[
+              // Web's 28px drawer Back; touch area extended around it.
+              RaftTouchTargetExpander(
+                minSize: const Size.square(RaftMetrics.touchTarget),
+                child: RaftSettingsRecipeButton(
+                  key: const ValueKey('channel-overflow-back'),
+                  label: '',
+                  variant: RaftButtonRecipeVariant.default_,
+                  glyph: RaftGlyph.arrowLeft,
+                  glyphSize: 16,
+                  size: RaftButtonRecipeSize.iconSm,
+                  semanticLabel: raftText(context, closeLabel),
+                  onPressed: onClose,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
+              const SizedBox(width: 8),
+            ],
+            Expanded(child: identity),
           ],
-          Expanded(child: identity),
-        ],
+        ),
       ),
     );
 

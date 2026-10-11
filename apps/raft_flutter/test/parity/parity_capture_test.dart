@@ -36,6 +36,15 @@ void main() {
     );
     return;
   }
+  final missingFonts = missingParityFontReason();
+  if (missingFonts != null) {
+    test(
+      'parity capture requires system test fonts',
+      () {},
+      skip: missingFonts,
+    );
+    return;
+  }
   final manifest = json.decode(
     File(env['PARITY_MANIFEST'] ?? '$sharedDir/sharedCases.json')
         .readAsStringSync(),

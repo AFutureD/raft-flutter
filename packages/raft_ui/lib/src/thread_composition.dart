@@ -6,6 +6,7 @@ import 'conversation_surface.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// Mounted Web ThreadPanel presentation, independent of the host OS.
@@ -173,88 +174,91 @@ class RaftThreadHeader extends StatelessWidget {
     final hasFollowers = followers != null && followersVisible;
     // CSS border-box: the bottom rule is inside the header height and the
     // row is centred in the remaining content box.
-    return Container(
-      height: recipe.headerHeight,
-      decoration: BoxDecoration(
-        color: recipe.headerBackground,
-        border: Border(bottom: recipe.headerBorder),
-      ),
-      child: SizedBox(
-        height: recipe.headerHeight - recipe.headerBorder.width,
-        child: Padding(
-          padding: recipe.headerInset,
-          child: Row(
-            children: [
-              if (recipe.showBack && onBack != null) ...[
-                // AppPanelHeader's mobile Back is the raft-ui PanelAction (the
-                // same control as the channel header): source-sized layout,
-                // touch hit area extended without moving the title.
-                RaftPanelAction(
-                  key: backKey,
-                  glyph: RaftGlyph.arrowLeft,
-                  tooltip: backLabel,
-                  onPressed: onBack,
-                  minHitExtent: RaftMetrics.touchTarget,
-                ),
-                SizedBox(width: recipe.headerGap),
-              ],
-              Expanded(
-                child: !interactiveTitle
-                    ? Semantics(
-                        header: true,
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: title(),
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) => RaftControl(
-                          key: jumpKey,
-                          recipe: _ThreadTitleRecipe(tokens),
-                          onPressed: onJumpToStart,
-                          tooltip: jumpLabel,
-                          semanticLabel: jumpLabel,
-                          visualHeight: 40,
-                          visualWidth: constraints.maxWidth,
-                          padding: EdgeInsets.zero,
+    return RaftStatusBarSource(
+      color: recipe.headerBackground,
+      child: Container(
+        height: recipe.headerHeight,
+        decoration: BoxDecoration(
+          color: recipe.headerBackground,
+          border: Border(bottom: recipe.headerBorder),
+        ),
+        child: SizedBox(
+          height: recipe.headerHeight - recipe.headerBorder.width,
+          child: Padding(
+            padding: recipe.headerInset,
+            child: Row(
+              children: [
+                if (recipe.showBack && onBack != null) ...[
+                  // AppPanelHeader's mobile Back is the raft-ui PanelAction (the
+                  // same control as the channel header): source-sized layout,
+                  // touch hit area extended without moving the title.
+                  RaftPanelAction(
+                    key: backKey,
+                    glyph: RaftGlyph.arrowLeft,
+                    tooltip: backLabel,
+                    onPressed: onBack,
+                    minHitExtent: RaftMetrics.touchTarget,
+                  ),
+                  SizedBox(width: recipe.headerGap),
+                ],
+                Expanded(
+                  child: !interactiveTitle
+                      ? Semantics(
+                          header: true,
                           child: Align(
                             alignment: AlignmentDirectional.centerStart,
-                            child: ExcludeSemantics(child: title()),
+                            child: title(),
+                          ),
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) => RaftControl(
+                            key: jumpKey,
+                            recipe: _ThreadTitleRecipe(tokens),
+                            onPressed: onJumpToStart,
+                            tooltip: jumpLabel,
+                            semanticLabel: jumpLabel,
+                            visualHeight: 40,
+                            visualWidth: constraints.maxWidth,
+                            padding: EdgeInsets.zero,
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: ExcludeSemantics(child: title()),
+                            ),
                           ),
                         ),
+                ),
+                if (hasFollowers ||
+                    actions.isNotEmpty ||
+                    recipe.showClose && onClose != null)
+                  SizedBox(width: recipe.headerGap),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (followers != null) followers!,
+                    for (var index = 0; index < actions.length; index++) ...[
+                      if (hasFollowers || index > 0)
+                        SizedBox(width: recipe.actionGap),
+                      actions[index],
+                    ],
+                    if (recipe.showClose && onClose != null) ...[
+                      if (hasFollowers || actions.isNotEmpty)
+                        SizedBox(width: recipe.actionGap),
+                      RaftControl(
+                        key: closeKey,
+                        recipe: _ThreadCloseRecipe(tokens),
+                        tooltip: closeLabel,
+                        semanticLabel: closeLabel,
+                        onPressed: onClose,
+                        visualWidth: 28,
+                        visualHeight: 28,
+                        padding: EdgeInsets.zero,
+                        child: const RaftIcon(RaftGlyph.x, size: 14),
                       ),
-              ),
-              if (hasFollowers ||
-                  actions.isNotEmpty ||
-                  recipe.showClose && onClose != null)
-                SizedBox(width: recipe.headerGap),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (followers != null) followers!,
-                  for (var index = 0; index < actions.length; index++) ...[
-                    if (hasFollowers || index > 0)
-                      SizedBox(width: recipe.actionGap),
-                    actions[index],
+                    ],
                   ],
-                  if (recipe.showClose && onClose != null) ...[
-                    if (hasFollowers || actions.isNotEmpty)
-                      SizedBox(width: recipe.actionGap),
-                    RaftControl(
-                      key: closeKey,
-                      recipe: _ThreadCloseRecipe(tokens),
-                      tooltip: closeLabel,
-                      semanticLabel: closeLabel,
-                      onPressed: onClose,
-                      visualWidth: 28,
-                      visualHeight: 28,
-                      padding: EdgeInsets.zero,
-                      child: const RaftIcon(RaftGlyph.x, size: 14),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
