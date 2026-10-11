@@ -239,7 +239,9 @@ class _MemberPicker extends StatelessWidget {
                     vertical: 16,
                   ),
                   child: Text(
-                    raftText(context, 'No matches for "${query.trim()}"'),
+                    raftFormat(context, 'No matches for "{query}"', {
+                      'query': query.trim(),
+                    }),
                     textAlign: TextAlign.center,
                     style: raftCssTextStyle(
                       family: t.monoFont,
@@ -368,16 +370,17 @@ class RaftArchivedNameBanner extends StatelessWidget {
           children: [
             Text.rich(
               TextSpan(
-                children: [
-                  TextSpan(text: raftText(context, 'The name ')),
-                  TextSpan(
-                    text: '#$name',
-                    style: TextStyle(fontFamily: t.monoFont),
-                  ),
-                  TextSpan(
-                    text: raftText(context, ' is held by an archived channel.'),
-                  ),
-                ],
+                children: raftRichText(
+                  context,
+                  'The name <mono>#{name}</mono> is held by an archived channel.',
+                  {
+                    'mono': (text) => TextSpan(
+                      text: text,
+                      style: TextStyle(fontFamily: t.monoFont),
+                    ),
+                  },
+                  values: {'name': name},
+                ),
               ),
               style: bold,
             ),
@@ -404,10 +407,16 @@ class RaftArchivedNameBanner extends StatelessWidget {
               children: [
                 if (canUnarchive)
                   RaftRecipeButton(
-                    label: raftText(context, busy ? 'Unarchiving…' : 'Unarchive'),
+                    label: raftText(
+                      context,
+                      busy ? 'Unarchiving…' : 'Unarchive',
+                    ),
                     variant: RaftButtonRecipeVariant.success,
                     size: RaftButtonRecipeSize.sm,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     textStep: RaftTextSteps.xs,
                     disabled: busy,
                     onPressed: onUnarchive,
@@ -416,7 +425,10 @@ class RaftArchivedNameBanner extends StatelessWidget {
                   label: raftText(context, 'Change name'),
                   variant: RaftButtonRecipeVariant.outline,
                   size: RaftButtonRecipeSize.sm,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   textStep: RaftTextSteps.xs,
                   onPressed: onChangeName,
                 ),

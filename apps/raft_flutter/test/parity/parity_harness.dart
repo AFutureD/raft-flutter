@@ -563,6 +563,27 @@ Future<void> _androidInteractions(
           kind: PointerDeviceKind.mouse,
           buttons: kSecondaryMouseButton,
         );
+      case 'longPress':
+        // Native touch long press (the phone's way to open a row menu),
+        // at the element centre or at (x, y) from its top-left.
+        await t.pump(const Duration(milliseconds: 300));
+        final lpBox = t.getRect(target!.first);
+        final lpMargin = raw['row'] == true
+            ? ((visualCase['variants'] as List).first
+                          as Map)['props']['parityTheme'] ==
+                      'brutal-light'
+                  ? 2.0
+                  : 1.0
+            : 0.0;
+        await t.longPressAt(
+          raw['x'] == null
+              ? lpBox.center - Offset(0, lpMargin)
+              : lpBox.topLeft +
+                    Offset(
+                      (raw['x'] as num).toDouble(),
+                      (raw['y'] as num? ?? 0).toDouble(),
+                    ),
+        );
       case 'reveal':
         // Playwright's element screenshot scrolls the element into view
         // first: do the same for a keyed target below the fold.

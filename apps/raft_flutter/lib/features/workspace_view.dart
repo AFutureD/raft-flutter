@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
-import 'package:raft_ui/recipes.dart' as recipes;
 
 import 'announcement_host.dart';
 import '../data/workspace_controller.dart';
@@ -142,6 +141,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
   void setMenuOpenRow(String? row) {
     if (mounted && menuOpenRow != row) setState(() => menuOpenRow = row);
   }
+
+  /// Sidebar row-menu feedback (Source `toast.error` of the mute action).
+  final rowToast = RaftToastController();
 
   void toggleJoinedChannelsOnly() =>
       setState(() => joinedChannelsOnly = !joinedChannelsOnly);
@@ -742,6 +744,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);
     serverMenu.dispose();
+    rowToast.dispose();
     serverUnread.removeListener(serverUnreadChanged);
     if (mobileHost == null) {
       serverUnread.dispose();
@@ -1099,40 +1102,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
           !(wide &&
               desktopNavigation.target?.kind == DesktopContentKind.thread);
       final rootTab = w.navigation.mobileRootTabOf(location);
-      final viewport = MediaQuery.sizeOf(context);
-      final headerBackground = thread
-          ? RaftThreadCompositionRecipe(
-              t,
-              viewportWidth: viewport.width,
-              viewportHeight: viewport.height,
-              presentation: RaftThreadPresentation.side,
-            ).headerBackground
-          : rootTab != null
-          ? RaftMobileRootHeaderRecipe(
-              t,
-              viewportHeight: viewport.height,
-            ).background
-          : route == 'chat' &&
-                !unresolvedChannelRoute &&
-                ['channel', 'private', 'joint'].contains(w.channel?.type)
-          ? recipes.RaftPanelHeaderRecipe.resolve(
-                  theme: t.recipeTheme,
-                  tokens: t.recipeTokens,
-                  states: recipes.RaftRecipeStates(
-                    {if (t.dark) recipes.RaftRecipeStates.dark},
-                    viewport.width,
-                    viewport.height,
-                  ),
-                ).header.backgroundColor?.resolve(t.recipeTokens) ??
-                t.panel
-          : RaftPanelHeaderRecipe(
-              t,
-              viewportHeight: viewport.height,
-              mobile: !wide,
-              variant: route == 'tasks'
-                  ? RaftPanelHeaderVariant.tasks
-                  : RaftPanelHeaderVariant.canonical,
-            ).background;
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
           : tr(switch (route) {
@@ -1502,7 +1471,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
             // does). A drawer here would open from a left-edge swipe, racing
             // Android's back gesture, with nothing in the app opening it.
             body: RaftSystemBarSurface(
-              statusBarBackground: wide ? t.canvas : headerBackground,
+              statusBarFallback: t.canvas,
               child: SafeArea(
                 bottom: false,
                 child: Column(
@@ -1523,6 +1492,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                             ].contains(route)))
                       if (thread || !unresolvedChannelRoute)
                         mobilePageHeader(title, thread),
+                    RaftToastPortal(controller: rowToast),
                     if (w.error != null)
                       MaterialBanner(
                         content: Text(w.error!),
@@ -3417,15 +3387,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     sortingGroups.add(group.id);
     setState(() {});
     try {
-      await w.command(
-        'PATCH',
-        '/servers/${w.server!.id}/sidebar-order',
-        data: {key: mode},
-      );
-      if (!mounted || scope != mobileAuthority) return;
-      await w.loadSidebar();
-    } catch (error) {
-      if (mounted && scope == mobileAuthority) w.setError('$error');
+      await w.updateSidebarOrder({key: mode});
     } finally {
       sortingGroups.remove(group.id);
       if (mounted && scope == mobileAuthority) setState(() {});
@@ -3543,11 +3505,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           // ds-allow: Native page Scaffold owns keyboard insets; raft_ui owns its content/header.
           Scaffold(
             body: RaftSystemBarSurface(
-              statusBarBackground: page.kind == RaftChannelPage.settings
-                  ? RaftTokens.of(context).brutal
-                        ? RaftTokens.of(context).colors['color-soft-signal']!
-                        : RaftTokens.of(context).colors['layer-panel']!
-                  : RaftTokens.of(context).panel,
+              statusBarFallback: RaftTokens.of(context).panel,
               child: SafeArea(
                 bottom: false,
                 child: !available
@@ -3583,8 +3541,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           controller: w,
                           channel: channel,
                           page: true,
-                          startInAdd:
-                              w.location.query('channelPageAdd') == '1',
+                          startInAdd: w.location.query('channelPageAdd') == '1',
                           onClose: dismissPanel,
                         ),
                       ),
