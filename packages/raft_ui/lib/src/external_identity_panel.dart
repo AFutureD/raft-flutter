@@ -130,3 +130,46 @@ class RaftExternalIdentityBody extends StatelessWidget {
     );
   }
 }
+
+/// `AvatarSlot type="app"` initials fallback: the first two characters of the
+/// name in bold (Brutal black / Elegant muted); 24px in the profile tile, 14px
+/// elsewhere.
+class RaftExternalInitials extends StatelessWidget {
+  const RaftExternalInitials({
+    super.key,
+    required this.name,
+    this.large = false,
+  });
+  final String name;
+  final bool large;
+  static String initials(String name) =>
+      String.fromCharCodes(name.trim().runes.take(2)).toUpperCase();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Center(
+      child: Text(
+        initials(name),
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          fontSize: large ? 24 : 14,
+          height: 1,
+          fontWeight: t.brutal ? FontWeight.w700 : FontWeight.w600,
+          color: t.brutal ? Colors.black : t.muted,
+        ),
+      ),
+    );
+  }
+}
+
+/// The profile panel's surface (`bg-layer-panel`, Brutal white).
+class RaftProfilePanelSurface extends StatelessWidget {
+  const RaftProfilePanelSurface({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return ColoredBox(color: t.brutal ? Colors.white : t.panel, child: child);
+  }
+}

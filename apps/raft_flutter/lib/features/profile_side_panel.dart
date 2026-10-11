@@ -35,7 +35,6 @@ class ProfileSidePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = controller;
-    final t = RaftTokens.of(context);
     final key = ValueKey('profile-${profile.kind.name}-${profile.id}');
     final Widget body = switch (profile.kind) {
       RaftProfileKind.agent => FleetDetail(
@@ -79,10 +78,9 @@ class ProfileSidePanel extends StatelessWidget {
         ),
       ),
     };
-    return ColoredBox(
+    return KeyedSubtree(
       key: const Key('profile-panel'),
-      color: t.brutal ? Colors.white : t.panel,
-      child: body,
+      child: RaftProfilePanelSurface(child: body),
     );
   }
 }

@@ -36,10 +36,6 @@ String externalIdentitySubtitle(
   return label == null ? kind : '$label · $kind';
 }
 
-/// `AvatarSlot` `appInitials`: the first two characters of the name.
-String externalInitials(String name) =>
-    String.fromCharCodes(name.trim().runes.take(2)).toUpperCase();
-
 /// Web ExternalIdentityDetailPanel: the detail of a provider-owned message
 /// author inside the profile side panel.
 class ExternalIdentityDetailPanel extends StatelessWidget {
@@ -69,7 +65,6 @@ class ExternalIdentityDetailPanel extends StatelessWidget {
       controller.client.origin,
       profile['avatarUrl'] as String?,
     );
-    final t = RaftTokens.of(context);
     // AvatarSlot `type="app"`: the provider avatar, else bold initials.
     Widget avatar(RaftAvatarSlotContext slot) => RaftAvatarSlot(
       name: name,
@@ -80,18 +75,7 @@ class ExternalIdentityDetailPanel extends StatelessWidget {
         name: name,
         kind: RaftAvatarContentKind.app,
         uploadedUrl: avatarUrl,
-        fallback: Center(
-          child: Text(
-            externalInitials(name),
-            style: TextStyle(
-              fontFamily: t.headingFont,
-              fontSize: slot.size >= 48 ? 24 : 14,
-              height: 1,
-              fontWeight: t.brutal ? FontWeight.w700 : FontWeight.w600,
-              color: t.brutal ? Colors.black : t.muted,
-            ),
-          ),
-        ),
+        fallback: RaftExternalInitials(name: name, large: slot.size >= 48),
       ),
     );
     final wide = MediaQuery.sizeOf(context).width >= 768;

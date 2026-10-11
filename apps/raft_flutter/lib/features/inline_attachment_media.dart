@@ -161,7 +161,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   bool get wantsVideo => true;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
+  Widget build(BuildContext context) => RaftTooltip(
     message: filename,
     child: RaftInlineVideo(
       state: widget.pending ? RaftInlineMediaState.loading : mediaState,

@@ -101,7 +101,7 @@ void main() {
       ),
       'matrix · External participant',
     );
-    expect(externalInitials(' ada lovelace'), 'AD');
+    expect(RaftExternalInitials.initials(' ada lovelace'), 'AD');
   });
 
   Future<dynamic> mountChat(

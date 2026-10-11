@@ -634,3 +634,40 @@ class _RailSlider extends StatelessWidget {
     );
   }
 }
+
+/// Web MessageItem attachment area: the image gallery, then the inline videos
+/// and the inline audio cards (each `space-y-2`), then every other attachment
+/// as a wrapping group of cards; 8px between groups.
+class RaftAttachmentStack extends StatelessWidget {
+  const RaftAttachmentStack({
+    super.key,
+    this.gallery,
+    this.videos = const [],
+    this.audios = const [],
+    this.others = const [],
+  });
+  final Widget? gallery;
+  final List<Widget> videos, audios, others;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: 8,
+    children: [
+      ?gallery,
+      if (videos.isNotEmpty)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: videos,
+        ),
+      if (audios.isNotEmpty)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: audios,
+        ),
+      if (others.isNotEmpty) Wrap(spacing: 8, runSpacing: 8, children: others),
+    ],
+  );
+}

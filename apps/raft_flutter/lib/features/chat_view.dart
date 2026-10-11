@@ -1693,55 +1693,36 @@ class _RaftChatViewState extends State<RaftChatView>
         messageId: messageId,
       ),
     );
-    final groups = <Widget>[
-      if (images.isNotEmpty)
-        RaftAttachmentGallery(
-          dimensions: [
-            for (final a in images)
-              (
-                width: a['width'] is num
-                    ? (a['width'] as num).toDouble()
-                    : null,
-                height: a['height'] is num
-                    ? (a['height'] as num).toDouble()
-                    : null,
+    return RaftAttachmentStack(
+      gallery: images.isEmpty
+          ? null
+          : RaftAttachmentGallery(
+              dimensions: [
+                for (final a in images)
+                  (
+                    width: a['width'] is num
+                        ? (a['width'] as num).toDouble()
+                        : null,
+                    height: a['height'] is num
+                        ? (a['height'] as num).toDouble()
+                        : null,
+                  ),
+              ],
+              itemBuilder: (index, extent, fit) => sendStateAttachment(
+                pending,
+                AttachmentView(
+                  key: ValueKey('attachment-${images[index]['id']}'),
+                  controller: w,
+                  metadata: images[index],
+                  messageId: messageId,
+                  imageExtent: extent,
+                  imageFit: fit,
+                ),
               ),
-          ],
-          itemBuilder: (index, extent, fit) => sendStateAttachment(
-            pending,
-            AttachmentView(
-              key: ValueKey('attachment-${images[index]['id']}'),
-              controller: w,
-              metadata: images[index],
-              messageId: messageId,
-              imageExtent: extent,
-              imageFit: fit,
             ),
-          ),
-        ),
-      if (videos.isNotEmpty)
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 8,
-          children: [for (final a in videos) view(a)],
-        ),
-      if (audios.isNotEmpty)
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 8,
-          children: [for (final a in audios) view(a)],
-        ),
-      if (others.isNotEmpty)
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [for (final a in others) view(a)],
-        ),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 8,
-      children: groups,
+      videos: [for (final a in videos) view(a)],
+      audios: [for (final a in audios) view(a)],
+      others: [for (final a in others) view(a)],
     );
   }
 

@@ -402,7 +402,7 @@ void main() {
             case 'principal':
               w.client.user = RaftRecord({'id': 'other-user'});
             case 'permission':
-              w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+              w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
           }
           w.notifyListeners();
           await flush(t);
@@ -464,7 +464,7 @@ void main() {
             .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
             .owner;
         expect(find.byKey(const ValueKey('legacy-task-panel')), findsOneWidget);
-        w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+        w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
         w.notifyListeners();
         await flush(t);
         expect(owner.closed, isTrue);
