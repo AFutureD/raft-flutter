@@ -655,9 +655,18 @@ class RaftConfirmDialog extends StatefulWidget {
       showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        barrierColor: RaftTokens.of(context).colors['layer-backdrop'],
+        barrierColor: _scrim(RaftTokens.of(context)),
         builder: (_) => dialog,
       );
+
+  /// `--layer-backdrop`. Brutal's is black at alpha 0.650858 (its 0.0007 channel
+  /// tint quantizes to 0 in Chromium). Over another Modal's black/60 scrim (102)
+  /// Chromium lands on 35 where Skia's float blend rounds 35.6 up to 36 and the
+  /// tint tips two channels: pure black at 0.6525 gives 35 there and still 89
+  /// over white.
+  static Color? _scrim(RaftTokens t) => t.brutal
+      ? Colors.black.withValues(alpha: .6525)
+      : t.colors['layer-backdrop'];
 
   /// `text-sm leading-relaxed text-foreground-muted` (font-normal body).
   static TextStyle messageStyle(RaftTokens t) =>
