@@ -10,7 +10,6 @@ import 'account_settings.dart';
 import 'administration_view.dart';
 import 'appearance_section.dart';
 import 'billing_view.dart';
-import 'fleet_views.dart';
 import 'im_bridges_view.dart';
 import 'integrations_views.dart';
 import 'labs_view.dart';
@@ -241,14 +240,18 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           // Desktop has a dedicated Computers rail mode; the Settings
           // sub-nav lists it on mobile only (Sidebar.tsx mobileInline).
           if (!guest)
-            RaftSettingsDestination(
+            RaftSettingsDestination.action(
               'computers',
               'Computers',
               RaftGlyph.monitor,
-              (_) => FleetView(controller: w, computers: true),
               group: WorkspaceSettings.workspace,
-              scroll: false,
               mobileOnly: true,
+              onOpen: () {
+                if (!w.can('viewMachines')) return;
+                w.navigation.selectSection('computers');
+                w.closeThread(navigate: false);
+                w.notifyListeners();
+              },
             ),
         ],
         RaftSettingsDestination(

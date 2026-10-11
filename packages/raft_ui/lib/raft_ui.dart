@@ -136,6 +136,7 @@ export 'src/agent_profile.dart';
 export 'src/dialog_card.dart';
 export 'src/copyable_code.dart';
 export 'src/computer_surfaces.dart';
+export 'src/mobile_computer_list.dart';
 export 'src/computer_detail.dart';
 export 'src/add_computer_dialog.dart';
 export 'src/channel_settings_sheet.dart';

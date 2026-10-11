@@ -15,6 +15,7 @@ import 'agent_detail_view.dart' show sourceRuntimeDisplayNames;
 import 'agent_metadata_catalog.dart';
 import 'computer_setup_commands.dart';
 import 'runtime_usage_chip.dart';
+import 'page_layout.dart';
 import '../data/runtime_account_usage.dart';
 
 // ------------------------------------------------------------------ model
@@ -552,6 +553,21 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
 
   @override
   Widget build(BuildContext context) => RaftComputerDetailView(
+    header:
+        MediaQuery.sizeOf(context).width < RaftLayoutMetrics.desktopBreakpoint
+        ? RaftPageHeader(
+            key: const Key('computer-mobile-header'),
+            title: '${m['name'] ?? ''}',
+            height: raftPageHeaderHeight(context),
+            mobile: true,
+            leading: RaftBackButton(
+              key: const Key('computer-mobile-back'),
+              tooltip: 'Back',
+              onPressed:
+                  widget.onClose ?? () => Navigator.of(context).maybePop(),
+            ),
+          )
+        : null,
     data: data(),
     actions: RaftComputerDetailActions(
       rename: (name) => _patch({'name': name}),
