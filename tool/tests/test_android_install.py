@@ -1,5 +1,6 @@
 """Exercise deployment transactions using fake SDK/ADB, never a real device."""
 import copy
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -84,6 +85,7 @@ class InstallTest(unittest.TestCase):
         self.assertFalse(self.mutations())
         self.assertNotIn('start', str(self.commands))
 
+    @unittest.skipIf(os.name == 'nt', 'Android installer locking requires a macOS/Linux host')
     def test_same_device_updates_are_serialized_and_lock_releases(self):
         directory = Path(self.temp.name) / 'locks'
         with android.update_lock('owned-test-device', directory):
