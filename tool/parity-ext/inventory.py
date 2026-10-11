@@ -104,7 +104,7 @@ SECTIONS = [
         R('1.15', 'Create another server', 'components/auth/ServerSelector.tsx', 'DP',
           d=['components.auth-ext.desktop.server.create-more*'], p=['components.auth-ext.mobile.server.create-more*']),
         R('1.16', 'Server access denied / server not found', 'App.tsx ServerAccessDeniedPage', 'DP', d=['components.auth-pages.desktop.server-denied.*'], p=['components.auth-pages.mobile.server-denied.*'], prio=2,
-          note='Flutter page missing: an unknown slug opens the server selector.'),
+          note='Flutter: RaftServerAccessDeniedPage; an unknown /s/<slug> keeps its URL, names the fallback server and redirects after 3 s.'),
         R('1.17', 'Servers loading and joining-community splash', 'App.tsx ServerResolver, ServerSelectionPage', 'DP', d=['components.auth-pages.desktop.servers.*'], p=['components.auth-pages.mobile.servers.*'], prio=3,
           note='Flutter page missing for the joining-community splash.'),
         R('1.18', 'Community agreement dialog (join a community server)', 'components/server/CommunityAgreementDialog.tsx', 'DP', d=['components.auth-pages.desktop.community-agreement.*'], p=['components.auth-pages.mobile.community-agreement.*'], prio=2,

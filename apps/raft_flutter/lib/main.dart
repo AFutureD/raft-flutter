@@ -116,6 +116,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       directoryLoading = true,
       selectingServer = false;
   String? selectorError;
+
+  /// `/s/<slug>` of a server this account does not have: App.tsx
+  /// ServerResolver shows ServerAccessDeniedPage, then redirects.
+  String? deniedSlug;
+  RaftRecord? deniedFallback;
+  Timer? deniedTimer;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
   Object? workspaceRootInputs;
@@ -496,6 +502,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
       workspace = null;
       rootRequest++;
+      clearAccessDenied();
       serverSurfaces.clear();
       chooserReturn = null;
       serverSwitchLocation = serverSwitchReturn = null;
@@ -636,6 +643,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               ? null
               : Uri.tryParse(remembered),
         );
+      } else if (explicit && servers.isNotEmpty && slug != null) {
+        showServerSelector = true;
+        await showAccessDenied(slug, current);
       } else {
         showServerSelector = true;
         appRouter.publish(
@@ -651,6 +661,66 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  /// The surface last used in [server]: this run's, else the stored one.
+  Future<Uri?> serverSurfaceMemory(RaftRecord server) async {
+    final live = serverSurfaces[server.id];
+    if (live != null) return live;
+    final prefs = await SharedPreferences.getInstance();
+    final stored = Uri.tryParse(prefs.getString('$serverMemoryKey.${server.id}') ?? '');
+    return stored != null &&
+            !stored.hasScheme &&
+            stored.pathSegments.length >= 2 &&
+            stored.pathSegments[0] == 's' &&
+            stored.pathSegments[1] == server.string('slug')
+        ? stored
+        : null;
+  }
+
+  /// ServerAccessDeniedPage: names the server the redirect goes to (the
+  /// current one, else the last used, else the first) and goes there after
+  /// 3 seconds, or when the button is pressed.
+  Future<void> showAccessDenied(
+    String slug, [
+    bool Function()? current,
+  ]) async {
+    final w = workspace;
+    if (w == null || w.servers.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted || (current != null && !current())) return;
+    final last = prefs.getString('$serverMemoryKey.last');
+    final fallback =
+        w.servers.where((s) => s.id == w.server?.id).firstOrNull ??
+        w.servers.where((s) => s.string('slug') == last).firstOrNull ??
+        w.servers.first;
+    deniedTimer?.cancel();
+    deniedSlug = slug;
+    deniedFallback = fallback;
+    showServerSelector = true;
+    appRouter.publish(requestedLocation);
+    setState(() {});
+    deniedTimer = Timer(const Duration(seconds: 3), leaveAccessDenied);
+  }
+
+  void clearAccessDenied() {
+    deniedTimer?.cancel();
+    deniedTimer = null;
+    deniedSlug = null;
+    deniedFallback = null;
+  }
+
+  Future<void> leaveAccessDenied() async {
+    final fallback = deniedFallback;
+    if (!mounted || deniedSlug == null) return;
+    clearAccessDenied();
+    if (fallback == null) {
+      openServerSelector();
+      return;
+    }
+    final location = await serverSurfaceMemory(fallback);
+    if (!mounted) return;
+    await chooseServer(fallback, location: location);
   }
 
   void workspaceChanged() {
@@ -693,7 +763,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         chooserReturn = null;
       }
       content.bindWorkspace(null);
-      appRouter.publish(Uri(path: '/'));
+      if (deniedSlug == null) appRouter.publish(Uri(path: '/'));
     } else if (!showServerSelector && w.server != null) {
       final remember = serverSurfaces[w.server!.id] != w.location.uri;
       serverSurfaces[w.server!.id] = w.location.uri;
@@ -738,6 +808,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final w = workspace;
     if (w == null || client?.user == null) return;
     final request = ++rootRequest;
+    clearAccessDenied();
     serverSwitchLocation = serverSwitchReturn = null;
     chooserReturn = w.server == null ? null : w.location.uri;
     requestedLocation = Uri(path: '/');
@@ -776,6 +847,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? w.servers.where((s) => s.string('slug') == segments[1]).firstOrNull
         : null;
     if (target == null) {
+      if (segments.length >= 2 && segments.first == 's' && w.servers.isNotEmpty) {
+        openServerSelector();
+        requestedLocation = location;
+        await showAccessDenied(segments[1]);
+        return;
+      }
       openServerSelector();
       return;
     }
@@ -880,6 +957,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       return;
     }
     final request = ++rootRequest, principal = c!.user!.id;
+    clearAccessDenied();
     bool current() =>
         mounted &&
         rootRequest == request &&
@@ -1033,6 +1111,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (workspace == null) {
       return const RaftServerResolutionBody(label: 'Loading…');
     }
+    if (showServerSelector &&
+        deniedSlug != null &&
+        workspace!.servers.isNotEmpty) {
+      return RaftServerAccessDeniedPage(
+        key: const ValueKey('server-access-denied'),
+        serverName: deniedFallback?.name,
+        onContinue: leaveAccessDenied,
+      );
+    }
     if (showServerSelector) {
       return GlobalServerSelector(
         key: ValueKey('selector-${active.user!.id}'),
@@ -1118,6 +1205,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         workspace?.removeListener(workspaceChanged);
         workspace?.dispose();
         workspace = null;
+        clearAccessDenied();
         serverSurfaces.clear();
         chooserReturn = null;
         serverSwitchLocation = serverSwitchReturn = null;
@@ -1142,6 +1230,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? Future<void>.value()
         : sessionPersistence.write(c.origin, null);
     workspace = null;
+    clearAccessDenied();
     oldWorkspace?.removeListener(workspaceChanged);
     serverSurfaces.clear();
     chooserReturn = null;
@@ -1198,6 +1287,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    clearAccessDenied();
     authAttempt++;
     rootRequest++;
     shareEpoch++;

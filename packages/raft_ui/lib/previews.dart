@@ -888,6 +888,10 @@ Widget rootErrorFallbackPreview() => RaftRootErrorFallback(
   onReload: () {},
 );
 
+@RaftPreviews('Server not found', size: Size(390, 420))
+Widget serverAccessDeniedPreview() =>
+    RaftServerAccessDeniedPage(serverName: 'Raft Design', onContinue: () {});
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;

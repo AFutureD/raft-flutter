@@ -82,6 +82,16 @@ Widget _rootError(ParityContext ctx) {
   );
 }
 
+/// ServerAccessDeniedPage over the case's server list (the fallback is the first server).
+Widget _serverDenied(ParityContext ctx) {
+  final servers =
+      (_fx(ctx)['servers'] as Map)[ctx.props['servers']] as List? ?? const [];
+  return RaftServerAccessDeniedPage(
+    serverName: servers.isEmpty ? null : (servers.first as Map)['name'] as String,
+    onContinue: () {},
+  );
+}
+
 Widget _serversLoading(ParityContext ctx) {
   final fx = _fx(ctx);
   return GlobalServerSelector(
@@ -192,6 +202,8 @@ final Map<String, ParityCase> _surfaces = {
   'bootstrap.loading': _case((_) => _splash('Loading…')),
   'servers.loading': _case(_serversLoading),
   'root-error.default': _case(_rootError),
+  'server-denied.with-server': _case(_serverDenied),
+  'server-denied.no-server': _case(_serverDenied),
 };
 
 /// Surfaces a platform does not run (see build-auth-pages.py `platforms`).
@@ -227,10 +239,6 @@ final Map<String, ParityCase> extAuthPagesCases = {
 const _missing = <String, String>{
   'servers.joining-community':
       'Flutter page missing: the app has no community-by-slug join route, so no "Joining community…" splash.',
-  'server-denied.with-server':
-      'Flutter page missing: an unknown /s/<slug> opens the server selector instead of a "Server not found" page.',
-  'server-denied.no-server':
-      'Flutter page missing: an unknown /s/<slug> opens the server selector instead of a "Server not found" page.',
   'invite.signed-out':
       'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
   'invite.signed-in':
