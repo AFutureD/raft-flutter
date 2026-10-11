@@ -327,6 +327,7 @@ const raftChinese = <String, String>{
   "The message image could not be exported.": "无法导出消息图片。",
   "{count} attachment(s)": "{count} 个附件",
   "Message #{name}": "向 #{name} 发送消息",
+  "Message @{name}": "向 @{name} 发送消息",
   "Open shared message": "打开分享的消息",
   "Add shared content": "添加分享内容",
   "Select a joined conversation before adding shared content.":
@@ -3244,6 +3245,8 @@ const raftChinese = <String, String>{
   "Show assigned Agents": "查看已关联的 Agent",
   "Show each agent's model next to its name in chat. On by default in the desktop app.":
       "在聊天里 Agent 名字旁显示它使用的模型。桌面端默认开启。",
+  "Show all {count} channels": "显示全部 {count} 个频道",
+  "Activity muted from seq {seq}": "活动已从序号 {seq} 起静音",
   "Show fewer": "收起",
   "Show joined channels only": "仅显示已加入的频道",
   "Show more": "展开全文",

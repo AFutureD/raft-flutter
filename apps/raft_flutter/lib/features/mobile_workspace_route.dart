@@ -1,5 +1,42 @@
 part of 'workspace_view.dart';
 
+/// Data notifications reach the live page's controller. Only history or
+/// authority changes need to reconcile the Navigator's page configuration.
+class _MobileNavigationSelection extends ChangeNotifier {
+  _MobileNavigationSelection(this.host) : source = host.w {
+    inputs = read();
+    source.addListener(changed);
+  }
+  final _WorkspaceViewState host;
+  final WorkspaceController source;
+  late Object inputs;
+
+  Object read() {
+    host.updateChannelAuthority();
+    return (
+      host.desktopAuthority,
+      source.location,
+      source.navigation.revision,
+      source.navigation.taskRevision,
+      source.navigation.index,
+      host.mobileTabIds.join(','),
+    );
+  }
+
+  void changed() {
+    final next = read();
+    if (next == inputs) return;
+    inputs = next;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    source.removeListener(changed);
+    super.dispose();
+  }
+}
+
 /// A live widget tree per platform route, borrowing the workspace's accepted
 /// data. Historical routes keep their location, not an image of the page.
 class _MobileWorkspaceRoute extends StatefulWidget {
@@ -72,7 +109,12 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
     }
     return IgnorePointer(
       ignoring: !active,
-      child: ExcludeSemantics(excluding: !active, child: content!),
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: RouteFrameDiagnostics.enabled
+            ? RouteFrameProbe(child: content!)
+            : content!,
+      ),
     );
   }
 }

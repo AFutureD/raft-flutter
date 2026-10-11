@@ -16,6 +16,8 @@ import '../data/source_time_formatter.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_apps_view.dart';
+import 'channel_form_fields.dart' show ChannelCandidateAvatar;
+import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 import 'agent_trajectory_log.dart';
 import 'runtime_usage_chip.dart';
 import 'agent_metadata_catalog.dart';
@@ -432,6 +434,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         key: ValueKey('agent-chat-$agentId'),
         controller: w,
         agentId: agentId,
+        clock: widget.clock,
       ),
       AgentDetailTab.reminders => AgentRemindersTab(
         key: ValueKey('agent-reminders-$agentId'),
@@ -474,9 +477,8 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     final raw = a['createdAt'];
     final date = raw is String ? DateTime.tryParse(raw) : null;
     if (date == null) return '';
-    return DateFormat.yMMMd(
-      Localizations.localeOf(context).toLanguageTag(),
-    ).format(agentTimeFormatter(context, widget.controller).wallTime(date));
+    return DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
+        .format(agentTimeFormatter(context, widget.controller).wallTime(date));
   }
 
   Widget _profile(BuildContext context) {
@@ -800,12 +802,10 @@ class _AgentSkillsSectionState extends State<AgentSkillsSection>
   @override
   WorkspaceController get w => widget.controller;
   late _SkillsSnapshot snapshot = _snapshot();
-  _SkillsSnapshot _snapshot() =>
-      w.agentTabCache.putIfAbsent(
-            'skills/${widget.agentId}',
-            _SkillsSnapshot.new,
-          )
-          as _SkillsSnapshot;
+  _SkillsSnapshot _snapshot() => w.agentTabCache.putIfAbsent(
+    'skills/${widget.agentId}',
+    _SkillsSnapshot.new,
+  ) as _SkillsSnapshot;
   @override
   bool get hasContent => snapshot.loaded;
 
@@ -968,12 +968,10 @@ class _AgentActivityTabState extends State<AgentActivityTab>
   void initState() {
     super.initState();
     openingScope = scope;
-    snapshot =
-        w.agentTabCache.putIfAbsent(
-              'activity/${widget.agentId}',
-              _ActivitySnapshot.new,
-            )
-            as _ActivitySnapshot;
+    snapshot = w.agentTabCache.putIfAbsent(
+      'activity/${widget.agentId}',
+      _ActivitySnapshot.new,
+    ) as _ActivitySnapshot;
     entries = mergeAgentTrajectoryLog(
       snapshot.entries,
       admittedAgentTrajectoryRows(widget.initialEntries),
@@ -1042,12 +1040,10 @@ class _AgentActivityTabState extends State<AgentActivityTab>
     openingScope = scope;
     readRevision++;
     reloadTimer?.cancel();
-    snapshot =
-        w.agentTabCache.putIfAbsent(
-              'activity/${widget.agentId}',
-              _ActivitySnapshot.new,
-            )
-            as _ActivitySnapshot;
+    snapshot = w.agentTabCache.putIfAbsent(
+      'activity/${widget.agentId}',
+      _ActivitySnapshot.new,
+    ) as _ActivitySnapshot;
     setState(() => entries = snapshot.entries);
     reload();
   }
@@ -1063,12 +1059,10 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       openingScope = scope;
       readRevision++;
       reloadTimer?.cancel();
-      snapshot =
-          w.agentTabCache.putIfAbsent(
-                'activity/${widget.agentId}',
-                _ActivitySnapshot.new,
-              )
-              as _ActivitySnapshot;
+      snapshot = w.agentTabCache.putIfAbsent(
+        'activity/${widget.agentId}',
+        _ActivitySnapshot.new,
+      ) as _ActivitySnapshot;
       entries = snapshot.entries;
       listenEvents();
       reload();
@@ -1174,9 +1168,8 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       emptyLabel: loading ? raftText(context, 'Loading…') : loadError,
       onCopy: () => Clipboard.setData(
         ClipboardData(
-          text: [
-            for (final e in entries) '${e['timestamp']} ${e['entry']}',
-          ].join('\n'),
+          text: [for (final e in entries) '${e['timestamp']} ${e['entry']}']
+              .join('\n'),
         ),
       ),
     );
@@ -1190,9 +1183,11 @@ class AgentChatTab extends StatefulWidget {
     super.key,
     required this.controller,
     required this.agentId,
+    this.clock,
   });
   final WorkspaceController controller;
   final String agentId;
+  final DateTime Function()? clock;
   @override
   State<AgentChatTab> createState() => _AgentChatTabState();
 }
@@ -1200,9 +1195,10 @@ class AgentChatTab extends StatefulWidget {
 class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _ChatSnapshot snapshot =
-      w.agentTabCache.putIfAbsent('chat/${widget.agentId}', _ChatSnapshot.new)
-          as _ChatSnapshot;
+  late final _ChatSnapshot snapshot = w.agentTabCache.putIfAbsent(
+    'chat/${widget.agentId}',
+    _ChatSnapshot.new,
+  ) as _ChatSnapshot;
   List<Map<String, dynamic>> get channels => snapshot.channels;
   List<Map<String, dynamic>> get dms => snapshot.dms;
   @override
@@ -1235,12 +1231,6 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
       ..loaded = true;
   }
 
-  List<Widget> _section(String title, List<Map<String, dynamic>> rows) => [
-    RaftSectionHeader(label: title, count: rows.length),
-    for (final r in rows)
-      RaftAccessCard(title: '${r['name'] ?? r['displayName'] ?? r['id']}'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     // Nothing accepted yet: no "Channels 0" counts that would then fill in.
@@ -1252,10 +1242,48 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
             : RaftButton(label: raftText(context, 'Retry'), onPressed: reload),
       );
     }
-    return RaftPanelGroups(
-      groups: [
-        _section(raftText(context, 'Channels'), channels),
-        _section(raftText(context, 'Direct messages'), dms),
+    final origin = w.client.origin;
+    final chinese = Localizations.localeOf(context).languageCode == 'zh';
+    return RaftAgentChatView(
+      // visibleAgentChatChannels: archived memberships are not listed.
+      channels: [
+        for (final c in channels)
+          if (c['archivedAt'] == null)
+            RaftAgentChannelRow(
+              id: '${c['id']}',
+              name: '${c['name'] ?? c['id']}',
+              description: c['description'] as String?,
+              type: '${c['type'] ?? 'channel'}',
+              activityMuted: c['activityMuted'] == true,
+              muteFromSeq: c['muteFromSeq'],
+            ),
+      ],
+      dms: [
+        for (final d in dms)
+          RaftAgentDmRow(
+            id: '${d['id']}',
+            name: '${d['peerDisplayName'] ?? d['peerName'] ?? d['id']}',
+            handle: '@${d['peerName'] ?? ''}',
+            avatar: ChannelCandidateAvatar(
+              candidate: ChannelMemberCandidate(
+                kind: 'agent',
+                id: '${d['peerId'] ?? d['id']}',
+                name: '${d['peerName'] ?? ''}',
+                displayName: d['peerDisplayName'] as String?,
+                avatarUrl: d['peerAvatarUrl'] as String?,
+              ),
+              avatarContext: RaftMountedAvatarContext.previewMini,
+              origin: origin,
+            ),
+            timestamp: resourceRelativeTime(
+              '${d['lastMessageAt'] ?? d['createdAt']}',
+              now: widget.clock?.call(),
+              chinese: chinese,
+            ),
+            preview: (d['lastMessagePreview'] as String?)?.isNotEmpty == true
+                ? d['lastMessagePreview'] as String
+                : null,
+          ),
       ],
     );
   }
@@ -1281,12 +1309,10 @@ class _AgentRemindersTabState extends State<AgentRemindersTab>
     with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _RemindersSnapshot snapshot =
-      w.agentTabCache.putIfAbsent(
-            'reminders/${widget.agentId}',
-            _RemindersSnapshot.new,
-          )
-          as _RemindersSnapshot;
+  late final _RemindersSnapshot snapshot = w.agentTabCache.putIfAbsent(
+    'reminders/${widget.agentId}',
+    _RemindersSnapshot.new,
+  ) as _RemindersSnapshot;
   List<Map<String, dynamic>> get reminders => snapshot.reminders;
   set reminders(List<Map<String, dynamic>> value) => snapshot.reminders = value;
   @override
@@ -1406,12 +1432,10 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _WorkspaceSnapshot snapshot =
-      w.agentTabCache.putIfAbsent(
-            'workspace/${widget.agentId}',
-            _WorkspaceSnapshot.new,
-          )
-          as _WorkspaceSnapshot;
+  late final _WorkspaceSnapshot snapshot = w.agentTabCache.putIfAbsent(
+    'workspace/${widget.agentId}',
+    _WorkspaceSnapshot.new,
+  ) as _WorkspaceSnapshot;
   Map<String, List<Map<String, dynamic>>> get children => snapshot.children;
   Set<String> get expanded => snapshot.expanded;
   bool get showHidden => snapshot.showHidden;

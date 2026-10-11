@@ -43,8 +43,10 @@ class RaftMarkdownListMarker extends StatelessWidget {
     if (orderedIndex != null) {
       // The CSS decimal counter includes its suffix space and aligns its end
       // immediately before list content; long ordinals may extend the gutter.
+      // NBSP: a plain trailing space hangs outside a right-aligned line, which
+      // glued the ordinal to the content ("1.92").
       return Text(
-        '${orderedIndex! + 1}. ',
+        '${orderedIndex! + 1}.\u00A0',
         style: style,
         textAlign: TextAlign.right,
         maxLines: 1,

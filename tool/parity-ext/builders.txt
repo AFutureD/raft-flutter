@@ -22,3 +22,4 @@ build-member-cases.py
 build-auth-cases.py
 build-desktop-dialogs.py
 build-auth-pages.py
+build-screen-cases.py

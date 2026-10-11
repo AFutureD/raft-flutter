@@ -90,12 +90,17 @@ class ChannelMembers extends StatefulWidget {
     required this.controller,
     required this.channel,
     this.page = false,
+    this.embedded = false,
     this.onClose,
     this.startInAdd = false,
   });
   final WorkspaceController controller;
   final RaftChannel channel;
   final bool page;
+
+  /// The page is mounted inside the desktop settings drawer (Web `OverflowSheet
+  /// bare`), so back from the roster returns to the drawer root.
+  final bool embedded;
   final VoidCallback? onClose;
 
   /// The settings drawer's dashed add tile lands directly in the add view.
@@ -275,12 +280,48 @@ class _ChannelMembersState extends State<ChannelMembers> {
         displayName: m['displayName'] as String?,
         avatarUrl: m['avatarUrl'] as String?,
       );
+      final presence = kind == 'agent' ? channelMemberPresence(m) : null;
+      // `effectiveChannelRole ?? serverRole`: owner / admin inheritance and an
+      // explicit channel grant share the one user-facing Channel Admin label
+      // (MemberRoleTag); a plain member shows nothing.
+      final serverRole = '${m['serverRole'] ?? m['role'] ?? 'member'}';
+      final role =
+          '${m['effectiveChannelRole'] ?? (kind == 'agent' ? serverRole : m['role'] ?? 'member')}';
+      final description = '${m['description'] ?? ''}'.trim();
       return RaftMemberRowData(
+        human: kind != 'agent',
+        secondary:
+            kind == 'agent' &&
+                (presence?.activity == RaftAvatarActivity.working ||
+                    presence?.activity == RaftAvatarActivity.thinking) &&
+                '${m['activityDetail'] ?? ''}'.trim().isNotEmpty
+            ? '${m['activityDetail']}'.trim()
+            : kind == 'agent'
+            ? raftText(context, switch (presence?.activity) {
+                RaftAvatarActivity.thinking => 'Thinking',
+                RaftAvatarActivity.working => 'Working',
+                RaftAvatarActivity.error => 'Error',
+                RaftAvatarActivity.offline => 'Offline',
+                _ => 'Online',
+              })
+            : (description.isEmpty ? null : description),
+        secondaryMono: kind == 'agent',
+        roleLabel: switch (role) {
+          'guest' => raftText(context, 'Guest'),
+          'member' => null,
+          _ => raftText(context, 'Channel Admin'),
+        },
+        guest: role == 'guest',
         label: candidate.label,
         avatar: ChannelCandidateAvatar(
           candidate: candidate,
-          avatarContext: RaftMountedAvatarContext.compactList,
+          // ChannelMemberRow mounts AvatarSlot `members-row` (28px, presence
+          // badge for agents); the modal list keeps the compact slot.
+          avatarContext: widget.page
+              ? RaftMountedAvatarContext.membersRow
+              : RaftMountedAvatarContext.compactList,
           origin: origin,
+          presence: widget.page ? presence : null,
         ),
         onRemove: canRemove ? () => remove(kind, id) : null,
       );
@@ -345,14 +386,17 @@ class _ChannelMembersState extends State<ChannelMembers> {
       onConfirm: confirmAdd,
     );
     return PopScope(
-      canPop: !widget.page || !addView,
+      canPop: !widget.page || (!addView && !widget.embedded),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && widget.page && addView) {
+        if (didPop || !widget.page) return;
+        if (addView) {
           setState(() {
             addView = false;
             selected.clear();
             search.clear();
           });
+        } else if (widget.embedded) {
+          close();
         }
       },
       child: content,

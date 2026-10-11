@@ -11,6 +11,8 @@ The Linux embedder runs at the display rate (59.92 Hz here). On Linux the lab th
 
 The lab complements P01 (`docs/message-performance.md`). P01 is the regression gate against a fixed reference. The lab explains where the time goes.
 
+Mobile routing investigations also use the opt-in [route frame probe](route-performance-probe.md).
+
 ## Run it
 
 ```bash
@@ -72,6 +74,8 @@ python3 tool/performance/lab.py summarize .local/performance/lab/<name>         
 |---|---|
 | `apps/raft_flutter/integration_test/perf_lab_test.dart` | Scenarios. Uses a desktop split host: `RaftChatView`, plus a 440 px thread pane when a thread is open. |
 | `apps/raft_flutter/integration_test/perf_lab/fixtures.dart` | Fixed content (`fixtureVersion`), the dio route adapter, the realtime event client, and a loopback PNG server. |
+| `apps/raft_flutter/integration_test/perf_lab/navigation_activity.dart` | Mutable server/event replay during every `nav-*` entry and return, with assertions against accepted production state. |
+| `apps/raft_flutter/integration_test/perf_lab/navigation_host.dart` | Fresh background SQLite cache and platform delivery seam for the actual `RaftApp` navigation host. |
 | `apps/raft_flutter/integration_test/perf_lab/probe.dart` | FrameTiming capture, framework phase blocks, clock alignment, implementation-neutral finders, and the sampler handshake. |
 | `apps/raft_flutter/test_driver/perf_lab_driver.dart` | The `flutter drive` driver. It also acts as the VM-service sampler and writes every file on the host. |
 | `tool/performance/lab.py` | `run`, `summarize`, `compare`. Unit tests are in `tool/tests/test_perf_lab.py`. |
@@ -87,6 +91,58 @@ The lab is robust to the list implementation:
 ## Scenarios
 
 All channels come from the product's own network-page path, through a mock dio adapter.
+
+### Mobile navigation with background data changes (fixture v4)
+
+`nav-*` scenarios launch the production `RaftApp`, including its root router,
+session restore, system-font theme, retained mobile pages and background SQLite
+cache. They do not mount a static approximation of a detail page. Each theme
+gets a fresh named SQLite database, so a previous build cannot warm its disk
+cache. The isolated package remains `app.raft.raft_flutter.linkperf`.
+
+During each entry and return, a fixed replay overlaps the transition:
+
+- A teammate creates a message with PNG attachments or long Markdown, edits
+  it, and changes its task state with the production `message:updated` contract.
+- Another channel receives a message while offscreen; its accepted ledger
+  remains available on the next visit.
+- K8+ accepts a newer machine status version. Agent activity changes, an Agent
+  is created/deleted, and an Agent edit triggers the production directory's
+  debounced HTTP revalidation. No manual `setState` substitutes for an event.
+- HTTP responses are asynchronous (80 ms transport delay plus the existing
+  message-page delay); image responses arrive after 120 ms. Real PNG decoding,
+  attachment URL resolution, read receipts and coalesced cache writes run.
+- Android returns dispatch the system's `flutter/backgesture` protocol to the
+  production route, including a held progress interval. A rejected predictive
+  return fails the run. This is a reproducible protocol replay on the phone;
+  actual physical gestures still need the formal-App ADB capture.
+
+Every `opens` entry contains `liveActivity.events`, acceptance counts checked
+against the message ledger/entity directory, workspace notification count,
+request/response counts, image requests, cache reads/completed writes and
+predictive-back count. An ignored event or a failed refresh fails the scenario.
+All mutation timers are joined before the next transition. The original static
+captures remain historical controls, not acceptance evidence for this workload.
+`summary.json` also aggregates these counters under `navigationActivity`, so
+frame improvements can be reviewed alongside the work actually completed.
+
+The replay covers behaviours observed in the real-App investigation and their
+production handlers. Its fixed event rates and latency are controlled inputs,
+not an exact recording of the production server. Network transport/socket
+delivery and OS push/link/share delivery are replaced locally; the UI, routing,
+reducers and database remain production code. Compare only identical v4 inputs,
+engine, renderer, view and semantics, and retain host-noise warnings.
+
+```bash
+python3 tool/performance/android_transitions.py --device <serial> \
+  --out .local/performance/navigation-live/<run> --themes brutal-light \
+  --scenarios nav-computer-detail,nav-home-channel,nav-channel-thread
+```
+
+Do not pass `--no-pub` when switching between an integration/profile build and
+a normal release build. The pinned SDK also skips platform plugin registration
+when that option is used. Regenerate tooling for the actual build mode so the
+profile App includes `integration_test` and the normal release excludes it.
 
 **Mixed history.** 600 rows in a fixed 20-row cycle:
 

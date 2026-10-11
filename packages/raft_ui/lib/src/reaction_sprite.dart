@@ -10,12 +10,26 @@ class RaftReactionGlyph extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
-    child: SizedBox.square(
-      dimension: size,
-      child: _reactionPaths.containsKey(reaction)
-          ? CustomPaint(painter: _ReactionSpritePainter(reaction))
-          : Text(reaction, style: TextStyle(fontSize: size, height: 1)),
-    ),
+    child: _reactionPaths.containsKey(reaction)
+        ? SizedBox.square(
+            dimension: size,
+            child: CustomPaint(painter: _ReactionSpritePainter(reaction)),
+          )
+        // Web: an inline-block glyph at the sprite size with the emoji's own
+        // advance (Noto Color Emoji ~1.25em), not a square. Chromium resolves
+        // it through the system fallback chain; name it so it never degrades
+        // to tofu.
+        : SizedBox(
+            height: size,
+            child: Text(
+              reaction,
+              style: TextStyle(
+                fontSize: size,
+                height: 1,
+                fontFamilyFallback: RaftTokens.of(context).fontFallback,
+              ),
+            ),
+          ),
   );
 }
 
@@ -65,13 +79,11 @@ const _reactionPaths = <String, List<Map<String, String>>>{
   "👍": [
     {
       "fill": "#FFD440",
-      "d":
-          "M8 10h3l1.3-5.2c.2-.8 1-1.3 1.8-1.1 1 .2 1.6 1.2 1.3 2.2L14.5 10H19c1.1 0 2 .9 2 2v1.2c0 .4-.1.8-.3 1.1L18.8 20c-.3.6-1 1-1.7 1H8V10Z",
+      "d": "M8 10h3l1.3-5.2c.2-.8 1-1.3 1.8-1.1 1 .2 1.6 1.2 1.3 2.2L14.5 10H19c1.1 0 2 .9 2 2v1.2c0 .4-.1.8-.3 1.1L18.8 20c-.3.6-1 1-1.7 1H8V10Z",
     },
     {
       "fill": "#FFF8E7",
-      "d":
-          "M13.2 5.3c.2-.7.9-1.1 1.6-.8.1.1.2.1.3.2-.6 0-1 .4-1.2 1L13 9h-1.2l1.4-3.7Z",
+      "d": "M13.2 5.3c.2-.7.9-1.1 1.6-.8.1.1.2.1.3.2-.6 0-1 .4-1.2 1L13 9h-1.2l1.4-3.7Z",
     },
     {"fill": "#8FC4D9", "d": "M3 10h5v11H3z"},
     {
@@ -79,8 +91,7 @@ const _reactionPaths = <String, List<Map<String, String>>>{
       "stroke-linecap": "square",
       "stroke-linejoin": "round",
       "stroke-width": "2",
-      "d":
-          "M8 10h3l1.3-5.2c.2-.8 1-1.3 1.8-1.1 1 .2 1.6 1.2 1.3 2.2L14.5 10H19c1.1 0 2 .9 2 2v1.2c0 .4-.1.8-.3 1.1L18.8 20c-.3.6-1 1-1.7 1H8V10Z",
+      "d": "M8 10h3l1.3-5.2c.2-.8 1-1.3 1.8-1.1 1 .2 1.6 1.2 1.3 2.2L14.5 10H19c1.1 0 2 .9 2 2v1.2c0 .4-.1.8-.3 1.1L18.8 20c-.3.6-1 1-1.7 1H8V10Z",
     },
     {
       "stroke": "#141111",
@@ -92,8 +103,7 @@ const _reactionPaths = <String, List<Map<String, String>>>{
   "❤️": [
     {
       "fill": "#F97264",
-      "d":
-          "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
+      "d": "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
     },
     {
       "fill": "#FFF8E7",
@@ -104,15 +114,13 @@ const _reactionPaths = <String, List<Map<String, String>>>{
       "stroke-linecap": "square",
       "stroke-linejoin": "round",
       "stroke-width": "2",
-      "d":
-          "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
+      "d": "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
     },
   ],
   "❤": [
     {
       "fill": "#F97264",
-      "d":
-          "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
+      "d": "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
     },
     {
       "fill": "#FFF8E7",
@@ -123,8 +131,7 @@ const _reactionPaths = <String, List<Map<String, String>>>{
       "stroke-linecap": "square",
       "stroke-linejoin": "round",
       "stroke-width": "2",
-      "d":
-          "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
+      "d": "M12 21 4.4 13.4C2.3 11.3 2.2 8 4.1 6.1 5.8 4.4 8.4 4.5 10 6.1l2 2 2-2c1.6-1.6 4.2-1.7 5.9 0 1.9 1.9 1.8 5.2-.3 7.3L12 21Z",
     },
   ],
   "🎉": [
@@ -174,28 +181,24 @@ const _reactionPaths = <String, List<Map<String, String>>>{
   "🔥": [
     {
       "fill": "#F8A16F",
-      "d":
-          "M12 22c-4.4 0-7.6-3-7.6-7.1 0-3.1 1.9-5.4 4.1-7.1.3 2 1.2 3.2 2.3 3.9-.3-3.3 1-6.3 4.1-8.7.5 3 2.1 4.7 3.4 6.3 1.1 1.4 1.3 2.9 1.3 5.1 0 4.4-3.1 7.6-7.6 7.6Z",
+      "d": "M12 22c-4.4 0-7.6-3-7.6-7.1 0-3.1 1.9-5.4 4.1-7.1.3 2 1.2 3.2 2.3 3.9-.3-3.3 1-6.3 4.1-8.7.5 3 2.1 4.7 3.4 6.3 1.1 1.4 1.3 2.9 1.3 5.1 0 4.4-3.1 7.6-7.6 7.6Z",
     },
     {
       "fill": "#FFD440",
-      "d":
-          "M12.1 19.8c-2.2 0-3.8-1.4-3.8-3.5 0-1.5.9-2.7 2.1-3.6.2 1 .6 1.7 1.3 2 .1-1.8.8-3.2 2.3-4.4.3 1.5 1 2.4 1.7 3.2.6.7.8 1.4.8 2.5 0 2.3-1.7 3.8-4.4 3.8Z",
+      "d": "M12.1 19.8c-2.2 0-3.8-1.4-3.8-3.5 0-1.5.9-2.7 2.1-3.6.2 1 .6 1.7 1.3 2 .1-1.8.8-3.2 2.3-4.4.3 1.5 1 2.4 1.7 3.2.6.7.8 1.4.8 2.5 0 2.3-1.7 3.8-4.4 3.8Z",
     },
     {
       "stroke": "#141111",
       "stroke-linecap": "square",
       "stroke-linejoin": "round",
       "stroke-width": "2",
-      "d":
-          "M12 22c-4.4 0-7.6-3-7.6-7.1 0-3.1 1.9-5.4 4.1-7.1.3 2 1.2 3.2 2.3 3.9-.3-3.3 1-6.3 4.1-8.7.5 3 2.1 4.7 3.4 6.3 1.1 1.4 1.3 2.9 1.3 5.1 0 4.4-3.1 7.6-7.6 7.6Z",
+      "d": "M12 22c-4.4 0-7.6-3-7.6-7.1 0-3.1 1.9-5.4 4.1-7.1.3 2 1.2 3.2 2.3 3.9-.3-3.3 1-6.3 4.1-8.7.5 3 2.1 4.7 3.4 6.3 1.1 1.4 1.3 2.9 1.3 5.1 0 4.4-3.1 7.6-7.6 7.6Z",
     },
     {
       "stroke": "#141111",
       "stroke-linejoin": "round",
       "stroke-width": "1.5",
-      "d":
-          "M12.1 19.8c-2.2 0-3.8-1.4-3.8-3.5 0-1.5.9-2.7 2.1-3.6.2 1 .6 1.7 1.3 2 .1-1.8.8-3.2 2.3-4.4.3 1.5 1 2.4 1.7 3.2.6.7.8 1.4.8 2.5 0 2.3-1.7 3.8-4.4 3.8Z",
+      "d": "M12.1 19.8c-2.2 0-3.8-1.4-3.8-3.5 0-1.5.9-2.7 2.1-3.6.2 1 .6 1.7 1.3 2 .1-1.8.8-3.2 2.3-4.4.3 1.5 1 2.4 1.7 3.2.6.7.8 1.4.8 2.5 0 2.3-1.7 3.8-4.4 3.8Z",
     },
   ],
   "😂": [

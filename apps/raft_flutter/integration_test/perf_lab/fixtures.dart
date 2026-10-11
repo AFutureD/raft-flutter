@@ -13,7 +13,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 
 /// Bump when any generated content, size or route timing changes.
-const fixtureVersion = 'perf-lab-fixture-v2';
+const fixtureVersion = 'perf-lab-fixture-v4';
 
 /// Row kinds measured individually by the row-mount scenario.
 const rowKinds = [
@@ -49,10 +49,16 @@ class LabAdapter implements HttpClientAdapter {
   final List<(bool Function(RequestOptions), FutureOr<dynamic> Function(RequestOptions))> patterns = [];
   final misses = <String, int>{};
   final hits = <String, int>{};
+  final completedHits = <String, int>{};
   var requests = 0;
+  var pending = 0;
+  var peakPending = 0;
+  Duration responseDelay = Duration.zero;
   @override
   Future<ResponseBody> fetch(RequestOptions o, Stream<Uint8List>? s, Future<void>? c) async {
     requests++;
+    pending++;
+    peakPending = math.max(peakPending, pending);
     hits.update('${o.method} ${o.path}', (v) => v + 1, ifAbsent: () => 1);
     var route = routes['${o.method} ${o.path}'];
     if (route == null) {
@@ -64,11 +70,17 @@ class LabAdapter implements HttpClientAdapter {
       }
     }
     if (route == null) misses.update('${o.method} ${o.path}', (v) => v + 1, ifAbsent: () => 1);
-    return ResponseBody.fromString(
+    try {
+      if (responseDelay > Duration.zero) await Future<void>.delayed(responseDelay);
+      return ResponseBody.fromString(
       jsonEncode(route == null ? {'error': 'Unexpected endpoint'} : await route(o)),
       route == null ? 404 : 200,
       headers: {Headers.contentTypeHeader: ['application/json']},
-    );
+      );
+    } finally {
+      pending--;
+      completedHits.update('${o.method} ${o.path}', (v) => v + 1, ifAbsent: () => 1);
+    }
   }
 
   @override
@@ -78,11 +90,24 @@ class LabAdapter implements HttpClientAdapter {
 /// A client whose realtime events the lab drives.
 class LabClient extends RaftClient {
   LabClient(LabAdapter adapter)
-    : super(origin: 'https://example.invalid', sessionStore: MemorySessionStore(), transport: Dio()..httpClientAdapter = adapter);
+    : super(origin: 'https://example.invalid', sessionStore: MemorySessionStore(), transport: Dio()..httpClientAdapter = adapter) {
+    _accountEvents = super.events.listen(stream.add);
+  }
   final stream = StreamController<RaftEvent>.broadcast(sync: true);
+  late final StreamSubscription<RaftEvent> _accountEvents;
   @override
   Stream<RaftEvent> get events => stream.stream;
   void emit(String name, dynamic payload) => stream.add(RaftEvent(name, payload));
+  // The local replay is the socket transport. Never try a network connection
+  // to the fixture origin, including when the production app root restores it.
+  @override
+  void connect() {}
+  @override
+  Future<void> dispose() async {
+    await _accountEvents.cancel();
+    await stream.close();
+    await super.dispose();
+  }
 }
 
 /// Fixed test images (PNG, generated once per process, non-trivial to decode)
@@ -92,6 +117,7 @@ class LabImages {
   final HttpServer server;
   final List<(int, int, Uint8List)> pngs;
   var reads = 0;
+  Duration responseDelay = Duration.zero;
   static const sizes = [(1600, 1200), (1200, 1600), (2048, 1152), (800, 800)];
 
   static Future<LabImages> start() async {
@@ -126,6 +152,7 @@ class LabImages {
     final images = LabImages._(server, pngs);
     server.listen((request) async {
       images.reads++;
+      if (images.responseDelay > Duration.zero) await Future<void>.delayed(images.responseDelay);
       final k = int.tryParse(request.uri.pathSegments.last.split('.').first) ?? 0;
       request.response.headers.contentType = ContentType('image', 'png');
       request.response.add(pngs[k % pngs.length].$3);
@@ -291,11 +318,17 @@ List<String> mixKinds(int count) => [for (var i = 0; i < count; i++) mixCycle[i 
 
 /// Signs in a fixture workspace with the lab's routes. Every channel's rows
 /// arrive through the product's own network page path.
-Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false}) async {
+Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false, bool ownsClient = true}) async {
   final api = LabAdapter();
-  api.routes['POST /auth/login'] = (_) => {'accessToken': 'fixture-only', 'refreshToken': 'fixture-only', 'user': {'id': 'alice'}};
+  api.routes['POST /auth/login'] = (_) => {'accessToken': 'fixture-only', 'refreshToken': 'fixture-only', 'user': {
+    'id': 'alice', 'name': 'Alice Zhang', 'email': 'alice@example.invalid', 'emailVerified': true, 'displayLanguage': 'en',
+  }};
   api.routes['GET /agents'] = (_) => [];
   api.routes['GET /servers/s1/members'] = (_) => [];
+  api.routes['GET /servers/s1/machines'] = (_) => {'machines': []};
+  api.routes['GET /servers/s1/sidebar-order'] = (_) => {};
+  api.routes['GET /channels/threads/followed'] = (_) => {'threads': []};
+  api.routes['GET /channels/saved'] = (_) => {'globalTotal': 0, 'saved': []};
   api.routes['GET /tasks'] = (_) => [];
   api.routes['GET /channels/unread'] = (_) => {'channels': {}};
   // The workspace's one-time reads, answered as a server without these features
@@ -345,7 +378,7 @@ Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChanne
   final client = LabClient(api);
   await client.login('fixture', 'fixture');
   client.selectServer('s1');
-  final w = WorkspaceController(client, mobileNavigation: mobile);
+  final w = WorkspaceController(client, mobileNavigation: mobile, ownsClient: ownsClient);
   w.server = RaftRecord({'id': 's1', 'name': 'Lab', 'role': mobile ? 'owner' : 'member'});
   w.channels = [for (final c in channels) c.record];
   w.ledger.switchServer('s1');

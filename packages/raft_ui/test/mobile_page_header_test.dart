@@ -87,10 +87,13 @@ void main() {
             : const Size(32, 32);
         for (var index = 0; index < 3; index++) {
           expect(tester.getSize(backs.at(index)), actionSize);
-          // Brutal px-5 / elegant max-md:pl-5, then half the action width.
+          // The settings header sits inside a Panel, whose own left edge
+          // (brutal 2px, elegant 1px) Web draws at every width; then brutal
+          // px-5 / elegant max-md:pl-5, then half the action width.
+          final panelEdge = index == 1 ? (tokens.brutal ? 2 : 1) : 0;
           expect(
             tester.getCenter(backs.at(index)).dx,
-            20 + actionSize.width / 2,
+            panelEdge + 20 + actionSize.width / 2,
           );
           // The visual is Web's size; the touch target is still >= 48.
           expect(
