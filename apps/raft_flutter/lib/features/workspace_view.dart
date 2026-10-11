@@ -2753,13 +2753,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   List<SidebarGroup> get sidebarGroups {
     final activity = <String, DateTime>{};
     for (final c in [...w.channels, ...w.dms]) {
-      for (final m in w.ledger.messages(c.id)) {
-        final stamp = DateTime.tryParse('${m['createdAt'] ?? ''}');
-        if (stamp != null &&
-            (activity[c.id] == null || stamp.isAfter(activity[c.id]!))) {
-          activity[c.id] = stamp;
-        }
-      }
+      final stamp = w.ledger.latestCreatedAt(c.id);
+      if (stamp != null) activity[c.id] = stamp;
     }
     return projectSidebar(
       channels: w.channels,
