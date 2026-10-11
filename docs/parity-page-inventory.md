@@ -29,15 +29,15 @@ list of pages that default-theme coverage must reach.
 
 ## Summary
 
-- Pages (rows) in the inventory: **180** in 9 areas, of which **20** are excluded as dead,
-  obsolete or not shown to normal users (below), leaving **160** pages that count. 7 dev-only / entry-less
+- Pages (rows) in the inventory: **180** in 9 areas, of which **18** are excluded as dead,
+  obsolete or not shown to normal users (below), leaving **162** pages that count. 7 dev-only / entry-less
   routes are excluded on top (end of the document). 10 counted pages are flagged "verify" (reachability unclear).
-- Fully covered on every platform they exist on: **92**; partly covered (partial / wip): **5**; with at least one MISSING platform: **63**.
+- Fully covered on every platform they exist on: **94**; partly covered (partial / wip): **5**; with at least one MISSING platform: **63**.
 
 | platform | pages that exist there | ok | partial | wip | MISSING |
 | --- | --- | --- | --- | --- | --- |
-| Desktop (D) | 155 | 104 | 2 | 1 | 48 |
-| Phone (P) | 150 | 100 | 4 | 0 | 46 |
+| Desktop (D) | 157 | 106 | 2 | 1 | 48 |
+| Phone (P) | 152 | 102 | 4 | 0 | 46 |
 
 Excluded pages by reason (rows / extra routes):
 
@@ -46,7 +46,7 @@ Excluded pages by reason (rows / extra routes):
 | obsolete | 2 | 1 | no entry point, or reachable only for legacy data, or no production importer |
 | flag-off | 4 | 0 | exists only behind a server feature flag seeded default-off (staged / allowlist / preview) |
 | host-only | 2 | 0 | needs the Electron desktop shell bridge; not shown in a browser or a native client |
-| browser-only | 11 | 0 | a Web page that only exists in the browser; the Flutter app has no route or feature for it |
+| browser-only | 9 | 0 | a Web page that only exists in the browser; the Flutter app has no route or feature for it |
 | dev-only | 0 | 4 | development tooling, redirected away in production |
 | duplicate | 1 | 0 | the same screen as another row |
 | superseded | 0 | 2 | replaced by a newer page; only a redirect remains |
@@ -155,8 +155,8 @@ Web: App.tsx AppShell / ServerResolver, components/auth, components/onboarding, 
 | 1.16 | Server access denied / server not found | `App.tsx ServerAccessDeniedPage` | ok | ok |  | D: `components.auth-pages.desktop.server-denied.*`<br>P: `components.auth-pages.mobile.server-denied.*` | Flutter page missing: an unknown slug opens the server selector. |
 | 1.17 | Servers loading and joining-community splash | `App.tsx ServerResolver, ServerSelectionPage` | ok | ok |  | D: `components.auth-pages.desktop.servers.*`<br>P: `components.auth-pages.mobile.servers.*` | Flutter page missing for the joining-community splash. |
 | 1.18 | Community agreement dialog (join a community server) | `components/server/CommunityAgreementDialog.tsx` | ok | ok |  | D: `components.auth-pages.desktop.community-agreement.*`<br>P: `components.auth-pages.mobile.community-agreement.*` | Flutter page missing: no community-agreement dialog. |
-| 1.19 | Public server preview (signed-out channel list + read-only messages, join / sign-in banner, unavailable) | `pages/PublicServerPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
-| 1.20 | Public server: join confirm dialog and guest join | `pages/PublicServerPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
+| 1.19 | Public server preview (signed-out channel list + read-only messages, join / sign-in banner, unavailable) | `pages/PublicServerPage.tsx` | ok | ok |  | D: `components.public-server.desktop.page.*`<br>`!*.join-*`<br>P: `components.public-server.mobile.page.*`<br>`!*.join-*` | Flutter: PublicServerView (signed-out /s/<slug> route in main.dart). The server-switcher notice and the join error banner are Web layout bugs (shrink-wrapped 28px column), so they have no case. |
+| 1.20 | Public server: join confirm dialog and guest join | `pages/PublicServerPage.tsx` | ok | ok |  | D: `components.public-server.desktop.page.join-*`<br>P: `components.public-server.mobile.page.join-*` |  |
 | 1.21 | Server setup survey (default, answered, other, save failed) | `components/onboarding/ServerSetupSurveyStep.tsx` | ok | ok |  | D: `components.auth-ext.desktop.setup.survey*`<br>P: `components.auth-ext.mobile.setup.survey*` |  |
 | 1.22 | Server setup: connect a computer (not connected, connecting, ready, not ready, offline recovery) | `components/onboarding/ServerSetupComputerRuntimeStep.tsx` | ok | ok |  | D: `components.auth-ext.desktop.setup.computer-*`<br>P: `components.auth-ext.mobile.setup.computer-*` |  |
 | 1.23 | Server setup: handoff step (default, starting) | `components/onboarding/ServerSetupHandoffStep.tsx` | ok | ok |  | D: `components.auth-ext.desktop.setup.handoff*`<br>P: `components.auth-ext.mobile.setup.handoff*` |  |
@@ -384,8 +384,6 @@ number above.
 | # | page | reason | evidence |
 | --- | --- | --- | --- |
 | 1.11 | Social auth callback (loading / error) | browser-only | SocialAuthCallbackPage.tsx is the browser tab a Web OAuth redirect lands on (loading / error); the native client runs OAuth in the system browser and exchanges the code itself (RaftApp.completeOAuth), so no such page exists in the app. |
-| 1.19 | Public server preview (signed-out channel list + read-only messages, join / sign-in banner, unavailable) | browser-only | PublicServerPage.tsx is the anonymous signed-out preview served on the Web origin (App.tsx:971-1000); the Flutter app has no signed-out route besides sign-in, so there is no route or feature to match (product decision to confirm). |
-| 1.20 | Public server: join confirm dialog and guest join | browser-only | Join confirm / guest join of the anonymous public server page (see 1.19): no signed-out public preview exists in the Flutter app. |
 | 1.25 | Device login (/login/device): enter code, approve, approved, invalid / expired / used code | browser-only | DeviceLoginPage.tsx (/login/device) is the browser page the CLI / computer opens to approve a device code; the native client never renders it and has no route for it. |
 | 1.26 | App login handoff (/login/app) | browser-only | AppLoginPage.tsx (/login/app) is the HarmonyOS web-login hand-off (pages/AppLoginPage.tsx:10); not a Flutter surface. |
 | 1.27 | Login with Raft setup (/login-with-raft/setup, scope consent) | browser-only | HumanLoginSetupPage.tsx (/login-with-raft/setup) is the third-party 'Login with Raft' consent page opened in a browser; the Flutter app has no such route. |

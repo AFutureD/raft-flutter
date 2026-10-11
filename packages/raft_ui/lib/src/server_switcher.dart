@@ -73,7 +73,12 @@ class RaftServerSwitcher extends StatefulWidget {
     this.mobile = false,
     this.headerActions = const [],
     this.attention = false,
+    this.logo,
   });
+
+  /// Replaces the rail trigger's visual (the public server rail draws its own
+  /// black logo block); the trigger still toggles the menu.
+  final Widget? logo;
 
   /// LeftRail `hasOtherServerUnread`: the rail item attention dot on the
   /// workspace avatar.
@@ -228,6 +233,7 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
                           ? widget.controller.close()
                           : widget.controller.open(),
                       builder: (context, state) {
+                        if (widget.logo != null) return widget.logo!;
                         final slot = RaftAppRailRecipe.resolve(
                           theme: t.recipeTheme,
                           tokens: t.recipeTokens,

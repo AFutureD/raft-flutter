@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'banner.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'localization.dart';
@@ -725,10 +726,11 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           body,
-          const SizedBox(height: 12),
-          Semantics(
-            liveRegion: true,
-            child: Text(error, style: RaftSettingsText(t).alert),
+          // ConfirmDialog: `<Banner intent="warning" className="mt-4">`.
+          const SizedBox(height: 16),
+          RaftBanner(
+            status: RaftBannerRecipeStatus.warning,
+            description: error,
           ),
         ],
       );
