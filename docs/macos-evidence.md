@@ -1,6 +1,6 @@
 # macOS target、权限与验收
 
-2026-10-08：新增 `apps/raft_flutter/macos` 宿主，应用名 `Raft`，Bundle ID `app.raft.raftFlutter`，最低 macOS 12。工具链固定 Flutter 3.47.6 / Dart 3.13.5；本机使用 Xcode 27.0。本文单独记录 macOS 覆盖，Linux / Android 的既有证据不作为 macOS 验收结果。
+2026-10-08：新增 `apps/raft_flutter/macos` 宿主，应用名 `Raft`，Bundle ID `app.raft.raftFlutter`，最低 macOS 12，仅构建 Apple Silicon（ARM64）版本。工具链固定 Flutter 3.47.6 / Dart 3.13.5；本机使用 Xcode 27.0。本文单独记录 macOS 覆盖，Linux / Android 的既有证据不作为 macOS 验收结果。
 
 ## 本机构建和打开
 
@@ -14,6 +14,8 @@ fvm flutter pub get
 fvm flutter build macos --release
 open -g build/macos/Build/Products/Release/Raft.app
 ```
+
+Debug / Profile / Release 的项目配置固定 `ARCHS = arm64` 并排除 `x86_64`，CocoaPods targets 使用相同架构限制；不改全局 Flutter 配置。
 
 `open -g` 在后台启动应用。宿主窗口首次显示也保持后台，异步加载不得抢走其他应用的焦点。本机构建使用本地签名；本次不包含 Developer ID 发行、notarization 或商店上架。
 
@@ -76,3 +78,7 @@ macOS AppIcon 已替换 Flutter 默认图标，使用 Android 前景与设计系
 本轮 78 项针对性 Dart/Widget 检查通过，覆盖延迟授权初始化、设置 UI、共享长连接收件箱窗口、前后台、去重、取消、通知规则、通知点击导航、既有 Activity 协议与 section swipe 回归；静态分析无问题，设计系统审计通过。Computer Use 原生连接失败，实际系统授权面板、横幅和点击尚未补验；不把模拟插件检查算作 macOS 原生验收。
 
 安装记录：FVM ARM64 Release 编译成功，主程序、App.framework 及 24 个嵌入框架可执行文件均为 arm64。增量构建后 App.framework 的旧资源签名失效，重新签署该框架与外层 bundle（保留原 identifier、entitlements、flags、runtime）后 `codesign --verify --deep --strict` 通过。仅替换 `/Users/kevinzhow/Applications/Raft.app` 应用包并 `open -g` 后台启动；旧包保留于忽略的本地安装备份，未更改 Keychain / 用户数据。Android ARM64 Release versionCode 8021 通过安装脚本预检及保留数据更新，targetSdk 37。
+
+## ARM64 构建验证
+
+后续按用户要求将 macOS Debug / Profile / Release 与 CocoaPods targets 固定为 ARM64，并通过 FVM 重新构建 Release（64.5 MB）。逐一检查 bundle 中 25 个 Mach-O 文件，主程序、Dart AOT、Flutter 引擎、SQLite 和媒体运行库均仅含 `arm64`，没有 `x86_64` slice；`codesign --verify --deep --strict` 通过。上文 118.0 MB 为更早构建的历史记录。
