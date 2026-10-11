@@ -209,3 +209,36 @@ Results remain mixed. First Settings and two repeated Settings visits were slowe
 | 13-settings-warm | 21.224 | 20.529 | 2.492 | 3.136 |
 
 The review packet includes both sets of raw frames, source/build receipts, comparison, original failing assertions, final test/analysis/audit logs and this report. It excludes native binaries, CPU traces and authenticated VM endpoints.
+
+
+## Visited desktop sidebar retention (36c820a, based on cdb0727)
+
+Switching from Chat to Settings previously removed the sidebar subtree. Returning reconstructed the channel groups, list, controllers and menu anchors. The adaptive workspace now retains a visited desktop sidebar at the same child position, excludes its hidden layout width, painting, hit tests and semantics, and suspends focus/tickers. Initial hidden routes do not mount it, and entering the mobile layout discards it as before. The app keys the adaptive root by its existing authority identity so principal, server, role and channel-access reduction retire the retained state. Changing ordinary selected channels does not replace that root. Hosts using the public adaptive component must likewise change its key when the content authority changes.
+
+The first retained implementation still passed fresh sidebar widget inputs on every hidden owner update. The final implementation holds the last input while hidden and applies the current input in the first visible build. A regression failed before this change: five hidden label updates caused six total sidebar builds rather than one. It passes afterwards and verifies that the final label appears immediately when shown, with the same mounted State. This eliminates those input-driven builds; inherited dependencies or the sidebar's own listeners can still rebuild it, and Offstage still lays out its child when dirty.
+
+Retaining hidden controls exposed a menu lifecycle problem: open overlays and old callbacks could survive hiding. Dropdowns now observe the inherited TickerMode/Visibility presentation state, cancel pending focus work, close without restoring hidden focus, reject external reopening and reject saved item callbacks while inactive. Existing normal keyboard/focus behavior remains covered. The existing interactive SDK workspace preview now hides the sidebar off Chat and demonstrates returning to it.
+
+Validation: 28 design-system cases and 55 application cases passed (83 total), with clean design-system analysis and no audit count regressions. Root analysis had already passed on the first retained revision; the final follow-up changes only adaptive-workspace internals and tests. New retention cases cover draft/scroll/State identity through three hide/show cycles, zero hidden width, hidden focus/semantics, initial lazy mounting, authority reset, immediate latest-input catch-up, and menu stale callbacks in brutal, elegant and elegant-dark. On the original implementation, the State-retention case and the two original menu-family cases failed; lazy mounting passed. The separate hidden-input repro ran against the first retained revision and failed before freezing inputs.
+
+All three native passes below use the same clean Profile AOT harness, synthetic workspace-mac-v4 fixture, matching 13 actions/routes, 120Hz display, DPR 2, 2400x1600 physical view and enabled semantics. Each manifest enumerates and verifies all 597 tracked production library files. The controller/attachment index sources match the accepted baseline; only workspace_view, adaptive_workspace, design_primitives and previews library files differ. No widget/layout tracing flags or CPU profiler were enabled for these frame captures. All 39 captures have zero fixture misses/runtime errors. Native checks additionally confirmed that a message arriving with the sidebar hidden changes unread 1 to 2 immediately on return, no hidden channel controls appear in Settings accessibility, and sidebar channel-53 position survives a hide/show cycle. The lab window was closed in the background after verification.
+
+The final pass has lower build peaks on all three Chat returns than the accepted baseline, but first Settings is slower and repeated Settings remain mixed. The intermediate retained-only pass is preserved to show that retention alone did not reliably improve returns. Foreground host load was uncontrolled and these are single sparse action passes, so no stable whole-page gain, aggregate percentage or 120fps acceptance is claimed. Build peaks still exceed 8.33ms and engine build duration excludes semantics/finalize/post-frame work. Continuous scrolling and actual native-window resize acceptance remain open.
+
+| operation | baseline build max ms | retained-only build max ms | final build max ms | baseline raster max ms | final raster max ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 01-chat-00-cold-scroll | 43.667 | 47.721 | 41.844 | 21.571 | 22.891 |
+| 02-chat-00-small-scroll | 2.835 | 3.038 | 2.980 | 20.823 | 16.582 |
+| 03-chat-live-event | 29.124 | 28.138 | 28.881 | 7.092 | 5.802 |
+| 04-channel-01-entry | 14.752 | 15.334 | 14.931 | 5.293 | 5.722 |
+| 05-channel-settings | 13.774 | 14.672 | 11.011 | 10.371 | 6.712 |
+| 06-channel-settings-close | 1.941 | 2.445 | 2.979 | 13.407 | 11.915 |
+| 07-settings-first | 27.378 | 17.221 | 31.162 | 9.242 | 9.619 |
+| 08-chat-return | 23.243 | 24.753 | 17.717 | 9.290 | 8.613 |
+| 09-settings-warm | 19.991 | 19.017 | 24.730 | 3.101 | 2.839 |
+| 10-chat-return | 18.698 | 23.024 | 14.523 | 9.513 | 12.489 |
+| 11-settings-warm | 21.422 | 21.986 | 21.221 | 2.669 | 2.852 |
+| 12-chat-return | 31.074 | 26.230 | 22.149 | 9.552 | 8.578 |
+| 13-settings-warm | 20.529 | 15.600 | 20.042 | 3.136 | 2.946 |
+
+The review packet includes all three sets of raw frames, matching source manifests, build receipts, comparison JSON, original failing regressions and final validation logs. Native binaries, CPU traces and authenticated VM endpoints stay local.
