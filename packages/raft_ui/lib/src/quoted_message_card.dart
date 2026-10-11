@@ -69,6 +69,18 @@ InlineSpan raftInlineMarkdownSpan(
 }
 
 /// The compact card a Raft permalink in a message expands into.
+/// Places a quoted-message preview under its message body (Web: the card's
+/// `mt-1.5` wrapper inside MessageItem).
+class RaftQuotedMessageSlot extends StatelessWidget {
+  const RaftQuotedMessageSlot({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Padding(padding: const EdgeInsets.only(top: 6), child: child);
+}
+
 class RaftQuotedMessageCard extends StatefulWidget {
   const RaftQuotedMessageCard({
     super.key,
