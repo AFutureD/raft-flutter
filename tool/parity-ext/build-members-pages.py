@@ -285,10 +285,10 @@ for platform in ('desktop', 'phone'):
 # ---- 7.19 report issue dialog (mounted alone; gated on VITE_FEEDBACK_EXPORT_URL in the Web build)
 for platform in ('desktop', 'phone'):
     add(platform, 'report-issue', 'Report issue dialog', 'report',
-        selector=CARD_DLG if platform == 'desktop' else VIEW, android_key=None, hint=SRC + 'agent/ReportIssueDialog.tsx',
+        selector=CARD_DLG if platform == 'desktop' else VIEW,
+        android_key='report-issue-dialog' if platform == 'desktop' else None, hint=SRC + 'agent/ReportIssueDialog.tsx',
         props={'boxW': str({'desktop': 1280, 'phone': 390}[platform]),
-               'boxH': str({'desktop': 800, 'phone': 844}[platform])},
-        flutter=False, note='Flutter page missing: no Report issue dialog.')
+               'boxH': str({'desktop': 800, 'phone': 844}[platform])})
 
 # ---- 7.07 avatar management (desktop; the official phone case components.members.avatar-management exists)
 agent_main('desktop', 'agent.avatar-change', 'Agent profile: change avatar dialog', selector=VIEW,

@@ -342,7 +342,7 @@ SECTIONS = [
           p=['components.members-pages.phone.agent.overflow-menu', 'components.members-pages.phone.agent.stop-confirm', 'components.members-pages.phone.agent.delete-confirm'], prio=2),
         R('7.19', 'Report issue dialog', 'components/agent/ReportIssueDialog.tsx', 'DP',
           d=['components.members-pages.desktop.report-issue'], p=['components.members-pages.phone.report-issue'], prio=3,
-          note='React case only: Flutter page missing (no Report issue dialog; the Web entry needs VITE_FEEDBACK_EXPORT_URL).'),
+          note='The entry (agent profile Actions) needs a feedback export worker in the build: Web VITE_FEEDBACK_EXPORT_URL, Flutter --dart-define RAFT_FEEDBACK_EXPORT_URL.'),
         R('7.20', 'Agent unavailable panel (terminated or no access)', 'components/agent/AgentUnavailablePanel.tsx', 'DP',
           d=['components.members-pages.desktop.agent.unavailable'], p=['components.members-pages.phone.agent.unavailable'], prio=2),
         R('7.21', 'Agent migration (move to another computer: dialog, progress, cancel, upgrade)', 'components/agentMigration/*', 'DP', prio=3, note='Behind a UI flag.'),

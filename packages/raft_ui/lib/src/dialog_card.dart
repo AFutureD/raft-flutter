@@ -83,7 +83,11 @@ class RaftRecipeButton extends StatelessWidget {
     this.focusNode,
     this.glyphTrailing = false,
     this.focusRing = false,
+    this.disabledOpacity,
   });
+
+  /// Callsite `disabled:opacity-*` over the recipe's disabled opacity.
+  final double? disabledOpacity;
 
   /// Paints the focus-visible ring while focused even after a pointer press
   /// (Blink keeps `:focus-visible` on an element that script focused when a
@@ -207,8 +211,11 @@ class RaftRecipeButton extends StatelessWidget {
       child: Center(widthFactor: expand ? null : 1, child: content),
     );
     box = Transform.translate(offset: translate, child: box);
-    if (root.opacity != null && root.opacity! < 1) {
-      box = Opacity(opacity: root.opacity!, child: box);
+    final opacity = disabled && disabledOpacity != null
+        ? disabledOpacity
+        : root.opacity;
+    if (opacity != null && opacity < 1) {
+      box = Opacity(opacity: opacity, child: box);
     }
     return box;
   }
@@ -431,11 +438,32 @@ class RaftDialogCard extends StatelessWidget {
     required this.onClose,
     required this.child,
     this.maxWidth = 448, // max-w-md = 28rem
+    this.titleGlyph,
   });
+
+  /// `title` node of `<span className="flex items-center gap-2"><Bug size={18}
+  /// />…</span>`: a leading Lucide icon before the title text.
+  final RaftGlyph? titleGlyph;
   final String title;
   final VoidCallback onClose;
   final Widget child;
   final double maxWidth;
+
+  Widget titleText(
+    BuildContext context,
+    RaftTokens t,
+    RaftSlotStyle titleSlot,
+  ) => Text(
+    // CardTitle has no `truncate`: a long title wraps.
+    raftText(context, title).toUpperCase(),
+    style: raftCssTextStyle(
+      family: titleSlot.fontFamily ?? t.headingFont,
+      step: RaftTextSteps.lg,
+      weight: FontWeight.w700,
+      color: t.ink,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -460,16 +488,15 @@ class RaftDialogCard extends StatelessWidget {
                 Expanded(
                   child: Semantics(
                     header: true,
-                    child: Text(
-                      // CardTitle has no `truncate`: a long title wraps.
-                      raftText(context, title).toUpperCase(),
-                      style: raftCssTextStyle(
-                        family: titleSlot.fontFamily ?? t.headingFont,
-                        step: RaftTextSteps.lg,
-                        weight: FontWeight.w700,
-                        color: t.ink,
-                      ),
-                    ),
+                    child: titleGlyph == null
+                        ? titleText(context, t, titleSlot)
+                        : Row(
+                            spacing: 8,
+                            children: [
+                              RaftIcon(titleGlyph!, size: 18, color: t.ink),
+                              Expanded(child: titleText(context, t, titleSlot)),
+                            ],
+                          ),
                   ),
                 ),
                 RaftCloseButton(onPressed: onClose),

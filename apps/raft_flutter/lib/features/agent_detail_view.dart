@@ -88,6 +88,7 @@ class AgentDetailActions {
     this.onMessage,
     this.onMigrate,
     this.onPermissions,
+    this.onReportIssue,
   });
   final VoidCallback? onBack,
       onEditName,
@@ -100,7 +101,10 @@ class AgentDetailActions {
       onDelete,
       onMessage,
       onMigrate,
-      onPermissions;
+      onPermissions,
+      /// Report Issue (offered only when the build names a feedback export
+      /// worker, Web `FEEDBACK_EXPORT_ENABLED`).
+      onReportIssue;
 }
 
 /// Shared runtime catalog (packages/shared/src/runtimeCatalog.ts RUNTIMES).
@@ -583,9 +587,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         key: const ValueKey('agent-copy-diagnostic'),
         label: raftText(
           context,
-          diagnosticCopied
-              ? 'Diagnostic Info Copied'
-              : 'Copy Diagnostic Info',
+          diagnosticCopied ? 'Diagnostic Info Copied' : 'Copy Diagnostic Info',
         ),
         glyph: diagnosticCopied ? RaftGlyph.check : RaftGlyph.clipboard,
         tone: RaftButtonRecipeVariant.outline,
@@ -593,6 +595,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         expand: true,
         onPressed: copyDiagnosticInfo,
       ),
+      // `FEEDBACK_EXPORT_ENABLED && <Button variant="warning">` (Bug icon).
+      if (widget.actions.onReportIssue != null)
+        RaftButton(
+          key: const ValueKey('agent-report-issue'),
+          label: raftText(context, 'Report Issue'),
+          glyph: RaftGlyph.bug,
+          tone: RaftButtonRecipeVariant.warning,
+          size: RaftButtonRecipeSize.md,
+          expand: true,
+          onPressed: widget.busy ? null : widget.actions.onReportIssue,
+        ),
       if (widget.actions.onDelete != null)
         RaftButton(
           label: raftText(context, 'Delete Agent'),
@@ -933,6 +946,16 @@ abstract class _AgentTabSnapshot {
 
 class _ActivitySnapshot extends _AgentTabSnapshot {
   List<Map<String, dynamic>> entries = [];
+}
+
+/// The agent's live activity window the Activity tab holds (Web
+/// `getActivityLog`); empty until that tab was opened.
+List<Map<String, dynamic>> agentCachedActivityEntries(
+  WorkspaceController w,
+  String agentId,
+) {
+  final snapshot = w.agentTabCache.peek('activity/$agentId');
+  return snapshot is _ActivitySnapshot ? snapshot.entries : const [];
 }
 
 class _ChatSnapshot extends _AgentTabSnapshot {

@@ -33,6 +33,8 @@ const extMembersPagesCaseKinds = {
   'phone.invite.guest': 'invite',
   'phone.invite.link': 'invite',
   'phone.invite.seat-limit': 'invite',
+  'desktop.report-issue': 'report',
+  'phone.report-issue': 'report',
   'desktop.agent.avatar-change': 'main',
   'desktop.human.avatar-view': 'main',
 };

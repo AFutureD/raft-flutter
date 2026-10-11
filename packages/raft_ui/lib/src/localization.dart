@@ -29,6 +29,9 @@ String raftFormat(
 }
 
 const raftChinese = <String, String>{
+  // Added with the members new-pages port (Web catalog).
+  "Issue report for {name}": "针对 {name} 的问题报告",
+  "HTTP {status}: {detail}": "HTTP {status}：{detail}",
   "{count} task update": "{count} 条任务更新",
   "{count} task updates": "{count} 条任务更新",
   "{count} reminder update": "{count} 条提醒更新",

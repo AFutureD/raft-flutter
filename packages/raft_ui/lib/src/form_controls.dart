@@ -488,7 +488,10 @@ class _RaftTextareaState extends State<RaftTextarea>
             decoration: _bare(
               hintText: widget.hintText,
               hintStyle: style.copyWith(
-                color: s.target('::placeholder')?.color?.resolve(rt),
+                // Tailwind preflight `::placeholder`: currentColor at 50%.
+                color:
+                    s.target('::placeholder')?.color?.resolve(rt) ??
+                    t.semantic.foregroundPlaceholder,
               ),
             ),
           ),

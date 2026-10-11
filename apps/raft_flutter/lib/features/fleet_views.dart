@@ -14,6 +14,7 @@ import 'managed_agent_launcher.dart';
 import 'agent_scopes_view.dart';
 import 'agent_migration_view.dart';
 import 'agent_detail_view.dart';
+import 'report_issue.dart';
 import 'agent_avatar_dialog.dart';
 import 'computer_detail_view.dart';
 import 'add_computer_dialog.dart';
@@ -63,7 +64,10 @@ Future<T?> _fleetDialog<T>(
   final navigator = Navigator.of(context, rootNavigator: true);
   final route = RaftDialogRoute<T>(
     builder: builder,
-    capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
+    capturedThemes: InheritedTheme.capture(
+      from: context,
+      to: navigator.context,
+    ),
   );
   void changed() {
     if (!authorized() && route.isActive) route.navigator?.removeRoute(route);
@@ -528,8 +532,13 @@ class FleetDetail extends StatefulWidget {
     this.clock,
     this.initialTrajectoryLog = const [],
     this.onOpenAgent,
+    this.feedbackExportUrl,
   });
   final List<Map<String, dynamic>> initialTrajectoryLog;
+
+  /// Feedback export worker of Report Issue; null = the build's
+  /// `RAFT_FEEDBACK_EXPORT_URL` (Web `VITE_FEEDBACK_EXPORT_URL`).
+  final String? feedbackExportUrl;
 
   /// Computers: open an agent row of "Agents on this computer".
   final ValueChanged<String>? onOpenAgent;
@@ -1110,6 +1119,29 @@ class _FleetDetailState extends State<FleetDetail> {
     );
   }
 
+  /// Web `ReportIssueDialog` (`canManageAgent && showReportDialog`).
+  Future<void> reportIssue() async {
+    final captured = scope;
+    bool valid() =>
+        current &&
+        identical(scope, captured) &&
+        row['deletedAt'] == null &&
+        allowed('editAgents');
+    if (!valid()) return;
+    final machineId = row['machineId'];
+    await showReportIssueDialog(
+      context,
+      controller: w,
+      agent: row,
+      machine: machineId is String
+          ? machines?.where((m) => m['id'] == machineId).firstOrNull
+          : null,
+      activityLog: agentCachedActivityEntries(w, id),
+      authorized: valid,
+      exportUrl: widget.feedbackExportUrl,
+    );
+  }
+
   Future<void> editAvatar() async {
     final captured = scope;
     bool valid() =>
@@ -1209,6 +1241,12 @@ class _FleetDetailState extends State<FleetDetail> {
                 builder: (_) => AgentMigrationView(controller: w, agentId: id),
               ),
             )
+          : null,
+      onReportIssue:
+          reportIssueEnabled(widget.feedbackExportUrl ?? reportIssueBuildUrl) &&
+              allowed('editAgents') &&
+              row['deletedAt'] == null
+          ? reportIssue
           : null,
       onPermissions: allowed('editAgents')
           ? () => Navigator.push(

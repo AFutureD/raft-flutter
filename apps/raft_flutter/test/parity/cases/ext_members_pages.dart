@@ -58,7 +58,8 @@ Object? _answer(
   final source = RegExp(r'/runtime-form(s/v2/codex)?/option-sources/([^/]+)$')
       .firstMatch(path);
   if (method == 'GET' && answer == null && source != null) {
-    final found = (msRuntimeForms['staticSources'] as Map)['codex.${source[2]}'];
+    final found =
+        (msRuntimeForms['staticSources'] as Map)['codex.${source[2]}'];
     if (found != null) return Map<String, dynamic>.from(found as Map);
     throw RaftApiException('Computer unavailable', status: 503);
   }
@@ -219,9 +220,27 @@ class _InviteHostState extends State<_InviteHost> {
   Widget build(BuildContext context) => const SizedBox.expand();
 }
 
+/// The Report issue dialog alone (the Web host mounts `ReportIssueDialog`
+/// with the first roster agent): the real `RaftReportIssueDialog`, whose
+/// machine log option follows the agent's Computer row.
+Widget _report(ParityContext ctx) {
+  final roster = (_fx(ctx)['rosters'] as Map)['default'] as List;
+  final agent = Map<String, dynamic>.from(roster.first as Map);
+  final machineId = agent['machineId'];
+  return RaftReportIssueDialog(
+    agentName: '${agent['displayName'] ?? agent['name']}',
+    hasMachine: machineId is String && machineId.isNotEmpty,
+    canIncludeMachineLog: false,
+    onSubmit: (_) async =>
+        throw const RaftReportIssueFailure('not submitted in the capture'),
+    onClose: () {},
+  );
+}
+
 ParityCase _case(String kind) => ParityCase(
   widgets: switch (kind) {
     'invite' => const ['raft_flutter:RaftInviteHumanDialog'],
+    'report' => const ['raft_ui:RaftReportIssueDialog'],
     _ => const [
       'raft_flutter:WorkspaceView',
       'raft_flutter:MemberProfileView',
@@ -238,16 +257,16 @@ ParityCase _case(String kind) => ParityCase(
           ? _phoneDetail(ctx)
           : _Shell(ctx: ctx),
     'invite' => _InviteHost(ctx: ctx),
-    _ => throw StateError(
-      'unknown members-pages kind ${ctx.props['extKind']}',
-    ),
+    'report' => _report(ctx),
+    _ => throw StateError('unknown members-pages kind ${ctx.props['extKind']}'),
   },
 );
 
 /// Every extension members-pages case Flutter implements, keyed by id
 /// (3 themes each).
 final Map<String, ParityCase> extMembersPagesCases = {
-  for (final MapEntry(key: key, value: kind) in extMembersPagesCaseKinds.entries)
+  for (final MapEntry(key: key, value: kind)
+      in extMembersPagesCaseKinds.entries)
     for (final theme in const ['brutal', 'elegant', 'elegant-dark'])
       'components.members-pages.$key.$theme': _case(kind),
 };
@@ -257,8 +276,8 @@ final Map<String, ParityCase> extMembersPagesCases = {
 /// fixture swapped in (the role action variant) and extra interactions from the case.
 ParityCase _channelCase(String key) {
   final platform = key.startsWith('desktop') ? 'desktop' : 'mobile';
-  final base = extChannelSettingsCases[
-      'components.channelsettings.$platform.members-page.brutal']!;
+  final base =
+      extChannelSettingsCases['components.channelsettings.$platform.members-page.brutal']!;
   ParityContext swap(ParityContext c) => ParityContext(
     caseJson: c.caseJson,
     fixtures: {
