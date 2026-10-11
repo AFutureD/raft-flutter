@@ -3,8 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import 'dialog_card.dart';
 import 'icons.dart';
 import 'recipe_surface.dart';
+import 'recipes/button_variants.g.dart';
 import 'recipes/toast_styles.g.dart';
 import 'theme.dart';
 
@@ -20,8 +22,15 @@ class RaftToast extends StatelessWidget {
     this.tone = RaftToastRecipeTone.success,
     this.icon = false,
     this.onClose,
+    this.actionLabel,
+    this.onAction,
   });
   final String title;
+
+  /// `toast.success(..., { action: { label, onClick } })`: a trailing text
+  /// action (the follower removal toast's "Undo").
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   /// `ToastDescription` under the title (stacked in the same body column).
   final String? description;
@@ -120,6 +129,16 @@ class RaftToast extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(child: body),
+              if (actionLabel != null) ...[
+                const SizedBox(width: 12),
+                RaftRecipeButton(
+                  key: const Key('toast-action'),
+                  variant: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  label: actionLabel,
+                  onPressed: onAction,
+                ),
+              ],
               const SizedBox(width: 24),
             ],
           );
@@ -144,11 +163,26 @@ class RaftToastController extends ChangeNotifier {
   bool _paused = false;
   String? _title;
   String? get title => _title;
+  String? _actionLabel;
+  VoidCallback? _onAction;
+  String? get actionLabel => _actionLabel;
+  VoidCallback? get onAction => _onAction;
+  RaftToastRecipeTone _tone = RaftToastRecipeTone.success;
+  RaftToastRecipeTone get tone => _tone;
 
   /// raft-ui ToastProvider's authored default is 5000ms.
-  void show(String title, {Duration duration = const Duration(seconds: 5)}) {
+  void show(
+    String title, {
+    Duration duration = const Duration(seconds: 5),
+    String? actionLabel,
+    VoidCallback? onAction,
+    RaftToastRecipeTone tone = RaftToastRecipeTone.success,
+  }) {
     _timer?.cancel();
     _title = title;
+    _actionLabel = actionLabel;
+    _onAction = onAction;
+    _tone = tone;
     _remaining = duration;
     if (!_paused) _start();
     notifyListeners();
@@ -177,6 +211,8 @@ class RaftToastController extends ChangeNotifier {
     _timer?.cancel();
     if (_title == null) return;
     _title = null;
+    _actionLabel = null;
+    _onAction = null;
     _paused = false;
     notifyListeners();
   }
@@ -275,7 +311,16 @@ class _RaftToastPortalState extends State<RaftToastPortal> {
                   hovered = false;
                   widget.controller.pause(focused);
                 },
-                child: RaftToast(title: title),
+                child: RaftToast(
+                  title: title,
+                  tone: widget.controller.tone,
+                  actionLabel: widget.controller.actionLabel,
+                  onAction: () {
+                    final action = widget.controller.onAction;
+                    widget.controller.clear();
+                    action?.call();
+                  },
+                ),
               ),
             ),
           ),
