@@ -32,6 +32,7 @@ import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
+import 'platform/keyboard_inset_guard.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
@@ -75,10 +76,7 @@ Future<void> main([List<String> args = const []]) async {
   runApp(
     RootErrorBoundary(
       child: ProviderScope(
-        child: RaftApp(
-          initialArguments: args,
-          onStartupReady: allowFirstFrame,
-        ),
+        child: RaftApp(initialArguments: args, onStartupReady: allowFirstFrame),
       ),
     ),
   );
@@ -1502,7 +1500,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         client: active,
         slug: nonmember.slug,
         initialChannelId: nonmember.channelId,
-        account: PublicServerAccount(servers: w.servers, onSelect: chooseServer),
+        account: PublicServerAccount(
+          servers: w.servers,
+          onSelect: chooseServer,
+        ),
         appVersion: const String.fromEnvironment('RAFT_APP_VERSION'),
         onSignIn: () {},
         onRegister: () {},
@@ -1769,7 +1770,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           delay: const Duration(milliseconds: 600),
           child: RaftViewportBreakpointScope(
             // Resolves the theme's font combinations once the app is idle.
-            child: RaftFontWarmUpScope(child: RaftSystemBars(child: child!)),
+            child: RaftFontWarmUpScope(
+              child: RaftSystemBars(
+                child: KeyboardInsetGuard(
+                  imeVisible: platformImeVisibility,
+                  child: child!,
+                ),
+              ),
+            ),
           ),
         ),
       ),

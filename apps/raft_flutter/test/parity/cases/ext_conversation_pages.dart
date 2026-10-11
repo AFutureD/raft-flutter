@@ -21,6 +21,7 @@ import 'package:raft_flutter/data/source_time_formatter.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/external_identity.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -282,6 +283,107 @@ final ParityCase _tabCase = ParityCase(
   },
 );
 
+/// In-thread search (3.38): overflow menu -> "Search in thread" -> optional query.
+ParityCase _threadSearchCase(String? query) => ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:RaftChatView',
+    'raft_ui:RaftThreadSearchBar',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView thread panel, in-thread search bar.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+  interact: (t, ctx) async {
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    await t.tap(find.byKey(const Key('thread-options')).first);
+    for (var i = 0; i < 8; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    await t.tap(find.text('Search in thread'));
+    for (var i = 0; i < 8; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    if (query != null) {
+      await t.enterText(find.byKey(const Key('thread-search-input')), query);
+      for (var i = 0; i < 20; i++) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+  },
+);
+
+/// External identity detail panel (3.29): the panel in the bordered box of the
+/// React host (`view=external-detail`).
+final ParityCase _externalDetailCase = ParityCase(
+  widgets: const [
+    'raft_flutter:ExternalIdentityDetailPanel',
+    'raft_ui:RaftExternalIdentityBody',
+  ],
+  notes: 'Extension suite (not official). Real ExternalIdentityDetailPanel in a bordered box.',
+  settle: const Duration(milliseconds: 600),
+  build: (ctx) {
+    final w = _workspace(ctx);
+    final mobile = ctx.props['platform'] == 'mobile';
+    final brutal = ctx.family == RaftFamily.brutal;
+    final tokens = RaftTokens.theme(ctx.family, dark: ctx.dark);
+    return Align(
+      alignment: Alignment.topLeft,
+      child: ctx.target(
+        SizedBox(
+          width: (ctx.props['boxWidth'] as num).toDouble(),
+          height: (ctx.props['boxHeight'] as num).toDouble(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: tokens.panel,
+              border: Border.all(
+                color: brutal ? Colors.black : tokens.colors['line-muted']!,
+                width: brutal ? 2 : 1,
+              ),
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: ExternalIdentityDetailPanel(
+                controller: w,
+                profile: Map<String, dynamic>.from(
+                  _fx(ctx)['externalProfile'] as Map,
+                ),
+                onClose: () {},
+                // Below md the header leads with the back chevron.
+                onBack: mobile ? () {} : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  },
+);
+
+/// Thread agent followers (3.39): the header trigger, optionally opened.
+ParityCase _followersCase({required bool open}) => ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:ThreadAgentFollowersView',
+    'raft_ui:RaftThreadFollowers',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView thread header, followers trigger / popover.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+  interact: (t, ctx) async {
+    for (var i = 0; i < 30; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    if (open) {
+      await t.tap(find.byKey(const Key('thread-followers-header-trigger')));
+      for (var i = 0; i < 20; i++) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+  },
+);
+
 final ParityCase _threadCase = ParityCase(
   widgets: const [
     'raft_flutter:WorkspaceView',
@@ -383,7 +485,6 @@ final ParityCase _windowCase = ParityCase(
   build: _buildWindow,
 );
 
-
 // --------------------------------------------------------------------------
 // view=row: one message row on a panel-coloured box (Web MessageItem)
 // --------------------------------------------------------------------------
@@ -477,6 +578,11 @@ _RowStage _rowStage(ParityContext ctx) {
     (_fx(ctx)['rows'] as Map)[ctx.props['row']] as Map,
   );
   final message = Map<String, dynamic>.from(row['message'] as Map);
+  // The React host fills the page origin into permalink fixtures.
+  message['content'] = (message['content'] as String).replaceAll(
+    '__ORIGIN__',
+    'https://parity-fixture.invalid',
+  );
   final width = (ctx.props['boxWidth'] as num?)?.toDouble() ?? 440;
   // No boxHeight: the box is as tall as its row (CSS auto height), height 0.
   final height = (ctx.props['boxHeight'] as num?)?.toDouble() ?? 0;
@@ -530,6 +636,12 @@ _RowStage _rowStage(ParityContext ctx) {
           ? 'bilingual'
           : 'translated',
     });
+  }
+  // The React capture never receives the inline media URL (the card sits in its
+  // pre-load state); the Flutter media URL read stays pending the same way.
+  for (final id in const ['att-cv-audio', 'att-cv-video']) {
+    stage.client.routes['GET /attachments/$id/url'] = (_) =>
+        Completer<Never>().future;
   }
   // The server's computer list (Computer fact of the profile card).
   final machine = Map<String, dynamic>.from(
@@ -597,7 +709,8 @@ ParityCase _profileCaseFor() => ParityCase(
 /// optional [act] runs once the row is aligned (hover, click, ...).
 ParityCase _rowCase({
   List<String> widgets = const [],
-  Future<void> Function(WidgetTester t, ParityContext ctx, _RowStage stage)? act,
+  Future<void> Function(WidgetTester t, ParityContext ctx, _RowStage stage)?
+  act,
   Duration settle = const Duration(milliseconds: 300),
 }) => ParityCase(
   widgets: ['raft_flutter:RaftChatView', 'raft_ui:RaftMessageRow', ...widgets],
@@ -610,7 +723,10 @@ ParityCase _rowCase({
     // from; they must land before the row is measured (a longer name re-wraps).
     stage.w.entityDirectory.ensure({WorkspaceEntityKind.computers});
     // Translations land before the row is measured (a translated body re-wraps).
-    await _pumpFrames(t, (ctx.props['translate'] as String? ?? '').isEmpty ? 8 : 40);
+    await _pumpFrames(
+      t,
+      (ctx.props['translate'] as String? ?? '').isEmpty ? 8 : 40,
+    );
     await stage.alignRow(t);
     await act?.call(t, ctx, stage);
     await _pumpFrames(t);
@@ -639,6 +755,19 @@ final Map<String, ParityCase> extConversationCases = () {
     ]) {
       add('threadstate', platform, state, _threadCase);
     }
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    add('threadsearch', platform, 'open', _threadSearchCase(null));
+    add('threadsearch', platform, 'matches', _threadSearchCase('parity'));
+    add('threadsearch', platform, 'none', _threadSearchCase('zzzz'));
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    add('external', platform, 'detail', _externalDetailCase);
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    add('followers', platform, 'header', _followersCase(open: false));
+    add('followers', platform, 'popover', _followersCase(open: true));
+    add('followers', platform, 'error', _followersCase(open: true));
   }
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const ['list', 'more', 'empty', 'loading', 'error']) {
@@ -676,6 +805,46 @@ final Map<String, ParityCase> extConversationCases = () {
         },
       ),
     );
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    add(
+      'mermaid',
+      platform,
+      'fullscreen',
+      _rowCase(
+        widgets: const ['raft_ui:RaftMermaidFullscreen'],
+        settle: const Duration(milliseconds: 900),
+        act: (t, ctx, stage) async {
+          // The diagram renders natively; the toolbar's expand control is
+          // enabled once the scene is ready.
+          await _pumpFrames(t, 30);
+          await t.tap(find.byTooltip('Expand diagram').first);
+          await _pumpFrames(t, 30);
+        },
+      ),
+    );
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const [
+      'text',
+      'attachment',
+      'archived',
+      'loading',
+      'unavailable',
+    ]) {
+      add(
+        'quote',
+        platform,
+        state,
+        _rowCase(
+          widgets: const [
+            'raft_flutter:QuotedMessagePermalinkPreview',
+            'raft_ui:RaftQuotedMessageCard',
+          ],
+          settle: const Duration(milliseconds: 600),
+        ),
+      );
+    }
   }
   for (final platform in const ['desktop', 'mobile']) {
     for (final kind in const ['audio', 'video', 'pdf', 'patch']) {
@@ -723,7 +892,12 @@ final Map<String, ParityCase> extConversationCases = () {
       'owner-recovery',
       'executed',
     ]) {
-      add('action', platform, state, _rowCase(widgets: const ['raft_flutter:MessageActionCard']));
+      add(
+        'action',
+        platform,
+        state,
+        _rowCase(widgets: const ['raft_flutter:MessageActionCard']),
+      );
     }
   }
   for (final platform in const ['desktop', 'mobile']) {
@@ -747,50 +921,5 @@ final Map<String, ParityCase> extConversationCases = () {
 /// they stay in the manifest as honest gaps instead of faked captures.
 final Map<String, ParityUncovered> extConversationUncovered = () {
   final gaps = <String, ParityUncovered>{};
-  void gap(String scene, List<String> states, String reason) {
-    for (final platform in const ['desktop', 'mobile']) {
-      for (final state in states) {
-        for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
-          gaps['components.conversation.$scene.$platform.$state.$theme'] =
-              ParityUncovered(ParityGap.noFlutterSurface, reason);
-        }
-      }
-    }
-  }
-
-  gap(
-    'threadsearch',
-    const ['open', 'matches', 'none'],
-    'Flutter has no in-thread search: ThreadActions.onSearch is never wired, so '
-        'the thread overflow menu has no "Search this thread" item and no search bar.',
-  );
-  for (final platform in const ['desktop', 'mobile']) {
-    for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
-      gaps['components.conversation.external.$platform.detail.$theme'] =
-          const ParityUncovered(
-            ParityGap.noFlutterSurface,
-            'Flutter has no external identity detail panel: only the hover card '
-            '(ExternalIdentityHoverCard) exists; the avatar is not tappable.',
-          );
-    }
-  }
-  gap(
-    'mermaid',
-    const ['fullscreen'],
-    'Flutter has no Mermaid full-screen viewer: RaftMermaidBlock offers the '
-        'toolbar (diagram / code / download) only.',
-  );
-  gap(
-    'quote',
-    const ['text', 'attachment', 'archived', 'loading', 'unavailable'],
-    'Flutter has no quoted-message permalink preview: a Raft message link in a '
-        'message body renders as a plain link, without the QuotedMessageCard.',
-  );
-  gap(
-    'followers',
-    const ['header', 'popover', 'error'],
-    'Flutter has no thread agent followers control: RaftThreadHeader accepts a '
-        '`followers` slot that the app never fills.',
-  );
   return gaps;
 }();

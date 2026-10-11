@@ -553,7 +553,7 @@ for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
 for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
     add('mermaid', platform, 'fullscreen', 'Mermaid full-screen viewer', view='row',
         props={'row': 'mermaid', 'boxWidth': box, 'padX': padx, 'padTop': 8},
-        selector='[data-testid="mermaid-fullscreen"]',
+        selector='[data-testid="mermaid-fullscreen"]', android_key='mermaid-fullscreen',
         interactions=[{'type': 'wait', 'ms': 900},
                       {'type': 'click', 'target': '[aria-label="Open Mermaid diagram fullscreen"]'},
                       {'type': 'wait', 'ms': 1200}],

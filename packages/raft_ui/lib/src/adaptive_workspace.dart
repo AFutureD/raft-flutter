@@ -25,6 +25,8 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
     required this.sidebar,
     required this.rail,
     this.thread,
+    this.profile,
+    this.profileWidth = 380,
     this.onPresentationChanged,
     this.sidebarVisible = true,
     this.mobileNavigation,
@@ -44,6 +46,13 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   /// interaction and semantics.
   final bool sidebarVisible;
   final Widget? thread, mobileNavigation;
+
+  /// Web `ProfilePanel`: the profile side panel, a surface of its own beside
+  /// the thread (both stay mounted); it overlays the thread when the
+  /// conversation is too narrow for three columns, and the whole workspace
+  /// when folded.
+  final Widget? profile;
+  final double profileWidth;
   final void Function(bool mainVisible, bool threadVisible)?
   onPresentationChanged;
 
@@ -81,13 +90,57 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
 class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
   final mainSlot = GlobalKey();
   final threadSlot = GlobalKey();
+  final profileSlot = GlobalKey();
 
-  Widget conversation({required bool split, double threadSize = 0}) {
-    final folded = widget.thread != null && !split;
+  /// Whether the thread and the profile share the right side (both columns)
+  /// rather than the profile covering the thread.
+  bool columns(double conversationWidth, double threadSize) =>
+      widget.thread != null &&
+      widget.profile != null &&
+      conversationWidth - threadSize - widget.profileWidth >= 320;
+
+  Widget conversation({
+    required bool split,
+    double threadSize = 0,
+    double conversationWidth = 0,
+  }) {
+    final hasSide = widget.thread != null || widget.profile != null;
+    final folded = hasSide && !split;
+    final both = split && columns(conversationWidth, threadSize);
+    final profileOverThread =
+        widget.thread != null && widget.profile != null && !both;
     // Visibility keeps the same state owner, excludes hidden focus/semantics,
     // and exposes presentation admission independently of accepted row data.
-    widget.onPresentationChanged?.call(!folded, widget.thread != null);
+    // A thread replaces the main conversation when folded; a profile overlay
+    // only covers it (Web `absolute inset-0 z-30`), the chat stays mounted
+    // and active underneath.
+    final hideMain = widget.thread != null && !split;
+    widget.onPresentationChanged?.call(
+      !hideMain,
+      widget.thread != null && !(widget.profile != null && !both),
+    );
     Widget thread() => KeyedSubtree(key: threadSlot, child: widget.thread!);
+    Widget profile() => KeyedSubtree(key: profileSlot, child: widget.profile!);
+    Widget panel(Key key, double width, Widget child) => Builder(
+      builder: (context) {
+        final t = RaftTokens.of(context);
+        // ThreadPanelRoot / ProfilePanel are attached Panels: their own left
+        // border is the divider (dropped when folded).
+        return Container(
+          key: key,
+          width: width,
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                width: t.brutal ? 2 : 1,
+              ),
+            ),
+          ),
+          child: child,
+        );
+      },
+    );
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -97,38 +150,48 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
               child: KeyedSubtree(
                 key: mainSlot,
                 child: Visibility(
-                  visible: !folded,
+                  visible: !hideMain,
                   maintainState: true,
                   child: widget.content,
                 ),
               ),
             ),
-            if (split && widget.thread != null)
-              Builder(
-                builder: (context) {
-                  final t = RaftTokens.of(context);
-                  // ThreadPanelRoot is an attached Panel: its own left border
-                  // is the Channel | Thread divider (dropped when folded).
-                  return Container(
-                    key: const Key('workspace-thread-panel'),
-                    width: threadSize,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(
-                          color: t.brutal
-                              ? Colors.black
-                              : t.colors['line-muted']!,
-                          width: t.brutal ? 2 : 1,
-                        ),
-                      ),
-                    ),
-                    child: thread(),
-                  );
-                },
+            if (split && both) ...[
+              panel(const Key('workspace-thread-panel'), threadSize, thread()),
+              panel(
+                const Key('workspace-profile-panel'),
+                widget.profileWidth,
+                profile(),
+              ),
+            ] else if (split && profileOverThread)
+              panel(
+                const Key('workspace-thread-panel'),
+                threadSize,
+                Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fill(child: ExcludeFocus(child: thread())),
+                    Positioned.fill(child: profile()),
+                  ],
+                ),
+              )
+            else if (split && widget.thread != null)
+              panel(const Key('workspace-thread-panel'), threadSize, thread())
+            else if (split && widget.profile != null)
+              panel(
+                const Key('workspace-profile-panel'),
+                widget.profileWidth,
+                profile(),
               ),
           ],
         ),
-        if (folded) Positioned.fill(child: thread()),
+        if (folded && widget.thread != null)
+          Positioned.fill(
+            child: widget.profile == null
+                ? thread()
+                : ExcludeFocus(child: thread()),
+          ),
+        if (folded && widget.profile != null) Positioned.fill(child: profile()),
       ],
     );
   }
@@ -179,7 +242,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         t,
         MediaQuery.sizeOf(context).height,
       );
-      final hasThread = widget.thread != null;
+      final hasThread = widget.thread != null || widget.profile != null;
       final conversationWidth =
           width -
           railWidth -
@@ -245,6 +308,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                 child: conversation(
                   split: sideThread,
                   threadSize: actualThread,
+                  conversationWidth: conversationWidth,
                 ),
               ),
               SizedBox(width: widget.trailingExtent),
@@ -263,9 +327,14 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                 onChanged: resizeSidebar,
               ),
             ),
-          if (sideThread)
+          if (sideThread && widget.thread != null)
             Positioned(
-              right: actualThread - 4,
+              right:
+                  (columns(conversationWidth, actualThread)
+                      ? widget.profileWidth
+                      : 0) +
+                  actualThread -
+                  4,
               top: 0,
               bottom: 0,
               width: 8,
