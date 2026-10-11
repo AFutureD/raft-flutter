@@ -242,6 +242,15 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
   }
 
   void freeze() {
+    final displayed = entering;
+    if (displayed != null) {
+      // The transparent live subtree can rebuild without painting, leaving
+      // old layers that reference disposed stretch shaders. Retain the image
+      // actually on screen; clone shares its pixels without rasterizing again.
+      image?.dispose();
+      image = displayed.clone();
+      return;
+    }
     final render = boundary.currentContext?.findRenderObject();
     if (render is _MobileFrameBoundaryRenderObject) {
       final next = render.captureLastFrame(

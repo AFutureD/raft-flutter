@@ -18,27 +18,58 @@ Raw logs, exit history, symbols and the original failed bell regression are
 retained in git-ignored `.local/android-return-debug/`. The earlier 06:12 Vulkan
 driver SIGABRT has a different signature and is not treated as fixed here.
 
-## SDK lifecycle analysis and mitigation
+## Reproduction and corrected diagnosis
 
-The pinned SDK's `widgets/stretch_effect.dart` disposes its previous shader
-during build, including when the stretch effect is disabled at zero strength.
-`ImageFiltered` compares a newly supplied filter against its old filter.
-`_FragmentShaderImageFilter.operator ==` lazily converts both filters to native
-filters; the old shader can already have lost its native wrapper. The native
-`initShader` dereferences that wrapper. This lifecycle matches the symbolicated
-device fault; release AOT Dart frames were not available for full symbolication.
+The initial `3c7fd61` mitigation globally replaced Android stretch with glow.
+It removed a trigger but changed the scrolling experience. The original
+explanation attributed the trigger to filter equality; that was incomplete:
+comparison of filters using different shader instances short-circuits before
+the native comparison. Release AOT Dart frames were not available, so the
+device trace alone did not identify the Dart caller.
 
-The app now supplies `RaftScrollBehavior`: Android uses Flutter's built-in
-`GlowingOverscrollIndicator` instead of the shader-based stretch decoration.
-All other platforms delegate to `MaterialScrollBehavior`. Platform scrolling
-physics, scrollbars, Impeller and page transitions stay in use. The workaround
-belongs to the application platform layer, does not patch the FVM SDK, and can
-be removed after the pinned SDK's lifecycle is corrected and verified.
+The follow-up uses the FVM-pinned 3.47.6 FlutterTester with
+`--enable-impeller`; shader-filter support is confirmed. Hiding a stretch
+subtree, rebuilding it twice, and capturing its retained layer reproduces
+SIGSEGV at `0x28`, with the same `as_image_filter` / `initShader` stack as the
+phone. A fixture using the actual `MobileWorkspacePages` also crashes on its
+first early return. Native failures and controls are retained in ignored
+`.local/stretch-research/` and `.local/stretch-fix/`.
 
-The actual RaftApp regression asserts that the unsafe stretch indicator is not
-mounted. This eliminates the identified call path, but does not certify a
-crash-free native build: installation and repeated physical Back verification
-remain outstanding.
+`MobileWorkspacePages` replaces an entering page with an image and keeps its
+live subtree mounted at zero opacity. The SDK replaces and disposes stretch
+shaders during build. An invisible subtree can rebuild without repainting;
+its retained layer can still hold a lazily converted filter for a shader that
+has since been disposed. Previously, `freeze()` re-rasterized this hidden
+layer when returning during the transition.
+
+The application's capture helper directly uses `OffsetLayer.toImageSync`.
+It bypasses the completed-paint precondition documented on
+[RenderRepaintBoundary.toImageSync](https://api.flutter.dev/flutter/rendering/RenderRepaintBoundary/toImageSync.html).
+The standalone normal-stretch, completed-paint capture, and completed-image
+reuse controls each pass 30 cycles. Disabling the fade snapshot optimization
+also passes 20 early-return cycles, but would discard that optimization.
+
+## Fix while preserving stretch
+
+When an entering snapshot is on screen, `freeze()` now retains that image
+using `ui.Image.clone()` rather than capturing the hidden live subtree.
+The clone is a separate disposable handle sharing the same underlying pixels;
+it does not allocate another full-sized image or re-rasterize the page. Existing
+route cleanup disposes both handles. The normal visible-page capture path and
+the snapshot optimization remain in place.
+
+The global glow override is removed, restoring Flutter's default overscroll
+decoration, including Android's Material 3 stretch. No SDK, rendering engine,
+scroll physics, or page transition configuration is changed.
+
+`mobile_workspace_stretch_snapshot_test.dart` covers 20 early returns after
+hidden shader rebuilds, verifies shared image memory and disposal of both
+handles, and exercises 10 predictive-Back cancellations followed by live
+content updates and commits. The same targeted suite also covers existing
+route identities, retained scroll state and the Home bell in three themes.
+The native run passes 13 tests; an additional native late-content/early-return
+probe passes 20 cycles. These are host-engine/fixture results. Physical Android
+gesture acceptance and profile frame-time comparison are not claimed.
 
 ## Home bell input
 

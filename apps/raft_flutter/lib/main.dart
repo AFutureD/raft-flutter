@@ -27,7 +27,6 @@ import 'features/auth_view.dart';
 import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
 import 'platform/session_store.dart';
-import 'platform/scroll_behavior.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
@@ -1199,7 +1198,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     );
     return MaterialApp.router(
       title: 'Raft',
-      scrollBehavior: const RaftScrollBehavior(),
       routerDelegate: appRouter,
       routeInformationParser: const RaftAppRouteParser(),
       routeInformationProvider: routeInformation,
