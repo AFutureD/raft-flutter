@@ -21,11 +21,15 @@ import 'features/incoming_share_picker.dart';
 import 'features/incoming_share_review.dart';
 import 'data/raft_navigation_history.dart';
 import 'features/app_root_router.dart';
+import 'features/community_join.dart';
+import 'features/invite_accept_view.dart';
 import 'features/global_server_selector.dart';
+import 'features/public_server_view.dart';
 import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
 import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
+import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
@@ -49,12 +53,30 @@ Future<void> main([List<String> args = const []]) async {
   AttachmentImageDiskCache.installed ??= AttachmentImageDiskCache(
     getApplicationCacheDirectory,
   );
+  // Release builds show the root fallback instead of a grey/red screen.
+  RootErrors.instance.install();
+  // The branded splash stays until startup is ready; a fatal startup error
+  // releases the first frame too, so the root fallback can paint.
   WidgetsBinding.instance.deferFirstFrame();
+  var firstFrameAllowed = false;
+  void allowFirstFrame() {
+    if (firstFrameAllowed) return;
+    firstFrameAllowed = true;
+    WidgetsBinding.instance.allowFirstFrame();
+  }
+
+  void releaseOnError() {
+    if (RootErrors.instance.current != null) allowFirstFrame();
+  }
+
+  RootErrors.instance.addListener(releaseOnError);
   runApp(
-    ProviderScope(
-      child: RaftApp(
-        initialArguments: args,
-        onStartupReady: WidgetsBinding.instance.allowFirstFrame,
+    RootErrorBoundary(
+      child: ProviderScope(
+        child: RaftApp(
+          initialArguments: args,
+          onStartupReady: allowFirstFrame,
+        ),
       ),
     ),
   );
@@ -121,6 +143,33 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       directoryLoading = true,
       selectingServer = false;
   String? selectorError;
+
+  /// Public server page (Web PublicServerPage): `/s/<slug>[/channel/<id>]`
+  /// shown to a signed-out visitor, or to a signed-in account that has no
+  /// such server. Dismissed by Sign in / Create account or when the server is
+  /// not public (or unknown / forbidden); a signed-in account then sees the
+  /// server-not-found page, a signed-out visitor the auth page in [authMode].
+  bool publicDismissed = false;
+  ({String slug, String? channelId})? publicNonmember;
+  RaftClient? anonymousClient;
+
+  /// `/s/<slug>` of a server this account does not have: App.tsx
+  /// ServerResolver shows ServerAccessDeniedPage, then redirects.
+  String? deniedSlug;
+  RaftRecord? deniedFallback;
+  Timer? deniedTimer;
+
+  /// `/s/community` for an account that has not joined it: the app joins on
+  /// arrival ("Joining community…"); an agreement to accept opens the dialog
+  /// over the not-found page (App.tsx ServerResolver + useJoinCommunityFlow).
+  String? joiningCommunitySlug, communityAttempt;
+  bool communityDialogOpen = false;
+
+  /// The invite link being answered (App.tsx `inviteToken`), the Raft server a
+  /// full link names, and the anonymous client that reads it while signed out.
+  InviteLink? invite;
+  String? inviteOrigin, authMode;
+  RaftClient? inviteClient;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
   Object? workspaceRootInputs;
@@ -159,6 +208,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           WidgetsBinding.instance.platformDispatcher.defaultRouteName,
         ) ??
         Uri(path: '/');
+    invite = InviteLink.fromLocation(requestedLocation);
+    inviteOrigin = invite?.origin;
+    InviteRequests.instance.addListener(inviteRequested);
+    if (invite == null) inviteRequested();
     appRouter = RaftAppRouter(
       home: (_) => restoring
           ? const RaftServerResolutionBody(label: 'Restoring session…')
@@ -513,6 +566,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
       workspace = null;
       rootRequest++;
+      clearAccessDenied();
       serverSurfaces.clear();
       chooserReturn = null;
       serverSwitchLocation = serverSwitchReturn = null;
@@ -560,6 +614,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (!mounted || !identical(c, client) || accountNeedsOnboarding(c.user)) {
       return;
     }
+    unawaited(resumePendingInvite());
     if (workspace != null) {
       if (!showServerSelector && serverSwitchLocation == null) {
         content.bindWorkspace(workspace);
@@ -648,6 +703,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           : prefs.getString('$serverMemoryKey.last');
       final target = servers.where((s) => s.string('slug') == slug).firstOrNull;
       if (target != null) {
+        publicNonmember = null;
         final remembered = prefs.getString('$serverMemoryKey.${target.id}');
         await chooseServer(
           target,
@@ -657,12 +713,28 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               ? null
               : Uri.tryParse(remembered),
         );
+      } else if (explicit && isAutoJoinCommunitySlug(slug)) {
+        showServerSelector = true;
+        await joinCommunityFromRoute(slug!, current);
       } else {
         showServerSelector = true;
-        appRouter.publish(
-          Uri(path: requestedLocation.path == '/servers' ? '/servers' : '/'),
-        );
-        setState(() {});
+        // A slug this account has no server for opens its public page first;
+        // when that is unavailable (unknown or private) the public page is
+        // dismissed and the server-not-found page takes over.
+        final nonmember = explicit && slug != null && !publicDismissed
+            ? publicRoute(requestedLocation)
+            : null;
+        publicNonmember = nonmember;
+        if (nonmember != null) {
+          setState(() {});
+        } else if (explicit && servers.isNotEmpty && slug != null) {
+          await showAccessDenied(slug, current);
+        } else {
+          appRouter.publish(
+            Uri(path: requestedLocation.path == '/servers' ? '/servers' : '/'),
+          );
+          setState(() {});
+        }
       }
     } catch (e) {
       if (current()) {
@@ -672,6 +744,242 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  /// The surface last used in [server]: this run's, else the stored one.
+  Future<Uri?> serverSurfaceMemory(RaftRecord server) async {
+    final live = serverSurfaces[server.id];
+    if (live != null) return live;
+    final prefs = await SharedPreferences.getInstance();
+    final stored = Uri.tryParse(
+      prefs.getString('$serverMemoryKey.${server.id}') ?? '',
+    );
+    return stored != null &&
+            !stored.hasScheme &&
+            stored.pathSegments.length >= 2 &&
+            stored.pathSegments[0] == 's' &&
+            stored.pathSegments[1] == server.string('slug')
+        ? stored
+        : null;
+  }
+
+  /// ServerAccessDeniedPage: names the server the redirect goes to (the
+  /// current one, else the last used, else the first) and goes there after
+  /// 3 seconds, or when the button is pressed.
+  Future<void> showAccessDenied(String slug, [bool Function()? current]) async {
+    final w = workspace;
+    if (w == null || w.servers.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted || (current != null && !current())) return;
+    final last = prefs.getString('$serverMemoryKey.last');
+    final fallback =
+        w.servers.where((s) => s.id == w.server?.id).firstOrNull ??
+        w.servers.where((s) => s.string('slug') == last).firstOrNull ??
+        w.servers.first;
+    deniedTimer?.cancel();
+    deniedSlug = slug;
+    deniedFallback = fallback;
+    showServerSelector = true;
+    appRouter.publish(requestedLocation);
+    setState(() {});
+    deniedTimer = Timer(const Duration(seconds: 3), leaveAccessDenied);
+  }
+
+  void clearAccessDenied() {
+    // The agreement dialog belongs to the not-found page: leaving it closes it.
+    if (communityDialogOpen) {
+      communityDialogOpen = false;
+      appRouter.navigatorKey.currentState?.pop();
+    }
+    deniedTimer?.cancel();
+    deniedTimer = null;
+    deniedSlug = null;
+    deniedFallback = null;
+  }
+
+  /// Joins the community the URL names, then opens it.
+  Future<void> joinCommunityFromRoute(
+    String slug, [
+    bool Function()? current,
+  ]) async {
+    final w = workspace, c = client;
+    if (w == null || c?.user == null || communityAttempt == slug) return;
+    communityAttempt = slug;
+    final principal = c!.user!.id;
+    bool live() =>
+        mounted &&
+        identical(client, c) &&
+        identical(workspace, w) &&
+        c.user?.id == principal &&
+        (current?.call() ?? true);
+    setState(() => joiningCommunitySlug = slug);
+    try {
+      final joined = await joinCommunity(
+        () => appRouter.navigatorKey.currentState!.overlay!.context,
+        c,
+        slug,
+        beforeDialog: () {
+          if (!live()) return;
+          communityDialogOpen = true;
+          setState(() => joiningCommunitySlug = null);
+          unawaited(showAccessDenied(slug, live));
+        },
+      );
+      communityDialogOpen = false;
+      if (!live()) return;
+      if (!joined) {
+        setState(() => joiningCommunitySlug = null);
+        return;
+      }
+      if (!await w.loadServerDirectory() || !live()) return;
+      final server = w.servers
+          .where((s) => s.string('slug') == slug)
+          .firstOrNull;
+      if (server == null) {
+        if (!mounted) return;
+        throw RaftApiException(
+          raftText(
+            context,
+            "Joined community server but it's missing from the list",
+          ),
+        );
+      }
+      joiningCommunitySlug = null;
+      await chooseServer(server, location: Uri(path: '/s/$slug'));
+    } catch (e) {
+      communityDialogOpen = false;
+      debugPrint('[Community] Failed to join $slug from the route: $e');
+      if (!live()) return;
+      // Web re-arms the attempt on an error; the not-found page or the
+      // server list shows meanwhile.
+      communityAttempt = null;
+      selectorError = '$e';
+      setState(() => joiningCommunitySlug = null);
+      if (w.servers.isNotEmpty) await showAccessDenied(slug, live);
+    }
+  }
+
+  void inviteRequested() {
+    final link = InviteRequests.instance.take();
+    if (link == null || !mounted) return;
+    showInvite(link);
+  }
+
+  void showInvite(InviteLink link) {
+    setState(() {
+      invite = link;
+      inviteOrigin = link.origin;
+    });
+  }
+
+  void clearInvite() {
+    final client = inviteClient;
+    inviteClient = null;
+    unawaited(client?.dispose());
+    if (invite == null && inviteOrigin == null) return;
+    invite = null;
+    inviteOrigin = null;
+    if (mounted) setState(() {});
+  }
+
+  /// `takePendingInviteRedirectPath`: an invite left for sign-in resumes once
+  /// the account is ready (verified, identity set up).
+  Future<void> resumePendingInvite() async {
+    final token = await PendingInvite.take();
+    if (token != null && mounted && invite == null) {
+      showInvite(InviteLink(token));
+    }
+  }
+
+  /// The invite is read and accepted with this client: the signed-in account,
+  /// else an anonymous client of the server the link names.
+  RaftClient inviteApi() {
+    final c = client;
+    if (c?.user != null) return c!;
+    return inviteClient ??= makeClient(
+      inviteOrigin ?? origin,
+      MemorySessionStore(),
+    );
+  }
+
+  Future<bool> enterInvitedServer(String serverId) async {
+    final w = workspace, c = client;
+    if (c?.user == null) return false;
+    if (w == null) {
+      // Account setup is still pending: the server list loads after it.
+      clearInvite();
+      return true;
+    }
+    if (!await w.loadServerDirectory() || !mounted) return false;
+    final joined = w.servers.where((s) => s.id == serverId).firstOrNull;
+    if (joined == null) return false;
+    clearInvite();
+    await chooseServer(
+      joined,
+      location: Uri(path: '/s/${joined.string('slug')}'),
+    );
+    return true;
+  }
+
+  Widget inviteHome(bool signedIn) {
+    final link = invite!;
+    return InviteAcceptView(
+      key: ValueKey('invite-${link.token}-$signedIn'),
+      token: link.token,
+      signedIn: signedIn,
+      loadInfo: () async {
+        final api = inviteApi();
+        await const LocalNetworkAccess().ensure(api.origin, request: true);
+        return Map<String, dynamic>.from(
+          await api.request(
+            'GET',
+            '/auth/invite-info',
+            query: {'token': link.token},
+            authorized: false,
+          ),
+        );
+      },
+      accept: (agreementId) async {
+        final result = await inviteApi().post(
+          '/auth/accept-invite',
+          data: {'token': link.token, 'agreementId': ?agreementId},
+        );
+        return InviteJoined(
+          '${result['serverId']}',
+          '${result['serverName'] ?? ''}',
+        );
+      },
+      onEnter: enterInvitedServer,
+      onSignIn: () => leaveInviteFor('login'),
+      onCreateAccount: () => leaveInviteFor('register'),
+      onGoToRaft: clearInvite,
+    );
+  }
+
+  /// storePendingInvite + clearInviteUrl + switch to the auth form.
+  void leaveInviteFor(String mode) {
+    final token = invite?.token;
+    if (token != null) unawaited(PendingInvite.store(token));
+    final link = invite;
+    setState(() {
+      authMode = mode;
+      // The sign-in form targets the server the link named.
+      if (link?.origin != null) origin = link!.origin!;
+    });
+    clearInvite();
+  }
+
+  Future<void> leaveAccessDenied() async {
+    final fallback = deniedFallback;
+    if (!mounted || deniedSlug == null) return;
+    clearAccessDenied();
+    if (fallback == null) {
+      openServerSelector();
+      return;
+    }
+    final location = await serverSurfaceMemory(fallback);
+    if (!mounted) return;
+    await chooseServer(fallback, location: location);
   }
 
   void workspaceChanged() {
@@ -714,7 +1022,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         chooserReturn = null;
       }
       content.bindWorkspace(null);
-      appRouter.publish(Uri(path: '/'));
+      if (deniedSlug == null) appRouter.publish(Uri(path: '/'));
     } else if (!showServerSelector && w.server != null) {
       final remember = serverSurfaces[w.server!.id] != w.location.uri;
       serverSurfaces[w.server!.id] = w.location.uri;
@@ -759,7 +1067,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final w = workspace;
     if (w == null || client?.user == null) return;
     final request = ++rootRequest;
+    clearAccessDenied();
     serverSwitchLocation = serverSwitchReturn = null;
+    publicNonmember = null;
     chooserReturn = w.server == null ? null : w.location.uri;
     requestedLocation = Uri(path: '/');
     showServerSelector = true;
@@ -783,7 +1093,16 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> receiveAppLocation(Uri location) async {
+    final link = InviteLink.fromLocation(location);
+    if (link != null) {
+      // An invite link opens the invite page; the URL itself is consumed.
+      requestedLocation = Uri(path: '/');
+      appRouter.publish(requestedLocation, replace: true);
+      showInvite(link);
+      return;
+    }
     requestedLocation = location;
+    publicDismissed = false;
     serverSwitchLocation = serverSwitchReturn = null;
     final w = workspace;
     if (w == null || directoryLoading) return;
@@ -797,13 +1116,37 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? w.servers.where((s) => s.string('slug') == segments[1]).firstOrNull
         : null;
     if (target == null) {
+      if (segments.length >= 2 &&
+          segments.first == 's' &&
+          isAutoJoinCommunitySlug(segments[1])) {
+        openServerSelector();
+        requestedLocation = location;
+        await joinCommunityFromRoute(segments[1]);
+        return;
+      }
       openServerSelector();
+      // A signed-in account without this server sees its public page first;
+      // an unavailable one falls through to the server-not-found page
+      // (dismissPublic -> discoverServers -> showAccessDenied).
+      final route = publicRoute(location);
+      if (route != null) {
+        requestedLocation = location;
+        publicNonmember = route;
+        setState(() {});
+        appRouter.refresh();
+      }
       return;
     }
+    publicNonmember = null;
     await chooseServer(target, location: location);
   }
 
   Future<bool> returnFromSelector() async {
+    if (invite != null) {
+      // Back leaves the invite page (the Web "Go to Raft" action).
+      clearInvite();
+      return true;
+    }
     final w = workspace, uri = serverSwitchReturn ?? chooserReturn;
     if ((!showServerSelector && serverSwitchLocation == null) ||
         w == null ||
@@ -901,6 +1244,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       return;
     }
     final request = ++rootRequest, principal = c!.user!.id;
+    clearAccessDenied();
     bool current() =>
         mounted &&
         rootRequest == request &&
@@ -1032,12 +1376,51 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  /// App.tsx: `/^\/s\/([^/]+)(?:\/channel\/([^/]+))?(?:\/.*)?$/`.
+  static ({String slug, String? channelId})? publicRoute(Uri location) {
+    final segments = location.pathSegments;
+    if (segments.length < 2 || segments.first != 's' || segments[1].isEmpty) {
+      return null;
+    }
+    final channel = segments.length >= 4 && segments[2] == 'channel'
+        ? segments[3]
+        : null;
+    return (slug: segments[1], channelId: channel);
+  }
+
+  void dismissPublic({String? mode, bool rediscover = false}) {
+    setState(() {
+      publicDismissed = true;
+      publicNonmember = null;
+      if (mode != null) authMode = mode;
+    });
+    appRouter.refresh();
+    if (rediscover) unawaited(discoverServers());
+  }
+
   Widget sessionHome() {
     scheduleShares();
     final active = client;
     if (active?.user == null) {
       workspaceRootInputs = null;
+      if (invite != null) return inviteHome(false);
+      final route = publicRoute(requestedLocation);
+      if (route != null && !publicDismissed) {
+        return PublicServerView(
+          key: ValueKey('public-${route.slug}'),
+          client: anonymousClient ??=
+              widget.createClient?.call(origin, MemorySessionStore(), 'web') ??
+              RaftClient(origin: origin, sessionStore: MemorySessionStore()),
+          slug: route.slug,
+          initialChannelId: route.channelId,
+          onSignIn: () => dismissPublic(mode: 'login'),
+          onRegister: () => dismissPublic(mode: 'register'),
+          onUnavailable: dismissPublic,
+        );
+      }
       return AuthView(
+        key: ValueKey('auth-$authMode'),
+        initialMode: authMode ?? 'login',
         origin: origin,
         bootError: bootError,
         onLogin: login,
@@ -1045,6 +1428,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         onOAuth: completeOAuth,
       );
     }
+    if (invite != null) return inviteHome(true);
     if (accountNeedsOnboarding(active!.user)) {
       return AccountOnboardingView(
         client: active,
@@ -1054,6 +1438,59 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
     if (workspace == null) {
       return const RaftServerResolutionBody(label: 'Loading…');
+    }
+    if (joiningCommunitySlug != null) {
+      return const RaftServerResolutionBody(
+        key: ValueKey('joining-community'),
+        label: 'Joining community…',
+      );
+    }
+    final nonmember = publicNonmember;
+    if (showServerSelector && nonmember != null && !publicDismissed) {
+      final w = workspace!;
+      return PublicServerView(
+        key: ValueKey('public-${nonmember.slug}'),
+        client: active,
+        slug: nonmember.slug,
+        initialChannelId: nonmember.channelId,
+        account: PublicServerAccount(servers: w.servers, onSelect: chooseServer),
+        appVersion: const String.fromEnvironment('RAFT_APP_VERSION'),
+        onSignIn: () {},
+        onRegister: () {},
+        onUnavailable: () => dismissPublic(rediscover: true),
+        onJoined: () async {
+          if (!await w.loadServerDirectory()) {
+            throw const RaftApiException('The server list is unavailable.');
+          }
+          final joined = w.servers
+              .where((s) => s.string('slug') == nonmember.slug)
+              .firstOrNull;
+          if (joined == null) {
+            throw const RaftApiException(
+              'Joined server was not returned by the server list',
+            );
+          }
+          publicNonmember = null;
+          await chooseServer(
+            joined,
+            location: nonmember.channelId == null
+                ? Uri(path: '/s/${joined.string('slug')}')
+                : Uri(
+                    path:
+                        '/s/${joined.string('slug')}/channel/${Uri.encodeComponent(nonmember.channelId!)}',
+                  ),
+          );
+        },
+      );
+    }
+    if (showServerSelector &&
+        deniedSlug != null &&
+        workspace!.servers.isNotEmpty) {
+      return RaftServerAccessDeniedPage(
+        key: const ValueKey('server-access-denied'),
+        serverName: deniedFallback?.name,
+        onContinue: leaveAccessDenied,
+      );
     }
     if (showServerSelector) {
       return GlobalServerSelector(
@@ -1140,6 +1577,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         workspace?.removeListener(workspaceChanged);
         workspace?.dispose();
         workspace = null;
+        publicNonmember = null;
+        clearAccessDenied();
         serverSurfaces.clear();
         chooserReturn = null;
         serverSwitchLocation = serverSwitchReturn = null;
@@ -1168,6 +1607,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             principal: c.user?.id,
           );
     workspace = null;
+    publicNonmember = null;
+    authMode = null;
+    clearAccessDenied();
     oldWorkspace?.removeListener(workspaceChanged);
     serverSurfaces.clear();
     chooserReturn = null;
@@ -1227,6 +1669,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     finishStartup();
+    InviteRequests.instance.removeListener(inviteRequested);
+    unawaited(inviteClient?.dispose());
+    clearAccessDenied();
     authAttempt++;
     rootRequest++;
     shareEpoch++;
@@ -1253,6 +1698,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     });
     routeInformation.dispose();
     appRouter.dispose();
+    anonymousClient?.dispose();
     super.dispose();
   }
 

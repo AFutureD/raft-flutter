@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/source_time_formatter.dart';
 import '../data/workspace_controller.dart';
+import 'channel_footer_states.dart' show jointChannelReadOnly;
 import 'forward_messages_dialog.dart';
 import 'private_route_guard.dart';
 
@@ -72,6 +74,7 @@ List<RaftChannel> forwardRecentTargets(
   List<RaftChannel> channels,
   List<RaftChannel> dms,
 ) {
+  final now = sourceTimeNow();
   int time(RaftChannel c) =>
       DateTime.tryParse(
         '${c.json['lastMessageAt'] ?? c.json['createdAt'] ?? ''}',
@@ -80,6 +83,8 @@ List<RaftChannel> forwardRecentTargets(
   bool forwardable(RaftChannel c) {
     if (c.archived || c.type == 'thread') return false;
     if (c.type == 'dm') return true;
+    // canForwardToTarget: a read-only (locked) Joint Channel takes no forward.
+    if (jointChannelReadOnly(c.json, now)) return false;
     return c.joined;
   }
 
@@ -112,9 +117,14 @@ class ForwardComposerPage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.messages,
+    this.desktop = false,
   });
   final WorkspaceController controller;
   final List<RaftMessage> messages;
+
+  /// ForwardComposerDesktop (>= md): the two-pane dialog card instead of the
+  /// full-screen pages.
+  final bool desktop;
   @override
   State<ForwardComposerPage> createState() => _ForwardComposerPageState();
 }
@@ -128,7 +138,8 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
   late final String authority;
   Timer? debounce;
   int request = 0;
-  bool multi = false, preview = false, loading = false, failed = false;
+  late bool multi = widget.desktop;
+  bool preview = false, loading = false, failed = false;
   bool busy = false;
   String? error;
   ForwardAttempt? attempt;
@@ -297,8 +308,117 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop && preview && !busy) setState(() => preview = false);
     },
-    child: RaftForwardPage(child: preview ? previewStep() : targetsStep()),
+    child: widget.desktop
+        ? desktopDialog()
+        : RaftForwardPage(child: preview ? previewStep() : targetsStep()),
   );
+
+  /// ForwardedBundleCard's `formatShortDateTime` in the account's zone / hour cycle.
+  String Function(DateTime) forwardStamp() {
+    final user = w.client.user;
+    return SourceTimeFormatter(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+      preferredTimezone:
+          user?.string('preferredTimezone') ?? user?.string('timezone'),
+      preferredTimeFormat: sourceTimeFormatPreference(
+        user?.string('preferredTimeFormat') ?? user?.string('timeFormat'),
+      ),
+      systemTimeFormat: MediaQuery.alwaysUse24HourFormatOf(context)
+          ? SourceTimeFormat.twentyFourHour
+          : null,
+    ).shortDateTime;
+  }
+
+  /// The forwarded-bundle preview metadata of the selected messages.
+  Map<String, dynamic> get previewMetadata {
+    final source = w.channels
+        .followedBy(w.dms)
+        .where((c) => c.id == widget.messages.first.channelId)
+        .firstOrNull;
+    final thread = source?.type == 'thread';
+    return <String, dynamic>{
+      'kind': 'forwarded-bundle',
+      'version': 1,
+      'forwardedItems': [
+        for (final (index, m) in widget.messages.indexed)
+          {
+            'index': index,
+            'sourceMessageSeq': m.json['seq'],
+            'sourceMessageId': m.id,
+            'sourceTargetId': thread ? null : source?.id,
+            'sourceAuthorSnapshot': {
+              'type': m.string('senderType') == 'agent' ? 'agent' : 'user',
+              'id': m.string('senderId'),
+              'name': m.author,
+              'uniqueName': m.author,
+            },
+            'sourceCreatedAt': m.json['createdAt'],
+            'sourceTargetSnapshot': {
+              'id': source?.id,
+              'type': source?.type,
+              'label': sourceLabel,
+              'labelVisibility':
+                  source?.type == 'channel' || thread ? 'public' : 'restricted',
+            },
+            'contentSnapshot': m.content,
+            'attachmentPolicy': 'projected',
+            'provenanceState': 'available',
+          },
+      ],
+    };
+  }
+
+  /// ForwardComposerDesktop.tsx: the two-pane dialog card.
+  Widget desktopDialog() {
+    final query = search.text.trim();
+    return RaftForwardDesktopDialog(
+      title: raftText(context, 'Forward'),
+      subtitle: raftFormat(context, '{count} selected from {source}', {
+        'count': widget.messages.length,
+        'source': sourceLabel,
+      }),
+      close: RaftCloseButton(
+        tooltip: 'Close forward composer',
+        onPressed: busy ? null : () => Navigator.of(context).pop(false),
+      ),
+      search: RaftForwardDesktopSearch(
+        controller: search,
+        focusNode: searchFocus,
+        placeholder: raftText(context, 'Search targets'),
+        onChanged: changedSearch,
+      ),
+      selectedLabel: raftFormat(context, '{count} selected', {
+        'count': selected.length,
+      }),
+      showClear: selected.isNotEmpty,
+      clearLabel: raftText(context, 'Clear'),
+      onClear: busy ? null : () => setState(selected.clear),
+      rows: query.isEmpty
+          ? [for (final c in forwardRecentTargets(w.channels, w.dms)) localRow(c)]
+          : searchRows(),
+      error: error,
+      preview: RaftForwardedBundle(
+        metadata: previewMetadata,
+        formatTimestamp: forwardStamp(),
+      ),
+      noteLabel: raftText(context, 'Optional note'),
+      note: RaftForwardDesktopNoteField(
+        key: const Key('forward-desktop-note'),
+        controller: note,
+        enabled: !busy && attempt == null,
+        hint: raftText(context, 'Add a note'),
+      ),
+      send: RaftRecipeButton(
+        key: const Key('forward-send'),
+        variant: RaftButtonRecipeVariant.accent,
+        size: RaftButtonRecipeSize.iconSm,
+        glyph: RaftGlyph.send,
+        tooltip: raftText(context, 'Send forward'),
+        disabled: selected.isEmpty,
+        onPressed: busy || selected.isEmpty ? null : send,
+      ),
+    );
+  }
 
   Widget targetsStep() {
     final selectedFrom = raftFormat(context, '{count} selected from {source}', {
@@ -460,22 +580,6 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
 
   Widget previewStep() {
     final labels = selected.values.map((d) => d.label).join(', ');
-    final metadata = <String, dynamic>{
-      'kind': 'forwarded-bundle',
-      'version': 1,
-      'forwardedItems': [
-        for (final m in widget.messages)
-          {
-            'contentSnapshot': m.content,
-            'provenanceState': 'available',
-            'sourceAuthorSnapshot': {
-              'type': m.string('senderType') == 'agent' ? 'agent' : 'user',
-              'name': m.author,
-            },
-            'sourceCreatedAt': m.json['createdAt'],
-          },
-      ],
-    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -494,7 +598,10 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
           child: RaftForwardPreviewStep(
             error: error,
             previewLabel: raftText(context, 'Message preview'),
-            preview: RaftForwardedBundle(metadata: metadata),
+            preview: RaftForwardedBundle(
+              metadata: previewMetadata,
+              formatTimestamp: forwardStamp(),
+            ),
             noteLabel: raftText(context, 'Optional note'),
             note: RaftForwardNoteField(
               key: const Key('forward-mobile-note'),
