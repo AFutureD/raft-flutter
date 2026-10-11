@@ -566,6 +566,13 @@ for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
             props={'row': f'attach-{kind}', 'boxWidth': box, 'padX': padx, 'padTop': 8},
             hint='packages/web/src/components/message/MessageItem.tsx')
 
+# ---- 3.14 forward composer dialog (desktop; the phone dialog is the official case) ----------------------
+FORWARD = SELECT + [{'type': 'click', 'target': f'#message-{ROW2}'}, {'type': 'wait', 'ms': 300},
+                    {'type': 'click', 'target': 'role=button[name="Forward"]'}, {'type': 'wait', 'ms': 900}]
+add('forward', 'desktop', 'dialog', 'Forward composer dialog', props={'surface': 'chat', 'chan': 'channel-cv-open'},
+    win=(0, 800), interactions=FORWARD, selector='[data-testid="forward-composer-dialog"]', android_key='forward-dialog',
+    hint='packages/web/src/components/message/ForwardComposerDesktop.tsx')
+
 manifest_out = manifest_path()
 manifest = json.loads(manifest_out.read_text())
 manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith(PREFIX)] + cases

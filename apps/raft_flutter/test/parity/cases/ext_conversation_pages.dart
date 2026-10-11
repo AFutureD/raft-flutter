@@ -295,6 +295,54 @@ final ParityCase _threadCase = ParityCase(
 
 /// Selection mode on the main column: right-click the first row -> "Select
 /// Message" (`props.rows`: how many rows end up selected, 1 or 2).
+/// The [i]-th message row from the top of the timeline (the widget tree lists
+/// the newest row first).
+Finder _rowFromTop(int i) {
+  final rows = find.byType(RaftMessageRow).evaluate().toList()
+    ..sort(
+      (a, b) => (a.renderObject! as RenderBox)
+          .localToGlobal(Offset.zero)
+          .dy
+          .compareTo(
+            (b.renderObject! as RenderBox).localToGlobal(Offset.zero).dy,
+          ),
+    );
+  return find.byWidget(rows[i].widget);
+}
+
+Future<void> _selectRows(WidgetTester t, {required bool second}) async {
+  for (var i = 0; i < 30; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+  }
+  t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  final row = _rowFromTop(0);
+  final box = find.descendant(of: row, matching: find.byType(Container)).first;
+  await t.tapAt(
+    t.getCenter(box),
+    kind: PointerDeviceKind.mouse,
+    buttons: kSecondaryMouseButton,
+  );
+  for (var i = 0; i < 12; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+  }
+  await t.tap(find.text('Select Message'));
+  for (var i = 0; i < 12; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+  }
+  if (second) {
+    final next = find.descendant(
+      of: _rowFromTop(1),
+      matching: find.byType(Container),
+    );
+    await t.tapAt(t.getCenter(next.first));
+    for (var i = 0; i < 12; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+  }
+}
+
+/// Selection mode on the main column: right-click the first row -> "Select
+/// Message", optionally tap the second row too.
 ParityCase _selectCase({required bool second}) => ParityCase(
   widgets: const [
     'raft_flutter:WorkspaceView',
@@ -304,34 +352,22 @@ ParityCase _selectCase({required bool second}) => ParityCase(
   notes: 'Extension suite (not official). Real WorkspaceView, selection mode.',
   settle: const Duration(milliseconds: 1200),
   build: _buildWindow,
+  interact: (t, ctx) => _selectRows(t, second: second),
+);
+
+final ParityCase _forwardCase = ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:ForwardMessagesDialog',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView, selection toolbar -> forward dialog.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
   interact: (t, ctx) async {
-    for (var i = 0; i < 30; i++) {
+    await _selectRows(t, second: true);
+    await t.tap(find.text('Forward').first);
+    for (var i = 0; i < 20; i++) {
       await t.pump(const Duration(milliseconds: 50));
-    }
-    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    final row = find.byType(RaftMessageRow).first;
-    final box = find.descendant(of: row, matching: find.byType(Container)).first;
-    await t.tapAt(
-      t.getCenter(box),
-      kind: PointerDeviceKind.mouse,
-      buttons: kSecondaryMouseButton,
-    );
-    for (var i = 0; i < 12; i++) {
-      await t.pump(const Duration(milliseconds: 50));
-    }
-    await t.tap(find.text('Select Message'));
-    for (var i = 0; i < 12; i++) {
-      await t.pump(const Duration(milliseconds: 50));
-    }
-    if (second) {
-      final next = find.descendant(
-        of: find.byType(RaftMessageRow).at(1),
-        matching: find.byType(Container),
-      );
-      await t.tapAt(t.getCenter(next.first));
-      for (var i = 0; i < 12; i++) {
-        await t.pump(const Duration(milliseconds: 50));
-      }
     }
   },
 );
@@ -593,6 +629,7 @@ final Map<String, ParityCase> extConversationCases = () {
   add('empty', 'desktop', 'no-channel', _windowCase);
   add('selection', 'desktop', 'one', _selectCase(second: false));
   add('selection', 'desktop', 'two', _selectCase(second: true));
+  add('forward', 'desktop', 'dialog', _forwardCase);
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'load-failed',
