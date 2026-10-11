@@ -146,6 +146,8 @@ void main() {
         await mouse.moveTo(const Offset(1200, 20));
         await mouse.removePointer();
         await openHelp(t);
+        // Source LeftRail: the unseen announcement marks the entry itself.
+        expect(find.byKey(const Key('help-mobile-app-badge')), findsOneWidget);
         await t.tap(
           find.descendant(
             of: find.byType(RaftMenuPanel),
@@ -156,6 +158,26 @@ void main() {
         expect(w.location.toString(), '/s/demo/settings/about');
         expect(find.byType(RaftMenuPanel), findsNothing);
         expect(w.navigation.entries.length, before + 2);
+        // Once the announcement is seen, Mobile App still opens About.
+        await openHelp(t);
+        await t.tap(
+          find.descendant(
+            of: find.byType(RaftMenuPanel),
+            matching: find.text('Feedback'),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(w.location.toString(), '/s/demo/settings/feedback');
+        await openHelp(t);
+        expect(find.byKey(const Key('help-mobile-app-badge')), findsNothing);
+        await t.tap(
+          find.descendant(
+            of: find.byType(RaftMenuPanel),
+            matching: find.text('Mobile App'),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(w.location.toString(), '/s/demo/settings/about');
         await retire(t);
       },
       variant: TargetPlatformVariant({TargetPlatform.linux}),

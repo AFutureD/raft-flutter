@@ -2329,10 +2329,16 @@ class _WorkspaceViewState extends State<WorkspaceView>
               RaftMenuEntry(
                 label: tr('Mobile App'),
                 glyph: RaftGlyph.smartphone,
+                // Source LeftRail: the entry carries the same AttentionDot as
+                // the Help button, so the announcement says what it points at.
+                trailing: mobileAppBadge.hasAttention
+                    ? const RaftAttentionDot(key: Key('help-mobile-app-badge'))
+                    : null,
+                // Source openMobileApp: consume the announcement, then always
+                // open About (seen or not).
                 onPressed: () {
-                  if (mobileAppBadge.markSeen(mobileAppScope)) {
-                    openHelpSettings('about');
-                  }
+                  mobileAppBadge.markSeen(mobileAppScope);
+                  openHelpSettings('about');
                 },
               ),
               RaftMenuEntry(
