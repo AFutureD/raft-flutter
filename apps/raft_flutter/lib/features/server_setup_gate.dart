@@ -264,6 +264,28 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     // A failed refetch preserves the last authoritative projection.
   }
 
+  /// The owner deferred setup: the conversation stays usable and a bar offers
+  /// to resume (Web `projection.phase === 'deferred'` and `!blocksChat`).
+  bool get deferred =>
+      projection?['phase'] == 'deferred' && projection?['blocksChat'] != true;
+
+  /// ServerSetupProjectionGate.handleResume: start the setup again; the
+  /// projection it answers decides what shows next. A failure is kept in
+  /// [error] (the bar shows none, like Web) for the step that follows.
+  Future<void> resume() async {
+    if (busy) return;
+    final generation = w.client.generation, scope = authority;
+    await run(() async {
+      final result = await w.client.post(
+        '$base/setup-transition',
+        data: {'action': 'start'},
+      );
+      if (!accepts(generation) || scope != authority) return;
+      projection = managementMap(result);
+      _reportAnnouncementGate(w.server!.id);
+    }, refresh: false);
+  }
+
   Future<void> transition(String action) async {
     final effects = managementMap(projection?['sideEffectState']);
     if (effects[action == 'complete' ? 'completion' : 'transitions'] !=
@@ -431,7 +453,22 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   Widget label(String text) => Text(raftText(context, text));
   @override
   Widget build(BuildContext context) {
-    if (!blocked) return widget.child;
+    if (!blocked) {
+      // The child keeps its place in the tree whether or not the bar shows.
+      return Stack(
+        fit: StackFit.passthrough,
+        children: [
+          widget.child,
+          if (deferred)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: RaftSetupResumeBar(onResume: resume, loading: busy),
+            ),
+        ],
+      );
+    }
     final current = projection!;
     if (current['surface'] == 'create_agent') {
       return PopScope(

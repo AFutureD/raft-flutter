@@ -119,7 +119,7 @@ SECTIONS = [
           d=['components.auth-ext.desktop.setup.handoff*'], p=['components.auth-ext.mobile.setup.handoff*']),
         R('1.24', 'Server setup projection gate (loading, error, dedicated native surface, footer)', 'components/onboarding/ServerSetupProjectionGate.tsx, SetupSessionFooter.tsx', 'DP',
           d=['components.auth-pages.desktop.setup-gate.*'], p=['components.auth-pages.mobile.setup-gate.*'], prio=3,
-          note='Flutter page missing: no deferred-setup resume bar; the dedicated surface is for native WebView hosts.'),
+          note='Flutter: deferred-setup resume bar (RaftSetupResumeBar in ServerSetupGate). The dedicated-surface cases (loading / unavailable / load failed / complete) stay without a Flutter widget: that page exists for native WebView hosts, the app renders setup natively.'),
         R('1.25', 'Device login (/login/device): enter code, approve, approved, invalid / expired / used code', 'pages/DeviceLoginPage.tsx', 'DP', prio=2,
           note='The CLI / computer sign-in confirmation.'),
         R('1.26', 'App login handoff (/login/app)', 'pages/AppLoginPage.tsx', 'DP', prio=3),

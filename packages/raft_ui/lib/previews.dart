@@ -915,6 +915,18 @@ Widget archivedChannelsPreview() => Padding(
   ),
 );
 
+@RaftPreviews('Setup resume bar', size: Size(390, 160))
+Widget setupResumeBarPreview() => Align(
+  alignment: Alignment.bottomCenter,
+  child: RaftSetupResumeBar(onResume: () {}),
+);
+
+@RaftPreviews('Setup resume bar opening', size: Size(390, 160))
+Widget setupResumeBarOpeningPreview() => Align(
+  alignment: Alignment.bottomCenter,
+  child: RaftSetupResumeBar(onResume: () {}, loading: true),
+);
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;

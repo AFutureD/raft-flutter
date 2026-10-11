@@ -14,7 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/account_onboarding.dart';
 import 'package:raft_flutter/features/auth_view.dart';
+import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/global_server_selector.dart';
+import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../parity_harness.dart';
@@ -87,8 +89,53 @@ Widget _serverDenied(ParityContext ctx) {
   final servers =
       (_fx(ctx)['servers'] as Map)[ctx.props['servers']] as List? ?? const [];
   return RaftServerAccessDeniedPage(
-    serverName: servers.isEmpty ? null : (servers.first as Map)['name'] as String,
+    serverName: servers.isEmpty
+        ? null
+        : (servers.first as Map)['name'] as String,
     onContinue: () {},
+  );
+}
+
+/// ServerSetupProjectionGate over a blank page (the Web case mounts the gate alone): the
+/// deferred-setup resume bar floats at the bottom of the viewport.
+Widget _setupGate(ParityContext ctx) {
+  final fx = _fx(ctx);
+  final server = Map<String, dynamic>.from(
+    ((fx['servers'] as Map)[ctx.props['servers']] as List).first as Map,
+  );
+  return ScreenClientHost(
+    create: () => ScreenFixtureClient(
+      (method, path, query) => _answer(ctx, method, path),
+      user: Map<String, dynamic>.from(fx['user'] as Map),
+      server: server['id'] as String,
+    ),
+    builder: (context, client) => _SetupGateHost(
+      controller: WorkspaceController(client)..server = RaftRecord(server),
+    ),
+  );
+}
+
+class _SetupGateHost extends StatefulWidget {
+  const _SetupGateHost({required this.controller});
+  final WorkspaceController controller;
+  @override
+  State<_SetupGateHost> createState() => _SetupGateHostState();
+}
+
+class _SetupGateHostState extends State<_SetupGateHost> {
+  @override
+  void dispose() {
+    widget.controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: Colors.white,
+    child: ServerSetupGate(
+      controller: widget.controller,
+      child: const SizedBox.expand(),
+    ),
   );
 }
 
@@ -203,6 +250,7 @@ final Map<String, ParityCase> _surfaces = {
   'bootstrap.loading': _case((_) => _splash('Loading…')),
   'servers.loading': _case(_serversLoading),
   'root-error.default': _case(_rootError),
+  'setup-gate.resume-bar': _case(_setupGate),
   'server-denied.with-server': _case(_serverDenied),
   'server-denied.no-server': _case(_serverDenied),
 };
@@ -266,8 +314,6 @@ const _missing = <String, String>{
       'Flutter page missing: the app has no community-agreement dialog (the invite flow shows the agreement as text in a form dialog).',
   'community-agreement.joining':
       'Flutter page missing: the app has no community-agreement dialog (the invite flow shows the agreement as text in a form dialog).',
-  'setup-gate.resume-bar':
-      'Flutter page missing: no "not set up yet / Resume setup" bar for a deferred setup (ServerSetupGate has no deferred state).',
   'setup-gate.loading':
       'Flutter page missing: the dedicated native setup surface is a Web page for native WebView hosts; the app renders setup natively with no loading page.',
   'setup-gate.unavailable':
