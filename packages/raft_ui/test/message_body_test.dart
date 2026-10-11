@@ -139,7 +139,8 @@ void main() {
 
         await tester.pumpAndSettle();
         expect(find.byType(InteractiveViewer), findsOneWidget);
-        await tester.tap(find.byTooltip('Close'));
+        expect(find.byKey(const Key('mermaid-fullscreen')), findsOneWidget);
+        await tester.tap(find.byTooltip('Close fullscreen'));
         await tester.pumpAndSettle();
         expect(find.byType(InteractiveViewer), findsNothing);
         semantics.dispose();
@@ -226,7 +227,7 @@ void main() {
       await tester.tap(find.byTooltip('Expand diagram'));
       await tester.pumpAndSettle();
       expect(find.byType(InteractiveViewer), findsOneWidget);
-      await tester.tap(find.byTooltip('Close'));
+      await tester.tap(find.byTooltip('Close fullscreen'));
       await tester.pumpAndSettle();
       expect(find.byType(InteractiveViewer), findsNothing);
       expect(tester.takeException(), isNull);

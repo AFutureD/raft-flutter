@@ -1,0 +1,250 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:raft_client/raft_client.dart';
+import 'package:raft_ui/raft_ui.dart';
+
+import '../data/thread_agent_followers.dart';
+import '../data/workspace_controller.dart';
+import 'channel_form_fields.dart';
+import 'channel_members.dart' show channelMemberPresence;
+import 'create_channel_dialog.dart' show ChannelMemberCandidate;
+
+/// Web `followerAgentStatus`: the follower endpoint's transport-ish statuses
+/// ("online") map onto the shared agent status union.
+String followerAgentStatus(String? status) =>
+    status == 'active' || status == 'online'
+    ? 'active'
+    : status == 'stopped'
+    ? 'stopped'
+    : 'inactive';
+
+/// Web ThreadAgentFollowers (header variant) in the thread header: the
+/// "N Agents following" trigger and the follower popover (remove with undo).
+class ThreadAgentFollowersView extends StatefulWidget {
+  const ThreadAgentFollowersView({
+    super.key,
+    required this.controller,
+    required this.threadChannelId,
+    this.onOpenAgent,
+  });
+  final WorkspaceController controller;
+  final String threadChannelId;
+
+  /// Opens the agent's profile (Web `openProfile("agent", id)`).
+  final void Function(String agentId)? onOpenAgent;
+
+  @override
+  State<ThreadAgentFollowersView> createState() =>
+      _ThreadAgentFollowersViewState();
+}
+
+class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
+  WorkspaceController get w => widget.controller;
+  ThreadAgentFollowers get store => w.threadFollowers;
+  final toast = RaftToastController();
+  StreamSubscription<RaftEvent>? events;
+  String? removingId;
+
+  @override
+  void initState() {
+    super.initState();
+    store.addListener(changed);
+    events = w.client.events.listen(onEvent);
+    store.request(widget.threadChannelId);
+  }
+
+  @override
+  void didUpdateWidget(covariant ThreadAgentFollowersView old) {
+    super.didUpdateWidget(old);
+    if (old.threadChannelId != widget.threadChannelId) {
+      store.request(widget.threadChannelId);
+    }
+  }
+
+  @override
+  void dispose() {
+    store.removeListener(changed);
+    events?.cancel();
+    toast.dispose();
+    super.dispose();
+  }
+
+  void changed() {
+    if (mounted) setState(() {});
+  }
+
+  void onEvent(RaftEvent event) {
+    final payload = event.payload;
+    // Web: `message:new` in this thread refreshes the roster.
+    if (event.name == 'message:new' &&
+        payload is Map &&
+        payload['channelId'] == widget.threadChannelId) {
+      store.request(widget.threadChannelId, force: true);
+    }
+  }
+
+  Future<void> remove(ThreadAgentFollower agent) async {
+    final id = widget.threadChannelId;
+    setState(() => removingId = agent.id);
+    try {
+      final token = await store.remove(id, agent.id);
+      if (token == null || !mounted) return;
+      toast.show(
+        raftFormat(context, "Removed {agent} from this thread's followers.", {
+          'agent': agent.label,
+        }),
+        actionLabel: raftText(context, 'Undo'),
+        onAction: () => unawaited(restore(id, agent, token)),
+      );
+    } catch (_) {
+      if (mounted) {
+        toast.show(
+          raftText(context, "Couldn't remove this follower."),
+          tone: RaftToastRecipeTone.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => removingId = null);
+    }
+  }
+
+  Future<void> restore(
+    String thread,
+    ThreadAgentFollower agent,
+    String token,
+  ) async {
+    final restored = await store.restore(thread, agent.id, token);
+    if (restored && mounted) {
+      toast.show(
+        raftFormat(context, 'Restored {agent} as a follower.', {
+          'agent': agent.label,
+        }),
+      );
+    }
+  }
+
+  Widget avatar(
+    ThreadAgentFollower agent,
+    RaftMountedAvatarContext context, {
+    RaftAvatarPresence? presence,
+  }) => ChannelCandidateAvatar(
+    candidate: ChannelMemberCandidate(
+      kind: 'agent',
+      id: agent.id,
+      name: agent.name,
+      displayName: agent.displayName,
+      avatarUrl: agent.avatarUrl,
+    ),
+    avatarContext: context,
+    origin: w.client.origin,
+    presence: presence,
+  );
+
+  /// Web `AgentActivityInfo`: the live activity detail, else the status word.
+  (RaftAvatarPresence, String) activity(ThreadAgentFollower agent) {
+    final live = w.entityDirectory.agent(agent.id);
+    final merged = <String, dynamic>{
+      'status': followerAgentStatus(agent.status),
+      if (live?['activity'] != null) 'activity': live!['activity'],
+    };
+    final presence = channelMemberPresence(merged)!;
+    final detail = '${live?['activityDetail'] ?? ''}'.trim();
+    final text =
+        (presence.activity == RaftAvatarActivity.working ||
+                presence.activity == RaftAvatarActivity.thinking) &&
+            detail.isNotEmpty
+        ? detail
+        : raftText(context, switch (presence.activity) {
+            RaftAvatarActivity.thinking => 'Thinking',
+            RaftAvatarActivity.working => 'Working',
+            RaftAvatarActivity.error => 'Error',
+            RaftAvatarActivity.offline => 'Offline',
+            _ => 'Online',
+          });
+    return (presence, text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roster = store.roster(widget.threadChannelId);
+    // No zero-count affordance and nothing actionable while the count is
+    // unknown; a failed load keeps an error-only trigger with Retry.
+    final visible = roster != null && store.visible(widget.threadChannelId);
+    final agents = roster?.agents ?? const <ThreadAgentFollower>[];
+    final label = roster?.error == true
+        ? raftText(context, "Followers couldn't be loaded.")
+        : raftFormat(
+            context,
+            agents.length == 1
+                ? '{count} Agent following'
+                : '{count} Agents following',
+            {'count': agents.length},
+          );
+    final body = roster != null && roster.loading && !roster.loaded
+        ? RaftFollowersBody.loading
+        : roster?.error == true
+        ? RaftFollowersBody.error
+        : agents.isEmpty
+        ? RaftFollowersBody.empty
+        : RaftFollowersBody.list;
+    return RaftToastPortal(
+      controller: toast,
+      child: RaftThreadFollowers(
+        triggerLabel: label,
+        count: agents.length,
+        error: roster?.error == true,
+        visible: visible,
+        body: body,
+        avatars: [
+          for (final agent in agents.take(3))
+            avatar(agent, RaftMountedAvatarContext.sidebarList),
+        ],
+        onRetry: () =>
+            unawaited(store.load([widget.threadChannelId], force: true)),
+        rows: [
+          for (final agent in agents)
+            () {
+              final (presence, text) = activity(agent);
+              final canRemove = roster?.canManage == true && agent.canRemove;
+              final server = agent.serverLabel;
+              return RaftFollowerRow(
+                id: agent.id,
+                label: agent.label,
+                avatar: avatar(
+                  agent,
+                  RaftMountedAvatarContext.membersRow,
+                  presence: presence,
+                ),
+                secondary: text,
+                peerLabel: !agent.isCurrentServer && server != null
+                    ? server
+                    : null,
+                onOpen: widget.onOpenAgent == null
+                    ? null
+                    : () => widget.onOpenAgent!(agent.id),
+                removeLabel: roster?.canManage != true
+                    ? null
+                    : canRemove
+                    ? raftFormat(context, 'Remove {agent} from followers', {
+                        'agent': agent.label,
+                      })
+                    : raftFormat(
+                        context,
+                        '{agent} follows from {server}. Switch to that server to remove them.',
+                        {
+                          'agent': agent.label,
+                          'server':
+                              server ?? raftText(context, 'another server'),
+                        },
+                      ),
+                canRemove: canRemove,
+                removing: removingId == agent.id,
+                onRemove: () => unawaited(remove(agent)),
+              );
+            }(),
+        ],
+      ),
+    );
+  }
+}

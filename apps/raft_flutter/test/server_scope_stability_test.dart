@@ -307,7 +307,7 @@ void main() {
   );
 
   testWidgets(
-    'an @mention opens its dialog at once from the shared directory',
+    'an @mention opens the profile panel without a per-tap directory fetch',
     (t) async {
       final (w, a, client) = await _fixture(t);
       w.entityDirectory.ensureAuthors();
@@ -337,26 +337,17 @@ void main() {
         ),
       );
       final calls = a.calls.length;
+      // Web MentionLink: the mention opens the profile side panel (the URL
+      // `profile=` slot), no dialog.
       unawaited(presentation.open(context, 'raft-ref://mention/user/bob'));
       await t.pump();
-      await t.pump();
-      expect(find.widgetWithText(AlertDialog, 'Bob'), findsOneWidget);
-      expect(find.text('member'), findsOneWidget);
-      Navigator.of(context).pop();
-      await t.pumpAndSettle();
-
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(w.location.query('profile'), 'human:bob');
       unawaited(presentation.open(context, 'raft-ref://mention/agent/cindy'));
       await t.pump();
-      await t.pump();
-      expect(find.widgetWithText(AlertDialog, 'Cindy'), findsOneWidget);
-      expect(find.text('Designs the visual system'), findsOneWidget);
-      expect(a.calls.length, calls, reason: 'no per-tap directory fetch');
-
-      // A server-level identity change closes the projection.
-      w.server = RaftRecord({'id': 's1', 'slug': 'demo', 'role': 'guest'});
-      w.notifyListeners();
-      await t.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
+      expect(w.location.query('profile'), 'agent:cindy');
+      expect(a.calls.length, calls, reason: 'no per-tap directory fetch');
 
       await t.pumpWidget(const SizedBox());
       await t.runAsync(client.stream.close);
