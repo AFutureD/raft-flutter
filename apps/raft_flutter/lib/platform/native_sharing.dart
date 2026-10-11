@@ -92,6 +92,7 @@ class NativeSharing {
     Dio? dio,
     Future<Directory> Function()? temporaryDirectory,
     bool? supported,
+    bool? ios,
     Stream<Uint8List> Function(Uri)? readContent,
     Future<Directory> Function()? incomingDirectory,
   }) : channel = channel ?? const MethodChannel('app.raft/sharing'),
@@ -108,7 +109,8 @@ class NativeSharing {
            ((uri) =>
                UriContent().getContentStream(uri, bufferSize: 256 * 1024)),
        _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory,
-       supported = supported ?? Platform.isAndroid {
+       _ios = ios ?? Platform.isIOS,
+       supported = supported ?? (Platform.isAndroid || Platform.isIOS) {
     inbox = IncomingShareInbox(
       incomingDirectory ?? _incomingDirectory,
       _readContent,
@@ -138,6 +140,8 @@ class NativeSharing {
   final Dio _dio;
   final Future<Directory> Function() _temporaryDirectory;
   final bool supported;
+  final bool _ios;
+  final _deliveredInboxTokens = <String>{};
   final Stream<Uint8List> Function(Uri) _readContent;
   final _readers = <StreamIterator<Uint8List>>{};
   StreamSubscription<intents.Intent?>? _intentSubscription;
@@ -178,31 +182,52 @@ class NativeSharing {
 
   Future<void> _init() async {
     if (!supported || _closed) return;
-    _intentSubscription = intents.ReceiveIntent.receivedIntentStream.listen(
-      (intent) => unawaited(_queueIntent(intent)),
-      onError: (Object _) {},
-    );
+    // Android provider events remain owned by receive_intent. An iOS extension
+    // publishes already copied envelopes; it never grants arbitrary file paths.
+    if (!_ios) {
+      _intentSubscription = intents.ReceiveIntent.receivedIntentStream.listen(
+        (intent) => unawaited(_queueIntent(intent)),
+        onError: (Object _) {},
+      );
+    }
+    await _recoverInbox();
+    if (_ios || _closed) return;
     try {
-      // The launching intent is admitted first: recovering shares left by an
-      // earlier process scans the inbox folder and must not delay the share the
-      // user just sent. Recovered shares arrive (as pending ones) alongside it.
-      final recovery = () async {
-        try {
-          for (final share in await inbox.pending()) {
-            receive(share);
-          }
-        } catch (_) {
-          // A failed recovery must not prevent admission of a new intent.
-        }
-      }();
       await _queueIntent(await intents.ReceiveIntent.getInitialIntent());
-      await recovery;
       if (!_closed) await channel.invokeMethod<void>('sharingReady');
     } on PlatformException {
       // A platform without a receiving Activity still supports outgoing shares.
     } on MissingPluginException {
-      // Optional outside Android.
+      // Optional in tests and other platform hosts.
     }
+  }
+
+  Future<void> _recoverInbox() async {
+    try {
+      for (final share in await inbox.pending()) {
+        if (_closed) return;
+        if (share.token != null && !_deliveredInboxTokens.add(share.token!)) {
+          continue;
+        }
+        if (_deliveredInboxTokens.length > 256) {
+          _deliveredInboxTokens.remove(_deliveredInboxTokens.first);
+        }
+        receive(share);
+      }
+    } catch (_) {
+      // A failed recovery must not prevent admission of a later share.
+    }
+  }
+
+  /// The user returns to Raft after its iOS Share Extension saved content.
+  /// Serial admission and token identity prevent repeated resume events from
+  /// appending the same share twice. Cold recovery uses the same durable inbox.
+  Future<void> resume() async {
+    if (!_ios || !supported || _closed) return;
+    await init();
+    if (_closed) return;
+    _incomingWork = _incomingWork.then((_) => _recoverInbox());
+    await _incomingWork;
   }
 
   Future<void> _queueIntent(intents.Intent? intent) {
@@ -402,6 +427,7 @@ class NativeSharing {
     _closed = true;
     _receiver = null;
     _pending.clear();
+    _deliveredInboxTokens.clear();
     await _intentSubscription?.cancel();
     await Future.wait(_readers.toList().map((reader) => reader.cancel()));
     _readers.clear();
