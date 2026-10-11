@@ -39,6 +39,13 @@ const raftChinese = <String, String>{
   "Remove {agent} from followers": "将 {agent} 移出关注者",
   "{count} images": "{count} 张图片",
   "{count} attachments": "{count} 个附件",
+  "Open {filename} in preview": "在预览中打开 {filename}",
+  "Download {filename}": "下载 {filename}",
+  "Loading {filename}": "正在加载 {filename}",
+  "Pause audio {filename}": "暂停音频 {filename}",
+  "Play audio {filename}": "播放音频 {filename}",
+  "Seek audio {filename}": "调整音频进度 {filename}",
+  "Audio volume {filename}": "调整音频音量 {filename}",
   "{agent} follows from {server}. Switch to that server to remove them.":
       "{agent} 从 {server} 关注此消息列。请切到该 Server 后移除。",
   "Removed {agent} from this thread's followers.":

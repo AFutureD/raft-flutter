@@ -248,20 +248,21 @@ SECTIONS = [
         R('3.26', 'Audio, video, PDF and diff / patch previews', 'components/message/MessageItem.tsx, ui/CrossOriginPdfFrame.tsx', 'DP', prio=3,
           d=['components.thread-ext.attachment.doc.header-pdf', 'components.conversation.attach.desktop.*'],
           p=['components.conversation.attach.mobile.*'],
-          note='Attachment rows for audio, video, PDF and a patch. Flutter shows audio / video as a generic attachment card: no inline players.'),
+          note='Audio and video attachments are inline players (audio card with seek / volume / download, 16:9 video with the preview corner action, loading / failed states); PDF and patch keep the attachment card.'),
         R('3.27', 'Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human)', 'components/message/ProfilePreviewCardContent.tsx', 'D',
           d=['components.conversation.profile.desktop.agent', 'components.conversation.profile.desktop.human'], prio=2,
-          note='Hover only: a touch screen never opens the PreviewCard (a tap navigates), so no phone case. Flutter does not wire the '
-               '"Recent activity" link (no avatar / profile navigation), so the card shows the static divider form.'),
+          note='Hover only: a touch screen never opens the PreviewCard (a tap navigates), so no phone case. The "Recent activity" link opens '
+               'the agent profile panel on its Activity tab (3.30).'),
         R('3.28', 'Mention hover activity preview', 'components/message/MentionHoverActivityPreview.tsx', 'D',
           d=['components.conversation.profile.desktop.agent-activity'], prio=3),
         R('3.29', 'External identity preview card and detail panel', 'components/message/ExternalIdentityPreviewCard.tsx, profile/ExternalIdentityDetailPanel.tsx', 'DP',
           d=['components.conversation.external.desktop.*'], p=['components.conversation.external.mobile.*'], prio=3,
-          note='Hover card (desktop) is mapped; the detail panel / page is a Flutter page missing (the avatar is not tappable).'),
+          note='Hover card (desktop) and the detail panel (desktop side panel / phone page) are mapped; the avatar opens the panel.'),
         R('3.30', 'Profile side panel (open from a sender)', 'components/profile/ProfilePanel.tsx', 'D',
           d=['components.members-ext.human.*', 'components.members-ext.agent.*'], prio=2, d_state='partial',
-          note='The panel body is HumanDetailPanel / AgentDetailPanel (7.03, 7.08-7.14, already covered). Flutter page missing: '
-               'a sender avatar opens nothing (no side-panel entry from a message).'),
+          note='The panel body is HumanDetailPanel / AgentDetailPanel (7.03, 7.08-7.14, already covered). A sender avatar, a mention, the hover '
+               'card\'s Recent activity and a follower row open it (desktop column beside / over the thread, phone page). The composed panel next to a '
+               'chat has no case, hence partial.'),
         R('3.31', 'Action card in a message (install app, create agent, channel members, owner recovery)', 'components/actions/ActionCard.tsx', 'DP',
           d=['components.conversation.action.desktop.*'], p=['components.conversation.action.mobile.*'], prio=2),
         R('3.32', 'SOS dialog (confirm, stopped, guidance)', 'components/message/SOSDialog.tsx', 'DP',

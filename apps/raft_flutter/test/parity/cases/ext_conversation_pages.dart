@@ -637,6 +637,12 @@ _RowStage _rowStage(ParityContext ctx) {
           : 'translated',
     });
   }
+  // The React capture never receives the inline media URL (the card sits in its
+  // pre-load state); the Flutter media URL read stays pending the same way.
+  for (final id in const ['att-cv-audio', 'att-cv-video']) {
+    stage.client.routes['GET /attachments/$id/url'] = (_) =>
+        Completer<Never>().future;
+  }
   // The server's computer list (Computer fact of the profile card).
   final machine = Map<String, dynamic>.from(
     ctx.fixtureData['machines']['primary'] as Map,

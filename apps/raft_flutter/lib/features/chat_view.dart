@@ -25,6 +25,7 @@ import '../data/source_time_formatter.dart';
 import '../platform/content_links.dart';
 import '../data/personal_presentation.dart';
 import '../platform/file_selection.dart';
+import 'attachment_preview_dialog.dart' show attachmentPreviewKind;
 import 'attachment_view.dart';
 import 'message_presentation.dart';
 import 'message_preparation.dart';
@@ -1666,12 +1667,34 @@ class _RaftChatViewState extends State<RaftChatView>
     }
 
     final images = all.where(raster).toList();
-    if (images.isEmpty) return null;
+    // Web MessageItem: images, then videos, then audio (each `space-y-2`),
+    // then every other attachment as a card.
+    final videos = [
+      for (final a in all)
+        if (!raster(a) && attachmentPreviewKind(a) == 'video') a,
+    ];
+    final audios = [
+      for (final a in all)
+        if (!raster(a) && attachmentPreviewKind(a) == 'audio') a,
+    ];
+    final others = [
+      for (final a in all)
+        if (!raster(a) && !videos.contains(a) && !audios.contains(a)) a,
+    ];
+    if (images.isEmpty && videos.isEmpty && audios.isEmpty) return null;
     final pending = WorkspaceController.isPendingSend(message);
     final messageId = pending ? null : message.id;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    Widget view(Map<String, dynamic> a) => sendStateAttachment(
+      pending,
+      AttachmentView(
+        key: ValueKey('attachment-${a['id']}'),
+        controller: w,
+        metadata: a,
+        messageId: messageId,
+      ),
+    );
+    final groups = <Widget>[
+      if (images.isNotEmpty)
         RaftAttachmentGallery(
           dimensions: [
             for (final a in images)
@@ -1696,26 +1719,29 @@ class _RaftChatViewState extends State<RaftChatView>
             ),
           ),
         ),
-        if (all.any((a) => !raster(a))) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final a in all.where((a) => !raster(a)))
-                sendStateAttachment(
-                  pending,
-                  AttachmentView(
-                    key: ValueKey('attachment-${a['id']}'),
-                    controller: w,
-                    metadata: a,
-                    messageId: messageId,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ],
+      if (videos.isNotEmpty)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: [for (final a in videos) view(a)],
+        ),
+      if (audios.isNotEmpty)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: [for (final a in audios) view(a)],
+        ),
+      if (others.isNotEmpty)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [for (final a in others) view(a)],
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
+      children: groups,
     );
   }
 
