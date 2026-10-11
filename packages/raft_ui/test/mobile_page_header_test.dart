@@ -54,13 +54,30 @@ void main() {
         );
         await tester.pumpAndSettle();
         final tokens = theme.extension<RaftTokens>()!;
-        // Only the tab-root header keeps the shared 56px platform geometry.
-        final root = find.byType(RaftMobilePageHeader);
-        expect(root, findsOneWidget);
-        expect(tester.getSize(root).height, 56);
         // Panel / detail headers render Web's phone PanelHeader: h-62 brutal
         // (`--shell-header-height`) / 56 elegant, boxed PanelAction Back.
         final webHeight = tokens.brutal ? 62.0 : 56.0;
+        // The tab-root header is Web's Sidebar mobile navbar: the same
+        // `h-panel-header`, px-4, Brutal soft-signal + border-b-2 black,
+        // Elegant layer-panel + 1px line-muted.
+        final root = find.byType(RaftMobilePageHeader);
+        expect(root, findsOneWidget);
+        expect(tester.getSize(root).height, webHeight);
+        final rootBox = tester.widget<Container>(
+          find.descendant(of: root, matching: find.byType(Container)).first,
+        );
+        final rootDecoration = rootBox.decoration! as BoxDecoration;
+        expect(
+          rootDecoration.color,
+          tokens.brutal ? tokens.colors['color-soft-signal'] : tokens.panel,
+        );
+        final rootEdge = (rootDecoration.border! as Border).bottom;
+        expect(rootEdge.width, tokens.brutal ? 2 : 1);
+        expect(
+          rootEdge.color,
+          tokens.brutal ? Colors.black : tokens.colors['line-muted'],
+        );
+        expect(tester.getTopLeft(find.text('Settings')).dx, 16);
         final backs = find.byType(RaftPanelAction);
         expect(backs, findsNWidgets(3));
         // PanelAction: brutal `border-2 px-1 py-[5px]` + 14px icon = 26x28,

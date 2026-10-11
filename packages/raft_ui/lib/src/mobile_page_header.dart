@@ -16,6 +16,8 @@ class RaftMobilePageHeader extends StatelessWidget
     this.actions = const [],
     this.background,
     this.border,
+    this.headerHeight,
+    this.inset = 16,
   });
 
   final Widget title;
@@ -26,6 +28,14 @@ class RaftMobilePageHeader extends StatelessWidget
   final List<Widget> actions;
   final Color? background;
   final BorderSide? border;
+
+  /// Overrides the 56px platform height (Web tab roots use the shell header
+  /// height: 62 Brutal / 56 Elegant / 48 on short viewports).
+  final double? headerHeight;
+
+  /// Horizontal text inset: 16 (Sidebar mobile navbar `px-4`), 20 for the
+  /// TasksPanel header (`px-5`).
+  final double inset;
 
   static const height = 56.0;
   static const actionExtent = 48.0;
@@ -38,14 +48,14 @@ class RaftMobilePageHeader extends StatelessWidget
   );
 
   @override
-  Size get preferredSize => const Size.fromHeight(height);
+  Size get preferredSize => Size.fromHeight(headerHeight ?? height);
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return Container(
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      height: headerHeight ?? height,
+      padding: EdgeInsets.symmetric(horizontal: inset - 8),
       decoration: BoxDecoration(
         color: background ?? t.panel,
         border: Border(bottom: border ?? defaultBorder(t)),

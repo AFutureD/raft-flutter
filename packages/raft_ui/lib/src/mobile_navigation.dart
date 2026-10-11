@@ -634,24 +634,39 @@ class _AttentionDot extends StatelessWidget {
   );
 }
 
-/// Sidebar3748 mobile TAB ROOT chrome. Detail panel headers are a different recipe.
+/// Web mobile TAB ROOT navbar. Home / Members / Settings render it in
+/// `Sidebar` (`mobileInline`): `h-panel-header` (`--shell-header-height`:
+/// 62 Brutal / 56 Elegant / 48 on viewports <= 600px tall), `px-4`, `border-b`
+/// `border-line-muted` + `bg-layer-panel`; Brutal `border-b-2 border-black` +
+/// `bg-soft-signal`. The label is `text-base font-bold` (Brutal `text-black`).
+/// TasksPanel uses the same bar with `px-5` ([inset] 20). Activity and
+/// Computers are native-only tab roots and reuse this style.
 @immutable
 class RaftMobileRootHeaderRecipe {
-  const RaftMobileRootHeaderRecipe(this.tokens, {required this.viewportHeight});
+  const RaftMobileRootHeaderRecipe(
+    this.tokens, {
+    required this.viewportHeight,
+    this.inset = 16,
+  });
   final RaftTokens tokens;
   final double viewportHeight;
-  double get height => RaftMobilePageHeader.height;
-  Color get background => tokens.brutal ? tokens.primaryFill : tokens.panel;
+
+  /// Horizontal text inset (`px-4` 16, TasksPanel `px-5` 20).
+  final double inset;
+  double get height =>
+      RaftLayoutMetrics.shellHeaderHeight(tokens, viewportHeight);
+  Color get background =>
+      tokens.brutal ? tokens.colors['color-soft-signal']! : tokens.panel;
   BorderSide get border => BorderSide(
     color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
     width: tokens.brutal ? 2 : 1,
   );
-  EdgeInsets get inset => const EdgeInsets.symmetric(horizontal: 16);
   TextStyle get title => RaftTypography.heading(
     tokens,
     size: 16,
     line: 24,
     weight: FontWeight.w700,
+    color: tokens.brutal ? Colors.black : tokens.strong,
   );
 }
 
@@ -663,20 +678,25 @@ class RaftMobileRootHeader extends StatelessWidget {
     this.title,
     this.actions = const [],
     this.viewportHeight,
+    this.inset = 16,
   });
   final Widget? leading;
   final String? title;
   final List<Widget> actions;
   final double? viewportHeight;
+  final double inset;
   @override
   Widget build(BuildContext context) {
     final recipe = RaftMobileRootHeaderRecipe(
       RaftTokens.of(context),
       viewportHeight: viewportHeight ?? MediaQuery.sizeOf(context).height,
+      inset: inset,
     );
     return RaftMobilePageHeader(
       background: recipe.background,
       border: recipe.border,
+      headerHeight: recipe.height,
+      inset: recipe.inset,
       title: Align(
         alignment: AlignmentDirectional.centerStart,
         child:

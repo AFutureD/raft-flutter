@@ -971,7 +971,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
               viewportHeight: viewport.height,
               presentation: RaftThreadPresentation.side,
             ).headerBackground
-          : rootTab != null && route != 'tasks'
+          : rootTab != null
           ? RaftMobileRootHeaderRecipe(
               t,
               viewportHeight: viewport.height,

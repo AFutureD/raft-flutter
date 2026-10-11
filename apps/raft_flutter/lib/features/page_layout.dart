@@ -45,11 +45,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
   final RaftPanelHeaderVariant variant;
 
   @override
-  Size get preferredSize => Size.fromHeight(
-    mobile && variant == RaftPanelHeaderVariant.tasks
-        ? RaftMobilePageHeader.height
-        : height,
-  );
+  Size get preferredSize => Size.fromHeight(height);
 
   @override
   Widget build(BuildContext context) {
@@ -75,10 +71,18 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     }
     if (mobile) {
       // TasksPanel is a tab-root header with its own Web markup (no back
-      // control); it stays on the shared tab-root geometry in this change.
+      // control): the Sidebar navbar bar at `px-5`, h2 `font-bold text-base
+      // leading-tight` over a `font-mono text-xs text-foreground-muted` count.
+      final root = RaftMobileRootHeaderRecipe(
+        t,
+        viewportHeight: MediaQuery.sizeOf(context).height,
+        inset: RaftLayoutMetrics.panelInset,
+      );
       return RaftMobilePageHeader(
-        background: recipe.background,
-        border: recipe.border,
+        background: root.background,
+        border: root.border,
+        headerHeight: root.height,
+        inset: root.inset,
         title: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,12 +98,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
                 subtitle!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: RaftTypography.body(
-                  t,
-                  size: 12,
-                  line: 16,
-                  color: t.muted,
-                ),
+                style: RaftTypography.mono(t, color: t.muted),
               ),
           ],
         ),

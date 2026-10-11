@@ -198,7 +198,7 @@ class RaftPanelHeaderRecipe {
       RaftLayoutMetrics.shellHeaderHeight(tokens, viewportHeight);
   Color get background =>
       mobile && tokens.brutal && variant == RaftPanelHeaderVariant.tasks
-      ? tokens.primaryFill
+      ? tokens.colors['color-soft-signal']!
       : variant == RaftPanelHeaderVariant.tasks || tokens.brutal
       ? tokens.panel
       : tokens.colors['layer-canvas-muted']!;
