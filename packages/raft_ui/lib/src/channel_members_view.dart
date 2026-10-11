@@ -15,6 +15,7 @@ import 'indicators.dart';
 import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -892,42 +893,46 @@ class _MembersPageState extends State<_MembersPage> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final total = m.humans.length + m.agents.length;
-    return Material(
-      color: t.brutal ? Colors.white : t.panel,
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: t.brutal ? Colors.black : t.strong),
-        child: Column(
-          key: const ValueKey('member-page'),
-          children: [
-            _header(context, t, total),
-            Expanded(
-              child: m.addView
-                  ? Padding(
-                      // `flex min-h-0 flex-1 flex-col px-4 py-3`
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (m.error != null) ...[
-                            RaftWarningBanner(m.error!),
-                            const SizedBox(height: 12),
+    final paper = t.brutal ? Colors.white : t.panel;
+    // Edge-to-edge: the page reaches the screen's bottom edge, so its bottom
+    // controls pad themselves by the system gesture / navigation bar inset.
+    final inset = raftBottomInset(context);
+    return RaftNavigationBarStyle(
+      background: paper,
+      child: Material(
+        color: paper,
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: t.brutal ? Colors.black : t.strong),
+          child: Column(
+            key: const ValueKey('member-page'),
+            children: [
+              _header(context, t, total),
+              Expanded(
+                child: m.addView
+                    ? Padding(
+                        // `flex min-h-0 flex-1 flex-col px-4 py-3`
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + inset),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (m.error != null) ...[
+                              RaftWarningBanner(m.error!),
+                              const SizedBox(height: 12),
+                            ],
+                            ...m._addView(context, t, fill: true),
                           ],
-                          ...m._addView(context, t, fill: true),
-                        ],
-                      ),
-                    )
-                  : _roster(context, t),
-            ),
-          ],
+                        ),
+                      )
+                    : _roster(context, t, inset),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _roster(BuildContext context, RaftTokens t) {
+  Widget _roster(BuildContext context, RaftTokens t, double bottomInset) {
     final query = rosterSearch.text.trim().toLowerCase();
     bool matches(RaftMemberRowData r) =>
         query.isEmpty || r.label.toLowerCase().contains(query);
@@ -974,6 +979,11 @@ class _MembersPageState extends State<_MembersPage> {
         ),
         Expanded(
           child: SingleChildScrollView(
+            // Without the pinned Add footer the last row must scroll clear
+            // of the system bar; with it the footer pads itself.
+            padding: EdgeInsets.only(
+              bottom: !m.loading && m.onAdd != null ? 0 : bottomInset,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1045,8 +1055,9 @@ class _MembersPageState extends State<_MembersPage> {
         ),
         if (!m.loading && m.onAdd != null)
           Container(
-            // `shrink-0 border-t-2 border-line-muted p-3`, brutal `border-black`
-            padding: const EdgeInsets.all(12),
+            // `shrink-0 border-t-2 border-line-muted p-3`, brutal `border-black`;
+            // the system inset is added so the button clears the gesture bar.
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomInset),
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
@@ -1295,54 +1306,54 @@ class _MemberPageRowState extends State<_MemberPageRow> {
                 key: r.testId == null ? null : ValueKey('${r.testId}-open'),
                 onTap: r.onTap,
                 child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: r.avatar,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            r.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: raftCssTextStyle(
-                              family: t.headingFont,
-                              step: RaftTextSteps.sm,
-                              weight: r.human
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: ink,
-                            ),
-                          ),
-                        ),
-                        if (r.secondary != null && r.secondary!.isNotEmpty)
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: r.avatar,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           SizedBox(
                             width: double.infinity,
                             child: Text(
-                              r.secondary!,
+                              r.label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: raftCssTextStyle(
-                                family: r.secondaryMono
-                                    ? t.monoFont
-                                    : t.headingFont,
-                                step: RaftTextSteps.xs,
-                                color: t.colors['foreground-muted'],
+                                family: t.headingFont,
+                                step: RaftTextSteps.sm,
+                                weight: r.human
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: ink,
                               ),
                             ),
                           ),
-                      ],
+                          if (r.secondary != null && r.secondary!.isNotEmpty)
+                            SizedBox(
+                              width: double.infinity,
+                              child: Text(
+                                r.secondary!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: raftCssTextStyle(
+                                  family: r.secondaryMono
+                                      ? t.monoFont
+                                      : t.headingFont,
+                                  step: RaftTextSteps.xs,
+                                  color: t.colors['foreground-muted'],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               ),
             ),
             if (trailing != null) ...[const SizedBox(width: 8), trailing],
