@@ -52,7 +52,7 @@ const Map<String, String> zhCatalogSweep = <String, String>{
   "Showing {shown} of {total} rows": "已显示 {shown} 行，共 {total} 行",
   "Preview truncated for performance. Showing first {count} rows from the file prefix.": "为保证性能，预览已截断，仅显示文件开头的前 {count} 行。",
   "Column {index}": "第 {index} 列",
-  "Committed by {name}": "由 <n>{user}</n> 提交",
+  "Committed by {name}": "由 {name} 提交",
   "Create agent {name}": "创建 Agent「{name}」",
   "Joins {channel} automatically after creation": "建好后自动加入 {channel}",
   "Add selected ({count})": "添加所选（{count}）",

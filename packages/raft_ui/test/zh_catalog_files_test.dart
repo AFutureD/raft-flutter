@@ -4,10 +4,30 @@
 // duplicate-key detector: every key lives in exactly one catalog.
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_ui/raft_ui.dart' show raftChinese, raftChineseLateAdditions;
+import 'package:raft_ui/raft_ui.dart'
+    show raftChinese, raftChineseLateAdditions, raftFormat;
 import 'package:raft_ui/src/l10n/zh_index.g.dart'
     show zhCatalogAll, zhCatalogParts;
+
+/// Chinese values that use a placeholder their key does not have, because the
+/// call site passes that value too (so the user sees the number, not `{count}`).
+/// Any other difference between the placeholders of a key and its value is a
+/// bug: the user would see a literal `{name}` or lose the value.
+const _extraValuePlaceholders = <String, Set<String>>{
+  // apps/raft_flutter/lib/features/billing_view.dart `usingSeats` passes
+  // {'count': people, 'seats': ...} to every singular/plural variant.
+  '1 human using {seats} seat': {'count'},
+  '1 human using {seats} seats': {'count'},
+  '1 agent using {seats} seat': {'count'},
+  '1 agent using {seats} seats': {'count'},
+  // apps/raft_flutter/lib/features/system_notification_copy.dart passes
+  // {'count': ...} (and 'names') to machine-offline / machine-disk-low titles.
+  '{names} is offline': {'count'},
+  '{names} are offline': {'count'},
+  'A computer you added is low on disk space': {'count'},
+};
 
 void main() {
   test('every catalog file is merged and no key is declared twice', () {
@@ -55,4 +75,68 @@ void main() {
     }
     expect(zhCatalogParts.length, greaterThanOrEqualTo(files.length));
   });
+
+  test('a Chinese value uses the placeholders of its key', () {
+    final placeholder = RegExp(r'\{([a-zA-Z0-9_]+)\}');
+    Set<String> names(String s) =>
+        placeholder.allMatches(s).map((m) => m[1]!).toSet();
+    final broken = <String>[];
+    final used = <String>{};
+    for (final e in raftChinese.entries) {
+      final key = names(e.key), value = names(e.value);
+      final extra = _extraValuePlaceholders[e.key];
+      if (extra != null) used.add(e.key);
+      final allowed = {...key, ...?extra};
+      if (!value.containsAll(key) || !allowed.containsAll(value)) {
+        broken.add(
+          '"${e.key}" -> "${e.value}": key has $key, value has $value'
+          '${extra == null ? '' : ' (allowed extra $extra)'}',
+        );
+      }
+    }
+    expect(
+      broken,
+      isEmpty,
+      reason:
+          'Use the key\'s placeholder names in the Chinese value (or, only if '
+          'the call site passes the extra value, list it in '
+          '_extraValuePlaceholders with the call site):\n${broken.join('\n')}',
+    );
+    expect(
+      _extraValuePlaceholders.keys.toSet().difference(used),
+      isEmpty,
+      reason:
+          'stale _extraValuePlaceholders entry (key no longer in the catalog)',
+    );
+    // An allowlisted entry must really differ, otherwise drop it from the list.
+    final unneeded = [
+      for (final k in used)
+        if (names(raftChinese[k]!).difference(names(k)).isEmpty) k,
+    ];
+    expect(unneeded, isEmpty, reason: 'no longer needed: $unneeded');
+  });
+
+  testWidgets(
+    'zh "Committed by {name}" leaves the committer slot for the card',
+    (tester) async {
+      late String text;
+      await tester.pumpWidget(
+        Localizations(
+          locale: const Locale('zh'),
+          delegates: const [DefaultWidgetsLocalizations.delegate],
+          child: Builder(
+            builder: (context) {
+              // ActionCard splits this on U+FFFC and styles the name itself.
+              text = raftFormat(context, 'Committed by {name}', {
+                'name': '\uFFFC',
+              });
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      expect(text, '由 \uFFFC 提交');
+      expect(text.split('\uFFFC'), ['由 ', ' 提交']);
+    },
+  );
 }
