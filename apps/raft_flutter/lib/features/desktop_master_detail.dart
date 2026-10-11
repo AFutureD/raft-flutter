@@ -72,9 +72,7 @@ class _DesktopMasterDetailState extends State<DesktopMasterDetail> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, size) {
       final split = widget.detail != null;
-      final folded =
-          MediaQuery.sizeOf(context).width <
-          RaftAdaptiveWorkspace.desktopMinWidth;
+      final folded = RaftAdaptiveWorkspace.compactOf(context);
       final compact = widget.compact || MediaQuery.sizeOf(context).width < 1024;
       final width = split && directoryWidth != null
           ? directoryWidth!

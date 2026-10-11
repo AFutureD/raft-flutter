@@ -2120,9 +2120,7 @@ class _ResourceViewState extends State<ResourceView> {
     // Owner decision 2026-10-11 (overrides the Web measurement): the mobile
     // Activity page draws no vertical border at x = 0; the desktop panel keeps
     // its line beside the rail.
-    final activityBorder =
-        MediaQuery.sizeOf(context).width >=
-        RaftAdaptiveWorkspace.desktopMinWidth;
+    final activityBorder = !RaftAdaptiveWorkspace.compactOf(context);
     final body = Container(
       decoration: activityEdge
           ? BoxDecoration(

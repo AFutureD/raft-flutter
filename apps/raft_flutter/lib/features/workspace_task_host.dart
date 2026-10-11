@@ -235,8 +235,7 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
 
   void back() {
     if (identity != currentIdentity) return;
-    if (MediaQuery.sizeOf(context).width <
-        RaftAdaptiveWorkspace.desktopMinWidth) {
+    if (RaftAdaptiveWorkspace.compactOf(context)) {
       backMobilePage(w.navigation);
     } else {
       w.navigation.back();
@@ -270,7 +269,7 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
             ].contains(w.location.route) &&
             w.location.thread == null &&
             w.location.profile == null);
-    final mobilePage = viewport.width < RaftAdaptiveWorkspace.desktopMinWidth;
+    final mobilePage = RaftAdaptiveWorkspace.compactOf(context);
     final pageColor = legacy
         ? RaftTokens.of(context).canvas
         : RaftTokens.of(context).panel;

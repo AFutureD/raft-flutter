@@ -395,8 +395,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     presentation: presentation,
     origin: w.client.origin,
   );
-  bool get wide =>
-      MediaQuery.sizeOf(context).width >= RaftAdaptiveWorkspace.desktopMinWidth;
+  bool get wide => !RaftAdaptiveWorkspace.compactOf(context);
   double sidebarWidth = 240, threadWidth = 400;
   double masterWideWidth = 560, masterCompactWidth = 320;
   Timer? persistPanels;
