@@ -226,6 +226,9 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
   ModalRoute<dynamic>? route;
   bool animating = false;
   bool captureScheduled = false;
+
+  /// The page changed during this animation: it stays live until it settles.
+  bool changedWhileAnimating = false;
   int captureAttempts = 0;
 
   bool get routeAnimating {
@@ -270,11 +273,18 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
     if (!mounted || now == animating) return;
     setState(() {
       animating = now;
-      if (!now) _releaseEntering();
+      if (!now) {
+        changedWhileAnimating = false;
+        _releaseEntering();
+      }
     });
   }
 
   void _releaseEntering() {
+    final render = boundary.currentContext?.findRenderObject();
+    if (render is _MobileFrameBoundaryRenderObject) {
+      render.onContentChanged = null;
+    }
     final old = entering;
     entering = null;
     captureAttempts = 0;
@@ -288,9 +298,14 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
   /// its picture. The live subtree stays mounted, laid out and hit-testable
   /// (fully transparent), so taps still reach it during the transition.
   void _scheduleCapture() {
+    // Only a page that is itself animating in (a push) is replaced by its
+    // picture. A page revealed by a pop stays live: it is the one the user is
+    // about to use and it moves less.
     if (!_fadeSnapshots ||
+        !(route?.animation?.status.isAnimating ?? false) ||
         captureScheduled ||
         entering != null ||
+        changedWhileAnimating ||
         captureAttempts >= 8) {
       return;
     }
@@ -311,8 +326,26 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
         setState(() {});
         return;
       }
+      (render as _MobileFrameBoundaryRenderObject).onContentChanged =
+          _contentChanged;
       setState(() => entering = next);
     });
+  }
+
+  /// The page changed after its picture was taken (late data, a realtime
+  /// event, an animation): show the live page again at once, as without
+  /// snapshots, rather than a stale picture for the rest of the animation.
+  void _contentChanged() {
+    final render = boundary.currentContext?.findRenderObject();
+    if (render is _MobileFrameBoundaryRenderObject) {
+      render.onContentChanged = null;
+    }
+    if (entering == null) return;
+    changedWhileAnimating = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && entering != null) setState(_releaseEntering);
+    });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   @override
@@ -390,6 +423,17 @@ class _MobileFrameBoundary extends SingleChildRenderObjectWidget {
 }
 
 class _MobileFrameBoundaryRenderObject extends RenderRepaintBoundary {
+  /// Called when something inside needs painting. While a snapshot stands in
+  /// for this page (it is not painted then), that means the page's content
+  /// changed after the picture was taken.
+  VoidCallback? onContentChanged;
+
+  @override
+  void markNeedsPaint() {
+    super.markNeedsPaint();
+    onContentChanged?.call();
+  }
+
   ui.Image? captureLastFrame(double ratio) {
     if (!hasSize || size.isEmpty || layer is! OffsetLayer) return null;
     final previous = layer! as OffsetLayer;

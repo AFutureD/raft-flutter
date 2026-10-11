@@ -751,6 +751,49 @@ void main() {
           (o) => o.method == 'GET' && RegExp(r'^/agents/agent-\d+$').hasMatch(o.path),
           (o) => navAgents.firstWhere((a) => a['id'] == o.path.split('/').last),
         ));
+        // Every read the nav scenarios trigger is answered here, before the first
+        // frame; anything unmatched fails the run (see `navMisses` below).
+        final navChannels = [openA, openB, mix, img, hist, tagged];
+        napi.routes['GET /channels/inbox'] = (_) => {
+          'items': [
+            for (final c in navChannels)
+              {
+                'kind': 'channel', 'channelId': c.id, 'channelName': 'lab-${c.id}',
+                'lastMessagePreview': 'Latest in lab-${c.id}', 'unreadCount': 0,
+                'lastMessageId': newest(c),
+              },
+          ],
+        };
+        napi.patterns.add((
+          (o) => o.method == 'GET' && o.path.startsWith('/messages/context/'),
+          (o) {
+            final id = o.path.split('/').last;
+            for (final c in [...navChannels, thread]) {
+              final at = c.rows.indexWhere((r) => r['id'] == id);
+              if (at >= 0) {
+                return {
+                  'messages': c.rows.sublist(math.max(0, at - 25), math.min(c.rows.length, at + 25)),
+                  'threadSummariesByParentMessageId': c.summaries,
+                };
+              }
+            }
+            return {'messages': <dynamic>[]};
+          },
+        ));
+        napi.routes['GET /channels/saved'] = (_) => {'globalTotal': 0, 'saved': <dynamic>[]};
+        napi.routes['GET /channels/threads/followed'] = (_) => {'threads': <dynamic>[]};
+        napi.routes['GET /announcements/active'] = (_) => {'announcements': <dynamic>[]};
+        napi.routes['GET /product-feedback/tickets'] = (_) => {'unread_total': 0, 'tickets': <dynamic>[]};
+        napi.routes['GET /tasks/server'] = (_) => {'tasks': <dynamic>[]};
+        napi.patterns.add((
+          (o) => o.method == 'GET' && RegExp(r'^/agents/[^/]+/skills$').hasMatch(o.path),
+          (_) => {'global': <dynamic>[], 'workspace': <dynamic>[]},
+        ));
+        napi.patterns.add((
+          (o) => o.path.contains('/runtime-account-usage/'),
+          (_) => {'state': 'unavailable'},
+        ));
+        napi.routes['GET /channels/mix/threads/${parent['id']}'] = (_) => {'threadChannelId': threadId};
         await t.pumpWidget(MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: raftTheme(family, dark: dark),
@@ -848,22 +891,6 @@ void main() {
           return {'opens': opens};
         }, kind: 'transitions');
 
-        napi.routes['GET /channels/inbox'] = (_) => {
-          'items': [
-            for (final c in [openA, openB, mix, img, hist, tagged])
-              {
-                'kind': 'channel', 'channelId': c.id, 'channelName': 'lab-${c.id}',
-                'lastMessagePreview': 'Latest in lab-${c.id}', 'unreadCount': 0,
-                'lastMessageId': newest(c),
-              },
-          ],
-        };
-        for (final c in [openA, openB, mix, img, hist, tagged]) {
-          napi.routes['GET /messages/context/${newest(c)}'] = (_) => {
-            'messages': c.rows.sublist(c.rows.length - 50), 'threadSummariesByParentMessageId': c.summaries,
-          };
-        }
-        napi.routes['GET /channels/mix/threads/${parent['id']}'] = (_) => {'threadChannelId': threadId};
         bool threadShown() => nw.threadIdentity != null && visibleText(newest(thread)).evaluate().isNotEmpty;
         await run('nav-channel-thread', prepare: () async {
           await goRoot('home');
@@ -916,7 +943,9 @@ void main() {
       if (only.any((o) => o.startsWith('nav-'))) {
         // The nav workspace owns its own adapter; report what it still misses.
         if (navMisses.isNotEmpty) {
-          await sampler.send('note', {'theme': name, 'unmatchedRoutes': navMisses.entries.map((e) => '${e.key} x${e.value}').toList()});
+          final list = navMisses.entries.map((e) => '${e.key} x${e.value}').toList();
+          await sampler.send('note', {'theme': name, 'unmatchedRoutes': list});
+          failures.add('$name: nav scenarios made unmatched fixture requests (add routes in perf_lab_test.dart): ${list.join(', ')}');
         }
       }
       if (api.misses.isNotEmpty) {
