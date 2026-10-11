@@ -400,110 +400,114 @@ class _AuthState extends State<AuthView> {
       );
     }
     final t = RaftTokens.of(context);
-    return RaftSystemBarSurface(
+    Widget bars(Widget page) => RaftSystemBarSurface(
       statusBarBackground: t.brutal ? t.product.softSignal : t.panel,
       navigationBarBackground: t.canvas,
-      child: AutofillGroup(
-        key: ValueKey(mode),
-        onDisposeAction: mode == 'login'
-            ? AutofillContextAction.commit
-            : AutofillContextAction.cancel,
-        child: RaftAuthPage(
-          mode: authMode,
-          busy: busy,
-          server: Uri.tryParse(base.text.trim())?.authority ?? base.text.trim(),
-          onServer: busy ? null : editServer,
-          banner: error == null ? widget.bootError : tr(error!),
-          notice: notice,
-          emailError: emailError == null ? null : tr(emailError!),
-          tokenError: tokenError == null ? null : tr(tokenError!),
-          passwordError: passwordError == null ? null : tr(passwordError!),
-          confirmError: confirmError == null ? null : tr(confirmError!),
-          emailField: mode == 'reset'
-              ? null
-              : RaftTextInput(
-                  key: const Key('login-email'),
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: mode == 'login'
-                      ? const [AutofillHints.username]
-                      : null,
-                  invalid: emailError != null,
-                  semanticLabel: tr('Email'),
-                  onChanged: (_) {
-                    if (emailError != null) setState(() => emailError = null);
-                  },
+      child: page,
+    );
+    final page = AutofillGroup(
+      key: ValueKey(mode),
+      onDisposeAction: mode == 'login'
+          ? AutofillContextAction.commit
+          : AutofillContextAction.cancel,
+      child: RaftAuthPage(
+        mode: authMode,
+        busy: busy,
+        server: Uri.tryParse(base.text.trim())?.authority ?? base.text.trim(),
+        onServer: busy ? null : editServer,
+        banner: error == null ? widget.bootError : tr(error!),
+        notice: notice,
+        emailError: emailError == null ? null : tr(emailError!),
+        tokenError: tokenError == null ? null : tr(tokenError!),
+        passwordError: passwordError == null ? null : tr(passwordError!),
+        confirmError: confirmError == null ? null : tr(confirmError!),
+        emailField: mode == 'reset'
+            ? null
+            : RaftTextInput(
+                key: const Key('login-email'),
+                controller: email,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: mode == 'login'
+                    ? const [AutofillHints.username]
+                    : null,
+                invalid: emailError != null,
+                semanticLabel: tr('Email'),
+                onChanged: (_) {
+                  if (emailError != null) setState(() => emailError = null);
+                },
+              ),
+        tokenField: mode != 'reset' || widget.resetToken != null
+            ? null
+            : RaftTextInput(
+                key: const Key('reset-token'),
+                controller: token,
+                obscureText: true,
+                invalid: tokenError != null,
+                semanticLabel: tr('Password reset link or code'),
+                onChanged: (_) {
+                  if (tokenError != null) setState(() => tokenError = null);
+                },
+              ),
+        passwordField: mode == 'forgot'
+            ? null
+            : RaftTextInput(
+                key: Key(mode == 'reset' ? 'reset-password' : 'login-password'),
+                controller: password,
+                // Web: plain Input type=password, no visibility toggle
+                // (LoginPage.tsx, RegisterPage.tsx).
+                obscureText: true,
+                autofillHints: mode == 'login'
+                    ? const [AutofillHints.password]
+                    : null,
+                invalid: passwordError != null,
+                semanticLabel: tr(
+                  mode == 'reset' ? 'New password' : 'Password',
                 ),
-          tokenField: mode != 'reset' || widget.resetToken != null
-              ? null
-              : RaftTextInput(
-                  key: const Key('reset-token'),
-                  controller: token,
-                  obscureText: true,
-                  invalid: tokenError != null,
-                  semanticLabel: tr('Password reset link or code'),
-                  onChanged: (_) {
-                    if (tokenError != null) setState(() => tokenError = null);
-                  },
-                ),
-          passwordField: mode == 'forgot'
-              ? null
-              : RaftTextInput(
-                  key: Key(
-                    mode == 'reset' ? 'reset-password' : 'login-password',
-                  ),
-                  controller: password,
-                  // Web: plain Input type=password, no visibility toggle
-                  // (LoginPage.tsx, RegisterPage.tsx).
-                  obscureText: true,
-                  autofillHints: mode == 'login'
-                      ? const [AutofillHints.password]
-                      : null,
-                  invalid: passwordError != null,
-                  semanticLabel: tr(
-                    mode == 'reset' ? 'New password' : 'Password',
-                  ),
-                  hintText: mode == 'login' ? null : tr('Min 8 characters'),
-                  onChanged: (_) {
-                    if (passwordError != null) {
-                      setState(() => passwordError = null);
-                    }
-                  },
-                  onSubmitted: mode == 'reset' ? null : (_) => submitChecked(),
-                ),
-          confirmField: mode != 'reset'
-              ? null
-              : RaftTextInput(
-                  key: const Key('reset-confirm'),
-                  controller: confirm,
-                  obscureText: true,
-                  invalid: confirmError != null,
-                  semanticLabel: tr('Confirm password'),
-                  onChanged: (_) {
-                    if (confirmError != null) {
-                      setState(() => confirmError = null);
-                    }
-                  },
-                  onSubmitted: (_) => submitChecked(),
-                ),
-          accepted: accepted,
-          onAccepted: (v) => setState(() => accepted = v),
-          submitKey: const Key('login-submit'),
-          // RegisterPage: disabled={loading || !acceptedLegal}.
-          onSubmit: busy || (mode == 'register' && !accepted)
-              ? null
-              : submitChecked,
-          providers: [
-            for (final p in providers)
-              RaftAuthProviderEntry('${p['id']}', '${p['label']}'),
-          ],
-          onProvider: (id) => social(id),
-          onCancelBrowser: broker == null ? null : () => broker!.cancel(),
-          onMode: (next) => switchMode(next.name),
-          onTerms: () => managementLaunch('https://raft.build/terms'),
-          onPrivacy: () => managementLaunch('https://raft.build/privacy'),
-        ),
+                hintText: mode == 'login' ? null : tr('Min 8 characters'),
+                onChanged: (_) {
+                  if (passwordError != null) {
+                    setState(() => passwordError = null);
+                  }
+                },
+                onSubmitted: mode == 'reset' ? null : (_) => submitChecked(),
+              ),
+        confirmField: mode != 'reset'
+            ? null
+            : RaftTextInput(
+                key: const Key('reset-confirm'),
+                controller: confirm,
+                obscureText: true,
+                invalid: confirmError != null,
+                semanticLabel: tr('Confirm password'),
+                onChanged: (_) {
+                  if (confirmError != null) {
+                    setState(() => confirmError = null);
+                  }
+                },
+                onSubmitted: (_) => submitChecked(),
+              ),
+        accepted: accepted,
+        onAccepted: (v) => setState(() => accepted = v),
+        submitKey: const Key('login-submit'),
+        // RegisterPage: disabled={loading || !acceptedLegal}.
+        onSubmit: busy || (mode == 'register' && !accepted)
+            ? null
+            : submitChecked,
+        providers: [
+          for (final p in providers)
+            RaftAuthProviderEntry('${p['id']}', '${p['label']}'),
+        ],
+        onProvider: (id) => social(id),
+        onCancelBrowser: broker == null ? null : () => broker!.cancel(),
+        onMode: (next) => switchMode(next.name),
+        onTerms: () => managementLaunch('https://raft.build/terms'),
+        onPrivacy: () => managementLaunch('https://raft.build/privacy'),
       ),
+    );
+    // The system-bar overlay fills its parent: a host that gives the page
+    // unbounded height (a scroll view) keeps the bare page.
+    return LayoutBuilder(
+      builder: (context, box) => box.hasBoundedHeight ? bars(page) : page,
     );
   }
 

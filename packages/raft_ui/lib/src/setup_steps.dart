@@ -322,6 +322,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    final border = t.brutal ? 2.0 : 1.0;
     final fill = t.brutal
         ? (selected ? t.product.softSignal : Colors.white)
         : (selected ? t.colors['primary-soft']! : t.panel);
@@ -337,18 +338,17 @@ class _Chip extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          decoration: RaftCssBoxDecoration(
-            color: fill,
-            border: Border.all(
-              color: t.brutal ? Colors.black : t.colors['line-muted']!,
-              width: t.brutal ? 2 : 1,
-            ),
-            borderRadius: t.brutal ? null : BorderRadius.circular(6),
-            boxShadow: shadows,
-          ),
+        child: RaftCssSnappedBox(
+          color: fill,
+          borderColor: t.brutal ? Colors.black : t.colors['line-muted']!,
+          borderWidth: border,
+          radius: t.brutal ? 0 : 6,
+          shadows: shadows,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(
+              horizontal: 12 + border,
+              vertical: 6 + border,
+            ),
             child: Text(
               label,
               style: RaftTypography.heading(

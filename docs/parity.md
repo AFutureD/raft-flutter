@@ -1341,3 +1341,65 @@ and the Provider connections list rows are still the management-page rows
 (only the edit modal is Web-shaped). Remaining deltas are text rasterisation,
 Blink border snapping on fractional boxes and one-level translucent fills in
 `RaftBanner` (dark).
+### Auth and onboarding cases (240 = 41 surfaces x 2 platforms x 3 themes, the two first-server forms mobile only)
+
+`tool/parity-ext/build-auth-cases.py` (registered last in `builders.txt`) writes
+`components.auth-ext.<platform>.<surface>.<theme>` (platform desktop 1280x800 @1 /
+mobile 390x844 @3) and `fixtures/auth-ext.json` (user, providers, servers, per-case
+`routeSets`). React host: `host/AuthCases.tsx` mounts the real `LoginPage`,
+`ForgotPasswordPage`, `ResetPasswordPage`, `EmailVerificationPage`, `ServerSelector`,
+`ServerSetupSurveyStep`, `ServerSetupHandoffStep` and `ServerSetupComputerRuntimeStep`
+(props of the Web `dev/serverSetupPreviewFixtures.ts`) over primed stores; Flutter:
+`cases/ext_auth.dart` mounts `AuthView` (`initialMode` / `resetToken`),
+`AccountOnboardingView`, `GlobalServerSelector` and the real `ServerSetupGate`.
+
+Surfaces: login (default, filled, invalid email, missing password, credentials error,
+social providers), `social.buttons` / `social.hover` (crop of the provider list),
+forgot (default, filled, sent, error), reset (default, filled, too short, mismatch,
+error, success), email verification (default, manual entry, code typed, resent, resend
+error, code rejected), server selector (choose, create another, create another filled,
+create first + filled on mobile) and the setup steps: survey (default, answered, other
+source, save failed), handoff (default, starting) and the computer/runtime step
+(not connected, connecting, ready, not ready, offline recovery, several offline).
+
+Web facts the cases pin (and Flutter now follows): the auth top bar is 62px in every theme
+(`--shell-header-height` exists only inside the app shell) with `px-4 sm:px-6 md:px-8`, the
+card padding is `px-5 pt-10 pb-10 sm:px-8 sm:pt-14 sm:pb-14`; field errors sit under the
+control (`FormField` error, `data-invalid` input state), not inside it; forgot password ends
+on a "Check your email" page (margin collapse makes the gap 24px, not 44) and reset
+password asks for the new password twice (token from the link) and ends on "Password
+reset"; the verification page is `CenteredCardFrame` with Resend, "Enter code manually" and
+Log out; the server selector log-out link is a 24px line, the first-server form is the
+`OnboardingCreateShell` narrow column; the setup steps are the Web cards (chips, log,
+recovery list) rather than a Material panel; survey `Banner` text is regular weight (the
+`font-bold` class lands on the banner root only).
+
+Native-only differences kept on purpose: the server URL link in the top bar, the
+"I have a reset link" link (pinned over the page bottom, outside the layout, because a
+native client has no URL carrying the token), and the reset token field when no link token
+was passed.
+
+Not covered because Flutter has no equivalent surface (listed, not built): invite accept
+page (`InviteAcceptPage`; Flutter joins through a "Join workspace" dialog), the
+`ServerCreatePreview` pane and the `lg` two-column `OnboardingCreateShell` (so desktop
+create-first server and profile setup are not compared), `CommunityAgreementDialog` (the
+join-community flow), `OpenInBrowserSignInGuide`, the "Email verified"
+screen of the verification page, and the Windows tab of the setup command guide.
+
+Result (run 20261011, flutter f21380e + chip snapping; `PARITY_EXT_ALL_DARK=1`):
+
+| | Flutter captured | official 96% | geometry (non-text >= 99.5%) |
+| --- | --- | --- | --- |
+| before (pre-port UI, same cases) | 84/240 | 21 | n/a |
+| after | 240/240 | 155 | 82 (brutal 59/80, elegant 23/80, elegant-dark 0/80), mean non-text 97.9% |
+
+Official auth cases (`components.auth.*`, `screens.auth.*`): register.inputs 97.45 -> 98.16,
+login.signing 97.92 -> 98.66, profile-setup 98.22 -> 98.30.
+
+What remains in the non-text buckets is not layout: every box, text origin and size matches
+(Flutter `PARITY_GEOMETRY_DUMP` against the React DOM dump). Elegant-dark and elegant carry
+1-2 level channel deltas on translucent borders, sheens and inset shadows (Chromium's 8-bit
+blend vs Flutter's float blend, see the Computers result above), counted as "hairline" because
+they sit on box edges; fractional-width controls (the survey Continue button, content-width
+rows) are painted unsnapped by Flutter, and the handoff body wraps one word differently from
+Chromium's `text-balance`.
