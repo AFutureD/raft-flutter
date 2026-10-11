@@ -83,6 +83,8 @@ export 'src/settings_billing.dart';
 export 'src/settings_applications.dart';
 export 'src/agent_dialogs.dart';
 export 'src/invite_human_dialog.dart';
+export 'src/role_permission_help_dialog.dart';
+export 'src/agent_unavailable_panel.dart';
 export 'src/settings_controls.dart';
 export 'src/settings_language.dart';
 export 'src/settings_administration.dart';

@@ -2062,11 +2062,17 @@ class RaftRoleField extends StatelessWidget {
     this.onEdit,
     this.editKey,
     this.editor,
+    this.onHelp,
+    this.helpKey,
   });
   final String label;
   final RaftRecipeBadge badge;
   final VoidCallback? onEdit;
   final Key? editKey;
+
+  /// The "Role permissions" help button (RolePermissionHelpDialog).
+  final VoidCallback? onHelp;
+  final Key? helpKey;
 
   /// The role editor (InlineBadgeEditor + Save / Cancel) shown in place of the
   /// badge while editing; the pencil is hidden then.
@@ -2082,8 +2088,10 @@ class RaftRoleField extends StatelessWidget {
             RaftCssText(label, style: RaftPanelText.label(t)),
             const SizedBox(width: 8),
             RaftInlineIconButton(
+              key: helpKey,
               glyph: RaftGlyph.circleHelp,
               tooltip: raftText(context, 'Role permissions'),
+              onPressed: onHelp,
             ),
             if (onEdit != null && editor == null) ...[
               const SizedBox(width: 8),
