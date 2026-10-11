@@ -36,6 +36,9 @@ def main():
     p.add_argument('--abi', choices=ABIS, default='arm64', help='x64 only for functional checks on an x86_64 emulator')
     p.add_argument('--semantics', default='platform', choices=['platform', 'on', 'off'])
     p.add_argument('--apk', type=Path, help='reuse a prebuilt isolated test APK instead of building')
+    p.add_argument('--define', action='append', default=[], metavar='KEY=VALUE',
+                   help='extra --dart-define for the build, e.g. RAFT_NAV_FADE_SNAPSHOTS=false or '
+                        'RAFT_NAV_DEFER_SEMANTICS=false to measure a change on its own (repeatable)')
     p.add_argument('--allow-noisy', action='store_true', help='measure even if host load is high (results labelled NOISY)')
     args = p.parse_args()
     out = args.out.resolve()
@@ -49,7 +52,8 @@ def main():
                  '-t', 'integration_test/perf_lab_test.dart', '--no-pub',
                  '--android-project-arg=raftApplicationIdSuffix=.linkperf',
                  f'--dart-define=RAFT_LAB_THEMES={args.themes}', f'--dart-define=RAFT_LAB_SCENARIOS={args.scenarios}',
-                 f'--dart-define=RAFT_LAB_SEMANTICS={args.semantics}']
+                 f'--dart-define=RAFT_LAB_SEMANTICS={args.semantics}',
+                 *[f'--dart-define={d}' for d in args.define]]
         print('Building:', ' '.join(build), flush=True)
         if subprocess.run(build, cwd=APP).returncode:
             sys.exit('Profile build failed.')

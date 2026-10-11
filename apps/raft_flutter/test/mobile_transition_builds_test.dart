@@ -316,4 +316,77 @@ void main() {
       expect(top('d'), lessThan(top('c')));
     },
   );
+
+  testWidgets('semantics of the live page wait for its route animation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final semantics = tester.ensureSemantics();
+    final c = _Client()..selectServer('s');
+    c.agentRows.add({
+      'id': 'agent-0',
+      'name': 'Agent 0',
+      'displayName': 'Agent 0',
+      'status': 'active',
+      'runtime': 'codex',
+      'model': 'gpt-6',
+      'external': true,
+    });
+    final w = WorkspaceController(c, mobileNavigation: true);
+    await tester.runAsync(w.bootstrap);
+    w.setSection('members');
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: WorkspaceView(
+          controller: w,
+          appearance: const RaftAppearance(),
+          onAppearance: (_) async {},
+          onLogout: () async {},
+        ),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    bool excluded() => tester
+        .widget<ExcludeSemantics>(
+          find
+              .ancestor(
+                of: find.byKey(const ValueKey('live-page')),
+                matching: find.byType(ExcludeSemantics),
+              )
+              .first,
+        )
+        .excluding;
+    await settle();
+    expect(excluded(), isFalse, reason: 'a settled page is exposed');
+    await tester.tap(
+      find.byKey(const ValueKey('desktop-directory-agent-agent-0')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(excluded(), isTrue, reason: 'no per-frame semantics mid-transition');
+    await settle();
+    expect(excluded(), isFalse, reason: 'exposed again once the route settles');
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(excluded(), isTrue, reason: 'also while a pop reveals the page');
+    await settle();
+    expect(excluded(), isFalse);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
 }

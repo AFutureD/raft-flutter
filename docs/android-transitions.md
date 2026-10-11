@@ -44,3 +44,22 @@ Themes: `brutal-light` and `elegant-light`. Default semantics mode `platform` (A
 ## Functional check without a device
 
 `--device emulator-5580 --abi x64` runs the same flow on an x86_64 emulator. Its timings are not evidence for phone jank (different CPU, software rendering).
+
+## What the first device baseline showed (commit dc2d0c6, 24 Hz adaptive display, NOISY host, accessibility service on)
+
+- Every push has one UI frame of 15 to 43 ms at the start. The phase split is mostly layout (lazy slivers and LayoutBuilders build there), not paint.
+- Raster is 11 to 14 ms for the first 5 to 6 frames of every transition, then 2 ms. It follows the fade: two full-screen pages are blended with alpha, and the live page is re-rasterized into an offscreen layer on every frame.
+- With semantics enabled, the semantics phase costs 1 to 7 ms on every frame of the 450 ms route animation (and 35 to 60 percent of UI time overall), because the whole page is translated each frame.
+- Worst-frame app code is the workspace shell (`_WorkspaceViewState.sidebarGroups`, `conversationSlivers`, `sidebar`, `workspace`), which rebuilds for every navigation.
+
+## Changes and how to measure each
+
+| Change | Where | Toggle |
+|---|---|---|
+| Tab switches keep the page that hosts the live workspace (a new page moved the live subtree and rebuilt every element in it, including the hidden retained conversation) | `mobile_workspace_pages.dart` | none |
+| Hidden conversation page and the folded directory master are handed the widget they last built; hidden chat views ignore selection/reference notifications | `workspace_view.dart`, `desktop_master_detail.dart`, `chat_view.dart` | none |
+| Sidebar: latest-activity scan memoized by ledger revision; phones no longer build the desktop sidebar/rail, the drawer builds its sidebar when opened | `workspace_view.dart` | none |
+| Semantics of the live page are not recomputed while its route animates (included again when it settles) | `mobile_workspace_pages.dart` | `--define RAFT_NAV_DEFER_SEMANTICS=false` restores |
+| The live page is drawn from a snapshot during the fade (live subtree stays mounted and tappable, fully transparent) and the outgoing page is a single image draw | `mobile_workspace_pages.dart` | `--define RAFT_NAV_FADE_SNAPSHOTS=false` restores |
+
+The visible transition (Android default, FadeForwards, 450 ms) is unchanged. Compare runs with `python3 tool/performance/lab.py compare <before>/run <after>/run`.

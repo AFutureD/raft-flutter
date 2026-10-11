@@ -202,9 +202,38 @@ class _MobilePageFrame extends StatefulWidget {
   State<_MobilePageFrame> createState() => _MobilePageFrameState();
 }
 
+/// While a page route animates, the live workspace page is rendered from a
+/// snapshot instead of being re-rasterized into the fade's offscreen layer on
+/// every frame, and its semantics are not recomputed per frame. Both are
+/// restored when the route settles. `--dart-define=RAFT_NAV_FADE_SNAPSHOTS=false`
+/// and `RAFT_NAV_DEFER_SEMANTICS=false` restore the previous behavior (used to
+/// measure each change separately with tool/performance/android_transitions.py).
+const _fadeSnapshots = bool.fromEnvironment(
+  'RAFT_NAV_FADE_SNAPSHOTS',
+  defaultValue: true,
+);
+const _deferSemantics = bool.fromEnvironment(
+  'RAFT_NAV_DEFER_SEMANTICS',
+  defaultValue: true,
+);
+
 class _MobilePageFrameState extends State<_MobilePageFrame> {
   final boundary = GlobalKey();
   ui.Image? image;
+
+  /// Snapshot standing in for the live page while its route animates.
+  ui.Image? entering;
+  ModalRoute<dynamic>? route;
+  bool animating = false;
+  bool captureScheduled = false;
+  int captureAttempts = 0;
+
+  bool get routeAnimating {
+    final r = route;
+    if (r == null) return false;
+    return (r.animation?.status.isAnimating ?? false) ||
+        (r.secondaryAnimation?.status.isAnimating ?? false);
+  }
 
   void freeze() {
     final render = boundary.currentContext?.findRenderObject();
@@ -219,35 +248,137 @@ class _MobilePageFrameState extends State<_MobilePageFrame> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = ModalRoute.of(context);
+    if (!identical(next, route)) {
+      _unlisten();
+      route = next;
+      route?.animation?.addStatusListener(_statusChanged);
+      route?.secondaryAnimation?.addStatusListener(_statusChanged);
+    }
+    animating = routeAnimating;
+  }
+
+  void _unlisten() {
+    route?.animation?.removeStatusListener(_statusChanged);
+    route?.secondaryAnimation?.removeStatusListener(_statusChanged);
+  }
+
+  void _statusChanged(AnimationStatus _) {
+    final now = routeAnimating;
+    if (!mounted || now == animating) return;
+    setState(() {
+      animating = now;
+      if (!now) _releaseEntering();
+    });
+  }
+
+  void _releaseEntering() {
+    final old = entering;
+    entering = null;
+    captureAttempts = 0;
+    if (old != null) {
+      // The frame that stops showing it may still reference it.
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
+  }
+
+  /// After the first painted frame of the animation, replace the live page by
+  /// its picture. The live subtree stays mounted, laid out and hit-testable
+  /// (fully transparent), so taps still reach it during the transition.
+  void _scheduleCapture() {
+    if (!_fadeSnapshots ||
+        captureScheduled ||
+        entering != null ||
+        captureAttempts >= 8) {
+      return;
+    }
+    captureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      captureScheduled = false;
+      if (!mounted || !animating || entering != null) return;
+      if (widget.host.active != widget.id) return;
+      captureAttempts++;
+      final render = boundary.currentContext?.findRenderObject();
+      final next = render is _MobileFrameBoundaryRenderObject
+          ? render.captureLastFrame(
+              math.min(MediaQuery.devicePixelRatioOf(context), 3),
+            )
+          : null;
+      if (next == null) {
+        // Nothing painted yet (the fade starts at zero opacity).
+        setState(() {});
+        return;
+      }
+      setState(() => entering = next);
+    });
+  }
+
+  @override
   void dispose() {
+    _unlisten();
     widget.host.frames.remove(widget.id);
     image?.dispose();
+    entering?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.host.changed,
-    builder: (context, _) => widget.host.active == widget.id
-        ? _MobileFrameBoundary(
-            key: boundary,
-            child: KeyedSubtree(
-              key: widget.host.live,
-              child: PageStorage(
-                bucket: widget.host.pageStorage,
-                child: widget.host.widget.child,
+    builder: (context, _) {
+      if (widget.host.active != widget.id) {
+        if (entering != null) _releaseEntering();
+        // A page picture alone is one draw operation, which the fade can apply
+        // its alpha to directly; behind a background box it needs an offscreen
+        // layer per frame. The picture already contains the page background.
+        if (_fadeSnapshots && image != null) {
+          return ExcludeSemantics(
+            child: RawImage(image: image, fit: BoxFit.fill),
+          );
+        }
+        return ExcludeSemantics(
+          child: ColoredBox(
+            // ds-allow: Historical platform route fallback matches its Scaffold before a painted frame exists.
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: image == null
+                ? const SizedBox.expand()
+                : RawImage(image: image, fit: BoxFit.fill),
+          ),
+        );
+      }
+      if (animating) _scheduleCapture();
+      final snapshot = entering;
+      return ExcludeSemantics(
+        excluding: _deferSemantics && animating,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (snapshot != null)
+              RawImage(
+                key: const ValueKey('entering-snapshot'),
+                image: snapshot,
+                fit: BoxFit.fill,
+              ),
+            Opacity(
+              key: const ValueKey('live-page'),
+              opacity: snapshot == null ? 1 : 0,
+              child: _MobileFrameBoundary(
+                key: boundary,
+                child: KeyedSubtree(
+                  key: widget.host.live,
+                  child: PageStorage(
+                    bucket: widget.host.pageStorage,
+                    child: widget.host.widget.child,
+                  ),
+                ),
               ),
             ),
-          )
-        : ExcludeSemantics(
-            child: ColoredBox(
-              // ds-allow: Historical platform route fallback matches its Scaffold before a painted frame exists.
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: image == null
-                  ? const SizedBox.expand()
-                  : RawImage(image: image, fit: BoxFit.fill),
-            ),
-          ),
+          ],
+        ),
+      );
+    },
   );
 }
 
