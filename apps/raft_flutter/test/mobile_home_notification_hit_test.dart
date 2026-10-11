@@ -19,6 +19,9 @@ void main() {
       t.view.systemGestureInsets = const FakeViewPadding(left: 40, right: 40);
       addTearDown(t.view.resetSystemGestureInsets);
       await fixture.flush(t);
+      // Actual application scrolls must bypass the disposed stretch shader
+      // path, including the nested page used to retain the live workspace.
+      expect(find.byType(StretchingOverscrollIndicator), findsNothing);
       final bell = find.byType(RaftMobileNotificationButton);
       expect(bell, findsOneWidget);
       expect(t.getCenter(bell).dx, greaterThan(412 - 40));
