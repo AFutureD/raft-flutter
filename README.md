@@ -66,7 +66,7 @@ cd apps/raft_flutter
 ../../tool/flutter run -d <serial>  # Android emulator (see the install warning below)
 ```
 
-The app talks to `http://localhost:13041` by default; pass `--dart-define=RAFT_ORIGIN=https://raft.example.com` to change it, or edit the origin on the login screen (see [Self-deploy](#self-deploy)). For a local server see [local server stack](docs/local-test-stack.md): `tool/raft-stack start|stop|status|ports` wraps the raft-source `raftdev` launcher and needs a git-ignored `.local/stack.json`.
+The app talks to the official API `https://api.raft.build` by default; pass `--dart-define=RAFT_ORIGIN=http://localhost:13041` for a local server (or any other origin), or edit the origin on the login screen (see [Self-deploy](#self-deploy)). For a local server see [local server stack](docs/local-test-stack.md): `tool/raft-stack start|stop|status|ports` wraps the raft-source `raftdev` launcher and needs a git-ignored `.local/stack.json`.
 
 Never use `flutter run/drive/test/install` on a device that holds the real (formal) app; Flutter may uninstall and reinstall it. Use `tool/android-install` (see [AGENTS.md](AGENTS.md) and [Android installation](docs/android-installation.md)).
 
@@ -193,7 +193,7 @@ This repository builds the **client**. You need a Raft server for it to talk to;
 ### Point the client at your server
 
 - Login screen: the server origin is editable (scheme `http` or `https` and host only, no path, such as `https://raft.example.com`). Prefer HTTPS.
-- Compile-time default: `--dart-define=RAFT_ORIGIN=<origin>` (default `http://localhost:13041`). Related defines: `RAFT_FRONTEND_ORIGIN` (the Web frontend origin used for browser hand-off and content links), `RAFT_DEPLOYMENT_ENV` (`production` default; `staging` and `slockdev` switch the Raft Computer install commands), `RAFT_APP_VERSION` (label shown in settings). Do not pass credentials or test fixtures as defines.
+- Compile-time default: `--dart-define=RAFT_ORIGIN=<origin>` (default `https://api.raft.build`, the official API). Related defines: `RAFT_FRONTEND_ORIGIN` (the Web frontend origin used for browser hand-off and content links), `RAFT_DEPLOYMENT_ENV` (`production` default; `staging` and `slockdev` switch the Raft Computer install commands), `RAFT_APP_VERSION` (label shown in settings). Do not pass credentials or test fixtures as defines.
 - Android blocks cleartext HTTP except for three development hosts (`network_security_config.xml`); a public deployment must use HTTPS. Android backup is disabled and local state is excluded from cloud and device-transfer backups.
 - The `raft:` URL scheme (OAuth callback and content links) is registered on Android, macOS, iOS and in the Linux desktop entry.
 
