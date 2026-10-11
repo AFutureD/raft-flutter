@@ -24,18 +24,20 @@ class _Client extends RaftClient {
   final gets = <String>[];
   Completer<void>? gate;
   String detail = 'Computer is offline';
+  Map<String, dynamic>? projectionOverride;
   @override
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
     gets.add(path);
     await gate?.future;
     if (path == '/servers/s/setup-projection') {
-      return {
-        'phase': 'in_progress',
-        'surface': 'computer_runtime',
-        'blocksChat': true,
-        'computerStatus': detail,
-        'runtimeStatus': 'missing',
-      };
+      return projectionOverride ??
+          {
+            'phase': 'in_progress',
+            'surface': 'computer_runtime',
+            'blocksChat': true,
+            'computerStatus': detail,
+            'runtimeStatus': 'missing',
+          };
     }
     return <dynamic>[];
   }
@@ -251,6 +253,81 @@ void main() {
     await t.pumpWidget(const SizedBox.shrink());
     expect(t.takeException(), isNull);
   });
+
+  for (final inset in [24.0, 48.0]) {
+    testWidgets('setup scroll content clears $inset bottom inset and IME', (
+      t,
+    ) async {
+      t.view.physicalSize = const Size(390, 400);
+      t.view.devicePixelRatio = 1;
+      t.view.viewPadding = FakeViewPadding(bottom: inset);
+      t.view.padding = FakeViewPadding(bottom: inset);
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        _host(ServerSetupGate(controller: w, child: const Text('Chat'))),
+      );
+      await settle(t);
+      final page = find.byType(SingleChildScrollView).first;
+      final scroll = find
+          .descendant(of: page, matching: find.byType(Scrollable))
+          .first;
+      final position = t.state<ScrollableState>(scroll).position;
+      position.jumpTo(position.maxScrollExtent);
+      await t.pump();
+      final card = find.byKey(const ValueKey('setup-computer'));
+      expect(t.getRect(card).bottom, lessThanOrEqualTo(400 - inset - 16));
+      t.view.padding = const FakeViewPadding();
+      t.view.viewInsets = const FakeViewPadding(bottom: 180);
+      await t.pump();
+      position.jumpTo(position.maxScrollExtent);
+      await t.pump();
+      expect(t.getRect(card).bottom, lessThanOrEqualTo(400 - 180 - 16));
+      expect(
+        t.widget<SingleChildScrollView>(page).padding,
+        const EdgeInsets.all(16),
+      );
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final surface in ['survey', 'handoff', 'create_agent']) {
+    testWidgets('setup $surface clears bottom inset on a short screen', (
+      t,
+    ) async {
+      client.projectionOverride = {
+        'phase': surface == 'create_agent' ? 'in_progress' : 'complete',
+        'surface': surface == 'create_agent' ? surface : 'complete',
+        'blocksChat': true,
+        'postSetup': {
+          'surveyPending': surface == 'survey',
+          'handoffPending': surface == 'handoff',
+        },
+      };
+      t.view.physicalSize = const Size(390, 400);
+      t.view.devicePixelRatio = 1;
+      t.view.padding = const FakeViewPadding(bottom: 48);
+      addTearDown(t.view.reset);
+      await t.pumpWidget(
+        _host(ServerSetupGate(controller: w, child: const Text('Chat'))),
+      );
+      await settle(t);
+      final page = find.byType(SingleChildScrollView).first;
+      final scroll = find
+          .descendant(of: page, matching: find.byType(Scrollable))
+          .first;
+      final position = t.state<ScrollableState>(scroll).position;
+      position.jumpTo(position.maxScrollExtent);
+      await t.pump();
+      final body = t.widget<SingleChildScrollView>(page).child!;
+      expect(
+        t.getRect(find.byWidget(body)).bottom,
+        lessThanOrEqualTo(400 - 48),
+      );
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   testWidgets('setup invalidation is scoped to its own workspace controller', (
     t,

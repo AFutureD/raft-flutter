@@ -70,6 +70,31 @@ Widget mobileTabbarConfigDefaultPreview() =>
     const MobileTabbarConfigPagePreview(initial: _defaultConfig);
 
 @RaftPreviews(
+  'Mobile Bottom bar settings (gesture inset)',
+  size: Size(390, 844),
+)
+Widget mobileTabbarConfigGesturePreview() => _insetPreview(24);
+
+@RaftPreviews(
+  'Mobile Bottom bar settings (3-button inset)',
+  size: Size(390, 844),
+)
+Widget mobileTabbarConfigButtonsPreview() => _insetPreview(48);
+
+Widget _insetPreview(double bottom) => Builder(
+  builder: (context) {
+    final metrics = MediaQuery.of(context);
+    return MediaQuery(
+      data: metrics.copyWith(
+        padding: metrics.padding.copyWith(bottom: bottom),
+        viewPadding: metrics.viewPadding.copyWith(bottom: bottom),
+      ),
+      child: mobileTabbarConfigDefaultPreview(),
+    );
+  },
+);
+
+@RaftPreviews(
   'Mobile Bottom bar settings (limit reached)',
   size: Size(390, 844),
 )

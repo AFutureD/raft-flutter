@@ -1,5 +1,9 @@
 # Edge-to-edge audit (Android mobile)
 
+Current implementation and the 2026-10-11 follow-up are documented in
+[edge-to-edge-followup.md](edge-to-edge-followup.md). The findings below are the
+historical pre-adaptation snapshot, not a description of today's code.
+
 Branch `cindy/edge-to-edge-audit`, based on `cindy/integration` (4d38874). Analysis and
 adaptation plan only: no production code changed. Evidence harness:
 `apps/raft_flutter/test/edge_to_edge_audit_test.dart` (56 widget tests, all green; it records

@@ -136,6 +136,8 @@ void main() {
         ('settings-root-new', mobileSettingsRootBottomBarPreview),
         ('settings-root-current', mobileSettingsRootCurrentPreview),
         ('config-default', mobileTabbarConfigDefaultPreview),
+        ('config-gesture-inset', mobileTabbarConfigGesturePreview),
+        ('config-buttons-inset', mobileTabbarConfigButtonsPreview),
         ('config-limit', mobileTabbarConfigFullPreview),
         ('config-minimum', mobileTabbarConfigMinimumPreview),
       ]) {

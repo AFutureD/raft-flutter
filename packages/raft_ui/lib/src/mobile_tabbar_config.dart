@@ -7,6 +7,7 @@ import 'mobile_navigation.dart';
 import 'settings_controls.dart';
 import 'settings_layout.dart';
 import 'switch.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 
 /// One configurable bottom-bar tab (everything except the fixed Settings tab).
@@ -180,8 +181,8 @@ class RaftMobileTabbarConfigView extends StatelessWidget {
         : null;
     final nav = RaftMobileNav(
       selectedId: config.visible.firstOrNull ?? settingsTab.id,
-      // A phone's gesture inset under the floating Elegant capsule, so its
-      // shadow is not clipped by the page edge; Brutal sits flush.
+      // Keep the capsule's shadow clearance; the dock owns the actual
+      // system inset, including navigation bars taller than this gap.
       bottomInset: RaftTokens.of(context).brutal ? 0 : 16,
       viewportHeight: viewportHeight,
       onSelected: (_) {},
@@ -352,7 +353,7 @@ class _PreviewDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return DecoratedBox(
+    return RaftBottomInsetSurface(
       decoration: BoxDecoration(
         color: t.brutal ? Colors.white : t.panel,
         border: t.brutal

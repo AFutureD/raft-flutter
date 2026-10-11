@@ -3,6 +3,55 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 void main() {
+  testWidgets('non-swiping host leaves Android edge controls tappable', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(390, 600);
+    t.view.devicePixelRatio = 1;
+    t.view.systemGestureInsets = const FakeViewPadding(left: 40, right: 40);
+    addTearDown(t.view.reset);
+    var taps = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: RaftSectionPager<String>(
+            sections: const ['page'],
+            value: 'page',
+            swipeEnabled: false,
+            onChanged: null,
+            builder: (_, _) => Row(
+              children: [
+                for (final label in ['left', 'right'])
+                  Expanded(
+                    child: Align(
+                      alignment: label == 'left'
+                          ? Alignment.centerLeft
+                          : Alignment.centerRight,
+                      child: SizedBox(
+                        width: 32,
+                        height: 48,
+                        child: TextButton(
+                          onPressed: () => taps++,
+                          child: Text(label),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.text('left'));
+    await t.tap(find.text('right'));
+    await t.pump();
+    expect(taps, 2);
+    expect(t.takeException(), isNull);
+  });
+
   for (final direction in TextDirection.values) {
     for (final right in [false, true]) {
       testWidgets(
