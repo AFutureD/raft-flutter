@@ -167,6 +167,22 @@ were equal):
 | thread.message-row.md-wrap-clarify | 88.86 | 96.07 | 7.21 | inline-code padding placeholder lets `（` + code break apart; cascades |
 | thread.message-row.md-wrap-status606 | 83.37 | 93.24 | 9.87 | long inline code force-broken on the current line; break after `/` |
 
+## Mobile panel header: intended difference (owner decision 2026-10-11)
+
+Below the 768 breakpoint, panel/detail headers (`RaftPanelHeaderBar`,
+`RaftConversationHeader`, `RaftThreadHeader`) render the shared 56px
+`RaftMobilePageHeader` with the platform back arrow (owner commits 1bfc08f,
+7f2a95b, 7f16df2). Web's phone panel header is a boxed back button plus the
+entity avatar and title. The owner chose to KEEP the platform header
+("手机页头用 A", 2026-10-11). Official cases captured at phone width that show
+this header are therefore intended differences, not regressions: the content
+below sits ~13 px higher and every row differs. Measured on batch-3:
+`screens.members.agent-detail.profile` and its variants (computer-missing,
+computer-offline, daemon-only, loading-state, long-machine-name, no-computer,
+no-membership) ~85.5–87.2%, `.activity` ~90.9%, `.apps` ~94.8%,
+`.reminders` ~94.7%, `.workspace` ~95.7%. Do not try to match Web's header
+geometry in these cases; compare the content below the header instead.
+
 ## One command
 
 ```bash
