@@ -165,7 +165,7 @@ class WorkspaceNavigation {
             })
           : location.thread != null
           ? location.withQuery({'thread': null})
-          : location.tabHome();
+          : mobileTabHome(location);
       if (location.task != null || location.legacyTask != null) {
         navigateTask(fallback, kind: RaftNavigationKind.replace);
       } else {
@@ -269,7 +269,33 @@ class WorkspaceNavigation {
   };
 
   String get section => sectionFor(location);
-  String? get mobileRootTab {
+
+  /// Tabs the mobile bottom bar shows besides the always-root Home, Tasks,
+  /// Members and Settings. A location of a tab listed here is a tab root;
+  /// otherwise Computers is a Settings sub-page and Activity a pushed page.
+  Set<String> mobileTabs = const {};
+
+  String? get mobileRootTab => mobileRootTabOf(location);
+
+  /// The semantic root a cold detail returns to: its own tab root when the
+  /// bar has one for it, otherwise the route's usual tab.
+  RaftLocation mobileTabHome(RaftLocation location) {
+    final tab = switch (location.route) {
+      RaftRoute.computers || RaftRoute.computer => 'computers',
+      RaftRoute.activity => 'activity',
+      _ => null,
+    };
+    return tab == null || !mobileTabs.contains(tab)
+        ? location.tabHome()
+        : RaftLocation.at(
+            serverSlug: location.serverSlug,
+            route: tab == 'computers'
+                ? RaftRoute.computers
+                : RaftRoute.activity,
+          );
+  }
+
+  String? mobileRootTabOf(RaftLocation location) {
     if (location.hasOverlay ||
         {RaftRoute.search, RaftRoute.activity}.contains(location.route) &&
             location.content != null) {
@@ -279,6 +305,8 @@ class WorkspaceNavigation {
       RaftRoute.home => 'chat',
       RaftRoute.tasks => 'tasks',
       RaftRoute.members => 'members',
+      RaftRoute.computers when mobileTabs.contains('computers') => 'computers',
+      RaftRoute.activity when mobileTabs.contains('activity') => 'activity',
       RaftRoute.settings when location.settingsPath.isEmpty => 'settings',
       _ => null,
     };

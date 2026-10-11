@@ -25,6 +25,7 @@ import 'workspace_grid_view.dart';
 import 'workspace_mode_settings_card.dart';
 import '../data/personal_presentation.dart';
 import '../data/device_preferences.dart';
+import '../data/mobile_tabbar_preferences.dart';
 import '../data/sidebar_disclosure.dart';
 import 'message_reference_directory.dart';
 import 'chat_agent_presentation.dart';
@@ -89,6 +90,7 @@ class WorkspaceView extends StatefulWidget {
     this.notifications,
     this.sharing,
     this.presentation,
+    this.mobileTabbar,
     this.onChooseServer,
     this.onSwitchServer,
   });
@@ -96,6 +98,9 @@ class WorkspaceView extends StatefulWidget {
   final NativeNotificationService? notifications;
   final NativeSharing? sharing;
   final PersonalPresentationStore? presentation;
+
+  /// The device-local bottom-bar choice; the workspace owns one by default.
+  final MobileTabbarStore? mobileTabbar;
 
   /// App root owns the Source `/` server chooser outside a workspace URI.
   final VoidCallback? onChooseServer;
@@ -270,7 +275,15 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         (w.server?.string('role') == 'guest' || !w.can('viewMembers'))) {
       return;
     }
-    if (!['chat', 'tasks', 'members', 'settings'].contains(tab)) {
+    if (tab != 'settings' && !mobileTabIds.contains(tab)) return;
+    if (![
+      'chat',
+      'tasks',
+      'members',
+      'computers',
+      'activity',
+      'settings',
+    ].contains(tab)) {
       return;
     }
     mainSelection.dismiss();
@@ -293,6 +306,18 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   );
   PersonalPresentationStore get presentation =>
       widget.presentation ?? ownedPresentation;
+
+  /// Read synchronously from the preloaded device preferences, so the first
+  /// frame already has the configured bar.
+  late final ownedMobileTabbar = MobileTabbarStore();
+  MobileTabbarStore get mobileTabbar =>
+      widget.mobileTabbar ?? ownedMobileTabbar;
+
+  /// Ids of the tabs the bar shows for this account (Settings not included).
+  List<String> get mobileTabIds => mobileTabbar.settings.effective(
+    guest: w.server?.string('role') == 'guest',
+    can: w.can,
+  );
   final sidebarDisclosure = SidebarDisclosureStore();
 
   /// Cmd/Ctrl+K quick switcher: visit history, shared search memory and the
@@ -814,12 +839,15 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     listenable: Listenable.merge([
       w,
       presentation,
+      mobileTabbar,
       liveActivityShown,
       shellIdentities,
       sidebarDisclosure,
       workspaceMode,
     ]),
     builder: (context, _) {
+      // Computers and Activity are tab roots only while the bar has them.
+      w.navigation.mobileTabs = mobileTabIds.toSet();
       final attentionOwner = activityUnread;
       final attentionScope = attentionOwner.scope;
       final attentionEpoch = attentionOwner.authorityEpoch;
@@ -934,7 +962,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               desktopNavigation.target?.kind == DesktopContentKind.thread);
       final androidMobile =
           !wide && !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-      final rootTab = mobileWorkspaceRootTabForLocation(location);
+      final rootTab = w.navigation.mobileRootTabOf(location);
       final immersiveNavigation =
           androidMobile && rootTab != null && w.server != null;
       final viewport = MediaQuery.sizeOf(context);
@@ -1150,6 +1178,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               controller: w,
               section: route,
               onTask: openTaskSurface,
+              mobileRoot: !wide && rootTab == 'activity',
               activitySidebarEnabled:
                   route == 'activity' && activityFlag.enabled,
               compactActivitySidebar:
@@ -1324,7 +1353,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 bottom: !immersiveNavigation,
                 child: Column(
                   children: [
-                    if (!wide &&
+                    if (!wide && rootTab == 'computers' && !thread)
+                      RaftMobileRootHeader(title: 'Computers')
+                    else if (!wide &&
                         location.route != RaftRoute.computer &&
                         (thread ||
                             ![
@@ -1374,8 +1405,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         rail: wide ? workspaceRail() : const SizedBox.shrink(),
                         mobileNavigationFloating: !t.brutal,
                         mobileNavigation:
-                            mobileWorkspaceRootTabForLocation(location) ==
-                                    null ||
+                            w.navigation.mobileRootTabOf(location) == null ||
                                 w.server == null
                             ? null
                             : Column(
@@ -2612,7 +2642,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     final scope = mobileAuthority;
     return WorkspaceMobileTabBar(
       controller: w,
-      selectedId: mobileWorkspaceRootTabForLocation(w.location) ?? 'chat',
+      selectedId: w.navigation.mobileRootTabOf(w.location) ?? 'chat',
+      tabs: mobileTabIds,
       // Android's tab bar consumes this inset; other hosts retain shell padding.
       bottomInset: 0,
       onSelected: (tab) => selectMobileTab(tab, scope),
@@ -3423,6 +3454,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       widget.notifications,
       widget.onLogout,
       presentation,
+      mobileTabbar.settings,
       workspaceMode,
       providerEnabled,
       bridgeEnabled,
@@ -3447,6 +3479,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         onLogout: widget.onLogout,
         mobileRoot: w.location.settingsPath.isEmpty,
         mobileResetRevision: mobileSettingsRevision,
+        mobileTabbar: mobileTabbar,
         onMobileLocationChanged: (tab) {
           if (!mounted || scope != mobileAuthority) return;
           if (tab == null) {

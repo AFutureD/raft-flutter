@@ -54,18 +54,21 @@ List<String> mobilePageEntries(WorkspaceNavigation navigation) {
     final location = entries[index];
     final base = _mobilePageBaseLocation(location);
     if (result.isEmpty && base != location) {
-      final root = WorkspaceNavigation(initial: base).mobileRootTab != null;
+      final root = navigation.mobileRootTabOf(base) != null;
       result.add('${root ? 'root' : index}::${mobilePageIdentity(base)}');
     }
     final identity = mobilePageIdentity(location);
-    final root = WorkspaceNavigation(initial: location).mobileRootTab != null;
+    final root = navigation.mobileRootTabOf(location) != null;
     if (root) result.clear();
     if (result.isNotEmpty && result.last.endsWith('::$identity')) continue;
     result.add('${root ? 'root' : index}::$identity');
   }
   // A cold detail still has a semantic back destination.
   if (!result.first.startsWith('root::')) {
-    result.insert(0, 'root::${mobilePageIdentity(entries.first.tabHome())}');
+    result.insert(
+      0,
+      'root::${mobilePageIdentity(navigation.mobileTabHome(entries.first))}',
+    );
   }
   return result.length > 8 ? result.sublist(result.length - 8) : result;
 }
