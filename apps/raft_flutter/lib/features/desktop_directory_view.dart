@@ -145,6 +145,9 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
   Future<void> reload(WorkspaceEntityKind kind) =>
       w.entityDirectory.refresh(kind, force: true);
 
+  Future<void> refreshDirectory() =>
+      Future.wait([for (final kind in waitKinds) reload(kind)]);
+
   Future<void> register(bool computer) async {
     final captured = authority;
     await showFleetRegistration(
@@ -463,7 +466,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
       ),
       if (widget.computers ||
           (kind == DesktopContentKind.agent ? agentsExpanded : humansExpanded))
-        if (failed)
+        if (failed && rows.isEmpty)
           (
             id: 'directory-${kind.name}-error',
             build: (_) => RaftSidebarSectionDescription(
@@ -538,13 +541,20 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
             ),
       body: widget.computers
           ? computersList(t, computers)
-          : ListView.builder(
-              key: const Key('desktop-directory-list'),
-              padding: directoryPadding(recipe),
-              itemCount: items.length,
-              findChildIndexCallback: (key) =>
-                  key is ValueKey<String> ? indices[key.value] : null,
-              itemBuilder: (context, index) => items[index].build(context),
+          : RaftPullToRefresh(
+              enabled: widget.mobileRoot,
+              onRefresh: refreshDirectory,
+              child: ListView.builder(
+                key: const Key('desktop-directory-list'),
+                physics: widget.mobileRoot
+                    ? const AlwaysScrollableScrollPhysics()
+                    : null,
+                padding: directoryPadding(recipe),
+                itemCount: items.length,
+                findChildIndexCallback: (key) =>
+                    key is ValueKey<String> ? indices[key.value] : null,
+                itemBuilder: (context, index) => items[index].build(context),
+              ),
             ),
     );
     return KeyedSubtree(

@@ -3159,63 +3159,74 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     ? null
                     : (d) => openSurfaceMenu(d.globalPosition),
                 onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
-                child: CustomScrollView(
-                  key: const Key('workspace-sidebar'),
-                  slivers: [
-                    SliverPadding(
-                      padding: recipe.contentInset(
-                        headerInFlow: true,
-                        liveActivity: mobileHome && liveActivityVisible,
-                        bottomInset: edgeToEdgeHome
-                            ? raftSystemBottomInset(context)
-                            : 0,
-                      ),
-                      sliver: SliverMainAxisGroup(
-                        slivers: [
-                          if (mobileHome)
-                            SliverToBoxAdapter(
-                              child: RaftNavItem(
-                                key: const Key('nav-search'),
-                                role: RaftNavItemRole.search,
-                                viewportHeight: MediaQuery.sizeOf(context)
-                                    .height,
-                                label: tr('Search'),
-                                glyph: RaftGlyph.search,
-                                selected: w.section == 'search',
-                                onTap: () => select('search'),
-                              ),
-                            ),
-                          // Activity is a bottom-bar tab: no second entry here.
-                          if (mobileHome &&
-                              !mobileTabIds.contains(MobileTabs.activity))
-                            SliverToBoxAdapter(
-                              child: RaftNavItem(
-                                key: const Key('nav-activity'),
-                                role: RaftNavItemRole.activity,
-                                viewportHeight: MediaQuery.sizeOf(context)
-                                    .height,
-                                label: tr('Activity'),
-                                glyph: RaftGlyph.activity,
-                                selected: w.section == 'activity',
-                                unread: w.unread.values.fold(
-                                  0,
-                                  (a, b) => a + b,
+                child: RaftPullToRefresh(
+                  enabled: mobileHome,
+                  onRefresh: () => Future.wait([
+                    w.refreshChannels(),
+                    w.refreshUnread(),
+                    w.loadSidebar(),
+                  ]),
+                  child: CustomScrollView(
+                    key: const Key('workspace-sidebar'),
+                    physics: mobileHome
+                        ? const AlwaysScrollableScrollPhysics()
+                        : null,
+                    slivers: [
+                      SliverPadding(
+                        padding: recipe.contentInset(
+                          headerInFlow: true,
+                          liveActivity: mobileHome && liveActivityVisible,
+                          bottomInset: edgeToEdgeHome
+                              ? raftSystemBottomInset(context)
+                              : 0,
+                        ),
+                        sliver: SliverMainAxisGroup(
+                          slivers: [
+                            if (mobileHome)
+                              SliverToBoxAdapter(
+                                child: RaftNavItem(
+                                  key: const Key('nav-search'),
+                                  role: RaftNavItemRole.search,
+                                  viewportHeight: MediaQuery.sizeOf(context)
+                                      .height,
+                                  label: tr('Search'),
+                                  glyph: RaftGlyph.search,
+                                  selected: w.section == 'search',
+                                  onTap: () => select('search'),
                                 ),
-                                onTap: () => select('activity'),
+                              ),
+                            // Activity is a bottom-bar tab: no second entry here.
+                            if (mobileHome &&
+                                !mobileTabIds.contains(MobileTabs.activity))
+                              SliverToBoxAdapter(
+                                child: RaftNavItem(
+                                  key: const Key('nav-activity'),
+                                  role: RaftNavItemRole.activity,
+                                  viewportHeight: MediaQuery.sizeOf(context)
+                                      .height,
+                                  label: tr('Activity'),
+                                  glyph: RaftGlyph.activity,
+                                  selected: w.section == 'activity',
+                                  unread: w.unread.values.fold(
+                                    0,
+                                    (a, b) => a + b,
+                                  ),
+                                  onTap: () => select('activity'),
+                                ),
+                              ),
+                            SliverToBoxAdapter(
+                              child: SavedSidebarEntry(
+                                key: const Key('nav-saved'),
+                                controller: w,
+                                onTap: () => select('saved'),
                               ),
                             ),
-                          SliverToBoxAdapter(
-                            child: SavedSidebarEntry(
-                              key: const Key('nav-saved'),
-                              controller: w,
-                              onTap: () => select('saved'),
-                            ),
-                          ),
-                          ...conversationSlivers(),
-                        ],
+                            ...conversationSlivers(),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
