@@ -50,8 +50,11 @@ class ResourceSnapshot extends PageSnapshot {
     required this.scrollOffset,
     this.viewWindows = const {},
     this.sectionScrollOffsets = const {},
+    this.inboxSerial = 0,
   });
 
+  /// Id of the newest shared-inbox window already presented in [rows].
+  final int inboxSerial;
   final bool enabledActivity;
   final String? view;
   final List<Map<String, dynamic>> rows;

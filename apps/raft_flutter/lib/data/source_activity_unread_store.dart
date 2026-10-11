@@ -65,6 +65,34 @@ class SourceActivityUnreadStore extends ChangeNotifier {
   List<Map<String, dynamic>> _rows = [];
   int? _total;
 
+  /// The newest-first first-page inbox window this store loaded itself, kept
+  /// whole so a page opened later paints it at once (Web's single inboxStore
+  /// feeds the badge and the list from the same `items`).
+  Map<String, dynamic>? _window;
+  int _windowSerial = 0;
+  static int _serials = 0;
+
+  /// Request shape of [windowSince], in the same form as the Activity page's
+  /// list view key (path and filters, without the window).
+  static final defaultInboxView = jsonEncode([
+    '/channels/inbox',
+    {'sort': 'desc', 'filter': 'all'},
+  ]);
+
+  /// Process-wide monotonic id of the newest window this store accepted; 0
+  /// before any. Pages record the id they last synchronised with.
+  int get windowSerial => _windowSerial;
+
+  /// A copy of the first-page window accepted after [serial], or null when the
+  /// page already presented it (or newer) or no window is accepted.
+  Map<String, dynamic>? windowSince(int serial) {
+    final window = _window;
+    if (!hasAcceptedWindow || window == null || _windowSerial <= serial) {
+      return null;
+    }
+    return WorkspaceController.copyDecoded(window) as Map<String, dynamic>;
+  }
+
   String? _currentScope() {
     final client = workspace.client;
     final server = workspace.server;
@@ -108,6 +136,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _scope = next;
     _total = null;
     _rows = [];
+    _window = null;
     _denied = false;
     _boot?.cancel();
     _debounce?.cancel();
@@ -211,7 +240,12 @@ class SourceActivityUnreadStore extends ChangeNotifier {
 
   /// Accept the actual Activity DTO, including its server-wide total when the
   /// page is filtered. This also supersedes an older background count response.
-  void acceptWindow(Map window, {required String? scope, int? authorityEpoch}) {
+  void acceptWindow(
+    Map window, {
+    required String? scope,
+    int? authorityEpoch,
+    bool firstPage = false,
+  }) {
     _bind();
     if (_disposed ||
         _denied ||
@@ -234,6 +268,10 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _revision++;
     _rows = rows;
     _total = count;
+    if (firstPage) {
+      _window = WorkspaceController.copyDecoded(window) as Map<String, dynamic>;
+      _windowSerial = ++_serials;
+    }
     _projectFullyReadRows();
     notifyListeners();
   }
@@ -293,6 +331,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     _denied = true;
     _total = null;
     _rows = [];
+    _window = null;
     _boot?.cancel();
     _debounce?.cancel();
     _inFlight = null;
@@ -335,7 +374,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
           value is! Map) {
         return;
       }
-      acceptWindow(value, scope: authority);
+      acceptWindow(value, scope: authority, firstPage: true);
     } catch (error) {
       if (!_disposed &&
           authority == scope &&
@@ -372,6 +411,7 @@ class SourceActivityUnreadStore extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _rows = [];
+    _window = null;
     _total = null;
     _boot?.cancel();
     _debounce?.cancel();
