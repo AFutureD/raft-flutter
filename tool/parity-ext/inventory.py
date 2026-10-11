@@ -143,7 +143,7 @@ SECTIONS = [
           d=['components.shell.desktop.dialog.*-section'], p=['components.list-pages.dialogs.phone-*-section'], prio=3),
         R('2.11', 'Section emoji picker', 'components/layout/SidebarSectionEmojiPicker.tsx', 'DP',
           d=['components.list-pages.dialogs.desktop-emoji-picker'], p=['components.list-pages.dialogs.phone-emoji-picker'], prio=3,
-          note='Flutter page missing: the section dialog emoji button is inert (no picker).'),
+          note='The section dialog emoji button opens RaftEmojiPicker (emoji-picker-react data via tool/gen-emoji-data); recently used emoji are kept for the session only.'),
         R('2.12', 'Archive channel confirm (from the sidebar menu)', 'components/layout/Sidebar.tsx', 'DP', d=['components.shell.desktop.dialog.archive-channel'],
           p=['components.list-pages.dialogs.phone-archive-channel'], prio=3),
         R('2.13', 'Conversation finder ("Find a conversation..." box and results)', 'components/layout/SidebarConversationFinder.tsx', 'DP', prio=2),
