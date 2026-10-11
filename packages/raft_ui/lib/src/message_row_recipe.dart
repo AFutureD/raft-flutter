@@ -449,29 +449,34 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
     portalMounted = true;
     // Keep the wrapper stable when attention changes: inserting/removing it
     // would remount rich message state. Hidden portals mount no overlay child.
-    return OverlayPortal.overlayChildLayoutBuilder(
-      controller: portal,
-      overlayChildBuilder: (context, info) => toolbarActive
-          ? overlay(context, info, recipe)
-          : const SizedBox.shrink(),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          child,
-          // CSS opacity hides paint, not keyboard traversal. An idle row keeps
-          // only a focus stop where its actions sit in traversal order; the
-          // strip itself is built in the portal once hover or focus reveals
-          // it, so mounting a row never builds hidden controls.
-          ExcludeSemantics(
-            child: Offstage(
-              child: Focus(
-                focusNode: toolbarProxy,
-                skipTraversal: toolbarActive,
-                child: const SizedBox.shrink(),
+    // A distinct semantics boundary preserves this portal's traversal anchor
+    // alongside tooltips when a lazy row is retained or recycled.
+    return Semantics(
+      container: true,
+      child: OverlayPortal.overlayChildLayoutBuilder(
+        controller: portal,
+        overlayChildBuilder: (context, info) => toolbarActive
+            ? overlay(context, info, recipe)
+            : const SizedBox.shrink(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            child,
+            // CSS opacity hides paint, not keyboard traversal. An idle row keeps
+            // only a focus stop where its actions sit in traversal order; the
+            // strip itself is built in the portal once hover or focus reveals
+            // it, so mounting a row never builds hidden controls.
+            ExcludeSemantics(
+              child: Offstage(
+                child: Focus(
+                  focusNode: toolbarProxy,
+                  skipTraversal: toolbarActive,
+                  child: const SizedBox.shrink(),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

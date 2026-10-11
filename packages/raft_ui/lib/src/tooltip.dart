@@ -554,67 +554,73 @@ class _RaftTooltipState extends State<RaftTooltip>
   }
 
   @override
-  Widget build(BuildContext context) => OverlayPortal(
-    controller: portal,
-    overlayChildBuilder: (overlayContext) {
-      final rect = _anchorRect();
-      final root = Overlay.of(context).context.findRenderObject();
-      if (rect == null || root is! RenderBox || !root.hasSize) {
-        return const SizedBox.shrink();
-      }
-      final recipe = RaftTooltipRecipe(RaftTokens.of(context));
-      final localRect = rect.shift(-root.localToGlobal(Offset.zero));
-      final placement = _TooltipPlacement(recipe, localRect);
-      return Positioned.fill(
-        child: IgnorePointer(
-          child: ExcludeSemantics(
-            child: AnimatedBuilder(
-              animation: motion,
-              builder: (context, child) {
-                final value = recipe.curve.transform(motion.value);
-                return CustomMultiChildLayout(
-                  delegate: placement,
-                  children: [
-                    LayoutId(
-                      id: 0,
-                      child: Opacity(
-                        opacity: value,
-                        child: Transform.scale(
-                          scale: closing
-                              ? .99 + .01 * value
-                              : .97 + .03 * value,
-                          child: _TooltipSurface(recipe, widget.message),
-                        ),
-                      ),
-                    ),
-                    if (recipe.hasArrow)
+  // Keep each portal's traversal anchor distinct when a list merges child
+  // semantics. Flutter 3.47 can otherwise serialize an orphan overlay node,
+  // freezing the native accessibility bridge after scrolling or dismissal.
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    child: OverlayPortal(
+      controller: portal,
+      overlayChildBuilder: (overlayContext) {
+        final rect = _anchorRect();
+        final root = Overlay.of(context).context.findRenderObject();
+        if (rect == null || root is! RenderBox || !root.hasSize) {
+          return const SizedBox.shrink();
+        }
+        final recipe = RaftTooltipRecipe(RaftTokens.of(context));
+        final localRect = rect.shift(-root.localToGlobal(Offset.zero));
+        final placement = _TooltipPlacement(recipe, localRect);
+        return Positioned.fill(
+          child: IgnorePointer(
+            child: ExcludeSemantics(
+              child: AnimatedBuilder(
+                animation: motion,
+                builder: (context, child) {
+                  final value = recipe.curve.transform(motion.value);
+                  return CustomMultiChildLayout(
+                    delegate: placement,
+                    children: [
                       LayoutId(
-                        id: 1,
+                        id: 0,
                         child: Opacity(
                           opacity: value,
-                          child: CustomPaint(
-                            size: const Size(12, 6),
-                            painter: _TooltipArrow(recipe, placement),
+                          child: Transform.scale(
+                            scale: closing
+                                ? .99 + .01 * value
+                                : .97 + .03 * value,
+                            child: _TooltipSurface(recipe, widget.message),
                           ),
                         ),
                       ),
-                  ],
-                );
-              },
+                      if (recipe.hasArrow)
+                        LayoutId(
+                          id: 1,
+                          child: Opacity(
+                            opacity: value,
+                            child: CustomPaint(
+                              size: const Size(12, 6),
+                              painter: _TooltipArrow(recipe, placement),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-        ),
-      );
-    },
-    child: Semantics(
-      tooltip: widget.excludeDescription || !allowed ? null : widget.message,
-      child: MouseRegion(
-        onEnter: _enter,
-        onExit: _exit,
-        onHover: _hover,
-        child: Listener(
-          onPointerDown: (_) => _dismiss(),
-          child: SizedBox(key: anchor, child: widget.child),
+        );
+      },
+      child: Semantics(
+        tooltip: widget.excludeDescription || !allowed ? null : widget.message,
+        child: MouseRegion(
+          onEnter: _enter,
+          onExit: _exit,
+          onHover: _hover,
+          child: Listener(
+            onPointerDown: (_) => _dismiss(),
+            child: SizedBox(key: anchor, child: widget.child),
+          ),
         ),
       ),
     ),

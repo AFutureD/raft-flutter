@@ -11,6 +11,8 @@ import 'message_presentation_test.dart' show fixture;
 /// Counts the semantics nodes each frame sends to the engine.
 class _CountingBinding extends AutomatedTestWidgetsFlutterBinding {
   int updated = 0;
+  final edges = <int, List<int>>{};
+  final orphans = <int>[];
   @override
   ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>
       _CountingBuilder(this);
@@ -20,9 +22,28 @@ class _CountingBuilder implements ui.SemanticsUpdateBuilder {
   _CountingBuilder(this.binding);
   final _CountingBinding binding;
   final inner = ui.SemanticsUpdateBuilder();
+  final updatedIds = <int>[];
   @override
   dynamic noSuchMethod(Invocation invocation) {
-    if (invocation.memberName == #updateNode) binding.updated++;
+    if (invocation.memberName == #updateNode) {
+      binding.updated++;
+      final id = invocation.namedArguments[#id] as int;
+      updatedIds.add(id);
+      binding.edges[id] = List<int>.from(
+        invocation.namedArguments[#childrenInTraversalOrder] as Iterable,
+      );
+    } else if (invocation.memberName == #build) {
+      final reachable = <int>{};
+      void visit(int id) {
+        if (!reachable.add(id)) return;
+        for (final child in binding.edges[id] ?? const <int>[]) {
+          visit(child);
+        }
+      }
+
+      visit(0);
+      binding.orphans.addAll(updatedIds.where((id) => !reachable.contains(id)));
+    }
     final member = switch (invocation.memberName) {
       #updateNode => inner.updateNode,
       #updateCustomAction => inner.updateCustomAction,
@@ -121,6 +142,97 @@ int rowNodeCount(Element row) {
 
 void main() {
   final binding = _CountingBinding();
+  testWidgets(
+    'tooltip portals remain reachable through list scrolling and dialog dismissal',
+    (t) async {
+      final semantics = t.ensureSemantics();
+      final scroll = ScrollController();
+      binding.edges.clear();
+      binding.orphans.clear();
+      Widget pair(int i) => Row(
+        children: [
+          RaftTooltip(
+            message: 'First $i',
+            child: TextButton(
+              key: Key('first-$i'),
+              onPressed: () {},
+              child: const Text('First'),
+            ),
+          ),
+          RaftTooltip(
+            message: 'Second $i',
+            child: TextButton(
+              key: Key('second-$i'),
+              onPressed: () {},
+              child: const Text('Second'),
+            ),
+          ),
+        ],
+      );
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Column(
+                children: [
+                  TextButton(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => Dialog(
+                        child: SizedBox(
+                          width: 300,
+                          height: 150,
+                          child: pair(99),
+                        ),
+                      ),
+                    ),
+                    child: const Text('Open dialog'),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scroll,
+                      itemCount: 30,
+                      itemBuilder: (_, i) =>
+                          SizedBox(height: 200, child: pair(i)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      final mouse = await t.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await mouse.addPointer(
+        location: t.getCenter(find.byKey(const Key('first-0'))),
+      );
+      await t.pump(const Duration(milliseconds: 800));
+      await mouse.moveTo(t.getCenter(find.byKey(const Key('second-0'))));
+      await t.pump(const Duration(milliseconds: 800));
+      scroll.jumpTo(1200);
+      await t.pumpAndSettle();
+      await mouse.moveTo(t.getCenter(find.text('Open dialog')));
+      await t.tap(find.text('Open dialog'));
+      await t.pumpAndSettle();
+      await mouse.moveTo(t.getCenter(find.byKey(const Key('first-99'))));
+      await t.pump(const Duration(milliseconds: 800));
+      await mouse.moveTo(t.getCenter(find.byKey(const Key('second-99'))));
+      await t.pump(const Duration(milliseconds: 800));
+      await t.tapAt(const Offset(5, 5));
+      await t.pumpAndSettle();
+      await mouse.removePointer();
+      expect(
+        binding.orphans,
+        isEmpty,
+        reason: 'Every serialized native semantics node must be reachable from root 0.',
+      );
+      await t.pumpWidget(const SizedBox());
+      semantics.dispose();
+      scroll.dispose();
+    },
+  );
   testWidgets('benchmark rows: compact nodes, minimal per-frame updates', (
     t,
   ) async {
