@@ -16,6 +16,7 @@ import 'agent_migration_view.dart';
 import 'agent_detail_view.dart';
 import 'agent_avatar_dialog.dart';
 import 'computer_detail_view.dart';
+import 'add_computer_dialog.dart';
 import 'management_support.dart'
     show pageIdentity, readPageSnapshot, writePageSnapshot;
 import '../data/resource_snapshot_cache.dart' show stableValue;
@@ -314,6 +315,86 @@ class _FleetViewState extends State<FleetView> {
     final loading = !w.entityDirectory.settled(kind);
     final error =
         actionError ?? (state.error == null ? null : '${state.error}');
+    if (widget.computers &&
+        MediaQuery.sizeOf(context).width <
+            RaftLayoutMetrics.desktopBreakpoint) {
+      final captured = scope;
+      return RaftMobileComputerList(
+        key: const PageStorageKey('fleet-computers'),
+        loading: loading,
+        error: error == null
+            ? null
+            : raftText(context, 'Directory could not be loaded.'),
+        emptyTitle: raftText(
+          context,
+          widget.attentionOnly
+              ? 'No computers need attention'
+              : 'No computers yet',
+        ),
+        emptyDetail: raftText(
+          context,
+          widget.attentionOnly
+              ? 'All computers are up to date and online.'
+              : 'Add a computer to run agents in this workspace.',
+        ),
+        addLabel: raftText(context, 'Add computer'),
+        retryLabel: raftText(context, 'Retry'),
+        onRetry: load,
+        onAdd: state.loaded && w.can('registerMachines')
+            ? () {
+                if (current(captured)) showAddComputerDialog(context, w);
+              }
+            : null,
+        rows: [
+          for (final row in rows)
+            RaftComputerRow(
+              key: ValueKey('fleet-${row['id']}'),
+              mobile: true,
+              name: '${row['name'] ?? ''}',
+              description: '${row['description'] ?? ''}',
+              runLabel: raftText(context, computerRunLabel(row).$1),
+              offline: computerRunLabel(row).$2,
+              availableVersion: computerAvailableVersion(
+                row,
+                w.entityDirectory.latestComputerVersion,
+              ),
+              diskLow: computerDiskLow(row) != null,
+              dot:
+                  computerAvailableVersion(
+                        row,
+                        w.entityDirectory.latestComputerVersion,
+                      ) !=
+                      null
+                  ? RaftComputerDot.upgrade
+                  : row['status'] == 'online'
+                  ? RaftComputerDot.online
+                  : RaftComputerDot.offline,
+              onTap: () {
+                if (!current(captured)) return;
+                if (widget.onOpenDetail != null) {
+                  widget.onOpenDetail!(Map.of(row));
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      // ds-allow: Standalone native route supplies the Material host and system insets; workspace routes already own them.
+                      builder: (_) => Scaffold(
+                        body: SafeArea(
+                          child: FleetDetail(
+                            controller: w,
+                            computers: true,
+                            initial: row,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+        ],
+      );
+    }
     return KeyedSubtree(
       key: PageStorageKey('fleet-${widget.computers ? 'computers' : 'agents'}'),
       child: fleetList(context, rows, loading, error),

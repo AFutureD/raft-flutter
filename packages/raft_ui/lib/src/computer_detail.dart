@@ -340,9 +340,13 @@ class RaftComputerDetailView extends StatefulWidget {
     super.key,
     required this.data,
     required this.actions,
+    this.header,
   });
   final RaftComputerDetailData data;
   final RaftComputerDetailActions actions;
+
+  /// Optional host header, used by mobile pages with their own Back action.
+  final Widget? header;
   @override
   State<RaftComputerDetailView> createState() => _RaftComputerDetailViewState();
 }
@@ -633,7 +637,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         key: const ValueKey('computer-detail-panel'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _header(context, t),
+          widget.header ?? _header(context, t),
           Expanded(
             child: ColoredBox(
               color: t.brutal ? Colors.white : t.colors['layer-panel']!,

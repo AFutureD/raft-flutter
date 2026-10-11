@@ -1110,6 +1110,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     key: ValueKey('fleet-${w.server!.id}:$route'),
                     controller: w,
                     computers: route == 'computers',
+                    attentionOnly:
+                        route == 'computers' &&
+                        location.query('filter') == 'attention',
                     onOpenDetail: (row) => openDirectoryLocation(
                       route == 'computers'
                           ? RaftRoute.computer
@@ -1319,6 +1322,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 child: Column(
                   children: [
                     if (!wide &&
+                        location.route != RaftRoute.computer &&
                         (thread ||
                             ![
                               'home',
@@ -2104,10 +2108,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 ? w.entityDirectory.computer(target.id)
                 : w.entityDirectory.agent(target.id)) ??
             {'id': target.id},
-        onClose: closeDesktopDetail,
-        onOpenAgent: (id) => desktopNavigation.selectTarget(
-          DesktopContentTarget(DesktopContentKind.agent, id),
-        ),
+        onClose: !wide && target.kind == DesktopContentKind.computer
+            ? dismissPanel
+            : closeDesktopDetail,
+        onOpenAgent: (id) => wide
+            ? desktopNavigation.selectTarget(
+                DesktopContentTarget(DesktopContentKind.agent, id),
+              )
+            : openDirectoryLocation(RaftRoute.agent, id),
       );
     }
     final thread = target.kind == DesktopContentKind.thread;

@@ -8,6 +8,7 @@ import 'agent_profile.dart' show raftGray400;
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'dialog_card.dart';
 import 'icons.dart';
+import 'localization.dart';
 import 'indicators.dart' show RaftSkeletonRow;
 import 'panel_layout.dart' show raftRecipeTheme, raftPanelInk, RaftCssText;
 import 'recipe_surface.dart' show raftCssText, RaftRecipeBox;
@@ -315,6 +316,7 @@ class RaftComputerRow extends StatelessWidget {
     this.selected = false,
     this.onTap,
     this.dotTooltip,
+    this.mobile = false,
   });
   final String name, runLabel;
   final String? description, availableVersion, dotTooltip;
@@ -323,6 +325,9 @@ class RaftComputerRow extends StatelessWidget {
   /// Row dot: upgrade (pink), online (lime), offline (gray).
   final RaftComputerDot dot;
   final VoidCallback? onTap;
+
+  /// MobileComputersPanel card variant; desktop sidebar geometry is retained.
+  final bool mobile;
 
   @override
   Widget build(BuildContext context) => RaftInteractive(
@@ -337,8 +342,8 @@ class RaftComputerRow extends StatelessWidget {
       // brutal `border-black bg-brutal-pink shadow-brutal-sm`; hover the same
       // frame on `bg-white` (brutal). Elegant `data-active` = `bg-layer-panel
       // shadow-raft-sm ring-1 ring-line-muted/45`.
-      final Color? fill;
-      final Color border;
+      Color? fill;
+      Color border;
       List<BoxShadow>? shadow;
       if (brutal) {
         fill = selected
@@ -370,18 +375,31 @@ class RaftComputerRow extends StatelessWidget {
           ];
         }
       }
+      if (mobile) {
+        fill = t.panel;
+        border = brutal ? Colors.black : t.colors['line-muted']!;
+        shadow = brutal
+            ? RaftShadowSet.brutalSm
+            : (hover ? t.themeShadows.md : t.themeShadows.sm).paintOrder;
+      }
       final ink = brutal ? Colors.black : t.colors['foreground-strong']!;
-      final muted = raftPanelInk(t, .5, t.colors['foreground-muted']!);
+      final muted = mobile
+          ? t.colors['foreground-hint']!
+          : raftPanelInk(t, .5, t.colors['foreground-muted']!);
       // Text inherits the item's line box: brutal `text-sm` (20/14),
       // elegant `text-[13px]` (19.5/13 = 1.5).
-      final metaLine = brutal ? 11 * 20 / 14 : 11 * 1.5;
+      final metaLine = mobile
+          ? 16.5
+          : brutal
+          ? 11 * 20 / 14
+          : 11 * 1.5;
       final meta = raftCssText.merge(
         RaftTypography.mono(
           t,
           size: 11,
           line: metaLine,
           color: muted,
-        ).copyWith(fontWeight: FontWeight.w500),
+        ).copyWith(fontWeight: mobile ? FontWeight.w400 : FontWeight.w500),
       );
       final orange = meta.copyWith(
         color: t.product.brutalOrange,
@@ -398,9 +416,43 @@ class RaftComputerRow extends StatelessWidget {
       final paint = fill == null || fill.a == 1
           ? fill
           : Color.alphaBlend(fill, t.sidebar);
+      final runText = RaftCssText(
+        runLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: offline
+            ? meta.copyWith(
+                fontStyle: FontStyle.italic,
+                color: mobile
+                    ? muted
+                    : brutal
+                    ? Colors.black.withValues(alpha: .3)
+                    : t.colors['foreground-placeholder'],
+              )
+            : meta,
+      );
+      final chips = <Widget>[
+        if (availableVersion != null)
+          RaftCssText('→ v$availableVersion', style: orange),
+        if (diskLow)
+          RaftCssText(
+            mobile ? raftText(context, 'Low disk') : 'Low disk',
+            style: orange,
+          ),
+      ];
       return Container(
+        constraints: mobile ? const BoxConstraints(minHeight: 68) : null,
+        transform: mobile && (state.pressed || hover)
+            ? Matrix4.translationValues(
+                state.pressed ? 1 : 0,
+                state.pressed ? 1 : -1,
+                0,
+              )
+            : null,
         // The list owns `mb-1.5` and elegant's 6px bleed.
-        padding: EdgeInsets.symmetric(horizontal: 10, vertical: brutal ? 4 : 6),
+        padding: mobile
+            ? const EdgeInsets.all(12)
+            : EdgeInsets.symmetric(horizontal: 10, vertical: brutal ? 4 : 6),
         decoration: BoxDecoration(
           color: paint,
           borderRadius: brutal ? null : BorderRadius.circular(6),
@@ -410,25 +462,46 @@ class RaftComputerRow extends StatelessWidget {
         child: Row(
           children: [
             SizedBox.square(
-              dimension: 36,
+              dimension: mobile ? 40 : 36,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
-                    child: RaftRecipeCard(
-                      child: Center(
-                        child: RaftIcon(
-                          RaftGlyph.monitor,
-                          size: 18,
-                          color: ink,
-                        ),
-                      ),
-                    ),
+                    child: mobile
+                        ? Container(
+                            decoration: BoxDecoration(
+                              color: brutal
+                                  ? Colors.white
+                                  : t.colors['layer-inset'],
+                              border: Border.all(
+                                color: brutal
+                                    ? Colors.black
+                                    : t.colors['line-muted']!,
+                                width: brutal ? 2 : 1,
+                              ),
+                            ),
+                            child: Center(
+                              child: RaftIcon(
+                                RaftGlyph.monitor,
+                                size: 20,
+                                color: ink,
+                              ),
+                            ),
+                          )
+                        : RaftRecipeCard(
+                            child: Center(
+                              child: RaftIcon(
+                                RaftGlyph.monitor,
+                                size: 18,
+                                color: ink,
+                              ),
+                            ),
+                          ),
                   ),
                   // `absolute -right-1 -top-1` against the card's padding box.
                   Positioned(
-                    right: cardBorder - 4,
-                    top: cardBorder - 4,
+                    right: (mobile ? (brutal ? 2 : 1) : cardBorder) - 4,
+                    top: (mobile ? (brutal ? 2 : 1) : cardBorder) - 4,
                     child: Container(
                       width: 10,
                       height: 10,
@@ -450,7 +523,7 @@ class RaftComputerRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: mobile ? 12 : 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +546,7 @@ class RaftComputerRow extends StatelessWidget {
                   if (description != null && description!.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     SizedBox(
-                      height: 13.75,
+                      height: mobile ? null : 13.75,
                       child: RaftCssText(
                         description!,
                         maxLines: 1,
@@ -481,14 +554,16 @@ class RaftComputerRow extends StatelessWidget {
                         style: raftCssText.merge(
                           RaftTypography.body(
                             t,
-                            size: 11,
-                            line: 13.75,
-                            weight: FontWeight.w500,
-                            color: raftPanelInk(
-                              t,
-                              .6,
-                              t.colors['foreground-muted']!,
-                            ),
+                            size: mobile ? 12 : 11,
+                            line: mobile ? 15 : 13.75,
+                            weight: mobile ? FontWeight.w400 : FontWeight.w500,
+                            color: mobile
+                                ? t.colors['foreground-muted']
+                                : raftPanelInk(
+                                    t,
+                                    .6,
+                                    t.colors['foreground-muted']!,
+                                  ),
                           ),
                         ),
                       ),
@@ -498,34 +573,22 @@ class RaftComputerRow extends StatelessWidget {
                   // The CSS line box is fractional (15.71 / 16.5); a
                   // paragraph would round it up and push the row's text.
                   SizedBox(
-                    height: metaLine,
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: RaftCssText(
-                            runLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: offline
-                                ? meta.copyWith(
-                                    fontStyle: FontStyle.italic,
-                                    color: brutal
-                                        ? Colors.black.withValues(alpha: .3)
-                                        : t.colors['foreground-placeholder'],
-                                  )
-                                : meta,
+                    height: mobile ? null : metaLine,
+                    child: mobile
+                        ? Wrap(
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: [runText, ...chips],
+                          )
+                        : Row(
+                            children: [
+                              Flexible(child: runText),
+                              for (final chip in chips) ...[
+                                const SizedBox(width: 6),
+                                chip,
+                              ],
+                            ],
                           ),
-                        ),
-                        if (availableVersion != null) ...[
-                          const SizedBox(width: 6),
-                          RaftCssText('→ v$availableVersion', style: orange),
-                        ],
-                        if (diskLow) ...[
-                          const SizedBox(width: 6),
-                          RaftCssText('Low disk', style: orange),
-                        ],
-                      ],
-                    ),
                   ),
                 ],
               ),
