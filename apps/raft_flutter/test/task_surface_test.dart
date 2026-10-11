@@ -422,7 +422,7 @@ void main() {
               },
             };
           };
-          await t.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+          await t.tap(find.byTooltip('Send'));
           await flush(t);
           expect(
             api.calls.where(

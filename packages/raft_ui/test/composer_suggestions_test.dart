@@ -81,13 +81,13 @@ void main() {
           '@same ',
         );
         expect(sends, isEmpty); // Enter accepts completion rather than sending.
-        await tester.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+        await tester.tap(find.byTooltip('Send'));
         await tester.pump();
         expect(sends.single, [
           {'type': 'agent', 'id': 'agent-id', 'name': 'same'},
         ]);
         success = true;
-        await tester.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+        await tester.tap(find.byTooltip('Send'));
         await tester.pump();
         expect(sends.last, sends.first);
         expect(
@@ -209,7 +209,7 @@ void main() {
       );
       await tester.pump();
       await tester.enterText(find.byType(TextField), '`@same`');
-      await tester.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+      await tester.tap(find.byTooltip('Send'));
       await tester.pump();
       expect(sent, '`@same`');
       expect(payload, isEmpty);

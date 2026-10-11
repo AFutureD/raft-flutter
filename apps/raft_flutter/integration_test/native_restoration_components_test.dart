@@ -266,7 +266,7 @@ void main() {
         find.byType(RaftComposer),
         'Real CJK TextField input; Send enabled',
       );
-      await t.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+      await t.tap(find.byTooltip('Send'));
       await t.pump(const Duration(milliseconds: 240));
       expect(sent, ['原生输入 日本語']);
       expect(

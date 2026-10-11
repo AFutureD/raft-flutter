@@ -61,7 +61,7 @@ void main() {
         );
         final image = tester.getRect(action('Attach media'));
         final file = tester.getRect(action('Attach file'));
-        final send = tester.getRect(action('Send message (Ctrl+Enter)'));
+        final send = tester.getRect(action('Send'));
         final size = family == RaftFamily.brutal ? 26.0 : 28.0;
         expect(image.size, Size.square(size));
         expect(file.size, Size.square(size));
@@ -181,7 +181,7 @@ void main() {
             dark,
           ),
         );
-        await tester.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+        await tester.tap(find.byTooltip('Send'));
         await tester.pump();
         expect(sends, 1);
         expect(
@@ -215,14 +215,14 @@ void main() {
         );
         final send = tester.widget<RaftComposerAction>(
           find.ancestor(
-            of: find.byTooltip('Send message (Ctrl+Enter)'),
+            of: find.byTooltip('Send'),
             matching: find.byType(RaftComposerAction),
           ),
         );
         expect(send.onPressed, isNull);
         await tester.enterText(find.byType(TextField), 'First draft 日本語');
         await tester.pump();
-        await tester.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+        await tester.tap(find.byTooltip('Send'));
         await tester.pump();
         expect(sends, 1);
         expect(

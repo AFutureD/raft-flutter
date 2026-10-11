@@ -67,7 +67,7 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is RaftComposerAction &&
-              widget.tooltip == 'Send message (Ctrl+Enter)',
+              widget.tooltip == 'Send',
         ),
       );
       await tester.runAsync(() async {
@@ -122,7 +122,7 @@ void main() {
         find.byWidgetPredicate(
           (w) =>
               w is RaftComposerAction &&
-              w.tooltip == 'Send message (Ctrl+Enter)',
+              w.tooltip == 'Send',
         ),
       );
       await tester.runAsync(() async {

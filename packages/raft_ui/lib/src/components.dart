@@ -2140,6 +2140,58 @@ class _RaftComposerState extends State<RaftComposer> {
     return KeyEventResult.ignored;
   }
 
+  /// Web `MessageInput.handleKeyDown`: a suggestion popover owns Enter/Tab,
+  /// then on a desktop keyboard Enter sends and Shift+Enter inserts a newline.
+  /// Mobile keeps the platform IME's newline (the Send button submits), like
+  /// Web's `(pointer: coarse)` branch. Cmd/Ctrl(+Shift)+Enter stay on the
+  /// [Shortcuts] below. Flutter's default text shortcuts consume a bare Enter
+  /// (`DoNothingAndStopPropagationTextIntent`) and leave the newline to the
+  /// platform text-input client, so on macOS (`insertNewline:`) the key
+  /// otherwise neither sent nor reliably inserted anything.
+  KeyEventResult composerKey(FocusNode node, KeyEvent event) {
+    final suggested = suggestionKey(node, event);
+    if (suggested == KeyEventResult.handled) return suggested;
+    final key = event.logicalKey;
+    if (event is KeyUpEvent ||
+        composing ||
+        (key != LogicalKeyboardKey.enter &&
+            key != LogicalKeyboardKey.numpadEnter)) {
+      return KeyEventResult.ignored;
+    }
+    switch (Theme.of(context).platform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+        return KeyEventResult.ignored;
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+      case TargetPlatform.fuchsia:
+        break;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed || keyboard.isMetaPressed) {
+      return KeyEventResult.ignored;
+    }
+    if (keyboard.isShiftPressed) {
+      insertNewline();
+    } else if (event is KeyDownEvent) {
+      send();
+    }
+    return KeyEventResult.handled;
+  }
+
+  void insertNewline() {
+    if (!widget.enabled) return;
+    final value = controller.value;
+    final selection = value.selection.isValid
+        ? value.selection
+        : TextSelection.collapsed(offset: value.text.length);
+    controller.value = TextEditingValue(
+      text: value.text.replaceRange(selection.start, selection.end, '\n'),
+      selection: TextSelection.collapsed(offset: selection.start + 1),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -2546,7 +2598,7 @@ class _RaftComposerState extends State<RaftComposer> {
                             child: Padding(
                               padding: recipe.editorInset,
                               child: Focus(
-                                onKeyEvent: suggestionKey,
+                                onKeyEvent: composerKey,
                                 child: Shortcuts(
                                   shortcuts: const {
                                     SingleActivator(
@@ -2723,7 +2775,7 @@ class _RaftComposerState extends State<RaftComposer> {
                                           glyph: RaftGlyph.send,
                                           tooltip:
                                               widget.submitTooltip ??
-                                              'Send message (Ctrl+Enter)',
+                                              'Send',
                                           submit: true,
                                           busy: busy,
                                           spinner: widget.submitSpinner,
