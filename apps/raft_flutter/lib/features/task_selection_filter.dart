@@ -75,7 +75,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
         ? 28.0
         : RaftMetrics.buttonMd;
     final width = math.min(
-      widget.combobox ? 220.0 : 248.0,
+      220.0,
       MediaQuery.sizeOf(context).width - 24,
     );
     final entries = widget.options.entries
@@ -135,36 +135,23 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
             kind: RaftMenuKind.selectionPopover,
             onDismiss: menu.close,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        raftText(context, widget.field),
-                        style: RaftTypography.mono(t, size: 11, line: 16),
-                      ),
-                    ),
-                    if (widget.selection.isNotEmpty)
-                      RaftTextButton(
-                        label: 'Clear',
-                        visualHeight: 24,
-                        onPressed: () {
-                          if (acceptsInteraction) widget.onClear();
-                        },
-                      ),
-                  ],
-                ),
+              RaftSelectionPopoverHeader(
+                title: raftText(context, widget.field),
+                onClear: widget.selection.isEmpty
+                    ? null
+                    : () {
+                        if (acceptsInteraction) widget.onClear();
+                      },
               ),
-              Padding(
-                padding: const EdgeInsets.all(8),
+              RaftSelectionPopoverSearchSlot(
                 child: TextField(
                   autofillHints: null,
                   controller: search,
                   autofocus: true,
                   style: RaftTypography.mono(t, size: 12, line: 16),
                   decoration: InputDecoration(
-                    hintText: raftText(context, 'Search'),
+                    isDense: true,
+                    hintText: raftText(context, 'Search…'),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
@@ -197,7 +184,7 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                             style: RaftTypography.mono(t),
                           ),
                         ),
-                      for (final option in entries)
+                      for (final (index, option) in entries.indexed)
                         RaftMenuItem(
                           key: ValueKey(
                             'task-filter-${widget.field}-${option.key}',
@@ -205,13 +192,23 @@ class _TaskSelectionFilterState extends State<TaskSelectionFilter> {
                           label: option.value,
                           selected: widget.selection.contains(option.key),
                           kind: RaftMenuKind.selectionPopover,
-                          glyph:
-                              widget.field == 'Channel' ||
-                                  option.key == 'unassigned'
+                          divider: index != entries.length - 1,
+                          italic:
+                              option.key == 'unassigned' ||
+                              (option.key.startsWith('user:') &&
+                                  option.value.endsWith(' me')),
+                          // Channel rows stay label-only; identity rows carry a
+                          // 20px avatar slot (the sentinel rows reserve it).
+                          leading: widget.field == 'Channel'
                               ? null
-                              : option.key.startsWith('user:')
-                              ? RaftGlyph.user
-                              : RaftGlyph.bot,
+                              : RaftSelectionPopoverAvatarSlot(
+                                  name:
+                                      option.key == 'unassigned' ||
+                                          option.value.endsWith(' me')
+                                      ? null
+                                      : option.value,
+                                  agent: option.key.startsWith('agent:'),
+                                ),
                           onPressed: () {
                             if (acceptsInteraction) {
                               widget.onToggle(option.key);

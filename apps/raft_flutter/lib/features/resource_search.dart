@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/recipes.dart' as rui;
 
+import 'quick_switcher.dart' show QuickSwitcherFailure;
 import 'sender_avatar_projection.dart';
 import 'resource_cards.dart';
 import 'search_ranking.dart';
@@ -285,6 +286,10 @@ class ResourceSearchResults extends StatelessWidget {
     required this.onEntity,
     required this.hasMore,
     required this.onMore,
+    this.loading = false,
+    this.failure,
+    this.onRetry,
+    this.onSortRecent,
     this.agents = const [],
     this.members = const [],
     this.currentUser,
@@ -300,6 +305,45 @@ class ResourceSearchResults extends StatelessWidget {
   final void Function(SearchEntity) onEntity;
   final bool hasMore;
   final VoidCallback onMore;
+
+  /// The first read is in flight: "Searching…" summary and a messages skeleton.
+  final bool loading;
+
+  /// The read failed and no result is on screen: the failure card replaces the
+  /// empty state. [onSortRecent] is the "too broad" escape (null once sorted
+  /// by recent).
+  final QuickSwitcherFailure? failure;
+  final VoidCallback? onRetry, onSortRecent;
+
+  Widget _failureCard(BuildContext context) {
+    final kind = failure!;
+    final (title, body) = switch (kind) {
+      QuickSwitcherFailure.queryTooBroad => (
+        'Search is too broad',
+        'Add a channel, sender, or time filter, or switch the sort to Recent.',
+      ),
+      QuickSwitcherFailure.searchTimeout => (
+        'Search timed out',
+        'Add a channel, sender, or time filter, switch the sort to Recent, or retry.',
+      ),
+      QuickSwitcherFailure.requestFailed => (
+        'Search failed',
+        'The last search request failed. Existing results are preserved when possible, but this query needs a retry.',
+      ),
+    };
+    final broad = kind == QuickSwitcherFailure.queryTooBroad;
+    final action = !broad
+        ? ('Retry', onRetry)
+        : onSortRecent != null
+        ? ('Sort by newest', onSortRecent)
+        : (null, null);
+    return RaftQuickSwitcherErrorCard(
+      title: raftText(context, title),
+      body: raftText(context, body),
+      actionLabel: action.$1 == null ? null : raftText(context, action.$1!),
+      onAction: action.$2,
+    );
+  }
 
   Widget _senderAvatar(Map<String, dynamic> row, String sender) =>
       searchHitSenderAvatar(
@@ -537,7 +581,9 @@ class ResourceSearchResults extends StatelessWidget {
                       EdgeInsets.only(bottom: slots.summary.margin.bottom),
                     ),
                     child: slotText(
-                      '${entities.length + rows.length} ${raftText(context, 'results')}',
+                      loading
+                          ? raftText(context, 'Searching…')
+                          : '${entities.length + rows.length} ${raftText(context, 'results')}',
                       slots.summary,
                     ),
                   ),
@@ -615,6 +661,14 @@ class ResourceSearchResults extends StatelessWidget {
                     ),
                 ]),
               ],
+              // `showInitialSkeleton` needs no entity match; with one the
+              // heading shows alone until the messages arrive.
+              if (loading && failure == null && rows.isEmpty)
+                section('Messages', [
+                  if (entities.isEmpty) (_) => const RaftQuickSwitcherSkeleton(),
+                ])
+              else if (failure != null && rows.isEmpty)
+                SliverToBoxAdapter(child: _failureCard(context)),
               if (rows.isNotEmpty)
                 section('Messages', [
                   for (var i = 0; i < messageGroups.length; i++) ...[
@@ -640,7 +694,10 @@ class ResourceSearchResults extends StatelessWidget {
                     for (final row in messageGroups[i]) (_) => message(row),
                   ],
                 ], gaps: false),
-              if (rows.isEmpty && entities.isEmpty)
+              if (rows.isEmpty &&
+                  entities.isEmpty &&
+                  !loading &&
+                  failure == null)
                 SliverToBoxAdapter(
                   child: RaftEmptyState(
                     title: query.isEmpty
@@ -654,7 +711,7 @@ class ResourceSearchResults extends StatelessWidget {
                 ),
               if (hasMore)
                 SliverToBoxAdapter(
-                  child: RaftTextButton(label: 'Load more', onPressed: onMore),
+                  child: RaftSearchLoadMore(onPressed: onMore),
                 ),
             ],
           ),

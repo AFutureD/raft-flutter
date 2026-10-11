@@ -1,9 +1,9 @@
 // List and section primitives from the Web client's components/ui:
 // SurfaceListItem (raft-ui Card + product overrides), AvatarListRow,
 // SectionEyebrow and SectionHeader. Class lists are cited per widget.
-import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'design_primitives.dart';
 import 'form_controls.dart';
@@ -360,6 +360,7 @@ class RaftSectionHeader extends StatelessWidget {
     this.icon,
     this.count,
     this.action,
+    this.wrap = false,
   });
 
   final String label;
@@ -367,49 +368,59 @@ class RaftSectionHeader extends StatelessWidget {
   final int? count;
   final Widget? action;
 
+  /// Callsite `flex-wrap gap-y-2`: the action drops under the label when the
+  /// two do not fit on one line.
+  final bool wrap;
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return Row(
+    final left = Row(
+      mainAxisSize: wrap ? MainAxisSize.min : MainAxisSize.max,
       children: [
-        Expanded(
-          child: Row(
-            children: [
-              if (icon != null) ...[
-                IconTheme.merge(
-                  data: IconThemeData(
-                    color: t.brutal
-                        ? RaftPrimitiveColors.black.withValues(alpha: .6)
-                        : t.semantic.foregroundMuted,
-                  ),
-                  child: icon!,
-                ),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: RaftSectionEyebrow(
-                  label,
-                  trailing: count == null || count! < 0
-                      ? null
-                      : [
-                          const WidgetSpan(child: SizedBox(width: 8)),
-                          TextSpan(
-                            text: '$count',
-                            style: TextStyle(
-                              fontFamily: t.monoFont,
-                              color: t.brutal
-                                  ? RaftPrimitiveColors.black.withValues(
-                                      alpha: .4,
-                                    )
-                                  : t.semantic.foregroundPlaceholder,
-                            ),
-                          ),
-                        ],
-                ),
-              ),
-            ],
+        if (icon != null) ...[
+          IconTheme.merge(
+            data: IconThemeData(
+              color: t.brutal
+                  ? RaftPrimitiveColors.black.withValues(alpha: .6)
+                  : t.semantic.foregroundMuted,
+            ),
+            child: icon!,
+          ),
+          const SizedBox(width: 8),
+        ],
+        Flexible(
+          child: RaftSectionEyebrow(
+            label,
+            trailing: count == null || count! < 0
+                ? null
+                : [
+                    const WidgetSpan(child: SizedBox(width: 8)),
+                    TextSpan(
+                      text: '$count',
+                      style: TextStyle(
+                        fontFamily: t.monoFont,
+                        color: t.brutal
+                            ? RaftPrimitiveColors.black.withValues(alpha: .4)
+                            : t.semantic.foregroundPlaceholder,
+                      ),
+                    ),
+                  ],
           ),
         ),
+      ],
+    );
+    if (wrap) {
+      return RaftAutoMarginWrap(
+        children: [
+          left,
+          if (action != null) RaftInlineBox(child: action!),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: left),
         if (action != null) ...[
           const SizedBox(width: 8),
           RaftInlineBox(child: action!),
@@ -938,4 +949,127 @@ class _SelectionRowState extends State<_SelectionRow> {
       ),
     );
   }
+}
+
+/// CSS `flex flex-wrap gap-x-[spacing] gap-y-[runSpacing] items-center` whose
+/// FIRST child carries `mr-auto`: the lead takes the left of the first line,
+/// the remaining children sit at its right edge, and children that do not fit
+/// wrap onto following lines, left-aligned.
+class RaftAutoMarginWrap extends MultiChildRenderObjectWidget {
+  const RaftAutoMarginWrap({
+    super.key,
+    super.children,
+    this.spacing = 8,
+    this.runSpacing = 8,
+  });
+  final double spacing, runSpacing;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderAutoMarginWrap(spacing, runSpacing);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderAutoMarginWrap renderObject,
+  ) {
+    renderObject
+      ..spacing = spacing
+      ..runSpacing = runSpacing;
+  }
+}
+
+class _AutoMarginParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderAutoMarginWrap extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _AutoMarginParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _AutoMarginParentData> {
+  _RenderAutoMarginWrap(this._spacing, this._runSpacing);
+  double _spacing, _runSpacing;
+  set spacing(double value) {
+    if (_spacing == value) return;
+    _spacing = value;
+    markNeedsLayout();
+  }
+
+  set runSpacing(double value) {
+    if (_runSpacing == value) return;
+    _runSpacing = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _AutoMarginParentData) {
+      child.parentData = _AutoMarginParentData();
+    }
+  }
+
+  Size _arrange(BoxConstraints constraints, {required bool position}) {
+    final maxWidth = constraints.maxWidth;
+    final inner = BoxConstraints(maxWidth: maxWidth);
+    final lines = <List<RenderBox>>[[]];
+    final sizes = <RenderBox, Size>{};
+    var used = 0.0;
+    for (var c = firstChild; c != null; c = childAfter(c)) {
+      final size = position
+          ? (c..layout(inner, parentUsesSize: true)).size
+          : c.getDryLayout(inner);
+      sizes[c] = size;
+      final line = lines.last;
+      final next = line.isEmpty ? size.width : used + _spacing + size.width;
+      if (line.isNotEmpty && next > maxWidth) {
+        lines.add([c]);
+        used = size.width;
+      } else {
+        line.add(c);
+        used = next;
+      }
+    }
+    var y = 0.0;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.isEmpty) continue;
+      final height = line.fold<double>(
+        0,
+        (h, c) => h > sizes[c]!.height ? h : sizes[c]!.height,
+      );
+      final lineWidth =
+          line.fold<double>(0, (w, c) => w + sizes[c]!.width) +
+          _spacing * (line.length - 1);
+      // `mr-auto` of the first child pushes the rest to the right edge.
+      final margin = i == 0 && line.length > 1 ? maxWidth - lineWidth : 0.0;
+      var x = 0.0;
+      for (var j = 0; j < line.length; j++) {
+        final c = line[j];
+        if (position) {
+          (c.parentData! as _AutoMarginParentData).offset = Offset(
+            x,
+            y + (height - sizes[c]!.height) / 2,
+          );
+        }
+        x += sizes[c]!.width + _spacing + (j == 0 ? margin : 0);
+      }
+      y += height + (i == lines.length - 1 ? 0 : _runSpacing);
+    }
+    return constraints.constrain(Size(maxWidth, y));
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      _arrange(constraints, position: false);
+
+  @override
+  void performLayout() {
+    size = _arrange(constraints, position: true);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
