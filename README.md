@@ -4,6 +4,33 @@ A native Flutter client for [Raft](https://github.com/botiverse/raft-source), a 
 
 Status in one paragraph: the Linux and Android full-app functional flows passed on the same source (see [release evidence](docs/release-evidence.md) and [current acceptance](docs/current-acceptance.md)); macOS builds and starts but has little real-world acceptance; iOS is source-only and has never been compiled or run; Windows is not set up. Pixel-level visual parity with the Web client is **not** accepted yet (see [Page coverage and alignment](#page-coverage-and-alignment)). Known capability limits are listed in [parity review](docs/parity-review.md).
 
+## Contents
+
+- [Supported platforms](#supported-platforms)
+- [Project structure](#project-structure)
+- [Development workflow](#development-workflow)
+  - [Prerequisites](#prerequisites)
+  - [Set up](#set-up)
+  - [Run the app](#run-the-app)
+  - [Test and analyze](#test-and-analyze)
+  - [Merge gate: tool/check-project](#merge-gate-toolcheck-project)
+  - [Branches and batches](#branches-and-batches)
+- [Page coverage and alignment](#page-coverage-and-alignment)
+  - [Official suite: tool/parity](#official-suite-toolparity)
+  - [Extension suite: tool/parity-ext/run](#extension-suite-toolparity-extrun)
+  - [What "pass" means](#what-pass-means)
+  - [Page inventory](#page-inventory)
+  - [Alignment audit](#alignment-audit)
+  - [Where reports land](#where-reports-land)
+- [Performance tuning](#performance-tuning)
+  - [Perf lab](#perf-lab)
+  - [Android: page transitions on a device](#android-page-transitions-on-a-device)
+  - [Switches and probes](#switches-and-probes)
+- [Self-deploy](#self-deploy)
+  - [Point the client at your server](#point-the-client-at-your-server)
+  - [Build release artifacts](#build-release-artifacts)
+  - [Signing and packaging](#signing-and-packaging)
+
 ## Supported platforms
 
 | Platform | Status | Minimum OS / architecture | Build command (run in `apps/raft_flutter`) |
