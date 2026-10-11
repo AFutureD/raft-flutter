@@ -128,3 +128,55 @@ No new native frame timings are claimed for these review repairs. The native
 measurements above retain their recorded source identities. Full-project
 revalidation remains owned by Cindy; the overall performance investigation is
 still active.
+
+
+## Generated recipe template cache (fa26284)
+
+The cache reduces pure style computation, while the overall investigation remains active. The 32 matched native operations still contain cold-row and transition spikes above the 8.33ms budget. This change does not establish a stable improvement in every page transition.
+
+`raftResolveRecipe`, the generated entry point, retains at most 512 tokenless cascade templates per engine. Keys snapshot the ordered class indices, sorted interaction flags, viewport width/height and container width. Each call returns fresh property/target maps and classes, recursively copies mutable CSS lists, and binds the current token resolver. The generated rule tables are immutable; direct `RaftRecipeEngine.resolveSlot` remains uncached for mutable/custom engines. No Widgets, controllers, permission projections or token values are retained in this cache.
+
+Validation: 103 related recipe/mounted-component cases passed, with one pre-existing external generated-fixture skip; all six new cache unit cases passed and design-system analysis was clean. The tests cover token changes, state order, media/container thresholds, key input mutation, returned nested-value mutation, bounded eviction and direct mutable-engine behavior.
+
+Native macOS Profile (AOT) attribution used a synthetic primary-hover-button cascade, 1,000 warmup pairs and seven alternating cached-first/uncached-first rounds of 5,000 resolutions each. The median was **42.548ms cached versus 110.420ms direct**. Every round favored the cache. This measures cascade/template work only: it excludes token getter evaluation, Widgets, layout and paint. The diagnostic iterations intentionally block their own UI and are excluded from application frame acceptance. The clean frame harness was restored afterwards. [Flutter profiling guidance](https://docs.flutter.dev/perf/ui-performance) and the local macOS AOT snapshot target were checked; a JIT test-loop result is not substituted for this native measurement.
+
+Official 99 cases and 75 explicitly selected extension cases (14 areas, brutal/elegant/elegant-dark) produced **174 byte-identical Flutter PNG pairs**. The reference checkout was pinned to `26f77ef97c40d3d91aa2c5e42b0fd66b8bf39fe6`, remained clean, and used production fonts with headless Chromium. Both sides used the same Mac host, Flutter 3.47.6, Node 25.6.1 and single-shard configuration. Absolute Mac scores were 55/99 official and 18/75 extension, with 4/75 extension geometry passes; these are not Linux reference scores or a geometry-pass claim. The review lead explicitly accepted same-host before/after image identity for this Mac check. The original two-shard host attempt failed while preparing a native dependency; the corrected single-shard run exposed and repaired the tasks-case ListView finder. That one-line harness repair was delivered separately as `f385dff` and accepted by Cindy. The original complete 98 PNG pairs were preserved; the affected task case alone was recaptured on both sides after the identical repair.
+
+The native comparison below is 426eddb versus b7eaf0e, captured with the same clean harness, fixture, routes, size, DPR and semantics. All 32 operations on each side had no fixture misses or runtime errors, and native accessibility remained usable. The reviewed cache commit fa26284 is rebased onto f385dff; all production library bytes match b7eaf0e. Pixel captures used the same production libraries plus the shared finder repair. These are sparse background-wheel/action passes, not continuous-gesture or native-window-resize acceptance. Engine build duration excludes semantics/finalize/post-frame work. Percentiles in the raw comparison use nearest rank. The first three operations show an approximately 8.333ms median vsync interval, independently of the reported 120Hz display capability.
+
+| operation | baseline build max ms | cached build max ms | baseline raster max ms | cached raster max ms |
+| --- | ---: | ---: | ---: | ---: |
+| 01-cold-chat-scroll | 42.457 | 42.753 | 22.025 | 21.429 |
+| 02-short-chat-scroll | 3.110 | 3.035 | 20.367 | 18.336 |
+| 03-live-chat-update | 29.644 | 21.843 | 6.698 | 7.095 |
+| 04-channel-entry | 15.640 | 14.997 | 6.341 | 4.113 |
+| 05-channel-settings | 8.302 | 8.114 | 7.660 | 7.530 |
+| 06-close-channel-settings | 2.648 | 2.341 | 14.680 | 11.607 |
+| 07-settings-first | 22.789 | 20.941 | 9.872 | 10.063 |
+| 08-chat-return | 26.080 | 30.527 | 13.559 | 5.792 |
+| 09-settings-warm | 17.735 | 14.265 | 2.719 | 2.719 |
+| 10-chat-return | 26.016 | 27.927 | 9.339 | 8.193 |
+| 11-settings-warm | 17.584 | 13.901 | 2.855 | 2.744 |
+| 12-chat-return | 36.839 | 30.083 | 6.032 | 8.870 |
+| 13-settings-warm | 16.353 | 21.224 | 2.894 | 2.492 |
+| 14-task-entry | 16.758 | 15.816 | 11.523 | 9.362 |
+| 15-task-scroll | 26.895 | 27.378 | 11.496 | 6.522 |
+| 16-files-entry | 20.928 | 10.496 | 13.044 | 10.432 |
+| 17-files-scroll | 29.705 | 37.295 | 5.777 | 7.077 |
+| 18-members-entry | 24.786 | 21.427 | 7.385 | 9.870 |
+| 19-members-scroll | 32.548 | 31.355 | 8.515 | 9.818 |
+| 20-computers-entry | 21.244 | 24.062 | 8.704 | 9.229 |
+| 21-computers-scroll | 6.631 | 6.709 | 8.191 | 9.301 |
+| 22-activity-entry | 13.367 | 12.184 | 9.166 | 4.347 |
+| 23-activity-scroll | 34.325 | 40.323 | 4.151 | 6.347 |
+| 24-marketplace-entry | 16.789 | 16.938 | 5.013 | 5.140 |
+| 25-registered-apps-entry | 6.757 | 6.183 | 3.877 | 3.993 |
+| 26-registered-apps-scroll | 19.848 | 20.677 | 7.603 | 6.304 |
+| 27-mcp-entry | 12.096 | 18.362 | 4.385 | 4.324 |
+| 28-mcp-scroll | 36.028 | 32.393 | 11.134 | 7.016 |
+| 29-quick-search-entry | 9.830 | 8.048 | 8.654 | 10.314 |
+| 30-search-query-input | 25.897 | 18.613 | 8.710 | 7.575 |
+| 31-search-results-entry | 22.054 | 27.128 | 7.611 | 5.942 |
+| 32-search-results-scroll | 38.297 | 37.051 | 5.452 | 3.907 |
+
+Evidence packet: separate baseline/candidate native frames and source manifests, the full comparison, AOT attribution JSON and harness receipt, official/extension summaries, explicit extension selection and PNG hashes. No binaries, authenticated VM service addresses, CPU traces or credentials are included. Native background targeting exposes no window-resize API; widget width/fold regressions remain separate from a native resize measurement.
