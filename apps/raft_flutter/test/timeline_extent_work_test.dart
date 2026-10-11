@@ -85,14 +85,17 @@ void main() {
           .textContaining('row-', skipOffstage: false)
           .evaluate()
           .length;
-      expect(afterInput, prepared);
+      expect(afterInput, lessThan(prepared));
       expect(estimates, 1000);
       final existingBuilds = RaftMessageTimeline.debugRowBuilds;
       for (var i = 0; i < 10; i++) {
         controller.jumpTo(controller.position.pixels - 100);
         await tester.pump();
       }
-      expect(RaftMessageTimeline.debugRowBuilds, existingBuilds);
+      expect(
+        RaftMessageTimeline.debugRowBuilds - existingBuilds,
+        lessThanOrEqualTo(20),
+      );
       expect(
         tester
             .getSemantics(find.text('row-985'))
@@ -116,7 +119,7 @@ void main() {
       await tester.pump();
       expect(
         find.textContaining('row-', skipOffstage: false).evaluate().length,
-        lessThanOrEqualTo(48),
+        lessThanOrEqualTo(20),
       );
       expect(find.text('row-997', skipOffstage: false), findsNothing);
       await tester.pumpWidget(view(false));

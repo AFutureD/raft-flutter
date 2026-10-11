@@ -8,6 +8,7 @@ import 'design_primitives.dart';
 import 'font_warm_up.dart';
 import 'localization.dart';
 import 'message_semantics.dart';
+import 'pointer_intent.dart';
 import 'viewport_breakpoints.dart';
 import 'tokens/tokens.dart';
 import 'css_border.dart';
@@ -247,6 +248,7 @@ class RaftMessageRow extends StatefulWidget {
 
 class _RaftMessageRowState extends State<RaftMessageRow> {
   bool hovered = false, toolbarHovered = false, focused = false;
+  bool scrollSuppressed = false;
   bool secondaryDown = false;
   final portal = OverlayPortalController();
   final toolbarKey = GlobalKey();
@@ -262,11 +264,14 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
     skipTraversal: true,
   );
   ScrollPosition? position, listeningPosition;
-  bool overlayUpdateQueued = false, portalSyncQueued = false;
+  double? listeningOffset;
+  bool listeningScrollSignal = false;
+  bool portalSyncQueued = false;
   bool tickerEnabled = true, portalMounted = false;
   final visibleFraction = ValueNotifier<double?>(null);
   bool get toolbarActive =>
       tickerEnabled &&
+      !scrollSuppressed &&
       !widget.coarsePointer &&
       widget.toolbar != null &&
       (hovered || toolbarHovered || focused || widget.popupOpen);
@@ -274,6 +279,7 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
   @override
   void initState() {
     super.initState();
+    RaftPointerIntent.install();
     if (toolbarActive) portal.show();
   }
 
@@ -289,10 +295,19 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
 
   void syncPortal() {
     final active = toolbarActive;
+    if (active != listeningScrollSignal) {
+      listeningScrollSignal = active;
+      if (active) {
+        RaftPointerIntent.listenScroll(retireForScroll);
+      } else {
+        RaftPointerIntent.unlistenScroll(retireForScroll);
+      }
+    }
     final next = active ? position : null;
     if (!identical(next, listeningPosition)) {
       listeningPosition?.removeListener(scrollChanged);
       listeningPosition = next;
+      listeningOffset = next?.pixels;
       listeningPosition?.addListener(scrollChanged);
     }
     if (active == portal.isShowing) return;
@@ -320,27 +335,41 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
     syncPortal();
   }
 
-  void scrollChanged() {
-    // Only the active floating toolbar follows the scroll position. Refresh
-    // its portal geometry without rebuilding the message or its content.
-    if (!toolbarActive || overlayUpdateQueued) return;
-    overlayUpdateQueued = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      overlayUpdateQueued = false;
-      if (mounted && toolbarActive) portal.show();
+  void retireForScroll() {
+    if (!mounted || !toolbarActive) return;
+    // The old floating strip must retire before a retained row leaves the
+    // viewport. Its portal anchor is then culled from native semantics.
+    attentionChanged(() {
+      hovered = false;
+      toolbarHovered = false;
+      scrollSuppressed = true;
     });
+  }
+
+  void scrollChanged() {
+    final pixels = listeningPosition?.pixels;
+    if (pixels == listeningOffset) return;
+    listeningOffset = pixels;
+    RaftPointerIntent.scrolled();
+    retireForScroll();
+    // Retire focused strips too: a kept-alive row has no paint transform once
+    // it leaves the viewport. Fresh keyboard focus can reopen its actions.
   }
 
   @override
   void didUpdateWidget(covariant RaftMessageRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.coarsePointer || widget.toolbar == null) toolbarHovered = false;
+    if (widget.popupOpen && !oldWidget.popupOpen) scrollSuppressed = false;
     syncPortal();
   }
 
   @override
   void dispose() {
     listeningPosition?.removeListener(scrollChanged);
+    if (listeningScrollSignal) {
+      RaftPointerIntent.unlistenScroll(retireForScroll);
+    }
     toolbarProxy.dispose();
     toolbarGroup.dispose();
     visibleFraction.dispose();
@@ -349,6 +378,15 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
 
   void toolbarProxyChanged() {
     if (!toolbarProxy.hasPrimaryFocus) return;
+    // The offstage proxy has zero height. Default focus traversal can reveal
+    // only its top point at the bottom edge, leaving the whole row clipped.
+    // Reveal the actual row before opening its portal and moving action focus.
+    Scrollable.ensureVisible(
+      context,
+      alignment: 1,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+    );
+    if (scrollSuppressed) attentionChanged(() => scrollSuppressed = false);
     final backward = HardwareKeyboard.instance.isShiftPressed;
     // The row's focus listener has already revealed the strip; its actions
     // exist after the next frame.
@@ -387,7 +425,8 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
       info.childPaintTransform,
       Offset.zero & info.childSize,
     );
-    if (row.width <= 0 ||
+    if (!row.isFinite ||
+        row.width <= 0 ||
         row.bottom <= viewport.top ||
         row.top >= viewport.bottom) {
       return const SizedBox.shrink();
@@ -584,11 +623,29 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
         canRequestFocus: false,
         includeSemantics: !compact,
         onFocusChange: (value) {
-          if (focused != value) attentionChanged(() => focused = value);
+          if (focused != value) {
+            attentionChanged(() {
+              focused = value;
+              if (value) scrollSuppressed = false;
+            });
+          }
         },
         child: MouseRegion(
           onEnter: (_) {
-            if (!hovered) attentionChanged(() => hovered = true);
+            if (!hovered && RaftPointerIntent.movedSinceScroll) {
+              attentionChanged(() {
+                hovered = true;
+                scrollSuppressed = false;
+              });
+            }
+          },
+          onHover: (event) {
+            if (!hovered && event.delta != Offset.zero) {
+              attentionChanged(() {
+                hovered = true;
+                scrollSuppressed = false;
+              });
+            }
           },
           onExit: (_) {
             if (hovered) attentionChanged(() => hovered = false);

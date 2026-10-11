@@ -2,9 +2,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:flutter_chat_core/flutter_chat_core.dart' as chat;
+import 'package:raft_flutter/features/message_timeline.dart';
 
 import 'message_presentation_test.dart' show fixture;
 
@@ -13,6 +18,8 @@ class _CountingBinding extends AutomatedTestWidgetsFlutterBinding {
   int updated = 0;
   final edges = <int, List<int>>{};
   final orphans = <int>[];
+  final labels = <int, String>{};
+  final orphanOwners = <int, String>{};
   @override
   ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>
       _CountingBuilder(this);
@@ -29,6 +36,7 @@ class _CountingBuilder implements ui.SemanticsUpdateBuilder {
       binding.updated++;
       final id = invocation.namedArguments[#id] as int;
       updatedIds.add(id);
+      binding.labels[id] = invocation.namedArguments[#label] as String;
       binding.edges[id] = List<int>.from(
         invocation.namedArguments[#childrenInTraversalOrder] as Iterable,
       );
@@ -42,7 +50,24 @@ class _CountingBuilder implements ui.SemanticsUpdateBuilder {
       }
 
       visit(0);
-      binding.orphans.addAll(updatedIds.where((id) => !reachable.contains(id)));
+      final disconnected = updatedIds
+          .where((id) => !reachable.contains(id))
+          .toSet();
+      binding.orphans.addAll(disconnected);
+      void inspect(RenderObject object) {
+        final node = object.debugSemantics;
+        if (node != null && disconnected.contains(node.id)) {
+          binding.orphanOwners[node.id] =
+              '${object.runtimeType} parent=${node.parent?.id} $node creator=${object.debugCreator}';
+        }
+        object.visitChildren(inspect);
+      }
+
+      if (disconnected.isNotEmpty) {
+        for (final view in binding.renderViews) {
+          inspect(view);
+        }
+      }
     }
     final member = switch (invocation.memberName) {
       #updateNode => inner.updateNode,
@@ -231,6 +256,179 @@ void main() {
       await t.pumpWidget(const SizedBox());
       semantics.dispose();
       scroll.dispose();
+    },
+  );
+  testWidgets(
+    'workspace portals remain connected through hover, scroll and settings',
+    (t) async {
+      SharedPreferences.setMockInitialValues({});
+      final handle = t.ensureSemantics();
+      final (w, transport) = (await t.runAsync(() => fixture('owner')))!;
+      addTearDown(w.dispose);
+      w.ledger.switchServer('s1');
+      final rows = [for (var i = 0; i < 60; i++) benchmarkRow(i)];
+      w.ledger.ingest(rows, expectedGeneration: w.ledger.generation);
+      w.visibleIds['c1'] = {for (final row in rows) row['id'] as String};
+      transport.routes['GET /agents'] = (_) => [];
+      transport.routes['GET /servers/s1/members'] = (_) => [];
+      transport.routes['GET /tasks'] = (_) => [];
+      t.view.physicalSize = const Size(1200, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      binding.edges.clear();
+      binding.orphans.clear();
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: WorkspaceView(
+            controller: w,
+            appearance: const RaftAppearance(),
+            onAppearance: (_) async {},
+            onLogout: () async {},
+          ),
+        ),
+      );
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 40)),
+      );
+      await t.pumpAndSettle();
+      final timeline = find
+          .descendant(
+            of: find.byType(RaftChatView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final mouse = await t.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await mouse.addPointer(location: t.getCenter(timeline));
+      await t.pump(const Duration(milliseconds: 800));
+      final position = t.state<ScrollableState>(timeline).position;
+      final before = position.pixels;
+      position.jumpTo(
+        (position.pixels - 1800).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(position.pixels, isNot(before));
+      await mouse.moveTo(const Offset(1000, 300));
+      await t.pump(const Duration(milliseconds: 800));
+      w.setSection('settings');
+      await t.pumpAndSettle();
+      w.setSection('chat');
+      await t.pumpAndSettle();
+      await mouse.removePointer();
+      expect(
+        binding.orphans,
+        isEmpty,
+        reason: 'Workspace incremental updates must remain rooted through hover and navigation.',
+      );
+      await t.pumpWidget(const SizedBox());
+      handle.dispose();
+    },
+  );
+  testWidgets(
+    'nearby portal rows stay rooted through hover, focus and scrolling',
+    (t) async {
+      final handle = t.ensureSemantics();
+      final controller = RaftTimelineScrollController(bottomAnchored: true);
+      addTearDown(controller.dispose);
+      t.view.physicalSize = const Size(1200, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final messages = [
+        for (var i = 0; i < 1000; i++)
+          chat.Message.text(id: '$i', authorId: 'fixture', text: '$i'),
+      ];
+      var idle = true;
+      var activations = 0;
+      binding.edges.clear();
+      binding.orphans.clear();
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: Scaffold(
+            body: Column(
+              children: [
+                Expanded(
+                  child: RaftMessageTimeline(
+                    controller: controller,
+                    messages: messages,
+                    centerIndex: 999,
+                    epoch: 0,
+                    indexOfId: int.tryParse,
+                    canPrepareNearbyRows: () => idle,
+                    estimateRow: (_) => 200,
+                    rowBuilder: (_, i) => SizedBox(
+                      height: 200,
+                      child: RaftMessageRow(
+                        author: 'Fixture',
+                        timestamp: '12:00',
+                        semanticsLabel: 'row-$i',
+                        semanticsText: 'Body $i',
+                        content: Text('Body $i'),
+                        toolbar: RaftMessageToolbar(
+                          children: [
+                            RaftMessageToolbarAction(
+                              label: 'Reply in thread',
+                              icon: const SizedBox(),
+                              onPressed: () => activations++,
+                            ),
+                            RaftMessageToolbarAction(
+                              label: 'More actions',
+                              icon: const SizedBox(),
+                              onPressed: () => activations++,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    slivers: (history, forward) => [history, forward],
+                  ),
+                ),
+                const TextField(
+                  decoration: InputDecoration(labelText: 'Message composer'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      final mouse = await t.createGesture(kind: ui.PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(1190, 790));
+      for (var i = 0; i < 45; i++) {
+        await t.pump(const Duration(milliseconds: 32));
+      }
+      expect(
+        find.byType(RaftMessageRow, skipOffstage: false).evaluate().length,
+        greaterThan(8),
+      );
+      await mouse.moveTo(const Offset(1000, 350));
+      await t.pumpAndSettle();
+      idle = false;
+      controller.jumpTo(controller.position.pixels - 1800);
+      await t.pumpAndSettle();
+      await mouse.moveTo(const Offset(1000, 400));
+      await t.pump(const Duration(milliseconds: 800));
+      await t.sendKeyEvent(LogicalKeyboardKey.tab);
+      await t.pumpAndSettle();
+      controller.jumpTo(controller.position.pixels - 1800);
+      await t.pumpAndSettle();
+      await t.sendKeyEvent(LogicalKeyboardKey.tab);
+      await t.pumpAndSettle();
+      expect(find.byType(RaftMessageToolbar), findsOneWidget);
+      await t.sendKeyEvent(LogicalKeyboardKey.enter);
+      await t.pump();
+      expect(activations, 1);
+      expect(
+        binding.orphans,
+        isEmpty,
+        reason:
+            'Portal anchors must remain connected: ${[for (final id in binding.orphans) (id, binding.labels[id], binding.orphanOwners[id])]}.',
+      );
+      await mouse.removePointer();
+      await t.pumpWidget(const SizedBox());
+      handle.dispose();
     },
   );
   testWidgets('benchmark rows: compact nodes, minimal per-frame updates', (

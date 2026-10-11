@@ -10,7 +10,7 @@ void main() {
     (RaftFamily.elegant, true),
   ]) {
     testWidgets(
-      'scroll does not rebuild idle or active message rows $family/$dark',
+      'scroll retires only the hovered row and leaves idle rows untouched $family/$dark',
       (t) async {
         final scroll = ScrollController();
         addTearDown(scroll.dispose);
@@ -78,20 +78,37 @@ void main() {
         await t.pump();
         await t.pump();
         expect(find.byKey(const ValueKey('action-2')), findsOneWidget);
-        final before = t.getRect(find.byKey(const ValueKey('action-2')));
+        final before = t.getRect(find.text('Message 2'));
         rebuiltRows = 0;
         scroll.jumpTo(30);
         await t.pump();
         await t.pump();
         expect(
           rebuiltRows,
-          0,
-          reason: 'The active overlay refreshes without rebuilding the owning message.',
+          1,
+          reason: 'Only the previously hovered row retires its floating strip.',
         );
+        expect(find.byType(RaftMessageToolbar), findsNothing);
         expect(
-          t.getRect(find.byKey(const ValueKey('action-2'))).top,
+          t.getRect(find.text('Message 2')).top,
           closeTo(before.top - 10, .01),
         );
+        rebuiltRows = 0;
+        scroll.jumpTo(40);
+        await t.pump();
+        await t.pump();
+        expect(rebuiltRows, 0);
+        expect(
+          find.byType(RaftMessageToolbar),
+          findsNothing,
+          reason: 'Content moving under a stationary pointer cannot reopen a toolbar.',
+        );
+        await mouse.moveTo(
+          t.getCenter(find.text('Message 2')) + const Offset(1, 0),
+        );
+        await t.pump();
+        await t.pump();
+        expect(find.byKey(const ValueKey('action-2')), findsOneWidget);
         await mouse.removePointer();
         await t.pump();
         await t.pump();

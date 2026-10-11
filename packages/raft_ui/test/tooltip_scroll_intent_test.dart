@@ -157,6 +157,43 @@ void main() {
     },
   );
 
+  testWidgets(
+    'ancestor offset change closes a keyboard tooltip without a wheel',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        host(
+          SizedBox(
+            width: 200,
+            height: 300,
+            child: ListView(
+              controller: scroll,
+              children: [
+                RaftTooltip(
+                  message: 'Keyboard tip',
+                  keyboardFocused: true,
+                  child: const SizedBox(
+                    height: 30,
+                    child: Text('Keyboard row'),
+                  ),
+                ),
+                const SizedBox(height: 1000),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Keyboard tip'), findsOneWidget);
+      scroll.jumpTo(10);
+      await tester.pump();
+      expect(find.text('Keyboard tip'), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Keyboard tip'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('a wheel event closes an open tooltip at once', (tester) async {
     final scroll = ScrollController();
     addTearDown(scroll.dispose);

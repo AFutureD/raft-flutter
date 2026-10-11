@@ -85,29 +85,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   double nearbyCache = 250;
   RaftMessageTimeline? listsOwner;
   Widget? historyList, forwardList;
-  final retainedRows = <String, ValueNotifier<bool>>{};
-  final retiredRows = <ValueNotifier<bool>>[];
-  bool retiringRows = false;
-
-  ValueNotifier<bool> retainRow(String id) {
-    final retained = retainedRows.remove(id) ?? ValueNotifier(true);
-    retainedRows[id] = retained;
-    while (retainedRows.length > 32) {
-      retiredRows.add(retainedRows.remove(retainedRows.keys.first)!);
-    }
-    if (retiredRows.isNotEmpty && !retiringRows) {
-      retiringRows = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        retiringRows = false;
-        for (final row in retiredRows) {
-          row.value = false;
-        }
-        retiredRows.clear();
-      });
-    }
-    return retained;
-  }
-
   late final nearbyPreparation = MessagePreparation(
     isIdle: () =>
         mounted &&
@@ -149,10 +126,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   @override
   void dispose() {
     nearbyPreparation.dispose();
-    for (final row in retainedRows.values) {
-      row.dispose();
-    }
-    retainedRows.clear();
     super.dispose();
   }
 
@@ -414,12 +387,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
               );
         return KeyedSubtree(
           key: ValueKey<String>(messages[index].id),
-          child: widget.canPrepareNearbyRows == null
-              ? body
-              : _PreparedTimelineRow(
-                  retained: retainRow(messages[index].id),
-                  child: body,
-                ),
+          child: body,
         );
       }
 
@@ -496,50 +464,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         Positioned.fill(child: empty),
       ],
     );
-  }
-}
-
-// Keep a bounded set of prepared rows alive when the active cache contracts.
-// Their existing render objects are reused on subsequent wheel events; newly
-// mounted distant rows retire the oldest entries instead of retaining history.
-class _PreparedTimelineRow extends StatefulWidget {
-  const _PreparedTimelineRow({required this.retained, required this.child});
-  final ValueNotifier<bool> retained;
-  final Widget child;
-  @override
-  State<_PreparedTimelineRow> createState() => _PreparedTimelineRowState();
-}
-
-class _PreparedTimelineRowState extends State<_PreparedTimelineRow>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => widget.retained.value;
-  @override
-  void initState() {
-    super.initState();
-    widget.retained.addListener(updateKeepAlive);
-  }
-
-  @override
-  void didUpdateWidget(_PreparedTimelineRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.retained, widget.retained)) {
-      oldWidget.retained.removeListener(updateKeepAlive);
-      widget.retained.addListener(updateKeepAlive);
-      updateKeepAlive();
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.retained.removeListener(updateKeepAlive);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
   }
 }
 

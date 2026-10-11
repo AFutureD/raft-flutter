@@ -232,7 +232,7 @@ class _RaftTooltipState extends State<RaftTooltip>
   late final RaftScrollWatch watch = RaftScrollWatch(_trackAnchor);
   bool listeningSignal = false;
   Offset? pointer;
-  bool hovered = false, closing = false, instant = false, tracking = false;
+  bool hovered = false, closing = false, instant = false;
   bool hoverBlocked = false, focusBlocked = false;
 
   /// Entered by scrolling rather than by moving the pointer; opening waits
@@ -499,45 +499,9 @@ class _RaftTooltipState extends State<RaftTooltip>
 
   void _trackAnchor() {
     RaftPointerIntent.scrolled();
-    // Scrolling is not hover intent: a pending open waits for a pointer move
-    // and an open tooltip closes without arming adjacent instant opens.
-    if (openTimer?.isActive == true && !widget.keyboardFocused) {
-      openTimer!.cancel();
-      epoch++;
-      awaitingMove = true;
-    }
-    if (portal.isShowing && !widget.keyboardFocused) {
-      awaitingMove = hovered;
-      _hide(immediate: true);
-      scope?.group.settle();
-      return;
-    }
-    if (tracking || !portal.isShowing) {
-      return;
-    }
-    tracking = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      tracking = false;
-      if (!mounted) {
-        return;
-      }
-      final rect = _anchorRect();
-      // A moving/recycled row no longer under the original pointer owns no
-      // hover. Cancel its delayed callback instead of opening at stale geometry.
-      if (hovered &&
-          pointer != null &&
-          (rect == null || !rect.contains(pointer!))) {
-        hovered = false;
-        openTimer?.cancel();
-        epoch++;
-        if (!widget.keyboardFocused) {
-          _hide();
-        }
-      }
-      if (portal.isShowing) {
-        setState(() {});
-      }
-    });
+    // Ancestor offset changes retire keyboard tooltips before their anchor
+    // can enter a retained, offscreen subtree, just like wheel input does.
+    _wheel();
   }
 
   @override
