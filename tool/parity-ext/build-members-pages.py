@@ -199,10 +199,10 @@ for platform in ('desktop', 'phone'):
                    interactions=[click('button:has-text("Remove Member")')], android_interactions=[tap('member-remove')])
     human_main(platform, 'human.role-help', 'Human profile: role permissions help dialog',
                selector=CARD_DLG if not phone else VIEW, android_key='role-help-dialog' if not phone else None,
-               interactions=[click(ROLE_HELP_BTN)], android_interactions=[tap('member-role-help')])
+               interactions=[click(ROLE_HELP_BTN)], android_interactions=[tap_here('member-role-help')])
     agent_main(platform, 'agent.role-help', 'Agent profile: role permissions help dialog',
                selector=CARD_DLG if not phone else VIEW, android_key='role-help-dialog' if not phone else None,
-               interactions=[click(AGENT_ROLE_HELP_BTN)], android_interactions=[tap('agent-role-help')])
+               interactions=[click(AGENT_ROLE_HELP_BTN)], android_interactions=[tap_here('agent-role-help')])
 
     # ---- 7.14 MCP tab (phone)
     if phone:

@@ -1,5 +1,7 @@
 // Web `member/RolePermissionHelpDialog.tsx`: a DialogCard titled "Human roles" /
 // "Agent roles" holding one `Card p-3` per role (name, summary, details).
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import 'agent_create_form.dart';
@@ -55,9 +57,13 @@ Future<void> showRaftRolePermissionHelp(
     transitionDuration: const Duration(milliseconds: 150),
     transitionBuilder: (context, animation, _, child) =>
         FadeTransition(opacity: animation, child: child),
-    pageBuilder: (context, _, _) => RaftRolePermissionHelpDialog(
-      agent: agent,
-      onClose: () => Navigator.of(context).pop(),
+    // `Modal`: `backdrop-blur-[2px]` over the page (the Dialog layer has none).
+    pageBuilder: (context, _, _) => BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+      child: RaftRolePermissionHelpDialog(
+        agent: agent,
+        onClose: () => Navigator.of(context).pop(),
+      ),
     ),
   );
 }
