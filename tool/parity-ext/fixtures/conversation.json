@@ -69,6 +69,25 @@
    "createdAt": "2026-06-18T00:00:00.000Z",
    "joined": true,
    "jointOverLimitGraceEndsAt": "2026-06-21T09:00:00.000Z"
+  },
+  {
+   "id": "cafe0000-0000-0000-0000-0000000000a1",
+   "serverId": "visual-server",
+   "name": "product",
+   "description": "Release tracking and acceptance",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true
+  },
+  {
+   "id": "cafe0000-0000-0000-0000-0000000000a2",
+   "serverId": "visual-server",
+   "name": "old-product",
+   "description": "Release tracking and acceptance",
+   "type": "channel",
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "joined": true,
+   "archivedAt": "2026-06-10T08:00:00.000Z"
   }
  ],
  "dms": [],
@@ -88,6 +107,21 @@
    "parentMessageId": "msg-cvn-tp",
    "threadChannelId": "thread-cvn-1"
   }
+ },
+ "externalProfile": {
+  "provider": "slack",
+  "appRegistrationId": "cv-slack-app",
+  "installId": "cv-slack-install",
+  "workspaceId": "opaque-workspace-id-not-rendered",
+  "workspaceName": "Acme Product Studio",
+  "externalActorId": "cv-slack-actor",
+  "externalConversationId": "cv-slack-channel",
+  "externalMessageId": "cv-slack-message",
+  "displayName": "Ada Lovelace",
+  "actorKind": "human",
+  "avatarUrl": null,
+  "avatarDigest": null,
+  "actorProjectionRevision": 1
  },
  "rows": {
   "profile-agent": {
@@ -447,6 +481,224 @@
      }
     ]
    }
+  },
+  "quote-text": {
+   "message": {
+    "id": "msg-cv-quote-text",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "user",
+    "senderId": "visual-user",
+    "senderName": "artin",
+    "content": "Context for this change: __ORIGIN__/s/visual/channel/cafe0000-0000-0000-0000-0000000000a1?msg=beef0000-0000-0000-0000-000000000001",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "quote-attachment": {
+   "message": {
+    "id": "msg-cv-quote-attachment",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "user",
+    "senderId": "visual-user",
+    "senderName": "artin",
+    "content": "Context for this change: __ORIGIN__/s/visual/channel/cafe0000-0000-0000-0000-0000000000a1?msg=beef0000-0000-0000-0000-000000000002",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "quote-archived": {
+   "message": {
+    "id": "msg-cv-quote-archived",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "user",
+    "senderId": "visual-user",
+    "senderName": "artin",
+    "content": "Context for this change: __ORIGIN__/s/visual/channel/cafe0000-0000-0000-0000-0000000000a2?msg=beef0000-0000-0000-0000-000000000003",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "quote-loading": {
+   "message": {
+    "id": "msg-cv-quote-loading",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "user",
+    "senderId": "visual-user",
+    "senderName": "artin",
+    "content": "Context for this change: __ORIGIN__/s/visual/channel/cafe0000-0000-0000-0000-0000000000a1?msg=beef0000-0000-0000-0000-000000000001",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "quote-unavailable": {
+   "message": {
+    "id": "msg-cv-quote-unavailable",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "user",
+    "senderId": "visual-user",
+    "senderName": "artin",
+    "content": "Context for this change: __ORIGIN__/s/visual/channel/cafe0000-0000-0000-0000-0000000000a1?msg=beef0000-0000-0000-0000-000000000001",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "external-slack": {
+   "message": {
+    "id": "msg-cv-external",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "external_projection",
+    "senderId": "cv-slack-actor",
+    "senderName": "Ada Lovelace",
+    "content": "Posted from Slack: the staging build is ready for review.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "externalAuthor": {
+     "provider": "slack",
+     "appRegistrationId": "cv-slack-app",
+     "installId": "cv-slack-install",
+     "workspaceId": "opaque-workspace-id-not-rendered",
+     "workspaceName": "Acme Product Studio",
+     "externalActorId": "cv-slack-actor",
+     "externalConversationId": "cv-slack-channel",
+     "externalMessageId": "cv-slack-message",
+     "displayName": "Ada Lovelace",
+     "actorKind": "human",
+     "avatarUrl": null,
+     "avatarDigest": null,
+     "actorProjectionRevision": 1
+    }
+   }
+  },
+  "translate": {
+   "message": {
+    "id": "msg-cv-translate",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Captured the visual baselines and queued React parity.",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "mermaid": {
+   "message": {
+    "id": "msg-cv-mermaid",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "The capture flow:\n\n```mermaid\nflowchart LR\n  A[Capture] --> B{Match?}\n  B -->|yes| C[Ship]\n  B -->|no| D[Fix]\n```",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "attach-audio": {
+   "message": {
+    "id": "msg-cv-attach-audio",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Attached for review.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "attachments": [
+     {
+      "id": "att-cv-audio",
+      "filename": "standup-recording.mp3",
+      "mimeType": "audio/mpeg",
+      "sizeBytes": 2411520
+     }
+    ]
+   }
+  },
+  "attach-video": {
+   "message": {
+    "id": "msg-cv-attach-video",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Attached for review.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "attachments": [
+     {
+      "id": "att-cv-video",
+      "filename": "capture-walkthrough.mp4",
+      "mimeType": "video/mp4",
+      "sizeBytes": 18874368,
+      "width": 1280,
+      "height": 720
+     }
+    ]
+   }
+  },
+  "attach-pdf": {
+   "message": {
+    "id": "msg-cv-attach-pdf",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Attached for review.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "attachments": [
+     {
+      "id": "att-cv-pdf",
+      "filename": "visual-parity-notes.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 188416,
+      "commentCount": 2
+     }
+    ]
+   }
+  },
+  "attach-patch": {
+   "message": {
+    "id": "msg-cv-attach-patch",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Attached for review.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "attachments": [
+     {
+      "id": "att-cv-patch",
+      "filename": "composer-spacing.patch",
+      "mimeType": "text/x-diff",
+      "sizeBytes": 6144
+     }
+    ]
+   }
   }
  },
  "routes": {
@@ -459,8 +711,32 @@
   "GET /messages/channel/channel-cv-open": {
    "messages": [
     {
-     "id": "msg-cv-tp",
+     "id": "msg-cv-sel-1",
      "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-open",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-cv-sel-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "channel-cv-open",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-human-designer",
+     "senderName": "designer",
+     "content": "Reviewing the diffs after lunch.",
+     "createdAt": "2026-06-22T02:20:00.000Z"
+    },
+    {
+     "id": "msg-cv-tp",
+     "seq": 3,
      "serverId": "visual-server",
      "channelId": "channel-cv-open",
      "messageType": "chat",
@@ -700,11 +976,147 @@
   "GET /tasks/channel/channel-cv-joint-grace": {
    "tasks": []
   },
+  "GET /messages/channel/cafe0000-0000-0000-0000-0000000000a1": {
+   "messages": [
+    {
+     "id": "msg-cafe0000-0000-0000-0000-0000000000a1-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-cafe0000-0000-0000-0000-0000000000a1-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a1",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/cafe0000-0000-0000-0000-0000000000a1": {
+   "tasks": []
+  },
+  "GET /messages/channel/cafe0000-0000-0000-0000-0000000000a2": {
+   "messages": [
+    {
+     "id": "msg-cafe0000-0000-0000-0000-0000000000a2-1",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a2",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "Release gates are green for the Android capture.",
+     "createdAt": "2026-06-22T02:10:00.000Z"
+    },
+    {
+     "id": "msg-cafe0000-0000-0000-0000-0000000000a2-2",
+     "seq": 2,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a2",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Captured the visual baselines and queued React parity.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "hasMore": false,
+   "historyLimited": false,
+   "threadSummariesByParentMessageId": {}
+  },
+  "GET /tasks/channel/cafe0000-0000-0000-0000-0000000000a2": {
+   "tasks": []
+  },
+  "GET /messages/context/beef0000-0000-0000-0000-000000000001": {
+   "messages": [
+    {
+     "id": "beef0000-0000-0000-0000-000000000001",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a1",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-human-designer",
+     "senderName": "designer",
+     "content": "The release gates are green for the Android capture, so we can publish the baselines.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "targetMessageId": "beef0000-0000-0000-0000-000000000001",
+   "hasOlder": false,
+   "hasNewer": false,
+   "channelArchived": false
+  },
+  "GET /messages/context/beef0000-0000-0000-0000-000000000002": {
+   "messages": [
+    {
+     "id": "beef0000-0000-0000-0000-000000000002",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a1",
+     "messageType": "chat",
+     "senderType": "agent",
+     "senderId": "agent-cindy",
+     "senderName": "Cindy",
+     "content": "Notes attached.",
+     "createdAt": "2026-06-22T02:30:00.000Z",
+     "attachments": [
+      {
+       "id": "att-cv-q1",
+       "filename": "visual-parity-notes.pdf",
+       "mimeType": "application/pdf",
+       "sizeBytes": 188416
+      }
+     ]
+    }
+   ],
+   "targetMessageId": "beef0000-0000-0000-0000-000000000002",
+   "hasOlder": false,
+   "hasNewer": false,
+   "channelArchived": false
+  },
+  "GET /messages/context/beef0000-0000-0000-0000-000000000003": {
+   "messages": [
+    {
+     "id": "beef0000-0000-0000-0000-000000000003",
+     "seq": 1,
+     "serverId": "visual-server",
+     "channelId": "cafe0000-0000-0000-0000-0000000000a2",
+     "messageType": "chat",
+     "senderType": "user",
+     "senderId": "visual-user",
+     "senderName": "artin",
+     "content": "This thread moved to the new channel.",
+     "createdAt": "2026-06-22T02:30:00.000Z"
+    }
+   ],
+   "targetMessageId": "beef0000-0000-0000-0000-000000000003",
+   "hasOlder": false,
+   "hasNewer": false,
+   "channelArchived": true
+  },
   "GET /messages/channel/thread-cv-1": {
    "messages": [
     {
      "id": "msg-cv-tp-r1",
-     "seq": 2,
+     "seq": 4,
      "serverId": "visual-server",
      "channelId": "thread-cv-1",
      "messageType": "chat",
@@ -716,7 +1128,7 @@
     },
     {
      "id": "msg-cv-tp-r2",
-     "seq": 3,
+     "seq": 5,
      "serverId": "visual-server",
      "channelId": "thread-cv-1",
      "messageType": "chat",
@@ -728,7 +1140,7 @@
     },
     {
      "id": "msg-cv-tp-r3",
-     "seq": 4,
+     "seq": 6,
      "serverId": "visual-server",
      "channelId": "thread-cv-1",
      "messageType": "chat",
@@ -747,7 +1159,7 @@
    "messages": [
     {
      "id": "msg-cv-tp",
-     "seq": 1,
+     "seq": 3,
      "serverId": "visual-server",
      "channelId": "channel-cv-open",
      "messageType": "chat",
@@ -888,6 +1300,19 @@
   }
  },
  "routeSets": {
+  "cv-quote-loading": {
+   "GET /messages/context/beef0000-0000-0000-0000-000000000001": {
+    "$pending": true
+   }
+  },
+  "cv-quote-unavailable": {
+   "GET /messages/context/beef0000-0000-0000-0000-000000000001": {
+    "$status": 404,
+    "$body": {
+     "error": "Message not found"
+    }
+   }
+  },
   "cv-activity": {
    "GET /agents/agent-cindy/activity-log": [
     {
@@ -1256,6 +1681,48 @@
     "$status": 500,
     "$body": {
      "error": "Internal Server Error"
+    }
+   }
+  },
+  "cv-translation": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": true,
+    "translationAvailable": true,
+    "canManageTranslation": false
+   },
+   "POST /message-translations:batch": {
+    "results": [
+     {
+      "messageId": "msg-cv-translate",
+      "status": "translated",
+      "sourceLanguage": "en",
+      "targetLanguage": "zh-cn",
+      "translatedContent": "已截取视觉基线，并将 React 对照排入队列。"
+     }
+    ]
+   }
+  },
+  "cv-translation-pending": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": true,
+    "translationAvailable": true,
+    "canManageTranslation": false
+   },
+   "POST /message-translations:batch": {
+    "$pending": true
+   }
+  },
+  "cv-translation-failed": {
+   "GET /servers/visual-server/translation-settings": {
+    "translationEnabled": true,
+    "translationAvailable": true,
+    "canManageTranslation": false
+   },
+   "POST /message-translations:batch": {
+    "$status": 500,
+    "$body": {
+     "error": "provider",
+     "reason": "provider"
     }
    }
   },

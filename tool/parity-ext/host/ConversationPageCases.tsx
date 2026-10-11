@@ -15,13 +15,14 @@
 // answered by the provider spec for React and by the fake client for Flutter).
 import ParityExtCvThreadPanel from "../src/components/message/ThreadPanel";
 import { useThreadStore as parityExtCvThreadStore } from "../src/store/threadStore";
+import { useTranslationStore as parityExtCvTranslationStore } from "../src/store/translationStore";
 import parityExtCvFixture from "virtual:parity-ext/conversation";
 import type { CSSProperties as ParityExtCvCSSProperties } from "react";
 
 type ParityExtCvProps = {
   caseId: string;
   extCase: string;
-  view: "window" | "row";
+  view: "window" | "row" | "external-detail";
   platform: "desktop" | "mobile";
   surface: "chat" | "thread";
   channel: string;
@@ -31,6 +32,7 @@ type ParityExtCvProps = {
   threadKey: string;
   resolveFailed: boolean;
   row: string;
+  translate: string;
   boxWidth: number | null;
   boxHeight: number | null;
   padX: number;
@@ -48,7 +50,7 @@ function parityExtCvProps(): ParityExtCvProps | null {
   return {
     caseId: raw,
     extCase: params.get("extCase") ?? "",
-    view: params.get("view") === "row" ? "row" : "window",
+    view: params.get("view") === "row" ? "row" : params.get("view") === "external-detail" ? "external-detail" : "window",
     platform: params.get("platform") === "mobile" ? "mobile" : "desktop",
     surface: params.get("surface") === "thread" ? "thread" : "chat",
     channel: params.get("chan") ?? "",
@@ -58,6 +60,7 @@ function parityExtCvProps(): ParityExtCvProps | null {
     threadKey: params.get("threadKey") ?? "main",
     resolveFailed: params.get("resolveFailed") === "true",
     row: params.get("row") ?? "",
+    translate: params.get("translate") ?? "",
     boxWidth: num("boxWidth"),
     boxHeight: num("boxHeight"),
     padX: num("padX") ?? 16,
@@ -137,10 +140,38 @@ type ParityExtCvRow = {
   hideThreadActions?: boolean;
 };
 
+
+// Translation row states: the auto-translation settings and the entry the message list's
+// batch request would have stored (the row view mounts MessageItem without the list).
+function parityExtCvPrimeTranslation(p: ParityExtCvProps, messageId: string, content: string) {
+  if (!p.translate) return;
+  const display = p.translate === "bilingual" ? "bilingual" : "translated";
+  parityExtCvTranslationStore.setState({
+    settings: {
+      preferredLanguage: "zh-CN", effectiveLanguage: "zh-cn", preferredTimezone: null, effectiveTimezone: null,
+      autoTranslationEnabled: true, preferredTranslationMode: "auto", preferredTranslationDisplay: display,
+      preferredTimeFormat: null, effectiveTimeFormat: "24h", available: true, serverTranslationEnabled: true,
+      providerAvailable: true, canManageServerTranslation: false,
+    },
+    entries: p.translate === "translating" ? { [messageId]: { messageId, status: "pending", targetLanguage: "zh-cn", originalContent: content, pendingSince: Date.now() } } : {
+      [messageId]: p.translate === "failed"
+        ? { messageId, status: "failed", reason: "provider", targetLanguage: "zh-cn", originalContent: content }
+        : {
+          messageId, status: "translated", sourceLanguage: "en", targetLanguage: "zh-cn", originalContent: content,
+          translatedContent: "已截取视觉基线，并将 React 对照排入队列。",
+          ...(p.translate === "original" ? { showOriginal: true } : {}),
+        },
+    },
+  } as never);
+}
+
 function ParityExtCvRowView({ p }: { p: ParityExtCvProps }) {
   useMemo(() => primeDirectVisualStores(p.caseId), [p.caseId]);
   const spec = (parityExtCvFixture.rows as Record<string, ParityExtCvRow>)[p.row];
   const message = { channelId: fxChannels.design.id, threadId: null, ...spec.message } as unknown as Message;
+  useMemo(() => parityExtCvPrimeTranslation(p, spec.message.id as string, message.content), [p, spec, message.content]);
+  // Permalinks point at the page's own origin (the preview only resolves current-host links).
+  message.content = message.content.replaceAll("__ORIGIN__", window.location.origin);
   const channels = useChannelStore.getState().channels;
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
@@ -164,9 +195,29 @@ function ParityExtCvRowView({ p }: { p: ParityExtCvProps }) {
   );
 }
 
+// components/profile/ExternalIdentityDetailPanel.tsx in its own panel-sized frame.
+function ParityExtCvExternalDetailView({ p }: { p: ParityExtCvProps }) {
+  useMemo(() => primeDirectVisualStores(p.caseId), [p.caseId]);
+  return (
+    <main className="min-h-screen bg-white p-0 font-display text-black">
+      <div
+        data-visual-case={p.caseId}
+        className="flex flex-col overflow-hidden border border-line-muted bg-layer-panel theme-brutal:border-2 theme-brutal:border-black"
+        style={{ width: p.boxWidth ?? 380, height: p.boxHeight ?? 640 }}
+      >
+        <ExternalIdentityDetailPanel
+          profile={parityExtCvFixture.externalProfile as never}
+          onClose={() => undefined}
+        />
+      </div>
+    </main>
+  );
+}
+
 function parityExtConversationElement() {
   const p = parityExtCvProps();
   if (!p) return null;
+  if (p.view === "external-detail") return <ParityExtCvExternalDetailView p={p} />;
   if (p.view === "row") return <ParityExtCvRowView p={p} />;
   return <ParityExtCvWindowView p={p} />;
 }

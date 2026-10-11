@@ -293,6 +293,49 @@ final ParityCase _threadCase = ParityCase(
   build: _buildWindow,
 );
 
+/// Selection mode on the main column: right-click the first row -> "Select
+/// Message" (`props.rows`: how many rows end up selected, 1 or 2).
+ParityCase _selectCase({required bool second}) => ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:MessageSelection',
+    'raft_ui:RaftSelectionToolbar',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView, selection mode.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+  interact: (t, ctx) async {
+    for (var i = 0; i < 30; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final row = find.byType(RaftMessageRow).first;
+    final box = find.descendant(of: row, matching: find.byType(Container)).first;
+    await t.tapAt(
+      t.getCenter(box),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    for (var i = 0; i < 12; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    await t.tap(find.text('Select Message'));
+    for (var i = 0; i < 12; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    if (second) {
+      final next = find.descendant(
+        of: find.byType(RaftMessageRow).at(1),
+        matching: find.byType(Container),
+      );
+      await t.tapAt(t.getCenter(next.first));
+      for (var i = 0; i < 12; i++) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+  },
+);
+
 final ParityCase _windowCase = ParityCase(
   widgets: const [
     'raft_flutter:WorkspaceView',
@@ -425,7 +468,32 @@ _RowStage _rowStage(ParityContext ctx) {
     ...Map<String, dynamic>.from(_fx(ctx)['routes'] as Map),
     ...Map<String, dynamic>.from(routeSet),
   }.entries) {
-    stage.client.routes[key] = (_) => value;
+    stage.client.routes[key] = (_) {
+      if (value is Map && value['\$pending'] == true) {
+        return Completer<Never>().future;
+      }
+      if (value is Map && value['\$status'] != null) {
+        throw RaftApiException(
+          '${(value['\$body'] as Map?)?['error'] ?? 'fixture error'}',
+          status: (value['\$status'] as num).toInt(),
+        );
+      }
+      return value;
+    };
+  }
+  // Translation rows: auto-translate into zh-CN (the account preferences the
+  // translation store reads; the settings / batch answers come from routes).
+  final translate = ctx.props['translate'] as String? ?? '';
+  if (translate.isNotEmpty) {
+    stage.client.user = RaftRecord({
+      ...stage.client.user!.json,
+      'preferredLanguage': 'zh-CN',
+      'autoTranslationEnabled': true,
+      'preferredTranslationMode': 'auto',
+      'preferredTranslationDisplay': translate == 'bilingual'
+          ? 'bilingual'
+          : 'translated',
+    });
   }
   // The server's computer list (Computer fact of the profile card).
   final machine = Map<String, dynamic>.from(
@@ -462,7 +530,9 @@ Future<TestGesture> _mouse(WidgetTester t) async {
 
 /// Profile preview card (3.27) and its recent-activity section (3.28): the
 /// pointer rests on the sender avatar until the hover card opens.
-final ParityCase _profileCase = ParityCase(
+final ParityCase _profileCase = _profileCaseFor();
+
+ParityCase _profileCaseFor() => ParityCase(
   widgets: const [
     'raft_flutter:RaftChatView',
     'raft_flutter:ProfilePreviewHoverCard',
@@ -477,7 +547,10 @@ final ParityCase _profileCase = ParityCase(
     await _pumpFrames(t);
     await stage.alignRow(t);
     final mouse = await _mouse(t);
-    await mouse.moveTo(t.getCenter(find.byType(ProfilePreviewHoverCard).first));
+    final card = find.byType(ProfilePreviewHoverCard).evaluate().isNotEmpty
+        ? find.byType(ProfilePreviewHoverCard)
+        : find.byType(ExternalIdentityHoverCard);
+    await mouse.moveTo(t.getCenter(card.first));
     for (var i = 0; i < 30; i++) {
       await t.pump(const Duration(milliseconds: 50));
     }
@@ -500,7 +573,8 @@ ParityCase _rowCase({
     // The workspace bootstrap loads the directories the rows resolve names
     // from; they must land before the row is measured (a longer name re-wraps).
     stage.w.entityDirectory.ensure({WorkspaceEntityKind.computers});
-    await _pumpFrames(t);
+    // Translations land before the row is measured (a translated body re-wraps).
+    await _pumpFrames(t, (ctx.props['translate'] as String? ?? '').isEmpty ? 8 : 40);
     await stage.alignRow(t);
     await act?.call(t, ctx, stage);
     await _pumpFrames(t);
@@ -517,6 +591,8 @@ final Map<String, ParityCase> extConversationCases = () {
   }
 
   add('empty', 'desktop', 'no-channel', _windowCase);
+  add('selection', 'desktop', 'one', _selectCase(second: false));
+  add('selection', 'desktop', 'two', _selectCase(second: true));
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'load-failed',
@@ -538,6 +614,7 @@ final Map<String, ParityCase> extConversationCases = () {
   for (final state in const ['agent', 'agent-activity', 'human']) {
     add('profile', 'desktop', state, _profileCase);
   }
+  add('external', 'desktop', 'card', _profileCase);
   for (final state in const ['default', 'task']) {
     add(
       'menu',
@@ -562,6 +639,21 @@ final Map<String, ParityCase> extConversationCases = () {
         },
       ),
     );
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final kind in const ['audio', 'video', 'pdf', 'patch']) {
+      add('attach', platform, kind, _rowCase());
+    }
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const [
+      'translating',
+      'translated',
+      'bilingual',
+      'failed',
+    ]) {
+      add('translate', platform, state, _rowCase());
+    }
   }
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const ['single', 'multi']) {
@@ -634,6 +726,28 @@ final Map<String, ParityUncovered> extConversationUncovered = () {
     const ['open', 'matches', 'none'],
     'Flutter has no in-thread search: ThreadActions.onSearch is never wired, so '
         'the thread overflow menu has no "Search this thread" item and no search bar.',
+  );
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
+      gaps['components.conversation.external.$platform.detail.$theme'] =
+          const ParityUncovered(
+            ParityGap.noFlutterSurface,
+            'Flutter has no external identity detail panel: only the hover card '
+            '(ExternalIdentityHoverCard) exists; the avatar is not tappable.',
+          );
+    }
+  }
+  gap(
+    'mermaid',
+    const ['fullscreen'],
+    'Flutter has no Mermaid full-screen viewer: RaftMermaidBlock offers the '
+        'toolbar (diagram / code / download) only.',
+  );
+  gap(
+    'quote',
+    const ['text', 'attachment', 'archived', 'loading', 'unavailable'],
+    'Flutter has no quoted-message permalink preview: a Raft message link in a '
+        'message body renders as a plain link, without the QuotedMessageCard.',
   );
   gap(
     'followers',

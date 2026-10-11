@@ -65,6 +65,9 @@ def channel(cid, name, description='Visual testing release gates', ctype='channe
 
 # ---- channels (one per footer state) --------------------------------------
 GRACE_ENDS = '2026-06-21T09:00:00.000Z'
+QUOTE_CH = 'cafe0000-0000-0000-0000-0000000000a1'
+QUOTE_CH_ARCHIVED = 'cafe0000-0000-0000-0000-0000000000a2'
+QUOTE_MSG = {k: f'beef0000-0000-0000-0000-00000000000{i}' for i, k in enumerate(['text', 'attachment', 'archived'], 1)}
 channels = [
     channel('channel-cv-open', 'design'),
     channel('channel-cv-archived', 'design-archive', archivedAt='2026-06-10T08:00:00.000Z'),
@@ -73,6 +76,8 @@ channels = [
     channel('channel-cv-join', 'product', joined=False),
     channel('channel-cv-joint-locked', 'joint-design', ctype='joint', jointBillingLocked=True),
     channel('channel-cv-joint-grace', 'joint-review', ctype='joint', jointOverLimitGraceEndsAt=GRACE_ENDS),
+    channel(QUOTE_CH, 'product', 'Release tracking and acceptance'),
+    channel(QUOTE_CH_ARCHIVED, 'old-product', 'Release tracking and acceptance', archivedAt='2026-06-10T08:00:00.000Z'),
 ]
 T = '2026-06-22T02:30:00.000Z'
 
@@ -166,6 +171,51 @@ rows['reactions-multi'] = {'message': row_msg('msg-cv-react-multi', CINDY, 'Capt
                                                    'reactorNames': [DESIGNER['displayName']]},
                                                   {'emoji': '\U0001F680', 'count': 3, 'reactorIds': [CINDY['id']],
                                                    'reactorNames': [CINDY['displayName']]}])}
+
+# quoted message permalink rows (the preview card under a message that links another message)
+def permalink(channel_id, message_id):
+    return f'__ORIGIN__/s/visual/channel/{channel_id}?msg={message_id}'
+
+
+QUOTE_TARGETS = {
+    'text': (QUOTE_CH, row_msg(QUOTE_MSG['text'], DESIGNER, 'The release gates are green for the Android capture, so we can publish the baselines.') | {'channelId': QUOTE_CH}),
+    'attachment': (QUOTE_CH, row_msg(QUOTE_MSG['attachment'], CINDY, 'Notes attached.') | {'channelId': QUOTE_CH,
+        'attachments': [{'id': 'att-cv-q1', 'filename': 'visual-parity-notes.pdf', 'mimeType': 'application/pdf', 'sizeBytes': 188416}]}),
+    'archived': (QUOTE_CH_ARCHIVED, row_msg(QUOTE_MSG['archived'], OWNER, 'This thread moved to the new channel.') | {'channelId': QUOTE_CH_ARCHIVED}),
+}
+for key, (qch, target) in QUOTE_TARGETS.items():
+    routes[f'GET /messages/context/{target["id"]}'] = {
+        'messages': [target], 'targetMessageId': target['id'], 'hasOlder': False, 'hasNewer': False,
+        'channelArchived': key == 'archived'}
+    rows[f'quote-{key}'] = {'message': row_msg(f'msg-cv-quote-{key}', OWNER, 'Context for this change: ' + permalink(qch, target['id']))}
+rows['quote-loading'] = {'message': row_msg('msg-cv-quote-loading', OWNER, 'Context for this change: ' + permalink(QUOTE_CH, QUOTE_MSG['text']))}
+rows['quote-unavailable'] = {'message': row_msg('msg-cv-quote-unavailable', OWNER, 'Context for this change: ' + permalink(QUOTE_CH, QUOTE_MSG['text']))}
+
+# external (Slack-projected) sender
+EXTERNAL_AUTHOR = {'provider': 'slack', 'appRegistrationId': 'cv-slack-app', 'installId': 'cv-slack-install',
+                   'workspaceId': 'opaque-workspace-id-not-rendered', 'workspaceName': 'Acme Product Studio',
+                   'externalActorId': 'cv-slack-actor', 'externalConversationId': 'cv-slack-channel',
+                   'externalMessageId': 'cv-slack-message', 'displayName': 'Ada Lovelace', 'actorKind': 'human',
+                   'avatarUrl': None, 'avatarDigest': None, 'actorProjectionRevision': 1}
+rows['external-slack'] = {'message': row_msg('msg-cv-external', {'type': 'external_projection', 'id': 'cv-slack-actor',
+                                                                  'name': 'Ada Lovelace'},
+                                              'Posted from Slack: the staging build is ready for review.',
+                                              externalAuthor=EXTERNAL_AUTHOR)}
+
+rows['translate'] = {'message': row_msg('msg-cv-translate', CINDY, 'Captured the visual baselines and queued React parity.')}
+
+rows['mermaid'] = {'message': row_msg('msg-cv-mermaid', CINDY, 'The capture flow:\n\n```mermaid\nflowchart LR\n  A[Capture] --> B{Match?}\n  B -->|yes| C[Ship]\n  B -->|no| D[Fix]\n```')}
+
+
+def attach_row(name, filename, mime, size, **extra):
+    return {'message': row_msg(f'msg-cv-attach-{name}', CINDY, 'Attached for review.', attachments=[
+        {'id': f'att-cv-{name}', 'filename': filename, 'mimeType': mime, 'sizeBytes': size, **extra}])}
+
+
+rows['attach-audio'] = attach_row('audio', 'standup-recording.mp3', 'audio/mpeg', 2411520)
+rows['attach-video'] = attach_row('video', 'capture-walkthrough.mp4', 'video/mp4', 18874368, width=1280, height=720)
+rows['attach-pdf'] = attach_row('pdf', 'visual-parity-notes.pdf', 'application/pdf', 188416, commentCount=2)
+rows['attach-patch'] = attach_row('patch', 'composer-spacing.patch', 'text/x-diff', 6144)
 ACTIVITY_LOG = [
     {'timestamp': 1782095100000, 'entry': {'kind': 'thinking', 'text': 'Planning the Android capture run'}},
     {'timestamp': 1782095160000, 'entry': {'kind': 'tool_start', 'toolName': 'Bash'}},
@@ -175,6 +225,8 @@ ACTIVITY_LOG = [
 ]
 
 route_sets = {
+    'quote-loading': {f'GET /messages/context/{QUOTE_MSG["text"]}': {'$pending': True}},
+    'quote-unavailable': {f'GET /messages/context/{QUOTE_MSG["text"]}': {'$status': 404, '$body': {'error': 'Message not found'}}},
     'activity': {'GET /agents/agent-cindy/activity-log': ACTIVITY_LOG},
     # ?msg=<missing id>: the message context 404s -> "message not found" banner.
     'msg-missing': {'GET /messages/context/msg-missing': {'$status': 404, '$body': {'error': 'Message not found'}}},
@@ -234,6 +286,11 @@ THREADS = {
 THREAD_SET = {}
 for key, t in THREADS.items():
     Seq.n = 0
+    # Server order (seq) follows the timestamps: the plain messages come first.
+    extras = [msg('msg-cv-sel-1', t['parentChannelId'], OWNER, 'Release gates are green for the Android capture.',
+                  '2026-06-22T02:10:00.000Z'),
+              msg('msg-cv-sel-2', t['parentChannelId'], DESIGNER, 'Reviewing the diffs after lunch.',
+                  '2026-06-22T02:20:00.000Z')] if key == 'main' else []
     parent = msg(t['parentMessageId'], t['parentChannelId'], CINDY,
                  'Captured the Android visual artifact for the parity run and queued React parity.',
                  '2026-06-22T02:30:00.000Z', threadId=t['threadChannelId'])
@@ -247,7 +304,9 @@ for key, t in THREADS.items():
     THREAD_SET.update({
         f'GET /messages/channel/{t["threadChannelId"]}': page(replies),
         f'GET /messages/context/{t["parentMessageId"]}': {'messages': [parent], 'hasMore': False, 'hasNewer': False},
-        f'GET /messages/channel/{t["parentChannelId"]}': page([parent], summaries={t['parentMessageId']: summary}),
+        f'GET /messages/channel/{t["parentChannelId"]}': page(
+            extras + [parent],
+            summaries={t['parentMessageId']: summary}),
     })
 routes.update(THREAD_SET)
 FOLLOWERS = {'GET /channels/threads/followers': {'threads': [{
@@ -259,6 +318,20 @@ FOLLOWERS = {'GET /channels/threads/followers': {'threads': [{
 route_sets.update({
     # The thread open (resolution) fails: Flutter's ThreadPanel shows its load error with Retry.
     'thread-failed': {'GET /channels/channel-cv-open/threads/msg-cv-tp': {'$status': 500, '$body': {'error': 'Internal Server Error'}}},
+    'translation': {
+        'GET /servers/visual-server/translation-settings': {'translationEnabled': True, 'translationAvailable': True,
+                                                            'canManageTranslation': False},
+        'POST /message-translations:batch': {'results': [{
+            'messageId': 'msg-cv-translate', 'status': 'translated', 'sourceLanguage': 'en', 'targetLanguage': 'zh-cn',
+            'translatedContent': '已截取视觉基线，并将 React 对照排入队列。'}]}},
+    'translation-pending': {
+        'GET /servers/visual-server/translation-settings': {'translationEnabled': True, 'translationAvailable': True,
+                                                            'canManageTranslation': False},
+        'POST /message-translations:batch': {'$pending': True}},
+    'translation-failed': {
+        'GET /servers/visual-server/translation-settings': {'translationEnabled': True, 'translationAvailable': True,
+                                                            'canManageTranslation': False},
+        'POST /message-translations:batch': {'$status': 500, '$body': {'error': 'provider', 'reason': 'provider'}}},
     'followers': FOLLOWERS,
     'followers-error': {'GET /channels/threads/followers': {'$status': 500, '$body': {'error': 'Internal Server Error'}}},
     'followers-remove': {**FOLLOWERS,
@@ -272,6 +345,7 @@ fixture = {
     'channels': channels,
     'dms': [],
     'threads': THREADS,
+    'externalProfile': EXTERNAL_AUTHOR,
     'rows': rows,
     'routes': routes,
     'routeSets': {f'cv-{k}': v for k, v in route_sets.items()},
@@ -436,6 +510,61 @@ for platform, full in (('desktop', (0, 800)), ('mobile', (0, 844))):
         route_set='followers-error',
         interactions=[{'type': 'click', 'target': '[data-testid="thread-followers-header-trigger"]'}, {'type': 'wait', 'ms': 500}],
         hint='packages/web/src/components/thread/ThreadAgentFollowers.tsx')
+
+# ---- 3.13 message selection mode (desktop main column; the phone toolbar is the official share case) --------
+ROW1, ROW2 = 'msg-cv-sel-1', 'msg-cv-sel-2'
+SELECT = [{'type': 'rightclick', 'target': f'#message-{ROW1}'},
+          {'type': 'click', 'target': '[role="menu"] >> text=Select Message'}, {'type': 'wait', 'ms': 300}]
+add('selection', 'desktop', 'one', 'Selection mode, one message', props={'surface': 'chat', 'chan': 'channel-cv-open'},
+    win=(0, 800), interactions=SELECT, hint='packages/web/src/components/message/SelectModeToolbar.tsx')
+add('selection', 'desktop', 'two', 'Selection mode, two messages', props={'surface': 'chat', 'chan': 'channel-cv-open'},
+    win=(0, 800), interactions=SELECT + [{'type': 'click', 'target': f'#message-{ROW2}'}, {'type': 'wait', 'ms': 300}],
+    hint='packages/web/src/components/message/SelectModeToolbar.tsx')
+
+# ---- 3.16 quoted message permalink preview (React only: Flutter renders the URL as a plain link) -------------
+for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
+    for state, rs in (('text', None), ('attachment', None), ('archived', None), ('loading', 'quote-loading'),
+                      ('unavailable', 'quote-unavailable')):
+        add('quote', platform, state, f'Quoted message permalink preview ({state})', view='row',
+            props={'row': f'quote-{state}', 'boxWidth': box, 'padX': padx, 'padTop': 8}, route_set=rs,
+            hint='packages/web/src/components/message/QuotedMessagePermalinkPreview.tsx')
+
+# ---- 3.29 external identity preview card (hover) and detail panel ---------------------------------
+add('external', 'desktop', 'card', 'External identity preview card', view='row',
+    props={'row': 'external-slack', 'boxWidth': 440, 'boxHeight': 112, 'padX': 16, 'padTop': 32},
+    selector='[data-slot="preview-card-content"]', android_key='raft-hover-card-surface',
+    hint='packages/web/src/components/message/ExternalIdentityPreviewCard.tsx',
+    interactions=[{'type': 'hover', 'target': '#message-msg-cv-external [data-avatar-kind="external"]'},
+                  {'type': 'wait', 'ms': 700}])
+add('external', 'desktop', 'detail', 'External identity detail panel', view='external-detail',
+    props={'boxWidth': 380, 'boxHeight': 640}, hint='packages/web/src/components/profile/ExternalIdentityDetailPanel.tsx')
+add('external', 'mobile', 'detail', 'External identity detail page', view='external-detail',
+    props={'boxWidth': 390, 'boxHeight': 844}, hint='packages/web/src/components/profile/ExternalIdentityDetailPanel.tsx')
+
+# ---- 3.34 translation in message rows (auto translation to zh-CN) -----------------------------------
+for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
+    for state, rs in (('translating', 'translation-pending'), ('translated', 'translation'), ('bilingual', 'translation'),
+                      ('failed', 'translation-failed')):
+        add('translate', platform, state, f'Message translation ({state})', view='row',
+            props={'row': 'translate', 'translate': state, 'boxWidth': box, 'padX': padx, 'padTop': 8}, route_set=rs,
+            hint='packages/web/src/components/message/MessageItem.tsx')
+
+# ---- 3.18 Mermaid full-screen viewer (React only: Flutter has no viewer) ----------------------------
+for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
+    add('mermaid', platform, 'fullscreen', 'Mermaid full-screen viewer', view='row',
+        props={'row': 'mermaid', 'boxWidth': box, 'padX': padx, 'padTop': 8},
+        selector='[data-testid="mermaid-fullscreen"]',
+        interactions=[{'type': 'wait', 'ms': 900},
+                      {'type': 'click', 'target': '[aria-label="Open Mermaid diagram fullscreen"]'},
+                      {'type': 'wait', 'ms': 1200}],
+        hint='packages/web/src/components/mermaid/MermaidDiagramViewer.tsx')
+
+# ---- 3.26 audio / video / PDF / patch attachment rows ---------------------------------------------
+for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
+    for kind in ('audio', 'video', 'pdf', 'patch'):
+        add('attach', platform, kind, f'Message attachment preview ({kind})', view='row',
+            props={'row': f'attach-{kind}', 'boxWidth': box, 'padX': padx, 'padTop': 8},
+            hint='packages/web/src/components/message/MessageItem.tsx')
 
 manifest_out = manifest_path()
 manifest = json.loads(manifest_out.read_text())
