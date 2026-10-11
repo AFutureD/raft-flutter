@@ -39,6 +39,8 @@ const raftChinese = <String, String>{
   "There are {part}": "有 {part}",
   "There are {parts}": "有 {parts}",
   "There are {count} system updates: {parts}": "有 {count} 条系统更新：{parts}",
+  "This message is older than the {days}-day history available on the {plan} plan. Upgrade to view it.":
+      "这条消息早于 {plan} 套餐可查看的 {days} 天历史范围，升级后即可查看。",
   "Message history is limited to {days} days on the {plan} plan.":
       "消息历史在 {plan} 套餐下仅保留 {days} 天。",
   // Settings > Feedback (hands-feedback-react 0.4.1 locale.ts zh-CN).
@@ -2022,6 +2024,51 @@ const raftChinese = <String, String>{
   "Join Server": "加入服务器",
   "Join as Guest": "以 Guest 身份加入",
   "Join channel": "加入频道",
+  "Join #{channel}": "加入 #{channel}",
+  "This action runs on {server}. Switch to {server} to run it.":
+      "这个操作会在 {server} 上执行，请切换到 {server} 后再执行。",
+  "Runs on {server}":
+      "将在 {server} 上执行",
+  "Create private channel <n>#{name}</n>":
+      "创建私密频道 <n>#{name}</n>",
+  "Create public channel <n>#{name}</n>":
+      "创建公开频道 <n>#{name}</n>",
+  "Create Agent <n>@{name}</n>":
+      "创建 Agent <n>@{name}</n>",
+  "Approve <n>{client}</n> for <n>@{agent}</n>":
+      "批准 <n>{client}</n> 用于 <n>@{agent}</n>",
+  "Install <n>{client}</n> for <n>@{agent}</n>":
+      "为 <n>@{agent}</n> 安装 <n>{client}</n>",
+  "Register app <n>{name}</n>":
+      "注册应用 <n>{name}</n>",
+  "Update app <n>{clientKey}</n>":
+      "更新应用 <n>{clientKey}</n>",
+  "Recover <n>{clientKey}</n> for <n>@{agent}</n>":
+      "恢复 <n>{clientKey}</n> 给 <n>@{agent}</n>",
+  "@{agent}":
+      "@{agent}",
+  "{client} installed on this Server":
+      "已在此 Server 安装 {client}",
+  "Committed by <n>{user}</n>":
+      "由 <n>{user}</n> 提交",
+  "Join #{channel} to run this.":
+      "加入 #{channel} 后才能执行。",
+  "{count} added to #{channel}":
+      "已向 #{channel} 添加 {count} 位",
+  "{client} approved for @{agent}":
+      "已批准 {client} 用于 @{agent}",
+  "{client} registered ({clientKey})":
+      "{client} 已注册（{clientKey}）",
+  "{client} updated ({clientKey})":
+      "{client} 已更新（{clientKey}）",
+  "{client} ownership recovered to @{owner}":
+      "{client} 的所有权已恢复给 @{owner}",
+  "Will send to: @{agent}":
+      "将发送给：@{agent}",
+  "Add 1 member to <n>{target}</n>":
+      "向 <n>{target}</n> 添加 1 位成员",
+  "Add {count} members to <n>{target}</n>":
+      "向 <n>{target}</n> 添加 {count} 位成员",
   "Join channel to comment": "加入频道后才能评论",
   "Join channel to reply": "加入频道以回复",
   "Join selected channels first": "请先加入所选频道",

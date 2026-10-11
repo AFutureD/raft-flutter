@@ -1153,6 +1153,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           onTask: openTaskSurface,
           onMessageTask: openMessageTaskSurface,
           onViewBilling: () => select('billing'),
+          onOpenChannelSettings: channelSettings,
         ),
       );
       // Mobile home keeps the sidebar mounted while the lists load and shows
@@ -1550,8 +1551,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         threadResizeLabel: tr('Resize thread'),
                         sidebarVisible:
                             gridActive ||
-                            DesktopNavigationPolicy.forSection(route)
-                                .usesConversationSidebar,
+                            DesktopNavigationPolicy.forSection(
+                              route,
+                            ).usesConversationSidebar,
                         // Phones mount neither; only desktop widths consume them.
                         sidebar: wide ? sidebar() : const SizedBox.shrink(),
                         rail: wide ? workspaceRail() : const SizedBox.shrink(),
@@ -1656,27 +1658,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                                   ),
                                                 ],
                                               ),
-                                      if (route == 'chat' &&
-                                          w.channel != null &&
-                                          !w.channel!.joined &&
-                                          !w.channel!.archived)
-                                        Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: RaftButton(
-                                            label: tr('Join channel'),
-                                            onPressed: () => joinChannel(),
-                                          ),
-                                        ),
-                                      if (route == 'chat' &&
-                                          w.channel?.archived == true)
-                                        Padding(
-                                          padding: EdgeInsets.all(12),
-                                          child: Text(
-                                            tr(
-                                              'This channel is archived. History is available.',
-                                            ),
-                                          ),
-                                        ),
                                       Expanded(
                                         child: KeyedSubtree(
                                           key: ValueKey(
@@ -1788,8 +1769,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     t,
                     MediaQuery.sizeOf(context).height,
                   ) +
-                  (DesktopNavigationPolicy.forSection(route)
-                          .usesConversationSidebar
+                  (DesktopNavigationPolicy.forSection(
+                        route,
+                      ).usesConversationSidebar
                       ? sidebarWidth
                       : 0)
             : 0,
@@ -2370,6 +2352,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           onTask: openTaskSurface,
                           onMessageTask: openMessageTaskSurface,
                           onViewBilling: () => select('billing'),
+                          onOpenChannelSettings: channelSettings,
                         ),
                 ),
         ),
@@ -2843,6 +2826,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     onSettings: channelSettings,
     searchLabel: tr('Search this channel'),
     settingsLabel: tr('Channel details and settings'),
+    archivedLabel: w.channel!.archived ? tr('Archived') : null,
   );
 
   /// ChatPanel's DM header: identity from the DM record (first frame), the
@@ -3356,8 +3340,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 child: RaftNavItem(
                                   key: const Key('nav-search'),
                                   role: RaftNavItemRole.search,
-                                  viewportHeight: MediaQuery.sizeOf(context)
-                                      .height,
+                                  viewportHeight: MediaQuery.sizeOf(
+                                    context,
+                                  ).height,
                                   label: tr('Search'),
                                   glyph: RaftGlyph.search,
                                   selected: w.section == 'search',
@@ -3371,8 +3356,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 child: RaftNavItem(
                                   key: const Key('nav-activity'),
                                   role: RaftNavItemRole.activity,
-                                  viewportHeight: MediaQuery.sizeOf(context)
-                                      .height,
+                                  viewportHeight: MediaQuery.sizeOf(
+                                    context,
+                                  ).height,
                                   label: tr('Activity'),
                                   glyph: RaftGlyph.activity,
                                   selected: w.section == 'activity',
@@ -3500,17 +3486,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
           },
         ),
     ];
-  }
-
-  Future<void> joinChannel() async {
-    try {
-      final c = w.channel!;
-      await w.command('POST', '/channels/${c.id}/join');
-      await w.refreshChannels();
-      await w.selectChannel(w.channels.firstWhere((next) => next.id == c.id));
-    } catch (e) {
-      w.setError('$e');
-    }
   }
 
   Future<void> channelSettings() async {

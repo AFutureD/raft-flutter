@@ -32,12 +32,12 @@ list of pages that default-theme coverage must reach.
 - Pages (rows) in the inventory: **180** in 9 areas, of which **21** are excluded as dead,
   obsolete or not shown to normal users (below), leaving **159** pages that count. 7 dev-only / entry-less
   routes are excluded on top (end of the document). 9 counted pages are flagged "verify" (reachability unclear).
-- Fully covered on every platform they exist on: **133**; partly covered (partial / wip): **5**; with at least one MISSING platform: **21**.
+- Fully covered on every platform they exist on: **152**; partly covered (partial / wip): **6**; with at least one MISSING platform: **1**.
 
 | platform | pages that exist there | ok | partial | wip | MISSING |
 | --- | --- | --- | --- | --- | --- |
-| Desktop (D) | 154 | 132 | 2 | 1 | 19 |
-| Phone (P) | 149 | 131 | 4 | 0 | 14 |
+| Desktop (D) | 154 | 151 | 2 | 1 | 0 |
+| Phone (P) | 148 | 143 | 4 | 0 | 1 |
 
 Excluded pages by reason (rows / extra routes):
 
@@ -55,7 +55,7 @@ Findings:
 
 - The official suite covers phone only, so every desktop page depends on the extension suite; the extension
   suite is concentrated on Settings, Auth, Thread and Shell components and has almost no composed desktop screens.
-- 19 desktop and 14 phone page-platforms have no case.
+- 0 desktop and 1 phone page-platforms have no case.
 - Agent detail: `AgentDetailPanel` has seven tabs (profile, activity, chat, reminders, workspace, apps, MCP). The
   base branch already has desktop cases for six of them (`components.members-ext.agent.*`, including `mcp*`). Chat has
   no case on either platform and MCP has none on phone. Desktop agent-detail work is in progress on
@@ -67,27 +67,7 @@ Ordered by priority, then pages not flagged "verify" first, then missing on both
 
 | rank | # | page | where | priority |
 | --- | --- | --- | --- | --- |
-| 1 | 3.06 | Channel state banners (archived + Unarchive, read-only quota + upgrade, guest read-only + Join channel, joint locked, over-limit grace, message not found, channel unavailable) | D+P | P2 common |
-| 2 | 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | D+P | P2 common |
-| 3 | 3.31 | Action card in a message (install app, create agent, channel members, owner recovery) | D+P | P2 common |
-| 4 | 3.03 | Desktop with no conversation selected ("Select a channel" empty main) | D | P2 common |
-| 5 | 3.07 | Channel Files tab (list; empty, loading, error, load more) | D | P2 common |
-| 6 | 3.11 | Message context menu (default message, task message) | D | P2 common |
-| 7 | 3.14 | Forward composer (destinations, note, send) | D | P2 common |
-| 8 | 3.30 | Profile side panel (open from a sender) | D | P2 common |
-| 9 | 7.10 | Agent detail: Chat tab (channels and DMs of the agent) | P | P2 common |
-| 10 | 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | D+P | P3 rare / admin / edge |
-| 11 | 3.12 | Reaction chips row and reactors tooltip | D+P | P3 rare / admin / edge |
-| 12 | 3.16 | Quoted message permalink preview and linked-message fallbacks | D+P | P3 rare / admin / edge |
-| 13 | 3.18 | Mermaid full-screen viewer | D+P | P3 rare / admin / edge |
-| 14 | 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | D+P | P3 rare / admin / edge |
-| 15 | 3.37 | Thread load failed (retry), guest read-only, joint locked | D+P | P3 rare / admin / edge |
-| 16 | 3.38 | In-thread search (search bar, next / previous match) | D+P | P3 rare / admin / edge |
-| 17 | 3.39 | Thread agent followers (list, remove, undo) | D+P | P3 rare / admin / edge |
-| 18 | 3.13 | Message selection mode (toolbar, share-as-image lightbox) | D | P3 rare / admin / edge |
-| 19 | 3.26 | Audio, video, PDF and diff / patch previews | P | P3 rare / admin / edge |
-| 20 | 3.28 | Mention hover activity preview | D | P3 rare / admin / edge |
-| 21 | 3.29 | External identity preview card and detail panel (verify) | D+P | P3 rare / admin / edge |
+| 1 | 7.10 | Agent detail: Chat tab (channels and DMs of the agent) | P | P2 common |
 
 ## 1. Auth, onboarding and public entry
 
@@ -166,22 +146,22 @@ Web: components/message (ChatPanel, MessageItem, MessageTimeline, MessageInput, 
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 3.01 | Channel screen (rail + sidebar + header + timeline + composer composed) | `components/layout/MainLayout.tsx ChannelRoute, message/ChatPanel.tsx` | ok | ok | `screens.thread.channel` | D: `components.screens-ext.channel.desktop.full`<br>P: `components.screens-ext.channel.mobile.full` | Composed 1280x800 and phone screens with a realistic message mix (markdown, code, mention, reactions, inline thread, system line). |
 | 3.02 | DM screen (human DM, agent DM composed) | `components/layout/MainLayout.tsx DmRoute` | ok | ok | `screens.thread.dm` | D: `components.screens-ext.dm.desktop.*`<br>P: `components.screens-ext.dm.mobile.agent` | Human and agent DM screens composed at 1280x800; phone has the agent DM. |
-| 3.03 | Desktop with no conversation selected ("Select a channel" empty main) | `components/message/ChatPanel.tsx (channel=null)` | MISSING | n/a |  |  | [P2] |
+| 3.03 | Desktop with no conversation selected ("Select a channel" empty main) | `components/message/ChatPanel.tsx (channel=null)` | ok | n/a |  | D: `components.conversation.empty.desktop.no-channel` |  |
 | 3.04 | Conversation header (channel, private, DM human / agent, description clamp, search button, Chat / Files / Tasks tabs) | `components/message/ChatPanel.tsx, channel/ChannelDescription.tsx` | ok | ok | `components.thread.header.states` | D: `components.channelheader.desktop.*`<br>P: `components.channelheader.mobile.*` |  |
 | 3.05 | Timeline (date dividers, empty channel, loading, history limit banner, beginning of messages, system groups, back to bottom) | `components/message/MessageTimeline.tsx, DateDivider.tsx, HistoryLimitBanner.tsx, SystemMessageGroupDisclosure.tsx` | ok | ok |  | D: `components.thread-ext.timeline.desktop.*`<br>P: `components.thread-ext.timeline.mobile.*` |  |
-| 3.06 | Channel state banners (archived + Unarchive, read-only quota + upgrade, guest read-only + Join channel, joint locked, over-limit grace, message not found, channel unavailable) | `components/message/ChatPanel.tsx` | MISSING | MISSING |  |  | [P2] |
-| 3.07 | Channel Files tab (list; empty, loading, error, load more) | `components/message/ChannelFilesPanel.tsx` | MISSING | ok | `components.thread.files.list` |  | Desktop: no case. Phone: populated list only. [P2] |
-| 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | `components/message/ChatPanel.tsx, task/TasksPanel.tsx` | MISSING | MISSING |  |  | Same panel as the Tasks page (6.01) minus the channel column. [P3] |
+| 3.06 | Channel state banners (archived + Unarchive, read-only quota + upgrade, guest read-only + Join channel, joint locked, over-limit grace, message not found, channel unavailable) | `components/message/ChatPanel.tsx` | ok | ok |  | D: `components.conversation.banner.desktop.*`<br>P: `components.conversation.banner.mobile.*` | Read-only quota and "Chat is unavailable" have no case: unreachable in the pinned source (maxChannels is -1 for every plan; ChatPanel readOnly is passed by the visual-testing host only). |
+| 3.07 | Channel Files tab (list; empty, loading, error, load more) | `components/message/ChannelFilesPanel.tsx` | ok | ok | `components.thread.files.list` | D: `components.conversation.files.desktop.*`<br>P: `components.conversation.files.mobile.*` | List, load more, empty, loading and error at both widths (the official case is the phone list). |
+| 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | `components/message/ChatPanel.tsx, task/TasksPanel.tsx` | ok | ok |  | D: `components.conversation.tasks.desktop.*`<br>P: `components.conversation.tasks.mobile.*` | Same panel as the Tasks page (6.01) minus the channel column. |
 | 3.09 | Message row (human, agent, system, deleted, rich markdown, code, long inline code, links, task chips) | `components/message/MessageItem.tsx, markdown/*` | partial | ok | `components.thread.message.row`<br>`components.thread.message-row.*` | D: `components.thread-ext.message.toolbar.desktop` | Desktop: rows only appear inside toolbar / forward / mermaid cases. |
 | 3.10 | Message hover toolbar and quick reaction picker | `components/message/MessageHoverToolbar.tsx` | ok | n/a |  | D: `components.thread-ext.message.toolbar*`<br>`components.thread-ext.message.picker*` |  |
-| 3.11 | Message context menu (default message, task message) | `components/message/MessageItem.tsx` | MISSING | ok | `components.thread.message-menu.*` |  | Desktop: right-click menu has no case. [P2] |
-| 3.12 | Reaction chips row and reactors tooltip | `components/message/MessageItem.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.13 | Message selection mode (toolbar, share-as-image lightbox) | `components/message/SelectModeToolbar.tsx, SelectShareLightbox.tsx` | MISSING | ok | `components.thread.message-share.*` |  | Desktop: no case. [P3] |
-| 3.14 | Forward composer (destinations, note, send) | `components/message/ForwardComposerDesktop.tsx, ForwardComposerMobile.tsx` | MISSING | ok | `components.thread.forward-modal` |  | Desktop dialog: no case. [P2] |
+| 3.11 | Message context menu (default message, task message) | `components/message/MessageItem.tsx` | ok | ok | `components.thread.message-menu.*` | D: `components.conversation.menu.desktop.*` |  |
+| 3.12 | Reaction chips row and reactors tooltip | `components/message/MessageItem.tsx` | ok | ok |  | D: `components.conversation.reactions.desktop.*`<br>P: `components.conversation.reactions.mobile.*` | The reactors tooltip is hover only (desktop). |
+| 3.13 | Message selection mode (toolbar, share-as-image lightbox) | `components/message/SelectModeToolbar.tsx, SelectShareLightbox.tsx` | ok | ok | `components.thread.message-share.*` | D: `components.conversation.selection.desktop.*` | Desktop: selection toolbar with one / two rows selected. The share-as-image lightbox has no case (it needs the html-to-image export). |
+| 3.14 | Forward composer (destinations, note, send) | `components/message/ForwardComposerDesktop.tsx, ForwardComposerMobile.tsx` | ok | ok | `components.thread.forward-modal` | D: `components.conversation.forward.desktop.*` | Desktop dialog opened from the selection toolbar (destinations column, preview, note composer). |
 | 3.15 | Forwarded bundle card in the timeline (single, multi, expanded, thread, restricted) | `components/message/ForwardedBundleCard.tsx` | ok | ok |  | D: `components.thread-ext.message.forward-*`<br>`!*.mobile`<br>P: `components.thread-ext.message.forward-*.mobile` |  |
-| 3.16 | Quoted message permalink preview and linked-message fallbacks | `components/message/QuotedMessagePermalinkPreview.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.16 | Quoted message permalink preview and linked-message fallbacks | `components/message/QuotedMessagePermalinkPreview.tsx` | ok | ok |  | D: `components.conversation.quote.desktop.*`<br>P: `components.conversation.quote.mobile.*` | Flutter page missing: a Raft message link renders as a plain link, without the QuotedMessageCard. |
 | 3.17 | Mermaid diagram card (toolbar, code view, diagram view) | `components/mermaid/MermaidDiagram.tsx` | ok | ok |  | D: `components.thread-ext.message.mermaid-*`<br>`!*.mobile`<br>P: `components.thread-ext.message.mermaid-toolbar.mobile` |  |
-| 3.18 | Mermaid full-screen viewer | `components/mermaid/MermaidDiagramViewer.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.18 | Mermaid full-screen viewer | `components/mermaid/MermaidDiagramViewer.tsx` | ok | ok |  | D: `components.conversation.mermaid.desktop.*`<br>P: `components.conversation.mermaid.mobile.*` | Flutter page missing: RaftMermaidBlock has the toolbar but no full-screen viewer. |
 | 3.19 | Composer (empty, draft with send enabled) | `components/message/MessageInput.tsx` | ok | ok | `components.thread.composer.empty`<br>`components.thread.composer.states` | D: `components.thread-ext.thread.desktop.composer`<br>P: `components.thread-ext.thread.mobile.composer` |  |
 | 3.20 | Composer @mention and #channel suggestion popovers | `components/message/MessageInput.tsx, mentionCandidates.ts` | ok | ok | `components.thread.composer.member-suggestions`<br>`components.thread.composer.channel-suggestions` | D: `components.screens-ext.composer.desktop.*` | Desktop: @mention (not-in-channel group) and #channel popovers over the composed channel screen. |
 | 3.21 | Composer "As task" mode | `components/message/MessageInput.tsx` | ok | ok | `components.thread.composer.as-task-selected` | D: `components.composer-states.as-task.desktop.*`<br>P: `components.composer-states.as-task.mobile.*` | Checkbox on, draft typed, over the composed channel screen (bottom window). |
@@ -189,20 +169,20 @@ Web: components/message (ChatPanel, MessageItem, MessageTimeline, MessageInput, 
 | 3.23 | Composer attachments (image, file, mixed, checking, uploading, failed, over size / count, drag over) | `components/message/MessageInput.tsx, AttachmentChip.tsx` | ok | ok | `components.thread.composer.image-preview`<br>`components.thread.composer.file-previews` | D: `components.composerattachments.desktop.*`<br>P: `components.composerattachments.mobile.*` |  |
 | 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | `components/message/MessageInput.tsx` | ok | ok |  | D: `components.composer-states.warning.desktop.*`<br>`components.composer-states.suggestions.desktop.*`<br>P: `components.composer-states.warning.mobile.*`<br>`components.composer-states.suggestions.mobile.*` | Agent-stopped (DM) and unresolved-mention banners come from the send receipt; conversion in progress disables Send; archived badge in the #channel popover. Mention-action failure notice and the generic error banner have no case here. |
 | 3.25 | Attachment viewers (image lightbox + gallery, text / csv / xlsx / markdown, html sandbox, comments panel) | `components/message/attachmentPreviewSurfaces.tsx, ImageLightbox.tsx` | ok | ok | `components.thread.comment-anchor` | D: `components.thread-ext.attachment.*`<br>`!*.mobile`<br>P: `components.thread-ext.attachment.*.mobile` |  |
-| 3.26 | Audio, video, PDF and diff / patch previews | `components/message/MessageItem.tsx, ui/CrossOriginPdfFrame.tsx` | partial | MISSING |  | D: `components.thread-ext.attachment.doc.header-pdf` | Only the PDF header has a case. [P3] |
-| 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | `components/message/ProfilePreviewCardContent.tsx` | MISSING | MISSING |  |  | [P2] |
-| 3.28 | Mention hover activity preview | `components/message/MentionHoverActivityPreview.tsx` | MISSING | n/a |  |  | [P3] |
-| 3.29 | External identity preview card and detail panel | `components/message/ExternalIdentityPreviewCard.tsx, profile/ExternalIdentityDetailPanel.tsx` | MISSING | MISSING |  |  | [verify] [P3] |
-| 3.30 | Profile side panel (open from a sender) | `components/profile/ProfilePanel.tsx` | MISSING | n/a |  |  | [P2] |
-| 3.31 | Action card in a message (install app, create agent, channel members, owner recovery) | `components/actions/ActionCard.tsx` | MISSING | MISSING |  |  | [P2] |
+| 3.26 | Audio, video, PDF and diff / patch previews | `components/message/MessageItem.tsx, ui/CrossOriginPdfFrame.tsx` | ok | ok |  | D: `components.thread-ext.attachment.doc.header-pdf`<br>`components.conversation.attach.desktop.*`<br>P: `components.conversation.attach.mobile.*` | Attachment rows for audio, video, PDF and a patch. Flutter shows audio / video as a generic attachment card: no inline players. |
+| 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | `components/message/ProfilePreviewCardContent.tsx` | ok | n/a |  | D: `components.conversation.profile.desktop.agent`<br>`components.conversation.profile.desktop.human` | Hover only: a touch screen never opens the PreviewCard (a tap navigates), so no phone case. Flutter does not wire the "Recent activity" link (no avatar / profile navigation), so the card shows the static divider form. |
+| 3.28 | Mention hover activity preview | `components/message/MentionHoverActivityPreview.tsx` | ok | n/a |  | D: `components.conversation.profile.desktop.agent-activity` |  |
+| 3.29 | External identity preview card and detail panel | `components/message/ExternalIdentityPreviewCard.tsx, profile/ExternalIdentityDetailPanel.tsx` | ok | ok |  | D: `components.conversation.external.desktop.*`<br>P: `components.conversation.external.mobile.*` | Hover card (desktop) is mapped; the detail panel / page is a Flutter page missing (the avatar is not tappable). [verify] |
+| 3.30 | Profile side panel (open from a sender) | `components/profile/ProfilePanel.tsx` | partial | n/a |  | D: `components.members-ext.human.*`<br>`components.members-ext.agent.*` | The panel body is HumanDetailPanel / AgentDetailPanel (7.03, 7.08-7.14, already covered). Flutter page missing: a sender avatar opens nothing (no side-panel entry from a message). |
+| 3.31 | Action card in a message (install app, create agent, channel members, owner recovery) | `components/actions/ActionCard.tsx` | ok | ok |  | D: `components.conversation.action.desktop.*`<br>P: `components.conversation.action.mobile.*` |  |
 | 3.32 | SOS dialog (confirm, stopped, guidance) | `components/message/SOSDialog.tsx` | ok | ok |  | D: `components.thread-ext.message.sos-*`<br>`!*.mobile`<br>P: `components.thread-ext.message.sos-confirm.mobile` |  |
 | 3.33 | Notification activation banner | `components/message/NotificationActivationBanner.tsx` | ok | ok |  | D: `components.thread-ext.message.banner.desktop`<br>P: `components.thread-ext.message.banner.mobile` |  |
-| 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | `components/message/MessageItem.tsx` | MISSING | MISSING |  |  | The Language & Region settings page has cases (9.05). [P3] |
+| 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | `components/message/MessageItem.tsx` | ok | ok |  | D: `components.conversation.translate.desktop.*`<br>P: `components.conversation.translate.mobile.*` | Auto translation to zh-cn: translating, translated, bilingual, failed. The Language & Region settings page has cases (9.05). |
 | 3.35 | Thread panel (replies, empty, loading, history limited, overflow menu) | `components/message/ThreadPanel.tsx, ThreadOverflowMenu.tsx` | ok | ok |  | D: `components.thread-ext.thread.desktop.*`<br>P: `components.thread-ext.thread.mobile.*` |  |
 | 3.36 | Inline thread replies preview | `components/message/InlineThreadReplies.tsx` | ok | ok |  | D: `components.thread-ext.inline.desktop.*`<br>P: `components.thread-ext.inline.mobile.*` |  |
-| 3.37 | Thread load failed (retry), guest read-only, joint locked | `components/message/ThreadPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.38 | In-thread search (search bar, next / previous match) | `components/message/ThreadPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.39 | Thread agent followers (list, remove, undo) | `components/thread/ThreadAgentFollowers.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.37 | Thread load failed (retry), guest read-only, joint locked | `components/message/ThreadPanel.tsx` | ok | ok |  | D: `components.conversation.threadstate.desktop.*`<br>P: `components.conversation.threadstate.mobile.*` | Also the Join-parent-channel CTA. Flutter gates a guest's channel / thread open on the viewChannel capability the role matrix denies guests, so the guest case cannot open the thread on desktop. |
+| 3.38 | In-thread search (search bar, next / previous match) | `components/message/ThreadPanel.tsx` | ok | ok |  | D: `components.conversation.threadsearch.desktop.*`<br>P: `components.conversation.threadsearch.mobile.*` | Flutter page missing: ThreadActions.onSearch is never wired (no "Search this thread" item, no search bar). |
+| 3.39 | Thread agent followers (list, remove, undo) | `components/thread/ThreadAgentFollowers.tsx` | ok | ok |  | D: `components.conversation.followers.desktop.*`<br>P: `components.conversation.followers.mobile.*` | Flutter page missing: RaftThreadHeader has a `followers` slot the app never fills. Remove / undo have no case. |
 | 3.40 | Channel overflow menu (members summary, inline edit, stop all agents confirm) | `components/channel/ChannelOverflowMenu.tsx` | excluded | excluded |  |  | [excluded: duplicate] |
 
 ## 4. Channel management dialogs

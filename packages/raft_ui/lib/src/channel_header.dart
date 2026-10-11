@@ -178,10 +178,15 @@ class RaftChannelHeader extends StatelessWidget {
     this.backLabel = 'Back',
     this.searchLabel = 'Search this channel',
     this.settingsLabel = 'Channel settings',
+    this.archivedLabel,
   });
   final String name, description, kind, backLabel, searchLabel, settingsLabel;
   final VoidCallback? onBack, onSearch, onSettings;
   final Key? backKey;
+
+  /// ChatPanel `regularTitleSuffix` for an archived channel: the localized
+  /// "Archived" badge after the title (null = not archived).
+  final String? archivedLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -212,18 +217,24 @@ class RaftChannelHeader extends StatelessWidget {
       ),
       content: RaftPanelHeaderContent(
         style: recipe.headerContent,
-        heading: RaftTooltip(
-          message: name,
-          onlyWhenTruncated: true,
-          excludeFromSemantics: true,
-          child: RaftCssText(
-            name,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-            style: title,
-            // Keep the primary CSS face's line box with CJK fallbacks.
-            strutStyle: StrutStyle.fromTextStyle(title, forceStrutHeight: true),
+        heading: _withArchivedBadge(
+          t,
+          RaftTooltip(
+            message: name,
+            onlyWhenTruncated: true,
+            excludeFromSemantics: true,
+            child: RaftCssText(
+              name,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: title,
+              // Keep the primary CSS face's line box with CJK fallbacks.
+              strutStyle: StrutStyle.fromTextStyle(
+                title,
+                forceStrutHeight: true,
+              ),
+            ),
           ),
         ),
         meta: meta.isEmpty
@@ -249,6 +260,56 @@ class RaftChannelHeader extends StatelessWidget {
         settingsLabel: settingsLabel,
         onSearch: onSearch,
         onSettings: onSettings,
+      ),
+    );
+  }
+
+  Widget _withArchivedBadge(RaftTokens t, Widget title) {
+    final label = archivedLabel;
+    if (label == null) return title;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Flexible(child: title),
+        const SizedBox(width: 8),
+        _ArchivedBadge(label),
+      ],
+    );
+  }
+}
+
+/// ChatPanel `regularTitleSuffix` archived badge: `inline-flex items-center
+/// rounded-sm border bg-warning/30 px-1.5 py-1 text-[11px] font-bold uppercase
+/// tracking-wide leading-none`; Brutal `rounded-none border-2 border-black
+/// bg-brutal-orange/30`.
+class _ArchivedBadge extends StatelessWidget {
+  const _ArchivedBadge(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Container(
+      key: const ValueKey('channel-archived-badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color:
+            (t.brutal ? t.colors['color-brutal-orange'] : t.colors['warning'])!
+                .withValues(alpha: .3),
+        borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+        border: Border.all(
+          color: t.brutal ? Colors.black : t.colors['line-muted']!,
+          width: t.brutal ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: RaftTypography.mono(
+          t,
+          size: 11,
+          line: 11,
+          color: t.brutal ? Colors.black : t.strong,
+        ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 11 * .025),
       ),
     );
   }
