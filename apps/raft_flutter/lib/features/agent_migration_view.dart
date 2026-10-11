@@ -189,7 +189,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
   Widget build(BuildContext context) => Scaffold(
     appBar: raftPageAppBar(
       context,
-      title: Text(raftText(context, 'Agent migration')),
+      title: raftText(context, 'Agent migration'),
       actions: [
         RaftTooltip(
           message: raftText(context, 'Refresh'),

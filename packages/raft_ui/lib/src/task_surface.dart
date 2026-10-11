@@ -20,7 +20,6 @@ import 'dialog_card.dart';
 import 'icons.dart';
 import 'inline_badge_editor.dart';
 import 'localization.dart';
-import 'mobile_page_header.dart';
 import 'css_recipe_decoration.dart';
 import 'recipe_surface.dart';
 import 'task.dart';
@@ -234,37 +233,12 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
   Widget header(BuildContext context, bool mobile) {
     final t = RaftTokens.of(context);
     final task = widget.task;
-    if (widget.page) {
-      return RaftMobilePageHeader(
-        key: const ValueKey('task-modal-bar'),
-        background: widget.legacy ? t.canvas : t.panel,
-        onBack: widget.onBack ?? widget.onClose,
-        backKey: const ValueKey('task-back'),
-        backLabel: raftText(context, 'Close task'),
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Task #${task['taskNumber'] ?? ''}${widget.legacy ? ' · LEGACY' : ''}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: RaftTypography.heading(t, size: 16, line: 20),
-            ),
-            Text(
-              '#${task['channelName'] ?? raftText(context, 'unknown')}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: RaftTypography.body(t, size: 12, line: 16, color: t.muted),
-            ),
-          ],
-        ),
-      );
-    }
     final side =
         widget.legacy &&
         widget.legacyPresentation == RaftLegacyTaskPresentation.side;
-    final showBack = side ? MediaQuery.sizeOf(context).width < 1024 : mobile;
+    final showBack = side
+        ? MediaQuery.sizeOf(context).width < 1024
+        : mobile || widget.page;
     final showClose = widget.legacy
         ? widget.legacyPresentation == RaftLegacyTaskPresentation.modal &&
                   !mobile ||
@@ -307,21 +281,28 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
           if (showBack)
             // Web: `Button size="icon-sm" variant="outline" className="size-7"`
             // (legacy panel: the default variant).
-            RaftTooltip(
-              message: raftText(context, 'Close task'),
-              excludeFromSemantics: true,
-              child: RaftRecipeButton(
-                key: const ValueKey('task-back'),
-                variant: widget.legacy
-                    ? RaftButtonRecipeVariant.default_
-                    : RaftButtonRecipeVariant.outline,
-                size: RaftButtonRecipeSize.iconSm,
-                glyph: RaftGlyph.arrowLeft,
-                glyphSize: 14,
-                tooltip: 'Close task',
-                onPressed: widget.legacy
-                    ? widget.onClose
-                    : widget.onBack ?? widget.onClose,
+            // Web's 28px square; the touch area is extended around it (outside
+            // the tooltip, whose own box would otherwise clip the hit test).
+            RaftTouchTargetExpander(
+              minSize: Size.square(
+                mobile || widget.page ? RaftMetrics.touchTarget : 0,
+              ),
+              child: RaftTooltip(
+                message: raftText(context, 'Close task'),
+                excludeFromSemantics: true,
+                child: RaftRecipeButton(
+                  key: const ValueKey('task-back'),
+                  variant: widget.legacy
+                      ? RaftButtonRecipeVariant.default_
+                      : RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.iconSm,
+                  glyph: RaftGlyph.arrowLeft,
+                  glyphSize: 14,
+                  tooltip: 'Close task',
+                  onPressed: widget.legacy
+                      ? widget.onClose
+                      : widget.onBack ?? widget.onClose,
+                ),
               ),
             ),
           if (widget.legacy) const RaftIcon(RaftGlyph.fileText, size: 18),

@@ -167,28 +167,25 @@ were equal):
 | thread.message-row.md-wrap-clarify | 88.86 | 96.07 | 7.21 | inline-code padding placeholder lets `（` + code break apart; cascades |
 | thread.message-row.md-wrap-status606 | 83.37 | 93.24 | 9.87 | long inline code force-broken on the current line; break after `/` |
 
-## Mobile panel header: intended difference (owner decision 2026-10-11)
+## Mobile panel header: follows Web (owner decision 2026-10-11)
 
-Below the 768 breakpoint, panel/detail headers (`RaftPanelHeaderBar`,
-`RaftConversationHeader`, `RaftThreadHeader`) render the shared 56px
-`RaftMobilePageHeader` with the platform back arrow (owner commits 1bfc08f,
-7f2a95b, 7f16df2). Web's phone panel header is a boxed back button plus the
-entity avatar and title. The owner chose to KEEP the platform header
-("手机页头用 A", 2026-10-11). Official cases captured at phone width that show
-this header are therefore intended differences, not regressions: the content
-below sits ~13 px higher and every row differs. Measured on batch-3:
-`screens.members.agent-detail.profile` and its variants (computer-missing,
-computer-offline, daemon-only, loading-state, long-machine-name, no-computer,
-no-membership) ~85.5–87.2%, `.activity` ~90.9%, `.apps` ~94.8%,
-`.reminders` ~94.7%, `.workspace` ~95.7%. Do not try to match Web's header
-geometry in these cases; compare the content below the header instead.
+The owner first kept the shared 56px platform `RaftMobilePageHeader` below
+768 ("手机页头用 A"), then switched to B on 2026-10-11: phone panel / detail
+headers now follow Web. `RaftPanelHeaderBar`, `RaftConversationHeader`,
+`RaftThreadHeader`, `RaftSettingsPanelHeader`, the task page (`TaskModalBar`)
+and the app's `RaftPageHeader` render the generated `panelHeader` recipe at the
+phone width (`max-md:` utilities) with Web's boxed `PanelAction` Back. The
+identity icon follows `iconAlwaysVisible`: kept for Agent / Human / Machine
+detail and regular channels, hidden on other surfaces. Native-only pages
+(attachment preview / lightbox page, incoming share picker, channel members
+and settings pages, standalone `raftPageAppBar` routes) wear the same Web
+header. Only the tab-root headers (`RaftMobileRootHeader`, the Tasks header)
+keep the shared 56px geometry; Web's roots are 62px (brutal) with `px-5`.
 
-The exemption covers height, back button and title layout only. Colours and
-the bottom edge still follow Web's `panelHeader` recipe: brutal draws
-`border-b-2 border-black`, elegant a 1px `line-muted` divider
-(`RaftMobilePageHeader.defaultBorder`). The 7f2a95b unification had drawn a
-1px `line` edge, which the blanket exemption hid until the owner spotted it on
-device (2026-10-11); `mobile_page_header_test` now pins the edge.
+Web's boxed Back is 26x28 (Brutal) / 32x32 (Elegant). The visual stays Web's
+size and `RaftTouchTargetExpander` extends the hit area to 48px.
+Elegant `panelHeader` draws no bottom border (`border-b-0`); the conversation
+and thread headers keep the 1px `line-muted` rule Source's mounted panel adds.
 
 ## One command
 

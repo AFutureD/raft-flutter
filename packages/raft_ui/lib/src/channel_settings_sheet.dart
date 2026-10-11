@@ -9,7 +9,7 @@ import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
-import 'mobile_page_header.dart';
+import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'recipes/button_variants.g.dart';
 import 'switch.dart';
 import 'theme.dart';
@@ -379,13 +379,12 @@ class RaftChannelSettingsSheet extends StatelessWidget {
         color: t.panel,
         child: Column(
           children: [
-            RaftMobilePageHeader(
-              title: Text(
-                raftText(context, title),
-                style: RaftTypography.heading(t, size: 16, line: 20),
-              ),
-              background: t.panel,
+            // Native page without a Web counterpart (Web opens a drawer): the
+            // Web PanelHeader keeps it consistent with every phone page.
+            RaftPanelHeaderBar(
+              title: raftText(context, title),
               onBack: onClose,
+              backTooltip: raftText(context, 'Back'),
             ),
             Expanded(
               child: SingleChildScrollView(

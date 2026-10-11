@@ -179,9 +179,12 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       child: RaftForwardPage(
         child: Column(
           children: [
-            RaftMobilePageHeader(
-              title: Text(raftText(context, 'Select destinations')),
+            // Native-only page: it wears the same Web PanelHeader as every
+            // phone page.
+            RaftPanelHeaderBar(
+              title: raftText(context, 'Select destinations'),
               onBack: busy ? null : () => Navigator.of(context).pop(false),
+              backTooltip: raftText(context, 'Back'),
             ),
             if (servers.isNotEmpty)
               RaftPanel(

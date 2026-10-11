@@ -41,16 +41,21 @@ void main() {
           of: find.text('首页专修'),
           matching: find.byType(RaftCssText),
         );
-        // Narrow widths use the shared 56px RaftMobilePageHeader in every
-        // family (owner's mobile header unification, 7f2a95b): the title and
-        // description column is centred in the header, no longer pinned to
-        // Web's 12px desktop padding.
-        expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
+        // Below md Web renders the same PanelHeader recipe (`max-md:` variants
+        // resolved at 390px): h-62 brutal / 56 elegant, boxed PanelAction
+        // Back, identity icon cell, title + meta.
+        final header = find.byType(RaftConversationHeader);
+        expect(t.getSize(header).height, family == RaftFamily.brutal ? 62 : 56);
+        expect(find.byType(RaftMobilePageHeader), findsNothing);
+        final back = find.byType(RaftPanelAction);
+        expect(
+          t.getSize(back),
+          family == RaftFamily.brutal ? const Size(26, 28) : const Size(32, 32),
+        );
+        // Brutal `px-5`, elegant `max-md:pl-5`.
+        expect(t.getTopLeft(back).dx, 20);
         if (family == RaftFamily.brutal) {
           expect(t.getSize(titleBox).height, 20);
-          // 56px header less Web's 2px bottom edge, centring the 37px title
-          // + one-line description.
-          expect(t.getTopLeft(titleBox).dy, 9);
         }
         for (final label in ['Search this channel', 'Channel settings']) {
           expect(t.getSize(find.bySemanticsLabel(label)), const Size(28, 28));

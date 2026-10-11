@@ -762,18 +762,18 @@ void main() {
         );
         final top = tester.getTopLeft(header);
         return Rect.fromLTWH(
-          top.dx, top.dy, tester.getSize(header).width,
+          top.dx,
+          top.dy,
+          tester.getSize(header).width,
           sliver.geometry!.scrollExtent,
         );
       }
+
       expect(
         groupRect('pinned').top,
         tester.getRect(find.byKey(const Key('nav-saved'))).bottom,
       );
-      expect(
-        tester.getRect(section).top,
-        groupRect('joint').bottom,
-      );
+      expect(tester.getRect(section).top, groupRect('joint').bottom);
       expect(tester.getRect(disclosure).top - tester.getRect(section).top, 12);
       await tester.tap(disclosure);
       await tester.pumpAndSettle();

@@ -291,6 +291,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           RaftPanelHeaderBar(
             title: displayName,
             profileBody: true,
+            iconAlwaysVisible: true,
             // `useMobileBack` renders the chevron below `md` only.
             onBack: MediaQuery.sizeOf(context).width >= 768
                 ? null

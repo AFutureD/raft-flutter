@@ -10,7 +10,7 @@ void main() {
     (RaftFamily.elegant, true),
   ]) {
     testWidgets(
-      '$family/$dark mobile page header uses shared native navigation geometry',
+      '$family/$dark mobile page header renders Web\'s phone PanelHeader',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -31,7 +31,7 @@ void main() {
                       subtitle: '3 active · 3 unread',
                       height: family == RaftFamily.brutal ? 62 : 56,
                       mobile: true,
-                      leading: RaftPanelBackAction(onPressed: () {}),
+                      onBack: () {},
                     ),
                   ),
                 ),
@@ -42,12 +42,24 @@ void main() {
         await tester.pumpAndSettle();
         final title = tester.getRect(find.text('Activity'));
         final subtitle = tester.getRect(find.text('3 active · 3 unread'));
-        expect(tester.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-        expect(title.left, 65);
-        expect(title.top, family == RaftFamily.brutal ? 9 : 10);
-        expect(title.height, 20);
-        expect(subtitle.top, family == RaftFamily.brutal ? 29 : 30);
-        expect(subtitle.height, 16);
+        // Web below md: `--shell-header-height` (62 brutal / 56 elegant),
+        // `px-5` (elegant `max-md:pl-5`), boxed PanelAction Back, gap-3
+        // (elegant gap-2), title + mono/sans meta.
+        expect(find.byType(RaftMobilePageHeader), findsNothing);
+        expect(
+          tester.getSize(find.byType(RaftPanelHeaderBar)).height,
+          family == RaftFamily.brutal ? 62 : 56,
+        );
+        final back = tester.getRect(find.byType(RaftPanelAction));
+        expect(
+          back.size,
+          family == RaftFamily.brutal ? const Size(26, 28) : const Size(32, 32),
+        );
+        expect(back.left, 1 + 20);
+        expect(title.left, back.right + (family == RaftFamily.brutal ? 12 : 8));
+        expect(subtitle.left, title.left);
+        expect(title.height, family == RaftFamily.brutal ? 20 : 21);
+        expect(subtitle.top, greaterThanOrEqualTo(title.bottom));
         expect(tester.takeException(), isNull);
       },
     );

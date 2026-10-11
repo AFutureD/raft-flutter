@@ -46,10 +46,9 @@ void main() {
         );
         await t.pump();
         final header = find.byType(RaftThreadHeader);
-        // Below the 768 desktop breakpoint the thread header is the shared
-        // 56px RaftMobilePageHeader in every family (owner's mobile header
-        // unification, 7f2a95b); brutal keeps Web's 62px only at desktop width.
-        final height = family == RaftFamily.brutal && width >= 768 ? 62 : 56;
+        // `--shell-header-height`: brutal 62 / elegant 56 at every width (the
+        // phone header is Web's PanelHeader, not a shared 56px page header).
+        final height = family == RaftFamily.brutal ? 62 : 56;
         expect(t.getSize(header).height, height);
         final boundary =
             key.currentContext!.findRenderObject()! as RenderRepaintBoundary;

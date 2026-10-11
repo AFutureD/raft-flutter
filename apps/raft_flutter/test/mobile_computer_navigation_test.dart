@@ -72,7 +72,10 @@ void expectDetailHeader(WidgetTester t) {
   expect(find.byKey(const Key('computer-mobile-back')), findsOneWidget);
   expect(find.byKey(const Key('computer-section-header')), findsNothing);
   expect(find.byKey(const Key('workspace-mobile-detail-header')), findsNothing);
-  expect(find.byType(RaftMobilePageHeader), findsOneWidget);
+  // The detail is MachineDetailPanel's PanelHeader (boxed Back + Monitor
+  // icon), not the shared page header; the host owns the 24px top inset.
+  expect(find.byType(RaftMobilePageHeader), findsNothing);
+  expect(find.byType(RaftPanelAction), findsOneWidget);
   expect(t.getRect(find.byKey(const Key('computer-mobile-header'))).top, 24);
   expect(find.byKey(const Key('workspace-mobile-navigation')), findsNothing);
 }
@@ -81,7 +84,7 @@ Future<void> capturePage(WidgetTester t, String theme, String page) async {
   final directory = Platform.environment['RAFT_COMPUTER_PAGE_EVIDENCE_DIR'];
   if (directory == null) return;
   RenderObject? object = t
-      .element(find.byType(RaftMobilePageHeader).first)
+      .element(find.byKey(const Key('computer-mobile-header')))
       .findRenderObject();
   while (object != null &&
       !(object is RenderRepaintBoundary &&
@@ -123,7 +126,8 @@ void main() {
         await t.ensureVisible(find.text('Computers'));
         await t.tap(find.text('Computers'));
         await f.flush(t);
-        await finishPageAnimation(t, find.byType(RaftMobilePageHeader).first);
+        // MobileComputersPanel: Web's phone PanelHeader (boxed Back).
+        await finishPageAnimation(t, find.byType(RaftPanelHeaderBar).first);
         await capturePage(t, theme, 'list');
         expect(w.location.route, RaftRoute.computers);
         expect(w.location.toString(), '/s/alpha/computers');
@@ -195,7 +199,10 @@ void main() {
         t.view.padding = const FakeViewPadding(top: 24, bottom: 16);
         addTearDown(t.view.resetPadding);
         await t.pump();
-        await finishPageAnimation(t, find.byType(RaftMobilePageHeader).first);
+        await finishPageAnimation(
+          t,
+          find.byKey(const Key('computer-mobile-header')),
+        );
         await capturePage(t, theme, 'detail');
         expectDetailHeader(t);
         final exits = watchAppExit(t);

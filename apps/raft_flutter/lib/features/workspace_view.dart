@@ -2701,13 +2701,11 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           title: thread ? tr('Thread') : title,
           height: raftPageHeaderHeight(context),
           mobile: true,
-          leading: RaftBackButton(
-            key: const Key('mobile-detail-back'),
-            tooltip: thread
-                ? (threadSelection.active ? 'Exit selection' : 'Close thread')
-                : (mainSelection.active ? 'Exit selection' : 'Back'),
-            onPressed: dismissPanel,
-          ),
+          backKey: const Key('mobile-detail-back'),
+          backLabel: thread
+              ? (threadSelection.active ? 'Exit selection' : 'Close thread')
+              : (mainSelection.active ? 'Exit selection' : 'Back'),
+          onBack: dismissPanel,
           actions: [
             if (w.section == 'chat' && w.channel != null && !thread)
               RaftIconButton(
@@ -3355,9 +3353,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                 child: !available
                     ? Column(
                         children: [
-                          RaftMobilePageHeader(
-                            title: Text(tr('Channel is no longer available')),
+                          RaftPanelHeaderBar(
+                            title: tr('Channel is no longer available'),
                             onBack: dismissPanel,
+                            backTooltip: tr('Back'),
                           ),
                         ],
                       )

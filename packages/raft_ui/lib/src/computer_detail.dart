@@ -340,13 +340,16 @@ class RaftComputerDetailView extends StatefulWidget {
     super.key,
     required this.data,
     required this.actions,
-    this.header,
+    this.onBack,
+    this.backKey,
+    this.headerKey,
   });
   final RaftComputerDetailData data;
   final RaftComputerDetailActions actions;
 
-  /// Optional host header, used by mobile pages with their own Back action.
-  final Widget? header;
+  /// MachineDetailPanel `onMobileBack`: the boxed Back below md.
+  final VoidCallback? onBack;
+  final Key? backKey, headerKey;
   @override
   State<RaftComputerDetailView> createState() => _RaftComputerDetailViewState();
 }
@@ -637,7 +640,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         key: const ValueKey('computer-detail-panel'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          widget.header ?? _header(context, t),
+          _header(context, t),
           Expanded(
             child: ColoredBox(
               color: t.brutal ? Colors.white : t.colors['layer-panel']!,
@@ -704,12 +707,15 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
   /// PanelHeader with the Monitor 18 icon, `iconBg="bg-primary-soft
   /// theme-brutal:bg-soft-signal ..."` and `iconAlwaysVisible`.
   Widget _header(BuildContext context, RaftTokens t) => Container(
-    key: const ValueKey('computer-section-header'),
+    key: widget.headerKey ?? const ValueKey('computer-section-header'),
     // MainLayout's content column (`bg-layer-canvas-muted`) shows through
     // the transparent Elegant PanelHeader; Brutal paints white.
     color: t.brutal ? Colors.white : t.colors['layer-canvas-muted'],
     child: RaftPanelHeaderBar(
       title: '${d.name}',
+      iconAlwaysVisible: true,
+      onBack: widget.onBack,
+      backKey: widget.backKey,
       iconSlot: RaftPanelHeaderIconTile(
         glyph: RaftGlyph.monitor,
         // bg-primary-soft theme-brutal:bg-soft-signal; elegant border-0

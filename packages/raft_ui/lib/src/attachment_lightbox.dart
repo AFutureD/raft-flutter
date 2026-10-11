@@ -5,7 +5,7 @@ import 'attachment_tokens.dart';
 import 'design_primitives.dart'
     show RaftInteractive, RaftLightboxRecipe, RaftSpinner;
 import 'indicators.dart';
-import 'mobile_page_header.dart';
+import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'recipes/button_variants.g.dart';
@@ -343,18 +343,12 @@ class RaftAttachmentLightbox extends StatelessWidget {
           child: Column(
             children: [
               if (page)
-                RaftMobilePageHeader(
-                  background: pageRecipe.surface,
-                  title: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: pageRecipe.title.copyWith(
-                      fontWeight: titleBold ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
+                // Native page: no Web counterpart, so it wears the same Web
+                // PanelHeader (boxed Back, title, actions) as every phone page.
+                RaftPanelHeaderBar(
+                  title: title,
                   onBack: onClose,
-                  backLabel: closeLabel,
+                  backTooltip: closeLabel,
                   actions: actions,
                 )
               else

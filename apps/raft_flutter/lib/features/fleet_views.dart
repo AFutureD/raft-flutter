@@ -1324,14 +1324,14 @@ class _FleetInspectionState extends State<FleetInspection> {
   Widget build(BuildContext context) => Scaffold(
     appBar: raftPageAppBar(
       context,
-      title: Text(switch (widget.kind) {
+      title: switch (widget.kind) {
         'activity-log' => 'Activity log',
         'channels' => 'Agent channels',
         'agent-dms' => 'Agent conversations',
         'workspace-files' => 'Workspace files',
         'skills' => 'Skills',
         _ => 'Workspaces',
-      }),
+      },
       actions: [
         RaftTooltip(
           message: raftText(context, 'Refresh'),

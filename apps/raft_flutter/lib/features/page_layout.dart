@@ -17,7 +17,9 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.height,
     this.subtitle,
     this.icon,
-    this.leading,
+    this.onBack,
+    this.backKey,
+    this.backLabel = 'Back',
     this.actions = const [],
     this.mobile = false,
     this.variant = RaftPanelHeaderVariant.canonical,
@@ -31,15 +33,23 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
   final bool bottomRule;
   final String title;
   final String? subtitle;
-  final Widget? icon, leading;
+  final Widget? icon;
+
+  /// Phone Back (AppPanelHeader `onMobileBack`): Web's boxed PanelAction.
+  final VoidCallback? onBack;
+  final Key? backKey;
+  final String backLabel;
   final List<Widget> actions;
   final double height;
   final bool mobile;
   final RaftPanelHeaderVariant variant;
 
   @override
-  Size get preferredSize =>
-      Size.fromHeight(mobile ? RaftMobilePageHeader.height : height);
+  Size get preferredSize => Size.fromHeight(
+    mobile && variant == RaftPanelHeaderVariant.tasks
+        ? RaftMobilePageHeader.height
+        : height,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -50,9 +60,23 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
       mobile: mobile,
       variant: variant,
     );
+    if (mobile && variant == RaftPanelHeaderVariant.canonical) {
+      // Below md Web renders the same AppPanelHeader grid: boxed Back, title
+      // (+ meta), actions. The icon tile is `hidden md:flex` on these
+      // non-identity surfaces.
+      return RaftPanelHeaderBar(
+        title: title,
+        subtitle: subtitle,
+        onBack: onBack,
+        backKey: backKey,
+        backTooltip: backLabel,
+        actions: actions,
+      );
+    }
     if (mobile) {
+      // TasksPanel is a tab-root header with its own Web markup (no back
+      // control); it stays on the shared tab-root geometry in this change.
       return RaftMobilePageHeader(
-        leading: leading,
         background: recipe.background,
         border: recipe.border,
         title: Column(
@@ -130,7 +154,6 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
       ),
       child: Row(
         children: [
-          if (leading != null) ...[leading!, SizedBox(width: gap)],
           if (!mobile && icon != null) ...[
             Container(
               width: RaftLayoutMetrics.panelIcon,
@@ -230,33 +253,27 @@ class RaftSettingsSection extends StatelessWidget {
   }
 }
 
-/// Standalone routes use the same mobile geometry as workspace panels.
+/// Standalone routes wear the same Web PanelHeader as the workspace panels
+/// below md (no Web counterpart: these pages are native-only).
 PreferredSizeWidget raftPageAppBar(
   BuildContext context, {
-  required Widget title,
+  required String title,
   List<Widget> actions = const [],
 }) {
   if (MediaQuery.sizeOf(context).width >= RaftLayoutMetrics.desktopBreakpoint) {
     // ds-allow: Native Scaffold AppBar preserves desktop sizing and automatic route Back.
-    return AppBar(title: title, actions: actions);
+    return AppBar(title: Text(title), actions: actions);
   }
   final navigator = Navigator.of(context);
   return PreferredSize(
-    preferredSize: const Size.fromHeight(RaftMobilePageHeader.height),
+    preferredSize: Size.fromHeight(raftPageHeaderHeight(context)),
     // ds-allow: Native Scaffold appBar ink host and safe-area background; raft_ui owns the header content.
     child: Material(
       color: RaftTokens.of(context).panel,
       child: SafeArea(
         bottom: false,
-        child: RaftMobilePageHeader(
-          title: DefaultTextStyle(
-            style: RaftTypography.heading(
-              RaftTokens.of(context),
-              size: 16,
-              line: 20,
-            ),
-            child: title,
-          ),
+        child: RaftPanelHeaderBar(
+          title: title,
           onBack: navigator.canPop() ? () => navigator.maybePop() : null,
           actions: actions,
         ),

@@ -410,13 +410,11 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
       builder: (context) => Scaffold(
         appBar: raftPageAppBar(
           context,
-          title: Text(
-            raftText(
-              context,
-              n.destination == SystemNoticeDestination.feedback
-                  ? 'Feedback'
-                  : 'Computers',
-            ),
+          title: raftText(
+            context,
+            n.destination == SystemNoticeDestination.feedback
+                ? 'Feedback'
+                : 'Computers',
           ),
         ),
         body: n.destination == SystemNoticeDestination.feedback

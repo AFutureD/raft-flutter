@@ -1,6 +1,7 @@
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SemanticsNode;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -32,18 +33,44 @@ void main() {
               dark,
             ),
           );
-          expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-          expect(t.getCenter(find.byKey(const ValueKey('task-back'))).dx, 32);
+          // Web's phone TaskModalBar (`px-4 py-2`, 28px `size-7` Back) rather
+          // than the shared 56px page header; the touch area is still 48.
+          expect(find.byType(RaftMobilePageHeader), findsNothing);
+          final back = find.byKey(const ValueKey('task-back'));
+          expect(t.getSize(back), const Size.square(28));
+          expect(t.getCenter(back).dx, (legacy ? 20 : 16) + 14);
           expect(
-            t
-                .getSemantics(find.byKey(const ValueKey('task-back')))
-                .flagsCollection
-                .isButton,
-            isTrue,
+            t.getSize(
+              find.ancestor(
+                of: back,
+                matching: find.byType(RaftTouchTargetExpander),
+              ),
+            ),
+            const Size.square(28),
           );
+          // The extended touch area is the semantics rect of the Back button.
+          SemanticsNode? node;
+          void visit(SemanticsNode n) {
+            if (n.label == 'Close task') node = n;
+            n.visitChildren((c) {
+              visit(c);
+              return true;
+            });
+          }
+
+          // ignore: deprecated_member_use
+          visit(t.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!);
+          expect(node!.getSemanticsData().flagsCollection.isButton, isTrue);
+          expect(node!.rect.size, const Size.square(48));
           expect(find.byType(RaftModalBackdrop), findsNothing);
           await t.sendKeyEvent(LogicalKeyboardKey.tab);
           await t.sendKeyEvent(LogicalKeyboardKey.enter);
+          await t.pump();
+          expect(find.text('Reopen preview'), findsOneWidget);
+          // The 28px Back keeps a >= 44px touch area (4px below its edge).
+          await t.tap(find.text('Reopen preview'));
+          await t.pump();
+          await t.tapAt(t.getCenter(back) + const Offset(0, 18));
           await t.pump();
           expect(find.text('Reopen preview'), findsOneWidget);
           expect(t.takeException(), isNull);

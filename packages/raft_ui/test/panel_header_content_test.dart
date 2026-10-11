@@ -7,7 +7,9 @@ Future<void> fonts(WidgetTester t) => t.runAsync(() async {
   for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
     ByteData bytes;
     try {
-      bytes = await rootBundle.load('packages/raft_ui/assets/fonts/$family.ttf');
+      bytes = await rootBundle.load(
+        'packages/raft_ui/assets/fonts/$family.ttf',
+      );
     } on FlutterError {
       bytes = await rootBundle.load('assets/fonts/$family.ttf');
     }
@@ -75,26 +77,15 @@ void main() {
             ('design', 'Product and UI decisions'),
             ('Designer', '@designer'),
           ]) {
-            // Below the 768 desktop breakpoint RaftPanelHeaderBar is the shared
-            // RaftMobilePageHeader (owner's mobile header unification, 7f2a95b):
-            // plain Text, a stacked 16/20 title over 12/16 meta in every
-            // family, instead of Web's RaftCssText title/meta flow.
-            final mobileBar = width < 768 && title == 'Designer';
-            Finder textOf(String value) => mobileBar
-                ? find.text(value, findRichText: true)
-                : css(value);
+            // Below md the headers still render Web's PanelHeader recipe
+            // (`max-md:` variants at 390px): RaftCssText title/meta flow.
+            Finder textOf(String value) => css(value);
             final heading = textOf(title), subtitle = textOf(meta);
             expect(heading, findsOneWidget);
             expect(subtitle, findsOneWidget);
             final head = t.getRect(heading), sub = t.getRect(subtitle);
             final inline = family == RaftFamily.elegant && width >= 768;
-            if (mobileBar) {
-              expect(find.byType(RaftMobilePageHeader), findsNWidgets(2));
-              expect(sub.left, head.left);
-              expect(sub.top, head.bottom);
-              expect(head.height, 20);
-              expect(sub.height, 16);
-            } else if (inline) {
+            if (inline) {
               expect(sub.left - head.right, closeTo(8, .02));
               expect(
                 baseline(t, heading),

@@ -1,10 +1,8 @@
-import 'panel_layout.dart' show RaftCssText, raftRecipeTheme;
+import 'panel_layout.dart' show RaftCssText, RaftPanelAction, raftRecipeTheme;
 import 'recipe_surface.dart' show RaftLayeredDecoration, RaftOuterShadowPainter;
 export 'panel_layout.dart' show raftRecipeTheme;
 
 import 'package:flutter/material.dart';
-
-import 'mobile_page_header.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
@@ -240,20 +238,6 @@ class RaftSettingsPanelHeader extends StatelessWidget {
       states: states,
       tokens: tokens,
     );
-    if (mobile) {
-      return RaftMobilePageHeader(
-        title: Text(
-          raftText(context, title),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: RaftTypography.heading(t, size: 16, line: 20),
-        ),
-        onBack: onMobileBack,
-        backKey: backKey,
-        backLabel: raftText(context, backTooltip),
-        background: s.header.backgroundColor?.resolve(tokens),
-      );
-    }
     final header = s.header;
     final titleStyle = RaftTypography.body(
       t,
@@ -269,6 +253,18 @@ class RaftSettingsPanelHeader extends StatelessWidget {
       decoration: header.decoration(tokens),
       child: Row(
         children: [
+          if (mobile && onMobileBack != null) ...[
+            // AppPanelHeader `onMobileBack`: the raft-ui PanelAction boxed
+            // ArrowLeft, touch area extended around the Web-sized visual.
+            RaftPanelAction(
+              key: backKey,
+              glyph: RaftGlyph.arrowLeft,
+              tooltip: raftText(context, backTooltip),
+              onPressed: onMobileBack,
+              minHitExtent: RaftMetrics.touchTarget,
+            ),
+            SizedBox(width: header.columnGap ?? 12),
+          ],
           if (!mobile && glyph != null) ...[
             Container(
               width: s.headerIcon.width,
@@ -344,7 +340,8 @@ class RaftSettingsPanelFrame extends StatelessWidget {
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
       child: Container(
-        decoration: attached &&
+        decoration:
+            attached &&
                 MediaQuery.sizeOf(context).width >=
                     RaftLayoutMetrics.desktopBreakpoint
             ? BoxDecoration(
@@ -393,18 +390,19 @@ TextStyle raftSettingsBody(
   double line = 24,
   FontWeight weight = FontWeight.w400,
   Color? color,
-}) => RaftTypography.inherited(
-  t,
-  size: size,
-  line: line,
-  weight: weight,
-  color: color ?? t.strong,
-).copyWith(
-  fontVariations: t.brutal || t.systemFonts
-      ? null
-      : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
-  leadingDistribution: TextLeadingDistribution.even,
-);
+}) =>
+    RaftTypography.inherited(
+      t,
+      size: size,
+      line: line,
+      weight: weight,
+      color: color ?? t.strong,
+    ).copyWith(
+      fontVariations: t.brutal || t.systemFonts
+          ? null
+          : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
+      leadingDistribution: TextLeadingDistribution.even,
+    );
 
 /// SectionHeader.tsx: `flex items-center gap-2`, a 16px icon in
 /// `text-foreground-muted theme-brutal:text-black/60`, and SectionEyebrow

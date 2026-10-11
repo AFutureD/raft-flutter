@@ -34,8 +34,17 @@ void main() {
         await t.pumpAndSettle();
         expect(find.byType(RaftOverflowSheet), findsOneWidget);
         expect(find.byType(RaftChannelSettingsSheet), findsNothing);
-        expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-        expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+        // Web's Drawer header below md: `h-panel-header` (62px fallback) with
+        // px-4 and the 28px outline Back, its touch area extended to 48.
+        expect(find.byType(RaftMobilePageHeader), findsNothing);
+        final back = find.byKey(const ValueKey('channel-overflow-back'));
+        expect(t.getSize(back), const Size.square(28));
+        expect(t.getCenter(back).dx, 16 + 14);
+        // Centred in the border-box less its bottom edge (2px brutal, 1px).
+        expect(
+          t.getTopLeft(back).dy,
+          (62 - (family == RaftFamily.brutal ? 2 : 1) - 28) / 2,
+        );
         expect(
           t.getSemantics(find.text(title)).flagsCollection.isHeader,
           isTrue,
@@ -62,8 +71,19 @@ void main() {
         t.view.physicalSize = const Size(320, 568);
         await t.pumpAndSettle();
         expect(t.takeException(), isNull);
-        final toggle = find.byType(RaftSwitch).first;
-        await t.ensureVisible(toggle);
+        // Web's taller (62px) brutal drawer header leaves less viewport; the
+        // lazily built switch is scrolled in before it is toggled.
+        final toggle = find.byType(RaftSwitch);
+        await t.scrollUntilVisible(
+          toggle,
+          100,
+          scrollable: find
+              .descendant(
+                of: find.byType(RaftOverflowSheet),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         await t.pumpAndSettle();
         await t.tap(toggle);
         await t.pump();
