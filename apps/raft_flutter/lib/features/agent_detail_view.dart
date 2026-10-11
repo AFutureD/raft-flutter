@@ -16,6 +16,8 @@ import '../data/source_time_formatter.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_apps_view.dart';
+import 'channel_form_fields.dart' show ChannelCandidateAvatar;
+import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 import 'agent_trajectory_log.dart';
 import 'runtime_usage_chip.dart';
 import 'agent_metadata_catalog.dart';
@@ -432,6 +434,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         key: ValueKey('agent-chat-$agentId'),
         controller: w,
         agentId: agentId,
+        clock: widget.clock,
       ),
       AgentDetailTab.reminders => AgentRemindersTab(
         key: ValueKey('agent-reminders-$agentId'),
@@ -1190,9 +1193,11 @@ class AgentChatTab extends StatefulWidget {
     super.key,
     required this.controller,
     required this.agentId,
+    this.clock,
   });
   final WorkspaceController controller;
   final String agentId;
+  final DateTime Function()? clock;
   @override
   State<AgentChatTab> createState() => _AgentChatTabState();
 }
@@ -1235,12 +1240,6 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
       ..loaded = true;
   }
 
-  List<Widget> _section(String title, List<Map<String, dynamic>> rows) => [
-    RaftSectionHeader(label: title, count: rows.length),
-    for (final r in rows)
-      RaftAccessCard(title: '${r['name'] ?? r['displayName'] ?? r['id']}'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     // Nothing accepted yet: no "Channels 0" counts that would then fill in.
@@ -1252,10 +1251,48 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
             : RaftButton(label: raftText(context, 'Retry'), onPressed: reload),
       );
     }
-    return RaftPanelGroups(
-      groups: [
-        _section(raftText(context, 'Channels'), channels),
-        _section(raftText(context, 'Direct messages'), dms),
+    final origin = w.client.origin;
+    final chinese = Localizations.localeOf(context).languageCode == 'zh';
+    return RaftAgentChatView(
+      // visibleAgentChatChannels: archived memberships are not listed.
+      channels: [
+        for (final c in channels)
+          if (c['archivedAt'] == null)
+            RaftAgentChannelRow(
+              id: '${c['id']}',
+              name: '${c['name'] ?? c['id']}',
+              description: c['description'] as String?,
+              type: '${c['type'] ?? 'channel'}',
+              activityMuted: c['activityMuted'] == true,
+              muteFromSeq: c['muteFromSeq'],
+            ),
+      ],
+      dms: [
+        for (final d in dms)
+          RaftAgentDmRow(
+            id: '${d['id']}',
+            name: '${d['peerDisplayName'] ?? d['peerName'] ?? d['id']}',
+            handle: '@${d['peerName'] ?? ''}',
+            avatar: ChannelCandidateAvatar(
+              candidate: ChannelMemberCandidate(
+                kind: 'agent',
+                id: '${d['peerId'] ?? d['id']}',
+                name: '${d['peerName'] ?? ''}',
+                displayName: d['peerDisplayName'] as String?,
+                avatarUrl: d['peerAvatarUrl'] as String?,
+              ),
+              avatarContext: RaftMountedAvatarContext.previewMini,
+              origin: origin,
+            ),
+            timestamp: resourceRelativeTime(
+              '${d['lastMessageAt'] ?? d['createdAt']}',
+              now: widget.clock?.call(),
+              chinese: chinese,
+            ),
+            preview: (d['lastMessagePreview'] as String?)?.isNotEmpty == true
+                ? d['lastMessagePreview'] as String
+                : null,
+          ),
       ],
     );
   }
