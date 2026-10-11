@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
@@ -84,40 +85,76 @@ class RaftSidebarContextMenu extends StatefulWidget {
 
 class _RaftSidebarContextMenuState extends State<RaftSidebarContextMenu> {
   bool submenuOpen = false;
+  final mainKey = GlobalKey();
+  final portal = OverlayPortalController();
 
   void setOpen(bool open) {
-    if (open != submenuOpen) setState(() => submenuOpen = open);
+    if (open == submenuOpen) return;
+    setState(() => submenuOpen = open);
+    open ? portal.show() : portal.hide();
   }
 
   @override
   Widget build(BuildContext context) {
-    final menu = _menu(
-      context,
-      widget.entries,
-      widget.width,
-      widget.label,
-      primary: true,
+    final menu = KeyedSubtree(
+      key: mainKey,
+      child: _menu(
+        context,
+        widget.entries,
+        widget.width,
+        widget.label,
+        primary: true,
+      ),
     );
     final sub = widget.submenuEntries;
-    if (sub == null || !submenuOpen) return menu;
-    final t = RaftTokens.of(context);
+    if (sub == null) return menu;
+    return OverlayPortal(
+      controller: portal,
+      overlayChildBuilder: (overlayContext) =>
+          _submenu(overlayContext, context, sub),
+      child: menu,
+    );
+  }
+
+  /// Sidebar.tsx `placeSidebarContextSubmenu`: a second popup (`w-56`, z 51)
+  /// level with the trigger row, 4px right of the main menu, else 4px left of
+  /// it, never closer than 8px to the viewport edge - on a phone it therefore
+  /// covers the main menu.
+  Widget _submenu(
+    BuildContext overlayContext,
+    BuildContext menuContext,
+    List<RaftSidebarMenuEntry> sub,
+  ) {
+    final main = mainKey.currentContext?.findRenderObject();
+    final overlay = Overlay.of(overlayContext).context.findRenderObject();
+    if (main is! RenderBox ||
+        !main.attached ||
+        overlay is! RenderBox ||
+        !overlay.attached) {
+      return const SizedBox.shrink();
+    }
+    final t = RaftTokens.of(menuContext);
     final inset = RaftContextMenuRecipe.resolve(
       theme: t.recipeTheme,
       states: t.recipeStates(),
       tokens: RaftRecipeTokens(t),
     ).content.padding;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        menu,
-        const SizedBox(width: 4),
-        // The submenu opens level with its trigger, the first row.
-        Padding(
-          padding: EdgeInsets.only(top: inset.top),
-          child: _menu(context, sub, widget.submenuWidth, widget.submenuLabel),
+    final origin = main.localToGlobal(Offset.zero, ancestor: overlay);
+    return CustomSingleChildLayout(
+      delegate: _SubmenuLayout(
+        left: origin.dx,
+        right: origin.dx + main.size.width,
+        top: origin.dy + inset.top,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: _menu(
+          menuContext,
+          sub,
+          widget.submenuWidth,
+          widget.submenuLabel,
         ),
-      ],
+      ),
     );
   }
 
@@ -255,4 +292,37 @@ class _Rule extends CustomPainter {
   @override
   bool shouldRepaint(_Rule old) =>
       old.color != color || old.left != left || old.right != right;
+}
+
+class _SubmenuLayout extends SingleChildLayoutDelegate {
+  const _SubmenuLayout({
+    required this.left,
+    required this.right,
+    required this.top,
+  });
+  final double left, right, top;
+  static const margin = 8.0, gap = 4.0;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints.loose(
+        Size(
+          math.max(0, constraints.maxWidth - margin * 2),
+          math.max(0, constraints.maxHeight - margin * 2),
+        ),
+      );
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final rightX = right + gap;
+    final x = rightX + childSize.width <= size.width - margin
+        ? rightX
+        : math.max(margin, left - childSize.width - gap);
+    final maxY = math.max(margin, size.height - childSize.height - margin);
+    return Offset(x, top.clamp(margin, maxY).toDouble());
+  }
+
+  @override
+  bool shouldRelayout(_SubmenuLayout old) =>
+      old.left != left || old.right != right || old.top != top;
 }

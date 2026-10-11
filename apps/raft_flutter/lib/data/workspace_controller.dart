@@ -3197,6 +3197,125 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
+  // ---- sidebar-order writes (Source serverStore.updateSidebarOrder) -------
+
+  static const _sectionFields = {
+    'customSections',
+    'sectionOrder',
+    'sectionPlacements',
+  };
+  int _sidebarSectionSeq = 0, _sidebarSectionsInFlight = 0;
+  Future<void> _sidebarSectionTail = Future.value();
+  num? _sidebarConfirmedVersion;
+
+  /// Applies [updates] to [sidebarOrder] at once (the row moves before the
+  /// request returns), then PATCHes `/servers/:id/sidebar-order`. A request
+  /// that touches sections carries the `sectionsVersion` the server demands
+  /// (409 otherwise) and is queued behind the previous section write; a
+  /// failure restores the previous order, a 409 reloads it. Never throws.
+  Future<void> updateSidebarOrder(Map<String, dynamic> updates) async {
+    final source = presentationSource;
+    if (source != null) return source.updateSidebarOrder(updates);
+    final id = server?.id ?? client.serverId;
+    if (id == null || _disposed) return;
+    final generation = client.generation;
+    final previous = sidebarOrder;
+    final next = {...previous, ...updates};
+    final sections = updates.keys.any(_sectionFields.contains);
+    sidebarOrder = next;
+    _save('sidebar-order', '', next);
+    notifyListeners();
+    bool current() =>
+        !_disposed &&
+        (server?.id ?? client.serverId) == id &&
+        client.generation == generation;
+
+    Future<void> perform(int sequence, num? version, bool queued) async {
+      if (!current()) return;
+      try {
+        final value = await client.request(
+          'PATCH',
+          '/servers/$id/sidebar-order',
+          data: sections
+              ? {...updates, 'sectionsVersion': ?version}
+              : updates,
+        );
+        if (!current()) return;
+        final reply = value is Map
+            ? Map<String, dynamic>.from(value)
+            : <String, dynamic>{};
+        if (queued) _sidebarConfirmedVersion = reply['sectionsVersion'] as num?;
+        if (queued && sequence != _sidebarSectionSeq) {
+          // A newer section write is queued: keep its optimistic order and
+          // only adopt the versions.
+          sidebarOrder = {
+            ...sidebarOrder,
+            if (reply['sectionsVersion'] != null)
+              'sectionsVersion': reply['sectionsVersion'],
+            if (reply['pinnedVersion'] != null)
+              'pinnedVersion': reply['pinnedVersion'],
+          };
+        } else {
+          sidebarOrder = {...next, ...reply};
+        }
+        _save('sidebar-order', '', sidebarOrder);
+        notifyListeners();
+      } catch (error) {
+        if (!current()) return;
+        if (!queued || sequence == _sidebarSectionSeq) {
+          sidebarOrder = previous;
+          _save('sidebar-order', '', previous);
+          notifyListeners();
+        }
+        if (error is RaftApiException && error.status == 409) {
+          unawaited(loadSidebar());
+        }
+      }
+    }
+
+    if (!sections) return perform(0, null, false);
+    final sequence = ++_sidebarSectionSeq;
+    _sidebarConfirmedVersion ??= previous['sectionsVersion'] as num?;
+    // An idle queue sends at once; otherwise this write waits for the
+    // previous one so it carries the version that one produced.
+    final run = _sidebarSectionsInFlight == 0
+        ? perform(sequence, _sidebarConfirmedVersion, true)
+        : _sidebarSectionTail.then(
+            (_) => perform(sequence, _sidebarConfirmedVersion, true),
+          );
+    _sidebarSectionsInFlight++;
+    _sidebarSectionTail = run;
+    return run.whenComplete(() {
+      if (--_sidebarSectionsInFlight == 0) _sidebarConfirmedVersion = null;
+    });
+  }
+
+  /// Source channelStore.setActivityMuteState: patches the mute fields of one
+  /// row in place (channels, DMs and the open channel).
+  void setActivityMuteState(String id, Map<String, dynamic> state) {
+    final source = presentationSource;
+    if (source != null) return source.setActivityMuteState(id, state);
+    RaftChannel patch(RaftChannel value) =>
+        value.id == id ? RaftChannel({...value.json, ...state}) : value;
+    channels = channels.map(patch).toList();
+    dms = dms.map(patch).toList();
+    if (channel != null) channel = patch(channel!);
+    notifyListeners();
+  }
+
+  /// The channel row [id] as currently held (channels first, then DMs).
+  RaftChannel? channelById(String id) =>
+      [...channels, ...dms].where((c) => c.id == id).firstOrNull;
+
+  /// Optimistic local unread for Mark as Unread (Source markUnread).
+  void markUnreadLocally(String id) {
+    final source = presentationSource;
+    if (source != null) return source.markUnreadLocally(id);
+    if ((unread[id] ?? 0) > 0) return;
+    unread = {...unread, id: 1};
+    notifyListeners();
+  }
+
   /// Read order of channel-row authority. Every list read, single-row read
   /// and realtime row patch takes the next value when it starts; a row keeps
   /// the value of whatever last wrote it. An older response therefore never
