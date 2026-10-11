@@ -1321,6 +1321,9 @@ class _BillingInputState extends State<_BillingInput> {
 
   @override
   Widget build(BuildContext context) => Semantics(
+    // Keep the field role on this input, including in an IndexedSemantics
+    // list child that otherwise merges the whole billing section.
+    container: true,
     label: widget.label,
     textField: true,
     child: RaftRecipeInput(

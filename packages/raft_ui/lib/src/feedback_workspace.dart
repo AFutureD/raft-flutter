@@ -369,6 +369,7 @@ class _RaftFeedbackComposerState extends State<RaftFeedbackComposer> {
           canRequestFocus: false,
           skipTraversal: true,
           child: Semantics(
+            container: true,
             label: raftText(context, widget.label),
             textField: true,
             child: TextField(

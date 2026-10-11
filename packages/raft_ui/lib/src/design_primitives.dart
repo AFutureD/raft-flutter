@@ -3060,6 +3060,7 @@ class _RaftInteractiveState extends State<RaftInteractive> {
 
   @override
   Widget build(BuildContext context) {
+    final touch = RaftDensityScope.of(context) == RaftDensity.touch;
     final state = RaftInteractionState(
       hovered: hovered,
       pressed: pressed,
@@ -3067,6 +3068,9 @@ class _RaftInteractiveState extends State<RaftInteractive> {
       enabled: enabled,
     );
     Widget result = Semantics(
+      // TouchTarget supplies this boundary and its larger semantics rect on
+      // touch devices. Desktop controls need their own role/action boundary.
+      container: !touch,
       label: widget.semanticLabel,
       excludeSemantics: widget.busy,
       button: widget.button,
@@ -3130,7 +3134,7 @@ class _RaftInteractiveState extends State<RaftInteractive> {
     }
     // The expander must surround the tooltip's render boxes too; otherwise
     // those 32px boxes reject pointers before the expanded target sees them.
-    if (RaftDensityScope.of(context) == RaftDensity.touch) {
+    if (touch) {
       result = RaftTouchTarget(child: result);
     }
     return result;
