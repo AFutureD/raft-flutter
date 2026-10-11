@@ -1702,6 +1702,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           serverSwitchLocation == null,
     );
     if (state == AppLifecycleState.resumed) {
+      unawaited(sharing.resume());
       unawaited(NativeSystemFonts.instance.refresh());
       unawaited(content.notifications.refreshPermission());
       final w = workspace;

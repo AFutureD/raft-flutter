@@ -4,7 +4,7 @@
  "about": "Ratchet for tool/ds-audit. Counts may only go down. Feature branches never edit this file; the integration owner runs `tool/ds-audit --update-baseline` after merges (separate small commit).",
  "totals": {
   "style.border_radius": 10,
-  "style.dimension": 39,
+  "style.dimension": 37,
   "style.duration": 2,
   "style.edge_insets": 52,
   "style.font_size": 1,
@@ -12,7 +12,7 @@
   "style.material_colors": 27,
   "style.material_icons": 16,
   "style.material_theme": 26,
-  "style.sized_box": 53,
+  "style.sized_box": 52,
   "style.text_metrics": 1,
   "style.text_style": 9,
   "widget.button": 32,
@@ -121,9 +121,7 @@
    "widget.dialog": 2
   },
   "apps/raft_flutter/lib/features/chat_view.dart": {
-   "style.dimension": 2,
    "style.edge_insets": 1,
-   "style.sized_box": 1,
    "widget.snackbar": 6
   },
   "apps/raft_flutter/lib/features/desktop_master_detail.dart": {
