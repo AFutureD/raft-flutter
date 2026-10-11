@@ -5,6 +5,7 @@ import 'recipe_surface.dart';
 import 'recipes/card.g.dart';
 import 'recipes/recipe_runtime.dart' show RaftRecipeStates;
 import 'recipes/token_binding.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 import 'tokens/shadows.g.dart' show RaftProductShadows;
 
@@ -19,14 +20,16 @@ class RaftBottomSheet extends StatelessWidget {
     required this.child,
     this.maxWidth = 448,
     this.contentPadding = EdgeInsets.zero,
-    this.safeBottom = 0,
+    this.safeBottom,
   });
   final Widget child;
   final double maxWidth;
 
   /// `sheetClassName` padding (e.g. `p-4`).
   final EdgeInsets contentPadding;
-  final double safeBottom;
+
+  /// Defaults to [raftBottomInset].
+  final double? safeBottom;
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +40,9 @@ class RaftBottomSheet extends StatelessWidget {
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).root;
+    final inset = safeBottom ?? raftBottomInset(context);
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        12,
-        12,
-        12,
-        safeBottom > 12 ? safeBottom : 12,
-      ),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, inset > 12 ? inset : 12),
       child: Center(
         heightFactor: 1,
         child: ConstrainedBox(

@@ -382,7 +382,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
       ? const Center(child: CircularProgressIndicator())
       : ListView(
           key: const Key('sidebar-preferences'),
-          padding: const EdgeInsets.all(24),
+          padding: raftScrollPadding(context, const EdgeInsets.all(24)),
           children: [
             Text(
               raftText(context, 'Sidebar preferences'),

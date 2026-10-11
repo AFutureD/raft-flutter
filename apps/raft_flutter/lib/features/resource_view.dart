@@ -2536,7 +2536,10 @@ class _ResourceViewState extends State<ResourceView> {
     return ListView.separated(
       key: PageStorageKey(('resource-list', 'activity', value)),
       primary: false,
-      padding: RaftResourceMetrics.activityListInset,
+      padding: raftScrollPadding(
+        context,
+        RaftResourceMetrics.activityListInset,
+      ),
       controller: activityScrolls[value],
       itemCount: window.rows.length,
       separatorBuilder: (_, _) =>
@@ -2560,7 +2563,7 @@ class _ResourceViewState extends State<ResourceView> {
               listView,
             )),
       controller: listScroll,
-      padding: const EdgeInsets.all(16),
+      padding: raftScrollPadding(context, const EdgeInsets.all(16)),
       // SavedPanel loads the next page when its sentinel comes
       // within `rootMargin: 240px` of the scroller.
       scrollCacheExtent: widget.section == 'saved'
@@ -3920,9 +3923,12 @@ class _ResourceViewState extends State<ResourceView> {
           SliverPadding(
             // Elegant tasksPanel viewport `max-md:pl-5 max-md:pr-3.5` on top
             // of `p-4` (Brutal resets it).
-            padding: !t.brutal && MediaQuery.sizeOf(context).width < 768
-                ? const EdgeInsets.fromLTRB(20, 16, 14, 16)
-                : RaftTaskSectionRecipe(t).viewportInset,
+            padding: raftScrollPadding(
+              context,
+              !t.brutal && MediaQuery.sizeOf(context).width < 768
+                  ? const EdgeInsets.fromLTRB(20, 16, 14, 16)
+                  : RaftTaskSectionRecipe(t).viewportInset,
+            ),
             sliver: SliverMainAxisGroup(
               slivers: [
                 for (final status in raftTaskStatuses.where(
@@ -4301,7 +4307,10 @@ class _ResourceViewState extends State<ResourceView> {
     return ListView(
       key: PageStorageKey(('activity-grouped-list', value)),
       controller: viewFilter == null ? listScroll : activityScrolls[value],
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: raftScrollPadding(
+        context,
+        const EdgeInsets.symmetric(horizontal: 16),
+      ),
       children: [
         for (final group in groups.values) ...[
           Padding(
@@ -4834,7 +4843,7 @@ class _ResourceViewState extends State<ResourceView> {
         controller: taskBoardScroll,
         primary: false,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(16),
+        padding: raftScrollPadding(context, const EdgeInsets.all(16)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

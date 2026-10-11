@@ -41,17 +41,18 @@ SystemUiOverlayStyle raftSystemOverlayStyle(
 }
 
 /// Extends a page's actual surfaces under transparent Android system bars.
-/// The page keeps ownership of safe bounds; this only paints their background.
+/// The page keeps ownership of safe bounds; this only paints the status bar
+/// background. Nothing is painted under the navigation bar: scroll content runs
+/// under it and bottom-anchored controls extend their own background (see
+/// `RaftBottomInsetSurface`, which also sets the navigation icon contrast).
 class RaftSystemBarSurface extends StatelessWidget {
   const RaftSystemBarSurface({
     super.key,
     required this.statusBarBackground,
     required this.child,
-    this.navigationBarBackground,
   });
 
   final Color statusBarBackground;
-  final Color? navigationBarBackground;
   final Widget child;
 
   @override
@@ -64,10 +65,10 @@ class RaftSystemBarSurface extends StatelessWidget {
       value: raftSystemOverlayStyle(
         // ds-allow: Android system-bar icon contrast from the bar colour.
         ThemeData.estimateBrightnessForColor(statusBarBackground),
-        // ds-allow: Android system-bar icon contrast from the bar colour.
+        // ds-allow: Android nav-bar icon contrast; bottom surfaces override it.
         navigationBackground: ThemeData.estimateBrightnessForColor(
           // ds-allow: Android navigation-bar contrast falls back to the scaffold.
-          navigationBarBackground ?? theme.scaffoldBackgroundColor,
+          theme.scaffoldBackgroundColor,
         ),
       ),
       child: Stack(
@@ -82,16 +83,6 @@ class RaftSystemBarSurface extends StatelessWidget {
               height: padding.top,
               child: IgnorePointer(
                 child: ColoredBox(color: statusBarBackground),
-              ),
-            ),
-          if (padding.bottom > 0 && navigationBarBackground != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: padding.bottom,
-              child: IgnorePointer(
-                child: ColoredBox(color: navigationBarBackground!),
               ),
             ),
         ],

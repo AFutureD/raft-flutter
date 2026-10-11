@@ -7,6 +7,7 @@
 // commands.
 import 'package:flutter/material.dart';
 
+import 'system_inset.dart';
 import 'create_channel_view.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
@@ -142,7 +143,7 @@ class RaftChannelMembersModal extends StatelessWidget {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: raftScrollPadding(context, const EdgeInsets.all(16)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

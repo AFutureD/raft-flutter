@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +29,7 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
     this.sidebarVisible = true,
     this.mobileNavigation,
     this.mobileNavigationFloating = false,
+    this.mobileNavigationClearance = 0,
     this.sidebarWidth = 240,
     this.threadWidth = 400,
     this.onPanelWidthsChanged,
@@ -46,6 +49,11 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
 
   /// Source MobileBottomBarStack overlays Elegant bars; Brutal stays in flow.
   final bool mobileNavigationFloating;
+
+  /// Space the floating bar covers above the system inset (Web
+  /// `.mobile-nav-clearance`, see `raftTabBarClearance`). Reported to the
+  /// content as bottom padding so scroll views clear the capsule.
+  final double mobileNavigationClearance;
   final double sidebarWidth, threadWidth;
   final void Function(double sidebarWidth, double threadWidth)?
   onPanelWidthsChanged;
@@ -158,28 +166,11 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         retainedSidebar = null;
         // Keep the content's parent chain stable when a detail hides the bar
         // or the theme switches between in-flow and floating navigation.
-        return Column(
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  conversation(split: false),
-                  if (widget.mobileNavigationFloating &&
-                      widget.mobileNavigation != null)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: widget.mobileNavigation!,
-                    ),
-                ],
-              ),
-            ),
-            if (!widget.mobileNavigationFloating &&
-                widget.mobileNavigation != null)
-              widget.mobileNavigation!,
-          ],
+        return _MobileKeyboardLayout(
+          floating: widget.mobileNavigationFloating,
+          clearance: widget.mobileNavigationClearance,
+          navigation: widget.mobileNavigation,
+          body: conversation(split: false),
         );
       }
       if (widget.sidebarVisible) retainedSidebar = widget.sidebar;
@@ -639,4 +630,111 @@ class RaftRailUnreadCount extends StatelessWidget {
       child: Text(count > 99 ? '99+' : '$count'),
     );
   }
+}
+
+/// Phone layout: the conversation sits above the keyboard, the tab bar never
+/// follows it. The host Scaffold must not resize for the keyboard
+/// (`resizeToAvoidBottomInset: false`); this layout shrinks only the content
+/// region. The bar stays at the bottom edge and the keyboard simply covers it.
+///
+/// Floating (elegant) bars overlay the content; in-flow (brutal) bars reserve
+/// their own height, so the content only shrinks by the part of the keyboard
+/// that rises above the bar.
+class _MobileKeyboardLayout extends StatelessWidget {
+  const _MobileKeyboardLayout({
+    required this.floating,
+    required this.clearance,
+    required this.navigation,
+    required this.body,
+  });
+
+  final bool floating;
+  final double clearance;
+  final Widget? navigation;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final inFlowBar = navigation != null && !floating;
+    // The content region ends above the keyboard (and above an in-flow bar), so
+    // it no longer overlaps the system bar: padding keeps the engine value
+    // (nav height at rest, 0 once the keyboard covers it), viewInsets are spent.
+    // A floating bar overlays the content instead: report the space it covers
+    // as padding, shrinking as the keyboard (which covers the bar) rises.
+    final padding = inFlowBar
+        ? 0.0
+        : navigation != null
+        ? math.max(0.0, clearance + media.viewPadding.bottom - keyboard)
+        : media.padding.bottom;
+    final content = MediaQuery(
+      data: media.copyWith(
+        viewInsets: media.viewInsets.copyWith(bottom: 0),
+        padding: media.padding.copyWith(bottom: padding),
+        // Stable system bar height at rest; spent once the keyboard covers it.
+        viewPadding: media.viewPadding.copyWith(
+          bottom: inFlowBar
+              ? 0
+              : keyboard > 0
+              ? media.padding.bottom
+              : media.viewPadding.bottom,
+        ),
+      ),
+      child: body,
+    );
+    return CustomMultiChildLayout(
+      delegate: _MobileKeyboardLayoutDelegate(
+        floating: floating,
+        keyboard: keyboard,
+      ),
+      children: [
+        LayoutId(id: _MobileSlot.content, child: content),
+        if (navigation != null)
+          LayoutId(id: _MobileSlot.navigation, child: navigation!),
+      ],
+    );
+  }
+}
+
+enum _MobileSlot { content, navigation }
+
+class _MobileKeyboardLayoutDelegate extends MultiChildLayoutDelegate {
+  _MobileKeyboardLayoutDelegate({
+    required this.floating,
+    required this.keyboard,
+  });
+
+  final bool floating;
+  final double keyboard;
+
+  @override
+  void performLayout(Size size) {
+    var reserved = 0.0;
+    if (hasChild(_MobileSlot.navigation)) {
+      final bar = layoutChild(
+        _MobileSlot.navigation,
+        floating
+            ? BoxConstraints.tightFor(width: size.width)
+            : BoxConstraints(maxWidth: size.width),
+      );
+      positionChild(
+        _MobileSlot.navigation,
+        Offset((size.width - bar.width) / 2, size.height - bar.height),
+      );
+      if (!floating) reserved = bar.height;
+    }
+    final bottom = keyboard > reserved ? keyboard : reserved;
+    layoutChild(
+      _MobileSlot.content,
+      BoxConstraints.tight(
+        Size(size.width, (size.height - bottom).clamp(0.0, size.height)),
+      ),
+    );
+    positionChild(_MobileSlot.content, Offset.zero);
+  }
+
+  @override
+  bool shouldRelayout(_MobileKeyboardLayoutDelegate old) =>
+      old.floating != floating || old.keyboard != keyboard;
 }

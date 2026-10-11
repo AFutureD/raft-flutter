@@ -203,7 +203,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     body: loading
         ? const Center(child: CircularProgressIndicator())
         : ListView(
-            padding: const EdgeInsets.all(24),
+            padding: raftScrollPadding(context, const EdgeInsets.all(24)),
             children: [
               if (error != null)
                 Semantics(liveRegion: true, child: Text(error!)),

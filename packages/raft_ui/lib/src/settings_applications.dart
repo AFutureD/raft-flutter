@@ -8,6 +8,7 @@
 // The app supplies the projected rows and callbacks; class lists live here.
 import 'package:flutter/material.dart';
 
+import 'system_inset.dart';
 import 'banner.dart';
 import 'design_primitives.dart'
     show
@@ -463,8 +464,11 @@ class RaftConnectedAppsSection extends StatelessWidget {
           primary: false,
           slivers: [
             SliverPadding(
-              padding: RaftSettingsPanelFrame.contentInset.add(
-                const EdgeInsets.only(bottom: 24),
+              padding: raftScrollPadding(
+                context,
+                RaftSettingsPanelFrame.contentInset.add(
+                  const EdgeInsets.only(bottom: 24),
+                ),
               ),
               sliver: SliverMainAxisGroup(
                 slivers: [

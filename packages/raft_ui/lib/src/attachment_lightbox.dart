@@ -9,6 +9,7 @@ import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'recipes/button_variants.g.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -340,6 +341,7 @@ class RaftAttachmentLightbox extends StatelessWidget {
       child: Focus(
         autofocus: true,
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               if (page)
@@ -361,9 +363,21 @@ class RaftAttachmentLightbox extends StatelessWidget {
                   closeLabel: closeLabel,
                   onClose: onClose,
                 ),
-              Expanded(child: body),
+              // Without a footer the stage ends above the system bar so the
+              // thumbnails and controls stay reachable; the footer extends its
+              // own background under the bar instead.
+              Expanded(
+                child: footer == null
+                    ? Padding(
+                        padding: EdgeInsets.only(
+                          bottom: raftBottomInset(context),
+                        ),
+                        child: body,
+                      )
+                    : body,
+              ),
               if (footer != null)
-                ColoredBox(
+                RaftBottomInsetSurface(
                   color: t.panel,
                   child: SizedBox(width: double.infinity, child: footer!),
                 ),

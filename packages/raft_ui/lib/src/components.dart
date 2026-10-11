@@ -4,6 +4,7 @@ import 'message_row_recipe.dart';
 import 'message_content_tokens.dart';
 import 'mounted_reaction_recipe.dart';
 import 'composer_recipe.dart';
+import 'system_inset.dart';
 import 'composer_suggestions.dart';
 import 'collapsible.dart';
 import 'sidebar_indicators.dart';
@@ -1833,7 +1834,7 @@ class RaftComposer extends StatefulWidget {
     this.taskAction,
     this.accessoryRow,
     this.suggestionOverlay,
-    this.bottomSafeInset = 0,
+    this.bottomSafeInset,
     this.submitBusy = false,
     this.clearOnSubmit = false,
     this.variant = RaftComposerVariant.normal,
@@ -1858,7 +1859,7 @@ class RaftComposer extends StatefulWidget {
     this.onPasteAttachments,
     this.onContentInserted,
     this.frame,
-  }) : assert(bottomSafeInset >= 0);
+  }) : assert(bottomSafeInset == null || bottomSafeInset >= 0);
   final List<RaftComposerSuggestion> suggestions;
   final Future<bool> Function(String, List<Map<String, dynamic>>)?
   onSendWithMentions;
@@ -1869,7 +1870,12 @@ class RaftComposer extends StatefulWidget {
   final Future<bool> Function(String) onSend;
   final VoidCallback? onAttach, onImagePick;
   final Widget? taskAction, accessoryRow, suggestionOverlay;
-  final double bottomSafeInset;
+
+  /// Extra bottom padding inside the host (Web `safe-bottom`). Defaults to
+  /// [raftBottomInset]: the host background already extends to the screen edge,
+  /// so the composer clears the system bar without a host-painted strip, and
+  /// it is 0 while the keyboard is up.
+  final double? bottomSafeInset;
   final bool submitBusy;
 
   /// Web MessageInput submit: the editor clears as the message is handed off
@@ -2478,7 +2484,13 @@ class _RaftComposerState extends State<RaftComposer> {
   Widget build(BuildContext context) {
     final composer = DefaultTextHeightBehavior(
       textHeightBehavior: raftCssTextHeightBehavior,
-      child: Builder(builder: buildContent),
+      // The host paints to the screen edge, so it decides nav icon contrast.
+      child: Builder(
+        builder: (context) => RaftNavigationBarStyle(
+          background: RaftTokens.of(context).panel,
+          child: buildContent(context),
+        ),
+      ),
     );
     return widget.frame?.call(
           context,
@@ -2532,7 +2544,7 @@ class _RaftComposerState extends State<RaftComposer> {
           MediaQuery.sizeOf(context).width >=
           RaftLayoutMetrics.desktopBreakpoint,
       variant: widget.variant,
-      bottomSafeInset: widget.bottomSafeInset,
+      bottomSafeInset: widget.bottomSafeInset ?? raftBottomInset(context),
     );
     final busy = sending || widget.submitBusy;
     final submitEnabled =

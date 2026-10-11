@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import 'banner.dart';
+import 'system_inset.dart';
 import 'components.dart' show RaftButton;
 import 'design_primitives.dart' show RaftControlVariant;
 import 'feedback_workspace.dart'
@@ -177,11 +178,14 @@ class RaftFeedbackInbox extends StatelessWidget {
               child: ListView(
                 key: PageStorageKey(('feedback-inbox', filter)),
                 primary: false,
-                padding: EdgeInsets.fromLTRB(
-                  2,
-                  2,
-                  2 + raftFeedbackScrollGutter(context),
-                  2,
+                padding: raftScrollPadding(
+                  context,
+                  EdgeInsets.fromLTRB(
+                    2,
+                    2,
+                    2 + raftFeedbackScrollGutter(context),
+                    2,
+                  ),
                 ),
                 children: [
                   // The zero-height pull-to-refresh row is a

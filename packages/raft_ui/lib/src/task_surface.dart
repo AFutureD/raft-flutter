@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'system_inset.dart';
 import 'auth_page.dart';
 import 'agent_profile.dart' show RaftPanelSection, raftPanelRuleColor;
 import 'indicators.dart' show RaftSkeleton;
@@ -1005,7 +1006,10 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
     final t = RaftTokens.of(context), task = widget.task;
     String tr(String value) => raftText(context, value);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: raftScrollPadding(
+        context,
+        const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 16,

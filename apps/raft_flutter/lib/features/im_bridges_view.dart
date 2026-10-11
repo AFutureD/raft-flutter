@@ -512,7 +512,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
     }
     return ListView(
       primary: false,
-      padding: RaftSettingsPanelFrame.contentInset,
+      padding: raftScrollPadding(context, RaftSettingsPanelFrame.contentInset),
       children: [
         RaftMessagingBridgesSection(
           failed: failedLoad,

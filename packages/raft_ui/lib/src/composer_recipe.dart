@@ -28,8 +28,8 @@ class RaftComposerRecipe {
   final double bottomSafeInset;
   bool get compact => variant == RaftComposerVariant.compact;
 
-  // MessageInput2490; index.css755. Do not read MediaQuery padding here:
-  // a SafeArea host may already have consumed it.
+  // MessageInput2490; index.css755. The recipe stays pure: RaftComposer passes
+  // raftBottomInset (MediaQuery.paddingOf, 0 while the keyboard is up).
   EdgeInsets get hostInset => compact
       ? EdgeInsets.zero
       : EdgeInsets.fromLTRB(12, 12, 12, 16 + bottomSafeInset);

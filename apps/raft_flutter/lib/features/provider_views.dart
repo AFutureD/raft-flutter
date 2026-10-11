@@ -419,7 +419,10 @@ class _ProviderConnectionsState
       ? const SizedBox.shrink()
       : ListView(
           primary: false,
-          padding: RaftSettingsPanelFrame.contentInset,
+          padding: raftScrollPadding(
+            context,
+            RaftSettingsPanelFrame.contentInset,
+          ),
           children: [
             RaftProviderConnectionsFrame(
               loading: loading && connections.isEmpty,

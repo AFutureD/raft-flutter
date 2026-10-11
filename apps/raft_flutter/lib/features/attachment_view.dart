@@ -567,7 +567,6 @@ class _AttachmentViewState extends State<AttachmentView> {
               backgroundColor: surface,
               body: RaftSystemBarSurface(
                 statusBarBackground: surface,
-                navigationBarBackground: surface,
                 child: builder(context),
               ),
             );

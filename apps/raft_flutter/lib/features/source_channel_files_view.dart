@@ -394,7 +394,7 @@ class SourceChannelFilesProjectionView extends StatelessWidget {
             },
             child: ListView.separated(
               primary: false,
-              padding: recipe.listInset,
+              padding: raftScrollPadding(context, recipe.listInset),
               itemCount:
                   store.files.length +
                   (store.nextCursor != null || store.loadingMore ? 1 : 0),

@@ -511,7 +511,10 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
 
     return ListView(
       primary: false,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: raftScrollPadding(
+        context,
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      ),
       children: [
         RaftMcpServersSection(
           usage: true,

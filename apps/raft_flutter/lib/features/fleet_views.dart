@@ -380,6 +380,7 @@ class _FleetViewState extends State<FleetView> {
                       // ds-allow: Standalone native route supplies the Material host and system insets; workspace routes already own them.
                       builder: (_) => Scaffold(
                         body: SafeArea(
+                          bottom: false,
                           child: FleetDetail(
                             controller: w,
                             computers: true,

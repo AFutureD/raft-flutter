@@ -77,6 +77,7 @@ import 'sender_avatar_projection.dart';
 import '../platform/native_sharing.dart';
 import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
+import '../platform/keyboard_inset_diagnostics.dart';
 
 part 'workspace_view_sidebar_menus.dart';
 
@@ -116,7 +117,8 @@ class WorkspaceView extends StatefulWidget {
   State<WorkspaceView> createState() => _WorkspaceViewState();
 }
 
-class _WorkspaceViewState extends State<WorkspaceView> {
+class _WorkspaceViewState extends State<WorkspaceView>
+    with WidgetsBindingObserver, KeyboardInsetLogger<WorkspaceView> {
   /// Sidebar.tsx `joinedChannelsOnly` display preference of the Channels
   /// section (per workspace session here; Web persists it per server).
   bool joinedChannelsOnly = false;
@@ -960,11 +962,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           location.thread != null &&
           !(wide &&
               desktopNavigation.target?.kind == DesktopContentKind.thread);
-      final androidMobile =
-          !wide && !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
       final rootTab = w.navigation.mobileRootTabOf(location);
-      final immersiveNavigation =
-          androidMobile && rootTab != null && w.server != null;
       final viewport = MediaQuery.sizeOf(context);
       final headerBackground = thread
           ? RaftThreadCompositionRecipe(
@@ -1094,7 +1092,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           ? ListView(
               key: const PageStorageKey('workspace-billing'),
               // PlanSection renders inside SettingsPanel's scrolling surface.
-              padding: RaftSettingsPanelFrame.contentInset,
+              padding: raftScrollPadding(
+                context,
+                RaftSettingsPanelFrame.contentInset,
+              ),
               children: [
                 BillingView(
                   key: ValueKey('billing-${w.server!.id}'),
@@ -1117,7 +1118,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               key: const PageStorageKey('workspace-integrations'),
               // IntegrationsSection renders inside SettingsPanel's scrolling
               // surface.
-              padding: RaftSettingsPanelFrame.contentInset,
+              padding: raftScrollPadding(
+                context,
+                RaftSettingsPanelFrame.contentInset,
+              ),
               children: [
                 IntegrationsView(
                   key: ValueKey('integrations-${w.server!.id}'),
@@ -1342,15 +1346,17 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           },
           child: Scaffold(
             key: scaffold,
+            // Phones: the tab bar must not ride up with the keyboard, so the
+            // adaptive workspace shrinks only its content region above it.
+            resizeToAvoidBottomInset: wide,
             // The drawer opens rarely; project the sidebar only when it does.
             drawer: wide
                 ? null
                 : Drawer(child: Builder(builder: (_) => sidebar())),
             body: RaftSystemBarSurface(
               statusBarBackground: wide ? t.canvas : headerBackground,
-              navigationBarBackground: immersiveNavigation ? null : t.panel,
               child: SafeArea(
-                bottom: !immersiveNavigation,
+                bottom: false,
                 child: Column(
                   children: [
                     if (!wide && rootTab == 'computers' && !thread)
@@ -1404,6 +1410,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         sidebar: wide ? sidebar() : const SizedBox.shrink(),
                         rail: wide ? workspaceRail() : const SizedBox.shrink(),
                         mobileNavigationFloating: !t.brutal,
+                        mobileNavigationClearance: raftTabBarClearance(
+                          liveActivity: liveActivityVisible,
+                        ),
                         mobileNavigation:
                             w.navigation.mobileRootTabOf(location) == null ||
                                 w.server == null
@@ -3099,6 +3108,14 @@ class _WorkspaceViewState extends State<WorkspaceView> {
     );
   }
 
+  /// The live-activity strip above the mobile tab bar (Web 116 px clearance).
+  bool get liveActivityVisible {
+    final latest = liveActivities.latest;
+    return presentation.value.liveActivity &&
+        latest != null &&
+        liveActivities.agent(latest.agentId) != null;
+  }
+
   Widget sidebar({bool mobileHome = false}) {
     final edgeToEdgeHome =
         mobileHome &&
@@ -3110,11 +3127,6 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       viewportHeight: MediaQuery.sizeOf(context).height,
       variant: RaftSidebarVariant.mountedProduct,
     );
-    final latest = liveActivities.latest;
-    final liveActivityVisible =
-        presentation.value.liveActivity &&
-        latest != null &&
-        liveActivities.agent(latest.agentId) != null;
     return ColoredBox(
       key: PageStorageKey(
         mobileHome ? 'mobile-home-list' : 'channel-sidebar-list',
@@ -3155,7 +3167,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         headerInFlow: true,
                         liveActivity: mobileHome && liveActivityVisible,
                         bottomInset: edgeToEdgeHome
-                            ? MediaQuery.viewPaddingOf(context).bottom
+                            ? raftSystemBottomInset(context)
                             : 0,
                       ),
                       sliver: SliverMainAxisGroup(
@@ -3378,12 +3390,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                         ? RaftTokens.of(context).colors['color-soft-signal']!
                         : RaftTokens.of(context).colors['layer-panel']!
                   : RaftTokens.of(context).panel,
-              navigationBarBackground: page.kind == RaftChannelPage.settings
-                  ? RaftTokens.of(context).brutal
-                        ? RaftTokens.of(context).colors['color-brutal-cream']!
-                        : RaftTokens.of(context).colors['layer-panel']!
-                  : RaftTokens.of(context).panel,
               child: SafeArea(
+                bottom: false,
                 child: !available
                     ? Column(
                         children: [

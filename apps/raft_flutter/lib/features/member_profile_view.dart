@@ -341,7 +341,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
           ),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.zero,
+              padding: raftScrollPadding(context),
               children: [
                 if (error != null)
                   RaftPanelMessage(
