@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +49,7 @@ class _Routes extends NavigatorObserver {
 }
 
 void main() {
+  _narrowDesktopTests();
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
@@ -259,6 +261,180 @@ void main() {
         },
       );
     }
+  }
+}
+
+Future<(WorkspaceController, RaftAppRouter)> _desktopChat(
+  WidgetTester t,
+  TargetPlatform platform,
+  Size size, {
+  String filename = 'research.md',
+  String mime = 'text/markdown',
+}) async {
+  debugDefaultTargetPlatformOverride = platform;
+  t.view.physicalSize = size;
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+  final (w, api) = await pageFixture(t, section: 'chat');
+  w.navigation.navigate(
+    RaftLocation.at(serverSlug: 'demo', route: RaftRoute.home),
+  );
+  w.navigation.navigate(
+    RaftLocation.at(
+      serverSlug: 'demo',
+      route: RaftRoute.channel,
+      entityId: 'c1',
+    ),
+  );
+  w.ledger.ingest([
+    {
+      ...row('attachment-message', 'c1', 1),
+      'attachments': [
+        {'id': 'preview-attachment', 'filename': filename, 'mimeType': mime},
+      ],
+    },
+  ], expectedGeneration: w.ledger.generation);
+  w.visibleIds['c1'] = {'attachment-message'};
+  api.routes['GET /messages/attachment-preview/enabled'] = (_) => {
+    'enabled': true,
+  };
+  api.routes['GET /attachments/preview-attachment/preview'] = (_) => {
+    'status': 'ok',
+    'data': {'kind': 'text', 'text': 'Fixture document'},
+  };
+  final router = RaftAppRouter(
+    home: (_) => WorkspaceView(
+      controller: w,
+      appearance: RaftAppearance(light: RaftFamily.elegant),
+      onAppearance: (_) async {},
+      onLogout: () async {},
+    ),
+    onLocation: (_) async {},
+    onRootBack: () async => false,
+    observers: [],
+  );
+  addTearDown(router.dispose);
+  await t.pumpWidget(
+    MaterialApp.router(
+      theme: raftTheme(RaftFamily.elegant),
+      routerDelegate: router,
+      routeInformationParser: const RaftAppRouteParser(),
+    ),
+  );
+  await flush(t);
+  await t.pumpAndSettle();
+  return (w, router);
+}
+
+/// The preview must survive the whole transition, not only its first frames:
+/// the covered page used to remount at the end of the push on desktop input.
+Future<void> _expectPreviewStays(WidgetTester t) async {
+  for (var i = 0; i < 30; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+    expect(previewSurface, findsOneWidget, reason: 'frame $i');
+  }
+  await t.pumpAndSettle();
+  expect(previewSurface, findsOneWidget);
+}
+
+/// The platform override must be cleared before the framework's invariant
+/// check, which runs ahead of `addTearDown` callbacks.
+void _desktopTest(String name, Future<void> Function(WidgetTester t) body) =>
+    testWidgets(name, (t) async {
+      try {
+        await body(t);
+      } finally {
+        await t.pumpWidget(const SizedBox.shrink());
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+void _narrowDesktopTests() {
+  for (final platform in [TargetPlatform.linux, TargetPlatform.macOS]) {
+    _desktopTest('Narrow $platform keeps the preview page open until Back', (
+      t,
+    ) async {
+      final (w, _) = await _desktopChat(t, platform, const Size(390, 844));
+      final base = w.location;
+      final index = w.navigation.index;
+      for (final back in ['system', 'toolbar']) {
+        await t.tap(find.text('research.md'));
+        await flush(t);
+        await _expectPreviewStays(t);
+        expect(find.byType(Dialog), findsNothing);
+        expect(find.byType(RaftMobilePageHeader), findsOneWidget);
+        expect(w.location, base);
+        expect(w.navigation.index, index);
+        if (back == 'system') {
+          await t.binding.handlePopRoute();
+        } else {
+          await t.tap(find.byTooltip('Close preview'));
+        }
+        await t.pumpAndSettle();
+        expect(previewSurface, findsNothing);
+        expect(find.text('research.md'), findsOneWidget);
+        expect(w.location, base);
+        expect(w.navigation.index, index);
+        expect(t.takeException(), isNull);
+      }
+      await t.pumpWidget(const SizedBox.shrink());
+    });
+
+    _desktopTest('Narrow $platform keeps the image lightbox page open', (
+      t,
+    ) async {
+      final (w, _) = await _desktopChat(
+        t,
+        platform,
+        const Size(390, 844),
+        filename: 'photo.png',
+        mime: 'image/png',
+      );
+      final base = w.location;
+      await t.tap(find.byType(RaftAttachmentCard));
+      await flush(t);
+      await _expectPreviewStays(t);
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(previewSurface, findsNothing);
+      expect(w.location, base);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox.shrink());
+    });
+
+    _desktopTest('$platform resize keeps an open preview', (t) async {
+      final (w, _) = await _desktopChat(t, platform, const Size(1280, 844));
+      final base = w.location;
+      // Wide: desktop dialog; shrinking must not dismiss it.
+      await t.tap(find.text('research.md'));
+      await flush(t);
+      await t.pumpAndSettle();
+      expect(previewSurface, findsOneWidget);
+      expect(find.byType(Dialog), findsOneWidget);
+      t.view.physicalSize = const Size(390, 844);
+      await t.pumpAndSettle();
+      expect(previewSurface, findsOneWidget);
+      expect(w.location, base);
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(previewSurface, findsNothing);
+      expect(find.text('research.md'), findsOneWidget);
+      expect(w.location, base);
+      // Narrow: page; widening must not dismiss it either.
+      await t.tap(find.text('research.md'));
+      await flush(t);
+      await _expectPreviewStays(t);
+      t.view.physicalSize = const Size(1280, 844);
+      await t.pumpAndSettle();
+      expect(previewSurface, findsOneWidget);
+      expect(w.location, base);
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(previewSurface, findsNothing);
+      expect(w.location, base);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox.shrink());
+    });
   }
 }
 

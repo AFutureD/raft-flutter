@@ -478,7 +478,11 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
     RaftMessageRowRecipe recipe,
     Widget child,
   ) {
-    if (widget.coarsePointer || widget.toolbar == null || !tickerEnabled) {
+    // The wrapper depends only on the pointer model, never on TickerMode: a
+    // covered route (a full-screen preview page on a narrow desktop window)
+    // disables tickers, and toggling the wrapper would remount every row's
+    // state, including the attachment owning that very preview route.
+    if (widget.coarsePointer || widget.toolbar == null) {
       portalMounted = false;
       return child;
     }

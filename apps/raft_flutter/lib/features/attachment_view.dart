@@ -578,9 +578,7 @@ class _AttachmentViewState extends State<AttachmentView> {
   Future<void> openCurrent() async {
     final revision = bindingRevision;
     bool current() => revision == bindingRevision && authorized;
-    final page =
-        MediaQuery.sizeOf(context).width <
-        RaftAdaptiveWorkspace.desktopMinWidth;
+    final page = RaftAdaptiveWorkspace.compactOf(context);
     final html =
         '${widget.metadata['mimeType'] ?? ''}'
                 .toLowerCase()

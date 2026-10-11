@@ -59,6 +59,13 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   static const desktopMinWidth = RaftLayoutMetrics.desktopBreakpoint;
   static const threadMinWidth = RaftLayoutMetrics.threadOverlayBreakpoint;
 
+  /// The single compact-layout predicate. Route presentation (platform page vs
+  /// desktop dialog or docked detail), history projection and dismissal logic
+  /// must all use it rather than the platform, so a narrow desktop window gets
+  /// the same pages as a phone and never mixes the two models.
+  static bool compactOf(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < desktopMinWidth;
+
   @override
   State<RaftAdaptiveWorkspace> createState() => _RaftAdaptiveWorkspaceState();
 }

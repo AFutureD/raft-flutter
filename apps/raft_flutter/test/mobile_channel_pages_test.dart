@@ -190,6 +190,8 @@ void main() {
       variant: TargetPlatformVariant({
         TargetPlatform.android,
         TargetPlatform.iOS,
+        TargetPlatform.linux,
+        TargetPlatform.macOS,
       }),
     );
   }
