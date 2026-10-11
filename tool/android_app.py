@@ -118,46 +118,66 @@ def sha256(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def update(apk, serial, tools, record, *, check_only=False, launch=False, run=call):
+def require_absent_package(adb_command, run=call):
+    # Include retained/uninstalled packages; never treat a different user or
+    # missing data-directory metadata as permission for a fresh installation.
+    packages = run([*adb_command, 'shell', 'pm', 'list', 'packages', '-u', PACKAGE])
+    state = run([*adb_command, 'shell', 'dumpsys', 'package', PACKAGE])
+    if packages.strip() or state.strip() != f'Unable to find package: {PACKAGE}':
+        raise SafetyError('First installation requires a completely absent package, including retained data and other users.')
+
+
+def update(apk, serial, tools, record, *, check_only=False, launch=False, first_install=False, run=call):
     # Freeze the artifact so a parallel build cannot replace it during install.
     with tempfile.TemporaryDirectory(prefix='raft-install-artifact-') as temporary:
         staged = Path(temporary) / 'candidate.apk'
         shutil.copyfile(apk, staged)
-        return _update(staged, serial, tools, record, check_only=check_only, launch=launch, run=run)
+        return _update(staged, serial, tools, record, check_only=check_only, launch=launch,
+                       first_install=first_install, run=run)
 
 
-def _update(apk, serial, tools, record, *, check_only=False, launch=False, run=call):
+def _update(apk, serial, tools, record, *, check_only=False, launch=False, first_install=False, run=call):
     adb, aapt, apksigner = tools
     adb_command = [adb, '-s', serial]
     metadata = apk_metadata(apk, aapt, run)
     if metadata['package'] != PACKAGE or metadata['abis'] != ['arm64-v8a'] or metadata['target'] < 37:
         raise SafetyError('Only the official ARM64 APK targeting Android 37 or later can be updated here.')
     apk_hash = sha256(apk)
-    before = package_state(run([*adb_command, 'shell', 'dumpsys', 'package', PACKAGE]))
-    if metadata['version'] < before['version']:
+    if first_install:
+        require_absent_package(adb_command, run)
+        before = None
+    else:
+        before = package_state(run([*adb_command, 'shell', 'dumpsys', 'package', PACKAGE]))
+    if before is not None and metadata['version'] < before['version']:
         raise SafetyError(f"Version downgrade {before['version']} -> {metadata['version']} blocked. Rebuild with a sufficient build number.")
     with tempfile.TemporaryDirectory(prefix='raft-apk-check-') as temporary:
         snapshot = Path(temporary) / 'installed.apk'
-        run([*adb_command, 'pull', installed_apk(adb_command, run), snapshot])
         cert = certificate(apk, apksigner, run)
-        if cert != certificate(snapshot, apksigner, run):
-            raise SafetyError('Signing certificate mismatch. Install blocked; no uninstall fallback.')
-        report = dict(apk=metadata, sha256=apk_hash, certificate=cert, before=before, status='preflight-passed')
+        if before is not None:
+            run([*adb_command, 'pull', installed_apk(adb_command, run), snapshot])
+            if cert != certificate(snapshot, apksigner, run):
+                raise SafetyError('Signing certificate mismatch. Install blocked; no uninstall fallback.')
+        report = dict(apk=metadata, sha256=apk_hash, certificate=cert, before=before,
+                      mode='first-install' if first_install else 'update', status='preflight-passed')
         record(report)
         if check_only:
             return report
         # Detect a concurrent local build or changed device installation before mutation.
-        if sha256(apk) != apk_hash or package_state(run([*adb_command, 'shell', 'dumpsys', 'package', PACKAGE])) != before:
+        if sha256(apk) != apk_hash:
+            raise SafetyError('APK or installed App changed during preflight; restart the workflow.')
+        if first_install:
+            require_absent_package(adb_command, run)
+        elif package_state(run([*adb_command, 'shell', 'dumpsys', 'package', PACKAGE])) != before:
             raise SafetyError('APK or installed App changed during preflight; restart the workflow.')
         try:
             report['status'] = 'installing'
             record(report)
-            output = run([*adb_command, 'install', '-r', '--user', '0', apk])
+            output = run([*adb_command, 'install', *([] if first_install else ['-r']), '--user', '0', apk])
             if not re.search(r'^Success\s*$', output, re.M):
                 raise SafetyError('ADB did not confirm success.')
             after = package_state(run([*adb_command, 'shell', 'dumpsys', 'package', PACKAGE]))
             report['after'] = after
-            if any(before[field] != after[field] for field in ('firstInstallTime', 'ceDataInode', 'deDataInode')):
+            if before is not None and any(before[field] != after[field] for field in ('firstInstallTime', 'ceDataInode', 'deDataInode')):
                 raise SafetyError('Installation/data identity changed. Stop; do not launch or retry.')
             if after['version'] != metadata['version']:
                 raise SafetyError('Installed version does not match the requested APK.')
