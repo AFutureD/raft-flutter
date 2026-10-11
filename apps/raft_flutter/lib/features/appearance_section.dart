@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/personal_presentation.dart';
+import '../platform/app_icon.dart';
+import 'app_icon_settings_section.dart';
 
 /// Component tokens traced to SettingsPanel.tsx AppearanceSection cards p-4,
 /// border-line-muted/bg-layer-panel/shadow-raft-sm and14/20,12/16 hierarchy.
@@ -105,6 +107,14 @@ class RaftAppearanceSection extends StatelessWidget {
               onChanged: onAppearance,
             ),
           ]),
+          if (NativeAppIcon.instance.mobile) ...[
+            const SizedBox(height: RaftAppearanceSectionRecipe.gap),
+            const RaftSettingsSectionHeader(
+              label: 'App icon',
+              glyph: RaftGlyph.smartphone,
+            ),
+            const AppIconSettingsSection(),
+          ],
           const SizedBox(height: RaftAppearanceSectionRecipe.gap),
           const RaftSettingsSectionHeader(
             label: 'Appearance',

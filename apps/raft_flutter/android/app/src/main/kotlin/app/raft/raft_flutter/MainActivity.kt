@@ -25,6 +25,9 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         prepareSharedUris(intent)
         super.onCreate(savedInstanceState)
+        // Flutter switches to NormalTheme before first paint. Restore the
+        // selected brand background synchronously for that startup interval.
+        window.setBackgroundDrawableResource(AppIconPalette.background(this))
         consumeShare(intent)
     }
 
