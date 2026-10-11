@@ -184,16 +184,19 @@ class NativeSharing {
     if (!supported || _closed) return;
     // Android provider events remain owned by receive_intent. An iOS extension
     // publishes already copied envelopes; it never grants arbitrary file paths.
-    if (!_ios) {
-      _intentSubscription = intents.ReceiveIntent.receivedIntentStream.listen(
-        (intent) => unawaited(_queueIntent(intent)),
-        onError: (Object _) {},
-      );
+    if (_ios) {
+      await _recoverInbox();
+      return;
     }
-    await _recoverInbox();
-    if (_ios || _closed) return;
+    _intentSubscription = intents.ReceiveIntent.receivedIntentStream.listen(
+      (intent) => unawaited(_queueIntent(intent)),
+      onError: (Object _) {},
+    );
+    // Start both reads immediately. A slow old inbox cannot delay the launching
+    // share, and recovered shares wait until that intent has entered the queue.
+    final launching = _queueInitialIntent();
+    await Future.wait([launching, _recoverInbox(after: launching)]);
     try {
-      await _queueIntent(await intents.ReceiveIntent.getInitialIntent());
       if (!_closed) await channel.invokeMethod<void>('sharingReady');
     } on PlatformException {
       // A platform without a receiving Activity still supports outgoing shares.
@@ -202,9 +205,21 @@ class NativeSharing {
     }
   }
 
-  Future<void> _recoverInbox() async {
+  Future<void> _queueInitialIntent() async {
     try {
-      for (final share in await inbox.pending()) {
+      await _queueIntent(await intents.ReceiveIntent.getInitialIntent());
+    } on PlatformException {
+      // A missing launching intent must not prevent recovery of saved shares.
+    } on MissingPluginException {
+      // Optional in tests and other platform hosts.
+    }
+  }
+
+  Future<void> _recoverInbox({Future<void>? after}) async {
+    try {
+      final pending = await inbox.pending();
+      if (after != null) await after;
+      for (final share in pending) {
         if (_closed) return;
         if (share.token != null && !_deliveredInboxTokens.add(share.token!)) {
           continue;

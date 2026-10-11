@@ -66,6 +66,12 @@ content-provider grants. The iOS bridge also presents outgoing sharing for the
 existing private export leases; it admits only files in the app's raft-share
 cache and requires an active app scene.
 
+On Android, reading the launching intent and scanning the old inbox start in
+parallel. The launching share enters the receiver queue before recovered shares;
+an old inbox scan cannot block it. Regression tests hold each read independently
+to check both a slow scan and a scan that finishes before the intent arrives.
+The iOS cold/resume recovery and token deduplication use the same prior behavior.
+
 ## Build and verification
 
 `RAFT_FLUTTER_BIN=<pinned Flutter> python3 tool/ios-simulator-build --build-number N`
