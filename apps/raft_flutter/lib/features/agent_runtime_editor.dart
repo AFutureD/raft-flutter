@@ -613,6 +613,7 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
       key: const ValueKey('agent-runtime-editor'),
       surfaceKey: const ValueKey('agent-runtime-editor-surface'),
       bare: true,
+      plainCard: true,
       title: 'Edit runtime config',
       onClose: saving ? null : () => widget.onClose(),
       children: [

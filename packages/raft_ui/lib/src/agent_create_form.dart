@@ -81,7 +81,13 @@ class RaftAgentDialogCard extends StatelessWidget {
     this.maxWidth = 448, // max-w-md = 28rem
     this.surfaceKey,
     this.bare = false,
+    this.plainCard = false,
   });
+
+  /// The `card-brutal` utility instead of the raft-ui Card (the agent runtime
+  /// config modal): `border border-line-muted bg-layer-panel shadow-raft-md`,
+  /// square, in Elegant; Brutal paints the same hard card as the recipe.
+  final bool plainCard;
 
   /// Only the card, for a host that already provides the `Modal` frame
   /// (backdrop, `p-4` padding, centring and scrolling): see
@@ -128,13 +134,10 @@ class RaftAgentDialogCard extends StatelessWidget {
         );
     final card = Material(
       type: MaterialType.transparency,
-      child: RaftRecipeBox(
+      child: _CardSurface(
         key: surfaceKey,
+        plain: plainCard && !t.brutal,
         style: card_.root.withCssUsedBorderWidths(),
-        tokens: tokens,
-        applyText: false,
-        width: double.infinity,
-        padding: const EdgeInsets.all(6 * _tw), // p-6
         child: DefaultTextStyle(
           style: base,
           child: Column(
@@ -183,6 +186,39 @@ class RaftAgentDialogCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The dialog card surface: the recipe box, or the plain `card-brutal` chrome.
+class _CardSurface extends StatelessWidget {
+  const _CardSurface({
+    super.key,
+    required this.plain,
+    required this.style,
+    required this.child,
+  });
+  final bool plain;
+  final RaftSlotStyle style;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return RaftRecipeBox(
+      style: style,
+      tokens: RaftRecipeTokens(t),
+      applyText: false,
+      width: double.infinity,
+      padding: const EdgeInsets.all(6 * _tw), // p-6
+      // `card-brutal`: no radius, `bg-layer-panel`, `border-line-muted`.
+      decorationOverride: plain
+          ? (base) => base.copyWith(
+              borderRadius: BorderRadius.zero,
+              color: t.colors['layer-panel'],
+              border: Border.all(color: t.colors['line-muted']!),
+            )
+          : null,
+      child: child,
     );
   }
 }
