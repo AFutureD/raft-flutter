@@ -19,7 +19,7 @@ FVM ARM64 Release 构建及安全覆盖安装通过：targetSdk 37、versionCode
 
 ## 当前修改：私信设置与附件预览（2026-10-11）
 
-移动私信设置现在复用 `channelPage=settings:<dmId>`，展示联系人名称和原有偏好，无频道元数据编辑或自动键盘。移动附件图片、文档、PDF、音视频及 HTML 预览改用临时 MaterialPageRoute，共用 56px 页头和平台返回动画；预览保留原有权限检查、下载、缩放与媒体清理。附件评论的移动入口采用同样的平台页面过渡。
+移动私信设置现在复用 `channelPage=settings:<dmId>`，展示联系人名称和原有偏好，无频道元数据编辑或自动键盘。移动附件图片、文档、PDF、音视频及 HTML 预览改用临时 MaterialPageRoute，共用 Web 手机面板页头（盒状返回按钮）和平台返回动画；预览保留原有权限检查、下载、缩放与媒体清理。附件评论的移动入口采用同样的平台页面过渡。
 
 | 项目 | 本次实际证据 |
 | --- | --- |
@@ -37,7 +37,7 @@ FVM 仅 ARM64 Android Release 编译及安全覆盖安装通过：targetSdk 37�
 依据手机已安装的官方 Android `build.raft.app` 1.13.0 APK 静态核对：普通手机任务进入 `compose_thread`，大屏桌面模式先尝试 adaptive detail；新版频道设置进入 `compose_channel_settings`，成员进入 `compose_thread_members`。频道设置先展示信息，编辑是按需弹窗；私聊设置仍是弹窗。官方新版设置有偏好开关，Flutter 本次直接采用已确认的页面体验，不增加兼容开关。
 
 - `WorkspaceNavigation` 仍是唯一导航权威；`MobileWorkspacePages` 将现代/legacy 任务及客户端 `channelPage` 槽投影为独立 `MaterialPage`。任务 controller、底层消息窗口与列表不因呈现切换重复创建。
-- 三类页面共用 `RaftMobilePageHeader` 的 56px 高度、48px 返回槽与 32px 返回图标中心位置，使用 Flutter 平台页面过渡；桌面任务 modal / docked 及桌面、DM 设置维持原行为。
+- 三类页面使用 Web 手机面板页头（Brutal 62px / Elegant 56px，盒状返回按钮，触控区 48px）；仅标签根页保留 `RaftMobilePageHeader` 的 56px 几何；使用 Flutter 平台页面过渡；桌面任务 modal / docked 及桌面、DM 设置维持原行为。
 - 设置页没有编辑输入框或 autofocus；显式编辑后留在设置页。`#all` 不可重命名、归档和权限限制仍生效。成员添加视图的系统返回先回到成员列表，不被隐藏工作区重复消费。
 - 冷任务和管理链接补入底层目的地；历史帧仍最多八页、倍率最多 2，仅供过渡、不持久化。隐藏工作区排除焦点/语义并停止 ticker。权限收缩撤销管理页与根 Navigator 上的编辑弹窗。
 

@@ -74,8 +74,12 @@ void main() {
           expect(find.byType(RaftChannelSettingsSheet), findsNothing);
           expect(find.byType(RaftChannelInfoForm), findsOneWidget);
           expect(t.testTextInput.isVisible, isFalse);
-          expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-          expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+          // Web's Drawer header below md: 62px, px-4, 28px Back.
+          expect(find.byType(RaftMobilePageHeader), findsNothing);
+          expect(
+            t.getCenter(find.byKey(const ValueKey('channel-overflow-back'))).dx,
+            16 + 14,
+          );
           expect(
             t.getSemantics(find.text('#test')).flagsCollection.isHeader,
             isTrue,
@@ -115,7 +119,7 @@ void main() {
           expect(w.location.channelPage?.kind, RaftChannelPage.settings);
           expect(find.byType(ChannelSettings), findsOneWidget);
           expect(t.testTextInput.isVisible, isFalse);
-          await t.tap(find.byType(RaftMobileBackButton));
+          await t.tap(find.byKey(const ValueKey('channel-overflow-back')));
           await t.pumpAndSettle();
           expect(w.location.uri, base.uri);
           expect(find.byType(ChannelSettings), findsNothing);
@@ -166,7 +170,7 @@ void main() {
         await t.pumpAndSettle();
         expect(find.byType(RaftUnsavedChangesPrompt), findsNothing);
         expect(w.location.channelPage?.kind, RaftChannelPage.settings);
-        await t.tap(find.byType(RaftMobileBackButton));
+        await t.tap(find.byKey(const ValueKey('channel-overflow-back')));
         await t.pumpAndSettle();
         expect(find.byType(RaftUnsavedChangesPrompt), findsOneWidget);
         await t.tap(find.text('Discard changes'));

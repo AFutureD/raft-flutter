@@ -233,8 +233,15 @@ void main() {
               expect(routes.latest, isA<MaterialPageRoute<void>>());
               expect(routes.latest?.settings.name, '/attachment-preview');
               expect(find.byType(Dialog), findsNothing);
-              expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-              expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+              // Native-only page: Web's phone PanelHeader (62 brutal / 56
+              // elegant, px-5, boxed 26x28 / 32x32 Back).
+              expect(find.byType(RaftMobilePageHeader), findsNothing);
+              final brutal = RaftTokens.of(t.element(previewSurface)).brutal;
+              expect(
+                t.getSize(find.byType(RaftPanelHeaderBar)).height,
+                brutal ? 62 : 56,
+              );
+              expect(t.getTopLeft(find.byType(RaftPanelAction)).dx, 20);
             } else {
               expect(routes.latest, isA<DialogRoute<void>>());
               expect(find.byType(RaftMobilePageHeader), findsNothing);
@@ -362,7 +369,7 @@ void _narrowDesktopTests() {
         await flush(t);
         await _expectPreviewStays(t);
         expect(find.byType(Dialog), findsNothing);
-        expect(find.byType(RaftMobilePageHeader), findsOneWidget);
+        expect(find.byType(RaftPanelHeaderBar), findsOneWidget);
         expect(w.location, base);
         expect(w.navigation.index, index);
         if (back == 'system') {

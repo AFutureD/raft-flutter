@@ -150,9 +150,12 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('thread-close')));
         expect(close, 1);
         await mount(tester, header(RaftThreadPresentation.modal, 390));
-        // Below the 768 desktop breakpoint the thread covers the channel as a
-        // page (RaftMobilePageHeader, 7f2a95b): Back is the only dismissal and
-        // Close is not drawn, even for a modal presentation.
+        // ThreadPanel below md: a `modal` presentation keeps both the boxed
+        // PanelAction Back (`md:hidden`) and the X close; `mobile-modal`
+        // (the full-screen phone overlay) draws no X.
+        expect(find.byKey(const ValueKey('thread-back')), findsOneWidget);
+        expect(find.byKey(const ValueKey('thread-close')), findsOneWidget);
+        await mount(tester, header(RaftThreadPresentation.mobileModal, 390));
         expect(find.byKey(const ValueKey('thread-back')), findsOneWidget);
         expect(find.byKey(const ValueKey('thread-close')), findsNothing);
         expect(tester.takeException(), isNull);
@@ -289,9 +292,12 @@ void main() {
         final titleRect = tester.getRect(
           find.byKey(const ValueKey('title-target')),
         );
-        // Mobile headers (RaftMobilePageHeader, 7f2a95b) give Back its own
-        // full 48px slot, separate from the title's touch target.
-        expect(backRect.size, const Size.square(48));
+        // Back is Web's boxed PanelAction (26x28 brutal / 32x32 elegant); its
+        // touch target is extended to 48 without moving the title.
+        expect(
+          backRect.size,
+          family == RaftFamily.brutal ? const Size(26, 28) : const Size(32, 32),
+        );
         expect(titleRect.height, greaterThanOrEqualTo(48));
         expect(backRect.overlaps(titleRect), false);
         final semantics = tester.ensureSemantics();

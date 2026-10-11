@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'mobile_page_header.dart';
-import 'localization.dart';
-
 import 'design_primitives.dart';
 import 'conversation_surface.dart';
 import 'icons.dart';
@@ -63,9 +60,9 @@ class RaftThreadCompositionRecipe {
       ? const BorderSide(color: Colors.black, width: 2)
       // Mounted ThreadPanelRoot gives its AppPanelHeader a bottom rule.
       : BorderSide(color: tokens.colors['line-muted']!);
-  Color get parentBackground => RaftConversationSurfaceRecipe(
-    tokens,
-  ).background(RaftConversationSurfaceRole.threadParent);
+  Color get parentBackground =>
+      RaftConversationSurfaceRecipe(tokens)
+          .background(RaftConversationSurfaceRole.threadParent);
   EdgeInsets get parentInset => const EdgeInsets.all(12);
   BorderSide get parentBorder => BorderSide(
     color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
@@ -166,28 +163,6 @@ class RaftThreadHeader extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
-    if ((viewportWidth ?? viewport.width) <
-        RaftLayoutMetrics.desktopBreakpoint) {
-      return RaftMobilePageHeader(
-        title: interactiveTitle && onJumpToStart != null
-            ? TextButton(
-                key: jumpKey,
-                onPressed: onJumpToStart,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  alignment: AlignmentDirectional.centerStart,
-                ),
-                child: title(),
-              )
-            : title(),
-        onBack: onBack,
-        backKey: backKey,
-        backLabel: raftText(context, backLabel),
-        background: recipe.headerBackground,
-        border: recipe.headerBorder,
-        actions: [if (followers != null) followers!, ...actions],
-      );
-    }
     // CSS border-box: the bottom rule is inside the header height and the
     // row is centred in the remaining content box.
     return Container(
@@ -211,6 +186,7 @@ class RaftThreadHeader extends StatelessWidget {
                   glyph: RaftGlyph.arrowLeft,
                   tooltip: backLabel,
                   onPressed: onBack,
+                  minHitExtent: RaftMetrics.touchTarget,
                 ),
                 SizedBox(width: recipe.headerGap),
               ],

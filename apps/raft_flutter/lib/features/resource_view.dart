@@ -2783,11 +2783,11 @@ class _ResourceViewState extends State<ResourceView> {
       ],
     );
     return mobile
-        ? RaftMobilePageHeader(
+        ? RaftPanelHeaderBar(
+            title: raftText(context, 'Search'),
+            titleSlot: row,
             onBack: widget.onBack ?? () {},
-            background: recipe.background,
-            border: recipe.border,
-            title: row,
+            backTooltip: raftText(context, 'Back'),
           )
         : Container(
             height: recipe.height,
@@ -3336,8 +3336,8 @@ class _ResourceViewState extends State<ResourceView> {
       }),
       // TasksPanel's server-mode header has no back button or actions; the
       // Saved/Activity PanelHeaders only carry onMobileBack.
-      leading: mobile && widget.section != 'tasks'
-          ? RaftPanelBackAction(onPressed: widget.onBack ?? () {})
+      onBack: mobile && widget.section != 'tasks'
+          ? (widget.onBack ?? () {})
           : null,
     );
   }

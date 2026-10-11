@@ -53,32 +53,61 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final headers = find.byType(RaftMobilePageHeader);
-        expect(headers, findsNWidgets(4));
-        for (final element in headers.evaluate()) {
-          expect(tester.getSize(find.byWidget(element.widget)).height, 56);
-        }
-        // Every header draws Web's panel edge: brutal 2px black, elegant 1px.
         final tokens = theme.extension<RaftTokens>()!;
-        for (final element in headers.evaluate()) {
+        // Only the tab-root header keeps the shared 56px platform geometry.
+        final root = find.byType(RaftMobilePageHeader);
+        expect(root, findsOneWidget);
+        expect(tester.getSize(root).height, 56);
+        // Panel / detail headers render Web's phone PanelHeader: h-62 brutal
+        // (`--shell-header-height`) / 56 elegant, boxed PanelAction Back.
+        final webHeight = tokens.brutal ? 62.0 : 56.0;
+        final backs = find.byType(RaftPanelAction);
+        expect(backs, findsNWidgets(3));
+        // PanelAction: brutal `border-2 px-1 py-[5px]` + 14px icon = 26x28,
+        // elegant `px-2 py-2` + 16px icon = 32x32.
+        final actionSize = tokens.brutal
+            ? const Size(26, 28)
+            : const Size(32, 32);
+        for (var index = 0; index < 3; index++) {
+          expect(tester.getSize(backs.at(index)), actionSize);
+          // Brutal px-5 / elegant max-md:pl-5, then half the action width.
+          expect(
+            tester.getCenter(backs.at(index)).dx,
+            20 + actionSize.width / 2,
+          );
+          // The visual is Web's size; the touch target is still >= 48.
+          expect(
+            tester
+                .getSize(
+                  find.descendant(
+                    of: backs.at(index),
+                    matching: find.byType(RaftTouchTargetExpander),
+                  ),
+                )
+                .shortestSide,
+            actionSize.shortestSide,
+          );
+        }
+        // Web's edge on the channel header: brutal 2px black.
+        final channelHeader = find.byType(RaftChannelHeader);
+        expect(tester.getSize(channelHeader).height, webHeight);
+        if (tokens.brutal) {
           final box = tester.widget<Container>(
             find
-                .descendant(
-                  of: find.byWidget(element.widget),
-                  matching: find.byType(Container),
-                )
+                .descendant(of: channelHeader, matching: find.byType(Container))
                 .first,
           );
-          final edge = ((box.decoration! as BoxDecoration).border! as Border)
-              .bottom;
-          expect(edge.width, tokens.brutal ? 2 : 1);
-          if (tokens.brutal) expect(edge.color, Colors.black);
+          final edge =
+              ((box.decoration! as BoxDecoration).border! as Border).bottom;
+          expect(edge.width, 2);
+          expect(edge.color, Colors.black);
         }
-        final buttons = find.byType(BackButtonIcon);
-        expect(buttons, findsNWidgets(3));
-        for (var index = 0; index < 3; index++) {
-          expect(tester.getCenter(buttons.at(index)).dx, 32);
-        }
+        // The Back hit area extends beyond the 26x28 / 32x32 visual to >= 44.
+        final centre = tester.getCenter(backs.first);
+        await tester.tapAt(centre + const Offset(0, 20));
+        await tester.pump();
+        expect(back, 1);
+        back = 0;
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);

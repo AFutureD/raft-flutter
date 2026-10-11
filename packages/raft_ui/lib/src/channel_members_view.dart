@@ -12,7 +12,7 @@ import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
-import 'mobile_page_header.dart';
+import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -120,18 +120,14 @@ class RaftChannelMembersModal extends StatelessWidget {
         color: t.panel,
         child: Column(
           children: [
-            RaftMobilePageHeader(
-              background: t.panel,
-              title: Text(
-                addView
-                    ? raftText(context, 'Add Member')
-                    : loading
-                    ? raftText(context, 'Members')
-                    : '${raftText(context, 'Members')} ($total)',
-                style: RaftTypography.heading(t, size: 16, line: 20),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            // Native page without a Web counterpart (Web opens a dialog): the
+            // Web PanelHeader keeps it consistent with every phone page.
+            RaftPanelHeaderBar(
+              title: addView
+                  ? raftText(context, 'Add Member')
+                  : loading
+                  ? raftText(context, 'Members')
+                  : '${raftText(context, 'Members')} ($total)',
               onBack: addView ? onBack : onClose,
               backKey: addView ? const ValueKey('add-member-back') : null,
               actions: [

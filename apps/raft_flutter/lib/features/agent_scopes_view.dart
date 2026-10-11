@@ -135,7 +135,7 @@ class _AgentScopesViewState extends State<AgentScopesView> {
   Widget build(BuildContext context) => Scaffold(
     appBar: raftPageAppBar(
       context,
-      title: Text(raftText(context, 'Agent permissions')),
+      title: raftText(context, 'Agent permissions'),
     ),
     body: loading
         ? Center(child: CircularProgressIndicator())

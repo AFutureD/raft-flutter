@@ -76,7 +76,11 @@ void main() {
         expect(find.byType(RaftChannelSettingsSheet), findsNothing);
         expect(find.byType(RaftChannelInfoForm), findsNothing);
         expect(find.byType(RaftMembersStrip), findsNothing);
-        expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+        // Web's Drawer Back: px-4 + half of the 28px button.
+        expect(
+          t.getCenter(find.byKey(const ValueKey('channel-overflow-back'))).dx,
+          16 + 14,
+        );
         expect(
           api.calls.where((r) => r.path == '/channels/c1/members'),
           hasLength(rosterReads),

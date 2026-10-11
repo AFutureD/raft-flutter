@@ -363,8 +363,8 @@ void main() {
             findsNothing,
           );
           // Activity is an auxiliary Source page; its own Back reaches Home.
-          expect(find.byType(RaftPanelBackAction), findsOneWidget);
-          await tester.tap(find.byType(RaftPanelBackAction));
+          expect(find.byType(RaftPanelAction), findsOneWidget);
+          await tester.tap(find.byType(RaftPanelAction));
           await tester.pump();
           expect(w.location.route, RaftRoute.home);
           // Mobile details are platform routes: let the popped Activity route

@@ -139,13 +139,13 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 
 移动任务槽现在拥有独立 MaterialPage，桌面继续使用 modal / docked 呈现。频道设置与成员通过客户端 `channelPage=settings:<channelId>|members:<channelId>` 槽投影为页面；底层频道、消息串与任务 URI 合同仍保留。冷链接先补入底层目的地，系统返回与顶部返回消费同一份业务历史；页面身份与进入实例分离，退出动画中的旧实例不会与快速重入的新实例共享帧 key。宽窄切换保留活动子树和任务 owner；呈现实例只由既有业务历史派生，不维护额外业务位置。隐藏的工作区保留草稿与列表状态，排除焦点、语义并暂停动画。
 
-移动频道设置与桌面复用 `ChannelOverflowMenu` 对应的成员区、内联名称/描述表单、偏好与管理操作，以及同一份权限和命令逻辑；移动端仍由路由槽承载，使用 56px 导航栏与统一返回位置，打开时不自动聚焦。未保存编辑在退出或转到成员页前由同一 guard 处理，窄屏提示按钮自动换行。私聊设置共享新版偏好内容，显示对方名称，不提供频道元数据或成员区。成员添加视图先消费自己的返回，再返回频道设置。账户、服务器、角色或频道权限收缩时撤销管理页。桌面仍使用右侧 drawer。
+移动频道设置与桌面复用 `ChannelOverflowMenu` 对应的成员区、内联名称/描述表单、偏好与管理操作，以及同一份权限和命令逻辑；移动端仍由路由槽承载，使用与 Web 手机面板一致的页头（盒状返回按钮，Brutal 62px / Elegant 56px），打开时不自动聚焦。未保存编辑在退出或转到成员页前由同一 guard 处理，窄屏提示按钮自动换行。私聊设置共享新版偏好内容，显示对方名称，不提供频道元数据或成员区。成员添加视图先消费自己的返回，再返回频道设置。账户、服务器、角色或频道权限收缩时撤销管理页。桌面仍使用右侧 drawer。
 
 2026-10-11 此次对齐通过 50 项设置适配/路由测试与 13 项组件/预览检查；包含 Android/iOS 路由变体、三种主题、保存、未保存返回、成员页往返和失权退出。组件测试中的系统返回模拟不等同于原生返回手势验收。
 
 移动附件预览是持有附件元数据及权限绑定的临时 `MaterialPageRoute`，不改变底层频道业务位置；图片、文档、PDF、音视频与 HTML 共用页面页头及原有预览资源生命周期。图片缩放 controller 在退出动画完成后释放；权限撤销仍立即移除私有预览。桌面预览继续使用 DialogRoute。
 
-`RaftMobilePageHeader` 统一移动页面的 56 逻辑像素高度、48 像素操作槽和返回按钮位置，系统安全区由宿主提供。Android 实机及组件检查的覆盖边界见 [mobile-navigation.md](mobile-navigation.md)，不能据此推断 iOS、Linux、Windows 的平台验收通过。
+`RaftMobilePageHeader` 仅用于标签根页（56 逻辑像素、48 像素操作槽）；面板/详情页（2026-10-11 起，业主选 B）使用 Web 的 `panelHeader` 配方与盒状返回按钮，触控区由 `RaftTouchTargetExpander` 扩展到 48px，系统安全区由宿主提供。Android 实机及组件检查的覆盖边界见 [mobile-navigation.md](mobile-navigation.md)，不能据此推断 iOS、Linux、Windows 的平台验收通过。
 
 ### macOS 通知平台补充（2026-10-11）
 

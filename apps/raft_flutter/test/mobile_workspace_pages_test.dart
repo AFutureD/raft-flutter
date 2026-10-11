@@ -323,10 +323,7 @@ void main() {
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (context) => Scaffold(
-                    appBar: raftPageAppBar(
-                      context,
-                      title: const Text('Detail'),
-                    ),
+                    appBar: raftPageAppBar(context, title: 'Detail'),
                     body: const SizedBox.expand(),
                   ),
                 ),
@@ -339,9 +336,11 @@ void main() {
     );
     await tester.tap(find.text('Open detail'));
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-    expect(tester.getCenter(find.byType(BackButtonIcon)).dx, 32);
-    await tester.tap(find.byType(RaftMobileBackButton));
+    // Web's elegant phone PanelHeader: 56px, `pl-5`, 32px boxed Back.
+    expect(find.byType(RaftMobilePageHeader), findsNothing);
+    expect(tester.getSize(find.byType(RaftPanelHeaderBar)).height, 56);
+    expect(tester.getCenter(find.byType(RaftPanelAction)).dx, 20 + 16);
+    await tester.tap(find.byType(RaftPanelAction));
     await tester.pumpAndSettle();
     expect(find.text('Open detail'), findsOneWidget);
     expect(tester.takeException(), isNull);

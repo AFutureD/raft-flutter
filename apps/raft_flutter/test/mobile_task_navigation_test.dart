@@ -62,9 +62,14 @@ void main() {
                 mobilePageEntries(w.navigation),
                 hasLength(pages.length + 1),
               );
+              // Web's phone TaskModalBar (`px-4 py-2`; legacy: the 62/56px
+              // panel header), not the shared 56px page header.
+              expect(find.byType(RaftMobilePageHeader), findsNothing);
               expect(
-                t.getSize(find.byType(RaftMobilePageHeader).last).height,
-                56,
+                t.getSize(find.byKey(const ValueKey('task-modal-bar'))).height,
+                legacy
+                    ? (family == RaftFamily.brutal ? 62 : 56)
+                    : (family == RaftFamily.brutal ? 54 : 53),
               );
               final owner = t
                   .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))

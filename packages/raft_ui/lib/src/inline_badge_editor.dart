@@ -801,8 +801,9 @@ class _RenderTouchTargetExpander extends RenderProxyBox {
   bool hitTest(BoxHitTestResult result, {required Offset position}) {
     if (!_target.contains(position)) return false;
     final clamped = Offset(
-      position.dx.clamp(0, size.width).toDouble(),
-      position.dy.clamp(0, size.height).toDouble(),
+      // Box hit tests are half-open: the far edge itself is outside.
+      position.dx.clamp(0, size.width - 0.01).toDouble(),
+      position.dy.clamp(0, size.height - 0.01).toDouble(),
     );
     if (hitTestChildren(result, position: clamped) || hitTestSelf(clamped)) {
       result.add(BoxHitTestEntry(this, position));

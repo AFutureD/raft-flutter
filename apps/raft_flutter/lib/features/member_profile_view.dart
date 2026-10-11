@@ -315,6 +315,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
               slot: RaftAvatarSlotContext.panelHeader,
             ),
             onBack: widget.onBack,
+            iconAlwaysVisible: true,
             profileBody: true,
             backTooltip: raftText(context, 'Back'),
             actions: [

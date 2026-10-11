@@ -38,8 +38,24 @@ void main() {
         await t.pump(const Duration(milliseconds: 300));
         expect(find.byType(Dialog), findsNothing);
         expect(find.byType(TextField), findsNothing);
-        expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
-        expect(t.getCenter(find.byType(RaftMobileBackButton)).dx, 32);
+        expect(find.byType(RaftMobilePageHeader), findsNothing);
+        {
+          // Native-only pages wear Web's phone PanelHeader: h-62 brutal / 56
+          // elegant, the boxed PanelAction Back after px-5.
+          final back = find.byType(RaftPanelAction);
+          expect(
+            t.getSize(back),
+            family == RaftFamily.brutal
+                ? const Size(26, 28)
+                : const Size(32, 32),
+          );
+          expect(t.getTopLeft(back).dx, 20);
+          // Centred in the header's border-box (brutal 62 less its 2px edge).
+          expect(
+            t.getCenter(back).dy,
+            family == RaftFamily.brutal ? (62 - 2) / 2 : 56 / 2,
+          );
+        }
         final title = name == 'dm'
             ? 'Conversation settings'
             : name == 'document'
@@ -72,7 +88,7 @@ void main() {
           await t.tap(find.byType(RaftSwitch));
           await t.pump();
           expect(t.widget<RaftSwitch>(find.byType(RaftSwitch)).value, isTrue);
-          await t.tap(find.byType(RaftMobileBackButton));
+          await t.tap(find.byType(RaftPanelAction));
           await t.pump();
           expect(find.text('Open settings'), findsOneWidget);
         } else {

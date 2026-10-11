@@ -6,7 +6,7 @@ import 'design_primitives.dart' show RaftLightboxRecipe, RaftSpinner;
 import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
-import 'mobile_page_header.dart';
+import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'theme.dart';
 
 /// What the comments panel needs to act as the mobile bottom sheet header
@@ -122,17 +122,15 @@ class _RaftAttachmentPreviewShellState
     ];
     final pageRecipe = RaftLightboxRecipe(t);
     final Widget header = widget.page
-        ? RaftMobilePageHeader(
-            background: pageRecipe.surface,
-            leading: RaftFileTypeBadge(filename: widget.filename),
-            title: Text(
-              widget.filename,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: pageRecipe.title,
-            ),
+        // Native page: no Web counterpart, so it wears the same Web
+        // PanelHeader (boxed Back, file badge, title, actions) as every phone
+        // page; the file badge is the identity icon.
+        ? RaftPanelHeaderBar(
+            title: widget.filename,
+            iconSlot: RaftFileTypeBadge(filename: widget.filename),
+            iconAlwaysVisible: true,
             onBack: widget.onClose,
-            backLabel: 'Close preview',
+            backTooltip: 'Close preview',
             actions: actions,
           )
         : RaftLightboxHeader(
