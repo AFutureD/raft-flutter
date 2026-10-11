@@ -581,9 +581,17 @@ class _DialogBarrier extends StatelessWidget {
       builder: (context) {
         final t = RaftTokens.of(context);
         final s = RaftDialogSlots.of(context).overlay;
-        final color =
+        var color =
             s.backgroundColor?.resolve(t.recipeTokens) ??
             t.semantic.layerBackdrop;
+        // Brutal `--layer-backdrop` is black at alpha 0.650858 (its 0.0007
+        // channel tint quantizes to 0 in Chromium). Over another Modal's
+        // black/60 scrim (102) Chromium lands on 35 where Skia's float blend
+        // rounds 35.6 up to 36 and the tint tips two channels: pure black at
+        // 0.6525 gives 35 there and still 89 over white.
+        if (t.brutal && (color.a - 0.650858).abs() < .001) {
+          color = Colors.black.withValues(alpha: .6525);
+        }
         final blur = t.brutal ? 0.0 : 2.0;
         Widget layer = ColoredBox(color: color, child: const SizedBox.expand());
         if (blur > 0) {
