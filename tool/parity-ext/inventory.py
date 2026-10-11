@@ -14,6 +14,11 @@ Coverage vocabulary per applicable platform (D = desktop 1280, P = phone 390):
   wip      a case is being added on another branch (named in the row note)
   MISSING  no case
   n/a      the surface does not exist on that platform
+  excluded the page is dead, obsolete or not shown to normal users (`excl=(reason, evidence)`): it drops out of the
+           missing counts and the ranking. Reasons: obsolete | flag-off | host-only | dev-only | duplicate | superseded.
+           Reachability evidence is from the pinned Web source only (no git history exists there: one release commit).
+  verify   (`verify=` text, not a state) reachability is unclear or the page may not apply to a native client; the page
+           stays in the counts and is listed in the "Verify" section.
 
 Extension ids are written without the theme suffix and may be globs; they are
 validated against the manifest the builders generate (tests/test_parity_ext.py).
@@ -38,16 +43,20 @@ OFFICIAL_UI = ('components.tokens.palette', 'components.ui.*')
 
 
 class Row:
-    def __init__(self, num, name, web, ap, off=(), d=(), p=(), prio=2, note='', d_state=None, p_state=None):
+    def __init__(self, num, name, web, ap, off=(), d=(), p=(), prio=2, note='', d_state=None, p_state=None,
+                 excl=None, verify=None):
         self.num, self.name, self.web, self.ap = num, name, web, ap
+        self.excl, self.verify = excl, verify  # excl = (reason, evidence)
         self.off, self.d, self.p = tuple(off), tuple(d), tuple(p)
         self.prio, self.note = prio, note
         self.d_state, self.p_state = d_state, p_state  # explicit override: 'partial' | 'wip'
 
     def state(self, platform):
-        """-> ok | partial | wip | MISSING | n/a for 'D' or 'P'."""
+        """-> ok | partial | wip | MISSING | n/a | excluded for 'D' or 'P'."""
         if platform not in self.ap:
             return 'n/a'
+        if self.excl:
+            return 'excluded'
         override = self.d_state if platform == 'D' else self.p_state
         has = bool(self.d) if platform == 'D' else bool(self.off or self.p)
         if override and (has or override == 'wip'):
@@ -249,12 +258,13 @@ SECTIONS = [
           off=['components.home.activity.results', 'screens.home.activity'], prio=1, note='Desktop: no populated list case (only empty / loading / error, 5.06).'),
         R('5.06', 'Activity empty / loading / error', 'components/thread/ThreadsInbox.tsx', 'DP',
           d=['components.members-ext.activity.*', 'components.thread-ext.inbox.desktop.empty'], prio=3, note='Phone: no case.'),
-        R('5.07', 'Activity filters and views (All / Mentions / Unread, Done, Saved, channel filter, sort, search)', 'components/thread/ThreadsInbox.tsx', 'DP', prio=2),
+        R('5.07', 'Activity filters (All / Mentions / Unread)', 'components/thread/ThreadsInbox.tsx', 'DP', prio=2),
         R('5.08', 'Activity item context menu (mark read / unread, follow, done)', 'components/thread/ThreadsInbox.tsx', 'DP', prio=3),
         R('5.09', 'Saved messages list', 'components/saved/SavedPanel.tsx', 'DP',
           off=['components.home.saved.results', 'screens.home.saved'], prio=2, note='Desktop: no populated list case.'),
         R('5.10', 'Saved empty / loading / error', 'components/saved/SavedPanel.tsx', 'DP', d=['components.members-ext.saved.*'], prio=3, note='Phone: no case.'),
         R('5.11', 'Saved item actions (copy link, copy Markdown, remove)', 'components/saved/SavedPanel.tsx', 'DP', prio=3),
+        R('5.12', 'Activity Done and Saved views, channel filter, sort, in-list search', 'components/thread/ThreadsInbox.tsx', 'DP', prio=2),
     ]),
     ('6. Tasks', 'components/task', [
         R('6.01', 'Tasks page (desktop board / phone list)', 'components/task/TasksPanel.tsx', 'DP',
@@ -330,7 +340,7 @@ SECTIONS = [
         R('8.06', 'Runtime usage health chip and hover card', 'components/machine/RuntimeAccountUsageChip.tsx', 'D', d=['components.computers.detail.runtime-usage.*']),
     ]),
     ('9. Settings', 'components/settings/SettingsPanel.tsx (tabs in settingsNavigation.ts), WorkspaceSettingsModal.tsx', [
-        R('9.01', 'Settings navigation (desktop rail by role / flags; phone root list)', 'components/settings/SettingsNavList.tsx, settingsNavigation.ts', 'DP',
+        R('9.01', 'Settings navigation (desktop rail by role / flags; phone root list)', 'components/layout/Sidebar.tsx (settings rail), settings/SettingsSidebarList.tsx, settingsNavigation.ts', 'DP',
           off=['components.settings.root.page'], d=['components.ext-settings.nav.*']),
         R('9.02', 'Account tab (profile card, display name, avatar, email, social links)', 'components/settings/SettingsPanel.tsx AccountSection', 'DP',
           off=['components.settings.account.page', 'components.settings.account.error-state'], d=['components.ext-settings.account.*'], prio=1),
@@ -374,16 +384,70 @@ SECTIONS = [
     ]),
 ]
 
+# ---------------------------------------------------------------- reachability audit (owner follow-up 2026-10-11)
+# Evidence from the pinned raft-source (packages/web/src, packages/server/drizzle, packages/shared/src). Only
+# conservative marks: `excl` when the source shows the page is dead / withdrawn / flag-gated default-off / host-bound,
+# `verify` when reachability is unclear or the page may not apply to a native client.
+FLAG_SEED = 'server/drizzle seeds the flag default_enabled=false'
+MARKS = {
+    '6.03': dict(excl=('obsolete', 'TaskFilterSegmentedControl.tsx has no importer under src/; only tests/raftUiSegmentedControls.behavior.test.tsx '
+                       'and tests/raftUiIntegration.contract.test.ts import it. TasksPanel.tsx uses its own filter popovers (task.filter.*).')),
+    '6.09': dict(excl=('obsolete', 'LegacyTaskPanel opens only for `task.isLegacy` rows (TasksPanel.tsx:972-976, MessageItem.tsx:4184); '
+                       'shared/src/agentText/tasks.ts:77 labels them "[LEGACY - read-only]"; new tasks open their message thread.')),
+    '2.21': dict(excl=('flag-off', 'workspaceGridAvailability.ts gates on flag chat_grid_layout_v0 (config named WORKSPACE_GRID_DEMO); '
+                       'migration 0151 "Workspace grid layout preview gate; Botiverse allowlist first", default_enabled=false.')),
+    '7.21': dict(excl=('flag-off', 'AgentMigrationSection.tsx returns null unless useAgentMigrationUiEnabled() (flag agent_migration_v0); '
+                       'migration 0150 default_enabled=false, 0154 dark-launches it to the botiverse server only.')),
+    '7.22': dict(excl=('flag-off', 'AgentDetailPanel.tsx:1842 renders AgentConnections only for an external agent with hostedRuntime.state "active"; '
+                       'hosted runtime is flag antiproton_hosted_runtime ("Server-stage, default off", shared/src/featureFlags.ts:11; migration 0296 default false).')),
+    '1.29': dict(excl=('flag-off', 'OAuth return page of AgentConnections (7.22): same hosted-runtime flag antiproton_hosted_runtime, default off.')),
+    '3.29': dict(verify='External-identity cards come from provider-bridge senders; slack_bridge_v0 and external_projection_directory are seeded default false and fail closed (migration 0252), but messages from an already-enabled bridge would show them. Confirm the bridge is out of scope before dropping.'),
+    '9.17': dict(verify='provider_connections_v0 (migration 0217) was seeded default false, "initially limited to slock-android and botiverse servers"; the tab is hidden without it. Later rollout rules are not in the source. Cases exist (ext-settings.providers.*).'),
+    '9.18': dict(verify='Edit modal of the AI Providers tab: same flag provider_connections_v0 as 9.17. Cases exist (wp6.settings.provider-edit*).'),
+    '9.19': dict(verify='slack_bridge_v0 "Whole Slack Bridge launch and rollback gate": seeded default false with no allow rules (migration 0252); the tab is hidden without it. Cases exist (ext-settings.im-bridges.*).'),
+    '9.20': dict(verify='Wizard of the IM Bridges tab: same flag slack_bridge_v0 as 9.19. Cases exist (wp6.settings.bridge-*, about 22).'),
+    '9.21': dict(verify='server_labs_ui_v0 "Web Server Settings Labs UI exposure gate" (migration 0192, default false); the tab is hidden without it. Cases exist (ext-settings.labs.*).'),
+    '2.13': dict(excl=('host-only', 'Sidebar.tsx:3856 renders SidebarConversationFinder only when isElectronDesktopShell(); the comment says "web withdraws it (@artin 2026-09-11)".')),
+    '7.26': dict(excl=('host-only', 'handoff/handoffSessions.ts:59 isHandoffAvailable() = isElectronDesktopShell() && bridge; Sidebar.tsx:2447 shows the menu item only then.')),
+    '3.40': dict(excl=('duplicate', 'ChannelOverflowMenu.tsx:568 renders EditChannelDialog: it is the channel settings sheet already listed as 4.04 / 4.05 '
+                       '(the channelsettings cases open it through the header gear).')),
+    '5.12': dict(verify='ThreadsInbox.tsx gates Saved / Done views (:872-879), the channel filter (:665), sort and in-list search (:922) on activity_sidebar_inbox_v0; no server migration seeds that key, so it evaluates disabled unless an operator created it. Flutter already ships a Saved view.'),
+    # verify: kept in the counts.
+    '1.19': dict(verify='public_server_v0 (migration 0265, default false) only gates publishing (SettingsPanel.tsx:2143); the page itself is the target of every '
+                        'signed-out /s/<slug> link (App.tsx:971-1000), so it is probably reachable. Confirm anonymous Web pages belong in the native client.'),
+    '1.20': dict(verify='Same as 1.19 (join confirm / guest join of the public server page).'),
+    '1.25': dict(verify='Browser hand-off page for CLI / computer sign-in (/login/device); the native client may never render it.'),
+    '1.26': dict(verify='Hand-off for the HarmonyOS native app (pages/AppLoginPage.tsx:10, "App login handoff (HarmonyOS web login)"); not a Flutter surface.'),
+    '1.27': dict(verify='Third-party "Login with Raft" browser page (/login-with-raft/setup, aliases /login-with-slock*); may not apply to a native client.'),
+    '1.28': dict(verify='Browser page for integration (OAuth app) invites; may not apply to a native client.'),
+    '1.30': dict(verify='Public browser page for the mobile download QR; a native client cannot show it. Server flag mobile_download_v0 (migration 0225, botiverse first) gates the entry points.'),
+    '1.31': dict(verify='Browser page linked from help menus and the invite page; may not apply to a native client.'),
+    '1.32': dict(verify='Browser PWA install prompt (Safari add-to-home steps); meaningless inside a native app.'),
+    '1.34': dict(verify='Web stale-bundle gate (main.tsx); meaningless inside a native app.'),
+    '9.04': dict(verify='UsageDataSettings ("Share usage data") is behind product_analytics_settings_v0, documented "Default off: hidden until the default and the privacy-policy section are confirmed" (serverFeatureFlags.ts:31-35).'),
+    '9.13': dict(verify='The product-analytics switch inside Administration is behind product_analytics_settings_v0 (default off, hidden); the other eight sections are visible.'),
+    '9.22': dict(verify='The mobile-app QR section is behind mobile_download_v0 (migration 0225, botiverse first).'),
+}
+for _row in [r for _, _, _rows in SECTIONS for r in _rows]:
+    if _row.num in MARKS:
+        _m = MARKS.pop(_row.num)
+        _row.excl, _row.verify = _m.get('excl', _row.excl), _m.get('verify', _row.verify)
+assert not MARKS, f'unknown rows in MARKS: {sorted(MARKS)}'
+
+
 EXCLUDED = [
-    ('pages/PaletteAuditPage.tsx (/palette-audit)', 'dev only; redirects away in production'),
-    ('pages/AccountBootstrapPreviewPage.tsx (/dev/account-bootstrap)', 'dev only'),
-    ('pages/ServerSetupComputerRuntimePreviewPage.tsx (/dev/server-setup)', 'dev only'),
-    ('components/dev/DraggableDevOverlay.tsx, App.tsx dev overlay', 'dev tooling'),
-    ('components/workspace/WorkspaceGridDemo.tsx (/workspace-grid-demo)', 'legacy route, redirects to the real workspace mode (2.21)'),
-    ('components/window/ThreadWindowRoute.tsx (/thread-window)', 'no in-app entry point since 2026-09-10 (App.tsx comment)'),
-    ('/inbox and /threads', 'redirects to Activity'),
+    ('pages/PaletteAuditPage.tsx (/palette-audit)', 'dev-only', 'App.tsx PaletteAuditRoute redirects to / unless import.meta.env.DEV'),
+    ('pages/AccountBootstrapPreviewPage.tsx (/dev/account-bootstrap)', 'dev-only', 'App.tsx: Navigate to / unless import.meta.env.DEV'),
+    ('pages/ServerSetupComputerRuntimePreviewPage.tsx (/dev/server-setup)', 'dev-only', 'App.tsx: Navigate to / unless import.meta.env.DEV'),
+    ('components/dev/DraggableDevOverlay.tsx, App.tsx dev overlay', 'dev-only', 'raftdev tooling overlay'),
+    ('components/workspace/WorkspaceGridDemo.tsx (/workspace-grid-demo)', 'superseded',
+     'MainLayout.tsx route WORKSPACE_GRID_DEMO_ROUTE renders LegacyWorkspaceGridRedirect; the real workspace mode is 2.21'),
+    ('components/window/ThreadWindowRoute.tsx (/thread-window)', 'obsolete',
+     'App.tsx comment: in-app entry points removed 2026-09-10 by product call; route kept only for later re-exposure'),
+    ('/inbox and /threads', 'superseded', 'MainLayout.tsx routes render LegacyThreadsRedirect to Activity'),
 ]
 
+REASONS = ('obsolete', 'flag-off', 'host-only', 'dev-only', 'duplicate', 'superseded')
 PRIO_LABEL = {1: 'P1 daily path', 2: 'P2 common', 3: 'P3 rare / admin / edge'}
 
 
@@ -418,12 +482,17 @@ def official_globs():
 
 
 def counts():
-    out = {'rows': 0}
+    out = {'rows': 0, 'all_rows': 0, 'excluded': {}, 'verify': 0}
     for plat in 'DP':
         out[plat] = {'applicable': 0, 'ok': 0, 'partial': 0, 'wip': 0, 'MISSING': 0}
     out['rows_missing'] = out['rows_partial_or_wip'] = out['rows_full'] = 0
     for r in all_rows():
+        out['all_rows'] += 1
+        if r.excl:
+            out['excluded'][r.excl[0]] = out['excluded'].get(r.excl[0], 0) + 1
+            continue
         out['rows'] += 1
+        out['verify'] += bool(r.verify)
         states = [r.state(p) for p in 'DP' if p in r.ap]
         for plat in 'DP':
             s = r.state(plat)
@@ -439,10 +508,19 @@ def counts():
     return out
 
 
+def excluded_rows():
+    return [r for r in all_rows() if r.excl]
+
+
+def verify_rows():
+    return [r for r in all_rows() if r.verify and not r.excl]
+
+
 def missing_rows():
-    """Rows with a MISSING platform, most visible first (priority, then both platforms, then document order)."""
-    rows = [(i, r) for i, r in enumerate(all_rows()) if 'MISSING' in [r.state(p) for p in 'DP']]
-    rows.sort(key=lambda ir: (ir[1].prio, -sum(ir[1].state(p) == 'MISSING' for p in 'DP'), ir[0]))
+    """Rows with a MISSING platform, most visible first (priority, then rows not flagged verify, then both platforms,
+    then document order). Excluded rows are not ranked."""
+    rows = [(i, r) for i, r in enumerate(all_rows()) if not r.excl and 'MISSING' in [r.state(p) for p in 'DP']]
+    rows.sort(key=lambda ir: (ir[1].prio, bool(ir[1].verify), -sum(ir[1].state(p) == 'MISSING' for p in 'DP'), ir[0]))
     return [r for _, r in rows]
 
 
@@ -473,11 +551,12 @@ def render():
     a('## How to read it')
     a('')
     a('- One row per user-facing page, panel, modal, drawer, sheet, popover or empty / error state family worth a screen.')
-    a('  Dev-only routes are excluded (end of the document).')
+    a('  Dev-only routes are excluded (end of the document); pages the Web source shows to nobody are marked `excluded`.')
     a('- **D** = desktop (extension suite, 1280 wide, brutal-light). **P** = phone (390 wide): the official suite')
     a('  (`tool/parity`, 99 cases, phone only) or an extension case with a `.mobile` / 390 viewport.')
     a('- Cell values: `ok` a case exists; `partial` only some states or only inside other cases; `wip` being added on another')
-    a('  branch; `MISSING` no case; `n/a` the surface does not exist on that platform.')
+    a('  branch; `MISSING` no case; `n/a` the surface does not exist on that platform; `excluded` dead / obsolete / not shown to')
+    a('  normal users (reason and evidence in "Excluded pages"): it drops out of the counts and the ranking.')
     a('- Extension ids are shown without the theme suffix (`.brutal` = brutal-light; the other two themes only exist for')
     a('  the sampled surfaces) and may be globs. "Coverage" means a case exists, not that Flutter passes it.')
     a('- Priority of a missing page by user visibility: **P1** daily path (every session), **P2** common secondary or')
@@ -485,7 +564,13 @@ def render():
     a('')
     a('## Summary')
     a('')
-    a(f"- Pages (rows) in the inventory: **{c['rows']}** in {len(SECTIONS)} areas; {len(EXCLUDED)} dev-only / entry-less routes excluded.")
+    ex = c['excluded']
+    ex_routes = {}
+    for _, reason, _ in EXCLUDED:
+        ex_routes[reason] = ex_routes.get(reason, 0) + 1
+    a(f"- Pages (rows) in the inventory: **{c['all_rows']}** in {len(SECTIONS)} areas, of which **{sum(ex.values())}** are excluded as dead,")
+    a(f"  obsolete or not shown to normal users (below), leaving **{c['rows']}** pages that count. {len(EXCLUDED)} dev-only / entry-less")
+    a(f"  routes are excluded on top (end of the document). {c['verify']} counted pages are flagged \"verify\" (reachability unclear).")
     a(f"- Fully covered on every platform they exist on: **{c['rows_full']}**; partly covered (partial / wip): **{c['rows_partial_or_wip']}**;"
       f" with at least one MISSING platform: **{c['rows_missing']}**.")
     a('')
@@ -493,6 +578,21 @@ def render():
     a('| --- | --- | --- | --- | --- | --- |')
     a(f"| Desktop (D) | {c['D']['applicable']} | {c['D']['ok']} | {c['D']['partial']} | {c['D']['wip']} | {c['D']['MISSING']} |")
     a(f"| Phone (P) | {c['P']['applicable']} | {c['P']['ok']} | {c['P']['partial']} | {c['P']['wip']} | {c['P']['MISSING']} |")
+    a('')
+    a('Excluded pages by reason (rows / extra routes):')
+    a('')
+    a('| reason | rows | routes | meaning |')
+    a('| --- | --- | --- | --- |')
+    meaning = {
+        'obsolete': 'no entry point, or reachable only for legacy data, or no production importer',
+        'flag-off': 'exists only behind a server feature flag seeded default-off (staged / allowlist / preview)',
+        'host-only': 'needs the Electron desktop shell bridge; not shown in a browser or a native client',
+        'dev-only': 'development tooling, redirected away in production',
+        'duplicate': 'the same screen as another row',
+        'superseded': 'replaced by a newer page; only a redirect remains',
+    }
+    for reason in REASONS:
+        a(f"| {reason} | {ex.get(reason, 0)} | {ex_routes.get(reason, 0)} | {meaning[reason]} |")
     a('')
     a('Findings:')
     a('')
@@ -506,13 +606,13 @@ def render():
     a('')
     a('## Prioritized missing pages')
     a('')
-    a('Ordered by priority, then by missing on both platforms, then by area order. "Where" names the platform(s) without a case.')
+    a('Ordered by priority, then pages not flagged "verify" first, then missing on both platforms, then area order. "Where" names the platform(s) without a case; "verify" marks pages whose reachability is unclear (section "Verify").')
     a('')
     a('| rank | # | page | where | priority |')
     a('| --- | --- | --- | --- | --- |')
     for n, r in enumerate(miss, 1):
         where = '+'.join(p for p in 'DP' if r.state(p) == 'MISSING')
-        a(f"| {n} | {r.num} | {r.name} | {where} | {PRIO_LABEL[r.prio]} |")
+        a(f"| {n} | {r.num} | {r.name}{' (verify)' if r.verify else ''} | {where} | {PRIO_LABEL[r.prio]} |")
     a('')
     for title, intro, rows in SECTIONS:
         a(f'## {title}')
@@ -528,16 +628,49 @@ def render():
             if r.p:
                 ext.append('P: ' + code(r.p))
             note = r.note
+            if r.excl:
+                note = (note + ' ' if note else '') + f'[excluded: {r.excl[0]}]'
+            if r.verify and not r.excl:
+                note = (note + ' ' if note else '') + '[verify]'
             if r.state('D') == 'MISSING' or r.state('P') == 'MISSING':
                 note = (note + ' ' if note else '') + f'[{PRIO_LABEL[r.prio].split()[0]}]'
             a(f"| {r.num} | {r.name} | `{r.web}` | {r.state('D')} | {r.state('P')} | {code(r.off) or ''} | {'<br>'.join(ext)} | {note} |")
         a('')
+    a('## Excluded pages')
+    a('')
+    a('Reachability evidence comes from the pinned Web source only (the checkout is a single release commit, so there is no')
+    a('git history). Rollout state of a flag is operational data, not in the source: if a flagged feature has since been')
+    a('enabled for everyone, delete its `excl=` in `inventory.py` and it counts again. Every excluded page keeps its row and')
+    a('number above.')
+    a('')
+    a('| # | page | reason | evidence |')
+    a('| --- | --- | --- | --- |')
+    for r in excluded_rows():
+        a(f"| {r.num} | {r.name} | {r.excl[0]} | {r.excl[1]} |")
+    a('')
+    a('Excluded pages that still have cases (cases that can be dropped from the default run if the exclusion holds):')
+    a('')
+    for r in excluded_rows():
+        ids = [i for i in (*r.off, *r.d, *r.p) if not i.startswith('!')]
+        if ids:
+            a(f"- {r.num} {r.name}: " + ', '.join(f'`{i}`' for i in ids))
+    a('')
     a('## Excluded routes')
     a('')
-    a('| route / file | reason |')
-    a('| --- | --- |')
-    for name, why in EXCLUDED:
-        a(f'| `{name}` | {why} |')
+    a('| route / file | reason | evidence |')
+    a('| --- | --- | --- |')
+    for name, reason, why in EXCLUDED:
+        a(f'| `{name}` | {reason} | {why} |')
+    a('')
+    a('## Verify (kept in the counts)')
+    a('')
+    a('Pages whose reachability is unclear or that may not apply to a native client. They stay counted; confirm with the owner')
+    a('before spending case effort.')
+    a('')
+    a('| # | page | what to verify |')
+    a('| --- | --- | --- |')
+    for r in verify_rows():
+        a(f"| {r.num} | {r.name} | {r.verify} |")
     a('')
     a('## Maintaining this document')
     a('')

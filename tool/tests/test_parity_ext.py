@@ -351,9 +351,23 @@ class PageInventoryTest(unittest.TestCase):
         for r in rows:
             self.assertIn(r.prio, (1, 2, 3))
             self.assertTrue(set(r.ap) <= set('DP') and r.ap, r.num)
-            self.assertTrue({r.state('D'), r.state('P')} <= {'ok', 'partial', 'wip', 'MISSING', 'n/a'})
+            self.assertTrue({r.state('D'), r.state('P')} <= {'ok', 'partial', 'wip', 'MISSING', 'n/a', 'excluded'})
 
     def test_missing_list_is_ordered_by_priority(self):
         prios = [r.prio for r in inventory.missing_rows()]
         self.assertEqual(prios, sorted(prios))
         self.assertTrue(all('MISSING' in (r.state('D'), r.state('P')) for r in inventory.missing_rows()))
+
+    def test_excluded_rows_have_a_known_reason_and_stay_out_of_the_ranking(self):
+        excluded = inventory.excluded_rows()
+        self.assertTrue(excluded)
+        for r in excluded:
+            reason, evidence = r.excl
+            self.assertIn(reason, inventory.REASONS, r.num)
+            self.assertGreater(len(evidence), 20, f'{r.num}: cite evidence')
+            self.assertEqual({r.state(p) for p in r.ap}, {'excluded'})
+        ranked = {r.num for r in inventory.missing_rows()}
+        self.assertFalse(ranked & {r.num for r in excluded})
+        self.assertTrue(all(reason in inventory.REASONS for _, reason, _ in inventory.EXCLUDED))
+        counts = inventory.counts()
+        self.assertEqual(counts['rows'] + sum(counts['excluded'].values()), counts['all_rows'])
