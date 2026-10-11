@@ -1,22 +1,22 @@
 # Mac performance evidence coverage
 
-Target integration revision: `7a42e91ed55673b777cad3f74252ccc8dc9e9c62`. This is an evidence audit, not a 120fps completion claim.
+Target integration revision: `c35adcd6525951410dee80cd6cf7c62c9041ab2b`. This is an evidence audit, not a 120fps completion claim.
 
 The accepted comparisons cover many routes, but do not establish the entire objective on the current integration revision. Sparse actions, continuous scrolling, programmatic resize and actual human live resize are separate evidence types.
 
 | Evidence set | Native actions | Changed / missing / unenumerated target libraries | Native frame scope |
 | --- | ---: | ---: | --- |
 | recipe-cached-v4 | 32 | 16 / 0 / 31 | Sparse background wheel / page actions |
-| sidebar-frozen-v4 | 13 | 12 / 0 / 3 | Sparse background wheel / page actions |
-| continuous-row-extent-v4 | 2 | 10 / 0 / 3 | 8s timeline scroll + 10s programmatic native resize |
+| sidebar-frozen-v4 | 13 | 13 / 0 / 3 | Sparse background wheel / page actions |
+| continuous-row-extent-v4 | 2 | 11 / 0 / 3 | 8s timeline scroll + 10s programmatic native resize |
 
-“Unenumerated” means not present in that archived manifest; it does not assert the file was newly introduced. Every current tracked production library prefix was included in this hash audit.
+“Unenumerated” means not present in that archived manifest; it does not assert the file was newly introduced. Every tracked Dart file under a `/lib/` prefix was included in this hash audit, including the audit tool itself; this covers all production library prefixes.
 
 Source differences require a fresh matched baseline/candidate run; an older capture cannot certify the current code merely because most files match. These comparisons also used a synthetic workspace, not live account data.
 
 | Required scope | Strongest selected evidence | Current acceptance gap |
 | --- | --- | --- |
-| Chat steady scroll | 959 frames over 8.008s, enabled semantics, 120Hz display | Current integration and sidebar date-cache candidate unmeasured; raster still has over-budget frames |
+| Chat steady scroll | 959 frames over 8.008s, enabled semantics, 120Hz display | Current integration, including the merged sidebar date cache, unmeasured; raster still has over-budget frames |
 | Cold / long-distance chat scroll and realtime insertion | Sparse cold/short/live captures in two matched sets | Cold build and raster peaks exceed 8.33ms; sustained gesture coverage missing |
 | Channels and settings / chat return | Matched repeated sparse entry/return captures | Peaks still exceed budget; repeated continuous transition capture on current code missing |
 | Channel settings sheet | Matched open/close captures | Closing raster peaks exceed budget; current source unmeasured |

@@ -1,5 +1,5 @@
 {
-  "targetRevision": "7a42e91ed55673b777cad3f74252ccc8dc9e9c62",
+  "targetRevision": "c35adcd6525951410dee80cd6cf7c62c9041ab2b",
   "scope": "Chosen valid matched Mac native evidence sets; older unmatched traces are not substituted for current coverage.",
   "sets": {
     "recipe-cached-v4": {
@@ -870,6 +870,7 @@
         "apps/raft_flutter/lib/features/row_extents.dart",
         "apps/raft_flutter/lib/features/workspace_settings.dart",
         "apps/raft_flutter/lib/features/workspace_view.dart",
+        "packages/raft_sync/lib/raft_sync.dart",
         "packages/raft_ui/lib/raft_ui.dart",
         "packages/raft_ui/lib/src/components.dart",
         "packages/raft_ui/lib/src/computer_detail.dart",
@@ -1219,6 +1220,7 @@
         "apps/raft_flutter/lib/features/fleet_views.dart",
         "apps/raft_flutter/lib/features/workspace_settings.dart",
         "apps/raft_flutter/lib/features/workspace_view.dart",
+        "packages/raft_sync/lib/raft_sync.dart",
         "packages/raft_ui/lib/raft_ui.dart",
         "packages/raft_ui/lib/src/components.dart",
         "packages/raft_ui/lib/src/computer_detail.dart",
