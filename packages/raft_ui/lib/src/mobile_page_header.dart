@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'status_bar.dart';
 import 'theme.dart';
 import 'localization.dart';
 
@@ -53,36 +54,39 @@ class RaftMobilePageHeader extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return Container(
-      height: headerHeight ?? height,
-      padding: EdgeInsets.symmetric(horizontal: inset - 8),
-      decoration: BoxDecoration(
-        color: background ?? t.panel,
-        border: Border(bottom: border ?? defaultBorder(t)),
-      ),
-      child: Row(
-        children: [
-          if (onBack != null || leading != null) ...[
-            SizedBox.square(
-              dimension: actionExtent,
-              child: onBack != null
-                  ? RaftMobileBackButton(
-                      key: backKey,
-                      onPressed: onBack,
-                      tooltip: backLabel,
-                    )
-                  : Center(child: leading),
-            ),
-            const SizedBox(width: 8),
-          ] else
-            const SizedBox(width: 8),
-          Expanded(child: Semantics(header: true, child: title)),
-          for (final action in actions)
-            SizedBox.square(
-              dimension: actionExtent,
-              child: Center(child: action),
-            ),
-        ],
+    return RaftStatusBarSource(
+      color: background ?? t.panel,
+      child: Container(
+        height: headerHeight ?? height,
+        padding: EdgeInsets.symmetric(horizontal: inset - 8),
+        decoration: BoxDecoration(
+          color: background ?? t.panel,
+          border: Border(bottom: border ?? defaultBorder(t)),
+        ),
+        child: Row(
+          children: [
+            if (onBack != null || leading != null) ...[
+              SizedBox.square(
+                dimension: actionExtent,
+                child: onBack != null
+                    ? RaftMobileBackButton(
+                        key: backKey,
+                        onPressed: onBack,
+                        tooltip: backLabel,
+                      )
+                    : Center(child: leading),
+              ),
+              const SizedBox(width: 8),
+            ] else
+              const SizedBox(width: 8),
+            Expanded(child: Semantics(header: true, child: title)),
+            for (final action in actions)
+              SizedBox.square(
+                dimension: actionExtent,
+                child: Center(child: action),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -14,6 +14,7 @@ import 'recipe_surface.dart';
 import 'recipes/panel_header.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -92,47 +93,52 @@ class RaftConversationHeader extends StatelessWidget {
     final gap = recipe.header.columnGap ?? recipe.header.length('gap') ?? 12;
     final actionGap =
         recipe.actions.columnGap ?? recipe.actions.length('gap') ?? 6;
-    return RaftRecipeBox(
-      style: recipe.header,
-      tokens: rt,
-      decorationOverride: (d) => d.copyWith(
-        color: d.color == null || d.color!.a == 0
-            ? (t.brutal ? Colors.white : t.colors['layer-canvas-muted'])
-            : d.color,
-        border: t.brutal
-            ? d.border
-            : Border(bottom: BorderSide(color: t.colors['line-muted']!)),
-      ),
-      child: Row(
-        children: [
-          if (onBack != null) ...[
-            RaftPanelAction(
-              key: backKey,
-              glyph: RaftGlyph.arrowLeft,
-              tooltip: backLabel,
-              onPressed: onBack,
-              minHitExtent: RaftMetrics.touchTarget,
-            ),
-            SizedBox(width: gap),
-          ],
-          if (identity != null) ...[
-            RaftRecipeBox(
-              style: recipe.headerIcon,
-              tokens: rt,
-              alignment: Alignment.center,
-              child: identity,
-            ),
-            SizedBox(width: gap),
-          ],
-          Expanded(child: content),
-          if (actions.isNotEmpty) ...[
-            SizedBox(width: gap),
-            for (var i = 0; i < actions.length; i++) ...[
-              if (i > 0) SizedBox(width: actionGap),
-              actions[i],
+    final surface = t.brutal ? Colors.white : t.colors['layer-canvas-muted'];
+    return RaftStatusBarSource(
+      color: switch (recipe.header.decoration(rt).color) {
+        final c? when c.a != 0 => c,
+        _ => surface ?? Colors.transparent,
+      },
+      child: RaftRecipeBox(
+        style: recipe.header,
+        tokens: rt,
+        decorationOverride: (d) => d.copyWith(
+          color: d.color == null || d.color!.a == 0 ? surface : d.color,
+          border: t.brutal
+              ? d.border
+              : Border(bottom: BorderSide(color: t.colors['line-muted']!)),
+        ),
+        child: Row(
+          children: [
+            if (onBack != null) ...[
+              RaftPanelAction(
+                key: backKey,
+                glyph: RaftGlyph.arrowLeft,
+                tooltip: backLabel,
+                onPressed: onBack,
+                minHitExtent: RaftMetrics.touchTarget,
+              ),
+              SizedBox(width: gap),
+            ],
+            if (identity != null) ...[
+              RaftRecipeBox(
+                style: recipe.headerIcon,
+                tokens: rt,
+                alignment: Alignment.center,
+                child: identity,
+              ),
+              SizedBox(width: gap),
+            ],
+            Expanded(child: content),
+            if (actions.isNotEmpty) ...[
+              SizedBox(width: gap),
+              for (var i = 0; i < actions.length; i++) ...[
+                if (i > 0) SizedBox(width: actionGap),
+                actions[i],
+              ],
             ],
           ],
-        ],
+        ),
       ),
     );
   }

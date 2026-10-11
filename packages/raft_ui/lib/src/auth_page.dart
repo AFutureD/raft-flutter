@@ -19,6 +19,7 @@ import 'recipes/checkbox.g.dart';
 import 'recipes/field.g.dart' as field_recipe;
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
+import 'status_bar.dart';
 import 'theme.dart' hide RaftFieldRecipe;
 import 'tokens/tokens.dart';
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
@@ -120,17 +121,24 @@ class RaftAuthShell extends StatelessWidget {
         ),
       ),
     );
-    if (overlayLink == null) return page;
-    return Stack(
-      children: [
-        Positioned.fill(child: page),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: safe.bottom + 24,
-          child: Center(child: overlayLink),
-        ),
-      ],
+    // The status bar shows the brand bar's colour, not the page canvas.
+    if (overlayLink == null) {
+      return RaftStatusBarHost(fallback: t.canvas, child: page);
+    }
+    return RaftStatusBarHost(
+      fallback: t.canvas,
+      expand: true,
+      child: Stack(
+        children: [
+          Positioned.fill(child: page),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: safe.bottom + 24,
+            child: Center(child: overlayLink),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -154,37 +162,40 @@ class RaftAuthTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final width = MediaQuery.sizeOf(context).width;
-    return Container(
-      height: height,
-      // `px-4 sm:px-6 md:px-8`.
-      padding: EdgeInsets.symmetric(
-        horizontal: width >= 768 ? 32 : (width >= 640 ? 24 : 16),
-      ),
-      decoration: BoxDecoration(
-        color: t.brutal ? t.product.softSignal : t.panel,
-        border: Border(
-          bottom: t.brutal
-              ? const BorderSide(color: Color(0xFF000000), width: 2)
-              : BorderSide(color: t.semantic.lineHairline),
+    return RaftStatusBarSource(
+      color: t.brutal ? t.product.softSignal : t.panel,
+      child: Container(
+        height: height,
+        // `px-4 sm:px-6 md:px-8`.
+        padding: EdgeInsets.symmetric(
+          horizontal: width >= 768 ? 32 : (width >= 640 ? 24 : 16),
         ),
-      ),
-      child: Row(
-        children: [
-          const RaftBrandMark(RaftBrandMarkKind.logo, height: 20),
-          const Spacer(),
-          // Native-only server origin control (see _AuthState.editServer).
-          if (server != null)
-            Semantics(
-              button: true,
-              label: raftText(context, 'Server URL'),
-              child: RaftAuthTextLink(
-                key: const Key('login-server'),
-                label: server!,
-                onTap: onServer,
-                small: true,
+        decoration: BoxDecoration(
+          color: t.brutal ? t.product.softSignal : t.panel,
+          border: Border(
+            bottom: t.brutal
+                ? const BorderSide(color: Color(0xFF000000), width: 2)
+                : BorderSide(color: t.semantic.lineHairline),
+          ),
+        ),
+        child: Row(
+          children: [
+            const RaftBrandMark(RaftBrandMarkKind.logo, height: 20),
+            const Spacer(),
+            // Native-only server origin control (see _AuthState.editServer).
+            if (server != null)
+              Semantics(
+                button: true,
+                label: raftText(context, 'Server URL'),
+                child: RaftAuthTextLink(
+                  key: const Key('login-server'),
+                  label: server!,
+                  onTap: onServer,
+                  small: true,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -477,7 +488,6 @@ class _RaftAuthLegalCheckboxState extends State<RaftAuthLegalCheckbox> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    String tr(String s) => raftText(context, s);
     final base = RaftTypography.heading(
       t,
       size: 14,
@@ -516,21 +526,16 @@ class _RaftAuthLegalCheckboxState extends State<RaftAuthLegalCheckbox> {
           child: Text.rich(
             TextSpan(
               style: base,
-              children: [
-                TextSpan(text: '${tr('I agree to the')} '),
-                TextSpan(
-                  text: tr('Terms of Service'),
-                  style: link,
-                  recognizer: terms,
-                ),
-                TextSpan(text: ' ${tr('and acknowledge the')} '),
-                TextSpan(
-                  text: tr('Privacy Policy'),
-                  style: link,
-                  recognizer: privacy,
-                ),
-                const TextSpan(text: '.'),
-              ],
+              children: raftRichText(
+                context,
+                'I agree to the <terms>Terms of Service</terms> and acknowledge the <privacy>Privacy Policy</privacy>.',
+                {
+                  'terms': (text) =>
+                      TextSpan(text: text, style: link, recognizer: terms),
+                  'privacy': (text) =>
+                      TextSpan(text: text, style: link, recognizer: privacy),
+                },
+              ),
             ),
           ),
         ),
@@ -566,7 +571,6 @@ class _RaftAuthLegalNoticeState extends State<RaftAuthLegalNotice> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    String tr(String s) => raftText(context, s);
     final base = RaftTypography.heading(
       t,
       size: 12,
@@ -578,21 +582,16 @@ class _RaftAuthLegalNoticeState extends State<RaftAuthLegalNotice> {
       textAlign: TextAlign.center,
       TextSpan(
         style: base,
-        children: [
-          TextSpan(text: '${tr('By continuing, you agree to the')} '),
-          TextSpan(
-            text: tr('Terms of Service'),
-            style: link,
-            recognizer: terms,
-          ),
-          TextSpan(text: ' ${tr('and')} '),
-          TextSpan(
-            text: tr('Privacy Policy'),
-            style: link,
-            recognizer: privacy,
-          ),
-          const TextSpan(text: '.'),
-        ],
+        children: raftRichText(
+          context,
+          'By continuing, you agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.',
+          {
+            'terms': (text) =>
+                TextSpan(text: text, style: link, recognizer: terms),
+            'privacy': (text) =>
+                TextSpan(text: text, style: link, recognizer: privacy),
+          },
+        ),
       ),
     );
   }
@@ -1070,7 +1069,9 @@ class RaftAuthPage extends StatelessWidget {
                   RaftAuthSocialButton(
                     key: ValueKey('auth-social-${provider.id}'),
                     provider: provider.id,
-                    label: tr('Continue with ${provider.label}'),
+                    label: raftFormat(context, 'Continue with {provider}', {
+                      'provider': provider.label,
+                    }),
                     // Web only disables the submit button while loading.
                     onPressed: onProvider == null
                         ? null
