@@ -51,6 +51,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
     'archivedChannelName',
     'archivedChannelType',
     'canUnarchiveArchivedChannel',
+    // Public guest join: 409 agreement_required / agreement_changed carries
+    // the community agreement to show (public text, not a credential).
+    'agreement',
   };
   dynamic freeze(dynamic value) {
     if (value is Map) {
@@ -78,6 +81,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
         'transferIntentIds',
         'reservationIds',
       });
+    if (key == 'agreement') {
+      return receipt(value, {'id', 'title', 'bodyMarkdown', 'version'});
+    }
     if (key == 'conversionCommand')
       return receipt(value, {
         'id',

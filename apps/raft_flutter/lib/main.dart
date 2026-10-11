@@ -22,6 +22,7 @@ import 'features/incoming_share_review.dart';
 import 'data/raft_navigation_history.dart';
 import 'features/app_root_router.dart';
 import 'features/global_server_selector.dart';
+import 'features/public_server_view.dart';
 import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
 import 'features/account_onboarding.dart';
@@ -109,6 +110,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       directoryLoading = true,
       selectingServer = false;
   String? selectorError;
+
+  /// Public server page (Web PublicServerPage): `/s/<slug>[/channel/<id>]`
+  /// shown to a signed-out visitor, or to a signed-in account that has no
+  /// such server. Dismissed by Sign in / Create account or when the server is
+  /// not public; the auth page then opens in [authMode].
+  bool publicDismissed = false;
+  String authMode = 'login';
+  ({String slug, String? channelId})? publicNonmember;
+  RaftClient? anonymousClient;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
   Object? workspaceRootInputs;
@@ -620,6 +630,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           : prefs.getString('$serverMemoryKey.last');
       final target = servers.where((s) => s.string('slug') == slug).firstOrNull;
       if (target != null) {
+        publicNonmember = null;
         final remembered = prefs.getString('$serverMemoryKey.${target.id}');
         await chooseServer(
           target,
@@ -631,9 +642,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         );
       } else {
         showServerSelector = true;
-        appRouter.publish(
-          Uri(path: requestedLocation.path == '/servers' ? '/servers' : '/'),
-        );
+        final nonmember = explicit && slug != null && !publicDismissed
+            ? publicRoute(requestedLocation)
+            : null;
+        publicNonmember = nonmember;
+        if (nonmember == null) {
+          appRouter.publish(
+            Uri(path: requestedLocation.path == '/servers' ? '/servers' : '/'),
+          );
+        }
         setState(() {});
       }
     } catch (e) {
@@ -732,6 +749,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (w == null || client?.user == null) return;
     final request = ++rootRequest;
     serverSwitchLocation = serverSwitchReturn = null;
+    publicNonmember = null;
     chooserReturn = w.server == null ? null : w.location.uri;
     requestedLocation = Uri(path: '/');
     showServerSelector = true;
@@ -756,6 +774,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   Future<void> receiveAppLocation(Uri location) async {
     requestedLocation = location;
+    publicDismissed = false;
     serverSwitchLocation = serverSwitchReturn = null;
     final w = workspace;
     if (w == null || directoryLoading) return;
@@ -770,8 +789,17 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         : null;
     if (target == null) {
       openServerSelector();
+      // A signed-in account without this server sees its public page first.
+      final route = publicRoute(location);
+      if (route != null) {
+        requestedLocation = location;
+        publicNonmember = route;
+        setState(() {});
+        appRouter.refresh();
+      }
       return;
     }
+    publicNonmember = null;
     await chooseServer(target, location: location);
   }
 
@@ -1003,12 +1031,50 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  /// App.tsx: `/^\/s\/([^/]+)(?:\/channel\/([^/]+))?(?:\/.*)?$/`.
+  static ({String slug, String? channelId})? publicRoute(Uri location) {
+    final segments = location.pathSegments;
+    if (segments.length < 2 || segments.first != 's' || segments[1].isEmpty) {
+      return null;
+    }
+    final channel = segments.length >= 4 && segments[2] == 'channel'
+        ? segments[3]
+        : null;
+    return (slug: segments[1], channelId: channel);
+  }
+
+  void dismissPublic({String? mode, bool rediscover = false}) {
+    setState(() {
+      publicDismissed = true;
+      publicNonmember = null;
+      if (mode != null) authMode = mode;
+    });
+    appRouter.refresh();
+    if (rediscover) unawaited(discoverServers());
+  }
+
   Widget sessionHome() {
     scheduleShares();
     final active = client;
     if (active?.user == null) {
       workspaceRootInputs = null;
+      final route = publicRoute(requestedLocation);
+      if (route != null && !publicDismissed) {
+        return PublicServerView(
+          key: ValueKey('public-${route.slug}'),
+          client: anonymousClient ??=
+              widget.createClient?.call(origin, MemorySessionStore(), 'web') ??
+              RaftClient(origin: origin, sessionStore: MemorySessionStore()),
+          slug: route.slug,
+          initialChannelId: route.channelId,
+          onSignIn: () => dismissPublic(mode: 'login'),
+          onRegister: () => dismissPublic(mode: 'register'),
+          onUnavailable: dismissPublic,
+        );
+      }
       return AuthView(
+        key: ValueKey('auth-$authMode'),
+        initialMode: authMode,
         origin: origin,
         bootError: bootError,
         onLogin: login,
@@ -1025,6 +1091,44 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
     if (workspace == null) {
       return const RaftServerResolutionBody(label: 'Loading…');
+    }
+    final nonmember = publicNonmember;
+    if (showServerSelector && nonmember != null && !publicDismissed) {
+      final w = workspace!;
+      return PublicServerView(
+        key: ValueKey('public-${nonmember.slug}'),
+        client: active,
+        slug: nonmember.slug,
+        initialChannelId: nonmember.channelId,
+        account: PublicServerAccount(servers: w.servers, onSelect: chooseServer),
+        appVersion: const String.fromEnvironment('RAFT_APP_VERSION'),
+        onSignIn: () {},
+        onRegister: () {},
+        onUnavailable: () => dismissPublic(rediscover: true),
+        onJoined: () async {
+          if (!await w.loadServerDirectory()) {
+            throw const RaftApiException('The server list is unavailable.');
+          }
+          final joined = w.servers
+              .where((s) => s.string('slug') == nonmember.slug)
+              .firstOrNull;
+          if (joined == null) {
+            throw const RaftApiException(
+              'Joined server was not returned by the server list',
+            );
+          }
+          publicNonmember = null;
+          await chooseServer(
+            joined,
+            location: nonmember.channelId == null
+                ? Uri(path: '/s/${joined.string('slug')}')
+                : Uri(
+                    path:
+                        '/s/${joined.string('slug')}/channel/${Uri.encodeComponent(nonmember.channelId!)}',
+                  ),
+          );
+        },
+      );
     }
     if (showServerSelector) {
       return GlobalServerSelector(
@@ -1111,6 +1215,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         workspace?.removeListener(workspaceChanged);
         workspace?.dispose();
         workspace = null;
+        publicNonmember = null;
         serverSurfaces.clear();
         chooserReturn = null;
         serverSwitchLocation = serverSwitchReturn = null;
@@ -1135,6 +1240,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? Future<void>.value()
         : sessionPersistence.write(c.origin, null);
     workspace = null;
+    publicNonmember = null;
     oldWorkspace?.removeListener(workspaceChanged);
     serverSurfaces.clear();
     chooserReturn = null;
@@ -1213,6 +1319,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     });
     routeInformation.dispose();
     appRouter.dispose();
+    anonymousClient?.dispose();
     super.dispose();
   }
 

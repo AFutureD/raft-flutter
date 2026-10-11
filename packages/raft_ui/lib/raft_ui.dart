@@ -83,6 +83,8 @@ export 'src/feedback_workspace.dart';
 export 'src/settings_workspace.dart';
 export 'src/settings_billing.dart';
 export 'src/settings_applications.dart';
+export 'src/settings_app_editor.dart';
+export 'src/public_server.dart';
 export 'src/agent_dialogs.dart';
 export 'src/invite_human_dialog.dart';
 export 'src/role_permission_help_dialog.dart';
