@@ -158,7 +158,7 @@ OS/PWA 通知也从 URI 进入同一 router：ServiceWorker 点击关闭系统�
 | N21 | W：各已挂载路径与thread/content槽 | 根4tab可见；已列详情均隐藏；guest隐藏Members；embed首帧无tab | [MainLayout:227–330][S34] |
 | N22 | P/W：767/768/1023/1024，old/newInbox两组 | 一般rail为768；old Activity预览1024，new为768；grid低于1024禁止 | [ThreadsInbox:572–574][S29]、[MainLayout:1691–1715][S26] |
 | N23 | W：portrait1279/1280；landscape；内容679.98/680 | 同排仅满足orientation/xl且实际容器680；resize保留位置/消息anchor | [index.css:857–979][S31] |
-| N24 | W：desktop Activity单击channel、DM、thread；双击 | 首击即时preview并保持原行位置；系统识别窗内同位置双击升级，只PUSHcanonical一次，使用首击原始DTO的msg优先级 | [inbox行为:255–562][T1] |
+| N24 | W：desktop Activity单击channel、DM、thread；双击 | 未选中全宽，首击即时preview并分栏；识别期间保留已读行顺序/高度；系统窗内第二次Activity列表主按钮点击升级首击（允许其他行/空白），详情/工具栏/键盘普通处理，只PUSHcanonical一次，使用首击原始DTO的msg优先级 | [inbox行为:255–562][T1] |
 | N25 | W：mobile channel/DM mention与thread点击 | 即刻PUSH；channel/DM先mention；thread保留Source unread/latest规则；无预open第二PUSH | [inbox行为:322–401,583–634][T1] |
 | N26 | P/W：Electron Search背景跨server、search背景、page marker | 拒绝不合法背景；同server回退顺序；仅page marker允许完整页；Web忽略背景 | [searchOverlayLocation:47–175][S13] |
 | N27 | W：保留Activity/Search选中channel，Data loader写section/chat | 标题、rail、master、detail、tab/back仍投影同一location；隐藏频道不误ACK | Flutter现有保留测试 + 单location迁移新用例 |

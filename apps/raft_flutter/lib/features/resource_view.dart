@@ -97,8 +97,10 @@ class ResourceView extends StatefulWidget {
   final ValueChanged<String>? onSearchQueryCommitted;
   final Future<void> Function(Map<String, dynamic>)? onActivityItem;
 
-  /// Mounted Source master/detail arbitration: a second activation navigates
-  /// to the canonical route and cancels the pending 220 ms content-slot open.
+  /// Canonical navigation for a second pointer click in the Activity list.
+  ///
+  /// The first click opens the preview immediately. A second list click within
+  /// the system double-click window upgrades that original conversation.
   /// Custom embedded consumers without this callback keep immediate onOpen.
   final Future<void> Function(Map<String, dynamic>)? onActivityCanonical;
   final bool activitySidebarEnabled, compactActivitySidebar;

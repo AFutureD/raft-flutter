@@ -348,8 +348,10 @@ void main() {
             reason:
                 'gesture=${activation.activityGestureRevision} current=${w.navigationRevision}',
           );
-          expect(tester.getRect(card).contains(point), true);
-          await tester.tapAt(point);
+          // The first preview narrows the list; continue inside its new bounds.
+          final secondPoint = tester.getCenter(card);
+          expect(tester.getRect(card).contains(secondPoint), true);
+          await tester.tapAt(secondPoint);
           for (var frame = 0; frame < 20; ++frame) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(w.location.route, RaftRoute.channel);

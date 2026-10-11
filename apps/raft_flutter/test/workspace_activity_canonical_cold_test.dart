@@ -93,8 +93,10 @@ void main() {
           await tester.tapAt(point);
           expect(w.location.content?.id, 't2');
           await tester.pump(const Duration(milliseconds: 80));
-          expect(tester.getRect(card).contains(point), true);
-          await tester.tapAt(point);
+          // The first preview narrows the list; continue inside its new bounds.
+          final secondPoint = tester.getCenter(card);
+          expect(tester.getRect(card).contains(secondPoint), true);
+          await tester.tapAt(secondPoint);
           for (var frame = 0; frame < 6; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(w.location.route, RaftRoute.channel);

@@ -353,7 +353,8 @@ void main() {
           api.routes['GET /messages/channel/c2'] = (_) => latest.future;
           await mountPage(tester, w, family, dark);
           await tester.tap(find.byKey(const ValueKey('activity-channel-c1')));
-          await tester.pump(const Duration(milliseconds: 220));
+          // This is an independent selection after the double-click window.
+          await tester.pump(const Duration(milliseconds: 501));
           await tester.runAsync(() async {
             for (
               var i = 0;
