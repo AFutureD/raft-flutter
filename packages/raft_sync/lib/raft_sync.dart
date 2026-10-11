@@ -20,6 +20,7 @@ class MessageLedger {
   BigInt watermark = BigInt.zero;
   final Map<String, Map<String, Map<String, dynamic>>> _channels = {};
   final Map<String, List<Map<String, dynamic>>> _sorted = {};
+  final Map<String, DateTime?> _latestCreatedAt = {};
   String? get serverId => _serverId;
   void switchServer(String? id) {
     if (_serverId == id) return;
@@ -29,6 +30,7 @@ class MessageLedger {
     watermark = BigInt.zero;
     _channels.clear();
     _sorted.clear();
+    _latestCreatedAt.clear();
   }
 
   List<Map<String, dynamic>> messages(String channelId) {
@@ -48,6 +50,29 @@ class MessageLedger {
     return List.of(sorted);
   }
 
+  /// Latest valid creation timestamp among the held channel messages.
+  ///
+  /// This follows dates rather than sparse sequence order. Missing and invalid
+  /// dates do not contribute; server timestamps remain the authority. Results
+  /// (including null) are reused until this channel changes, so responsive
+  /// rebuilds do not repeatedly copy, sort and parse the held history.
+  DateTime? latestCreatedAt(String channelId) {
+    final messages = _channels[channelId];
+    if (messages == null) return null;
+    if (_latestCreatedAt.containsKey(channelId)) {
+      return _latestCreatedAt[channelId];
+    }
+    DateTime? latest;
+    for (final message in messages.values) {
+      final stamp = DateTime.tryParse('${message['createdAt'] ?? ''}');
+      if (stamp != null && (latest == null || stamp.isAfter(latest))) {
+        latest = stamp;
+      }
+    }
+    _latestCreatedAt[channelId] = latest;
+    return latest;
+  }
+
   /// Whether [messageId] is held for [channelId], without copying or sorting.
   bool contains(String channelId, String messageId) =>
       _channels[channelId]?.containsKey(messageId) ?? false;
@@ -59,6 +84,7 @@ class MessageLedger {
   void _changed(String channelId) {
     revision++;
     _sorted.remove(channelId);
+    _latestCreatedAt.remove(channelId);
   }
 
   static BigInt _seq(Map<String, dynamic> m) =>
