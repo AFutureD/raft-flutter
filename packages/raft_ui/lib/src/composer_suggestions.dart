@@ -10,6 +10,7 @@ class RaftComposerSuggestion {
     this.title,
     this.detail,
     this.inChannel = true,
+    this.archived = false,
     this.referenceText,
     this.avatar,
     this.mutedAvatar,
@@ -22,6 +23,9 @@ class RaftComposerSuggestion {
   /// not-in-channel treatment (`!border-black/40 opacity-60`).
   final Widget? avatar, mutedAvatar;
   final bool inChannel;
+
+  /// An archived channel option (Web `ch.archivedAt`): the `archived` Badge.
+  final bool archived;
   bool get isMention => type == 'user' || type == 'agent';
   String get insertion =>
       referenceText ?? '${type == 'channel' ? '#' : '@'}$name';

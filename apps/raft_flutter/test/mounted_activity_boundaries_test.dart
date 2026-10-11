@@ -106,10 +106,9 @@ void main() {
             expectLocation();
             await t.pump();
             expectLocation();
-            expect(
-              find.byType(ResourceView),
-              split ? findsOneWidget : findsNothing,
-            );
+            // A phone push keeps the covered Activity list live (and visible)
+            // until the platform transition completes; see below.
+            if (split) expect(find.byType(ResourceView), findsOneWidget);
             expect(find.byType(RaftChatView), findsOneWidget);
             expect(
               t.widget<RaftChatView>(find.byType(RaftChatView)).thread,
@@ -122,6 +121,11 @@ void main() {
             expectLocation();
             await t.pump(const Duration(milliseconds: 1));
             expectLocation();
+            if (!split) {
+              await t.pump(const Duration(milliseconds: 500));
+              expect(find.byType(ResourceView), findsNothing);
+              expectLocation();
+            }
             await flush(t);
             final contexts = api.calls.where(
               (request) => request.path.startsWith('/messages/context/'),
@@ -185,9 +189,13 @@ void main() {
         expect(w.location.entityId, 'd1');
         expect(w.location.messageId, target);
         expect(w.navigation.entries.length, entries + 1);
-        expect(find.byType(ResourceView), findsNothing);
+        // The covered Activity list stays live until the push completes.
         expect(find.byType(RaftComposer), findsOneWidget);
         expect(find.byType(RaftChatView), findsOneWidget);
+        await t.pump(const Duration(milliseconds: 500));
+        expect(find.byType(ResourceView), findsNothing);
+        expect(w.location.messageId, target);
+        expect(w.navigation.entries.length, entries + 1);
         await flush(t);
         await t.pump(const Duration(milliseconds: 16));
         final requests = api.calls.where(

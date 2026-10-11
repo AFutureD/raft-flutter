@@ -59,7 +59,12 @@ Future<T?> _fleetDialog<T>(
   WidgetBuilder builder,
 ) async {
   if (!context.mounted || !authorized()) return null;
-  final route = DialogRoute<T>(context: context, builder: builder);
+  // Web `Dialog` layer: the recipe overlay (Brutal black/65, Elegant backdrop + blur).
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final route = RaftDialogRoute<T>(
+    builder: builder,
+    capturedThemes: InheritedTheme.capture(from: context, to: navigator.context),
+  );
   void changed() {
     if (!authorized() && route.isActive) route.navigator?.removeRoute(route);
   }
@@ -571,6 +576,7 @@ class _FleetDetailState extends State<FleetDetail> {
 
   bool busy = false;
   String? error;
+
   StreamSubscription<RaftEvent>? subscription;
   Timer? timer;
   Route<dynamic>? profileRoute;
@@ -728,18 +734,21 @@ class _FleetDetailState extends State<FleetDetail> {
       final result = await w.query(base);
       if (!current || ticket != request) return;
       if (result is! Map || result['id'] != id || result['deletedAt'] != null) {
-        closeProfile();
+        // Web `AgentById`: an id the server does not hold renders the
+        // "Agent unavailable" panel (it does not navigate away).
+        setState(() => gone = true);
         return;
       }
       detail = Map<String, dynamic>.from(result);
       setState(() {
+        gone = false;
         row = compose();
         error = null;
       });
     } on RaftApiException catch (e) {
       if (!current || ticket != request) return;
       if (e.status == 404 || e.status == 403) {
-        closeProfile();
+        setState(() => gone = true);
         return;
       }
       _readFailed('$e');
@@ -910,8 +919,63 @@ class _FleetDetailState extends State<FleetDetail> {
     );
   }
 
+  /// Web `ConfirmDialog` (raft-ui `Dialog`, `max-w-sm`): title, one plain
+  /// message, Cancel and the coloured confirm action.
+  Future<void> webConfirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required String loadingLabel,
+    required RaftButtonRecipeVariant variant,
+    required Future<void> Function() operation,
+  }) async {
+    if (!current) return;
+    await _fleetDialog<bool>(
+      context,
+      w,
+      () => current,
+      (_) => RaftConfirmDialog(
+        surfaceKey: const ValueKey('agent-dialog'),
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        loadingLabel: loadingLabel,
+        confirmVariant: variant,
+        onConfirm: () async {
+          if (!current) throw const RaftApiException('Fleet access changed.');
+          await operation();
+        },
+      ),
+    );
+  }
+
   Future<void> remove() async {
     bool removed = false;
+    if (!widget.computers) {
+      // AgentDetailPanel `ConfirmDialog` "Delete Agent" (external agents get
+      // their own copy: the external runtime is left alone).
+      final name = '${row['displayName'] ?? row['name'] ?? ''}';
+      await webConfirm(
+        title: raftText(context, 'Delete Agent'),
+        message: raftFormat(
+          context,
+          external
+              ? 'Are you sure you want to delete "{name}"? This removes the Raft agent identity, credentials, and associated Raft data. It will not stop, uninstall, or clean up the external runtime, local profile, or harness.'
+              : 'Are you sure you want to delete "{name}"? This will remove all associated data and cannot be undone.',
+          {'name': name},
+        ),
+        confirmLabel: raftText(context, 'Delete Agent'),
+        loadingLabel: raftText(context, 'Deleting…'),
+        variant: RaftButtonRecipeVariant.danger,
+        operation: () async {
+          require('deleteAgents');
+          await w.command('DELETE', base);
+          removed = true;
+        },
+      );
+      if (removed) closeProfile();
+      return;
+    }
     await confirm(
       widget.computers ? 'Delete computer?' : 'Delete agent?',
       widget.computers
@@ -1004,6 +1068,27 @@ class _FleetDetailState extends State<FleetDetail> {
       throw const RaftApiException(
         'An upgrade is no longer available. Refresh this computer.',
       );
+    }
+    if (!mounted) return;
+    if (!widget.computers && command == 'stop') {
+      // AgentDetailPanel `ConfirmDialog` "Stop Agent" (confirm colour orange).
+      await webConfirm(
+        title: raftText(context, 'Stop Agent'),
+        message: raftFormat(
+          context,
+          'Are you sure you want to stop "{name}"? The agent will stop processing messages.',
+          {'name': '${row['displayName'] ?? row['name'] ?? ''}'},
+        ),
+        confirmLabel: raftText(context, 'Stop Agent'),
+        loadingLabel: raftText(context, 'Stopping…'),
+        variant: RaftButtonRecipeVariant.warning,
+        operation: () async {
+          require('controlAgentRuntime');
+          await w.command('POST', '$base/stop', data: {});
+          await load();
+        },
+      );
+      return;
     }
     await confirm(
       '${command[0].toUpperCase()}${command.substring(1)} ${widget.computers ? 'computer' : 'agent'}?',
@@ -1144,9 +1229,23 @@ class _FleetDetailState extends State<FleetDetail> {
     ),
   );
 
+  /// Web `AgentById`: the id is not an agent this server holds (deleted,
+  /// terminated or no access) once its list has loaded.
+  bool gone = false;
+  bool get _unavailable =>
+      !widget.computers &&
+      (gone ||
+          row['deletedAt'] != null ||
+          (w.entityDirectory.state(kind).loaded && directoryRow == null));
+
   @override
   Widget build(BuildContext context) => !current
       ? const SizedBox.shrink()
+      : !_renderable && _unavailable
+      ? RaftAgentUnavailablePanel(
+          onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),
+          onClose: widget.onClose,
+        )
       : !_renderable
       ? SourceProfileLoadingPanel(
           onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),

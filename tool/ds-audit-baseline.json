@@ -1,36 +1,34 @@
 {
  "version": 1,
  "scope": "apps/raft_flutter/lib",
- "about": "Ratchet for tool/ds-audit. Counts may only go down. Regenerate with `tool/ds-audit --update-baseline` after removing violations.",
+ "about": "Ratchet for tool/ds-audit. Counts may only go down. Feature branches never edit this file; the integration owner runs `tool/ds-audit --update-baseline` after merges (separate small commit).",
  "totals": {
   "style.border_radius": 10,
-  "style.dimension": 44,
+  "style.dimension": 41,
   "style.duration": 2,
-  "style.edge_insets": 60,
+  "style.edge_insets": 57,
   "style.font_size": 1,
   "style.font_weight": 5,
   "style.material_colors": 27,
   "style.material_icons": 18,
-  "style.material_theme": 27,
-  "style.sized_box": 63,
+  "style.material_theme": 26,
+  "style.sized_box": 55,
   "style.text_metrics": 1,
   "style.text_style": 9,
-  "widget.app_bar": 1,
   "widget.button": 36,
-  "widget.chip": 6,
+  "widget.chip": 4,
   "widget.dialog": 42,
-  "widget.icon_button": 11,
+  "widget.icon_button": 10,
   "widget.ink": 1,
   "widget.list_tile": 25,
   "widget.menu": 15,
-  "widget.navigation": 1,
-  "widget.other": 13,
-  "widget.progress": 15,
-  "widget.scaffold": 8,
+  "widget.other": 11,
+  "widget.progress": 13,
+  "widget.scaffold": 5,
   "widget.select": 3,
   "widget.snackbar": 26,
   "widget.surface": 4,
-  "widget.text_field": 23
+  "widget.text_field": 16
  },
  "files": {
   "apps/raft_flutter/lib/features/account_auth_previews.dart": {
@@ -40,12 +38,7 @@
    "widget.list_tile": 1
   },
   "apps/raft_flutter/lib/features/account_onboarding.dart": {
-   "widget.text_field": 4
-  },
-  "apps/raft_flutter/lib/features/account_password_editor.dart": {
-   "style.edge_insets": 2,
-   "style.sized_box": 5,
-   "widget.text_field": 2
+   "widget.text_field": 3
   },
   "apps/raft_flutter/lib/features/account_settings.dart": {
    "style.dimension": 1,
@@ -102,9 +95,6 @@
    "widget.dialog": 1,
    "widget.progress": 1,
    "widget.snackbar": 9
-  },
-  "apps/raft_flutter/lib/features/auth_view.dart": {
-   "widget.text_field": 4
   },
   "apps/raft_flutter/lib/features/channel_conversion_previews.dart": {
    "style.dimension": 1,
@@ -163,11 +153,6 @@
    "widget.list_tile": 3,
    "widget.progress": 1,
    "widget.text_field": 4
-  },
-  "apps/raft_flutter/lib/features/integrations_views.dart": {
-   "widget.app_bar": 1,
-   "widget.other": 1,
-   "widget.scaffold": 1
   },
   "apps/raft_flutter/lib/features/joint_channel_views.dart": {
    "style.material_theme": 1,
@@ -264,13 +249,8 @@
    "style.sized_box": 3
   },
   "apps/raft_flutter/lib/features/server_setup_gate.dart": {
-   "style.dimension": 4,
-   "style.edge_insets": 2,
-   "style.material_theme": 1,
-   "style.sized_box": 3,
-   "widget.chip": 2,
-   "widget.icon_button": 1,
-   "widget.other": 1
+   "style.dimension": 1,
+   "style.edge_insets": 1
   },
   "apps/raft_flutter/lib/features/server_views.dart": {
    "style.edge_insets": 1,
@@ -349,15 +329,10 @@
    "style.sized_box": 1,
    "widget.button": 1,
    "widget.dialog": 5,
-   "widget.navigation": 1,
    "widget.progress": 1,
    "widget.scaffold": 1,
    "widget.snackbar": 1,
    "widget.surface": 1
-  },
-  "apps/raft_flutter/lib/main.dart": {
-   "widget.progress": 2,
-   "widget.scaffold": 2
   },
   "apps/raft_flutter/lib/platform/system_bars.dart": {
    "style.material_colors": 3,

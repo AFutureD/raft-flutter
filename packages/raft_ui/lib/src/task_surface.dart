@@ -153,7 +153,29 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
         child: Column(
           children: [
             header(context, mobile),
-            Expanded(child: body),
+            Expanded(
+              // The modern ThreadPanel is a raft-ui `Panel edge="attached"`
+              // (`border-l-2 border-black`, elegant `border-l border-line-muted`):
+              // its column starts 2px / 1px inside the modal frame, in the
+              // modal. Owner decision 2026-10-12: no left edge line on the
+              // phone (intended difference from Web). LegacyTaskPanel keeps
+              // its own side-presentation border (`framed` below).
+              child: legacy || mobile
+                  ? body
+                  : Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          left: BorderSide(
+                            color: t.brutal
+                                ? Colors.black
+                                : t.colors['line-muted']!,
+                            width: t.brutal ? 2 : 1,
+                          ),
+                        ),
+                      ),
+                      child: body,
+                    ),
+            ),
           ],
         ),
       ),

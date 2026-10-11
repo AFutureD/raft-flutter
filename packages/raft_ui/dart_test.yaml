@@ -1,0 +1,4 @@
+# Plain `test()` cases get 60s; testWidgets are bounded by test/flutter_test_config.dart
+# (flutter_test passes an explicit timeout that overrides this file). The gate runs
+# from apps/raft_flutter and reads that directory's dart_test.yaml; keep them equal.
+timeout: 60s

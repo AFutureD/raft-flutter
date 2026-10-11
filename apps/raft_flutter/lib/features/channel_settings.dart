@@ -1044,9 +1044,27 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     }
   }
 
+  /// Web `view: "root" | "members"` of the desktop drawer: the members page
+  /// replaces the drawer content (`OverflowSheet bare`) while the root view
+  /// stays mounted underneath, so an unsaved name/description draft survives.
+  bool membersOpen = false, membersAdd = false;
+
+  void closeMembers() {
+    if (!membersOpen) return;
+    setState(() => membersOpen = false);
+    unawaited(load({'members'}));
+  }
+
   Future<void> openMembers({bool add = false}) async {
     if (widget.page && !add && widget.onMembers != null) {
       await guardedTransition(widget.onMembers!);
+      return;
+    }
+    if (drawer && !widget.page) {
+      setState(() {
+        membersOpen = true;
+        membersAdd = add;
+      });
       return;
     }
     await ChannelMembers.show(
@@ -1424,23 +1442,57 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     );
     // The barrier is the area outside the drawer: a press there is a close
     // attempt like any other (Escape / back go through PopScope).
+    final root = widget.page
+        ? sheet
+        : Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  key: const ValueKey('channel-overflow-scrim'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: guardedClose,
+                ),
+              ),
+              sheet,
+            ],
+          );
     return PopScope(
-      canPop: !dirty,
+      // The members page owns back while it is open (it returns to the root
+      // view, or from its add view to the roster).
+      canPop: !dirty && !membersOpen,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) guardedClose();
+        if (!didPop && !membersOpen) guardedClose();
       },
       child: widget.page
-          ? sheet
+          ? root
           : Stack(
               children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    key: const ValueKey('channel-overflow-scrim'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: guardedClose,
-                  ),
+                Offstage(
+                  offstage: membersOpen,
+                  child: ExcludeFocus(excluding: membersOpen, child: root),
                 ),
-                sheet,
+                if (membersOpen)
+                  Stack(
+                    children: [
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: guardedClose,
+                        ),
+                      ),
+                      RaftOverflowBareSheet(
+                        child: ChannelMembers(
+                          key: ValueKey('channel-members-page-${c.id}'),
+                          controller: w,
+                          channel: channel,
+                          page: true,
+                          embedded: true,
+                          startInAdd: membersAdd,
+                          onClose: closeMembers,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
     );

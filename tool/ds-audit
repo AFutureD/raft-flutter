@@ -7,9 +7,15 @@ prints a summary and compares per-file/per-category counts with the checked-in
 baseline tool/ds-audit-baseline.json.
 
   tool/ds-audit                     summary + baseline comparison (exit 0)
-  tool/ds-audit --check             exit 1 if any file/category count grew
-  tool/ds-audit --update-baseline   lower the baseline to the current counts
+  tool/ds-audit --check             exit 1 if any file/category count grew (a decrease never fails)
+  tool/ds-audit --update-baseline   lower the baseline to the current counts (integration branch only)
   tool/ds-audit --json PATH...      print aggregated JSON for given paths
+
+Workflow: a feature branch only has to keep every count at or below the baseline
+and never edits tool/ds-audit-baseline.json (parallel branches that lower the same
+file would conflict on it). Counts that went down only print a "can lower" note.
+After a batch is merged, the integration owner runs `tool/ds-audit --update-baseline`
+and commits the lowered baseline as a separate small commit.
 
 Rules for every category: docs/ds-migration.md ("Audit rules").
 Escape hatch for genuinely platform-only code (reviewed, counted separately):
@@ -18,6 +24,7 @@ Escape hatch for genuinely platform-only code (reviewed, counted separately):
 import argparse
 import collections
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -34,7 +41,8 @@ class AuditError(RuntimeError):
 
 
 def dart_executable():
-    out = subprocess.run([str(ROOT / 'tool/flutter'), '--version', '--machine'],
+    command = ([sys.executable] if os.name == 'nt' else []) + [str(ROOT / 'tool/flutter')]
+    out = subprocess.run([*command, '--version', '--machine'],
                          capture_output=True, text=True)
     if out.returncode != 0:
         raise AuditError(out.stderr.strip() or out.stdout.strip() or 'tool/flutter failed')
@@ -42,7 +50,7 @@ def dart_executable():
         flutter_root = json.loads(out.stdout)['flutterRoot']
     except (ValueError, KeyError) as error:
         raise AuditError(f'cannot read flutterRoot from tool/flutter: {error}')
-    return pathlib.Path(flutter_root) / 'bin/dart'
+    return pathlib.Path(flutter_root) / 'bin' / ('dart.bat' if os.name == 'nt' else 'dart')
 
 
 def run_scanner(paths):
@@ -115,8 +123,8 @@ def baseline_document(report):
     return {
         'version': 1,
         'scope': SCOPE,
-        'about': 'Ratchet for tool/ds-audit. Counts may only go down. '
-                 f'Regenerate with `{UPDATE_HINT}` after removing violations.',
+        'about': 'Ratchet for tool/ds-audit. Counts may only go down. Feature branches never edit this file; '
+                 f'the integration owner runs `{UPDATE_HINT}` after merges (separate small commit).',
         'totals': report['totals'],
         'files': report['files'],
     }
@@ -155,8 +163,9 @@ def format_comparison(regressions, improvements):
         lines.append('Use raft_ui components/tokens instead (docs/ds-migration.md). Genuinely '
                      'platform-only code may carry `// ds-allow: <reason>` for review.')
     if improvements:
-        lines.append(f'{len(improvements)} file/category count(s) went down; lock them in with '
-                     f'`{UPDATE_HINT}` and commit tool/ds-audit-baseline.json:')
+        lines.append(f'baseline can lower: {len(improvements)} file/category count(s) went down. This does not fail '
+                     f'--check; do NOT edit tool/ds-audit-baseline.json on a feature branch. The integration owner runs '
+                     f'`{UPDATE_HINT}` after merges and commits it separately:')
         lines += [f'  {f}: {c} {b} -> {n}' for f, c, b, n in improvements]
     if not regressions and not improvements:
         lines.append('baseline: no change')

@@ -164,6 +164,34 @@ MCP_CUSTOM = mcp_server(
     'mcp-custom', 'Internal docs', 'custom', None, 'https://docs.internal.example/mcp', auth='headers',
     headers=['Authorization'], tools=[])
 
+def chat_channel(cid, name, desc=None, ctype='channel', muted=False, seq=None, archived=False):
+    return {'id': cid, 'name': name, 'description': desc, 'type': ctype, 'createdAt': CREATED,
+            'archivedAt': '2026-06-19T00:00:00.000Z' if archived else None, 'activityMuted': muted,
+            'muteFromSeq': seq}
+
+
+CHAT_CHANNELS = [
+    chat_channel('chat-ch-design', 'design', 'Product design reviews and UX specs for the next release.'),
+    chat_channel('chat-ch-release', 'release-gates'),
+    chat_channel('chat-ch-private', 'design-private', 'Private design notes.', ctype='private'),
+    chat_channel('chat-ch-joint', 'partner-sync', 'Shared with the partner workspace.', ctype='joint', muted=True),
+    chat_channel('chat-ch-archived', 'old-archive', archived=True),
+]
+CHAT_CHANNELS_MANY = CHAT_CHANNELS + [chat_channel(f'chat-ch-extra-{i}', f'extra-{i}') for i in range(1, 4)]
+
+
+def chat_dm(did, peer_id, peer, display, preview, last='2026-06-17T12:00:00.000Z', avatar='pixel:robot'):
+    return {'id': did, 'createdAt': CREATED, 'peerId': peer_id, 'peerName': peer, 'peerDisplayName': display,
+            'peerAvatarUrl': avatar, 'lastMessageAt': last, 'lastMessagePreview': preview}
+
+
+CHAT_DMS = [
+    chat_dm('chat-dm-cindy', 'agent-cindy', 'Cindy', 'Cindy',
+            'Handed over the release checklist. I did not change the Colvalley source and there is nothing '
+            'left to hand over for this project, so this is only the status confirmation.'),
+    chat_dm('chat-dm-builder', 'agent-builder', 'Builder', 'Builder', None, last=None),
+]
+
 FIXTURE = {
     'rosters': {'default': ROSTER, 'empty': []},
     'humans': HUMANS,
@@ -180,6 +208,8 @@ FIXTURE = {
         'POST /channels/inbox/done': {},
         'POST /channels/threads/done': {},
         f'GET /mcp/agents/{AGENT_ID_FX}': {'servers': [MCP_NOTION, MCP_LINEAR, MCP_CUSTOM], 'recommendations': []},
+        f'GET /agents/{AGENT_ID_FX}/channels': CHAT_CHANNELS,
+        f'GET /agents/{AGENT_ID_FX}/agent-dms': CHAT_DMS,
     },
     'routeSets': {
         'invite-guest': {'POST /feature-flags/evaluate': {'evaluations': [{'key': 'server_guest_v0', 'enabled': True}]}},
@@ -193,6 +223,10 @@ FIXTURE = {
         'saved-empty': {'GET /channels/saved': {'saved': [], 'hasMore': False, 'total': 0}},
         'saved-loading': {'GET /channels/saved': {'$pending': True}},
         'saved-error': {'GET /channels/saved': {'$status': 500}},
+        'chat-many': {f'GET /agents/{AGENT_ID_FX}/channels': CHAT_CHANNELS_MANY},
+        'chat-empty': {f'GET /agents/{AGENT_ID_FX}/channels': [], f'GET /agents/{AGENT_ID_FX}/agent-dms': []},
+        'chat-sections-empty': {f'GET /agents/{AGENT_ID_FX}/channels': [CHAT_CHANNELS[0]],
+                                f'GET /agents/{AGENT_ID_FX}/agent-dms': []},
         'agent-log-empty': {f'GET /agents/{AGENT_ID_FX}/activity-log': []},
         'agent-log-loading': {f'GET /agents/{AGENT_ID_FX}/activity-log': {'$pending': True}},
         'agent-log-error': {f'GET /agents/{AGENT_ID_FX}/activity-log': {'$status': 500}},
@@ -273,9 +307,7 @@ for key, title, who in [
 
 AGENT_HINT = SRC + 'agent/AgentDetailPanel.tsx (AgentRoute in MainLayout, desktop shell)'
 AGENT_ID = 'agent-product-ux'
-# 'chat' is not covered: the Flutter Chat tab is a plain list, Web's Channels & DMs tab is
-# not ported (docs/parity.md).
-WEB_TABS = {'profile': 'profile', 'activity': 'activity', 'reminders': 'reminders',
+WEB_TABS = {'profile': 'profile', 'activity': 'activity', 'chat': 'chat', 'reminders': 'reminders',
             'workspace': 'workspace', 'apps': 'integrations', 'mcp': 'mcp'}
 
 
@@ -293,6 +325,10 @@ def agent_case(key, title, tab, *, viewport=DESKTOP, agent=AGENT_ID, extra_props
 
 for tab in WEB_TABS:
     agent_case(f'agent.{tab}', f'Agent detail: {tab} tab (desktop)', tab)
+agent_case('agent.chat-many', 'Agent detail: Chat tab, more than five channels (desktop)', 'chat', route_set='chat-many')
+agent_case('agent.chat-empty', 'Agent detail: Chat tab, no chats (desktop)', 'chat', route_set='chat-empty')
+agent_case('agent.chat-sections-empty', 'Agent detail: Chat tab, no agent DMs (desktop)', 'chat',
+           route_set='chat-sections-empty')
 agent_case('agent.mcp-empty', 'Agent detail: MCP tab without usage (desktop)', 'mcp', route_set='mcp-empty')
 agent_case('agent.mcp-loading', 'Agent detail: MCP tab loading (desktop)', 'mcp', route_set='mcp-loading')
 

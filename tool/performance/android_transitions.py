@@ -48,7 +48,7 @@ def main():
     if not args.apk:
         apk.parent.mkdir()
         build = [str(ROOT / 'tool/flutter'), 'build', 'apk', '--profile', '--target-platform', ABIS[args.abi],
-                 '-t', 'integration_test/perf_lab_test.dart', '--no-pub',
+                 '-t', 'integration_test/perf_lab_test.dart',
                  '--android-project-arg=raftApplicationIdSuffix=.linkperf',
                  f'--dart-define=RAFT_LAB_THEMES={args.themes}', f'--dart-define=RAFT_LAB_SCENARIOS={args.scenarios}',
                  f'--dart-define=RAFT_LAB_SEMANTICS={args.semantics}',

@@ -13,19 +13,25 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind, PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart' show MethodCall, StandardMethodCodec;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/features/source_channel_files_view.dart';
-import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_flutter/main.dart' as app;
+import 'package:raft_flutter/platform/native_sharing.dart';
+import 'package:raft_flutter/platform/system_fonts.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:raft_flutter/platform/android_performance_hint.dart';
 
 import 'perf_lab/fixtures.dart';
+import 'perf_lab/navigation_activity.dart';
+import 'perf_lab/navigation_host.dart';
 import 'perf_lab/probe.dart';
 
 const _defines = {
@@ -727,15 +733,20 @@ void main() {
       }
 
 
-      // Opt-in mobile navigation scenarios (`nav-*`): the real WorkspaceView on
+      // Opt-in mobile navigation scenarios (`nav-*`): the production RaftApp on
       // a phone-sized view with populated Agents/Members/channels. Each scenario
       // repeats forward/back transitions; every transition is an `opens` entry
       // so the summary reports the worst UI/raster frame inside it.
       var navMisses = <String, int>{};
       if (only.any((o) => o.startsWith('nav-'))) {
-        final (nw, napi, _) = await labWorkspace(channels, images, mobile: true);
+        final (seed, napi, nclient) = await labWorkspace(channels, images, mobile: true, ownsClient: false);
+        seed.dispose();
         navMisses = napi.misses;
-        final navAgents = [
+        // Real entry work overlaps navigation: async reads, PNG completion and
+        // accepted socket CRUD. Keep this deterministic for revision comparisons.
+        napi.responseDelay = const Duration(milliseconds: 80);
+        images.responseDelay = const Duration(milliseconds: 120);
+        final navAgents = <Map<String, dynamic>>[
           for (final (i, a) in const [
             ('Cindy', 'Engineering operator: turns your ideas into working software'),
             ('Codex', '全栈开发者，帮我搞定产品的端到端交付'),
@@ -750,10 +761,13 @@ void main() {
             },
         ];
         napi.routes['GET /agents'] = (_) => navAgents;
-        napi.routes['GET /servers/s1/machines'] = (_) => {'machines': [
-          {'id': 'k8s-plus', 'name': 'k8s-plus', 'status': 'online'},
+        final navMachines = [
+          {'id': 'k8s-plus', 'name': 'K8+', 'status': 'online', 'isComputer': true,
+            'userId': 'alice', 'hostname': 'fixture-k8', 'computerVersion': '1.0.44',
+            'runtimes': ['codex']},
           {'id': 'macbook-pro', 'name': 'macbook-pro', 'status': 'online'},
-        ]};
+        ];
+        napi.routes['GET /servers/s1/machines'] = (_) => {'machines': navMachines};
         napi.routes['GET /servers/s1/members'] = (_) => [
           {'userId': 'alice', 'id': 'alice', 'name': 'Alice Zhang', 'displayName': 'Alice Zhang', 'role': 'owner'},
         ];
@@ -804,21 +818,84 @@ void main() {
           (_) => {'state': 'unavailable'},
         ));
         napi.routes['GET /channels/mix/threads/${parent['id']}'] = (_) => {'threadChannelId': threadId};
-        await t.pumpWidget(MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: raftTheme(family, dark: dark),
-          home: WorkspaceView(
-            controller: nw,
-            appearance: RaftAppearance(mode: dark ? ThemeMode.dark : ThemeMode.light, light: family),
-            onAppearance: (_) async {},
-            onLogout: () async {},
-          ),
+        const navTabs = MobileTabbarSettings(
+          order: MobileTabs.configurable,
+          enabled: {MobileTabs.home, MobileTabs.tasks, MobileTabs.members, MobileTabs.computers},
+        );
+        napi.routes['GET /auth/me'] = (_) => {
+          'id': 'alice', 'name': 'Alice Zhang', 'email': 'alice@example.invalid', 'emailVerified': true, 'displayLanguage': 'en',
+        };
+        napi.routes['GET /servers'] = (_) => [
+          {'id': 's1', 'name': 'Lab', 'slug': 'lab', 'role': 'owner'},
+        ];
+        napi.routes['GET /channels/public'] = (_) => <dynamic>[];
+        for (final c in channels) {
+          napi.routes['GET /channels/${c.id}'] = (_) => c.record.json;
+        }
+        SharedPreferences.setMockInitialValues({
+          'raft.origin': nclient.origin,
+          'raft.mode': dark ? 'dark' : 'light', 'raft.light': family.name,
+          MobileTabbarStore.preferenceKey: navTabs.encode(),
+        });
+        final cacheDirectory = await Directory.systemTemp.createTemp('raft-live-navigation-');
+        final navCache = LabNavigationCache(File('${cacheDirectory.path}/workspace.sqlite'));
+        addTearDown(() async {
+          await navCache.close();
+          await cacheDirectory.delete(recursive: true);
+        });
+        final content = LabNavigationContent();
+        await NativeSystemFonts.instance.initialize();
+        await t.pumpWidget(app.RaftApp(
+          sessionStore: nclient.sessionStore,
+          createClient: (_, _, _) => nclient,
+          initialLocation: Uri(path: '/s/lab'),
+          nativeContent: content, nativeSharing: NativeSharing(supported: false),
+          openWorkspaceCache: () async => navCache,
         ));
         await lab.settle(t, time: const Duration(seconds: 2));
+        if (await waitUntil(() => content.workspace?.server != null, limit: const Duration(seconds: 10)) < 0) {
+          throw StateError('Production app root did not restore the lab workspace; requests=${napi.hits}; misses=${napi.misses}');
+        }
+        final nw = content.workspace!;
+        final navActivity = LabNavigationActivity(
+          workspace: nw, client: nclient,
+          channels: [openA, openB, mix, thread], agents: navAgents, machines: navMachines,
+        );
         if (const bool.fromEnvironment('RAFT_LAB_DEBUG_HOLD')) await idle(const Duration(seconds: 25));
         // A root tab has nothing to pop; popping it would exit the activity.
+        var predictiveBacks = 0;
         Future<void> back() async {
           if (nw.navigation.mobileRootTab != null) return;
+          if (Platform.isAndroid) {
+            final size = view.physicalSize / view.devicePixelRatio;
+            Future<Object?> gesture(String method, [double? progress]) {
+              const codec = StandardMethodCodec();
+              final reply = Completer<Object?>();
+              binding.channelBuffers.push('flutter/backgesture', codec.encodeMethodCall(MethodCall(
+                method, progress == null ? null : {
+                  'touchOffset': [16 + progress * size.width, size.height / 2],
+                  'progress': progress, 'swipeEdge': 0,
+                },
+              )), (data) {
+                try { reply.complete(data == null ? null : codec.decodeEnvelope(data)); }
+                catch (e, stack) { reply.completeError(e, stack); }
+              });
+              return reply.future;
+            }
+            if (await gesture('startBackGesture', 0) == true) {
+              predictiveBacks++;
+              for (var i = 1; i <= 24; i++) {
+                await nextFrame();
+                await gesture('updateBackGestureProgress', i / 28);
+                // A held gesture must still process background updates. This
+                // exercises the gap where no animation ticker is running.
+                if (i == 12) await idle(const Duration(milliseconds: 100));
+              }
+              await gesture('commitBackGesture');
+              return;
+            }
+            failures.add('$name: predictive back was not accepted by the live route');
+          }
           await binding.handlePopRoute();
         }
         String screenText() => [
@@ -827,12 +904,29 @@ void main() {
 
         /// One measured transition: [act], wait for [arrived], then dwell so
         /// the route animation and follow-up work finish inside the interval.
-        Future<void> step(List<Map<String, Object?>> opens, String label, Future<void> Function() act, bool Function() arrived) async {
+        Future<void> step(List<Map<String, Object?>> opens, String label, Future<void> Function() act, bool Function() arrived, {LabChannel? foreground}) async {
           final t0 = developer.Timeline.now;
+          final hits = Map.of(napi.hits), completed = Map.of(napi.completedHits);
+          final imageReads = images.reads;
+          final backCount = predictiveBacks;
+          final cacheReads = navCache.reads, cacheWrites = navCache.writesCompleted;
+          final activity = navActivity.transition(foreground: foreground).catchError((Object e) {
+            failures.add('$name/$label: live activity failed: $e');
+            return <String, Object?>{'failure': e.toString()};
+          });
           await act();
           final ms = await waitUntil(arrived, limit: const Duration(seconds: 6));
           await idle(const Duration(milliseconds: 900));
-          opens.add({'channel': label, 'visibleMs': ms, 't0': t0, 't1': developer.Timeline.now});
+          final live = await activity;
+          opens.add({
+            'channel': label, 'visibleMs': ms, 't0': t0, 't1': developer.Timeline.now,
+            'liveActivity': live, 'imageResponsesStarted': images.reads - imageReads,
+            'predictiveBackGestures': predictiveBacks - backCount,
+            'cacheReads': navCache.reads - cacheReads,
+            'cacheWritesCompleted': navCache.writesCompleted - cacheWrites,
+            'requests': {for (final e in napi.hits.entries) if (e.value != (hits[e.key] ?? 0)) e.key: e.value - (hits[e.key] ?? 0)},
+            'responses': {for (final e in napi.completedHits.entries) if (e.value != (completed[e.key] ?? 0)) e.key: e.value - (completed[e.key] ?? 0)},
+          });
           if (ms < 0) failures.add('$name: nav step $label never arrived');
         }
 
@@ -859,6 +953,54 @@ void main() {
             find.byKey(const Key('desktop-directory-list')).evaluate().isEmpty;
         bool membersShown() => find.byKey(const ValueKey('desktop-directory-agent-agent-0')).evaluate().isNotEmpty;
 
+        bool computerListShown() => find
+            .byKey(const ValueKey('fleet-k8s-plus'))
+            .hitTestable()
+            .evaluate()
+            .isNotEmpty;
+        bool computerDetailShown() => find
+            .byKey(const Key('computer-mobile-back'))
+            .hitTestable()
+            .evaluate()
+            .isNotEmpty;
+        await run(
+          'nav-computer-detail',
+          prepare: () async {
+            await goRoot('computers');
+            if (await waitUntil(
+                  computerListShown,
+                  limit: const Duration(seconds: 10),
+                ) <
+                0) {
+              failures.add('$name: K8+ never listed; screen=${screenText()}');
+            }
+          },
+          () async {
+            final opens = <Map<String, Object?>>[];
+            final reads = napi.requests;
+            final hits = Map.of(napi.hits);
+            for (var i = 0; i < 10; i++) {
+              await step(
+                opens,
+                'open-computer-$i',
+                () => t.tap(find.byKey(const ValueKey('fleet-k8s-plus'))),
+                computerDetailShown,
+              );
+              await step(opens, 'back-computer-$i', back, computerListShown);
+            }
+            return {
+              'opens': opens,
+              'requestsDuringNavigation': napi.requests - reads,
+              'requestHits': {
+                for (final e in napi.hits.entries)
+                  if (e.value != (hits[e.key] ?? 0))
+                    e.key: e.value - (hits[e.key] ?? 0),
+              },
+            };
+          },
+          kind: 'transitions',
+        );
+
         await run('nav-members-agent', prepare: () async {
           await goRoot('members');
           if (await waitUntil(membersShown, limit: const Duration(seconds: 10)) < 0) failures.add('$name: members never listed; misses=${napi.misses}; hits=${napi.hits}; screen=${screenText()}; section=${nw.section}');
@@ -873,7 +1015,18 @@ void main() {
           return {'opens': opens};
         }, kind: 'transitions');
 
-        bool channelShown(LabChannel c) => visibleText(newest(c)).evaluate().isNotEmpty;
+        bool chatShown(LabChannel c, {bool thread = false}) {
+          final chat = find.byWidgetPredicate((widget) => widget is RaftChatView &&
+              widget.thread == thread && (thread ? widget.controller.threadChannelId : widget.controller.channel?.id) == c.id &&
+              (thread ? widget.controller.replies : widget.controller.messages).isNotEmpty);
+          return find.descendant(of: chat, matching: find.byWidgetPredicate((widget) =>
+              widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith('message-')))
+              .hitTestable().evaluate().isNotEmpty;
+        }
+        // Live arrivals deliberately preserve the reading position. Requiring
+        // the ever-changing last message would falsely fail a populated cached
+        // page and would encourage resetting the user's scroll to make it pass.
+        bool channelShown(LabChannel c) => chatShown(c);
         bool homeShown() => find.text('lab-open-a', findRichText: true).evaluate().isNotEmpty;
         await run('nav-home-channel', prepare: () async {
           await goRoot('home');
@@ -882,8 +1035,8 @@ void main() {
           final opens = <Map<String, Object?>>[];
           for (var i = 0; i < 3; i++) {
             final target = i.isEven ? openA : openB;
-            await step(opens, 'open-channel-$i', () => t.tap(find.text('lab-${target.id}', findRichText: true)), () => channelShown(target));
-            await step(opens, 'back-channel-$i', back, homeShown);
+            await step(opens, 'open-channel-$i', () => t.tap(find.text('lab-${target.id}', findRichText: true)), () => channelShown(target), foreground: target);
+            await step(opens, 'back-channel-$i', back, homeShown, foreground: target);
           }
           return {'opens': opens};
         }, kind: 'transitions');
@@ -901,7 +1054,7 @@ void main() {
           return {'opens': opens};
         }, kind: 'transitions');
 
-        bool threadShown() => nw.threadIdentity != null && visibleText(newest(thread)).evaluate().isNotEmpty;
+        bool threadShown() => nw.threadIdentity != null && chatShown(thread, thread: true);
         await run('nav-channel-thread', prepare: () async {
           await goRoot('home');
           await t.tap(find.text('lab-mix', findRichText: true));
@@ -911,8 +1064,8 @@ void main() {
           final opens = <Map<String, Object?>>[];
           for (var i = 0; i < 3; i++) {
             // Same call the thread-summary tap makes (RaftChatView.onOpenThread).
-            await step(opens, 'open-thread-$i', () => nw.openThreadIdentity(parentChannelId: mix.id, parentMessageId: '${parent['id']}', initialThreadChannelId: threadId), threadShown);
-            await step(opens, 'back-thread-$i', back, () => nw.threadIdentity == null && channelShown(mix));
+            await step(opens, 'open-thread-$i', () => nw.openThreadIdentity(parentChannelId: mix.id, parentMessageId: '${parent['id']}', initialThreadChannelId: threadId), threadShown, foreground: thread);
+            await step(opens, 'back-thread-$i', back, () => nw.threadIdentity == null && channelShown(mix), foreground: mix);
           }
           return {'opens': opens};
         }, kind: 'transitions');

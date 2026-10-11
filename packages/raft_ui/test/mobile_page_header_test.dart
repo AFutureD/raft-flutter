@@ -87,7 +87,9 @@ void main() {
             : const Size(32, 32);
         for (var index = 0; index < 3; index++) {
           expect(tester.getSize(backs.at(index)), actionSize);
-          // Brutal px-5 / elegant max-md:pl-5, then half the action width.
+          // The settings Panel's left edge is desktop-only (owner decision
+          // 2026-10-12): none on the phone; then brutal px-5 / elegant
+          // max-md:pl-5, then half the action width.
           expect(
             tester.getCenter(backs.at(index)).dx,
             20 + actionSize.width / 2,

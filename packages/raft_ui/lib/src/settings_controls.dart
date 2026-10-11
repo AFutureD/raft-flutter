@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'banner.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'localization.dart';
+import 'overlays/dialog.dart' show showRaftDialog;
 import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
@@ -246,7 +248,15 @@ class RaftRecipeInput extends StatefulWidget {
     this.inputFormatters,
     this.maxLength,
     this.recipeText = false,
+    this.obscure = false,
+    this.readOnly = false,
   });
+
+  /// `readOnly`.
+  final bool readOnly;
+
+  /// `type="password"`.
+  final bool obscure;
 
   /// No callsite `text-sm`: the recipe's own size and leading (Elegant 14/20,
   /// Brutal 16/24).
@@ -344,6 +354,10 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         focusNode: focus,
         autofocus: widget.autofocus,
         enabled: widget.enabled,
+        readOnly: widget.readOnly,
+        obscureText: widget.obscure,
+        enableSuggestions: !widget.obscure,
+        autocorrect: !widget.obscure,
         keyboardType:
             widget.keyboardType ??
             (widget.numeric ? TextInputType.number : null),
@@ -617,7 +631,11 @@ class RaftConfirmDialog extends StatefulWidget {
     this.onConfirm,
     this.loadingLabel,
     this.confirmGlyph,
+    this.actionSize = RaftButtonRecipeSize.sm,
   });
+
+  /// ConfirmDialog `actionSize` (`xs` for confirmations in dense surfaces).
+  final RaftButtonRecipeSize actionSize;
 
   /// ConfirmDialog `confirmIcon` (`<RotateCcw size={14} />`).
   final RaftGlyph? confirmGlyph;
@@ -652,21 +670,11 @@ class RaftConfirmDialog extends StatefulWidget {
   final double maxWidth;
 
   static Future<bool?> show(BuildContext context, RaftConfirmDialog dialog) =>
-      showDialog<bool>(
+      showRaftDialog<bool>(
         context: context,
         barrierDismissible: false,
-        barrierColor: _scrim(RaftTokens.of(context)),
         builder: (_) => dialog,
       );
-
-  /// `--layer-backdrop`. Brutal's is black at alpha 0.650858 (its 0.0007 channel
-  /// tint quantizes to 0 in Chromium). Over another Modal's black/60 scrim (102)
-  /// Chromium lands on 35 where Skia's float blend rounds 35.6 up to 36 and the
-  /// tint tips two channels: pure black at 0.6525 gives 35 there and still 89
-  /// over white.
-  static Color? _scrim(RaftTokens t) => t.brutal
-      ? Colors.black.withValues(alpha: .6525)
-      : t.colors['layer-backdrop'];
 
   /// `text-sm leading-relaxed text-foreground-muted` (font-normal body).
   static TextStyle messageStyle(RaftTokens t) =>
@@ -722,10 +730,11 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           body,
-          const SizedBox(height: 12),
-          Semantics(
-            liveRegion: true,
-            child: Text(error, style: RaftSettingsText(t).alert),
+          // ConfirmDialog: `<Banner intent="warning" className="mt-4">`.
+          const SizedBox(height: 16),
+          RaftBanner(
+            status: RaftBannerRecipeStatus.warning,
+            description: error,
           ),
         ],
       );
@@ -740,7 +749,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         if (widget.showCancel)
           RaftSettingsRecipeButton(
             label: widget.cancelLabel,
-            size: RaftButtonRecipeSize.sm,
+            size: widget.actionSize,
             disabledOpacity: .3,
             onPressed: loading ? null : cancel,
           ),
@@ -754,7 +763,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
                 : widget.confirmLabel,
             glyph: loading ? null : widget.confirmGlyph,
             variant: widget.confirmVariant,
-            size: RaftButtonRecipeSize.sm,
+            size: widget.actionSize,
             disabledOpacity: .8,
             onPressed: enabled && !loading ? confirm : null,
           ),
@@ -1156,6 +1165,31 @@ class RaftSettingsPreference extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// SettingsPanel success note: `border border-line-muted theme-brutal:border-2 theme-brutal:border-black
+/// bg-brutal-lime/30 p-2 text-xs font-bold` (the "Password updated!" line).
+class RaftSettingsSavedNote extends StatelessWidget {
+  const RaftSettingsSavedNote(this.text, {super.key});
+  final String text;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          t.product.brutalLime.withValues(alpha: .3),
+          t.brutal ? const Color(0xFFFFFFFF) : t.panel,
+        ),
+        border: Border.all(
+          color: t.brutal ? const Color(0xFF000000) : t.semantic.lineMuted,
+          width: t.brutal ? 2 : 1,
+        ),
+      ),
+      child: Text(text, style: RaftTypography.heading(t, size: 12, line: 16)),
     );
   }
 }

@@ -231,8 +231,18 @@ void main() {
           return gate.future;
         };
         api.routes['GET /agents/a1/agent-dms'] = (_) => {
+          // GET /agents/:id/agent-dms rows (AgentDMConversation).
           'dms': [
-            {'id': 'd1', 'name': 'carol'},
+            {
+              'id': 'd1',
+              'createdAt': '2026-06-18T00:00:00.000Z',
+              'peerId': 'a2',
+              'peerName': 'carol',
+              'peerDisplayName': 'carol',
+              'peerAvatarUrl': null,
+              'lastMessageAt': null,
+              'lastMessagePreview': null,
+            },
           ],
         };
         await t.pumpWidget(agentPanel(w, family, dark));

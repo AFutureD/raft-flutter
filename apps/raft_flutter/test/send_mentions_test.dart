@@ -11,6 +11,7 @@ class _Transport implements HttpClientAdapter {
   final writes = <Map<String, dynamic>>[];
   Completer<void>? pending;
   bool fail = true;
+  Map<String, dynamic> receipt = const {};
   Completer<void>? pagePending;
   bool requestedPage = false;
   @override
@@ -44,6 +45,7 @@ class _Transport implements HttpClientAdapter {
                 'content': o.data['content'],
                 'seq': '5',
               },
+              ...receipt,
             };
     } else {
       body = {'channels': []};
@@ -77,6 +79,30 @@ Future<WorkspaceController> _fixture(_Transport transport) async {
 }
 
 void main() {
+  test('send receipt warnings are kept per scope until dismissed', () async {
+    final t = _Transport()
+      ..fail = false
+      ..receipt = {
+        'unresolvedMentionHandles': ['ghost', 3, 'nobody'],
+        'deliveryWarnings': [
+          {'targetType': 'agent', 'targetId': 'a1', 'reason': 'agent_stopped'},
+          {'targetType': 'agent', 'targetId': '', 'reason': 'agent_stopped'},
+        ],
+      };
+    final w = await _fixture(t);
+    addTearDown(w.dispose);
+    expect(w.sendWarningsFor().unresolved, isEmpty);
+    expect(await w.send('@ghost @nobody hi'), true);
+    expect(w.sendWarningsFor().unresolved, ['ghost', 'nobody']);
+    expect(w.sendWarningsFor().agentStopped, true);
+    w.dismissSendWarnings();
+    expect(w.sendWarningsFor().unresolved, isEmpty);
+    expect(w.sendWarningsFor().agentStopped, false);
+    // The next receipt replaces (clears) the previous one.
+    t.receipt = const {};
+    expect(await w.send('plain'), true);
+    expect(w.sendWarningsFor().unresolved, isEmpty);
+  });
   test(
     'conversion pauses writes without consuming the existing retry identity',
     () async {

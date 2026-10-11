@@ -39,6 +39,30 @@ const raftChinese = <String, String>{
   "Remove {name} from add list": "将 {name} 从待添加列表中移除",
   "Add {count} members": "添加 {count} 位成员",
   "Add 1 member": "添加 1 位成员",
+  // Public server page (PublicServerPage.tsx).
+  "You will join {server} as a Guest. You can keep reading without joining by cancelling.": "你将以 Guest 身份加入 {server}。取消后仍可继续阅读，无需加入。",
+  "Join {server} as a Guest to be part of the discussion.": "以 Guest 身份加入 {server}，即可参与讨论。",
+  "{server} is view only. You can read its public channels, but can't send messages here.": "{server} 仅供浏览。你可以阅读公开频道，但不能在这里发消息。",
+  "Sign in to join {server} and be part of the discussion.": "登录后即可加入 {server}，参与讨论。",
+  "{server} is view only. Create a Raft account to build a server of your own.": "{server} 仅供浏览。注册 Raft，搭建你自己的 server。",
+  // Settings > Applications > app editor (SettingsPanel.tsx IntegrationsSection).
+  "Regenerate secret for {name}?": "确定要为 {name} 重新生成密钥吗？",
+  "Request offline review for {name}?": "确定要为 {name} 申请下架审核吗？",
+  "Delete {name}?": "删除 {name}？",
+  "{resource} · read": "{resource} · 只读",
+  "{count} permissions selected": "已选 {count} 项",
+  "Revision {revision} is pending App Review. Current approved permissions remain active until review completes.":
+      "修订版本 {revision} 正在等待 App Review。在审核完成前，当前已批准的权限仍然有效。",
+  "Enabled · revision {revision}": "已启用 · 修订版本 {revision}",
+  "{group} events": "{group} 事件",
+  "Active link expires {when}.": "有效链接于 {when} 过期。",
+  "The existing client secret for ": "",
+  " will stop working immediately. The new secret is shown once after regeneration.":
+      " 现有的客户端密钥将立即失效。新密钥只会在重新生成后显示一次。",
+  "App Admin must approve before this app is removed from the public marketplace. Until then ":
+      "需经应用管理员批准，此应用才会从公开市场移除。在此之前，",
+  " stays listed, installable, and usable by existing connections. If approved, every installed server will lose access and existing grants and tokens will be revoked.":
+      " 仍会保持在列表中、可安装，并可被现有连接使用。一旦批准，所有已安装的服务器都会失去访问权限，现有授权和令牌也会被撤销。",
   "{count} task update": "{count} 条任务更新",
   "{count} task updates": "{count} 条任务更新",
   "{count} reminder update": "{count} 条提醒更新",
@@ -49,6 +73,8 @@ const raftChinese = <String, String>{
   "There are {part}": "有 {part}",
   "There are {parts}": "有 {parts}",
   "There are {count} system updates: {parts}": "有 {count} 条系统更新：{parts}",
+  "This message is older than the {days}-day history available on the {plan} plan. Upgrade to view it.":
+      "这条消息早于 {plan} 套餐可查看的 {days} 天历史范围，升级后即可查看。",
   "Message history is limited to {days} days on the {plan} plan.":
       "消息历史在 {plan} 套餐下仅保留 {days} 天。",
   // Settings > Feedback (hands-feedback-react 0.4.1 locale.ts zh-CN).
@@ -129,6 +155,8 @@ const raftChinese = <String, String>{
   "Notification settings could not be loaded.": "无法加载通知设置。",
   "Stops notifications from {serverName} for your account. Other servers are unchanged.":
       "停止接收来自 {serverName} 的通知，其他服务器不受影响。",
+  "Not notified: {handles}. Select a person or agent from the mention picker and try again if needed.":
+      "未通知：{handles}。如需通知，请从提及选择器中选择具体的人类成员或 Agent 后重试。",
   "Notifications from {serverName} are muted.": "已静音来自 {serverName} 的通知。",
   "Notifications from {serverName} are unmuted.": "已恢复来自 {serverName} 的通知。",
   "Comments · {filename}": "评论 · {filename}",
@@ -337,6 +365,7 @@ const raftChinese = <String, String>{
   "The message image could not be exported.": "无法导出消息图片。",
   "{count} attachment(s)": "{count} 个附件",
   "Message #{name}": "向 #{name} 发送消息",
+  "Message @{name}": "向 @{name} 发送消息",
   "Open shared message": "打开分享的消息",
   "Add shared content": "添加分享内容",
   "Select a joined conversation before adding shared content.":
@@ -419,6 +448,8 @@ const raftChinese = <String, String>{
   "Linux → your desktop environment's notification settings":
       "Linux → 桌面环境的通知设置",
   "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
+  "Manage notifications for Raft in {path}. Do Not Disturb may send notifications directly to the notification center without showing a banner.":
+      "在 {path} 中管理 Raft 的通知。开启请勿打扰时，通知可能直接进入通知中心，而不显示横幅。",
   "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
       "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
   "System Settings → Notifications": "系统设置 → 通知",
@@ -2027,6 +2058,51 @@ const raftChinese = <String, String>{
   "Join Server": "加入服务器",
   "Join as Guest": "以 Guest 身份加入",
   "Join channel": "加入频道",
+  "Join #{channel}": "加入 #{channel}",
+  "This action runs on {server}. Switch to {server} to run it.":
+      "这个操作会在 {server} 上执行，请切换到 {server} 后再执行。",
+  "Runs on {server}":
+      "将在 {server} 上执行",
+  "Create private channel <n>#{name}</n>":
+      "创建私密频道 <n>#{name}</n>",
+  "Create public channel <n>#{name}</n>":
+      "创建公开频道 <n>#{name}</n>",
+  "Create Agent <n>@{name}</n>":
+      "创建 Agent <n>@{name}</n>",
+  "Approve <n>{client}</n> for <n>@{agent}</n>":
+      "批准 <n>{client}</n> 用于 <n>@{agent}</n>",
+  "Install <n>{client}</n> for <n>@{agent}</n>":
+      "为 <n>@{agent}</n> 安装 <n>{client}</n>",
+  "Register app <n>{name}</n>":
+      "注册应用 <n>{name}</n>",
+  "Update app <n>{clientKey}</n>":
+      "更新应用 <n>{clientKey}</n>",
+  "Recover <n>{clientKey}</n> for <n>@{agent}</n>":
+      "恢复 <n>{clientKey}</n> 给 <n>@{agent}</n>",
+  "@{agent}":
+      "@{agent}",
+  "{client} installed on this Server":
+      "已在此 Server 安装 {client}",
+  "Committed by <n>{user}</n>":
+      "由 <n>{user}</n> 提交",
+  "Join #{channel} to run this.":
+      "加入 #{channel} 后才能执行。",
+  "{count} added to #{channel}":
+      "已向 #{channel} 添加 {count} 位",
+  "{client} approved for @{agent}":
+      "已批准 {client} 用于 @{agent}",
+  "{client} registered ({clientKey})":
+      "{client} 已注册（{clientKey}）",
+  "{client} updated ({clientKey})":
+      "{client} 已更新（{clientKey}）",
+  "{client} ownership recovered to @{owner}":
+      "{client} 的所有权已恢复给 @{owner}",
+  "Will send to: @{agent}":
+      "将发送给：@{agent}",
+  "Add 1 member to <n>{target}</n>":
+      "向 <n>{target}</n> 添加 1 位成员",
+  "Add {count} members to <n>{target}</n>":
+      "向 <n>{target}</n> 添加 {count} 位成员",
   "Join channel to comment": "加入频道后才能评论",
   "Join channel to reply": "加入频道以回复",
   "Join selected channels first": "请先加入所选频道",
@@ -3152,6 +3228,8 @@ const raftChinese = <String, String>{
   "The shared content could not be added. Please try again.": "无法添加分享内容，请重试。",
   "Join {name} to add shared content?": "加入 {name} 以添加分享内容？",
   "Select destinations": "选择目标",
+  "Preparing {done} of {total} files": "正在准备文件（{done}/{total}）",
+  "The selected destination is no longer available.": "所选目标已不可用。",
   "Select messages from one conversation or thread.": "请选择同一会话或消息列中的消息。",
   "Select multiple": "多选",
   "Select one agent for member onboarding flows, or disable automatic onboarding.":
@@ -3254,6 +3332,8 @@ const raftChinese = <String, String>{
   "Show assigned Agents": "查看已关联的 Agent",
   "Show each agent's model next to its name in chat. On by default in the desktop app.":
       "在聊天里 Agent 名字旁显示它使用的模型。桌面端默认开启。",
+  "Show all {count} channels": "显示全部 {count} 个频道",
+  "Activity muted from seq {seq}": "活动已从序号 {seq} 起静音",
   "Show fewer": "收起",
   "Show joined channels only": "仅显示已加入的频道",
   "Show more": "展开全文",
@@ -3831,6 +3911,9 @@ const raftChinese = <String, String>{
   "Unable to open thread. It may be unavailable or deleted.":
       "无法打开消息列，它可能不可用或已被删除。",
   "Unarchive": "取消归档",
+  "Unarchive {name}": "取消归档 {name}",
+  "Open {name}": "打开 {name}",
+  "{type} · Archived {date}": "{type} · 归档于 {date}",
   "Unarchive Channel": "取消归档频道",
   "Unarchive it to keep its history, or choose a different name.":
       "取消归档可保留其历史记录，或者改用其他名称。",

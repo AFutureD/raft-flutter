@@ -7,17 +7,23 @@ import subprocess
 import sys
 
 from android_app import SafetyError, flutter_guard
+import parity_case_map
 
 try:
     flutter_guard(sys.argv[1:])
 except SafetyError as error:
     sys.exit(f'STOP: {error}')
 
+# test/parity/case_map.g.dart (git-ignored) is generated from the case files; analyze/test need it.
+parity_case_map.write()
+
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / '.fvmrc').read_text())['flutter']
+launcher = 'flutter.bat' if os.name == 'nt' else 'flutter'
 candidates = [Path(os.environ['RAFT_FLUTTER_BIN'])] if os.environ.get('RAFT_FLUTTER_BIN') else [
-    root / '.fvm/flutter_sdk/bin/flutter',
-    Path.home() / 'flutter-sdks/versions' / version / 'bin/flutter',
+    root / '.fvm/flutter_sdk/bin' / launcher,
+    Path.home() / 'flutter-sdks/versions' / version / 'bin' / launcher,
+    Path.home() / 'fvm/versions' / version / 'bin' / launcher,
 ]
 executable = next((p for p in candidates if p.is_file()), None)
 if executable is None:
@@ -29,4 +35,6 @@ except (ValueError, KeyError):
     sys.exit('Cannot verify the selected Flutter SDK.')
 if actual != version:
     sys.exit(f'This repository requires Flutter {version}; selected SDK is {actual}.')
+if os.name == 'nt':
+    sys.exit(subprocess.call([str(executable), *sys.argv[1:]]))
 os.execv(str(executable), [str(executable), *sys.argv[1:]])

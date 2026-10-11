@@ -60,6 +60,26 @@ class SummaryTest(unittest.TestCase):
         other = dict(worse, hello={'fixtureVersion': 'v2'})
         self.assertIn('fixture versions differ; numbers are not comparable', lab.compare(base, other)['problems'])
 
+    def test_live_navigation_work_is_preserved_in_summary(self):
+        r = record('nav-computer-detail', kind='transitions')
+        r['opens'] = [
+            {'channel': name, 'visibleMs': 20, 't0': 1_000_000, 't1': 2_000_000,
+             'liveActivity': {'events': [{'event': 'agent:created'}, {'event': 'agent:deleted'}],
+                              'accepted': {'agentCreate': 1, 'agentDelete': 1}, 'workspaceNotifications': 3},
+             'predictiveBackGestures': int(name == 'back'), 'imageResponsesStarted': 2,
+             'cacheReads': 1, 'cacheWritesCompleted': 4,
+             'requests': {'GET /agents': 2}, 'responses': {'GET /agents': 2}}
+            for name in ('enter', 'back')]
+        work = lab.summarize_record(r)['navigationActivity']
+        self.assertEqual(work['transitions'], 2)
+        self.assertEqual(work['events'], 4)
+        self.assertEqual(work['accepted'], {'agentCreate': 2, 'agentDelete': 2})
+        self.assertEqual(work['predictiveBackGestures'], 1)
+        self.assertEqual(work['cacheWritesCompleted'], 8)
+        self.assertEqual(work['requests'], {'GET /agents': 4})
+        self.assertEqual(work['responses'], {'GET /agents': 4})
+        self.assertNotIn('navigationActivity', lab.summarize_record(record()))
+
     def test_summarize_run_directory(self):
         with tempfile.TemporaryDirectory() as d:
             run = Path(d)
@@ -108,6 +128,7 @@ class AndroidRunSafetyTest(unittest.TestCase):
             with patch.object(lab, 'flutter_guard') as guard, \
                  patch.object(lab, 'protected_state', side_effect=[before, after]), \
                  patch.object(lab, 'environment', return_value={'loadavg': [0, 0, 0]}), \
+                 patch.object(lab.os, 'getloadavg', return_value=(0, 0, 0), create=True), \
                  patch.object(lab, 'wait_for_display'), patch.object(lab, 'wait_for_quiet_host'), \
                  patch.object(lab.subprocess, 'run', side_effect=harness), \
                  patch.object(lab, 'summarize', side_effect=summary), \

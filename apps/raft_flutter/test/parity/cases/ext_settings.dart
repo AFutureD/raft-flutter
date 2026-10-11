@@ -35,10 +35,17 @@ MsRoutes _routes(ParityContext ctx) {
     ...Map<String, dynamic>.from(
       ((fx['routeSets'] as Map?)?[ctx.props['routeSet']] as Map?) ?? const {},
     ),
+    // Missing-page route sets (fixtures/auth-pages.json) apply to the same cases by name.
+    ...Map<String, dynamic>.from(
+      ((((ctx.fixtures['ext:auth-pages'] as Map?)?['routeSets'])
+                  as Map?)?[ctx.props['routeSet']]
+              as Map?) ??
+          const {},
+    ),
     // WP6 route sets (fixtures/wp6.json) apply to the same cases by name.
     ...Map<String, dynamic>.from(
-      ((((ctx.fixtures['ext:wp6'] as Map?)?['routeSets']) as Map?)?[ctx
-                  .props['routeSet']]
+      ((((ctx.fixtures['ext:wp6'] as Map?)?['routeSets'])
+                  as Map?)?[ctx.props['routeSet']]
               as Map?) ??
           const {},
     ),
@@ -82,6 +89,14 @@ Widget _page(ParityContext ctx) {
     ...fixture.server,
     'role': role,
     if (routeSet == 'admin-hide-humans') 'hideHumansFromMembers': true,
+    // Missing-page cases patch the server record (props.patch names fixtures/auth-pages.json
+    // `serverPatches`, e.g. planDowngradedAt).
+    ...Map<String, dynamic>.from(
+      (((ctx.fixtures['ext:auth-pages'] as Map?)?['serverPatches']
+                  as Map?)?[ctx.props['patch']]
+              as Map?) ??
+          const {},
+    ),
   };
   final (w, fixtureClient) = fixture.workspace({
     'GET /servers/visual-server': (_) => serverJson,
@@ -123,6 +138,21 @@ Widget _page(ParityContext ctx) {
         'name': 'all',
       }),
       ...w.channels,
+    ];
+  }
+  // Missing-page case 'archived': archived channels join the channel list (the React host
+  // patches the channel store with fixtures/auth-pages.json `archivedChannels`).
+  if (ctx.props['patch'] == 'archived') {
+    final base = w.channels.first.json;
+    w.channels = [
+      ...w.channels,
+      for (final c
+          in (ctx.fixtures['ext:auth-pages'] as Map)['archivedChannels'] as List)
+        RaftChannel({
+          ...base,
+          ...Map<String, dynamic>.from(c as Map),
+          'joined': true,
+        }),
     ];
   }
   final server = RaftRecord(serverJson);

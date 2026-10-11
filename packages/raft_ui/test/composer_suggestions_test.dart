@@ -19,20 +19,17 @@ const choices = [
   RaftComposerSuggestion(type: 'channel', id: 'channel-id', name: 'design'),
 ];
 void main() {
-  test(
-    'structured identity appears only in visible exact handle, including adjacent Chinese text',
-    () {
-      expect(raftStructuredMentionAppears('草案@Mona', 'Mona'), isTrue);
-      expect(raftStructuredMentionAppears('draft@Mona', 'Mona'), isTrue);
-      expect(raftStructuredMentionAppears('草案@Mona继续', 'Mona'), isFalse);
-      expect(raftStructuredMentionAppears('`@Mona`', 'Mona'), isFalse);
-      expect(raftStructuredMentionAppears('```\n@Mona\n```', 'Mona'), isFalse);
-      expect(
-        raftStructuredMentionAppears('[@Mona](<app:system.test>)', 'Mona'),
-        isFalse,
-      );
-    },
-  );
+  test('structured identity appears only in visible exact handle, including adjacent Chinese text', () {
+    expect(raftStructuredMentionAppears('草案@Mona', 'Mona'), isTrue);
+    expect(raftStructuredMentionAppears('draft@Mona', 'Mona'), isTrue);
+    expect(raftStructuredMentionAppears('草案@Mona继续', 'Mona'), isFalse);
+    expect(raftStructuredMentionAppears('`@Mona`', 'Mona'), isFalse);
+    expect(raftStructuredMentionAppears('```\n@Mona\n```', 'Mona'), isFalse);
+    expect(
+      raftStructuredMentionAppears('[@Mona](<app:system.test>)', 'Mona'),
+      isFalse,
+    );
+  });
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
@@ -218,4 +215,41 @@ void main() {
       expect(payload, isEmpty);
     },
   );
+
+  testWidgets('suggestion popover adds no safe-area gap above its first row', (
+    tester,
+  ) async {
+    // Edge-to-edge phone: the status bar inset reaches the popover.
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.padding = const FakeViewPadding(top: 40, bottom: 24);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.brutal),
+        home: Scaffold(
+          body: Column(
+            children: [
+              const Spacer(),
+              RaftComposer(suggestions: choices, onSend: (_) async => false),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), '@sa');
+    await tester.pump();
+    final list = tester.getRect(
+      find.ancestor(
+        of: find.byKey(const ValueKey('composer-suggestion-user-human-id')),
+        matching: find.byType(ListView),
+      ),
+    );
+    final firstRow = tester.getRect(
+      find.byKey(const ValueKey('composer-suggestion-user-human-id')),
+    );
+    // Rows (and their group label) start at the list's top, not 40dp lower.
+    expect(firstRow.top - list.top, lessThan(40));
+    expect(tester.takeException(), isNull);
+  });
 }

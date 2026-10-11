@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,15 +22,20 @@ import 'features/incoming_share_picker.dart';
 import 'features/incoming_share_review.dart';
 import 'data/raft_navigation_history.dart';
 import 'features/app_root_router.dart';
+import 'features/community_join.dart';
+import 'features/invite_accept_view.dart';
 import 'features/global_server_selector.dart';
+import 'features/public_server_view.dart';
 import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
 import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
+import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
+import 'platform/incoming_share_staging.dart';
 import 'platform/content_coordinator.dart';
 import 'platform/workspace_cache.dart';
 import 'platform/system_bars.dart';
@@ -49,7 +55,33 @@ Future<void> main([List<String> args = const []]) async {
   AttachmentImageDiskCache.installed ??= AttachmentImageDiskCache(
     getApplicationCacheDirectory,
   );
-  runApp(ProviderScope(child: RaftApp(initialArguments: args)));
+  // Release builds show the root fallback instead of a grey/red screen.
+  RootErrors.instance.install();
+  // The branded splash stays until startup is ready; a fatal startup error
+  // releases the first frame too, so the root fallback can paint.
+  WidgetsBinding.instance.deferFirstFrame();
+  var firstFrameAllowed = false;
+  void allowFirstFrame() {
+    if (firstFrameAllowed) return;
+    firstFrameAllowed = true;
+    WidgetsBinding.instance.allowFirstFrame();
+  }
+
+  void releaseOnError() {
+    if (RootErrors.instance.current != null) allowFirstFrame();
+  }
+
+  RootErrors.instance.addListener(releaseOnError);
+  runApp(
+    RootErrorBoundary(
+      child: ProviderScope(
+        child: RaftApp(
+          initialArguments: args,
+          onStartupReady: allowFirstFrame,
+        ),
+      ),
+    ),
+  );
 }
 
 /// The server stores only locales shipped by the UI. Translation language is separate.
@@ -80,6 +112,8 @@ class RaftApp extends StatefulWidget {
     this.openWorkspaceCache,
     this.nativeContent,
     this.nativeSharing,
+    this.nativeSessionOwner,
+    this.onStartupReady,
   });
   final List<String> initialArguments;
   final SessionStore? sessionStore;
@@ -89,6 +123,8 @@ class RaftApp extends StatefulWidget {
   final Future<WorkspaceCache?> Function()? openWorkspaceCache;
   final NativeContentCoordinator? nativeContent;
   final NativeSharing? nativeSharing;
+  final NativeSessionOwner? nativeSessionOwner;
+  final VoidCallback? onStartupReady;
   @override
   State<RaftApp> createState() => _RaftAppState();
 }
@@ -97,7 +133,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   late final content = widget.nativeContent ?? NativeContentCoordinator();
   late final sharing = widget.nativeSharing ?? NativeSharing();
   VoidCallback? removeShareReceiver;
-  final pendingShares = <IncomingShare>[];
+  final pendingShares = <IncomingShareStaging>[];
   bool sharePickerOpen = false, shareDrainScheduled = false;
   int shareEpoch = 0;
   late final RaftAppRouter appRouter;
@@ -109,12 +145,49 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       directoryLoading = true,
       selectingServer = false;
   String? selectorError;
+
+  /// Public server page (Web PublicServerPage): `/s/<slug>[/channel/<id>]`
+  /// shown to a signed-out visitor, or to a signed-in account that has no
+  /// such server. Dismissed by Sign in / Create account or when the server is
+  /// not public (or unknown / forbidden); a signed-in account then sees the
+  /// server-not-found page, a signed-out visitor the auth page in [authMode].
+  bool publicDismissed = false;
+  ({String slug, String? channelId})? publicNonmember;
+  RaftClient? anonymousClient;
+
+  /// `/s/<slug>` of a server this account does not have: App.tsx
+  /// ServerResolver shows ServerAccessDeniedPage, then redirects.
+  String? deniedSlug;
+  RaftRecord? deniedFallback;
+  Timer? deniedTimer;
+
+  /// `/s/community` for an account that has not joined it: the app joins on
+  /// arrival ("Joining community…"); an agreement to accept opens the dialog
+  /// over the not-found page (App.tsx ServerResolver + useJoinCommunityFlow).
+  String? joiningCommunitySlug, communityAttempt;
+  bool communityDialogOpen = false;
+
+  /// The invite link being answered (App.tsx `inviteToken`), the Raft server a
+  /// full link names, and the anonymous client that reads it while signed out.
+  InviteLink? invite;
+  String? inviteOrigin, authMode;
+  RaftClient? inviteClient;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
+  Object? workspaceRootInputs;
   String? publishedServerId;
   int? publishedWorkspaceIndex;
   late final SessionPersistence sessionPersistence;
-  late final sessionOwner = NativeSessionOwner(poll: content.pollBackground);
+  late final sessionOwner =
+      widget.nativeSessionOwner ??
+      NativeSessionOwner(poll: content.pollBackground);
+  bool startupReady = false;
+  void finishStartup() {
+    if (startupReady) return;
+    startupReady = true;
+    widget.onStartupReady?.call();
+  }
+
   int authAttempt = 0;
   final privateRoutes = PrivateRouteGuard();
   RaftClient? client;
@@ -126,7 +199,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   String? bootError;
   String origin = const String.fromEnvironment(
     'RAFT_ORIGIN',
-    defaultValue: 'http://localhost:13041',
+    defaultValue: 'https://api.raft.build',
   );
   @override
   void initState() {
@@ -137,9 +210,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           WidgetsBinding.instance.platformDispatcher.defaultRouteName,
         ) ??
         Uri(path: '/');
+    invite = InviteLink.fromLocation(requestedLocation);
+    inviteOrigin = invite?.origin;
+    InviteRequests.instance.addListener(inviteRequested);
+    if (invite == null) inviteRequested();
     appRouter = RaftAppRouter(
       home: (_) => restoring
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          ? const RaftServerResolutionBody(label: 'Restoring session…')
           : sessionHome(),
       onLocation: receiveAppLocation,
       onRootBack: returnFromSelector,
@@ -160,33 +237,38 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     restore();
   }
 
+  /// The picker appears at once; the attachments are copied into the private
+  /// inbox in the background ([IncomingShareStaging]) and the hand-off waits
+  /// for that copy only when the user continues.
   void receiveSharedContent(IncomingShare raw) {
     final epoch = shareEpoch, owner = client, principal = client?.user?.id;
-    unawaited(() async {
-      try {
-        if (raw.text != null && unsafeSharedText(raw.text!)) {
-          throw const FormatException('Unsafe shared link');
-        }
-        final share = await sharing.inbox.stage(
-          raw,
-          current: () => mounted && epoch == shareEpoch,
-        );
-        if (!mounted || epoch != shareEpoch) return;
-        if (owner != null &&
-            principal != null &&
-            !await sharing.inbox.claim(share.token!, owner.origin, principal)) {
-          return;
-        }
-        if (!pendingShares.any((s) => s.token == share.token)) {
-          pendingShares.add(share);
-        }
-        scheduleShares();
-      } catch (_) {
-        if (mounted && epoch == shareEpoch) {
-          showShareError();
-        }
+    if (raw.text != null && unsafeSharedText(raw.text!)) {
+      showShareError();
+      return;
+    }
+    if (raw.token != null &&
+        pendingShares.any((s) => s.raw.token == raw.token)) {
+      return;
+    }
+    final staging = IncomingShareStaging(raw);
+    staging.start((progress) async {
+      final share = await sharing.inbox.stage(
+        raw,
+        current: () => mounted && epoch == shareEpoch && !staging.cancelled,
+        onProgress: progress,
+      );
+      if (!mounted || epoch != shareEpoch || staging.cancelled) {
+        throw const FormatException('Cancelled');
       }
-    }());
+      if (owner != null &&
+          principal != null &&
+          !await sharing.inbox.claim(share.token!, owner.origin, principal)) {
+        throw const FormatException('Share owner changed');
+      }
+      return share;
+    });
+    pendingShares.add(staging);
+    scheduleShares();
   }
 
   Future<void> clearSharesForAccount(
@@ -202,6 +284,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  /// A new account scope invalidates queued and copying shares.
+  void retireShares() {
+    shareEpoch++;
+    for (final pending in pendingShares) {
+      pending.cancel();
+    }
+    pendingShares.clear();
+  }
+
   void showShareError() {
     if (!mounted) return;
     const message = 'The shared content could not be added.';
@@ -215,12 +306,22 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         sharePickerOpen ||
         pendingShares.isEmpty ||
         restoring ||
-        directoryLoading ||
         client?.user == null ||
-        workspace == null) {
+        workspace == null ||
+        // Only a device with no saved directory has nothing to show yet.
+        directoryLoading && workspace!.servers.isEmpty) {
       return;
     }
     shareDrainScheduled = true;
+    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+      // Outside a frame the route can be pushed now, so the picker is built by
+      // the very next frame instead of one frame later.
+      scheduleMicrotask(() {
+        shareDrainScheduled = false;
+        unawaited(openNextShare());
+      });
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       shareDrainScheduled = false;
       unawaited(openNextShare());
@@ -240,7 +341,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         navigator == null) {
       return;
     }
-    final share = pendingShares.removeAt(0),
+    final staging = pendingShares.removeAt(0),
         principal = c!.user!.id,
         epoch = shareEpoch;
     bool valid() =>
@@ -252,21 +353,37 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     sharePickerOpen = true;
     var handedOff = false;
     try {
-      if (!await sharing.inbox.claim(share.token!, c.origin, principal) ||
-          !valid()) {
+      if (staging.failed) {
+        if (valid()) showShareError();
         return;
       }
-      final servers = await c.servers();
-      if (!valid()) return;
+      // Bind the copied files to this account as soon as they are staged, in
+      // the background, so Continue finds the claim already done.
+      final owned = staging.result.then((share) async {
+        if (!await sharing.inbox.claim(share.token!, c.origin, principal)) {
+          throw const RaftApiException('The conversation changed.');
+        }
+        return share;
+      });
+      unawaited(owned.then<void>((_) {}, onError: (Object _) {}));
+      // Present immediately from the accepted on-device directory; the picker
+      // revalidates servers and destinations in place and the hand-off below
+      // re-reads authority before anything is added.
       await navigator.push<bool>(
         AccountScopedRoute<bool>(
           valid: valid,
           builder: (_) => IncomingSharePicker(
             client: c,
-            servers: servers,
+            servers: w.servers,
             initialServer: c.serverId,
             valid: valid,
+            staging: staging,
+            cachedTargets: (server) => cachedShareTargets(w, server),
             onContinue: (server, target) async {
+              final share = await owned;
+              if (!valid()) {
+                throw const RaftApiException('The conversation changed.');
+              }
               final freshServers = await c.servers();
               if (!valid() || !freshServers.any((s) => s.id == server.id)) {
                 throw const RaftApiException('Server membership changed.');
@@ -365,10 +482,18 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           ),
         ),
       );
+      if (!handedOff && staging.failed && valid()) showShareError();
     } catch (_) {
       if (valid()) showShareError();
     } finally {
-      if (!handedOff && valid()) await sharing.inbox.discard(share.token!);
+      if (!handedOff) {
+        // Dismissed or failed: stop a copy still running and drop its files.
+        staging.cancel();
+        final staged = await staging.settled;
+        if (staged?.token != null && valid()) {
+          await sharing.inbox.discard(staged!.token!);
+        }
+      }
       sharePickerOpen = false;
       scheduleShares();
     }
@@ -376,11 +501,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   Future<void> restore() async {
     try {
-      await sessionOwner.acquire();
-      if (!mounted) {
-        sessionOwner.release();
-        return;
-      }
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
@@ -404,7 +524,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       // Cache-first: a stored account record paints the on-device workspace
       // at once; the session is revalidated in the background and a
       // rejected or replaced account ends through the session events below.
-      if (await c.restore(cachedFirst: cache != null)) {
+      if (await c.restore(
+        cachedFirst: true,
+        credentialsReady: sessionOwner.acquire(foreground: true),
+        onLocalSession: (cached) {
+          if (!cached) finishStartup();
+        },
+      )) {
         if (!mounted) {
           await c.dispose();
           return;
@@ -415,8 +541,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
     } catch (e) {
       bootError = 'Could not restore the session. Sign in to reconnect.';
+    } finally {
+      if (mounted) setState(() => restoring = false);
+      finishStartup();
     }
-    if (mounted) setState(() => restoring = false);
   }
 
   RaftClient authClient(String base, int attempt) {
@@ -447,7 +575,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     String base,
     Future<void> Function(RaftClient) action,
   ) async {
-    await sessionOwner.acquire();
+    await sessionOwner.acquire(foreground: true);
     if (!mounted) return;
     final attempt = ++authAttempt;
     final c = authClient(base, attempt);
@@ -468,8 +596,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       if (oldClient != null &&
           oldPrincipal != null &&
           (oldClient.origin != c.origin || oldPrincipal != c.user?.id)) {
-        shareEpoch++;
-        pendingShares.clear();
+        retireShares();
         unawaited(clearSharesForAccount(oldClient.origin, oldPrincipal));
       }
       await oldWorkspace?.flushCache();
@@ -488,6 +615,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
       workspace = null;
       rootRequest++;
+      clearAccessDenied();
       serverSurfaces.clear();
       chooserReturn = null;
       serverSwitchLocation = serverSwitchReturn = null;
@@ -535,6 +663,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (!mounted || !identical(c, client) || accountNeedsOnboarding(c.user)) {
       return;
     }
+    unawaited(resumePendingInvite());
     if (workspace != null) {
       if (!showServerSelector && serverSwitchLocation == null) {
         content.bindWorkspace(workspace);
@@ -600,7 +729,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       selectorError = null;
     });
     try {
-      if (!await w.loadServerDirectory(cachedFirst: true) || !current()) {
+      if (!await w.loadServerDirectory(
+            cachedFirst: true,
+            onCacheMiss: finishStartup,
+          ) ||
+          !current()) {
         return;
       }
       final servers = w.servers;
@@ -619,6 +752,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           : prefs.getString('$serverMemoryKey.last');
       final target = servers.where((s) => s.string('slug') == slug).firstOrNull;
       if (target != null) {
+        publicNonmember = null;
         final remembered = prefs.getString('$serverMemoryKey.${target.id}');
         await chooseServer(
           target,
@@ -628,12 +762,28 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               ? null
               : Uri.tryParse(remembered),
         );
+      } else if (explicit && isAutoJoinCommunitySlug(slug)) {
+        showServerSelector = true;
+        await joinCommunityFromRoute(slug!, current);
       } else {
         showServerSelector = true;
-        appRouter.publish(
-          Uri(path: requestedLocation.path == '/servers' ? '/servers' : '/'),
-        );
-        setState(() {});
+        // A slug this account has no server for opens its public page first;
+        // when that is unavailable (unknown or private) the public page is
+        // dismissed and the server-not-found page takes over.
+        final nonmember = explicit && slug != null && !publicDismissed
+            ? publicRoute(requestedLocation)
+            : null;
+        publicNonmember = nonmember;
+        if (nonmember != null) {
+          setState(() {});
+        } else if (explicit && servers.isNotEmpty && slug != null) {
+          await showAccessDenied(slug, current);
+        } else {
+          appRouter.publish(
+            Uri(path: requestedLocation.path == '/servers' ? '/servers' : '/'),
+          );
+          setState(() {});
+        }
       }
     } catch (e) {
       if (current()) {
@@ -645,15 +795,268 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  /// The surface last used in [server]: this run's, else the stored one.
+  Future<Uri?> serverSurfaceMemory(RaftRecord server) async {
+    final live = serverSurfaces[server.id];
+    if (live != null) return live;
+    final prefs = await SharedPreferences.getInstance();
+    final stored = Uri.tryParse(
+      prefs.getString('$serverMemoryKey.${server.id}') ?? '',
+    );
+    return stored != null &&
+            !stored.hasScheme &&
+            stored.pathSegments.length >= 2 &&
+            stored.pathSegments[0] == 's' &&
+            stored.pathSegments[1] == server.string('slug')
+        ? stored
+        : null;
+  }
+
+  /// ServerAccessDeniedPage: names the server the redirect goes to (the
+  /// current one, else the last used, else the first) and goes there after
+  /// 3 seconds, or when the button is pressed.
+  Future<void> showAccessDenied(String slug, [bool Function()? current]) async {
+    final w = workspace;
+    if (w == null || w.servers.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted || (current != null && !current())) return;
+    final last = prefs.getString('$serverMemoryKey.last');
+    final fallback =
+        w.servers.where((s) => s.id == w.server?.id).firstOrNull ??
+        w.servers.where((s) => s.string('slug') == last).firstOrNull ??
+        w.servers.first;
+    deniedTimer?.cancel();
+    deniedSlug = slug;
+    deniedFallback = fallback;
+    showServerSelector = true;
+    appRouter.publish(requestedLocation);
+    setState(() {});
+    deniedTimer = Timer(const Duration(seconds: 3), leaveAccessDenied);
+  }
+
+  void clearAccessDenied() {
+    // The agreement dialog belongs to the not-found page: leaving it closes it.
+    if (communityDialogOpen) {
+      communityDialogOpen = false;
+      appRouter.navigatorKey.currentState?.pop();
+    }
+    deniedTimer?.cancel();
+    deniedTimer = null;
+    deniedSlug = null;
+    deniedFallback = null;
+  }
+
+  /// Joins the community the URL names, then opens it.
+  Future<void> joinCommunityFromRoute(
+    String slug, [
+    bool Function()? current,
+  ]) async {
+    final w = workspace, c = client;
+    if (w == null || c?.user == null || communityAttempt == slug) return;
+    communityAttempt = slug;
+    final principal = c!.user!.id;
+    bool live() =>
+        mounted &&
+        identical(client, c) &&
+        identical(workspace, w) &&
+        c.user?.id == principal &&
+        (current?.call() ?? true);
+    setState(() => joiningCommunitySlug = slug);
+    try {
+      final joined = await joinCommunity(
+        () => appRouter.navigatorKey.currentState!.overlay!.context,
+        c,
+        slug,
+        beforeDialog: () {
+          if (!live()) return;
+          communityDialogOpen = true;
+          setState(() => joiningCommunitySlug = null);
+          unawaited(showAccessDenied(slug, live));
+        },
+      );
+      communityDialogOpen = false;
+      if (!live()) return;
+      if (!joined) {
+        setState(() => joiningCommunitySlug = null);
+        return;
+      }
+      if (!await w.loadServerDirectory() || !live()) return;
+      final server = w.servers
+          .where((s) => s.string('slug') == slug)
+          .firstOrNull;
+      if (server == null) {
+        if (!mounted) return;
+        throw RaftApiException(
+          raftText(
+            context,
+            "Joined community server but it's missing from the list",
+          ),
+        );
+      }
+      joiningCommunitySlug = null;
+      await chooseServer(server, location: Uri(path: '/s/$slug'));
+    } catch (e) {
+      communityDialogOpen = false;
+      debugPrint('[Community] Failed to join $slug from the route: $e');
+      if (!live()) return;
+      // Web re-arms the attempt on an error; the not-found page or the
+      // server list shows meanwhile.
+      communityAttempt = null;
+      selectorError = '$e';
+      setState(() => joiningCommunitySlug = null);
+      if (w.servers.isNotEmpty) await showAccessDenied(slug, live);
+    }
+  }
+
+  void inviteRequested() {
+    final link = InviteRequests.instance.take();
+    if (link == null || !mounted) return;
+    showInvite(link);
+  }
+
+  void showInvite(InviteLink link) {
+    setState(() {
+      invite = link;
+      inviteOrigin = link.origin;
+    });
+  }
+
+  void clearInvite() {
+    final client = inviteClient;
+    inviteClient = null;
+    unawaited(client?.dispose());
+    if (invite == null && inviteOrigin == null) return;
+    invite = null;
+    inviteOrigin = null;
+    if (mounted) setState(() {});
+  }
+
+  /// `takePendingInviteRedirectPath`: an invite left for sign-in resumes once
+  /// the account is ready (verified, identity set up).
+  Future<void> resumePendingInvite() async {
+    final token = await PendingInvite.take();
+    if (token != null && mounted && invite == null) {
+      showInvite(InviteLink(token));
+    }
+  }
+
+  /// The invite is read and accepted with this client: the signed-in account,
+  /// else an anonymous client of the server the link names.
+  RaftClient inviteApi() {
+    final c = client;
+    if (c?.user != null) return c!;
+    return inviteClient ??= makeClient(
+      inviteOrigin ?? origin,
+      MemorySessionStore(),
+    );
+  }
+
+  Future<bool> enterInvitedServer(String serverId) async {
+    final w = workspace, c = client;
+    if (c?.user == null) return false;
+    if (w == null) {
+      // Account setup is still pending: the server list loads after it.
+      clearInvite();
+      return true;
+    }
+    if (!await w.loadServerDirectory() || !mounted) return false;
+    final joined = w.servers.where((s) => s.id == serverId).firstOrNull;
+    if (joined == null) return false;
+    clearInvite();
+    await chooseServer(
+      joined,
+      location: Uri(path: '/s/${joined.string('slug')}'),
+    );
+    return true;
+  }
+
+  Widget inviteHome(bool signedIn) {
+    final link = invite!;
+    return InviteAcceptView(
+      key: ValueKey('invite-${link.token}-$signedIn'),
+      token: link.token,
+      signedIn: signedIn,
+      loadInfo: () async {
+        final api = inviteApi();
+        await const LocalNetworkAccess().ensure(api.origin, request: true);
+        return Map<String, dynamic>.from(
+          await api.request(
+            'GET',
+            '/auth/invite-info',
+            query: {'token': link.token},
+            authorized: false,
+          ),
+        );
+      },
+      accept: (agreementId) async {
+        final result = await inviteApi().post(
+          '/auth/accept-invite',
+          data: {'token': link.token, 'agreementId': ?agreementId},
+        );
+        return InviteJoined(
+          '${result['serverId']}',
+          '${result['serverName'] ?? ''}',
+        );
+      },
+      onEnter: enterInvitedServer,
+      onSignIn: () => leaveInviteFor('login'),
+      onCreateAccount: () => leaveInviteFor('register'),
+      onGoToRaft: clearInvite,
+    );
+  }
+
+  /// storePendingInvite + clearInviteUrl + switch to the auth form.
+  void leaveInviteFor(String mode) {
+    final token = invite?.token;
+    if (token != null) unawaited(PendingInvite.store(token));
+    final link = invite;
+    setState(() {
+      authMode = mode;
+      // The sign-in form targets the server the link named.
+      if (link?.origin != null) origin = link!.origin!;
+    });
+    clearInvite();
+  }
+
+  Future<void> leaveAccessDenied() async {
+    final fallback = deniedFallback;
+    if (!mounted || deniedSlug == null) return;
+    clearAccessDenied();
+    if (fallback == null) {
+      openServerSelector();
+      return;
+    }
+    final location = await serverSurfaceMemory(fallback);
+    if (!mounted) return;
+    await chooseServer(fallback, location: location);
+  }
+
   void workspaceChanged() {
     scheduleShares();
     final w = workspace;
     if (!mounted || w == null) return;
+    final rootInputs = (
+      identityHashCode(w),
+      client?.generation,
+      client?.user?.id,
+      accountNeedsOnboarding(client?.user),
+      showServerSelector,
+      serverSwitchLocation,
+      w.server?.id,
+      directoryLoading,
+      showServerSelector
+          ? (identityHashCode(w.servers), w.servers.length)
+          : null,
+    );
+    final rootChanged = rootInputs != workspaceRootInputs;
+    workspaceRootInputs = rootInputs;
     if (serverSwitchLocation != null && w.server != null) {
       // The app-root URI already owns the accepted switch. Controller
       // hydration notifications cannot publish its temporary default channel.
-      setState(() {});
-      appRouter.refresh();
+      if (rootChanged) {
+        setState(() {});
+        appRouter.refresh();
+      }
       return;
     }
     if (w.server == null && !directoryLoading) {
@@ -668,8 +1071,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         chooserReturn = null;
       }
       content.bindWorkspace(null);
-      appRouter.publish(Uri(path: '/'));
+      if (deniedSlug == null) appRouter.publish(Uri(path: '/'));
     } else if (!showServerSelector && w.server != null) {
+      final remember = serverSurfaces[w.server!.id] != w.location.uri;
       serverSurfaces[w.server!.id] = w.location.uri;
       final path = appRouter.currentConfiguration.path;
       final replace =
@@ -686,27 +1090,35 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           serverId = w.server!.id,
           uri = w.location.uri,
           memoryKey = serverMemoryKey;
-      unawaited(
-        SharedPreferences.getInstance().then((prefs) async {
-          if (!mounted ||
-              !identical(client, c) ||
-              client?.user?.id != principal ||
-              serverSurfaces[serverId] != uri) {
-            return;
-          }
-          await prefs.setString('$memoryKey.$serverId', uri.toString());
-        }),
-      );
+      if (remember) {
+        unawaited(
+          SharedPreferences.getInstance().then((prefs) async {
+            if (!mounted ||
+                !identical(client, c) ||
+                client?.user?.id != principal ||
+                serverSurfaces[serverId] != uri) {
+              return;
+            }
+            await prefs.setString('$memoryKey.$serverId', uri.toString());
+          }),
+        );
+      }
     }
-    setState(() {});
-    appRouter.refresh();
+    // WorkspaceView and the retained pages already subscribe to data. A
+    // message/read-state update is not an app-root route configuration change.
+    if (rootChanged) {
+      setState(() {});
+      appRouter.refresh();
+    }
   }
 
   void openServerSelector() {
     final w = workspace;
     if (w == null || client?.user == null) return;
     final request = ++rootRequest;
+    clearAccessDenied();
     serverSwitchLocation = serverSwitchReturn = null;
+    publicNonmember = null;
     chooserReturn = w.server == null ? null : w.location.uri;
     requestedLocation = Uri(path: '/');
     showServerSelector = true;
@@ -730,7 +1142,16 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> receiveAppLocation(Uri location) async {
+    final link = InviteLink.fromLocation(location);
+    if (link != null) {
+      // An invite link opens the invite page; the URL itself is consumed.
+      requestedLocation = Uri(path: '/');
+      appRouter.publish(requestedLocation, replace: true);
+      showInvite(link);
+      return;
+    }
     requestedLocation = location;
+    publicDismissed = false;
     serverSwitchLocation = serverSwitchReturn = null;
     final w = workspace;
     if (w == null || directoryLoading) return;
@@ -744,13 +1165,37 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? w.servers.where((s) => s.string('slug') == segments[1]).firstOrNull
         : null;
     if (target == null) {
+      if (segments.length >= 2 &&
+          segments.first == 's' &&
+          isAutoJoinCommunitySlug(segments[1])) {
+        openServerSelector();
+        requestedLocation = location;
+        await joinCommunityFromRoute(segments[1]);
+        return;
+      }
       openServerSelector();
+      // A signed-in account without this server sees its public page first;
+      // an unavailable one falls through to the server-not-found page
+      // (dismissPublic -> discoverServers -> showAccessDenied).
+      final route = publicRoute(location);
+      if (route != null) {
+        requestedLocation = location;
+        publicNonmember = route;
+        setState(() {});
+        appRouter.refresh();
+      }
       return;
     }
+    publicNonmember = null;
     await chooseServer(target, location: location);
   }
 
   Future<bool> returnFromSelector() async {
+    if (invite != null) {
+      // Back leaves the invite page (the Web "Go to Raft" action).
+      clearInvite();
+      return true;
+    }
     final w = workspace, uri = serverSwitchReturn ?? chooserReturn;
     if ((!showServerSelector && serverSwitchLocation == null) ||
         w == null ||
@@ -848,6 +1293,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       return;
     }
     final request = ++rootRequest, principal = c!.user!.id;
+    clearAccessDenied();
     bool current() =>
         mounted &&
         rootRequest == request &&
@@ -867,6 +1313,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         final hydrated = Completer<void>();
         final selecting = w.selectServer(
           selected,
+          onCacheMiss: finishStartup,
           onHydrated: () {
             if (!hydrated.isCompleted) hydrated.complete();
           },
@@ -978,11 +1425,51 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  /// App.tsx: `/^\/s\/([^/]+)(?:\/channel\/([^/]+))?(?:\/.*)?$/`.
+  static ({String slug, String? channelId})? publicRoute(Uri location) {
+    final segments = location.pathSegments;
+    if (segments.length < 2 || segments.first != 's' || segments[1].isEmpty) {
+      return null;
+    }
+    final channel = segments.length >= 4 && segments[2] == 'channel'
+        ? segments[3]
+        : null;
+    return (slug: segments[1], channelId: channel);
+  }
+
+  void dismissPublic({String? mode, bool rediscover = false}) {
+    setState(() {
+      publicDismissed = true;
+      publicNonmember = null;
+      if (mode != null) authMode = mode;
+    });
+    appRouter.refresh();
+    if (rediscover) unawaited(discoverServers());
+  }
+
   Widget sessionHome() {
     scheduleShares();
     final active = client;
     if (active?.user == null) {
+      workspaceRootInputs = null;
+      if (invite != null) return inviteHome(false);
+      final route = publicRoute(requestedLocation);
+      if (route != null && !publicDismissed) {
+        return PublicServerView(
+          key: ValueKey('public-${route.slug}'),
+          client: anonymousClient ??=
+              widget.createClient?.call(origin, MemorySessionStore(), 'web') ??
+              RaftClient(origin: origin, sessionStore: MemorySessionStore()),
+          slug: route.slug,
+          initialChannelId: route.channelId,
+          onSignIn: () => dismissPublic(mode: 'login'),
+          onRegister: () => dismissPublic(mode: 'register'),
+          onUnavailable: dismissPublic,
+        );
+      }
       return AuthView(
+        key: ValueKey('auth-$authMode'),
+        initialMode: authMode ?? 'login',
         origin: origin,
         bootError: bootError,
         onLogin: login,
@@ -990,6 +1477,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         onOAuth: completeOAuth,
       );
     }
+    if (invite != null) return inviteHome(true);
     if (accountNeedsOnboarding(active!.user)) {
       return AccountOnboardingView(
         client: active,
@@ -998,7 +1486,60 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       );
     }
     if (workspace == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const RaftServerResolutionBody(label: 'Loading…');
+    }
+    if (joiningCommunitySlug != null) {
+      return const RaftServerResolutionBody(
+        key: ValueKey('joining-community'),
+        label: 'Joining community…',
+      );
+    }
+    final nonmember = publicNonmember;
+    if (showServerSelector && nonmember != null && !publicDismissed) {
+      final w = workspace!;
+      return PublicServerView(
+        key: ValueKey('public-${nonmember.slug}'),
+        client: active,
+        slug: nonmember.slug,
+        initialChannelId: nonmember.channelId,
+        account: PublicServerAccount(servers: w.servers, onSelect: chooseServer),
+        appVersion: const String.fromEnvironment('RAFT_APP_VERSION'),
+        onSignIn: () {},
+        onRegister: () {},
+        onUnavailable: () => dismissPublic(rediscover: true),
+        onJoined: () async {
+          if (!await w.loadServerDirectory()) {
+            throw const RaftApiException('The server list is unavailable.');
+          }
+          final joined = w.servers
+              .where((s) => s.string('slug') == nonmember.slug)
+              .firstOrNull;
+          if (joined == null) {
+            throw const RaftApiException(
+              'Joined server was not returned by the server list',
+            );
+          }
+          publicNonmember = null;
+          await chooseServer(
+            joined,
+            location: nonmember.channelId == null
+                ? Uri(path: '/s/${joined.string('slug')}')
+                : Uri(
+                    path:
+                        '/s/${joined.string('slug')}/channel/${Uri.encodeComponent(nonmember.channelId!)}',
+                  ),
+          );
+        },
+      );
+    }
+    if (showServerSelector &&
+        deniedSlug != null &&
+        workspace!.servers.isNotEmpty) {
+      return RaftServerAccessDeniedPage(
+        key: const ValueKey('server-access-denied'),
+        serverName: deniedFallback?.name,
+        onContinue: leaveAccessDenied,
+      );
     }
     if (showServerSelector) {
       return GlobalServerSelector(
@@ -1016,7 +1557,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (serverSwitchLocation != null) {
       return RaftServerResolutionBody(
         key: const Key('server-resolution-loading'),
-        label: selectorError ?? 'Loading...',
+        label: selectorError ?? 'Loading…',
       );
     }
     return WorkspaceView(
@@ -1069,8 +1610,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       if (e.name == 'session:ended' && mounted && identical(c, client)) {
         authAttempt++;
         rootRequest++;
-        shareEpoch++;
-        pendingShares.clear();
+        retireShares();
         unawaited(clearSharesForAccount(c.origin, principal));
         // Nothing more is written for this account once its data is cleared.
         final flushed = workspace?.retireCache() ?? Future<void>.value();
@@ -1085,6 +1625,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         workspace?.removeListener(workspaceChanged);
         workspace?.dispose();
         workspace = null;
+        publicNonmember = null;
+        clearAccessDenied();
         serverSurfaces.clear();
         chooserReturn = null;
         serverSwitchLocation = serverSwitchReturn = null;
@@ -1102,13 +1644,19 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     content.bindWorkspace(null);
     final c = client, oldWorkspace = workspace;
     final principal = previousPrincipal ?? c?.user?.id;
-    shareEpoch++;
-    pendingShares.clear();
+    retireShares();
 
     final clearSession = c == null
-        ? Future<void>.value()
-        : sessionPersistence.write(c.origin, null);
+        ? Future<Session?>.value()
+        : sessionPersistence.clearAfter(
+            c.origin,
+            sessionOwner.acquire(foreground: true),
+            principal: c.user?.id,
+          );
     workspace = null;
+    publicNonmember = null;
+    authMode = null;
+    clearAccessDenied();
     oldWorkspace?.removeListener(workspaceChanged);
     serverSurfaces.clear();
     chooserReturn = null;
@@ -1117,6 +1665,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     appRouter.publish(Uri(path: '/'));
     client = null;
     sessionEvents?.cancel();
+    // Retire requests and socket authentication synchronously, even while a
+    // background owner is still finishing the credential record to revoke.
+    final loggingOut = c?.logout(revocationSession: clearSession);
     if (mounted) setState(() {});
     // Late writes (debounced directory saves, socket-driven windows) must not
     // land after the account's device data is cleared.
@@ -1130,8 +1681,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         for (final s in oldWorkspace?.servers ?? const <RaftRecord>[]) s.id,
       ]);
     }
-    await c?.logout();
-    await clearSession;
+    await loggingOut;
     oldWorkspace?.dispose();
     if (oldWorkspace == null) await c?.dispose();
   }
@@ -1165,6 +1715,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    finishStartup();
+    InviteRequests.instance.removeListener(inviteRequested);
+    unawaited(inviteClient?.dispose());
+    clearAccessDenied();
     authAttempt++;
     rootRequest++;
     shareEpoch++;
@@ -1175,18 +1729,23 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     unawaited(content.dispose());
     sessionEvents?.cancel();
     final flushed = workspace?.flushCache() ?? Future<void>.value();
+    final retiredClient = client;
     if (workspace != null) {
       workspace!.removeListener(workspaceChanged);
       workspace!.dispose();
-    } else {
-      client?.dispose();
     }
+    final disposed = retiredClient?.dispose();
     flushed.whenComplete(() async {
-      await cache?.close();
-      sessionOwner.release();
+      try {
+        await disposed;
+        await cache?.close();
+      } finally {
+        sessionOwner.release();
+      }
     });
     routeInformation.dispose();
     appRouter.dispose();
+    anonymousClient?.dispose();
     super.dispose();
   }
 

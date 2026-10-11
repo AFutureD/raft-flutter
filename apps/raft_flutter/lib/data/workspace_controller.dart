@@ -111,6 +111,9 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
   return '$failed$separator$current';
 }
 
+/// Why a jump target's message context could not be shown.
+enum MessageContextLoadError { notFound, beyondHistory }
+
 class WorkspaceController extends ChangeNotifier {
   void synchronizePagePresentation(
     WorkspaceController source, {
@@ -181,6 +184,7 @@ class WorkspaceController extends ChangeNotifier {
     hasNewer = source.hasNewer;
     historyLimited = source.historyLimited;
     highlightedMessageId = source.highlightedMessageId;
+    contextLoadError = source.contextLoadError;
     channelLoading = source.channelLoading;
     loadingOlder = source.loadingOlder;
     loading = source.loading;
@@ -1648,6 +1652,32 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Send-receipt warnings of the latest send per draft scope (Web MessageInput
+  /// `unresolvedMentionHandles` / `deliveryWarnings`): handles the server could
+  /// not resolve to a member, and whether a DM's agent is stopped.
+  final Map<String, ({List<String> unresolved, bool agentStopped})>
+  sendWarnings = {};
+
+  ({List<String> unresolved, bool agentStopped}) sendWarningsFor({
+    bool thread = false,
+  }) =>
+      (presentationSource?.sendWarnings ?? sendWarnings)[draftScope(
+        thread: thread,
+      )] ??
+      (unresolved: const [], agentStopped: false);
+
+  /// The banner's X (Web `dismissUnresolvedMentionWarning` /
+  /// `dismissDeliveryWarning`).
+  void dismissSendWarnings({bool thread = false}) {
+    if (presentationSource != null) {
+      presentationSource!.dismissSendWarnings(thread: thread);
+      return;
+    }
+    final scope = draftScope(thread: thread);
+    if (scope == null || sendWarnings.remove(scope) == null) return;
+    notifyListeners();
+  }
+
   /// `POST /messages/mention-actions/execute`; returns ids whose result
   /// status matches the action (`queued` for notify, `delivered` for add).
   Future<Set<String>> executeMentionActions(
@@ -2156,6 +2186,12 @@ class WorkspaceController extends ChangeNotifier {
       hasMore = false;
   bool connected = false;
   String? error;
+
+  /// Source messageStore `contextLoadError` for the open channel: the jump
+  /// target's context failed to load and the latest window replaced it.
+  /// `notFound` -> ChatPanel's "Message not found" banner; `beyondHistory` ->
+  /// the plan history-limit banner. Cleared by the next channel open or jump.
+  MessageContextLoadError? contextLoadError;
   final navigation = WorkspaceNavigation();
   String _unboundSection = 'chat';
   String? _navigationAuthority;
@@ -2369,7 +2405,10 @@ class WorkspaceController extends ChangeNotifier {
   /// adopted at once, so the remembered server and its cached channels paint
   /// without waiting for the network; [revalidateServerDirectory] then
   /// replaces it in the background.
-  Future<bool> loadServerDirectory({bool cachedFirst = false}) async {
+  Future<bool> loadServerDirectory({
+    bool cachedFirst = false,
+    void Function()? onCacheMiss,
+  }) async {
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot load the server directory.');
     }
@@ -2397,6 +2436,7 @@ class WorkspaceController extends ChangeNotifier {
         return true;
       }
     }
+    onCacheMiss?.call();
     final accepted = await client.servers();
     if (!current()) return false;
     _revokedServers.removeAll(accepted.map((server) => server.id));
@@ -2410,6 +2450,26 @@ class WorkspaceController extends ChangeNotifier {
     if (!current()) return false;
     notifyListeners();
     return true;
+  }
+
+  /// Channel and DM rows saved on this device for [serverId], or null. A
+  /// display seed (for example the share picker) and never an authorization
+  /// grant: callers revalidate before acting on a row.
+  Future<List<RaftChannel>?> cachedChannelDirectory(String serverId) async {
+    if (_disposed || _revokedServers.contains(serverId)) return null;
+    final cached = await _cached('channels', '', server: serverId);
+    if (cached is! Map || _disposed || _revokedServers.contains(serverId)) {
+      return null;
+    }
+    try {
+      return [
+        for (final key in const ['channels', 'dms'])
+          for (final row in cached[key] as List)
+            RaftChannel(Map<String, dynamic>.from(row as Map)),
+      ];
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Background replacement of a cache-first directory once the restored
@@ -2529,7 +2589,17 @@ class WorkspaceController extends ChangeNotifier {
   Future<void> selectServer(
     RaftRecord next, {
     void Function()? onHydrated,
+    void Function()? onCacheMiss,
   }) async {
+    // A live mobile page presents the source's session; the source selects.
+    final source = presentationSource;
+    if (source != null) {
+      return source.selectServer(
+        next,
+        onHydrated: onHydrated,
+        onCacheMiss: onCacheMiss,
+      );
+    }
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot select a server.');
     }
@@ -2665,7 +2735,11 @@ class WorkspaceController extends ChangeNotifier {
       };
     }
     notifyListeners();
-    if (cached is Map) onHydrated?.call();
+    if (cached is Map) {
+      onHydrated?.call();
+    } else {
+      onCacheMiss?.call();
+    }
     final readGeneration = readState.generation;
     List<List<RaftChannel>> values;
     try {
@@ -3151,6 +3225,125 @@ class WorkspaceController extends ChangeNotifier {
     } catch (_) {
       /* Cached order remains usable while offline. */
     }
+  }
+
+  // ---- sidebar-order writes (Source serverStore.updateSidebarOrder) -------
+
+  static const _sectionFields = {
+    'customSections',
+    'sectionOrder',
+    'sectionPlacements',
+  };
+  int _sidebarSectionSeq = 0, _sidebarSectionsInFlight = 0;
+  Future<void> _sidebarSectionTail = Future.value();
+  num? _sidebarConfirmedVersion;
+
+  /// Applies [updates] to [sidebarOrder] at once (the row moves before the
+  /// request returns), then PATCHes `/servers/:id/sidebar-order`. A request
+  /// that touches sections carries the `sectionsVersion` the server demands
+  /// (409 otherwise) and is queued behind the previous section write; a
+  /// failure restores the previous order, a 409 reloads it. Never throws.
+  Future<void> updateSidebarOrder(Map<String, dynamic> updates) async {
+    final source = presentationSource;
+    if (source != null) return source.updateSidebarOrder(updates);
+    final id = server?.id ?? client.serverId;
+    if (id == null || _disposed) return;
+    final generation = client.generation;
+    final previous = sidebarOrder;
+    final next = {...previous, ...updates};
+    final sections = updates.keys.any(_sectionFields.contains);
+    sidebarOrder = next;
+    _save('sidebar-order', '', next);
+    notifyListeners();
+    bool current() =>
+        !_disposed &&
+        (server?.id ?? client.serverId) == id &&
+        client.generation == generation;
+
+    Future<void> perform(int sequence, num? version, bool queued) async {
+      if (!current()) return;
+      try {
+        final value = await client.request(
+          'PATCH',
+          '/servers/$id/sidebar-order',
+          data: sections
+              ? {...updates, 'sectionsVersion': ?version}
+              : updates,
+        );
+        if (!current()) return;
+        final reply = value is Map
+            ? Map<String, dynamic>.from(value)
+            : <String, dynamic>{};
+        if (queued) _sidebarConfirmedVersion = reply['sectionsVersion'] as num?;
+        if (queued && sequence != _sidebarSectionSeq) {
+          // A newer section write is queued: keep its optimistic order and
+          // only adopt the versions.
+          sidebarOrder = {
+            ...sidebarOrder,
+            if (reply['sectionsVersion'] != null)
+              'sectionsVersion': reply['sectionsVersion'],
+            if (reply['pinnedVersion'] != null)
+              'pinnedVersion': reply['pinnedVersion'],
+          };
+        } else {
+          sidebarOrder = {...next, ...reply};
+        }
+        _save('sidebar-order', '', sidebarOrder);
+        notifyListeners();
+      } catch (error) {
+        if (!current()) return;
+        if (!queued || sequence == _sidebarSectionSeq) {
+          sidebarOrder = previous;
+          _save('sidebar-order', '', previous);
+          notifyListeners();
+        }
+        if (error is RaftApiException && error.status == 409) {
+          unawaited(loadSidebar());
+        }
+      }
+    }
+
+    if (!sections) return perform(0, null, false);
+    final sequence = ++_sidebarSectionSeq;
+    _sidebarConfirmedVersion ??= previous['sectionsVersion'] as num?;
+    // An idle queue sends at once; otherwise this write waits for the
+    // previous one so it carries the version that one produced.
+    final run = _sidebarSectionsInFlight == 0
+        ? perform(sequence, _sidebarConfirmedVersion, true)
+        : _sidebarSectionTail.then(
+            (_) => perform(sequence, _sidebarConfirmedVersion, true),
+          );
+    _sidebarSectionsInFlight++;
+    _sidebarSectionTail = run;
+    return run.whenComplete(() {
+      if (--_sidebarSectionsInFlight == 0) _sidebarConfirmedVersion = null;
+    });
+  }
+
+  /// Source channelStore.setActivityMuteState: patches the mute fields of one
+  /// row in place (channels, DMs and the open channel).
+  void setActivityMuteState(String id, Map<String, dynamic> state) {
+    final source = presentationSource;
+    if (source != null) return source.setActivityMuteState(id, state);
+    RaftChannel patch(RaftChannel value) =>
+        value.id == id ? RaftChannel({...value.json, ...state}) : value;
+    channels = channels.map(patch).toList();
+    dms = dms.map(patch).toList();
+    if (channel != null) channel = patch(channel!);
+    notifyListeners();
+  }
+
+  /// The channel row [id] as currently held (channels first, then DMs).
+  RaftChannel? channelById(String id) =>
+      [...channels, ...dms].where((c) => c.id == id).firstOrNull;
+
+  /// Optimistic local unread for Mark as Unread (Source markUnread).
+  void markUnreadLocally(String id) {
+    final source = presentationSource;
+    if (source != null) return source.markUnreadLocally(id);
+    if ((unread[id] ?? 0) > 0) return;
+    unread = {...unread, id: 1};
+    notifyListeners();
   }
 
   /// Read order of channel-row authority. Every list read, single-row read
@@ -3791,6 +3984,9 @@ class WorkspaceController extends ChangeNotifier {
         preserveThread &&
         threadIdentity?.parentChannelId == next.id &&
         location.thread?.channelId == next.id;
+    if (!retainContextUntilAccepted && channel?.id != next.id) {
+      contextLoadError = null;
+    }
     channel = next;
     hasNewer = false;
     if (!retainThread) highlightedMessageId = null;
@@ -4368,6 +4564,24 @@ class WorkspaceController extends ChangeNotifier {
       pendingMentionActions[scope] = normalizePendingMentionActions(
         sent.receipt['pendingMentionActions'],
       );
+      sendWarnings[scope] = (
+        unresolved: [
+          for (final handle
+              in (sent.receipt['unresolvedMentionHandles'] as List? ??
+                  const []))
+            if (handle is String) handle,
+        ],
+        // Web `normalizeDeliveryWarnings`: agent targets stopped only.
+        agentStopped: (sent.receipt['deliveryWarnings'] as List? ?? const [])
+            .any(
+              (w) =>
+                  w is Map &&
+                  w['targetType'] == 'agent' &&
+                  w['reason'] == 'agent_stopped' &&
+                  w['targetId'] is String &&
+                  (w['targetId'] as String).isNotEmpty,
+            ),
+      );
       ledger.ingest([
         {...message.json, 'randomId': message.json['randomId'] ?? sentId},
       ], expectedGeneration: generation);
@@ -4674,8 +4888,9 @@ class WorkspaceController extends ChangeNotifier {
         }
         // A cached window stays readable when its revalidation fails.
         if (current() && cached == null) {
+          // ThreadPanel's in-panel "Couldn't load this thread" + Retry; Web raises
+          // no workspace-level error for it.
           _threadResolutionError = '$e';
-          error = '$e';
         }
       } finally {
         if (current()) {
@@ -4804,6 +5019,7 @@ class WorkspaceController extends ChangeNotifier {
         replaceEntry: replaceEntry,
       );
     }
+    contextLoadError = null;
     final generation = ledger.generation;
     var navigationWindow = navigationRevision;
     var authority = _windowAuthority();
@@ -5024,21 +5240,19 @@ class WorkspaceController extends ChangeNotifier {
         _pendingMessageContextWindow = null;
         highlightedMessageId = null;
         // Source falls back to latest after a missing/unavailable context.
-        final fallbackWindow = channelGeneration + 1;
         final fallback = selectChannel(
           next,
           navigate: navigate,
           retainContextUntilAccepted: true,
         );
-        final fallbackNavigation = navigationRevision;
         await fallback;
-        if (fallbackNavigation == navigationRevision &&
-            !_disposed &&
-            channelGeneration == fallbackWindow &&
+        if (!_disposed &&
             channel?.id == channelId &&
             generation == ledger.generation &&
             authority == _windowAuthority()) {
-          error = '$e';
+              contextLoadError = historyLimited
+              ? MessageContextLoadError.beyondHistory
+              : MessageContextLoadError.notFound;
           notifyListeners();
         }
       }
@@ -5049,6 +5263,32 @@ class WorkspaceController extends ChangeNotifier {
         channelLoading = false;
         notifyListeners();
       }
+    }
+  }
+
+  /// Web ChatPanel `joinChannel(channel.id)`: join the open channel, then
+  /// re-read the channel list so the sidebar and composer see the membership.
+  Future<void> joinOpenChannel() async {
+    try {
+      final c = channel!;
+      await command('POST', '/channels/${c.id}/join');
+      await refreshChannels();
+      await selectChannel(channels.firstWhere((next) => next.id == c.id));
+    } catch (e) {
+      setError('$e');
+    }
+  }
+
+  /// Web ThreadPanel `handleJoinParentChannel`: join the thread's parent
+  /// channel (the CTA that replaces the composer for a non-member).
+  Future<void> joinThreadParentChannel() async {
+    final id = threadParentChannelId;
+    if (id == null) return;
+    try {
+      await command('POST', '/channels/$id/join');
+      await refreshChannels();
+    } catch (e) {
+      setError('$e');
     }
   }
 

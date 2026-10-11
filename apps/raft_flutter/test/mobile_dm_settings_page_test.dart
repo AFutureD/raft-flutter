@@ -76,7 +76,8 @@ void main() {
         expect(find.byType(RaftChannelSettingsSheet), findsNothing);
         expect(find.byType(RaftChannelInfoForm), findsNothing);
         expect(find.byType(RaftMembersStrip), findsNothing);
-        // Web's Drawer Back: px-4 + half of the 28px button.
+        // Web's Drawer Back: px-4 + half of the 28px button; no left
+        // edge line on the phone (owner decision 2026-10-12).
         expect(
           t.getCenter(find.byKey(const ValueKey('channel-overflow-back'))).dx,
           16 + 14,

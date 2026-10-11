@@ -69,9 +69,6 @@ class RaftOverflowSheet extends StatelessWidget {
     // `h-panel-header` reads `--shell-header-height`, which the AppShell root
     // sets; the drawer portals out of it, so Web paints the 62px fallback.
     const headerHeight = RaftMetrics.brutalPanelHeader;
-    final paper = t.brutal
-        ? t.colors['color-brutal-cream']!
-        : t.colors['layer-panel']!;
     final headerColor = t.brutal
         ? t.colors['color-soft-signal']!
         : t.colors['layer-panel']!;
@@ -163,11 +160,72 @@ class RaftOverflowSheet extends StatelessWidget {
       ),
     );
 
+    return _OverflowDrawerFrame(
+      page: page,
+      child: Column(
+        children: [
+          header,
+          Expanded(
+            child: CustomScrollView(
+              key: bodyKey,
+              slivers: [
+                for (final (i, child) in children.indexed)
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      top: i == 0 ? 8 : 0,
+                      bottom: i == children.length - 1 ? 8 : 0,
+                    ),
+                    sliver: child is RaftOverflowPanelBody
+                        ? RaftOverflowPanelBody.sliver(
+                            key: child.key,
+                            children: child.children,
+                          )
+                        : SliverToBoxAdapter(child: child),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// `OverflowSheet bare`: the same drawer popup without its header, holding a
+/// page that brings its own (the members page).
+class RaftOverflowBareSheet extends StatelessWidget {
+  const RaftOverflowBareSheet({
+    super.key,
+    required this.child,
+    this.page = false,
+  });
+  final Widget child;
+  final bool page;
+  @override
+  Widget build(BuildContext context) =>
+      _OverflowDrawerFrame(page: page, child: child);
+}
+
+/// Drawer popup frame shared by [RaftOverflowSheet] and [RaftOverflowBareSheet]:
+/// right-aligned `max-w-[min(100vw,34rem)]`, brutal `border-l-2`, paper fill.
+class _OverflowDrawerFrame extends StatelessWidget {
+  const _OverflowDrawerFrame({required this.page, required this.child});
+  final bool page;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final size = MediaQuery.sizeOf(context);
+    final paper = t.brutal
+        ? t.colors['color-brutal-cream']!
+        : t.colors['layer-panel']!;
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
         key: const ValueKey('channel-overflow-sheet'),
-        width: page ? size.width : widthFor(size.width, brutal: t.brutal),
+        width: page
+            ? size.width
+            : RaftOverflowSheet.widthFor(size.width, brutal: t.brutal),
         height: double.infinity,
         child: Material(
           color: paper,
@@ -178,7 +236,12 @@ class RaftOverflowSheet extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Container(
             decoration: BoxDecoration(
-              border: t.brutal && !page
+              // Owner decision 2026-10-12: the phone's full-width page draws
+              // no left edge line (intended difference from Web).
+              border:
+                  t.brutal &&
+                      !page &&
+                      size.width >= RaftLayoutMetrics.desktopBreakpoint
                   ? Border(
                       left: BorderSide(
                         color: t.colors['line-strong']!,
@@ -189,31 +252,7 @@ class RaftOverflowSheet extends StatelessWidget {
             ),
             child: DefaultTextStyle.merge(
               style: TextStyle(fontFamily: t.bodyFont, color: t.strong),
-              child: Column(
-                children: [
-                  header,
-                  Expanded(
-                    child: CustomScrollView(
-                      key: bodyKey,
-                      slivers: [
-                        for (final (i, child) in children.indexed)
-                          SliverPadding(
-                            padding: EdgeInsets.only(
-                              top: i == 0 ? 8 : 0,
-                              bottom: i == children.length - 1 ? 8 : 0,
-                            ),
-                            sliver: child is RaftOverflowPanelBody
-                                ? RaftOverflowPanelBody.sliver(
-                                    key: child.key,
-                                    children: child.children,
-                                  )
-                                : SliverToBoxAdapter(child: child),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              child: child,
             ),
           ),
         ),

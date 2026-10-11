@@ -123,6 +123,27 @@ def summarize_record(record, attribution=None):
         row['opens'] = opens
         vis = [o['visibleMs'] for o in opens if o['visibleMs'] >= 0]
         row['visibleMs'] = {'p50': pct(vis, .5), 'max': max(vis) if vis else -1}
+        live = [o for o in record['opens'] if 'liveActivity' in o]
+        if live:
+            accepted, requests, responses = {}, {}, {}
+            for o in live:
+                for target, source in ((accepted, o['liveActivity'].get('accepted', {})),
+                                       (requests, o.get('requests', {})),
+                                       (responses, o.get('responses', {}))):
+                    for key, count in source.items():
+                        target[key] = target.get(key, 0) + count
+            row['navigationActivity'] = {
+                'transitions': len(live),
+                'events': sum(len(o['liveActivity'].get('events', [])) for o in live),
+                'accepted': accepted,
+                'workspaceNotifications': sum(o['liveActivity'].get('workspaceNotifications', 0) for o in live),
+                'predictiveBackGestures': sum(o.get('predictiveBackGestures', 0) for o in live),
+                'imageResponsesStarted': sum(o.get('imageResponsesStarted', 0) for o in live),
+                'cacheReads': sum(o.get('cacheReads', 0) for o in live),
+                'cacheWritesCompleted': sum(o.get('cacheWritesCompleted', 0) for o in live),
+                'requests': requests,
+                'responses': responses,
+            }
     if 'steps' in record:
         per_row, mount_ui, follow, rows = [], [], [], []
         for s in record['steps']:

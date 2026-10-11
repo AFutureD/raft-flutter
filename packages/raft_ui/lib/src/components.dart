@@ -5,6 +5,7 @@ import 'message_content_tokens.dart';
 import 'mounted_reaction_recipe.dart';
 import 'composer_recipe.dart';
 import 'system_inset.dart';
+import 'tap_slop.dart';
 import 'composer_suggestions.dart';
 import 'collapsible.dart';
 import 'sidebar_indicators.dart';
@@ -2405,6 +2406,10 @@ class _RaftComposerState extends State<RaftComposer> {
                         controller: suggestionScroll,
                         primary: false,
                         shrinkWrap: true,
+                        // A null padding would add the screen's safe-area
+                        // insets (the status bar on edge-to-edge phones) as
+                        // blank space above the first row.
+                        padding: EdgeInsets.zero,
                         itemCount: options.length,
                         itemBuilder: (context, index) {
                           final s = options[index];
@@ -2441,18 +2446,21 @@ class _RaftComposerState extends State<RaftComposer> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               // `ComposerSuggestionGroup separated`:
-                              // `mt-1 pt-1`, brutal `border-t-2 border-black`.
-                              if (startGroup && index > 0)
+                              // `mt-1 pt-1`, brutal `border-t-2 border-black`;
+                              // Not-in-channel / Computers / Apps carry it even
+                              // as the first group (In-channel never does).
+                              if (startGroup && (index > 0 || group > 0))
                                 Container(
                                   margin: const EdgeInsets.only(top: 4),
-                                  height: 4 + (recipe.tokens.brutal ? 2 : 1),
+                                  // Elegant has the spacing only (no rule).
+                                  height: 4 + (recipe.tokens.brutal ? 2 : 0),
                                   alignment: Alignment.topCenter,
-                                  child: Container(
-                                    height: recipe.tokens.brutal ? 2 : 1,
-                                    color: recipe.tokens.brutal
-                                        ? Colors.black
-                                        : recipe.tokens.colors['line-hairline'],
-                                  ),
+                                  child: recipe.tokens.brutal
+                                      ? Container(
+                                          height: 2,
+                                          color: Colors.black,
+                                        )
+                                      : null,
                                 ),
                               if (startGroup && label != null)
                                 Padding(
@@ -2464,6 +2472,14 @@ class _RaftComposerState extends State<RaftComposer> {
                                     ),
                                     style: recipe.suggestionGroupLabel,
                                   ),
+                                ),
+                              // Elegant group: `flex-col gap-2` (2px) and the
+                              // label's `mb-0.5`; Brutal has neither.
+                              if (!recipe.tokens.brutal)
+                                SizedBox(
+                                  height: startGroup
+                                      ? (label != null ? 4 : 0)
+                                      : 2,
                                 ),
                               row,
                             ],
@@ -2563,164 +2579,169 @@ class _RaftComposerState extends State<RaftComposer> {
           overlayChildBuilder: (_) => suggestionPopup(recipe, width),
           child: CompositedTransformTarget(
             link: suggestionLink,
-            child: Container(
-              key: const ValueKey('composer-host-slot'),
-              decoration: recipe.hostDecoration,
-              padding: recipe.hostInset,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (widget.accessoryRow != null) ...[
-                    KeyedSubtree(
-                      key: const ValueKey('composer-accessory-slot'),
-                      child: widget.accessoryRow!,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (widget.attachments != null) ...[
-                    KeyedSubtree(
-                      key: const ValueKey('composer-attachments-slot'),
-                      child: widget.attachments!,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  Focus(
-                    onFocusChange: (value) {
-                      if (composerFocused != value) {
-                        setState(() => composerFocused = value);
-                      }
-                    },
-                    child: Container(
-                      key: const ValueKey('composer-shell-slot'),
-                      decoration: recipe.shellDecoration(
-                        focused: composerFocused,
+            // Routes touches near the 26-28dp attach / send buttons to them
+            // (RaftComposerAction anchors) without moving a pixel.
+            child: RaftTapSlopHost(
+              child: Container(
+                key: const ValueKey('composer-host-slot'),
+                decoration: recipe.hostDecoration,
+                padding: recipe.hostInset,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (widget.accessoryRow != null) ...[
+                      KeyedSubtree(
+                        key: const ValueKey('composer-accessory-slot'),
+                        child: widget.accessoryRow!,
                       ),
-                      padding: recipe.shellInset,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ConstrainedBox(
-                            key: const ValueKey('composer-editor-slot'),
-                            constraints: BoxConstraints(
-                              minHeight: recipe.editorMinimum,
-                              maxHeight: recipe.editorMaximum,
-                            ),
-                            child: Padding(
-                              padding: recipe.editorInset,
-                              child: Focus(
-                                onKeyEvent: composerKey,
-                                child: Shortcuts(
-                                  shortcuts: const {
-                                    SingleActivator(
-                                      LogicalKeyboardKey.enter,
-                                      control: true,
-                                      shift: true,
-                                    ): _RaftForceTaskSendIntent(),
-                                    SingleActivator(
-                                      LogicalKeyboardKey.enter,
-                                      meta: true,
-                                      shift: true,
-                                    ): _RaftForceTaskSendIntent(),
-                                    SingleActivator(
-                                      LogicalKeyboardKey.enter,
-                                      control: true,
-                                    ): ActivateIntent(),
-                                    SingleActivator(
-                                      LogicalKeyboardKey.enter,
-                                      meta: true,
-                                    ): ActivateIntent(),
-                                  },
-                                  child: Actions(
-                                    actions: {
-                                      _RaftForceTaskSendIntent:
-                                          CallbackAction<
-                                            _RaftForceTaskSendIntent
-                                          >(
-                                            onInvoke: (_) {
-                                              if (!composing)
-                                                send(forceTask: true);
-                                              return null;
-                                            },
-                                          ),
-                                      ActivateIntent:
-                                          CallbackAction<ActivateIntent>(
-                                            onInvoke: (_) {
-                                              if (!composing) send();
-                                              return null;
-                                            },
-                                          ),
-                                      if (widget.onPasteAttachments != null)
-                                        PasteTextIntent: _RaftPasteAction(
-                                          () => widget.onPasteAttachments,
-                                        ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (widget.attachments != null) ...[
+                      KeyedSubtree(
+                        key: const ValueKey('composer-attachments-slot'),
+                        child: widget.attachments!,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Focus(
+                      onFocusChange: (value) {
+                        if (composerFocused != value) {
+                          setState(() => composerFocused = value);
+                        }
+                      },
+                      child: Container(
+                        key: const ValueKey('composer-shell-slot'),
+                        decoration: recipe.shellDecoration(
+                          focused: composerFocused,
+                        ),
+                        padding: recipe.shellInset,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ConstrainedBox(
+                              key: const ValueKey('composer-editor-slot'),
+                              constraints: BoxConstraints(
+                                minHeight: recipe.editorMinimum,
+                                maxHeight: recipe.editorMaximum,
+                              ),
+                              child: Padding(
+                                padding: recipe.editorInset,
+                                child: Focus(
+                                  onKeyEvent: composerKey,
+                                  child: Shortcuts(
+                                    shortcuts: const {
+                                      SingleActivator(
+                                        LogicalKeyboardKey.enter,
+                                        control: true,
+                                        shift: true,
+                                      ): _RaftForceTaskSendIntent(),
+                                      SingleActivator(
+                                        LogicalKeyboardKey.enter,
+                                        meta: true,
+                                        shift: true,
+                                      ): _RaftForceTaskSendIntent(),
+                                      SingleActivator(
+                                        LogicalKeyboardKey.enter,
+                                        control: true,
+                                      ): ActivateIntent(),
+                                      SingleActivator(
+                                        LogicalKeyboardKey.enter,
+                                        meta: true,
+                                      ): ActivateIntent(),
                                     },
-                                    child: RaftCssLineBox(
-                                      style: recipe.editorText,
-                                      textScaler: MediaQuery.textScalerOf(
-                                        context,
-                                      ),
-                                      child: RaftComposerComposingText(
-                                        controller: controller,
-                                        focusNode: focus,
-                                        color: recipe.editorText.color!,
-                                        enabled: widget.enabled,
-                                        child: TextField(
-                                          autofillHints: null,
+                                    child: Actions(
+                                      actions: {
+                                        _RaftForceTaskSendIntent:
+                                            CallbackAction<
+                                              _RaftForceTaskSendIntent
+                                            >(
+                                              onInvoke: (_) {
+                                                if (!composing)
+                                                  send(forceTask: true);
+                                                return null;
+                                              },
+                                            ),
+                                        ActivateIntent:
+                                            CallbackAction<ActivateIntent>(
+                                              onInvoke: (_) {
+                                                if (!composing) send();
+                                                return null;
+                                              },
+                                            ),
+                                        if (widget.onPasteAttachments != null)
+                                          PasteTextIntent: _RaftPasteAction(
+                                            () => widget.onPasteAttachments,
+                                          ),
+                                      },
+                                      child: RaftCssLineBox(
+                                        style: recipe.editorText,
+                                        textScaler: MediaQuery.textScalerOf(
+                                          context,
+                                        ),
+                                        child: RaftComposerComposingText(
                                           controller: controller,
                                           focusNode: focus,
-                                          onChanged: (_) {
-                                            // A typed collapsed caret replaces the
-                                            // previous insertion handle. Merely
-                                            // fading it leaves its overlay hit box
-                                            // above the Source composer toolbar.
-                                            if (controller
-                                                .selection
-                                                .isCollapsed) {
-                                              focus.context
-                                                  ?.findAncestorStateOfType<
-                                                    EditableTextState
-                                                  >()
-                                                  ?.hideToolbar();
-                                            }
-                                          },
+                                          color: recipe.editorText.color!,
                                           enabled: widget.enabled,
-                                          minLines: 1,
-                                          maxLines: 6,
-                                          style: recipe.editorText,
-                                          decoration: InputDecoration(
-                                            hintText: widget.hint,
-                                            hintStyle: recipe.placeholder,
-                                            filled: false,
-                                            isDense: true,
-                                            contentPadding: EdgeInsets.zero,
-                                            border: InputBorder.none,
-                                            enabledBorder: InputBorder.none,
-                                            focusedBorder: InputBorder.none,
-                                            disabledBorder: InputBorder.none,
-                                            errorBorder: InputBorder.none,
-                                            focusedErrorBorder:
-                                                InputBorder.none,
+                                          child: TextField(
+                                            autofillHints: null,
+                                            controller: controller,
+                                            focusNode: focus,
+                                            onChanged: (_) {
+                                              // A typed collapsed caret replaces the
+                                              // previous insertion handle. Merely
+                                              // fading it leaves its overlay hit box
+                                              // above the Source composer toolbar.
+                                              if (controller
+                                                  .selection
+                                                  .isCollapsed) {
+                                                focus.context
+                                                    ?.findAncestorStateOfType<
+                                                      EditableTextState
+                                                    >()
+                                                    ?.hideToolbar();
+                                              }
+                                            },
+                                            enabled: widget.enabled,
+                                            minLines: 1,
+                                            maxLines: 6,
+                                            style: recipe.editorText,
+                                            decoration: InputDecoration(
+                                              hintText: widget.hint,
+                                              hintStyle: recipe.placeholder,
+                                              filled: false,
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.zero,
+                                              border: InputBorder.none,
+                                              enabledBorder: InputBorder.none,
+                                              focusedBorder: InputBorder.none,
+                                              disabledBorder: InputBorder.none,
+                                              errorBorder: InputBorder.none,
+                                              focusedErrorBorder:
+                                                  InputBorder.none,
+                                            ),
+                                            textCapitalization:
+                                                TextCapitalization.sentences,
+                                            contextMenuBuilder:
+                                                widget.onPasteAttachments ==
+                                                    null
+                                                ? _defaultEditorMenu
+                                                : pasteAwareMenu,
+                                            contentInsertionConfiguration:
+                                                widget.onContentInserted == null
+                                                ? null
+                                                : ContentInsertionConfiguration(
+                                                    onContentInserted: (content) {
+                                                      if (presentationActive &&
+                                                          widget.enabled) {
+                                                        widget.onContentInserted
+                                                            ?.call(content);
+                                                      }
+                                                    },
+                                                  ),
                                           ),
-                                          textCapitalization:
-                                              TextCapitalization.sentences,
-                                          contextMenuBuilder:
-                                              widget.onPasteAttachments == null
-                                              ? _defaultEditorMenu
-                                              : pasteAwareMenu,
-                                          contentInsertionConfiguration:
-                                              widget.onContentInserted == null
-                                              ? null
-                                              : ContentInsertionConfiguration(
-                                                  onContentInserted: (content) {
-                                                    if (presentationActive &&
-                                                        widget.enabled) {
-                                                      widget.onContentInserted
-                                                          ?.call(content);
-                                                    }
-                                                  },
-                                                ),
                                         ),
                                       ),
                                     ),
@@ -2728,88 +2749,92 @@ class _RaftComposerState extends State<RaftComposer> {
                                 ),
                               ),
                             ),
-                          ),
-                          SizedBox(height: recipe.shellGap),
-                          Transform.translate(
-                            offset: recipe.toolbarPaintOffset,
-                            child: Padding(
-                              key: const ValueKey('composer-toolbar-slot'),
-                              padding: recipe.toolbarInset,
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (!recipe.compact &&
-                                          widget.onImagePick != null)
-                                        RaftComposerAction(
-                                          glyph: RaftGlyph.imagePlus,
-                                          tooltip: 'Attach media',
-                                          onPressed: busy || !widget.enabled
-                                              ? null
-                                              : widget.onImagePick,
-                                        ),
-                                      if (!recipe.compact &&
-                                          widget.onImagePick != null &&
-                                          widget.onAttach != null)
-                                        SizedBox(width: recipe.actionGap),
-                                      if (!recipe.compact &&
-                                          widget.onAttach != null)
-                                        RaftComposerAction(
-                                          glyph: RaftGlyph.paperclip,
-                                          tooltip: 'Attach file',
-                                          onPressed: busy || !widget.enabled
-                                              ? null
-                                              : widget.onAttach,
-                                        ),
-                                    ],
-                                  ),
-                                  SizedBox(width: recipe.toolbarGap),
-                                  Flexible(
-                                    child: Row(
+                            SizedBox(height: recipe.shellGap),
+                            Transform.translate(
+                              offset: recipe.toolbarPaintOffset,
+                              child: Padding(
+                                key: const ValueKey('composer-toolbar-slot'),
+                                padding: recipe.toolbarInset,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        if (widget.taskAction != null) ...[
-                                          Flexible(
-                                            child: KeyedSubtree(
-                                              key: const ValueKey(
-                                                'composer-task-action-slot',
-                                              ),
-                                              child: widget.taskAction!,
-                                            ),
+                                        if (!recipe.compact &&
+                                            widget.onImagePick != null)
+                                          RaftComposerAction(
+                                            glyph: RaftGlyph.imagePlus,
+                                            tooltip: 'Attach media',
+                                            onPressed: busy || !widget.enabled
+                                                ? null
+                                                : widget.onImagePick,
                                           ),
-                                          SizedBox(width: recipe.metaGap),
-                                        ],
-                                        RaftComposerAction(
-                                          glyph: RaftGlyph.send,
-                                          tooltip:
-                                              widget.submitTooltip ?? 'Send',
-                                          submit: true,
-                                          busy: busy,
-                                          spinner: widget.submitSpinner,
-                                          // Source MessageInput only prevents the
-                                          // pointer-down blur: an unfocused composer
-                                          // stays unfocused after a Send tap (no
-                                          // keyboard pop), a focused one keeps focus.
-                                          onPressed: submitEnabled
-                                              ? () => send()
-                                              : null,
-                                        ),
+                                        if (!recipe.compact &&
+                                            widget.onImagePick != null &&
+                                            widget.onAttach != null)
+                                          SizedBox(width: recipe.actionGap),
+                                        if (!recipe.compact &&
+                                            widget.onAttach != null)
+                                          RaftComposerAction(
+                                            glyph: RaftGlyph.paperclip,
+                                            tooltip: 'Attach file',
+                                            onPressed: busy || !widget.enabled
+                                                ? null
+                                                : widget.onAttach,
+                                          ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: recipe.toolbarGap),
+                                    Flexible(
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          if (widget.taskAction != null) ...[
+                                            Flexible(
+                                              child: KeyedSubtree(
+                                                key: const ValueKey(
+                                                  'composer-task-action-slot',
+                                                ),
+                                                child: widget.taskAction!,
+                                              ),
+                                            ),
+                                            SizedBox(width: recipe.metaGap),
+                                          ],
+                                          RaftComposerAction(
+                                            key: const ValueKey(
+                                              'composer-submit',
+                                            ),
+                                            glyph: RaftGlyph.send,
+                                            tooltip:
+                                                widget.submitTooltip ?? 'Send',
+                                            submit: true,
+                                            busy: busy,
+                                            spinner: widget.submitSpinner,
+                                            // Source MessageInput only prevents the
+                                            // pointer-down blur: an unfocused composer
+                                            // stays unfocused after a Send tap (no
+                                            // keyboard pop), a focused one keeps focus.
+                                            onPressed: submitEnabled
+                                                ? () => send()
+                                                : null,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -2865,18 +2890,22 @@ class _RaftComposerSuggestionRowState
           child: ConstrainedBox(
             // Web options are `py-2` rows on touch as well (no 48px floor).
             constraints: const BoxConstraints(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: recipe.suggestionBackground(
-                  highlighted: widget.highlighted,
-                  hovered: hovered,
+            // Not-in-channel options carry `opacity-60` on the whole button
+            // (fill included, so a highlighted row is the lighter fill too).
+            child: Opacity(
+              opacity: !s.inChannel && s.isMention ? .6 : 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
-              ),
-              child: Opacity(
-                // Not-in-channel options carry `opacity-60`.
-                opacity: !s.inChannel && s.isMention ? .6 : 1,
+                decoration: BoxDecoration(
+                  color: recipe.suggestionBackground(
+                    highlighted: widget.highlighted,
+                    hovered: hovered,
+                  ),
+                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+                ),
                 child: Row(
                   children: [
                     if (s.isMention && s.avatar != null) ...[
@@ -2924,6 +2953,7 @@ class _RaftComposerSuggestionRowState
                                   ? s.name
                                   : (s.title ?? s.name),
                               detail: s.detail,
+                              archived: s.archived,
                               title: title,
                               meta: recipe.suggestionMetaFor(
                                 highlighted: widget.highlighted,
@@ -2949,10 +2979,14 @@ class _ChannelSuggestionBody extends StatelessWidget {
     required this.detail,
     required this.title,
     required this.meta,
+    this.archived = false,
   });
   final String name;
   final String? detail;
   final TextStyle title, meta;
+
+  /// Web `isArchived`: the `ComposerSuggestionAside` carries the archived Badge.
+  final bool archived;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
@@ -2992,6 +3026,11 @@ class _ChannelSuggestionBody extends StatelessWidget {
                 style: meta,
               ),
             ),
+          ] else if (archived)
+            const Spacer(),
+          if (archived) ...[
+            const SizedBox(width: 6),
+            RaftArchivedBadge(label: raftText(context, 'archived')),
           ],
         ],
       );
@@ -3187,6 +3226,41 @@ class RaftActorTypeBadge extends StatelessWidget {
       decoration: style.decoration,
       alignment: Alignment.center,
       child: Text(style.label, style: style.text),
+    );
+  }
+}
+
+/// raft-ui `Badge appearance="soft" variant="muted" uppercase` at its default
+/// size (the channel option's `archived` aside; the mention rows use the
+/// smaller [RaftActorTypeBadge]).
+class RaftArchivedBadge extends StatelessWidget {
+  const RaftArchivedBadge({super.key, required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final resolver = RaftRecipeTokens(t);
+    final s = RaftBadgeRecipe.resolve(
+      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      appearance: RaftBadgeRecipeAppearance.soft,
+      variant: RaftBadgeRecipeVariant.muted,
+      uppercase: true,
+      tokens: resolver,
+    ).root;
+    return Container(
+      height: s.height,
+      padding: s.padding,
+      decoration: s.decoration(resolver),
+      alignment: Alignment.center,
+      child: Text(
+        s.textTransform == 'uppercase' ? label.toUpperCase() : label,
+        style: s
+            .textStyle(resolver)
+            .copyWith(
+              fontFamily: t.headingFont,
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+      ),
     );
   }
 }

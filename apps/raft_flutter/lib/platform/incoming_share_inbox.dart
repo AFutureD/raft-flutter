@@ -53,9 +53,13 @@ class IncomingShareInbox {
     await tmp.rename(p.join(folder.path, 'envelope.json'));
   }
 
+  /// Copies [share] into the private inbox. [onProgress] reports the number of
+  /// files already safely copied (after each item), so a caller can show
+  /// per-item progress while the picker is already on screen.
   Future<IncomingShare> stage(
     IncomingShare share, {
     bool Function()? current,
+    void Function(int copied)? onProgress,
   }) => _serial(() async {
     if (share.token != null) return share;
     if (share.files.length > 9) throw const FormatException('Too many files');
@@ -118,6 +122,7 @@ class IncomingShareInbox {
           'mimeType': source.mimeType,
           'sizeBytes': size,
         });
+        onProgress?.call(files.length);
       }
       if (current?.call() == false) throw const FormatException('Cancelled');
       final record = <String, dynamic>{

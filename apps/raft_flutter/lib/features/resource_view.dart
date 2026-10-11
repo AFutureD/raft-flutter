@@ -29,6 +29,8 @@ import '../data/resource_row_reconcile.dart';
 import '../data/resource_snapshot_cache.dart';
 import '../data/task_board_reconcile.dart';
 import 'create_task_dialog.dart';
+import 'desktop_navigation_policy.dart'
+    show DesktopContentKind, DesktopContentTarget;
 import 'search_home.dart';
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
@@ -65,6 +67,7 @@ class ResourceView extends StatefulWidget {
     this.onSearchQueryCommitted,
     this.onActivityItem,
     this.onActivityCanonical,
+    this.activitySelectedTarget,
     this.activitySidebarEnabled = false,
     this.compactActivitySidebar = false,
     this.onActivityUnreadAccepted,
@@ -114,6 +117,12 @@ class ResourceView extends StatefulWidget {
   /// when both clicks identify the same item. A different item opens at once.
   /// Custom embedded consumers without this callback keep immediate onOpen.
   final Future<void> Function(Map<String, dynamic>)? onActivityCanonical;
+
+  /// The item currently open in the desktop master-detail preview (the
+  /// location's content target); null on a phone or when nothing is open.
+  /// The matching Activity row paints the persistent selected state, which
+  /// therefore follows the location, not click timing or list order.
+  final DesktopContentTarget? activitySelectedTarget;
   final bool activitySidebarEnabled, compactActivitySidebar;
 
   /// Server-wide Activity total from an accepted window, independent of filter.
@@ -2610,6 +2619,13 @@ class _ResourceViewState extends State<ResourceView> {
                     load();
                   },
           )
+        : widget.section == 'tasks' &&
+              widget.channelId != null &&
+              !loading &&
+              (taskLayout == 'board'
+                  ? lanes.values.every((lane) => lane.isEmpty)
+                  : rows.isEmpty)
+        ? channelTasksEmpty()
         : widget.section == 'tasks' && taskLayout == 'board'
         ? taskBoard()
         : widget.section == 'tasks' && rows.isNotEmpty
@@ -3392,7 +3408,10 @@ class _ResourceViewState extends State<ResourceView> {
       decoration: BoxDecoration(
         color: t.panel,
         border: Border(
-          bottom: BorderSide(color: t.line, width: t.border),
+          bottom: BorderSide(
+            color: t.brutal ? t.colors['color-black']! : t.line,
+            width: t.border,
+          ),
         ),
       ),
       child: Row(
@@ -3537,6 +3556,26 @@ class _ResourceViewState extends State<ResourceView> {
           ? (widget.onBack ?? () {})
           : null,
     );
+  }
+
+  /// Whether [row] is the item open in the preview. Identity is the content
+  /// target's id (thread channel / channel), never the target's message focus:
+  /// that moves with unread state and refreshes, the row's identity does not.
+  /// A mention action additionally requires its own message, so opening an
+  /// ordinary channel row never lights up a mention row of that channel.
+  bool activityRowSelected(Map<String, dynamic> row) {
+    final target = widget.activitySelectedTarget;
+    if (widget.section != 'activity' || target == null) return false;
+    final kind = row['kind'];
+    if (kind == 'thread') {
+      return target.kind == DesktopContentKind.thread &&
+          target.id == row['threadChannelId'];
+    }
+    if (target.kind != DesktopContentKind.channel ||
+        target.id != row['channelId']) {
+      return false;
+    }
+    return kind != 'mention_action' || target.messageId == row['messageId'];
   }
 
   void activateActivity(
@@ -4036,6 +4075,7 @@ class _ResourceViewState extends State<ResourceView> {
               : ValueKey(
                   'activity-${row['kind']}-${row['channelId'] ?? row['messageId']}',
                 ),
+          selected: activityRowSelected(row),
           onOpen: () => openConversation(row, scope),
           onActivate: widget.onActivityCanonical == null
               ? null
@@ -5183,6 +5223,26 @@ class _ResourceViewState extends State<ResourceView> {
   Color taskViewportFill(RaftTokens t) =>
       t.brutal ? t.panel : (t.dark ? t.canvas : t.sidebar);
 
+  /// TasksPanel channel mode with no task at all: the centred EmptyState
+  /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.
+  Widget channelTasksEmpty() {
+    final filtered = !taskAdvanced.isEmpty;
+    return RaftProductEmptyPanel(
+      title: raftText(
+        context,
+        filtered ? 'No tasks match this filter' : 'No tasks yet',
+      ),
+      description: raftText(
+        context,
+        filtered
+            ? 'Try a different combination or clear the current selection.'
+            : 'Create one with the New Task button.',
+      ),
+      icon: (context, size, color) =>
+          RaftIcon(RaftGlyph.checkSquare, size: size, color: color),
+    );
+  }
+
   Widget taskBoard() {
     final t = RaftTokens.of(context), scope = authority;
     return ColoredBox(
@@ -5304,7 +5364,8 @@ class _ResourceViewState extends State<ResourceView> {
         key: ValueKey('task-${row['id']}'),
         title: name,
         number: '${row['taskNumber'] ?? row['number'] ?? ''}',
-        channel: '${row['channelName'] ?? ''}',
+        // TaskCard shows the channel chip only on the server-wide page.
+        channel: widget.channelId != null ? '' : '${row['channelName'] ?? ''}',
         status: status,
         description: '${row['descriptionPreview'] ?? row['description'] ?? ''}',
         assignee: row['claimedByName'] as String?,

@@ -13,6 +13,7 @@ import 'package:raft_flutter/features/global_server_selector.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/main.dart';
 import 'package:raft_flutter/platform/content_coordinator.dart';
+import 'package:raft_flutter/platform/background_notifications.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -179,9 +180,10 @@ class RootClient extends RaftClient {
   void connect() {}
   void event(String name, dynamic payload) =>
       injectedEvents.add(RaftEvent(name, payload));
+  Future<void>? disposing;
   @override
-  Future<void> dispose() async {
-    if (disposalCount > 0) return;
+  Future<void> dispose() => disposing ??= disposeOnce();
+  Future<void> disposeOnce() async {
     disposalCount++;
     await super.dispose();
     await forwardedEvents.cancel();
@@ -190,8 +192,19 @@ class RootClient extends RaftClient {
 }
 
 class RootFixture {
-  RootFixture({RootCache? cache, this.sharing}) : cache = cache ?? RootCache();
+  RootFixture({
+    RootCache? cache,
+    this.sharing,
+    this.sessionOwner,
+    this.onStartupReady,
+    this.contentOverride,
+  }) : cache = cache ?? RootCache();
+
+  /// A real coordinator (notification/link handling) instead of [content].
+  final NativeContentCoordinator? contentOverride;
   final NativeSharing? sharing;
+  final NativeSessionOwner? sessionOwner;
+  final VoidCallback? onStartupReady;
   final RootCache cache;
   final engineRoutes = <Map<dynamic, dynamic>>[];
   final adapter = RootAdapter(),
@@ -219,6 +232,7 @@ class RootFixture {
     bool cachedSession = false,
     String principal = 'alice',
     Map<String, Object> preferences = const {},
+    bool settle = true,
   }) async {
     SharedPreferences.setMockInitialValues({
       'raft.origin': 'https://fixture.invalid',
@@ -329,14 +343,16 @@ class RootFixture {
       RaftApp(
         sessionStore: sessions,
         initialLocation: uri ?? Uri(path: '/'),
-        nativeContent: content,
+        nativeContent: contentOverride ?? content,
         nativeSharing: sharing ?? NativeSharing(supported: false),
+        nativeSessionOwner: sessionOwner,
+        onStartupReady: onStartupReady,
         openWorkspaceCache: () async => cache,
         createClient: (origin, store, kind) =>
             client = RootClient(origin, store, kind, adapter),
       ),
     );
-    await flush(t);
+    if (settle) await flush(t);
   }
 
   /// The root surface painted by each [flush] frame, in order.
@@ -527,7 +543,13 @@ void main() {
         await f.pushUri(t, '/s/unauthorized/settings/account');
         await f.flush(t);
         expect(find.byType(WorkspaceView), findsNothing);
-        expect(f.router(t).currentConfiguration.toString(), '/');
+        // Web ServerResolver: a slug the account does not have shows
+        // "Server not found" at the same URL, then redirects.
+        expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
+        expect(
+          f.router(t).currentConfiguration.toString(),
+          '/s/unauthorized/settings/account',
+        );
         expect(w.server!.id, 'b');
         await f.close(t);
       },

@@ -12,6 +12,7 @@ import 'package:raft_ui/recipes.dart' as recipes;
 
 import 'announcement_host.dart';
 import '../data/workspace_controller.dart';
+import '../platform/route_frame_diagnostics.dart';
 import '../data/workspace_entity_directory.dart';
 import '../data/source_activity_unread_store.dart';
 import '../data/source_mobile_app_badge.dart';
@@ -33,6 +34,7 @@ import 'live_agent_activity_bar.dart';
 import 'chat_view.dart';
 import 'thread_actions.dart';
 import 'computer_detail_view.dart';
+import 'community_join.dart';
 import 'conversation_panel.dart';
 import 'message_selection.dart';
 
@@ -141,6 +143,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
     if (mounted && menuOpenRow != row) setState(() => menuOpenRow = row);
   }
 
+  /// Sidebar row-menu feedback (Source `toast.error` of the mute action).
+  final rowToast = RaftToastController();
+
   void toggleJoinedChannelsOnly() =>
       setState(() => joinedChannelsOnly = !joinedChannelsOnly);
   final serverMenu = RaftMenuController();
@@ -168,6 +173,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
   WorkspaceController get w => widget.controller;
   PageStorageBucket mobilePageStorage = PageStorageBucket();
   String? mobileStorageAuthority;
+  _MobileNavigationSelection? _mobileNavigationSelection;
+  _MobileNavigationSelection get mobileNavigationSelection =>
+      _mobileNavigationSelection ??= _MobileNavigationSelection(this);
   bool? mobileLayout;
 
   _WorkspaceViewState? get mobileHost =>
@@ -451,6 +459,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void initState() {
     super.initState();
+    adoptHostSearchEntry();
     mobileAppBadge = SourceMobileAppBadge()..addListener(chatSelectionChanged);
     // Starts recording visits to conversations from the first frame.
     quickSwitcher.changed();
@@ -601,7 +610,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void didUpdateWidget(covariant WorkspaceView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    adoptHostSearchEntry();
     if (!identical(oldWidget.controller, w)) {
+      _mobileNavigationSelection?.dispose();
+      _mobileNavigationSelection = null;
       oldWidget.controller.removeListener(syncMobileAppBadge);
       w.addListener(syncMobileAppBadge);
       syncMobileAppBadge();
@@ -724,6 +736,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   @override
   void dispose() {
+    _mobileNavigationSelection?.dispose();
     w.removeListener(syncMobileAppBadge);
     mobileAppBadge.removeListener(chatSelectionChanged);
     mobileAppBadge.dispose();
@@ -732,6 +745,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);
     serverMenu.dispose();
+    rowToast.dispose();
     serverUnread.removeListener(serverUnreadChanged);
     if (mobileHost == null) {
       serverUnread.dispose();
@@ -809,12 +823,41 @@ class _WorkspaceViewState extends State<WorkspaceView>
     setState(() {});
   }
 
+  int adoptedHostSearchEntry = 0;
+
+  /// A live mobile page is created after the host chose a section, so the
+  /// entry intent the host recorded (fresh channel search, saved-search
+  /// restore) is adopted once per entry rather than lost with the old page.
+  void adoptHostSearchEntry() {
+    final host = mobileHost;
+    if (host == null || host.searchEntryRevision == adoptedHostSearchEntry) {
+      return;
+    }
+    adoptedHostSearchEntry = searchEntryRevision = host.searchEntryRevision;
+    restoreSavedSearchRevision = host.restoreSavedSearchRevision;
+    channelSearchSeed = host.channelSearchSeed;
+    channelSearchAuthority = host.channelSearchAuthority;
+    channelSearchRevoked = host.channelSearchRevoked;
+  }
+
   void select(
     String section, {
     String? searchChannelId,
     String? searchQuery,
     bool restoreSavedSearch = false,
   }) {
+    final host = mobileHost;
+    if (host != null) {
+      // The covered page's projected location is stale after a section change;
+      // the accepted source's host decorates the new entry.
+      host.select(
+        section,
+        searchChannelId: searchChannelId,
+        searchQuery: searchQuery,
+        restoreSavedSearch: restoreSavedSearch,
+      );
+      return;
+    }
     if (!w.canVisitSection(section)) return;
     desktopNavigation.bind(desktopAuthority);
     pendingDesktopSelection = false;
@@ -946,11 +989,19 @@ class _WorkspaceViewState extends State<WorkspaceView>
   Widget build(BuildContext context) {
     final compact = RaftAdaptiveWorkspace.compactOf(context);
     if (ModalRoute.isCurrentOf(context) ?? true) mobileLayout = compact;
+    final Widget body;
     if (!widget.mobileRoutePage && (mobileLayout ?? compact)) {
-      return ListenableBuilder(
-        listenable: Listenable.merge([w, mobileTabbar]),
+      body = ListenableBuilder(
+        listenable: Listenable.merge([mobileNavigationSelection, mobileTabbar]),
         builder: (context, _) {
           updateChannelAuthority();
+          if (RouteFrameDiagnostics.enabled) {
+            RouteFrameDiagnostics.location(
+              w.location.thread == null
+                  ? w.location.route.name
+                  : '${w.location.route.name}/thread',
+            );
+          }
           bindPageAuthority();
           if (mobileStorageAuthority != desktopAuthority) {
             mobileStorageAuthority = desktopAuthority;
@@ -967,10 +1018,16 @@ class _WorkspaceViewState extends State<WorkspaceView>
           );
         },
       );
+    } else {
+      body = buildWorkspace(context);
     }
     return PersonalPresentationScope(
       store: presentation,
-      child: AnnouncementHost(controller: w, child: buildWorkspace(context)),
+      // Account-level entry/resume work belongs to the workspace, not each
+      // page in its retained mobile Navigator.
+      child: widget.mobileRoutePage
+          ? body
+          : AnnouncementHost(controller: w, child: body),
     );
   }
 
@@ -985,6 +1042,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
       workspaceMode,
     ]),
     builder: (context, _) {
+      final buildStarted = RouteFrameDiagnostics.enabled
+          ? RouteFrameDiagnostics.now()
+          : 0;
       // Computers and Activity are tab roots only while the bar has them.
       w.navigation.mobileTabs = mobileTabIds.toSet();
       final attentionOwner = activityUnread;
@@ -1098,6 +1158,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           onTask: openTaskSurface,
           onMessageTask: openMessageTaskSurface,
           onViewBilling: () => select('billing'),
+          onOpenChannelSettings: channelSettings,
         ),
       );
       // Mobile home keeps the sidebar mounted while the lists load and shows
@@ -1315,6 +1376,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       }
                     }
                   : null,
+              activitySelectedTarget:
+                  route == 'activity' &&
+                      wide &&
+                      activityFlag.masterDetail(
+                        MediaQuery.sizeOf(context).width,
+                      )
+                  ? desktopNavigation.target
+                  : null,
               onActivityCanonical:
                   wide &&
                       activityFlag.masterDetail(
@@ -1458,6 +1527,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                             ].contains(route)))
                       if (thread || !unresolvedChannelRoute)
                         mobilePageHeader(title, thread),
+                    RaftToastPortal(controller: rowToast),
                     if (w.error != null)
                       MaterialBanner(
                         content: Text(w.error!),
@@ -1487,8 +1557,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         threadResizeLabel: tr('Resize thread'),
                         sidebarVisible:
                             gridActive ||
-                            DesktopNavigationPolicy.forSection(route)
-                                .usesConversationSidebar,
+                            DesktopNavigationPolicy.forSection(
+                              route,
+                            ).usesConversationSidebar,
                         // Phones mount neither; only desktop widths consume them.
                         sidebar: wide ? sidebar() : const SizedBox.shrink(),
                         rail: wide ? workspaceRail() : const SizedBox.shrink(),
@@ -1593,27 +1664,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                                   ),
                                                 ],
                                               ),
-                                      if (route == 'chat' &&
-                                          w.channel != null &&
-                                          !w.channel!.joined &&
-                                          !w.channel!.archived)
-                                        Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: RaftButton(
-                                            label: tr('Join channel'),
-                                            onPressed: () => joinChannel(),
-                                          ),
-                                        ),
-                                      if (route == 'chat' &&
-                                          w.channel?.archived == true)
-                                        Padding(
-                                          padding: EdgeInsets.all(12),
-                                          child: Text(
-                                            tr(
-                                              'This channel is archived. History is available.',
-                                            ),
-                                          ),
-                                        ),
                                       Expanded(
                                         child: KeyedSubtree(
                                           key: ValueKey(
@@ -1725,8 +1775,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     t,
                     MediaQuery.sizeOf(context).height,
                   ) +
-                  (DesktopNavigationPolicy.forSection(route)
-                          .usesConversationSidebar
+                  (DesktopNavigationPolicy.forSection(
+                        route,
+                      ).usesConversationSidebar
                       ? sidebarWidth
                       : 0)
             : 0,
@@ -1740,6 +1791,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     : workspace(dockWidth, onEscape),
               ),
       );
+      if (RouteFrameDiagnostics.enabled) {
+        RouteFrameDiagnostics.scope('shellBuildUs', buildStarted);
+      }
       return body;
     },
   );
@@ -2304,6 +2358,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           onTask: openTaskSurface,
                           onMessageTask: openMessageTaskSurface,
                           onViewBilling: () => select('billing'),
+                          onOpenChannelSettings: channelSettings,
                         ),
                 ),
         ),
@@ -2577,11 +2632,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
           .where((s) => s.string('slug') == 'community')
           .firstOrNull;
       if (joined == null) {
-        await w.client.post(
-          '/servers/join-community',
-          data: {'slug': 'community'},
+        // useJoinCommunityFlow: an agreement to accept opens the dialog.
+        final accepted = await joinCommunity(
+          () => context,
+          w.client,
+          communityServerSlug,
         );
-        if (!mounted || scope != mobileAuthority) return;
+        if (!accepted || !mounted || scope != mobileAuthority) return;
         await w.recoverMembership();
         if (!mounted || scope != mobileAuthority) return;
         joined = w.servers
@@ -2777,6 +2834,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     onSettings: channelSettings,
     searchLabel: tr('Search this channel'),
     settingsLabel: tr('Channel details and settings'),
+    archivedLabel: w.channel!.archived ? tr('Archived') : null,
   );
 
   /// ChatPanel's DM header: identity from the DM record (first frame), the
@@ -3290,8 +3348,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 child: RaftNavItem(
                                   key: const Key('nav-search'),
                                   role: RaftNavItemRole.search,
-                                  viewportHeight: MediaQuery.sizeOf(context)
-                                      .height,
+                                  viewportHeight: MediaQuery.sizeOf(
+                                    context,
+                                  ).height,
                                   label: tr('Search'),
                                   glyph: RaftGlyph.search,
                                   selected: w.section == 'search',
@@ -3305,8 +3364,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 child: RaftNavItem(
                                   key: const Key('nav-activity'),
                                   role: RaftNavItemRole.activity,
-                                  viewportHeight: MediaQuery.sizeOf(context)
-                                      .height,
+                                  viewportHeight: MediaQuery.sizeOf(
+                                    context,
+                                  ).height,
                                   label: tr('Activity'),
                                   glyph: RaftGlyph.activity,
                                   selected: w.section == 'activity',
@@ -3362,15 +3422,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     sortingGroups.add(group.id);
     setState(() {});
     try {
-      await w.command(
-        'PATCH',
-        '/servers/${w.server!.id}/sidebar-order',
-        data: {key: mode},
-      );
-      if (!mounted || scope != mobileAuthority) return;
-      await w.loadSidebar();
-    } catch (error) {
-      if (mounted && scope == mobileAuthority) w.setError('$error');
+      await w.updateSidebarOrder({key: mode});
     } finally {
       sortingGroups.remove(group.id);
       if (mounted && scope == mobileAuthority) setState(() {});
@@ -3434,17 +3486,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
           },
         ),
     ];
-  }
-
-  Future<void> joinChannel() async {
-    try {
-      final c = w.channel!;
-      await w.command('POST', '/channels/${c.id}/join');
-      await w.refreshChannels();
-      await w.selectChannel(w.channels.firstWhere((next) => next.id == c.id));
-    } catch (e) {
-      w.setError('$e');
-    }
   }
 
   Future<void> channelSettings() async {
@@ -3530,12 +3571,19 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         onMembers: () =>
                             openChannelPage(RaftChannelPage.members, channel),
                       )
-                    : ChannelMembers(
-                        key: ValueKey('channel-members-${page.channelId}'),
-                        controller: w,
-                        channel: channel,
+                    // Web mounts the members page `bare` in the phone's
+                    // full-width OverflowSheet (drawer border-l-2 included).
+                    : RaftOverflowBareSheet(
                         page: true,
-                        onClose: dismissPanel,
+                        child: ChannelMembers(
+                          key: ValueKey('channel-members-${page.channelId}'),
+                          controller: w,
+                          channel: channel,
+                          page: true,
+                          startInAdd:
+                              w.location.query('channelPageAdd') == '1',
+                          onClose: dismissPanel,
+                        ),
                       ),
               ),
             ),

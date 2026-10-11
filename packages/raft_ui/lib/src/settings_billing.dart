@@ -99,9 +99,13 @@ class RaftBillingNotice {
     required this.title,
     required this.body,
     this.lines = const [],
+    this.bodyMargin = false,
   });
   final RaftBillingNoticeTone tone;
   final String title;
+
+  /// The body paragraph carries `mb-2` even without excess rows (DowngradeWarningCard grace period).
+  final bool bodyMargin;
 
   /// `text-xs font-mono` paragraph; `**bold**` spans render
   /// `font-bold text-foreground-strong` (ICU `<b>` chunks).
@@ -685,8 +689,9 @@ class _BillingNoticeCard extends StatelessWidget {
             TextSpan(children: _rich(notice.body, strong)),
             style: mono,
           ),
-          if (notice.lines.isNotEmpty) ...[
+          if (notice.lines.isNotEmpty || notice.bodyMargin)
             const SizedBox(height: 8),
+          if (notice.lines.isNotEmpty) ...[
             for (final (i, line) in notice.lines.indexed) ...[
               if (i > 0) const SizedBox(height: 4),
               Text.rich(

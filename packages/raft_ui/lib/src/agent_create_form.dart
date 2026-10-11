@@ -15,8 +15,12 @@
 //
 // Values come from the recipes; the few Tailwind classes written directly in
 // Web JSX are cited next to the number that resolves them.
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import 'system_inset.dart';
 
 import 'components.dart';
 import 'design_primitives.dart';
@@ -78,7 +82,11 @@ class RaftAgentDialogCard extends StatelessWidget {
     required this.children,
     this.onClose,
     this.maxWidth = 448, // max-w-md = 28rem
+    this.surfaceKey,
   });
+
+  /// Key of the card surface itself (`dialog-content`).
+  final Key? surfaceKey;
   final String title;
   final List<Widget> children;
   final VoidCallback? onClose;
@@ -115,12 +123,23 @@ class RaftAgentDialogCard extends StatelessWidget {
           height: 28 / 18,
           fontWeight: FontWeight.w700, // font-bold
         );
+    // Edge to edge: a dialog taller than the screen scrolls clear of the
+    // gesture / nav bar (0 on desktop and under a SafeArea route).
+    final inset = raftBottomInset(context);
     return LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
-        padding: const EdgeInsets.all(4 * _tw), // Modal inner `p-4`
+        // Modal inner `p-4`
+        padding: EdgeInsets.fromLTRB(
+          4 * _tw,
+          4 * _tw,
+          4 * _tw,
+          4 * _tw + inset,
+        ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            minHeight: box.maxHeight.isFinite ? box.maxHeight - 8 * _tw : 0,
+            minHeight: box.maxHeight.isFinite
+                ? math.max(0, box.maxHeight - 8 * _tw - inset)
+                : 0,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -128,6 +147,7 @@ class RaftAgentDialogCard extends StatelessWidget {
               child: Material(
                 type: MaterialType.transparency,
                 child: RaftRecipeBox(
+                  key: surfaceKey,
                   style: card.root.withCssUsedBorderWidths(),
                   tokens: tokens,
                   applyText: false,
@@ -449,8 +469,12 @@ class _RaftAgentTextInputState extends State<RaftAgentTextInput> {
             : raftText(context, widget.placeholder!),
         hintStyle: style.copyWith(color: placeholderColor),
       ),
-      buildCounter:
-          (_, {required currentLength, required isFocused, maxLength}) => null,
+      buildCounter: (
+        _, {
+        required currentLength,
+        required isFocused,
+        maxLength,
+      }) => null,
     );
     return Semantics(
       label: widget.semanticLabel,

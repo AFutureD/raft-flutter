@@ -11,6 +11,10 @@ class NotificationPluginFixture implements FlutterLocalNotificationsPlugin {
   IOSFlutterLocalNotificationsPlugin? ios;
   AndroidFlutterLocalNotificationsPlugin? android;
   InitializationSettings? settings;
+  DidReceiveNotificationResponseCallback? onResponse;
+  NotificationAppLaunchDetails launch = const NotificationAppLaunchDetails(
+    false,
+  );
   @override
   T? resolvePlatformSpecificImplementation<
     T extends FlutterLocalNotificationsPlatform
@@ -23,8 +27,7 @@ class NotificationPluginFixture implements FlutterLocalNotificationsPlugin {
           as T?;
   @override
   Future<NotificationAppLaunchDetails?>
-  getNotificationAppLaunchDetails() async =>
-      const NotificationAppLaunchDetails(false);
+  getNotificationAppLaunchDetails() async => launch;
   int cancellations = 0;
   final sent = <String?>[];
   final details = <NotificationDetails?>[];
@@ -37,6 +40,7 @@ class NotificationPluginFixture implements FlutterLocalNotificationsPlugin {
     onDidReceiveBackgroundNotificationResponse,
   }) {
     this.settings = settings;
+    onResponse = onDidReceiveNotificationResponse;
     return initialized.future;
   }
 

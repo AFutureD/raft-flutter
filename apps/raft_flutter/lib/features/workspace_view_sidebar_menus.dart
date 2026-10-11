@@ -15,21 +15,10 @@ extension _SidebarContextMenus on _WorkspaceViewState {
       if (e is Map) Map<String, dynamic>.from(e),
   ];
 
-  Future<void> _patchOrder(Map<String, dynamic> data) async {
-    final scope = mobileAuthority;
-    if (w.server == null) return;
-    try {
-      await w.command(
-        'PATCH',
-        '/servers/${w.server!.id}/sidebar-order',
-        data: data,
-      );
-      if (!mounted || scope != mobileAuthority) return;
-      await w.loadSidebar();
-    } catch (error) {
-      if (mounted && scope == mobileAuthority) w.setError('$error');
-    }
-  }
+  /// Source `updateSidebarOrder`: the row moves at once, the PATCH follows
+  /// (with the `sectionsVersion` section writes need), a failure rolls back.
+  Future<void> _patchOrder(Map<String, dynamic> data) =>
+      w.updateSidebarOrder(data);
 
   bool _samePlacement(Map<String, dynamic> p, String kind, String id) =>
       p['kind'] == kind && p['id'] == id;
@@ -42,13 +31,17 @@ extension _SidebarContextMenus on _WorkspaceViewState {
       if (!_samePlacement(p, kind, id)) p,
   ];
 
+  /// Sidebar.tsx `togglePinnedRef`: Pin appends the ref and drops the item's
+  /// custom-section placements; `sectionPlacements` is only sent when one was
+  /// dropped (a section write needs the sections version, a pin does not).
   Future<void> _togglePinned(
     String kind,
     String id, [
     List<(String, String)> removePlacements = const [],
   ]) {
     final pinned = _isPinned(kind, id);
-    var placements = _maps(_order['sectionPlacements']);
+    final before = _maps(_order['sectionPlacements']);
+    var placements = before;
     if (!pinned) {
       for (final (k, i) in removePlacements) {
         placements = [
@@ -67,7 +60,8 @@ extension _SidebarContextMenus on _WorkspaceViewState {
               ..._maps(_order['pinned']),
               {'kind': kind, 'id': id},
             ],
-      if (!pinned) 'sectionPlacements': placements,
+      if (!pinned && placements.length != before.length)
+        'sectionPlacements': placements,
     });
   }
 
@@ -226,66 +220,117 @@ extension _SidebarContextMenus on _WorkspaceViewState {
     },
   );
 
+  /// Sidebar.tsx `renderReadToggleAction`: Mark as Read posts read-all and
+  /// clears the count; Mark as Unread shows the dot first. A failure only
+  /// reloads the unread counts (no message).
   Future<void> _toggleRead(String id) async {
     final unread = (w.unread[id] ?? 0) > 0;
+    if (!unread) w.markUnreadLocally(id);
     try {
-      await w.command(
+      final receipt = await w.command(
         'POST',
         '/channels/$id/${unread ? 'read-all' : 'unread'}',
       );
       if (!mounted) return;
-      await w.refreshUnread();
-    } catch (error) {
-      if (mounted) w.setError('$error');
+      final principal = w.client.user?.id, serverId = w.client.serverId;
+      if (unread && principal != null && serverId != null) {
+        w.acceptReadAllAck(
+          id,
+          receipt,
+          serverId: serverId,
+          principalId: principal,
+        );
+      }
+    } catch (_) {
+      if (mounted) unawaited(w.refreshUnread());
     }
   }
 
+  /// Sidebar.tsx `toggleChannelActivityMute`: optimistic, PATCH, adopt the
+  /// reply; a failure restores the row (when still untouched) and toasts.
   Future<void> _toggleMute(RaftChannel c) async {
+    if (!_canMute(c)) return;
+    final previous = {
+      'activityMuted': c.flag('activityMuted'),
+      'muteFromSeq': c.json['muteFromSeq'],
+      'prefsVersion': c.json['prefsVersion'],
+    };
+    final next = !(previous['activityMuted'] as bool);
+    final optimistic = {...previous, 'activityMuted': next};
+    w.setActivityMuteState(c.id, optimistic);
     try {
-      await w.command(
+      final reply = await w.command(
         'PATCH',
         '/channels/${c.id}/notification-settings',
-        data: {'activityMuted': !c.flag('activityMuted')},
+        data: {'activityMuted': next},
       );
-      if (mounted) await w.refreshChannels();
-    } catch (error) {
-      if (mounted) w.setError('$error');
+      if (!mounted || reply is! Map) return;
+      w.setActivityMuteState(c.id, {
+        'activityMuted': reply['activityMuted'] == true,
+        'muteFromSeq': reply['muteFromSeq'],
+        'prefsVersion': reply['prefsVersion'],
+      });
+    } catch (_) {
+      final held = w.channelById(c.id);
+      if (held != null &&
+          held.flag('activityMuted') == next &&
+          held.json['prefsVersion'] == previous['prefsVersion']) {
+        w.setActivityMuteState(c.id, previous);
+        if (mounted) {
+          rowToast.show(
+            tr(
+              next
+                  ? 'Failed to mute Activity for this channel.'
+                  : 'Failed to unmute Activity for this channel.',
+            ),
+          );
+        }
+      }
     }
   }
 
+  /// Source `canToggleActivityMute`: channel / private / joint rows the user
+  /// has joined (never DMs or threads).
+  bool _canMute(RaftChannel c) =>
+      c.joined && const {'channel', 'private', 'joint'}.contains(c.type);
+
+  /// Sidebar.tsx `closeDm`: hides the DM (server-synced) and leaves it when
+  /// it is the open conversation.
   Future<void> _closeDm(String id) async {
     final hidden = [
       for (final e in (_order['hiddenDmIds'] as List? ?? const [])) '$e',
     ];
     if (hidden.contains(id)) return;
-    await _patchOrder({
+    final open = w.section == 'chat' && w.channel?.id == id;
+    final update = _patchOrder({
       'hiddenDmIds': [...hidden, id],
     });
+    if (open && wide) dismissPanel();
+    await update;
   }
 
-  Future<void> _confirmArchive(RaftChannel c) async {
-    final ok = await RaftConfirmDialog.show(
-      context,
-      RaftConfirmDialog(
-        surfaceKey: const ValueKey('shell-dialog'),
-        title: tr('Archive Channel'),
-        message: raftFormat(
-          context,
-          'Archive "{name}"? Members keep read access and history, but writes will be frozen and the channel will be hidden from sidebars. You can unarchive it later.',
-          {'name': c.name},
-        ),
-        confirmLabel: tr('Archive Channel'),
-        confirmVariant: RaftButtonRecipeVariant.warning,
+  /// Sidebar.tsx archive ConfirmDialog: stays open on "Archiving…", closes
+  /// when the archive succeeded and shows the error under the message when
+  /// it failed.
+  Future<void> _confirmArchive(RaftChannel c) => RaftConfirmDialog.show(
+    context,
+    RaftConfirmDialog(
+      surfaceKey: const ValueKey('shell-dialog'),
+      title: tr('Archive Channel'),
+      message: raftFormat(
+        context,
+        'Archive "{name}"? Members keep read access and history, but writes will be frozen and the channel will be hidden from sidebars. You can unarchive it later.',
+        {'name': c.name},
       ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await w.command('POST', '/channels/${c.id}/archive');
-      if (mounted) await w.refreshChannels();
-    } catch (error) {
-      if (mounted) w.setError('$error');
-    }
-  }
+      confirmLabel: tr('Archive Channel'),
+      loadingLabel: tr('Archiving…'),
+      confirmVariant: RaftButtonRecipeVariant.warning,
+      onConfirm: () async {
+        await w.command('POST', '/channels/${c.id}/archive');
+        if (mounted) await w.refreshChannels();
+      },
+    ),
+  );
 
   Future<void> _showSectionDialog({
     Map<String, dynamic>? edit,
@@ -423,7 +468,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
   Future<void> openChannelMenu(Offset at, RaftChannel c) {
     if (c.type == 'dm') return openDmMenu(at, c);
     final pinned = _isPinned('channel', c.id);
-    final canMute = c.joined && c.type != 'thread';
+    final canMute = _canMute(c);
     final canArchive =
         w.can('archiveChannels', resource: c) &&
         c.name != 'all' &&
@@ -498,6 +543,16 @@ extension _SidebarContextMenus on _WorkspaceViewState {
   ) {
     final id = '${agent['id']}';
     final pinned = _isPinned('agent', id);
+    // Sidebar.tsx `contextMovableItem` (agent): the agent itself while it is
+    // pinned or placed as an agent, else its DM channel.
+    final movable =
+        pinned ||
+            _maps(
+              _order['sectionPlacements'],
+            ).any((p) => _samePlacement(p, 'agent', id)) ||
+            dm == null
+        ? ('agent', id)
+        : ('channel', dm.id);
     return _openSidebarMenu(
       at,
       (close) => [
@@ -518,7 +573,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
           _item('Close Chat', RaftGlyph.x, close, () => _closeDm(dm.id)),
         ],
       ],
-      submenu: _moveSubmenu('agent', id),
+      submenu: _moveSubmenu(movable.$1, movable.$2),
       row: 'a:$id',
     );
   }

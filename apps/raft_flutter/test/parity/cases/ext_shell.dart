@@ -31,7 +31,16 @@ Map<String, dynamic> _preset(ParityContext ctx) {
   );
 }
 
-WorkspaceController _workspace(ParityContext ctx) {
+WorkspaceController _workspace(ParityContext ctx) => shellWorkspace(ctx);
+
+/// The shell workspace (preset `ctx.props['preset']`) of the shell cases; the
+/// composed-screen cases (ext_screens.dart) add their message / inbox
+/// [routes] and read [selected] conversation (no unread on it).
+WorkspaceController shellWorkspace(
+  ParityContext ctx, {
+  Map<String, dynamic> routes = const {},
+  String? selected,
+}) {
   SharedPreferences.setMockInitialValues({});
   final fx = _fx(ctx);
   final preset = _preset(ctx);
@@ -93,6 +102,7 @@ WorkspaceController _workspace(ParityContext ctx) {
           'role': designer['role'],
         },
       ],
+      ...routes,
     },
   );
   final all = {
@@ -121,7 +131,10 @@ WorkspaceController _workspace(ParityContext ctx) {
     ]
     ..sidebarOrder = order
     ..loading = preset['loading'] == true
-    ..unread = Map<String, int>.from(preset['unread'] as Map);
+    ..unread = {
+      for (final e in (preset['unread'] as Map).entries)
+        if (e.key != selected) e.key as String: e.value as int,
+    };
   for (final e in (preset['drafts'] as Map).entries) {
     w.drafts['${e.key}'] = '${e.value}';
   }
@@ -257,6 +270,10 @@ Widget _mobile(ParityContext ctx) {
     ],
   );
 }
+
+/// The mobile Home / desktop rail cases, shared with ext_row_menus.dart.
+ParityCase get extShellMobileCase => _mobileCase;
+ParityCase get extShellDesktopCase => _desktopCase;
 
 final ParityCase _mobileCase = ParityCase(
   widgets: const ['raft_flutter:WorkspaceView', 'raft_ui:RaftNavItem'],

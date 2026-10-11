@@ -4,10 +4,12 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../src/third_party/performance_hint.g.dart';
 import '../src/third_party/unistd.g.dart';
+import 'route_frame_diagnostics.dart';
 
 const androidPerformanceHintsEnabled = bool.fromEnvironment(
   'RAFT_ANDROID_PERFORMANCE_HINT',
@@ -233,8 +235,22 @@ mixin AndroidPerformanceHintBinding on WidgetsBinding {
   Map<String, Object>? get performanceHintDiagnostics => _hints?.diagnostics;
 
   @override
+  PipelineOwner createRootPipelineOwner() => RouteFrameDiagnostics.enabled
+      ? RouteFramePipelineOwner()
+      : super.createRootPipelineOwner();
+
+  @override
+  void drawFrame() {
+    if (RouteFrameDiagnostics.enabled) {
+      RouteFrameDiagnostics.drawStarted = RouteFrameDiagnostics.now();
+    }
+    super.drawFrame();
+  }
+
+  @override
   void initInstances() {
     super.initInstances();
+    if (RouteFrameDiagnostics.enabled) RouteFrameDiagnostics.initialize(this);
     _hints = PerformanceHintController(_AndroidHintBackend.load());
     _hints!.setForeground(
       lifecycleState == null || lifecycleState == AppLifecycleState.resumed,
@@ -253,6 +269,7 @@ mixin AndroidPerformanceHintBinding on WidgetsBinding {
 
   @override
   void handleBeginFrame(Duration? rawTimeStamp) {
+    if (RouteFrameDiagnostics.enabled) RouteFrameDiagnostics.begin();
     _hints?.begin(_displayRefreshRate);
     if (_hints?.active == true) _frameClock = Stopwatch()..start();
     super.handleBeginFrame(rawTimeStamp);
@@ -263,6 +280,7 @@ mixin AndroidPerformanceHintBinding on WidgetsBinding {
     try {
       super.handleDrawFrame();
     } finally {
+      if (RouteFrameDiagnostics.enabled) RouteFrameDiagnostics.end();
       final clock = _frameClock;
       _frameClock = null;
       if (clock != null) {

@@ -307,7 +307,16 @@ void main() {
         );
         expect(find.byKey(const Key('conversation-tabs')), findsOneWidget);
         expect(find.byType(RaftComposer), findsOneWidget);
-        final composer = t.state(find.byType(RaftComposer));
+        // Crossing the compact/wide fold swaps the layout host, so widget State
+        // is not retained; the in-progress draft is the user-visible contract.
+        await t.enterText(
+          find.descendant(
+            of: find.byType(RaftComposer),
+            matching: find.byType(TextField),
+          ),
+          'unsent draft',
+        );
+        await t.pump();
         for (final size in [
           const Size(768, 900),
           const Size(767, 900),
@@ -319,7 +328,19 @@ void main() {
           await t.pump();
           expect(w.location, uri);
           expect(find.byKey(const Key('conversation-tabs')), findsOneWidget);
-          expect(t.state(find.byType(RaftComposer)), same(composer));
+          expect(find.byType(RaftComposer), findsOneWidget);
+          expect(
+            t
+                .widget<TextField>(
+                  find.descendant(
+                    of: find.byType(RaftComposer),
+                    matching: find.byType(TextField),
+                  ),
+                )
+                .controller
+                ?.text,
+            'unsent draft',
+          );
           expect(
             find.byKey(
               Key(
@@ -336,6 +357,8 @@ void main() {
           );
           expect(t.takeException(), isNull);
         }
+        // Let the debounced draft save finish before the tree is disposed.
+        await t.pump(const Duration(seconds: 2));
         await t.pumpWidget(const SizedBox());
       },
     );
@@ -387,8 +410,8 @@ void main() {
         expect(find.byKey(const Key('workspace-channel-header')), findsNothing);
         expect(find.byType(ResourceView), findsOneWidget);
         await t.pumpAndSettle();
-        final master = t.state(find.byType(ResourceView));
-        final composer = t.state(find.byType(RaftComposer));
+        // Crossing the compact/wide fold swaps the layout host, so widget State
+        // is not retained; the master, URI and chrome are the contract.
         for (final size in [
           const Size(1279, 900),
           const Size(1024, 900),
@@ -408,11 +431,12 @@ void main() {
             findsNothing,
           );
           expect(find.byKey(const Key('conversation-tabs')), findsOneWidget);
+          // Compact pages keep the Activity master mounted under the detail.
           expect(
-            t.state(find.byType(ResourceView, skipOffstage: false)),
-            same(master),
+            find.byType(ResourceView, skipOffstage: false),
+            findsOneWidget,
           );
-          expect(t.state(find.byType(RaftComposer)), same(composer));
+          expect(find.byType(RaftComposer), findsOneWidget);
           expect(
             find.byKey(const Key('workspace-mobile-navigation')),
             findsNothing,
@@ -428,7 +452,7 @@ void main() {
         await t.pumpAndSettle();
         expect(w.location.content, isNull);
         expect(w.location.route.name, 'activity');
-        expect(t.state(find.byType(ResourceView)), same(master));
+        expect(find.byType(ResourceView), findsOneWidget);
         await t.pumpWidget(const SizedBox());
       },
     );

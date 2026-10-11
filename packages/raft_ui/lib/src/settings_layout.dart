@@ -340,6 +340,9 @@ class RaftSettingsPanelFrame extends StatelessWidget {
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
       child: Container(
+        // Owner decision 2026-10-12: the recipe's `border-l-2 border-black` /
+        // `border-l border-line-muted` edge is desktop-only; phone pages draw
+        // no left edge line (intended difference from Web).
         decoration:
             attached &&
                 MediaQuery.sizeOf(context).width >=

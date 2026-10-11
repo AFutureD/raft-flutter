@@ -2,6 +2,8 @@
 // from the pinned lucide-react builds the Web renders; see packages/raft_ui/LICENSE-LUCIDE.
 import 'package:flutter/material.dart';
 
+import 'theme.dart' show RaftTokens;
+
 part 'glyphs.g.dart';
 part 'reaction_sprite.dart';
 part 'emoji_nav_icon.dart';
