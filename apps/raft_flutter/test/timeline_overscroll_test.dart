@@ -223,6 +223,36 @@ void main() {
     );
   }
 
+  for (final platform in bouncing) {
+    testWidgets('$platform: a fling into the latest end bounces past it and '
+        'springs back', (tester) async {
+      final h = await pump(tester, platform);
+      h.controller.jumpTo(h.position.maxScrollExtent - 600);
+      await tester.pump();
+      await tester.fling(
+        find.byType(RaftMessageTimeline),
+        const Offset(0, -300),
+        4000,
+      );
+      var overshoot = 0.0;
+      double? last;
+      var jumps = 0;
+      for (var i = 0; i < 200; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final past = h.px - h.position.maxScrollExtent;
+        if (past > overshoot) overshoot = past;
+        // The spring moves the content smoothly: no frame snaps it back.
+        if (last != null && (h.px - last).abs() > 250) jumps++;
+        last = h.px;
+        if (!h.position.isScrollingNotifier.value) break;
+      }
+      expect(overshoot, greaterThan(10), reason: 'no visible bounce');
+      expect(jumps, 0);
+      await tester.pumpAndSettle();
+      expect(h.px, h.position.maxScrollExtent);
+    });
+  }
+
   for (final platform in [...bouncing, TargetPlatform.android]) {
     testWidgets('$platform: programmatic moves never leave the scroll range', (
       tester,

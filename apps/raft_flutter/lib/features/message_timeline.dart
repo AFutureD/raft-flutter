@@ -683,8 +683,15 @@ class RaftTimelinePosition extends ScrollPositionWithSingleContext {
       }
     }
     final pending = owner._pending;
+    // A user's drag, or the spring of their fling past an edge, owns the
+    // position: following an edge would pin the content there every frame
+    // while the spring keeps running (no bounce, extra layout rounds). The
+    // spring itself settles on the edge, where following resumes.
     final dragging =
-        activity is DragScrollActivity || activity is _ThumbScrollActivity;
+        activity is DragScrollActivity ||
+        activity is _ThumbScrollActivity ||
+        (activity is BallisticScrollActivity &&
+            (pixels > hi + .5 || pixels < lo - .5));
     double? target;
     if (pending != null && view != null) {
       target = switch (pending) {
