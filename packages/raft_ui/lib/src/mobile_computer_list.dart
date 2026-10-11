@@ -88,7 +88,8 @@ class RaftMobileComputerList extends StatelessWidget {
                 ),
                 child: Container(
                   color: t.panel,
-                  padding: const EdgeInsets.all(12),
+                  // `p-3` inside the border box (the dashed border adds to it).
+                  padding: EdgeInsets.all(12.0 + (t.brutal ? 2 : 1)),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

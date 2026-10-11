@@ -90,7 +90,7 @@ void main() {
           final field = find.byWidgetPredicate(
             (widget) =>
                 widget is TextField &&
-                widget.decoration?.hintText == 'Search messages',
+                widget.decoration?.hintText?.startsWith('Search channels, DMs, messages…') == true,
           );
           final count = w.navigation.entries.length,
               revision = w.navigationRevision;
@@ -170,7 +170,7 @@ void main() {
         final field = find.byWidgetPredicate(
           (widget) =>
               widget is TextField &&
-              widget.decoration?.hintText == 'Search messages',
+              widget.decoration?.hintText?.startsWith('Search channels, DMs, messages…') == true,
         );
         await tester.enterText(field, 'changed');
         await frames(tester, () {});

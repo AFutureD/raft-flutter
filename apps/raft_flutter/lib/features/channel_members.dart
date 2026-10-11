@@ -242,19 +242,32 @@ class _ChannelMembersState extends State<ChannelMembers> {
     }
   }
 
-  Future<void> remove(String kind, String id) async {
+  /// useChannelMemberRemoval: staging the target opens the destructive
+  /// ConfirmDialog; Remove runs the DELETE with the dialog open.
+  Future<void> confirmRemove(String kind, String id, String name) async {
     if (channel.archived || !w.can('removeChannelMembers', resource: channel)) {
       return;
     }
-    try {
-      await w.command(
-        'DELETE',
-        '/channels/${channel.id}/members/${kind == 'agent' ? 'agent' : 'user'}/$id',
-      );
-      await load();
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
-    }
+    await RaftConfirmDialog.show(
+      context,
+      RaftConfirmDialog(
+        title: raftText(context, 'Remove Member'),
+        message: raftFormat(
+          context,
+          '{name} will stop receiving ordinary delivery from #{channel} and cannot send messages until they rejoin. Existing followed threads are not automatically unfollowed; followed public threads can still notify them until they unfollow or manage those threads. Private content remains gated by current access.',
+          {'name': name, 'channel': channel.name},
+        ),
+        confirmLabel: raftText(context, 'Remove'),
+        loadingLabel: raftText(context, 'Removing…'),
+        onConfirm: () async {
+          await w.command(
+            'DELETE',
+            '/channels/${channel.id}/members/${kind == 'agent' ? 'agent' : 'user'}/$id',
+          );
+          await load();
+        },
+      ),
+    );
   }
 
   void close() => widget.onClose != null
@@ -282,7 +295,9 @@ class _ChannelMembersState extends State<ChannelMembers> {
           avatarContext: RaftMountedAvatarContext.compactList,
           origin: origin,
         ),
-        onRemove: canRemove ? () => remove(kind, id) : null,
+        onRemove: canRemove
+            ? () => confirmRemove(kind, id, candidate.label)
+            : null,
       );
     }
 

@@ -42,6 +42,7 @@ class RaftCreateChannelDialogView extends StatelessWidget {
     required this.onClose,
     required this.onSubmit,
     this.error,
+    this.notice,
     this.submitting = false,
   });
   final TextEditingController name, description, search;
@@ -53,6 +54,9 @@ class RaftCreateChannelDialogView extends StatelessWidget {
   final ValueChanged<String> onToggle;
   final VoidCallback onClose, onSubmit;
   final String? error;
+
+  /// Extra banner under [error] (the archived-name collision).
+  final Widget? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +72,7 @@ class RaftCreateChannelDialogView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (error != null) ...[RaftWarningBanner(error!), gap],
+            if (notice != null) ...[notice!, gap],
             RaftProductFormField(
               label: 'Name',
               required: true,
@@ -316,6 +321,108 @@ class _MemberRowState extends State<_MemberRow> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// CreateChannelDialog `archivedCollision` Banner (warning, `space-y-2`): the
+/// name is held by an archived channel; Unarchive it or pick another name.
+class RaftArchivedNameBanner extends StatelessWidget {
+  const RaftArchivedNameBanner({
+    super.key,
+    required this.name,
+    required this.canUnarchive,
+    required this.onChangeName,
+    this.onUnarchive,
+    this.busy = false,
+  });
+  final String name;
+  final bool canUnarchive, busy;
+  final VoidCallback onChangeName;
+  final VoidCallback? onUnarchive;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final bold = raftCssTextStyle(
+      family: t.headingFont,
+      step: RaftTextSteps.sm,
+      weight: FontWeight.w700,
+      color: t.strong,
+    );
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: t.colors['warning-soft'],
+          border: Border.all(
+            color: t.brutal ? t.colors['line-strong']! : t.colors['warning']!,
+            width: t.border,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: raftText(context, 'The name ')),
+                  TextSpan(
+                    text: '#$name',
+                    style: TextStyle(fontFamily: t.monoFont),
+                  ),
+                  TextSpan(
+                    text: raftText(context, ' is held by an archived channel.'),
+                  ),
+                ],
+              ),
+              style: bold,
+            ),
+            // Banner children carry no `space-y-2` gap (the Web wrapper sits
+            // between the banner and its `<p>`s).
+            Text(
+              raftText(
+                context,
+                canUnarchive
+                    ? 'Unarchive it to keep its history, or choose a different name.'
+                    : 'Pick a different name, or ask an admin to unarchive it.',
+              ),
+              style: raftCssTextStyle(
+                family: t.headingFont,
+                step: RaftTextSteps.xs,
+                color: t.brutal
+                    ? Colors.black.withValues(alpha: .7)
+                    : t.colors['foreground-muted'],
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (canUnarchive)
+                  RaftRecipeButton(
+                    label: raftText(context, busy ? 'Unarchiving…' : 'Unarchive'),
+                    variant: RaftButtonRecipeVariant.success,
+                    size: RaftButtonRecipeSize.sm,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    textStep: RaftTextSteps.xs,
+                    disabled: busy,
+                    onPressed: onUnarchive,
+                  ),
+                RaftRecipeButton(
+                  label: raftText(context, 'Change name'),
+                  variant: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  textStep: RaftTextSteps.xs,
+                  onPressed: onChangeName,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
