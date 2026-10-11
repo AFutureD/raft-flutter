@@ -183,6 +183,13 @@ no-membership) ~85.5–87.2%, `.activity` ~90.9%, `.apps` ~94.8%,
 `.reminders` ~94.7%, `.workspace` ~95.7%. Do not try to match Web's header
 geometry in these cases; compare the content below the header instead.
 
+The exemption covers height, back button and title layout only. Colours and
+the bottom edge still follow Web's `panelHeader` recipe: brutal draws
+`border-b-2 border-black`, elegant a 1px `line-muted` divider
+(`RaftMobilePageHeader.defaultBorder`). The 7f2a95b unification had drawn a
+1px `line` edge, which the blanket exemption hid until the owner spotted it on
+device (2026-10-11); `mobile_page_header_test` now pins the edge.
+
 ## One command
 
 ```bash

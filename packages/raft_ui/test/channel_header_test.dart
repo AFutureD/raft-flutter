@@ -48,8 +48,9 @@ void main() {
         expect(t.getSize(find.byType(RaftMobilePageHeader)).height, 56);
         if (family == RaftFamily.brutal) {
           expect(t.getSize(titleBox).height, 20);
-          // 56px header centring the 37px title + one-line description.
-          expect(t.getTopLeft(titleBox).dy, 9.5);
+          // 56px header less Web's 2px bottom edge, centring the 37px title
+          // + one-line description.
+          expect(t.getTopLeft(titleBox).dy, 9);
         }
         for (final label in ['Search this channel', 'Channel settings']) {
           expect(t.getSize(find.bySemanticsLabel(label)), const Size(28, 28));

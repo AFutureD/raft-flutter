@@ -30,6 +30,13 @@ class RaftMobilePageHeader extends StatelessWidget
   static const height = 56.0;
   static const actionExtent = 48.0;
 
+  /// Web panelHeader bottom edge: brutal `border-b-2 border-black`; elegant
+  /// keeps the 1px muted divider the desktop header draws.
+  static BorderSide defaultBorder(RaftTokens t) => BorderSide(
+    color: t.brutal ? Colors.black : t.colors['line-muted']!,
+    width: t.brutal ? 2 : 1,
+  );
+
   @override
   Size get preferredSize => const Size.fromHeight(height);
 
@@ -41,7 +48,7 @@ class RaftMobilePageHeader extends StatelessWidget
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: background ?? t.panel,
-        border: Border(bottom: border ?? BorderSide(color: t.line)),
+        border: Border(bottom: border ?? defaultBorder(t)),
       ),
       child: Row(
         children: [
