@@ -30,6 +30,12 @@ String raftFormat(
 
 const raftChinese = <String, String>{
   // Added with the members new-pages port (Web catalog).
+  // agent.detail.switchModelResetMessage (ICU select: without / with reasoning).
+  "Switching to {model} resets the current runtime session.": "切换到 {model} 会重置当前运行时会话。",
+  "Switching to {model} ({reasoning} reasoning) resets the current runtime session.": "切换到 {model}（{reasoning} 推理）会重置当前运行时会话。",
+  "Apply {changes} and restart this agent now?": "应用 {changes} 并立即重启此 Agent？",
+  "Value for {name}": "{name} 的值",
+  // Added with the members new-pages port (Web catalog).
   // settings.memberGraph.nodeLinks (ICU plural: one / other).
   "{count} link": "{count} 个连接",
   "{count} links": "{count} 个连接",

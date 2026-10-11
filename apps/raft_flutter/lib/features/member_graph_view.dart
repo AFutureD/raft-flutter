@@ -200,7 +200,9 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
           // PanelHeader: GitBranch 18, `bg-primary-soft theme-brutal:bg-soft-signal`
           // (Elegant `border-0 bg-fill-muted`), `Badge.Experimental` suffix.
           Container(
-            color: t.brutal ? RaftPrimitiveColors.white : t.colors['layer-canvas-muted'],
+            color: t.brutal
+                ? RaftPrimitiveColors.white
+                : t.colors['layer-canvas-muted'],
             child: RaftPanelHeaderBar(
               title: raftText(context, 'Graph'),
               onBack: narrow ? widget.onBack : null,
@@ -225,34 +227,21 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
               ),
             ),
           ),
-          // `flex-1 overflow-y-auto bg-layer-panel px-5 py-4
-          // theme-brutal:bg-white`
           Expanded(
-            child: ColoredBox(
-              color: t.brutal ? RaftPrimitiveColors.white : t.colors['layer-panel']!,
-              child: ListView(
-                key: const PageStorageKey('member-graph-scroll'),
-                padding: raftScrollPadding(
-                  context,
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: RaftMemberGraphPageBody(
+              child: RaftMemberGraphView(
+                data: data,
+                loading: loading,
+                error: error,
+                sectionLabel: widget.sectionLabel,
+                avatar: avatar,
+                onRefresh: () => unawaited(load()),
+                nodeWrapper: (context, member, node) => ProfilePreviewHoverCard(
+                  controller: w,
+                  agent: member.agent,
+                  id: member.id,
+                  child: node,
                 ),
-                children: [
-                  RaftMemberGraphView(
-                    data: data,
-                    loading: loading,
-                    error: error,
-                    sectionLabel: widget.sectionLabel,
-                    avatar: avatar,
-                    onRefresh: () => unawaited(load()),
-                    nodeWrapper: (context, member, node) =>
-                        ProfilePreviewHoverCard(
-                          controller: w,
-                          agent: member.agent,
-                          id: member.id,
-                          child: node,
-                        ),
-                  ),
-                ],
               ),
             ),
           ),

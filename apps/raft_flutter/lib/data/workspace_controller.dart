@@ -140,6 +140,8 @@ class WorkspaceController extends ChangeNotifier {
     foreground = active && source.foreground;
     syncCoreMessagesEnabled = source.syncCoreMessagesEnabled;
     remoteComputerUpgradeEnabled = source.remoteComputerUpgradeEnabled;
+    agentMigrationEnabled = source.agentMigrationEnabled;
+    runtimeFormV2WebEnabled = source.runtimeFormV2WebEnabled;
     savedRevision = source.savedRevision;
     syncCoreNotificationPrefsEnabled = source.syncCoreNotificationPrefsEnabled;
     _revokedChannels
@@ -1006,6 +1008,18 @@ class WorkspaceController extends ChangeNotifier {
   /// Computer detail may offer the one-click upgrade (fail-closed).
   static const remoteComputerUpgradeFlag = 'remote_computer_upgrade_v2';
   bool remoteComputerUpgradeEnabled = false;
+
+  /// Web `AGENT_MIGRATION_FEATURE_FLAG_KEY` (`useAgentMigrationUiEnabled`):
+  /// the "Move to another computer" action exists only while it is on.
+  static const agentMigrationFlag = 'agent_migration_v0';
+
+  /// Web `RUNTIME_FORM_V2_WEB_FLAG_KEY` (default off): the agent runtime
+  /// editor presents the protocol-v2 server form only while it is on.
+  static const runtimeFormV2WebFlag = 'runtime_form_v2_web';
+
+  /// Both fail closed and ride the same evaluation as the sync flags (no
+  /// request of their own).
+  bool agentMigrationEnabled = false, runtimeFormV2WebEnabled = false;
   int _messageFlagRequest = 0;
 
   Future<void> refreshMessageSyncFlag() async {
@@ -1023,6 +1037,8 @@ class WorkspaceController extends ChangeNotifier {
             'sync_core_messages_v0',
             notificationPrefsFlag,
             remoteComputerUpgradeFlag,
+            agentMigrationFlag,
+            runtimeFormV2WebFlag,
           ],
           'serverId': id,
           'platform': defaultTargetPlatform == TargetPlatform.android
@@ -1060,12 +1076,29 @@ class WorkspaceController extends ChangeNotifier {
             (f) =>
                 f['key'] == remoteComputerUpgradeFlag && f['enabled'] == true,
           );
+      bool evaluated(String key) =>
+          result is Map &&
+          (result['evaluations'] as List? ?? []).whereType<Map>().any(
+            (f) => f['key'] == key && f['enabled'] == true,
+          );
+      final migration = evaluated(agentMigrationFlag);
+      final runtimeV2 = evaluated(runtimeFormV2WebFlag);
+      final flagsChanged =
+          migration != agentMigrationEnabled ||
+          runtimeV2 != runtimeFormV2WebEnabled;
+      agentMigrationEnabled = migration;
+      runtimeFormV2WebEnabled = runtimeV2;
+      if (flagsChanged) notifyListeners();
     } catch (_) {
       if (!_disposed &&
           request == _messageFlagRequest &&
           identity == _syncIdentity()) {
         syncCoreNotificationPrefsEnabled = false;
         notificationPrefsSync.reset();
+        if (agentMigrationEnabled || runtimeFormV2WebEnabled) {
+          agentMigrationEnabled = runtimeFormV2WebEnabled = false;
+          notifyListeners();
+        }
       }
       // Unknown capability never authorizes the gated preference path.
     }

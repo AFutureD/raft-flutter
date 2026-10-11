@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'components.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
+import 'indicators.dart' show RaftCheckbox, RaftCheckboxRecipeSize;
 import 'localization.dart';
 import 'recipe_surface.dart';
 import 'panel_layout.dart' show RaftCssText;
@@ -79,7 +80,13 @@ class RaftAgentDialogCard extends StatelessWidget {
     this.onClose,
     this.maxWidth = 448, // max-w-md = 28rem
     this.surfaceKey,
+    this.bare = false,
   });
+
+  /// Only the card, for a host that already provides the `Modal` frame
+  /// (backdrop, `p-4` padding, centring and scrolling): see
+  /// [RaftModalBackdrop].
+  final bool bare;
 
   /// Key of the card surface itself (`dialog-content`).
   final Key? surfaceKey;
@@ -92,12 +99,12 @@ class RaftAgentDialogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final tokens = RaftRecipeTokens(t);
-    final card = RaftCardRecipe.resolve(
+    final card_ = RaftCardRecipe.resolve(
       theme: _theme(t),
       states: _states(t),
       tokens: tokens,
     );
-    final base = card.root
+    final base = card_.root
         .text(
           tokens,
           base: TextStyle(
@@ -112,13 +119,55 @@ class RaftAgentDialogCard extends StatelessWidget {
           // CSS line boxes: half the leading above, half below.
           leadingDistribution: TextLeadingDistribution.even,
         );
-    final titleStyle = card.title
+    final titleStyle = card_.title
         .textStyle(tokens)
         .copyWith(
           fontSize: 18, // text-lg: 1.125rem / 1.75rem
           height: 28 / 18,
           fontWeight: FontWeight.w700, // font-bold
         );
+    final card = Material(
+      type: MaterialType.transparency,
+      child: RaftRecipeBox(
+        key: surfaceKey,
+        style: card_.root.withCssUsedBorderWidths(),
+        tokens: tokens,
+        applyText: false,
+        width: double.infinity,
+        padding: const EdgeInsets.all(6 * _tw), // p-6
+        child: DefaultTextStyle(
+          style: base,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: Text(
+                        raftText(context, title).toUpperCase(),
+                        style: titleStyle,
+                      ),
+                    ),
+                  ),
+                  if (onClose != null) RaftAgentCloseButton(onPressed: onClose),
+                ],
+              ),
+              const SizedBox(height: 4 * _tw), // mb-4
+              ...children,
+            ],
+          ),
+        ),
+      ),
+    );
+    if (bare) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: card,
+      );
+    }
     return LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
         padding: const EdgeInsets.all(4 * _tw), // Modal inner `p-4`
@@ -129,43 +178,7 @@ class RaftAgentDialogCard extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Material(
-                type: MaterialType.transparency,
-                child: RaftRecipeBox(
-                  key: surfaceKey,
-                  style: card.root.withCssUsedBorderWidths(),
-                  tokens: tokens,
-                  applyText: false,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(6 * _tw), // p-6
-                  child: DefaultTextStyle(
-                    style: base,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Semantics(
-                                header: true,
-                                child: Text(
-                                  raftText(context, title).toUpperCase(),
-                                  style: titleStyle,
-                                ),
-                              ),
-                            ),
-                            if (onClose != null)
-                              RaftAgentCloseButton(onPressed: onClose),
-                          ],
-                        ),
-                        const SizedBox(height: 4 * _tw), // mb-4
-                        ...children,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              child: card,
             ),
           ),
         ),
@@ -454,8 +467,12 @@ class _RaftAgentTextInputState extends State<RaftAgentTextInput> {
             : raftText(context, widget.placeholder!),
         hintStyle: style.copyWith(color: placeholderColor),
       ),
-      buildCounter:
-          (_, {required currentLength, required isFocused, maxLength}) => null,
+      buildCounter: (
+        _, {
+        required currentLength,
+        required isFocused,
+        maxLength,
+      }) => null,
     );
     return Semantics(
       label: widget.semanticLabel,
@@ -539,7 +556,12 @@ class RaftAgentSelect<T> extends StatefulWidget {
     this.placeholder = 'Select...',
     this.invalid = false,
     this.semanticLabel,
+    this.unmatchedLabel,
   });
+
+  /// Shown for a [value] that no option carries (Base UI renders the raw
+  /// value when its `items` do not include it); the placeholder otherwise.
+  final String? unmatchedLabel;
   final T? value;
   final List<RaftAgentSelectOption<T>> options;
   final ValueChanged<T>? onChanged;
@@ -603,7 +625,9 @@ class _RaftAgentSelectState<T> extends State<RaftAgentSelect<T>> {
         children: [
           Expanded(
             child: RaftCssText(
-              selected?.label ?? raftText(context, widget.placeholder),
+              selected?.label ??
+                  (widget.value != null ? widget.unmatchedLabel : null) ??
+                  raftText(context, widget.placeholder),
               style: style,
               maxLines: 1,
               softWrap: false,
@@ -1005,8 +1029,16 @@ class RaftAgentDialogButton extends StatelessWidget {
     this.busy = false,
     this.expand = false,
     this.foreground,
+    this.size = RaftButtonRecipeSize.lg,
+    this.accent = true,
   });
   final String label;
+
+  /// `size="md"` for the runtime config editor, `lg` for the create dialogs.
+  final RaftButtonRecipeSize size;
+
+  /// The primary action uses the `accent` variant (false: `primary`).
+  final bool accent;
 
   /// Explicit caller color; null keeps the shared button default.
   final Color? foreground;
@@ -1021,9 +1053,11 @@ class RaftAgentDialogButton extends StatelessWidget {
       foreground: foreground,
       busy: busy,
       tone: primary
-          ? RaftButtonRecipeVariant.accent
+          ? (accent
+                ? RaftButtonRecipeVariant.accent
+                : RaftButtonRecipeVariant.primary)
           : RaftButtonRecipeVariant.outline,
-      size: RaftButtonRecipeSize.lg,
+      size: size,
       expand: expand,
       onPressed: onPressed,
     );
@@ -1039,3 +1073,231 @@ const double raftAgentChipGap = 2 * _tw;
 
 /// `mt-4` between a notice and its footer (needs-computer card).
 const double raftAgentSectionGap = 4 * _tw;
+
+/// Web `<Card variant="option" render={<label />}>` holding a Checkbox leading
+/// slot, a `CardTitle` and an optional `CardDescription`
+/// (RuntimeConfigFields Fast mode / Load local Pi extensions).
+class RaftAgentOptionCard extends StatelessWidget {
+  const RaftAgentOptionCard({
+    super.key,
+    required this.checked,
+    required this.title,
+    required this.onChanged,
+    this.description,
+  });
+  final bool checked;
+  final String title;
+  final String? description;
+  final ValueChanged<bool>? onChanged;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final tokens = RaftRecipeTokens(t);
+    final card = RaftCardRecipe.resolve(
+      theme: _theme(t),
+      variant: RaftCardRecipeVariant.option,
+      states: _states(t),
+      tokens: tokens,
+    );
+    final gap = card.header.columnGap ?? 12;
+    final rowGap = card.header.rowGap ?? 0;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onChanged == null ? null : () => onChanged!(!checked),
+      child: RaftRecipeBox(
+        style: card.root.withCssUsedBorderWidths(),
+        tokens: tokens,
+        applyText: false,
+        width: double.infinity,
+        padding: card.header.padding,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RaftCheckbox(
+              value: checked,
+              size: RaftCheckboxRecipeSize.md,
+              onChanged: onChanged,
+              semanticLabel: raftText(context, title),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RaftCssText(
+                    raftText(context, title),
+                    style: card.title
+                        .textStyle(tokens)
+                        .copyWith(
+                          leadingDistribution: TextLeadingDistribution.even,
+                        ),
+                  ),
+                  if (description != null) ...[
+                    SizedBox(height: rowGap),
+                    RaftCssText(
+                      raftText(context, description!),
+                      style: card.description
+                          .textStyle(tokens)
+                          .copyWith(
+                            leadingDistribution: TextLeadingDistribution.even,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Web `KeyValueInputRow` list + `KeyValueAddButton`: name input, `=`, value
+/// input and a danger icon button per row, then a ghost "Add Variable" button.
+class RaftAgentKeyValueRows extends StatefulWidget {
+  const RaftAgentKeyValueRows({
+    super.key,
+    required this.entries,
+    required this.onChanged,
+    this.enabled = true,
+    this.hint,
+  });
+
+  /// `mb-2 -mt-1 text-xs text-foreground-muted` line above the rows.
+  final String? hint;
+
+  /// The rows when mounted; later edits are reported through [onChanged] and
+  /// owned by this widget's text controllers.
+  final List<MapEntry<String, String>> entries;
+  final ValueChanged<List<MapEntry<String, String>>> onChanged;
+  final bool enabled;
+  @override
+  State<RaftAgentKeyValueRows> createState() => _RaftAgentKeyValueRowsState();
+}
+
+class _RaftAgentKeyValueRowsState extends State<RaftAgentKeyValueRows> {
+  final keys = <TextEditingController>[], values = <TextEditingController>[];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final e in widget.entries) {
+      keys.add(TextEditingController(text: e.key));
+      values.add(TextEditingController(text: e.value));
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in [...keys, ...values]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void report() => widget.onChanged([
+    for (var i = 0; i < keys.length; i++)
+      MapEntry(keys[i].text, values[i].text),
+  ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    String tr(String s) => raftText(context, s);
+    final rows = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 2 * _tw, // space-y-2
+      children: [
+        for (var i = 0; i < keys.length; i++)
+          Row(
+            key: ValueKey('env-row-${keys[i].hashCode}'),
+            spacing: 2 * _tw, // gap-2
+            children: [
+              Expanded(
+                flex: 1,
+                child: RaftAgentTextInput(
+                  key: ValueKey('env-key-$i'),
+                  controller: keys[i],
+                  semanticLabel: tr('Environment variable name'),
+                  placeholder: tr('KEY'),
+                  enabled: widget.enabled,
+                  onChanged: (_) => report(),
+                ),
+              ),
+              RaftCssText(
+                '=',
+                style: TextStyle(color: t.colors['foreground-muted']),
+              ),
+              Expanded(
+                flex: 2,
+                child: RaftAgentTextInput(
+                  key: ValueKey('env-value-$i'),
+                  controller: values[i],
+                  semanticLabel: raftFormat(context, 'Value for {name}', {
+                    'name': keys[i].text.isEmpty
+                        ? tr('environment variable')
+                        : keys[i].text,
+                  }),
+                  placeholder: tr('value'),
+                  enabled: widget.enabled,
+                  onChanged: (_) => report(),
+                ),
+              ),
+              RaftIconButton(
+                key: ValueKey('env-remove-$i'),
+                glyph: RaftGlyph.trash2,
+                tooltip: tr('Remove environment variable'),
+                visualSize: 24,
+                minimumTargetSize: 24,
+                glyphSize: 14,
+                variant: RaftControlVariant.danger,
+                onPressed: widget.enabled
+                    ? () {
+                        setState(() {
+                          keys.removeAt(i).dispose();
+                          values.removeAt(i).dispose();
+                        });
+                        report();
+                      }
+                    : null,
+              ),
+            ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: RaftButton(
+            key: const ValueKey('env-add'),
+            label: tr('Add Variable'),
+            glyph: RaftGlyph.plus,
+            tone: RaftButtonRecipeVariant.ghost,
+            size: RaftButtonRecipeSize.sm,
+            onPressed: widget.enabled
+                ? () {
+                    setState(() {
+                      keys.add(TextEditingController());
+                      values.add(TextEditingController());
+                    });
+                    report();
+                  }
+                : null,
+          ),
+        ),
+      ],
+    );
+    if (widget.hint == null) return rows;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 2 * _tw),
+          child: RaftCssText(
+            raftText(context, widget.hint!),
+            style: TextStyle(fontSize: 12, height: 16 / 12, color: t.muted),
+          ),
+        ),
+        rows,
+      ],
+    );
+  }
+}

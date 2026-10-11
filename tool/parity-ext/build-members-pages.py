@@ -223,7 +223,7 @@ for platform in ('desktop', 'phone'):
     # ---- 7.17 runtime config editor
     agent_main(platform, 'agent.runtime-edit', 'Agent profile: runtime config editor open',
                interactions=[click('button[aria-label="Edit runtime config"]')],
-               android_interactions=[tap('agent-edit-runtime')])
+               android_interactions=[tap_here('agent-edit-runtime')])
 
     # ---- 7.18 stop / delete confirmations and the overflow menu
     if phone:

@@ -18,7 +18,7 @@
   "widget.app_bar": 1,
   "widget.button": 36,
   "widget.chip": 4,
-  "widget.dialog": 42,
+  "widget.dialog": 41,
   "widget.icon_button": 10,
   "widget.ink": 1,
   "widget.list_tile": 25,
@@ -177,7 +177,7 @@
    "style.sized_box": 1,
    "style.text_style": 1,
    "widget.button": 2,
-   "widget.dialog": 2,
+   "widget.dialog": 1,
    "widget.icon_button": 1,
    "widget.progress": 1
   },

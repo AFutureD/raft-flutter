@@ -23,6 +23,8 @@ import 'localization.dart';
 import 'member_graph_layout.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'recipes/button_variants.g.dart';
+import 'system_inset.dart' show raftScrollPadding;
+import 'tokens/tokens.dart' show RaftPrimitiveColors;
 import 'theme.dart';
 
 export 'member_graph_layout.dart'
@@ -55,6 +57,28 @@ typedef RaftGraphAvatarBuilder = Widget Function(
   RaftGraphMember member, {
   required bool compact,
 });
+
+/// `flex-1 overflow-y-auto bg-layer-panel px-5 py-4 theme-brutal:bg-white`
+/// around the section (MainLayout `MemberGraphRoute`).
+class RaftMemberGraphPageBody extends StatelessWidget {
+  const RaftMemberGraphPageBody({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return ColoredBox(
+      color: t.brutal ? RaftPrimitiveColors.white : t.colors['layer-panel']!,
+      child: ListView(
+        key: const PageStorageKey('member-graph-scroll'),
+        padding: raftScrollPadding(
+          context,
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        ),
+        children: [child],
+      ),
+    );
+  }
+}
 
 /// The whole member graph body of `MemberGraphSection`.
 class RaftMemberGraphView extends StatelessWidget {
