@@ -340,6 +340,7 @@ void main() {
       a.routes['GET /channels/inbox'] = (_) => {
         'items': <dynamic>[],
         'hasMore': false,
+        'totalUnreadCount': 1,
       };
       _role(w, 'owner');
       await tester.pumpWidget(_host(w, 'activity'));

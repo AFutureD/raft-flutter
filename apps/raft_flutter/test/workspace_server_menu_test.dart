@@ -190,14 +190,20 @@ void main() {
         await t.tap(find.text('Invite human'));
         await t.pumpAndSettle();
         expect(find.byKey(const Key('server-switcher-menu')), findsNothing);
-        expect(find.byType(RaftFormDialog), findsOneWidget);
-        await t.enterText(find.byType(TextFormField), ' invalid@.email ');
-        await t.tap(find.text('Send invitations'));
+        expect(find.byKey(const ValueKey('invite-dialog')), findsOneWidget);
+        await t.enterText(
+          find.byKey(const ValueKey('invite-email-0')),
+          ' invalid@.email ',
+        );
+        await t.tap(find.text('Send invites'));
         await frames(t, () {});
         expect(posted, isEmpty);
         expect(find.text('Enter a valid email address'), findsOneWidget);
-        await t.enterText(find.byType(TextFormField), ' person@example.com ');
-        await t.tap(find.text('Send invitations'));
+        await t.enterText(
+          find.byKey(const ValueKey('invite-email-0')),
+          ' person@example.com ',
+        );
+        await t.tap(find.text('Send invites'));
         await frames(t, () {});
         await t.pumpAndSettle();
         expect(posted, [

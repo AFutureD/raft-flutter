@@ -235,7 +235,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
               children: [
                 Expanded(
                   child: RaftDialogTextInput(
-                    fieldKey: ValueKey('invite-email-${invitee.id}'),
+                    fieldKey: ValueKey('invite-email-$index'),
                     controller: controllerFor(invitee)
                       ..addListener(
                         () => invitee.email = controllerFor(invitee).text,

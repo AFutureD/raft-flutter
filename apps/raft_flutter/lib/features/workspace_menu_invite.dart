@@ -44,7 +44,6 @@ Future<bool> showWorkspaceMenuInvite(
 
 class _InviteDialog extends StatefulWidget {
   const _InviteDialog({
-    super.key,
     required this.workspace,
     required this.serverId,
     required this.current,

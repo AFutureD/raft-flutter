@@ -92,19 +92,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
         subtitle: subtitle,
         leftPadding: leftInset,
         bottomRule: bottomRule,
-        iconSlot: icon == null
-            ? null
-            : Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: t.colors['fill-muted'],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: IconTheme.merge(
-                  data: IconThemeData(size: 18, color: t.colors['foreground-icon']),
-                  child: icon!,
-                ),
-              ),
+        iconSlot: icon == null ? null : RaftPanelHeaderMutedTile(icon: icon!),
         actions: actions,
       );
     }

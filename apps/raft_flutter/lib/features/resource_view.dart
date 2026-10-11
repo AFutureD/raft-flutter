@@ -315,6 +315,9 @@ class _ResourceViewState extends State<ResourceView> {
   final activityFollowState = ActivityFollowState();
   final activityDoneState = ActivityDoneState();
   bool loading = true;
+
+  /// The failure came from the blocking first read (no list on screen yet).
+  bool errorWhileLoading = false;
   String? error;
   String filter = 'all';
   ResourceFilters advanced = ResourceFilters();
@@ -924,6 +927,7 @@ class _ResourceViewState extends State<ResourceView> {
       }
     }
     setState(() {
+      errorWhileLoading = loading;
       error = '$cause';
       loading = false;
     });
@@ -2333,10 +2337,11 @@ class _ResourceViewState extends State<ResourceView> {
         if (['saved', 'activity'].contains(widget.section) && extraFilters)
           advancedFilters(),
         if (widget.section == 'tasks') taskFilters(),
-        // Web Inbox and Saved render no error line: a failed read leaves the
-        // (empty) list as is.
+        // Web Inbox and Saved render no error line when the first read fails:
+        // the (empty) list stays as is.
         if (error != null &&
-            !(rows.isEmpty &&
+            !(errorWhileLoading &&
+                rows.isEmpty &&
                 (widget.section == 'activity' || widget.section == 'saved')))
           Padding(
             padding: const EdgeInsets.all(16),

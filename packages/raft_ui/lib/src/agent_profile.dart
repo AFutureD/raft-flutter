@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'avatar_content.dart';
 import 'components.dart' show RaftButton;
 import 'icons.dart';
+import 'inline_badge_editor.dart';
 import 'localization.dart';
 import 'panel_layout.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
@@ -2250,4 +2251,109 @@ class _ProfileAvatarActionState extends State<_ProfileAvatarAction> {
       ),
     ),
   );
+}
+
+/// Elegant desktop PanelHeader icon tile: 36px `fill-muted` square, `rounded-md`,
+/// 18px `foreground-icon` glyph.
+class RaftPanelHeaderMutedTile extends StatelessWidget {
+  const RaftPanelHeaderMutedTile({super.key, required this.icon});
+  final Widget icon;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Container(
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: t.colors['fill-muted'],
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: IconTheme.merge(
+        data: IconThemeData(size: 18, color: t.colors['foreground-icon']),
+        child: icon,
+      ),
+    );
+  }
+}
+
+/// HumanDetailPanel InlineBadgeEditor + Save / Cancel (`space-y-1.5`, buttons
+/// `gap-1.5`) and the error line under them.
+class RaftInlineRoleEditor extends StatelessWidget {
+  const RaftInlineRoleEditor({
+    super.key,
+    required this.label,
+    required this.selectedId,
+    required this.options,
+    required this.onSelect,
+    required this.open,
+    required this.onOpenChanged,
+    required this.background,
+    required this.foreground,
+    required this.saveLabel,
+    required this.cancelLabel,
+    required this.canSave,
+    required this.canCancel,
+    required this.onSave,
+    required this.onCancel,
+    this.error,
+    this.saveKey,
+  });
+  final String label, selectedId, saveLabel, cancelLabel;
+  final List<RaftInlineBadgeOption> options;
+  final ValueChanged<String> onSelect;
+  final bool open, canSave, canCancel;
+  final ValueChanged<bool> onOpenChanged;
+  final Color background, foreground;
+  final VoidCallback onSave, onCancel;
+  final String? error;
+  final Key? saveKey;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // The editor badge sits in an `inline-block` line box (1px lower).
+        const SizedBox(height: 1),
+        RaftInlineBadgeEditor(
+          label: label,
+          selectedId: selectedId,
+          options: options,
+          onSelect: onSelect,
+          open: open,
+          onOpenChanged: onOpenChanged,
+          background: background,
+          foreground: foreground,
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            RaftRecipeTextButton(
+              key: saveKey,
+              label: saveLabel,
+              variant: RaftButtonRecipeVariant.accent,
+              horizontalPadding: 8,
+              onPressed: canSave ? onSave : null,
+            ),
+            const SizedBox(width: 6),
+            RaftRecipeTextButton(
+              label: cancelLabel,
+              horizontalPadding: 8,
+              onPressed: canCancel ? onCancel : null,
+            ),
+          ],
+        ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              error!,
+              style: RaftPanelText.caption(t).copyWith(
+                color: t.product.brutalOrange,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

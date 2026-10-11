@@ -10,26 +10,26 @@
   "style.font_size": 1,
   "style.font_weight": 5,
   "style.material_colors": 27,
-  "style.material_icons": 19,
-  "style.material_theme": 30,
+  "style.material_icons": 18,
+  "style.material_theme": 28,
   "style.sized_box": 64,
   "style.text_metrics": 1,
-  "style.text_style": 12,
+  "style.text_style": 11,
   "widget.app_bar": 1,
   "widget.button": 36,
   "widget.chip": 6,
   "widget.dialog": 42,
   "widget.icon_button": 11,
   "widget.ink": 1,
-  "widget.list_tile": 28,
+  "widget.list_tile": 26,
   "widget.menu": 15,
   "widget.navigation": 1,
-  "widget.other": 14,
+  "widget.other": 13,
   "widget.progress": 16,
   "widget.scaffold": 8,
   "widget.select": 4,
-  "widget.snackbar": 28,
-  "widget.surface": 5,
+  "widget.snackbar": 26,
+  "widget.surface": 4,
   "widget.text_field": 23
  },
  "files": {
@@ -151,7 +151,7 @@
    "widget.other": 1,
    "widget.progress": 2,
    "widget.scaffold": 1,
-   "widget.snackbar": 4
+   "widget.snackbar": 2
   },
   "apps/raft_flutter/lib/features/forward_messages_dialog.dart": {
    "style.dimension": 1,
@@ -203,15 +203,10 @@
   },
   "apps/raft_flutter/lib/features/mcp_views.dart": {
    "style.edge_insets": 1,
-   "style.material_icons": 1,
-   "style.material_theme": 2,
    "style.sized_box": 1,
-   "style.text_style": 1,
    "widget.button": 1,
    "widget.dialog": 1,
-   "widget.list_tile": 3,
-   "widget.other": 1,
-   "widget.surface": 1
+   "widget.list_tile": 1
   },
   "apps/raft_flutter/lib/features/message_action_card.dart": {
    "widget.dialog": 1,

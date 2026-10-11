@@ -215,72 +215,43 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
     }
   }
 
-  /// InlineBadgeEditor + Save / Cancel (`space-y-1.5`, buttons `gap-1.5`).
+  /// InlineBadgeEditor + Save / Cancel.
   Widget _roleEditor(BuildContext context, RaftTokens t, List<String> roles) {
-    String name(String r) => raftText(context, '${r[0].toUpperCase()}${r.substring(1)}');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // The editor badge sits in an `inline-block` line box (1px lower).
-        const SizedBox(height: 1),
-        RaftInlineBadgeEditor(
-          label: name(roleValue),
-          selectedId: roleValue,
-          options: [for (final r in roles) RaftInlineBadgeOption(id: r, label: name(r))],
-          onSelect: (id) => setState(() {
-            roleValue = id;
-            rolePickerOpen = false;
-          }),
-          open: rolePickerOpen,
-          onOpenChanged: (open) => setState(() => rolePickerOpen = open),
-          background: roleColor(t, roleValue),
-          foreground: roleInk(t, roleValue),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            RaftRecipeTextButton(
-              key: const ValueKey('member-edit-role-save'),
-              label: raftText(context, 'Save'),
-              variant: RaftButtonRecipeVariant.accent,
-              horizontalPadding: 8,
-              onPressed: roleSaving || roleValue == profile['role']
-                  ? null
-                  : saveRole,
-            ),
-            const SizedBox(width: 6),
-            RaftRecipeTextButton(
-              label: raftText(context, 'Cancel'),
-              horizontalPadding: 8,
-              onPressed: roleSaving
-                  ? null
-                  : () => setState(() {
-                      rolePickerOpen = false;
-                      roleError = null;
-                      editingRole = false;
-                    }),
-            ),
-          ],
-        ),
-        if (roleError != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              roleError!,
-              style: RaftPanelText.caption(t).copyWith(
-                color: t.product.brutalOrange,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
+    String name(String r) =>
+        raftText(context, '${r[0].toUpperCase()}${r.substring(1)}');
+    return RaftInlineRoleEditor(
+      saveKey: const ValueKey('member-edit-role-save'),
+      label: name(roleValue),
+      selectedId: roleValue,
+      options: [
+        for (final r in roles) RaftInlineBadgeOption(id: r, label: name(r)),
       ],
+      onSelect: (id) => setState(() {
+        roleValue = id;
+        rolePickerOpen = false;
+      }),
+      open: rolePickerOpen,
+      onOpenChanged: (open) => setState(() => rolePickerOpen = open),
+      background: roleColor(t, roleValue),
+      foreground: roleInk(t, roleValue),
+      saveLabel: raftText(context, 'Save'),
+      cancelLabel: raftText(context, 'Cancel'),
+      canSave: !roleSaving && roleValue != profile['role'],
+      canCancel: !roleSaving,
+      onSave: saveRole,
+      onCancel: () => setState(() {
+        rolePickerOpen = false;
+        roleError = null;
+        editingRole = false;
+      }),
+      error: roleError,
     );
   }
 
   /// HumanDetailPanel.tsx ROLE_CONFIG brutal backgrounds (`theme-brutal:bg-*`)
   /// and elegant soft tokens.
   Color roleInk(RaftTokens t, String role) => t.brutal
-      ? Colors.black
+      ? t.product.brutalBlack
       : switch (role) {
           'owner' => t.colors['warning-strong']!,
           'admin' => t.colors['accent-strong']!,
@@ -352,7 +323,8 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
                   w.server?.string('role') != 'guest' &&
                   profile['role'] != 'guest')
                 RaftPanelIconButton(
-                  icon: (size, color) => RaftDirectMessageIcon(size: size, color: color),
+                  icon: (size, color) =>
+                      RaftDirectMessageIcon(size: size, color: color),
                   tooltip: raftText(context, 'Message'),
                   onPressed: busy
                       ? null
@@ -398,8 +370,9 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
         .toList();
     final joinedRaw = profile['joinedAt'];
     final joined = joinedRaw is String && DateTime.tryParse(joinedRaw) != null
-        ? DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
-              .format(DateTime.parse(joinedRaw).toLocal())
+        ? DateFormat.yMMMd(
+            Localizations.localeOf(context).toLanguageTag(),
+          ).format(DateTime.parse(joinedRaw).toLocal())
         : null;
     final roles = w.can('changeMemberRoles')
         ? editableRoles(self: self)
@@ -506,9 +479,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
               bold: true,
               expand: true,
               horizontalPadding: 16,
-              onPressed: busy
-                  ? null
-                  : remove,
+              onPressed: busy ? null : remove,
             ),
           ],
         ),
