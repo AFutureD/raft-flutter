@@ -2299,8 +2299,7 @@ class _RaftChatViewState extends State<RaftChatView>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         body,
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
+        RaftQuotedMessageSlot(
           child: QuotedMessagePermalinkPreview(
             key: ValueKey('quoted-${m.id}-${quoted.rawUrl}'),
             controller: w,
