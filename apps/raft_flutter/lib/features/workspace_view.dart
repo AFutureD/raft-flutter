@@ -116,6 +116,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   /// section (per workspace session here; Web persists it per server).
   bool joinedChannelsOnly = false;
 
+  // The most recently admitted Settings page survives a conversation visit.
+  // Other destinations retire it; workspace authority retires both panes.
+  Widget? retainedSettingsContent;
+
   /// Sidebar.tsx `menuOpen`: the row whose context menu is open (`c:<id>` /
   /// `a:<id>`) keeps its muted fill.
   String? menuOpenRow;
@@ -870,6 +874,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
       lastChannelId = w.channel?.id;
       lastChannelAuthority = currentChannelAuthority;
       final authority = jsonEncode([
+        identityHashCode(w),
+        w.client.origin,
         w.client.generation,
         w.client.user?.id,
         w.server?.id,
@@ -883,6 +889,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
             kind: RaftNavigationKind.replace,
           );
         }
+        retainedSettingsContent = null;
         lastAuthority = authority;
         final navigator = Navigator.of(context);
         for (final observer
@@ -1244,6 +1251,9 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           !unresolvedChannelRoute;
       if (w.server != null) {
         final currentContent = content;
+        if (!showingConversation) {
+          retainedSettingsContent = route == 'settings' ? currentContent : null;
+        }
         // Keep one admitted conversation, not an unbounded cache of routes.
         // The pager removes hidden content from layout, focus and semantics;
         // authority changes discard its retained elements together.
@@ -1258,7 +1268,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     ? currentContent
                     : conversation()
               : showingConversation
-              ? const SizedBox.expand()
+              ? retainedSettingsContent ?? const SizedBox.expand()
               : currentContent,
         );
       }

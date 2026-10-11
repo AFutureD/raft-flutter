@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/raft_navigation_history.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_flutter/features/workspace_settings.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/desktop_directory_view.dart';
@@ -185,6 +186,7 @@ void main() {
         await t.pump();
         w.setSection('settings');
         await t.pumpAndSettle();
+        final settings = t.state(find.byType(WorkspaceSettings));
         expect(find.byType(RaftChatView), findsNothing);
         expect(find.bySemanticsLabel('Public fixture'), findsNothing);
         expect(editor.focusNode!.hasFocus, isFalse);
@@ -204,15 +206,33 @@ void main() {
         await t.pumpAndSettle();
         expect(t.state(find.byType(RaftComposer)), same(composer));
         expect(t.state(find.byType(RaftChatView)), same(chat));
+        expect(find.byType(WorkspaceSettings), findsNothing);
+        expect(
+          t.state(find.byType(WorkspaceSettings, skipOffstage: false)),
+          same(settings),
+        );
         expect(editor.controller!.text, 'retained draft');
         expect(editor.controller!.selection.baseOffset, 4);
         w.setSection('settings');
         await t.pumpAndSettle();
+        expect(t.state(find.byType(WorkspaceSettings)), same(settings));
+        w.setSection('members');
+        await t.pumpAndSettle();
+        expect(
+          find.byType(WorkspaceSettings, skipOffstage: false),
+          findsNothing,
+        );
+        expect(settings.mounted, isFalse);
+        w.setSection('settings');
+        await t.pumpAndSettle();
+        final replacementSettings = t.state(find.byType(WorkspaceSettings));
         w.server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'guest'});
         w.notifyListeners();
         await t.pumpAndSettle();
         expect(find.byType(RaftChatView, skipOffstage: false), findsNothing);
         expect(chat.mounted, isFalse);
+        expect(settings.mounted, isFalse);
+        expect(replacementSettings.mounted, isFalse);
         expect(t.takeException(), isNull);
         await t.pumpWidget(const SizedBox());
         semantics.dispose();
