@@ -105,7 +105,9 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
 
   void showNavigation() {
     if (!mounted) return;
-    setState(() => mobileNavigation = true);
+    if (widget.onMobileLocationChanged == null) {
+      setState(() => mobileNavigation = true);
+    }
     widget.onMobileDetailChanged?.call(false);
     widget.onMobileLocationChanged?.call(null);
   }
@@ -129,10 +131,12 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
         return;
       }
       if (!mounted) return;
-      setState(() {
-        selected = destination.id;
-        mobileNavigation = false;
-      });
+      if (!mobile || widget.onMobileLocationChanged == null) {
+        setState(() {
+          selected = destination.id;
+          mobileNavigation = false;
+        });
+      }
       if (mobile) widget.onMobileDetailChanged?.call(true);
       widget.onMobileLocationChanged?.call(destination.id);
     }
