@@ -56,18 +56,20 @@ class PartitionTests(unittest.TestCase):
 
 class ParallelismTests(unittest.TestCase):
     def test_default_scales_with_cpus_and_load(self):
-        self.assertEqual(check.plan_parallelism(16, 0.0, {}), (5, 3))
-        self.assertEqual(check.plan_parallelism(16, 10.0, {}), (2, 3))
-        self.assertEqual(check.plan_parallelism(2, 8.0, {}), (1, 2))
-        self.assertLessEqual(check.plan_parallelism(128, 0.0, {})[0], 8)
+        self.assertEqual(check.plan_parallelism(16, 0.0, {}, 'linux'), (5, 3))
+        self.assertEqual(check.plan_parallelism(16, 0.0, {}, 'darwin'), (1, 8))
+        self.assertEqual(check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': '2'}, 'darwin'), (2, 4))
+        self.assertEqual(check.plan_parallelism(16, 10.0, {}, 'linux'), (2, 3))
+        self.assertEqual(check.plan_parallelism(2, 8.0, {}, 'linux'), (1, 2))
+        self.assertLessEqual(check.plan_parallelism(128, 0.0, {}, 'linux')[0], 8)
 
     def test_environment_overrides(self):
-        self.assertEqual(check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': '3', 'RAFT_CHECK_JOBS': '1'}), (3, 1))
+        self.assertEqual(check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': '3', 'RAFT_CHECK_JOBS': '1'}, 'linux'), (3, 1))
 
     def test_rejects_invalid_override(self):
         for bad in ('0', 'x', '-1'):
             with self.assertRaises(SystemExit):
-                check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': bad})
+                check.plan_parallelism(16, 0.0, {'RAFT_CHECK_SHARDS': bad}, 'linux')
 
 
 class EventTests(unittest.TestCase):

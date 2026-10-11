@@ -111,6 +111,9 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
   return '$failed$separator$current';
 }
 
+/// Why a jump target's message context could not be shown.
+enum MessageContextLoadError { notFound, beyondHistory }
+
 class WorkspaceController extends ChangeNotifier {
   void synchronizePagePresentation(
     WorkspaceController source, {
@@ -181,6 +184,7 @@ class WorkspaceController extends ChangeNotifier {
     hasNewer = source.hasNewer;
     historyLimited = source.historyLimited;
     highlightedMessageId = source.highlightedMessageId;
+    contextLoadError = source.contextLoadError;
     channelLoading = source.channelLoading;
     loadingOlder = source.loadingOlder;
     loading = source.loading;
@@ -2182,6 +2186,12 @@ class WorkspaceController extends ChangeNotifier {
       hasMore = false;
   bool connected = false;
   String? error;
+
+  /// Source messageStore `contextLoadError` for the open channel: the jump
+  /// target's context failed to load and the latest window replaced it.
+  /// `notFound` -> ChatPanel's "Message not found" banner; `beyondHistory` ->
+  /// the plan history-limit banner. Cleared by the next channel open or jump.
+  MessageContextLoadError? contextLoadError;
   final navigation = WorkspaceNavigation();
   String _unboundSection = 'chat';
   String? _navigationAuthority;
@@ -3855,6 +3865,9 @@ class WorkspaceController extends ChangeNotifier {
         preserveThread &&
         threadIdentity?.parentChannelId == next.id &&
         location.thread?.channelId == next.id;
+    if (!retainContextUntilAccepted && channel?.id != next.id) {
+      contextLoadError = null;
+    }
     channel = next;
     hasNewer = false;
     if (!retainThread) highlightedMessageId = null;
@@ -4756,8 +4769,9 @@ class WorkspaceController extends ChangeNotifier {
         }
         // A cached window stays readable when its revalidation fails.
         if (current() && cached == null) {
+          // ThreadPanel's in-panel "Couldn't load this thread" + Retry; Web raises
+          // no workspace-level error for it.
           _threadResolutionError = '$e';
-          error = '$e';
         }
       } finally {
         if (current()) {
@@ -4886,6 +4900,7 @@ class WorkspaceController extends ChangeNotifier {
         replaceEntry: replaceEntry,
       );
     }
+    contextLoadError = null;
     final generation = ledger.generation;
     var navigationWindow = navigationRevision;
     var authority = _windowAuthority();
@@ -5106,21 +5121,19 @@ class WorkspaceController extends ChangeNotifier {
         _pendingMessageContextWindow = null;
         highlightedMessageId = null;
         // Source falls back to latest after a missing/unavailable context.
-        final fallbackWindow = channelGeneration + 1;
         final fallback = selectChannel(
           next,
           navigate: navigate,
           retainContextUntilAccepted: true,
         );
-        final fallbackNavigation = navigationRevision;
         await fallback;
-        if (fallbackNavigation == navigationRevision &&
-            !_disposed &&
-            channelGeneration == fallbackWindow &&
+        if (!_disposed &&
             channel?.id == channelId &&
             generation == ledger.generation &&
             authority == _windowAuthority()) {
-          error = '$e';
+              contextLoadError = historyLimited
+              ? MessageContextLoadError.beyondHistory
+              : MessageContextLoadError.notFound;
           notifyListeners();
         }
       }
@@ -5131,6 +5144,32 @@ class WorkspaceController extends ChangeNotifier {
         channelLoading = false;
         notifyListeners();
       }
+    }
+  }
+
+  /// Web ChatPanel `joinChannel(channel.id)`: join the open channel, then
+  /// re-read the channel list so the sidebar and composer see the membership.
+  Future<void> joinOpenChannel() async {
+    try {
+      final c = channel!;
+      await command('POST', '/channels/${c.id}/join');
+      await refreshChannels();
+      await selectChannel(channels.firstWhere((next) => next.id == c.id));
+    } catch (e) {
+      setError('$e');
+    }
+  }
+
+  /// Web ThreadPanel `handleJoinParentChannel`: join the thread's parent
+  /// channel (the CTA that replaces the composer for a non-member).
+  Future<void> joinThreadParentChannel() async {
+    final id = threadParentChannelId;
+    if (id == null) return;
+    try {
+      await command('POST', '/channels/$id/join');
+      await refreshChannels();
+    } catch (e) {
+      setError('$e');
     }
   }
 
