@@ -150,3 +150,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 ### macOS 通知平台补充（2026-10-11）
 
 NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消费 WorkspaceController 唯一 SourceActivityUnreadStore 已接受的窗口，与 Activity 页面和未读标记共享长连接驱动的现有收件箱刷新，不创建第二连接、收件箱请求或周期轮询。OS 权限是桌面开关；只在后台消费新候选，读取独立 notification-settings 通知规则，核对当前已接受窗口，并维护账号/角色/权限代次/生命周期 fence。仅持久化时间基线和有界 message ID，不持久化通知正文。应用完全退出后的远程推送与 macOS 系统横幅/点击实机验收仍未覆盖。
+
+### Windows 通知平台补充（2026-10-11）
+
+Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNotifications／原生宿主提供稳定身份、官方 Windows App SDK 投递、ToastNotifier.Setting 及窗口恢复；业务授权与导航仍在 NativeContentCoordinator。系统权限在每次投递时重新读取，桌面不保存私有 opt-in。ETW 确认本机在显示前拒绝默认 foreground 激活（0x80070032），官方 SDK 的 protocol 对照已由用户确认在通知中心显示。因此产品使用 raft-notification 协议：暖点击转交同 exe 的现有窗口，冷点击经参数启动后等待回调初始化，仍保留全部账户／授权检查。主应用设置按钮发送已确认显示；本机另经用户授权登记机器级 Raft 协议后，用户确认品牌图标和暖点击返回正常。冷点击仍待实测，不以接口接受、历史、fixture 或旧 COM 探针代替。当前 x64 bundle 需要 Windows App Runtime 1.7。具体矩阵、独立身份和边界见 [Windows 通知](windows-notifications.md)。

@@ -58,7 +58,7 @@ class _Client extends RaftClient {
 }
 
 class _Notifications extends NativeNotificationService {
-  _Notifications() : super(platform: TargetPlatform.macOS) {
+  _Notifications(TargetPlatform platform) : super(platform: platform) {
     enabled = permitted = available = initialized = true;
   }
   bool allowed = true;
@@ -101,187 +101,200 @@ Map<String, dynamic> _row(String id, {bool old = false}) => {
 };
 
 void main() {
-  late _Client client;
-  late WorkspaceController w;
-  late _Notifications notifications;
-  late DesktopInboxNotifications desktop;
-  void setup() {
-    client = _Client();
-    w = WorkspaceController(client, ownsClient: false)
-      ..server = RaftRecord({'id': 's', 'role': 'owner'});
-    notifications = _Notifications();
-    desktop = DesktopInboxNotifications(
-      notifications: notifications,
-      storage: _Storage(),
-      clock: () => DateTime.utc(2026, 10, 11),
-    )..bind(w);
-  }
-
-  void close() {
-    desktop.dispose();
-    w.dispose();
-  }
-
-  tearDown(() async {
-    close();
-    notifications.dispose();
-    await client.dispose();
-  });
-  Future<void> accept(WidgetTester t, List<Map<String, dynamic>> rows) async {
-    w.activityUnread.acceptWindow({
-      'items': rows,
-    }, scope: w.activityUnread.scope);
-    await t.pump();
-    await desktop.deliverPending();
-  }
-
-  Future<void> background(WidgetTester t) async {
-    w.setForeground(false);
-    await t.pump();
-    await desktop.prepared;
-  }
-
-  testWidgets(
-    'accepted inbox reused: foreground and old backlog silent; new DM delivered once without inbox or directory reads',
-    (t) async {
-      setup();
-      await accept(t, [_row('foreground')]);
-      expect(client.reads, isEmpty);
-      expect(notifications.sent, isEmpty);
-      await background(t);
-      await accept(t, [_row('old', old: true), _row('new')]);
-      expect(notifications.sent, hasLength(1));
-      expect(notifications.sent.single['principal'], 'alice');
-      expect(notifications.sent.single['uri'], contains('/messages/new'));
-      expect(client.directoryReads, 0);
-      expect(client.inboxReads, 0);
-      expect(client.clientKind, 'desktop');
-      await accept(t, [_row('new')]);
-      expect(notifications.sent, hasLength(1));
-      // Existing unread owner has a one-shot boot read, no notification timer.
-      await t.pump(const Duration(seconds: 2));
-      final reads = client.reads.length;
-      await t.pump(const Duration(minutes: 2));
-      expect(client.reads.length, reads);
-      w.setForeground(true);
-      await accept(t, [_row('another')]);
-      expect(notifications.sent, hasLength(1));
-      close();
-    },
-  );
-
-  for (final change in ['foreground', 'account', 'server', 'role', 'logout']) {
-    testWidgets('$change during OS policy fetch retires private alert', (
-      t,
-    ) async {
-      setup();
-      await background(t);
-      client.policy = Completer();
-      w.activityUnread.acceptWindow({
-        'items': [_row('new')],
-      }, scope: w.activityUnread.scope);
-      await t.pump();
-      expect(client.reads, ['/servers/s/notification-settings']);
-      switch (change) {
-        case 'foreground':
-          w.setForeground(true);
-        case 'account':
-          client.user = RaftRecord({'id': 'bob'});
-        case 'server':
-          client.selectServer('other');
-        case 'role':
-          w.server = RaftRecord({'id': 's', 'role': 'guest'});
-        case 'logout':
-          client.user = null;
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    group('$platform', () {
+      late _Client client;
+      late WorkspaceController w;
+      late _Notifications notifications;
+      late DesktopInboxNotifications desktop;
+      void setup() {
+        client = _Client();
+        w = WorkspaceController(client, ownsClient: false)
+          ..server = RaftRecord({'id': 's', 'role': 'owner'});
+        notifications = _Notifications(platform);
+        desktop = DesktopInboxNotifications(
+          notifications: notifications,
+          storage: _Storage(),
+          clock: () => DateTime.utc(2026, 10, 11),
+        )..bind(w);
       }
-      w.notifyListeners();
-      client.policy!.complete({'serverPushMode': 'all'});
-      await t.pump();
-      await desktop.deliverPending();
-      expect(notifications.sent, isEmpty);
-      close();
+
+      void close() {
+        desktop.dispose();
+        w.dispose();
+      }
+
+      tearDown(() async {
+        close();
+        notifications.dispose();
+        await client.dispose();
+      });
+      Future<void> accept(
+        WidgetTester t,
+        List<Map<String, dynamic>> rows,
+      ) async {
+        w.activityUnread.acceptWindow({
+          'items': rows,
+        }, scope: w.activityUnread.scope);
+        await t.pump();
+        await desktop.deliverPending();
+      }
+
+      Future<void> background(WidgetTester t) async {
+        w.setForeground(false);
+        await t.pump();
+        await desktop.prepared;
+      }
+
+      testWidgets(
+        'accepted inbox reused: foreground and old backlog silent; new DM delivered once without inbox or directory reads',
+        (t) async {
+          setup();
+          await accept(t, [_row('foreground')]);
+          expect(client.reads, isEmpty);
+          expect(notifications.sent, isEmpty);
+          await background(t);
+          await accept(t, [_row('old', old: true), _row('new')]);
+          expect(notifications.sent, hasLength(1));
+          expect(notifications.sent.single['principal'], 'alice');
+          expect(notifications.sent.single['uri'], contains('/messages/new'));
+          expect(client.directoryReads, 0);
+          expect(client.inboxReads, 0);
+          expect(client.clientKind, 'desktop');
+          await accept(t, [_row('new')]);
+          expect(notifications.sent, hasLength(1));
+          // Existing unread owner has a one-shot boot read, no notification timer.
+          await t.pump(const Duration(seconds: 2));
+          final reads = client.reads.length;
+          await t.pump(const Duration(minutes: 2));
+          expect(client.reads.length, reads);
+          w.setForeground(true);
+          await accept(t, [_row('another')]);
+          expect(notifications.sent, hasLength(1));
+          close();
+        },
+      );
+
+      for (final change in [
+        'foreground',
+        'account',
+        'server',
+        'role',
+        'logout',
+      ]) {
+        testWidgets('$change during OS policy fetch retires private alert', (
+          t,
+        ) async {
+          setup();
+          await background(t);
+          client.policy = Completer();
+          w.activityUnread.acceptWindow({
+            'items': [_row('new')],
+          }, scope: w.activityUnread.scope);
+          await t.pump();
+          expect(client.reads, ['/servers/s/notification-settings']);
+          switch (change) {
+            case 'foreground':
+              w.setForeground(true);
+            case 'account':
+              client.user = RaftRecord({'id': 'bob'});
+            case 'server':
+              client.selectServer('other');
+            case 'role':
+              w.server = RaftRecord({'id': 's', 'role': 'guest'});
+            case 'logout':
+              client.user = null;
+          }
+          w.notifyListeners();
+          client.policy!.complete({'serverPushMode': 'all'});
+          await t.pump();
+          await desktop.deliverPending();
+          expect(notifications.sent, isEmpty);
+          close();
+        });
+      }
+
+      testWidgets(
+        'shared socket ingress refreshes once and posts from accepted projection',
+        (t) async {
+          setup();
+          await background(t);
+          client.rows = [_row('new')];
+          // The badge and platform service use precisely the same data owner.
+          for (var i = 0; i < 20; i++) {
+            client.ingress.add(
+              RaftEvent('message:new', {
+                'id': 'new',
+                'channelId': 'c',
+                'seq': '1',
+                'senderId': 'carol',
+                'senderType': 'user',
+              }),
+            );
+          }
+          await t.pump(const Duration(milliseconds: 150));
+          await desktop.deliverPending();
+          expect(client.inboxReads, 1);
+          expect(notifications.sent, hasLength(1));
+          expect(w.activityUnread.totalUnreadCount, 1);
+          close();
+        },
+      );
+
+      testWidgets(
+        'Done, unfollow, personal mentions, mute and OS revocation keep server eligibility',
+        (t) async {
+          setup();
+          await background(t);
+          client.mode = 'mentions';
+          await accept(t, [
+            _row('ordinary'),
+            {..._row('done'), 'doneAt': '2026-10-11T00:00:02Z'},
+            {
+              ..._row('mention'),
+              'hasMention': true,
+              'firstMentionMessageId': 'mention',
+            },
+            {
+              'kind': 'thread',
+              'parentChannelId': 'c',
+              'parentMessageId': 'p',
+              'threadChannelId': 'thread',
+              'latestActivityMessageId': 'unfollowed',
+              'lastActivityAt': '2026-10-11T00:00:01Z',
+              'unreadCount': 1,
+              'isFollowing': false,
+            },
+          ]);
+          expect(
+            notifications.sent.map((p) => p['uri']).single,
+            contains('/messages/mention'),
+          );
+          client.muted = true;
+          await accept(t, [
+            {
+              ..._row('muted'),
+              'hasMention': true,
+              'firstMentionMessageId': 'muted',
+            },
+          ]);
+          expect(notifications.sent, hasLength(1));
+          client.muted = false;
+          notifications.allowed = false;
+          await notifications.refreshPermission();
+          final before = client.reads.length;
+          await accept(t, [
+            {
+              ..._row('revoked'),
+              'hasMention': true,
+              'firstMentionMessageId': 'revoked',
+            },
+          ]);
+          expect(notifications.sent, hasLength(1));
+          expect(client.reads.length, before);
+          close();
+        },
+      );
     });
   }
-
-  testWidgets(
-    'shared socket ingress refreshes once and posts from accepted projection',
-    (t) async {
-      setup();
-      await background(t);
-      client.rows = [_row('new')];
-      // The badge and platform service use precisely the same data owner.
-      for (var i = 0; i < 20; i++) {
-        client.ingress.add(
-          RaftEvent('message:new', {
-            'id': 'new',
-            'channelId': 'c',
-            'seq': '1',
-            'senderId': 'carol',
-            'senderType': 'user',
-          }),
-        );
-      }
-      await t.pump(const Duration(milliseconds: 150));
-      await desktop.deliverPending();
-      expect(client.inboxReads, 1);
-      expect(notifications.sent, hasLength(1));
-      expect(w.activityUnread.totalUnreadCount, 1);
-      close();
-    },
-  );
-
-  testWidgets(
-    'Done, unfollow, personal mentions, mute and OS revocation keep server eligibility',
-    (t) async {
-      setup();
-      await background(t);
-      client.mode = 'mentions';
-      await accept(t, [
-        _row('ordinary'),
-        {..._row('done'), 'doneAt': '2026-10-11T00:00:02Z'},
-        {
-          ..._row('mention'),
-          'hasMention': true,
-          'firstMentionMessageId': 'mention',
-        },
-        {
-          'kind': 'thread',
-          'parentChannelId': 'c',
-          'parentMessageId': 'p',
-          'threadChannelId': 'thread',
-          'latestActivityMessageId': 'unfollowed',
-          'lastActivityAt': '2026-10-11T00:00:01Z',
-          'unreadCount': 1,
-          'isFollowing': false,
-        },
-      ]);
-      expect(
-        notifications.sent.map((p) => p['uri']).single,
-        contains('/messages/mention'),
-      );
-      client.muted = true;
-      await accept(t, [
-        {
-          ..._row('muted'),
-          'hasMention': true,
-          'firstMentionMessageId': 'muted',
-        },
-      ]);
-      expect(notifications.sent, hasLength(1));
-      client.muted = false;
-      notifications.allowed = false;
-      await notifications.refreshPermission();
-      final before = client.reads.length;
-      await accept(t, [
-        {
-          ..._row('revoked'),
-          'hasMention': true,
-          'firstMentionMessageId': 'revoked',
-        },
-      ]);
-      expect(notifications.sent, hasLength(1));
-      expect(client.reads.length, before);
-      close();
-    },
-  );
 }
