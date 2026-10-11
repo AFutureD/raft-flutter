@@ -632,10 +632,19 @@ class _RaftChatViewState extends State<RaftChatView>
     // MessageTimeline.tsx AT_BOTTOM_THRESHOLD.
     final next = distanceFromLatest(position) <= 100;
     if (next != atBottom || (next && newMessageCount != 0)) {
+      final arrived = next && !atBottom;
       setState(() {
         atBottom = next;
         if (next) newMessageCount = 0;
       });
+      // Source setNearBottom(true) -> markCurrentChannelRead: scrolling back
+      // to the latest end reads what arrived while the reader was above it.
+      if (arrived) {
+        final id = widget.thread ? w.threadChannelId : w.channel?.id;
+        if (id != null && (w.unread[id] ?? 0) != 0) {
+          unawaited(w.markRead(id));
+        }
+      }
     }
   }
 

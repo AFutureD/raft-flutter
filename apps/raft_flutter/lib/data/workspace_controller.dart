@@ -4024,6 +4024,19 @@ class WorkspaceController extends ChangeNotifier {
     loadingOlder = false;
     channelLoading = true;
     error = null;
+    // Source messageStore selectChannel: opening a conversation clears its
+    // local unread at once; the read receipt follows the first page. A load
+    // that never sends the receipt reconciles with the server in `finally`.
+    final optimisticRead =
+        autoRead &&
+        navigate &&
+        !retainContextUntilAccepted &&
+        (unread[next.id] ?? 0) != 0;
+    final readPostsBefore = _readPosts[next.id] ?? 0;
+    if (optimisticRead) {
+      unread = {...unread, next.id: 0};
+      _persistUnread();
+    }
     final window = ++channelGeneration;
     final generation = ledger.generation;
     final authority = _windowAuthority();
@@ -4122,6 +4135,11 @@ class WorkspaceController extends ChangeNotifier {
       if (current()) {
         channelLoading = false;
         notifyListeners();
+      }
+      if (optimisticRead &&
+          !_disposed &&
+          (_readPosts[next.id] ?? 0) == readPostsBefore) {
+        unawaited(refreshUnread());
       }
     }
   }
@@ -4241,6 +4259,10 @@ class WorkspaceController extends ChangeNotifier {
   /// the unread count) until revalidated.
   final Set<String> _diskOnlyWindows = {};
 
+  /// Read receipts sent per scope: lets an optimistic open-time clear know
+  /// whether the receipt that backs it was ever sent.
+  final Map<String, int> _readPosts = {};
+
   Future<void> markRead(String id) async {
     final source = presentationSource;
     if (source != null) {
@@ -4265,6 +4287,7 @@ class WorkspaceController extends ChangeNotifier {
         serverId = client.serverId,
         generation = ledger.generation;
     final window = id == threadChannelId ? threadGeneration : channelGeneration;
+    _readPosts[id] = (_readPosts[id] ?? 0) + 1;
     try {
       final receipt = await client.post(
         '/channels/$id/read',
@@ -4272,11 +4295,18 @@ class WorkspaceController extends ChangeNotifier {
       );
       if (client.origin != origin ||
           client.user?.id != principal ||
-          client.serverId != serverId ||
-          ledger.generation != generation ||
+          client.serverId != serverId) {
+        return;
+      }
+      if (ledger.generation != generation ||
           window !=
               (id == threadChannelId ? threadGeneration : channelGeneration) ||
           !_mayMarkRead(id)) {
+        // The user left (or the window was replaced) while the receipt was in
+        // flight. The server cursor still advanced: fold the accepted frontier
+        // in and clear only what it covers, so Home never keeps an indicator
+        // for a conversation that was read (Source clearUnread).
+        _acceptStaleReadReceipt(id, receipt);
         return;
       }
       if (receipt is Map && client.serverId != null && client.user != null) {
@@ -4295,7 +4325,39 @@ class WorkspaceController extends ChangeNotifier {
       if ((unread[id] ?? 0) != 0) unread = {...unread, id: 0};
       _persistReadState();
       notifyListeners();
-    } catch (_) {}
+    } catch (_) {
+      // The cursor did not advance: an optimistic clear must not hide it.
+      if (!_disposed &&
+          client.origin == origin &&
+          client.user?.id == principal &&
+          client.serverId == serverId) {
+        unawaited(refreshUnread());
+      }
+    }
+  }
+
+  void _acceptStaleReadReceipt(String id, dynamic receipt) {
+    final serverId = client.serverId, principal = client.user?.id;
+    if (_disposed || serverId == null || principal == null) return;
+    if (receipt is Map) {
+      readState.consumeUpdate(
+        {
+          'serverId': serverId,
+          'scopeId': id,
+          'maxReadSeq': receipt['maxReadSeq'],
+          'readStateVersion': receipt['readStateVersion'],
+        },
+        serverId: serverId,
+        principalId: principal,
+      );
+    }
+    final before = unread[id] ?? 0;
+    _projectReadState(id);
+    if ((unread[id] ?? 0) != before) {
+      _persistReadState();
+      notifyListeners();
+    }
+    if ((unread[id] ?? 0) != 0) unawaited(refreshUnread());
   }
 
   /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
