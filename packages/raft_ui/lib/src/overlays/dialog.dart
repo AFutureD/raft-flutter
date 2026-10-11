@@ -513,6 +513,7 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
     required this.capturedThemes,
     this.dismissible = true,
     this.label,
+    this.overModal = false,
     super.settings,
   }) : super(traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop);
 
@@ -520,6 +521,9 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
   final CapturedThemes capturedThemes;
   final bool dismissible;
   final String? label;
+
+  /// Opened over another Modal's black/60 scrim (see [_DialogBarrier]).
+  final bool overModal;
 
   @override
   Color? get barrierColor => null;
@@ -536,6 +540,7 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
     dismissible: dismissible,
     label: barrierLabel,
     capturedThemes: capturedThemes,
+    overModal: overModal,
   );
 
   @override
@@ -569,7 +574,9 @@ class _DialogBarrier extends StatelessWidget {
     required this.dismissible,
     required this.label,
     required this.capturedThemes,
+    this.overModal = false,
   });
+  final bool overModal;
   final Animation<double> animation;
   final bool dismissible;
   final String? label;
@@ -588,8 +595,9 @@ class _DialogBarrier extends StatelessWidget {
         // channel tint quantizes to 0 in Chromium). Over another Modal's
         // black/60 scrim (102) Chromium lands on 35 where Skia's float blend
         // rounds 35.6 up to 36 and the tint tips two channels: pure black at
-        // 0.6525 gives 35 there and still 89 over white.
-        if (t.brutal && (color.a - 0.650858).abs() < .001) {
+        // 0.6525 gives 35 there. Only for dialogs stacked on a Modal; over a
+        // page the tinted token already matches.
+        if (overModal && t.brutal && (color.a - 0.650858).abs() < .001) {
           color = Colors.black.withValues(alpha: .6525);
         }
         final blur = t.brutal ? 0.0 : 2.0;
@@ -628,6 +636,7 @@ Future<T?> showRaftDialog<T>({
   bool useRootNavigator = true,
   String? barrierLabel,
   RouteSettings? routeSettings,
+  bool overModal = false,
 }) {
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   return navigator.push(
@@ -635,6 +644,7 @@ Future<T?> showRaftDialog<T>({
       builder: builder,
       dismissible: barrierDismissible,
       label: barrierLabel,
+      overModal: overModal,
       settings: routeSettings,
       capturedThemes: InheritedTheme.capture(
         from: context,

@@ -669,12 +669,18 @@ class RaftConfirmDialog extends StatefulWidget {
   final Key? confirmKey;
   final double maxWidth;
 
-  static Future<bool?> show(BuildContext context, RaftConfirmDialog dialog) =>
-      showRaftDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => dialog,
-      );
+  /// [overModal]: the confirmation opens over another Modal (the channel
+  /// members dialog), so its Brutal scrim composites over that one's.
+  static Future<bool?> show(
+    BuildContext context,
+    RaftConfirmDialog dialog, {
+    bool overModal = false,
+  }) => showRaftDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    overModal: overModal,
+    builder: (_) => dialog,
+  );
 
   /// `text-sm leading-relaxed text-foreground-muted` (font-normal body).
   static TextStyle messageStyle(RaftTokens t) =>
