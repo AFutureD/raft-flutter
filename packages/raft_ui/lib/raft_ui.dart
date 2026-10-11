@@ -134,6 +134,11 @@ export 'src/chat_composition.dart';
 export 'src/quick_reaction_picker.dart';
 
 export 'src/thread_composition.dart';
+export 'src/thread_followers.dart';
+export 'src/quoted_message_card.dart';
+export 'src/external_identity_panel.dart';
+export 'src/avatar_button.dart';
+export 'src/inline_media.dart';
 
 export 'src/attachment_tokens.dart';
 

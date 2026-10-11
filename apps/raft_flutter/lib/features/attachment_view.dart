@@ -15,6 +15,7 @@ import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
 import 'attachment_html_preview.dart';
 import 'attachment_image_lightbox.dart';
+import 'inline_attachment_media.dart';
 import 'private_route_guard.dart';
 
 class AttachmentView extends StatefulWidget {
@@ -742,8 +743,35 @@ class _AttachmentViewState extends State<AttachmentView> {
     );
   }
 
+  /// Web MessageItem renders audio and video attachments as inline players.
   @override
-  Widget build(BuildContext context) => RaftAttachmentCard(
+  Widget build(BuildContext context) {
+    final kind = attachmentPreviewKind(widget.metadata);
+    if (!widget.exportMode && !isImage && kind == 'video') {
+      return InlineVideoAttachment(
+        key: ValueKey('inline-video-${widget.metadata['id']}'),
+        controller: w,
+        metadata: widget.metadata,
+        authorized: () => authorized,
+        pending: widget.messageId == null,
+        onOpenPreview: open,
+        onDownload: download,
+      );
+    }
+    if (!widget.exportMode && !isImage && kind == 'audio') {
+      return InlineAudioAttachment(
+        key: ValueKey('inline-audio-${widget.metadata['id']}'),
+        controller: w,
+        metadata: widget.metadata,
+        authorized: () => authorized,
+        pending: widget.messageId == null,
+        onDownload: download,
+      );
+    }
+    return card(context);
+  }
+
+  Widget card(BuildContext context) => RaftAttachmentCard(
     summary: webChip.summary,
     metaLabel: webChip.meta,
     previewAffordance: webChip.preview,

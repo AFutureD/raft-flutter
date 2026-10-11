@@ -8,6 +8,8 @@ import 'package:raft_sync/raft_sync.dart';
 import 'announcement_store.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
+import 'thread_agent_followers.dart';
+import 'thread_search.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
@@ -297,6 +299,19 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.translations ??
       (_translations ??= MessageTranslationStore(this));
   MessageTranslationStore? _translations;
+
+  /// Web ThreadPanel in-thread search state (bar, query, matches), created on
+  /// first use; a presentation mirror shares its source's.
+  ThreadSearch get threadSearch =>
+      presentationSource?.threadSearch ??
+      (_threadSearch ??= ThreadSearch(this));
+  ThreadSearch? _threadSearch;
+
+  /// Web `useThreadAgentFollowerStore`: the agents following each thread.
+  ThreadAgentFollowers get threadFollowers =>
+      presentationSource?.threadFollowers ??
+      (_threadFollowers ??= ThreadAgentFollowers(this));
+  ThreadAgentFollowers? _threadFollowers;
 
   /// Web `useAnnouncementStore`: the account-level announcement queue,
   /// living as long as this account session.
@@ -5280,7 +5295,7 @@ class WorkspaceController extends ChangeNotifier {
             channel?.id == channelId &&
             generation == ledger.generation &&
             authority == _windowAuthority()) {
-              contextLoadError = historyLimited
+          contextLoadError = historyLimited
               ? MessageContextLoadError.beyondHistory
               : MessageContextLoadError.notFound;
           notifyListeners();
@@ -5320,6 +5335,70 @@ class WorkspaceController extends ChangeNotifier {
     } catch (e) {
       setError('$e');
     }
+  }
+
+  // Web profileStore: the profile side panel is a URL slot (`profile=`); an
+  // external author's frozen attribution payload lives beside it.
+  final Map<String, Map<String, dynamic>> _externalProfiles = {};
+
+  /// The provider attribution frozen when an external author's panel opened.
+  Map<String, dynamic>? externalProfile(String messageId) =>
+      presentationSource?.externalProfile(messageId) ??
+      _externalProfiles[messageId];
+
+  /// Web `openProfile` / `openExternalProfile`: a human or agent (optionally
+  /// landing on an agent [agentTab]) or an external message author
+  /// ([id] = message id, [channelId] its channel, [externalAuthor] the
+  /// attribution). Adding a panel pushes history; retargeting replaces.
+  void openProfile(
+    RaftProfileKind kind,
+    String id, {
+    String? agentTab,
+    String? channelId,
+    Map<String, dynamic>? externalAuthor,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      source.openProfile(
+        kind,
+        id,
+        agentTab: agentTab,
+        channelId: channelId,
+        externalAuthor: externalAuthor,
+      );
+      return;
+    }
+    if (id.trim().isEmpty ||
+        kind == RaftProfileKind.external && (channelId?.isEmpty ?? true)) {
+      return;
+    }
+    if (externalAuthor != null) _externalProfiles[id] = externalAuthor;
+    final next = location.withQuery({
+      'profile': RaftProfileLocation(kind, id, channelId: channelId).toString(),
+      'agentTab': kind == RaftProfileKind.agent ? agentTab : null,
+    });
+    if (next.uri == location.uri) return;
+    navigation.navigateProfile(
+      next,
+      kind: location.panelNavigationKindTo(next),
+    );
+    notifyListeners();
+  }
+
+  /// Web `closeProfile`: removing a slot replaces the history entry.
+  void closeProfile() {
+    final source = presentationSource;
+    if (source != null) {
+      source.closeProfile();
+      return;
+    }
+    if (location.profile == null) return;
+    final next = location.withQuery({'profile': null, 'agentTab': null});
+    navigation.navigateProfile(
+      next,
+      kind: location.panelNavigationKindTo(next),
+    );
+    notifyListeners();
   }
 
   void closeThread({bool navigate = true}) {
@@ -5857,6 +5936,8 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_ownsFollowedThreads) followedThreads.dispose();
     _translations?.dispose();
+    _threadSearch?.dispose();
+    _threadFollowers?.dispose();
     _announcements?.dispose();
     _announcementGate?.dispose();
     _imageAuthorities.clear();
