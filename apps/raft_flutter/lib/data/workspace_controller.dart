@@ -2861,10 +2861,13 @@ class WorkspaceController extends ChangeNotifier {
     }
     // Source canAutoMarkLiveAppendRead: a live arrival in the open
     // conversation is read only if the user was just interacting; while the
-    // user is idle it stays unread (Activity keeps its indicator).
+    // user is idle it stays unread (Activity keeps its indicator). Phone
+    // (owner decision 2026-10-12, docs/parity.md): a foreground page whose
+    // timeline sits at the latest end reads it with no tap.
     if ((id == channel?.id || id == threadChannelId) &&
         _mayMarkRead(id) &&
-        RaftUserActivity.recent) {
+        (RaftUserActivity.recent ||
+            mobileNavigation && !_scrolledAway.contains(id))) {
       unawaited(markRead(id));
       return;
     }
@@ -4033,6 +4036,7 @@ class WorkspaceController extends ChangeNotifier {
         !retainContextUntilAccepted &&
         (unread[next.id] ?? 0) != 0;
     final readPostsBefore = _readPosts[next.id] ?? 0;
+    _scrolledAway.remove(next.id);
     if (optimisticRead) {
       unread = {...unread, next.id: 0};
       _persistUnread();
@@ -4258,6 +4262,18 @@ class WorkspaceController extends ChangeNotifier {
   /// Their tail may be stale, so they never send a read receipt (nor clear
   /// the unread count) until revalidated.
   final Set<String> _diskOnlyWindows = {};
+
+  /// Open conversations whose timeline is scrolled above the latest end
+  /// (reported by the chat view on the edge only, never per frame).
+  final Set<String> _scrolledAway = {};
+
+  void setTimelineAtBottom(String id, bool atBottom) {
+    if (atBottom) {
+      _scrolledAway.remove(id);
+    } else {
+      _scrolledAway.add(id);
+    }
+  }
 
   /// Read receipts sent per scope: lets an optimistic open-time clear know
   /// whether the receipt that backs it was ever sent.

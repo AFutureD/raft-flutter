@@ -228,6 +228,132 @@ void main() {
     },
   );
 
+  test(
+    'phone: a live append at the bottom is read with no pointer activity (owner decision 2026-10-12)',
+    () async {
+      final c = _Client();
+      final w = await _mobile(c);
+      addTearDown(() async {
+        w.dispose();
+        await c.stream.close();
+      });
+      await w.selectChannel(w.channels.single);
+      final before = c.reads;
+      RaftUserActivity.forget();
+      expect(RaftUserActivity.recent, false);
+      c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(c.reads, before + 1);
+      expect(w.unread['c'] ?? 0, 0);
+    },
+  );
+
+  test('phone: a live append while scrolled above the bottom stays unread', () async {
+    final c = _Client();
+    final w = await _mobile(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.selectChannel(w.channels.single);
+    final before = c.reads;
+    RaftUserActivity.forget();
+    w.setTimelineAtBottom('c', false);
+    c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before);
+    expect(w.unread['c'], 1);
+  });
+
+  test('desktop: a live append without recent activity stays unread (Web 1 s gate)', () async {
+    final c = _Client();
+    final w = WorkspaceController(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.bootstrap();
+    w.setForeground(true);
+    await w.selectChannel(w.channels.single);
+    final before = c.reads;
+    RaftUserActivity.forget();
+    c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before);
+    expect(w.unread['c'], 1);
+    // With recent activity the same arrival is read.
+    RaftUserActivity.mark();
+    c.stream.add(RaftEvent('message:new', _Client.message('live2', 3)));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before + 1);
+  });
+
+  testWidgets('phone timeline reports its bottom edge; live append reads only at the bottom', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = _Client();
+    final w = WorkspaceController(c, mobileNavigation: true);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    w.server = RaftRecord({'id': 's', 'role': 'owner'});
+    w.channel = RaftChannel({'id': 'c', 'name': 'design', 'joined': true});
+    w.channels = [w.channel!];
+    w.setForeground(true);
+    w.ledger.switchServer('s');
+    final rows = [
+      for (final r in contextRows('row', count: 60)) {...r, 'channelId': 'c'},
+    ];
+    w.ledger.ingest(rows, expectedGeneration: w.ledger.generation);
+    w.visibleIds['c'] = rows.map((r) => r['id'] as String).toSet();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: Scaffold(body: RaftChatView(controller: w)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final dynamic state = tester.state(find.byType(RaftChatView));
+    final ScrollController viewport = state.viewport;
+    RaftUserActivity.forget();
+    Future<void> arrive(String id, int seq) => tester.runAsync(() async {
+      c.stream.add(
+        RaftEvent('message:new', {
+          ..._Client.message(id, seq),
+          'senderId': 'bob',
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+    });
+    await arrive('at-bottom', 998);
+    await tester.pump();
+    expect(c.reads, 1);
+    expect(w.unread['c'] ?? 0, 0);
+    viewport.jumpTo(viewport.offset - 2400);
+    await tester.pumpAndSettle();
+    expect(state.atBottom, false);
+    await arrive('above', 999);
+    await tester.pump();
+    expect(c.reads, 1);
+    expect(w.unread['c'], 1);
+    viewport.jumpTo(viewport.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    expect(c.reads, 2);
+    expect(w.unread['c'], 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   for (final (family, dark) in [(RaftFamily.elegant, false)]) {
     testWidgets(
       '$family/$dark live message while scrolled up stays unread; scrolling to the bottom reads it',
