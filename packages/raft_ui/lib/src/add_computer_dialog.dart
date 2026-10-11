@@ -312,12 +312,16 @@ class RaftComputerCommandGuide extends StatelessWidget {
   final (String, String)? commands;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, box) => _build(context, box.maxWidth));
+
+  Widget _build(BuildContext context, double available) {
     final t = RaftTokens.of(context);
     final c = commands;
     final windows = platform == 'windows';
-    // Tailwind `sm` (640px viewport).
-    final narrow = MediaQuery.sizeOf(context).width < 640;
+    // Tailwind `sm` (640px viewport); a guide in a host too narrow for the
+    // heading beside the platform control stacks them instead of overflowing.
+    final narrow = MediaQuery.sizeOf(context).width < 640 || available < 380;
     final heading = Row(
       mainAxisSize: MainAxisSize.min,
       children: [

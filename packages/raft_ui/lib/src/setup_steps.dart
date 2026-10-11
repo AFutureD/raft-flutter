@@ -23,7 +23,14 @@ import 'tokens/tokens.dart';
 
 /// `sm:` breakpoint of the step footers (`flex-col-reverse gap-3
 /// sm:flex-row sm:items-center sm:justify-between`).
-bool _wide(BuildContext context) => MediaQuery.sizeOf(context).width >= 640;
+bool _wide(BuildContext context, [double? available]) =>
+    MediaQuery.sizeOf(context).width >= 640 &&
+    (available == null || available >= _rowMinWidth);
+
+/// Narrowest card that holds the `sm:flex-row` footer / header rows. Web uses
+/// the viewport alone; a card in a narrower host (a pane, a test surface)
+/// stacks instead of overflowing.
+const double _rowMinWidth = 420;
 
 /// The step card chrome shared by survey / handoff: `flex w-full max-w-[N]
 /// flex-col overflow-hidden border border-line-muted bg-layer-panel
@@ -109,10 +116,13 @@ class RaftSetupSurveyCard extends StatelessWidget {
   final VoidCallback? onContinue, onSwitchServer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, box) => _build(context, box.maxWidth));
+
+  Widget _build(BuildContext context, double available) {
     final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
-    final wide = _wide(context);
+    final wide = _wide(context, available);
     final canContinue = !saving && role != null && source != null;
     final cont = RaftButton(
       key: const Key('server-setup-survey-continue'),
@@ -394,10 +404,13 @@ class RaftSetupHandoffCard extends StatelessWidget {
   final VoidCallback? onSwitchServer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, box) => _build(context, box.maxWidth));
+
+  Widget _build(BuildContext context, double available) {
     final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
-    final wide = _wide(context);
+    final wide = _wide(context, available);
     final done = RaftButton(
       key: const Key('server-setup-handoff-done'),
       label: starting ? tr('Starting…') : tr("Let's Go"),
@@ -589,11 +602,14 @@ class _RaftSetupComputerCardState extends State<RaftSetupComputerCard> {
   bool get many => widget.recovering && widget.offlineComputers.length > 1;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, box) => _build(context, box.maxWidth));
+
+  Widget _build(BuildContext context, double available) {
     final t = RaftTokens.of(context);
     String tr(String s) => raftText(context, s);
     final size = MediaQuery.sizeOf(context);
-    final wide = size.width >= 640, md = size.width >= 768;
+    final wide = _wide(context, available), md = size.width >= 768;
     final sideBody = wide ? 36.0 : 20.0;
     final title = many
         ? 'Start one of your computers'

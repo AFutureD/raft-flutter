@@ -258,7 +258,9 @@ void main() {
         host(ServerSetupGate(controller: w, child: const Text('Chat'))),
       );
       await t.pump();
-      expect(find.text('Set up your workspace'), findsOneWidget);
+      // The gate shows Web's computer setup step (setup-computer), not chat.
+      expect(find.byKey(const ValueKey('setup-computer')), findsOneWidget);
+      expect(find.text('Chat'), findsNothing);
       int projections() =>
           client.gets.where((p) => p.endsWith('/setup-projection')).length;
       expect(projections(), 1);
