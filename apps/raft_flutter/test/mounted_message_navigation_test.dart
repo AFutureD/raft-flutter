@@ -441,7 +441,9 @@ void main() {
             await pageFrames(tester, () {});
             expect(paintedMessage(tester, 'latest'), isNotNull);
             expect(w.highlightedMessageId, isNull);
-            expect(find.byType(MaterialBanner), findsOneWidget);
+            // The failed context load leaves the latest window with the
+            // "Message not found" state (no workspace banner).
+            expect(w.contextLoadError, MessageContextLoadError.notFound);
           } else {
             expect(paintedMessage(tester, 'second'), isNotNull);
           }
