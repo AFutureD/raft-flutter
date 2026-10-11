@@ -84,8 +84,8 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
         () => error = current.text.isEmpty
             ? 'Enter your current password.'
             : next.text.length < 8
-            ? 'Use at least 8 characters.'
-            : 'The new passwords must match.',
+            ? 'New password must be at least 8 characters'
+            : 'Passwords do not match',
       );
       return;
     }
@@ -119,49 +119,35 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
   @override
   Widget build(BuildContext context) {
     final tokens = RaftTokens.of(context);
+    String tr(String s) => raftText(context, s);
+    // SettingsPanel FormField (labelStyle plain, size compact) + raft-ui Input `w-full text-sm`.
     Widget field(
       String label,
       TextEditingController controller,
       String hint,
-    ) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          raftText(context, label),
-          style: RaftTypography.body(
-            tokens,
-            size: 12,
-            line: 16,
-            weight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Semantics(
-          label: raftText(context, label),
-          child: TextField(
-            controller: controller,
-            obscureText: true,
-            enabled: !saving,
-            autofillHints: null,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              hintText: hint.isEmpty ? null : raftText(context, hint),
-            ),
-            onSubmitted: (_) => submit(),
-          ),
-        ),
-      ],
+      Key fieldKey,
+    ) => RaftSettingsField(
+      label: label,
+      child: RaftRecipeInput(
+        fieldKey: fieldKey,
+        controller: controller,
+        placeholder: hint.isEmpty ? null : tr(hint),
+        obscure: true,
+        enabled: !saving,
+        onSubmitted: (_) => submit(),
+      ),
     );
+    final strong = RaftTypography.heading(tokens, size: 14, line: 20);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // `flex items-center gap-2 text-sm font-bold` button with a 14px chevron (rotated 90deg when open).
         Align(
           alignment: Alignment.centerLeft,
-          child: RaftTextButton(
-            label: 'Change password',
-            glyph: expanded ? RaftGlyph.chevronDown : RaftGlyph.chevronRight,
-            onPressed: saving
+          child: GestureDetector(
+            key: const ValueKey('account-change-password'),
+            behavior: HitTestBehavior.opaque,
+            onTap: saving
                 ? null
                 : () => setState(() {
                     expanded = !expanded;
@@ -169,57 +155,72 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
                     error = null;
                     if (!expanded) clearCredentials();
                   }),
+            child: Semantics(
+              button: true,
+              label: tr('Change Password'),
+              excludeSemantics: true,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RaftIcon(
+                    expanded ? RaftGlyph.chevronDown : RaftGlyph.chevronRight,
+                    size: 14,
+                    color: strong.color,
+                  ),
+                  const SizedBox(width: RaftSpace.x2),
+                  Text(tr('Change Password'), style: strong),
+                ],
+              ),
+            ),
           ),
         ),
         if (expanded) ...[
-          const SizedBox(height: 12),
-          field('Current password', current, ''),
-          const SizedBox(height: 12),
+          const SizedBox(height: RaftSpace.x3),
           field(
-            'New password',
-            next,
-            'At least 8 characters',
+            'Current Password',
+            current,
+            '',
+            const ValueKey('account-current-password'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: RaftSpace.x3),
           field(
-            'Confirm new password',
+            'New Password',
+            next,
+            'Min 8 characters',
+            const ValueKey('account-new-password'),
+          ),
+          const SizedBox(height: RaftSpace.x3),
+          field(
+            'Confirm Password',
             confirmation,
             '',
+            const ValueKey('account-confirm-password'),
           ),
           if (error != null)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Semantics(
-                liveRegion: true,
-                child: Text(
-                  raftText(context, error!),
-                  style: RaftTypography.body(
-                    tokens,
-                    size: 12,
-                    line: 16,
-                    color: tokens.colors['danger'],
-                  ),
-                ),
+              padding: const EdgeInsets.only(top: RaftSpace.x3),
+              child: RaftBanner(
+                description: error!,
+                size: RaftBannerRecipeSize.sm,
+                descriptionWeight: FontWeight.w700,
               ),
             ),
           if (saved)
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: RaftSpace.x3),
               child: Semantics(
                 liveRegion: true,
-                child: Text(
-                  raftText(context, 'Password updated.'),
-                  style: RaftTypography.body(tokens, size: 12, line: 16),
-                ),
+                child: RaftSettingsSavedNote(tr('Password updated!')),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: RaftSpace.x3),
           Align(
             alignment: Alignment.centerLeft,
-            child: RaftButton(
-              label: 'Change password',
-              visualHeight: 28,
-              busy: saving,
+            child: RaftSettingsRecipeButton(
+              key: const ValueKey('account-password-submit'),
+              label: saving ? 'Updating…' : 'Change Password',
+              variant: RaftButtonRecipeVariant.accent,
+              size: RaftButtonRecipeSize.sm,
               onPressed: saving ? null : submit,
             ),
           ),

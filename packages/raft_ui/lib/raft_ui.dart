@@ -53,6 +53,7 @@ export 'src/icons.dart';
 export 'src/recipes/toast_styles.g.dart' show RaftToastRecipeTone;
 export 'src/brand.dart';
 export 'src/auth_page.dart';
+export 'src/onboarding_previews.dart';
 
 export 'src/primitive_tokens.dart';
 export 'src/tokens/tokens.dart';
@@ -143,6 +144,7 @@ export 'src/mobile_computer_list.dart';
 export 'src/computer_detail.dart';
 export 'src/add_computer_dialog.dart';
 export 'src/channel_settings_sheet.dart';
+export 'src/agent_chat_view.dart';
 export 'src/channel_overflow_sheet.dart';
 export 'src/create_channel_view.dart';
 export 'src/create_task_view.dart';

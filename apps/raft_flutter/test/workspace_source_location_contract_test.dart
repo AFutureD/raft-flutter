@@ -815,6 +815,8 @@ void main() {
         await tester.pump();
         expect(w.location.toString(), '/s/bravo/channel/general');
         expect(w.server?.id, 's2');
+        // The popped thread page stays live until the transition completes.
+        await tester.pump(const Duration(milliseconds: 500));
         expect(find.byType(RaftChannelHeader), findsOneWidget);
         expect(find.byType(RaftThreadHeader), findsNothing);
         expect(
@@ -824,6 +826,7 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pump();
         expect(w.location.toString(), '/s/bravo');
+        await tester.pump(const Duration(milliseconds: 500));
         expect(
           find.byKey(const Key('workspace-mobile-navigation')),
           findsOneWidget,

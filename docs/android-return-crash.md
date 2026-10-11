@@ -1,5 +1,42 @@
 # Android return crash and Home bell — 2026-10-11
 
+## Current change: remove route snapshots (2026-10-11)
+
+After the clone mitigation in `7df3175`, Android release 8035 crashed again
+at 20:04:49 while returning from a computer detail. The phone recorded SIGSEGV
+at `0x28`, with the same engine Build ID and `as_image_filter` / `initShader`
+stack. Evidence is retained in ignored
+`.local/android-return-debug/recurrence-20261011-200512/`. The actual computer
+page passes a host Impeller reproduction, including stretch followed by
+predictive Back, even before this refactor: the exact remaining device caller
+has **not** been identified from the native trace.
+
+The user chose to remove the snapshot design instead of retaining an
+optimization without a reliable measured benefit. `MobileWorkspacePages` now
+builds a real widget tree per MaterialPage, with `allowSnapshotting:false`.
+The manual layer capture, entering fade images, zero-opacity live subtree,
+image cloning/disposal, and animation-time semantics suppression are removed.
+Android stretch and the platform's default transition remain enabled.
+
+Routes have fixed presentation locations and separate widget/scroll state.
+Their controllers borrow the one workspace's ledger, drafts, uploads, caches,
+entity directory and session. Domain operations and socket reduction stay at
+the source; covered route widgets are reused without shell rebuilds on ordinary
+source notifications. Server-level presentation stores are shared as well.
+Draft saves use the route's channel scope and reject a retired account/server
+identity. Permission reductions close management pages and root overlays.
+
+The targeted host suite exercises 20 early returns with a stretch shader,
+10 predictive cancellation/commit cycles, 20 actual computer-detail stretch
+returns, task/channel/DM management, attachment predictive Back and resize,
+scroll/search history, current-page semantics, and shared optimistic-send/draft
+ownership. These are host-engine results, not physical-phone acceptance.
+No full test suite or new Android profile comparison is claimed. The previous
+NOISY baseline alone cannot quantify the removed optimization's benefit.
+
+The sections below document earlier investigation and the superseded clone
+mitigation; they do not describe the current route implementation.
+
 ## Device evidence
 
 The connected phone reports an `APP CRASH(NATIVE)`, SIGSEGV, on the UI thread at
@@ -49,7 +86,7 @@ The standalone normal-stretch, completed-paint capture, and completed-image
 reuse controls each pass 30 cycles. Disabling the fade snapshot optimization
 also passes 20 early-return cycles, but would discard that optimization.
 
-## Fix while preserving stretch
+## Superseded clone mitigation while preserving stretch
 
 When an entering snapshot is on screen, `freeze()` now retains that image
 using `ui.Image.clone()` rather than capturing the hidden live subtree.

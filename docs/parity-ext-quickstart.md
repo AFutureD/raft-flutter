@@ -46,10 +46,20 @@ fields, the fixtures and host `.tsx` that render it, `parity-ext-web.mjs`, the s
 render flags. Edit a host/fixture/case and only its cases recapture; Flutter edits never do.
 `--refresh-react` ignores and overwrites the entries. Each entry has a `.key.json` listing its inputs.
 
-## Dark sampling
+## Theme sampling
 
-Only the first `elegant-dark` case per surface (`components.<area>.<surface>`) runs; elegant-dark just
-re-skins elegant-light. `PARITY_EXT_ALL_DARK=1` runs all of them.
+brutal-light (the default theme) runs every case. elegant-light and elegant-dark run 1-2 cases per surface
+(`components.<area>.<surface>`): the first case in builder order plus one dense case (name with a density word such as
+`long`, `many`, `mixed`, `gallery`, `filled`, `full`, `rich`, `multi`, `batch`, else the last case of the surface);
+rule and word list in `tool/parity-ext/sampling.py`. Write your builder so the surface's FIRST case is its default
+variant. `--cases` globs only see the sampled manifest; set `PARITY_EXT_ALL_THEMES=1` to run an elegant case that
+sampling dropped (`PARITY_EXT_ALL_DARK=1` keeps every elegant-dark case; elegant-light stays sampled).
+
+## Page inventory
+
+`docs/parity-page-inventory.md` lists every Web page / modal / state and which have a brutal-light case (official id or
+extension id) or none. After adding cases update the matching row in `tool/parity-ext/inventory.py` (the `d=` / `p=`
+ids) and run `python3 tool/parity-ext/inventory.py`; the unit tests fail on a stale document or an unknown id.
 
 ## Rules
 

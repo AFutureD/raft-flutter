@@ -242,6 +242,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
       RaftConfirmDialog(
         title: 'Delete Server',
         confirmLabel: 'Delete Server',
+        surfaceKey: const ValueKey('server-danger-dialog'),
         confirmKey: const Key('server-delete-confirm-button'),
         content: _DeleteServerConfirm(
           name: server.name,
@@ -268,6 +269,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
           {'serverName': server.name},
         ),
         confirmLabel: 'Leave Server',
+        surfaceKey: const ValueKey('server-danger-dialog'),
         // confirmColor="bg-brutal-orange" -> warning tone.
         confirmVariant: RaftButtonRecipeVariant.warning,
         confirmKey: const Key('server-leave-confirm-button'),

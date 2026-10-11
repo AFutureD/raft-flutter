@@ -9,10 +9,10 @@ import 'package:raft_flutter/features/mobile_workspace_pages.dart';
 
 void main() {
   testWidgets(
-    'Early Back shares the displayed snapshot after hidden stretch rebuilds',
+    'Early Back retains live stretch pages without raster snapshots',
     (tester) async {
       // --enable-impeller exercises the native shader path. The ordinary widget
-      // run still checks image ownership and avoids another rasterization.
+      // run still checks that both routes paint live widgets without images.
       if (ui.ImageFilter.isShaderFilterSupported) {
         await tester.runAsync(() async {
           await ui.FragmentProgram.fromAsset('shaders/stretch_effect.frag');
@@ -34,12 +34,12 @@ void main() {
               return MobileWorkspacePages(
                 navigation: navigation,
                 onBack: () => rebuild(() => backMobilePage(navigation)),
-                child: StretchEffect(
+                pageBuilder: (_, pageLocation) => StretchEffect(
                   axis: Axis.vertical,
                   stretchStrength: 0.05,
                   child: ColoredBox(
                     color: Colors.blue,
-                    child: Text(navigation.location.toString()),
+                    child: Text(pageLocation.toString()),
                   ),
                 ),
               );
@@ -48,42 +48,28 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final snapshots = find.byKey(const ValueKey('entering-snapshot'));
       for (var cycle = 0; cycle < 20; cycle++) {
         rebuild(() => navigation.navigate(location(RaftRoute.channel)));
         await tester.pump();
-        // The initial fade is transparent; allow its first paint and capture,
-        // while staying well inside the entering transition.
-        for (
-          var frame = 0;
-          frame < 8 && snapshots.evaluate().isEmpty;
-          frame++
-        ) {
-          await tester.pump(const Duration(milliseconds: 16));
-        }
-        expect(snapshots, findsOneWidget);
-        final displayed = tester.widget<RawImage>(snapshots).image!;
-        // The mounted but transparent live subtree replaces its shader without
-        // painting. Re-rasterizing its old layer on Back used a disposed shader.
-        for (var frame = 0; frame < 2; frame++) {
+        for (var frame = 0; frame < 4; frame++) {
           rebuild(() {});
           await tester.pump(const Duration(milliseconds: 16));
         }
+        final route = ModalRoute.of(
+          tester.element(find.byType(StretchEffect).last),
+        );
+        expect(route?.settings, isA<MaterialPage<void>>());
+        expect((route!.settings as MaterialPage<void>).allowSnapshotting, isFalse);
+        expect(find.byType(RawImage), findsNothing);
         rebuild(() => backMobilePage(navigation));
         await tester.pump();
-        final retained = tester
-            .widgetList<RawImage>(find.byType(RawImage))
-            .map((widget) => widget.image)
-            .whereType<ui.Image>()
-            .singleWhere((image) => image.isCloneOf(displayed));
-        expect(identical(retained, displayed), isFalse);
-        expect(retained.debugDisposed, isFalse);
-        await tester.pumpAndSettle();
-        expect(displayed.debugDisposed, isTrue);
-        expect(retained.debugDisposed, isTrue);
+        for (var frame = 0; frame < 32; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(find.byType(RawImage), findsNothing);
+          expect(tester.takeException(), isNull);
+        }
         expect(navigation.location.route, RaftRoute.home);
-        expect(snapshots, findsNothing);
-        expect(tester.takeException(), isNull);
+        expect(find.text(location(RaftRoute.home).toString()), findsOneWidget);
       }
       await tester.pumpWidget(const SizedBox());
     },
@@ -117,7 +103,7 @@ void main() {
                   backs++;
                   backMobilePage(navigation);
                 }),
-                child: StretchEffect(
+                pageBuilder: (_, pageLocation) => StretchEffect(
                   axis: Axis.vertical,
                   stretchStrength: 0.05,
                   child: ColoredBox(
@@ -156,7 +142,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         final route = ModalRoute.of(
-          tester.element(find.byType(StretchEffect)),
+          tester.element(find.byType(StretchEffect).last),
         )!;
         await gesture('startBackGesture', 0);
         await gesture('updateBackGestureProgress', 0.35);

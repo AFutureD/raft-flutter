@@ -135,7 +135,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 
 ## 移动导航呈现（2026-10-10）
 
-窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。活动页面保留唯一 controller 子树，历史页仅暂存最后绘制的帧用于过渡；帧不持久化，并随账户、服务器或权限范围变化销毁。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。
+窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。历史页面保留实际 widget 子树及借用的呈现 controller，共享工作区已接受的数据；不再保存路由截图，并明确关闭路由快照。账号、服务器或权限范围变化会撤销旧页面。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。导航与后台数据更新的性能证据及剩余问题见 [移动路由性能调查](mobile-route-performance-investigation.md)。
 
 移动任务槽现在拥有独立 MaterialPage，桌面继续使用 modal / docked 呈现。频道设置与成员通过客户端 `channelPage=settings:<channelId>|members:<channelId>` 槽投影为页面；底层频道、消息串与任务 URI 合同仍保留。冷链接先补入底层目的地，系统返回与顶部返回消费同一份业务历史；页面身份与进入实例分离，退出动画中的旧实例不会与快速重入的新实例共享帧 key。宽窄切换保留活动子树和任务 owner；呈现实例只由既有业务历史派生，不维护额外业务位置。隐藏的工作区保留草稿与列表状态，排除焦点、语义并暂停动画。
 

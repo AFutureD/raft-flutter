@@ -246,7 +246,11 @@ class RaftRecipeInput extends StatefulWidget {
     this.inputFormatters,
     this.maxLength,
     this.recipeText = false,
+    this.obscure = false,
   });
+
+  /// `type="password"`.
+  final bool obscure;
 
   /// No callsite `text-sm`: the recipe's own size and leading (Elegant 14/20,
   /// Brutal 16/24).
@@ -344,6 +348,9 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         focusNode: focus,
         autofocus: widget.autofocus,
         enabled: widget.enabled,
+        obscureText: widget.obscure,
+        enableSuggestions: !widget.obscure,
+        autocorrect: !widget.obscure,
         keyboardType:
             widget.keyboardType ??
             (widget.numeric ? TextInputType.number : null),
@@ -1147,6 +1154,31 @@ class RaftSettingsPreference extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// SettingsPanel success note: `border border-line-muted theme-brutal:border-2 theme-brutal:border-black
+/// bg-brutal-lime/30 p-2 text-xs font-bold` (the "Password updated!" line).
+class RaftSettingsSavedNote extends StatelessWidget {
+  const RaftSettingsSavedNote(this.text, {super.key});
+  final String text;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          t.product.brutalLime.withValues(alpha: .3),
+          t.brutal ? const Color(0xFFFFFFFF) : t.panel,
+        ),
+        border: Border.all(
+          color: t.brutal ? const Color(0xFF000000) : t.semantic.lineMuted,
+          width: t.brutal ? 2 : 1,
+        ),
+      ),
+      child: Text(text, style: RaftTypography.heading(t, size: 12, line: 16)),
     );
   }
 }

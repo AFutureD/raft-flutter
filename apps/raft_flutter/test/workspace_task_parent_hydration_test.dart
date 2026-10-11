@@ -207,6 +207,8 @@ void main() {
           expect(w.messages.single.id, 'accepted-main');
           await t.sendKeyEvent(LogicalKeyboardKey.escape);
           await flush(t);
+          // The closed task page stays live for the platform pop transition.
+          await t.pump(const Duration(milliseconds: 500));
           expect(surface, findsNothing);
           expect(owner.closed, isTrue);
           expect(w.location.query('task'), isNull);
@@ -293,6 +295,8 @@ void main() {
           );
           await t.sendKeyEvent(LogicalKeyboardKey.escape);
           await flush(t);
+          // The closed task page stays live for the platform pop transition.
+          await t.pump(const Duration(milliseconds: 500));
           expect(surface, findsNothing);
           expect(w.channels.map((c) => c.id), ['c1']);
           expect(t.takeException(), isNull);
@@ -338,6 +342,8 @@ void main() {
               .owner;
           await t.tap(find.byTooltip('Close task'));
           await flush(t);
+          // The owner retires with its page once the pop transition ends.
+          await t.pump(const Duration(milliseconds: 500));
           expect(retired.closed, isTrue);
           await t.pumpAndSettle();
           await t.tap(find.text('Scoped actual task'));
@@ -353,6 +359,8 @@ void main() {
           });
           await flush(t);
           await pendingMain;
+          // The covered Tasks list stays live (visible) until the push ends.
+          await t.pump(const Duration(milliseconds: 500));
           expect(find.text('Scoped actual task'), findsOneWidget);
           expect(
             find.text('Scoped actual task', skipOffstage: false),

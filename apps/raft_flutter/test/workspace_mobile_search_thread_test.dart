@@ -90,15 +90,17 @@ void main() {
               find.byKey(const Key('workspace-mobile-navigation')),
               findsNothing,
             );
-            if (width == 390) {
-              expect(find.byType(ResourceView), findsNothing);
-              expect(find.byKey(const Key('thread-back')), findsOneWidget);
-              expect(
-                find.byKey(const Key('desktop-master-resize-handle')),
-                findsNothing,
-              );
-            }
           });
+          if (width == 390) {
+            // The covered Search page is a live page until the push settles.
+            await tester.pump(const Duration(milliseconds: 500));
+            expect(find.byType(ResourceView), findsNothing);
+            expect(find.byKey(const Key('thread-back')), findsOneWidget);
+            expect(
+              find.byKey(const Key('desktop-master-resize-handle')),
+              findsNothing,
+            );
+          }
           expect(
             api.calls.where((r) => r.path == '/channels/c1/threads/parent'),
             isEmpty,
@@ -163,6 +165,9 @@ void main() {
           await tester.tap(
             find.byKey(Key(width == 390 ? 'thread-back' : 'thread-close')),
           );
+          // The popped thread page stays live until the transition completes.
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
           await frames(tester, () {
             expect(
               w.location.toString(),

@@ -98,6 +98,8 @@ void main() {
             await t.sendKeyEvent(LogicalKeyboardKey.escape);
           }
           await flush(t);
+          // The closed task page stays live for the platform pop transition.
+          await t.pump(const Duration(milliseconds: 500));
           expect(find.byType(SourceTaskSurface), findsNothing);
           expect(w.location.query('task'), isNull);
           expect(w.location.thread!.itemId, 'old-parent');
@@ -178,6 +180,8 @@ void main() {
         );
         await t.tap(find.byTooltip('Close task'));
         await flush(t);
+        // The closed task page stays live for the platform pop transition.
+        await t.pump(const Duration(milliseconds: 500));
         expect(w.location.query('legacyTask'), isNull);
         expect(find.byType(SourceTaskSurface), findsNothing);
         expect(t.takeException(), isNull);
@@ -302,6 +306,8 @@ void main() {
               .owner;
           await t.tap(find.byTooltip('Close task'));
           await flush(t);
+          // The owner retires with its page once the pop transition ends.
+          await t.pump(const Duration(milliseconds: 500));
           expect(retired.closed, isTrue);
           await t.pumpAndSettle();
           expect(w.navigation.index, historyIndex);

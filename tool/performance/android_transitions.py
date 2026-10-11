@@ -37,8 +37,7 @@ def main():
     p.add_argument('--semantics', default='platform', choices=['platform', 'on', 'off'])
     p.add_argument('--apk', type=Path, help='reuse a prebuilt isolated test APK instead of building')
     p.add_argument('--define', action='append', default=[], metavar='KEY=VALUE',
-                   help='extra --dart-define for the build, e.g. RAFT_NAV_FADE_SNAPSHOTS=false or '
-                        'RAFT_NAV_DEFER_SEMANTICS=false to measure a change on its own (repeatable)')
+                   help='extra --dart-define for the build (repeatable)')
     p.add_argument('--allow-noisy', action='store_true', help='measure even if host load is high (results labelled NOISY)')
     args = p.parse_args()
     out = args.out.resolve()
@@ -49,7 +48,7 @@ def main():
     if not args.apk:
         apk.parent.mkdir()
         build = [str(ROOT / 'tool/flutter'), 'build', 'apk', '--profile', '--target-platform', ABIS[args.abi],
-                 '-t', 'integration_test/perf_lab_test.dart', '--no-pub',
+                 '-t', 'integration_test/perf_lab_test.dart',
                  '--android-project-arg=raftApplicationIdSuffix=.linkperf',
                  f'--dart-define=RAFT_LAB_THEMES={args.themes}', f'--dart-define=RAFT_LAB_SCENARIOS={args.scenarios}',
                  f'--dart-define=RAFT_LAB_SEMANTICS={args.semantics}',

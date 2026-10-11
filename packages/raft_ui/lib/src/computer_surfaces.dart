@@ -115,7 +115,16 @@ class RaftRuntimeChip extends StatelessWidget {
         widthFactor: 1,
         child: trailing == null
             ? text
-            : Row(mainAxisSize: MainAxisSize.min, children: [text, trailing!]),
+            // Badge root `inline-flex items-center gap-1` (elegant gap-1.5):
+            // the health Status carries only its own `ml-1` (the caller).
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  text,
+                  SizedBox(width: s.columnGap ?? s.length('gap') ?? 4),
+                  trailing!,
+                ],
+              ),
       ),
     );
   }

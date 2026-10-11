@@ -39,7 +39,7 @@ void main() {
   });
 
   testWidgets(
-    'Platform routes keep one live state owner and pop accepted history once',
+    'Platform routes own separate live states and retain the root on Back',
     (tester) async {
       final navigation = WorkspaceNavigation();
       navigation.bind('isolated', location(RaftRoute.home));
@@ -57,9 +57,9 @@ void main() {
                   backCount++;
                   rebuild(() => backMobilePage(navigation));
                 },
-                child: _LivePage(
+                pageBuilder: (_, location) => _LivePage(
                   onMount: () => mountCount++,
-                  label: mobilePageIdentity(navigation.location),
+                  label: mobilePageIdentity(location),
                 ),
               );
             },
@@ -79,7 +79,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(mountCount, 1);
+      expect(mountCount, 2);
       expect(
         find.text(mobilePageIdentity(navigation.location)),
         findsOneWidget,
@@ -89,14 +89,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(backCount, 1);
       expect(navigation.location.route, RaftRoute.home);
-      expect(mountCount, 1);
+      expect(mountCount, 2);
       expect(tester.takeException(), isNull);
       rebuild(() => navigation.navigate(location(RaftRoute.settings)));
       await tester.pump();
       final tabContext = tester.element(find.byType(_LivePage));
       expect(ModalRoute.of(tabContext)?.animation?.value, 1);
       await tester.pumpAndSettle();
-      expect(mountCount, 1);
+      expect(mountCount, 3);
       expect(tester.takeException(), isNull);
     },
   );
@@ -119,8 +119,8 @@ void main() {
                 enabled: mobile,
                 navigation: navigation,
                 onBack: () => rebuild(() => backMobilePage(navigation)),
-                child: ListView.builder(
-                  key: PageStorageKey(navigation.location.route.name),
+                pageBuilder: (_, location) => ListView.builder(
+                  key: PageStorageKey(location.route.name),
                   primary: false,
                   itemExtent: 60,
                   itemCount: 80,
@@ -215,9 +215,9 @@ void main() {
             return MobileWorkspacePages(
               navigation: navigation,
               onBack: () => rebuild(() => backMobilePage(navigation)),
-              child: _LivePage(
+              pageBuilder: (_, location) => _LivePage(
                 onMount: () {},
-                label: mobilePageIdentity(navigation.location),
+                label: mobilePageIdentity(location),
               ),
             );
           },
@@ -273,9 +273,9 @@ void main() {
               return MobileWorkspacePages(
                 navigation: navigation,
                 onBack: () => rebuild(() => backMobilePage(navigation)),
-                child: _LivePage(
+                pageBuilder: (_, location) => _LivePage(
                   onMount: () => mountCount++,
-                  label: mobilePageIdentity(navigation.location),
+                  label: mobilePageIdentity(location),
                 ),
               );
             },
@@ -296,9 +296,9 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
           expect(
             find.text(mobilePageIdentity(navigation.location)),
-            findsOneWidget,
+            findsWidgets,
           );
-          expect(mountCount, 1);
+          expect(mountCount, 1 + (cycle + 1) * 2);
           expect(tester.takeException(), isNull);
         }
         rebuild(() => backMobilePage(navigation));

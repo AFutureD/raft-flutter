@@ -159,6 +159,10 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(RaftComposer), findsOneWidget);
           await tester.tap(find.byKey(const Key('mobile-detail-back')));
+          // The outgoing channel page stays a live page for the platform
+          // transition; the pending identity is asserted once it has left.
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
           for (var i = 0; i < 4; i++) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(c.calls, contains('GET:/channels/gone'));

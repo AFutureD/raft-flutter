@@ -2441,18 +2441,21 @@ class _RaftComposerState extends State<RaftComposer> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               // `ComposerSuggestionGroup separated`:
-                              // `mt-1 pt-1`, brutal `border-t-2 border-black`.
-                              if (startGroup && index > 0)
+                              // `mt-1 pt-1`, brutal `border-t-2 border-black`;
+                              // Not-in-channel / Computers / Apps carry it even
+                              // as the first group (In-channel never does).
+                              if (startGroup && (index > 0 || group > 0))
                                 Container(
                                   margin: const EdgeInsets.only(top: 4),
-                                  height: 4 + (recipe.tokens.brutal ? 2 : 1),
+                                  // Elegant has the spacing only (no rule).
+                                  height: 4 + (recipe.tokens.brutal ? 2 : 0),
                                   alignment: Alignment.topCenter,
-                                  child: Container(
-                                    height: recipe.tokens.brutal ? 2 : 1,
-                                    color: recipe.tokens.brutal
-                                        ? Colors.black
-                                        : recipe.tokens.colors['line-hairline'],
-                                  ),
+                                  child: recipe.tokens.brutal
+                                      ? Container(
+                                          height: 2,
+                                          color: Colors.black,
+                                        )
+                                      : null,
                                 ),
                               if (startGroup && label != null)
                                 Padding(
@@ -2464,6 +2467,14 @@ class _RaftComposerState extends State<RaftComposer> {
                                     ),
                                     style: recipe.suggestionGroupLabel,
                                   ),
+                                ),
+                              // Elegant group: `flex-col gap-2` (2px) and the
+                              // label's `mb-0.5`; Brutal has neither.
+                              if (!recipe.tokens.brutal)
+                                SizedBox(
+                                  height: startGroup
+                                      ? (label != null ? 4 : 0)
+                                      : 2,
                                 ),
                               row,
                             ],
@@ -2865,18 +2876,22 @@ class _RaftComposerSuggestionRowState
           child: ConstrainedBox(
             // Web options are `py-2` rows on touch as well (no 48px floor).
             constraints: const BoxConstraints(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: recipe.suggestionBackground(
-                  highlighted: widget.highlighted,
-                  hovered: hovered,
+            // Not-in-channel options carry `opacity-60` on the whole button
+            // (fill included, so a highlighted row is the lighter fill too).
+            child: Opacity(
+              opacity: !s.inChannel && s.isMention ? .6 : 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
-              ),
-              child: Opacity(
-                // Not-in-channel options carry `opacity-60`.
-                opacity: !s.inChannel && s.isMention ? .6 : 1,
+                decoration: BoxDecoration(
+                  color: recipe.suggestionBackground(
+                    highlighted: widget.highlighted,
+                    hovered: hovered,
+                  ),
+                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+                ),
                 child: Row(
                   children: [
                     if (s.isMention && s.avatar != null) ...[

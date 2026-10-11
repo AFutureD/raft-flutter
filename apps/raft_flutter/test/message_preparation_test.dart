@@ -1,8 +1,72 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:raft_flutter/features/message_preparation.dart';
 
 void main() {
+  testWidgets('preparation waits through route entry and predictive Back', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        theme: ThemeData(platform: TargetPlatform.android),
+        home: const SizedBox(),
+      ),
+    );
+    final route = MaterialPageRoute<void>(
+      allowSnapshotting: false,
+      builder: (_) => const ColoredBox(color: Colors.white),
+    );
+    navigator.currentState!.push(route);
+    await tester.pump();
+    var completed = 0;
+    final owner = MessagePreparation(
+      isIdle: () => messagePreparationRouteIsIdle(route),
+      scheduleIdle: (job) => job(),
+    );
+    owner.replace([() => completed++]);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(completed, 0);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(completed, 1);
+
+    Future<void> gesture(String method, [double? progress]) async {
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/backgesture',
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall(
+            method,
+            progress == null
+                ? null
+                : <String, dynamic>{
+                    'touchOffset': <double>[100, 300],
+                    'progress': progress,
+                    'swipeEdge': 0,
+                  },
+          ),
+        ),
+        (_) {},
+      );
+      await tester.pump();
+    }
+
+    await gesture('startBackGesture', 0);
+    await gesture('updateBackGestureProgress', .4);
+    expect(route.navigator!.userGestureInProgress, isTrue);
+    owner.replace([() => completed++]);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(completed, 1, reason: 'A held platform gesture is not idle');
+    await gesture('cancelBackGesture');
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(completed, 2, reason: 'Canceled Back resumes retained preparation');
+    owner.dispose();
+    await tester.pumpWidget(const SizedBox());
+  });
+
   Future<void> advance(WidgetTester tester, Duration duration) async {
     await tester.pump(duration);
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));

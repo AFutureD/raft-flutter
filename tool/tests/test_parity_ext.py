@@ -16,6 +16,10 @@ EXT = ROOT / 'tool/parity-ext'
 sys.path.insert(0, str(EXT))
 import builders  # noqa: E402
 import react_cache  # noqa: E402
+import sampling  # noqa: E402
+_inv_loader = importlib.machinery.SourceFileLoader('parity_ext_inventory_test', str(EXT / 'inventory.py'))
+inventory = importlib.util.module_from_spec(importlib.util.spec_from_loader(_inv_loader.name, _inv_loader))
+_inv_loader.exec_module(inventory)
 
 _loader = importlib.machinery.SourceFileLoader('parity_ext_analyze_diffs_test', str(EXT / 'analyze-diffs.py'))
 analyze = importlib.util.module_from_spec(importlib.util.spec_from_loader(_loader.name, _loader))
@@ -261,3 +265,109 @@ class NonTextScoreTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ThemeSamplingTest(unittest.TestCase):
+    THEMES = (('brutal-light', 'brutal'), ('elegant-light', 'elegant'), ('elegant-dark', 'elegant-dark'))
+
+    def manifest(self, surfaces):
+        cases = []
+        for surface, names in surfaces.items():
+            for name in names:
+                for theme, suffix in self.THEMES:
+                    cases.append({'id': '.'.join(filter(None, [surface, name, suffix])), 'theme': theme})
+        return {'cases': cases}
+
+    def names(self, manifest, theme, surface):
+        return [sampling.case_name(c) for c in manifest['cases']
+                if c['theme'] == theme and sampling.surface_of(c['id']) == surface]
+
+    SURFACES = {
+        'components.a.list': ['default', 'empty', 'loading', 'many-rows', 'error'],
+        'components.a.dialog': ['one', 'two', 'three'],
+        'components.a.single': ['only'],
+        'components.a.bare': [''],
+    }
+
+    def test_default_theme_is_complete_and_others_keep_first_plus_dense(self):
+        full = self.manifest(self.SURFACES)
+        out = sampling.sample_themes(full, {})
+        for theme in ('elegant-light', 'elegant-dark'):
+            self.assertEqual(self.names(out, theme, 'components.a.list'), ['default', 'many-rows'])
+            self.assertEqual(self.names(out, theme, 'components.a.dialog'), ['one', 'three'])  # no keyword: last
+            self.assertEqual(self.names(out, theme, 'components.a.single'), ['only'])
+            self.assertEqual(self.names(out, theme, 'components.a.bare'), [''])
+        self.assertEqual(self.names(out, 'brutal-light', 'components.a.list'), self.SURFACES['components.a.list'])
+        self.assertEqual(sum(c['theme'] == 'brutal-light' for c in out['cases']), 10)
+        self.assertEqual(len(out['cases']), 10 + 2 * 6)
+
+    def test_deterministic_and_same_variants_in_both_themes(self):
+        full = self.manifest(self.SURFACES)
+        first = sampling.sample_themes(full, {})
+        self.assertEqual(first, sampling.sample_themes(full, {}))
+        for surface in self.SURFACES:
+            self.assertEqual(self.names(first, 'elegant-light', surface), self.names(first, 'elegant-dark', surface))
+
+    def test_all_themes_switch_keeps_everything(self):
+        full = self.manifest(self.SURFACES)
+        self.assertEqual(sampling.sample_themes(full, {'PARITY_EXT_ALL_THEMES': '1'}), full)
+
+    def test_all_dark_switch_keeps_dark_complete_but_light_sampled(self):
+        full = self.manifest(self.SURFACES)
+        out = sampling.sample_themes(full, {'PARITY_EXT_ALL_DARK': '1'})
+        self.assertEqual(self.names(out, 'elegant-dark', 'components.a.list'), self.SURFACES['components.a.list'])
+        self.assertEqual(self.names(out, 'elegant-light', 'components.a.list'), ['default', 'many-rows'])
+
+    def test_every_repo_surface_keeps_one_or_two_cases_per_sampled_theme(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            target = builders.build_manifest(pathlib.Path(tmp))
+            full = json.loads(target.read_text())
+        out = sampling.sample_themes(full, {})
+        for theme in sampling.SAMPLED_THEMES:
+            per = {}
+            for c in out['cases']:
+                if c['theme'] == theme:
+                    per.setdefault(sampling.surface_of(c['id']), []).append(c['id'])
+            wanted = {sampling.surface_of(c['id']) for c in full['cases'] if c['theme'] == theme}
+            self.assertEqual(set(per), wanted)
+            self.assertTrue(all(1 <= len(v) <= 2 for v in per.values()))
+        self.assertEqual(sum(c['theme'] == 'brutal-light' for c in out['cases']),
+                         sum(c['theme'] == 'brutal-light' for c in full['cases']))
+
+
+class PageInventoryTest(unittest.TestCase):
+    def test_every_extension_id_names_a_brutal_light_case_on_the_right_platform(self):
+        official = inventory.official_ids()  # None without the raft-source checkout
+        self.assertEqual(inventory.problems(official=official), [])
+
+    def test_document_is_up_to_date(self):
+        self.assertEqual(inventory.DOC.read_text(), inventory.render(),
+                         'run: python3 tool/parity-ext/inventory.py')
+
+    def test_row_numbers_are_unique_and_states_are_known(self):
+        rows = inventory.all_rows()
+        self.assertEqual(len({r.num for r in rows}), len(rows))
+        for r in rows:
+            self.assertIn(r.prio, (1, 2, 3))
+            self.assertTrue(set(r.ap) <= set('DP') and r.ap, r.num)
+            self.assertTrue({r.state('D'), r.state('P')} <= {'ok', 'partial', 'wip', 'MISSING', 'n/a', 'excluded'})
+
+    def test_missing_list_is_ordered_by_priority(self):
+        prios = [r.prio for r in inventory.missing_rows()]
+        self.assertEqual(prios, sorted(prios))
+        self.assertTrue(all('MISSING' in (r.state('D'), r.state('P')) for r in inventory.missing_rows()))
+
+    def test_excluded_rows_have_a_known_reason_and_stay_out_of_the_ranking(self):
+        excluded = inventory.excluded_rows()
+        self.assertTrue(excluded)
+        for r in excluded:
+            reason, evidence = r.excl
+            self.assertIn(reason, inventory.REASONS, r.num)
+            self.assertGreater(len(evidence), 20, f'{r.num}: cite evidence')
+            self.assertEqual({r.state(p) for p in r.ap}, {'excluded'})
+        ranked = {r.num for r in inventory.missing_rows()}
+        self.assertFalse(ranked & {r.num for r in excluded})
+        self.assertTrue(all(reason in inventory.REASONS for _, reason, _ in inventory.EXCLUDED))
+        counts = inventory.counts()
+        self.assertEqual(counts['rows'] + sum(counts['excluded'].values()), counts['all_rows'])

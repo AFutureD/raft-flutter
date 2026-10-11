@@ -297,6 +297,8 @@ void main() {
         find.byKey(const ValueKey('workspace-settings-nav-computers')),
       );
       await f.flush(t);
+      // The covered Settings root stays a live page until the push settles.
+      await settleRoute(t);
       final w = f.workspace(t);
       expect(w.location.route, RaftRoute.computers);
       expect(find.byKey(tabBar), findsNothing);

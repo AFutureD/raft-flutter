@@ -7,13 +7,13 @@
 // commands.
 import 'package:flutter/material.dart';
 
-import 'system_inset.dart';
 import 'create_channel_view.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
+import 'indicators.dart';
+import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 import 'localization.dart';
-import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -63,10 +63,27 @@ class RaftMemberRowData {
     required this.label,
     required this.avatar,
     this.onRemove,
+    this.secondary,
+    this.secondaryMono = false,
+    this.roleLabel,
+    this.guest = false,
+    this.human = false,
   });
   final String label;
   final Widget avatar;
   final VoidCallback? onRemove;
+
+  /// `truncate text-xs text-foreground-muted` sub-line of the members page row
+  /// (agent activity in `font-mono`, a human's description).
+  final String? secondary;
+  final bool secondaryMono;
+
+  /// `MemberRoleTag` of the members page (`Channel Admin` / `Guest`).
+  final String? roleLabel;
+  final bool guest;
+
+  /// Humans render the name `font-bold`, agents `font-medium`.
+  final bool human;
 }
 
 class RaftChannelMembersModal extends StatelessWidget {
@@ -117,51 +134,7 @@ class RaftChannelMembersModal extends StatelessWidget {
     final t = RaftTokens.of(context);
     final total = humans.length + agents.length;
     if (page) {
-      return Material(
-        color: t.panel,
-        child: Column(
-          children: [
-            // Native page without a Web counterpart (Web opens a dialog): the
-            // Web PanelHeader keeps it consistent with every phone page.
-            RaftPanelHeaderBar(
-              title: addView
-                  ? raftText(context, 'Add Member')
-                  : loading
-                  ? raftText(context, 'Members')
-                  : '${raftText(context, 'Members')} ($total)',
-              onBack: addView ? onBack : onClose,
-              backKey: addView ? const ValueKey('add-member-back') : null,
-              actions: [
-                if (!addView && !loading && onAdd != null)
-                  RaftIconButton(
-                    key: const ValueKey('add-member-open'),
-                    glyph: RaftGlyph.plus,
-                    tooltip: raftText(context, 'Add Member'),
-                    onPressed: hasCandidates ? onAdd : null,
-                  ),
-              ],
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: raftScrollPadding(context, const EdgeInsets.all(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (error != null) ...[
-                      RaftWarningBanner(error!),
-                      const SizedBox(height: 12),
-                    ],
-                    if (addView)
-                      ..._addView(context, t)
-                    else
-                      _roster(context, t),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+      return _MembersPage(modal: this);
     }
     final header = Padding(
       padding: const EdgeInsets.only(bottom: 16), // mb-4
@@ -278,7 +251,7 @@ class RaftChannelMembersModal extends StatelessWidget {
         : t.colors['fill-muted'];
     return RaftRecipeCard(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: page ? double.infinity : 288),
+        constraints: const BoxConstraints(maxHeight: 288),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,7 +303,11 @@ class RaftChannelMembersModal extends StatelessWidget {
     );
   }
 
-  List<Widget> _addView(BuildContext context, RaftTokens t) {
+  List<Widget> _addView(
+    BuildContext context,
+    RaftTokens t, {
+    bool fill = false,
+  }) {
     final query = search.text;
     Widget eyebrow(String text) => RaftDialogSectionEyebrow(
       text,
@@ -356,8 +333,9 @@ class RaftChannelMembersModal extends StatelessWidget {
     );
     final list = Container(
       // flex flex-col border bg-layer-panel shadow-raft-sm, brutal border-2
-      // border-black bg-white shadow-brutal-sm, max-h-72.
-      constraints: const BoxConstraints(maxHeight: 288),
+      // border-black bg-white shadow-brutal-sm, max-h-72 (the members page
+      // fills the remaining height: `min-h-0 flex-1`).
+      constraints: fill ? null : const BoxConstraints(maxHeight: 288),
       decoration: BoxDecoration(
         color: t.brutal ? Colors.white : t.panel,
         border: Border.all(
@@ -367,10 +345,11 @@ class RaftChannelMembersModal extends StatelessWidget {
         boxShadow: t.brutal ? RaftShadowSet.brutalSm : t.themeShadows.sm.outer,
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Flexible(
+            fit: fill ? FlexFit.tight : FlexFit.loose,
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -448,7 +427,7 @@ class RaftChannelMembersModal extends StatelessWidget {
             ),
           ),
         ),
-      list,
+      if (fill) Expanded(child: list) else list,
       const SizedBox(height: 16), // mt-4
       RaftRecipeButton(
         key: const ValueKey('add-member-confirm'),
@@ -772,6 +751,598 @@ class _SelectedChip extends StatelessWidget {
             child: const RaftIcon(RaftGlyph.x, size: 12),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The drawer-internal members page (ChannelMembers presentation="page"): the
+// page the Web OverflowSheet mounts, bare, when the Members strip is opened
+// (desktop drawer and the phone's full-screen drawer alike).
+//
+// Its column insets differ BY DESIGN and are reproduced as such, not unified:
+//   header      px-4  (16)  - back button, title, count Badge
+//   search      px-4  (16)  - `shrink-0 border-b px-4 py-3`
+//   group head  brutal px-2 + border-2 transparent => chevron box at 10;
+//               elegant px-0 + border => 1 (`[--sidebar-row-inset-x:0px]`)
+//   member row  px-3  (12)  - ChannelMemberRow, role tag right edge at 12
+//   Add button  p-3   (12)  - `border-t-2 p-3`, so wider than the search field
+//   add view    px-4  (16)  - search, candidate list card and confirm button
+// ---------------------------------------------------------------------------
+
+class _MembersPage extends StatefulWidget {
+  const _MembersPage({required this.modal});
+  final RaftChannelMembersModal modal;
+  @override
+  State<_MembersPage> createState() => _MembersPageState();
+}
+
+class _MembersPageState extends State<_MembersPage> {
+  final rosterSearch = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    rosterSearch.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    rosterSearch.dispose();
+    super.dispose();
+  }
+
+  RaftChannelMembersModal get m => widget.modal;
+
+  Widget _header(BuildContext context, RaftTokens t, int total) {
+    final back = RaftTouchTargetExpander(
+      minSize: const Size.square(RaftMetrics.touchTarget),
+      child: RaftRecipeButton(
+        key: m.addView
+            ? const ValueKey('add-member-back')
+            : const ValueKey('member-page-back'),
+        glyph: RaftGlyph.arrowLeft,
+        glyphSize: 16,
+        variant: RaftButtonRecipeVariant.outline,
+        size: RaftButtonRecipeSize.iconSm,
+        tooltip: raftText(context, m.addView ? 'Back to members' : 'Back'),
+        onPressed: m.addView ? m.onBack : m.onClose,
+      ),
+    );
+    return Container(
+      // `flex h-panel-header shrink-0 items-center gap-2 border-b
+      // border-line-muted bg-layer-inset px-4`, brutal `border-b-2
+      // border-black bg-soft-signal`. The drawer portals out of the AppShell,
+      // so `h-panel-header` is the 62px fallback.
+      height: RaftMetrics.brutalPanelHeader,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: t.brutal
+            ? t.colors['color-soft-signal']
+            : t.colors['layer-inset'],
+        border: Border(
+          bottom: BorderSide(
+            color: t.brutal ? Colors.black : t.colors['line-muted']!,
+            width: t.brutal ? 2 : 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          back,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Semantics(
+              header: true,
+              child: Text(
+                m.addView
+                    ? raftText(context, 'Add Member')
+                    : raftText(context, 'Members'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: raftCssTextStyle(
+                  family: t.bodyFont,
+                  step: RaftTextSteps.base,
+                  weight: FontWeight.w700,
+                  color: t.brutal ? Colors.black : t.strong,
+                ),
+              ),
+            ),
+          ),
+          if (!m.addView && !m.loading) ...[
+            const SizedBox(width: 8),
+            RaftBadge(
+              key: const ValueKey('member-page-count'),
+              label: '$total',
+              appearance: RaftBadgeRecipeAppearance.soft,
+              variant: RaftBadgeRecipeVariant.muted,
+              fontFamily: t.monoFont,
+            ),
+          ],
+          if (!m.addView && m.loading) ...[
+            const SizedBox(width: 8),
+            const RaftSpinner(size: 14),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final total = m.humans.length + m.agents.length;
+    return Material(
+      color: t.brutal ? Colors.white : t.panel,
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: t.brutal ? Colors.black : t.strong),
+        child: Column(
+          key: const ValueKey('member-page'),
+          children: [
+            _header(context, t, total),
+            Expanded(
+              child: m.addView
+                  ? Padding(
+                      // `flex min-h-0 flex-1 flex-col px-4 py-3`
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (m.error != null) ...[
+                            RaftWarningBanner(m.error!),
+                            const SizedBox(height: 12),
+                          ],
+                          ...m._addView(context, t, fill: true),
+                        ],
+                      ),
+                    )
+                  : _roster(context, t),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _roster(BuildContext context, RaftTokens t) {
+    final query = rosterSearch.text.trim().toLowerCase();
+    bool matches(RaftMemberRowData r) =>
+        query.isEmpty || r.label.toLowerCase().contains(query);
+    final humans = [
+      for (final h in m.humans)
+        if (matches(h)) h,
+    ];
+    final agents = [
+      for (final a in m.agents)
+        if (matches(a)) a,
+    ];
+    final total = m.humans.length + m.agents.length;
+    final muted = t.colors['foreground-muted'];
+    TextStyle note() => raftCssTextStyle(
+      family: t.monoFont,
+      step: RaftTextSteps.sm,
+      color: t.brutal ? Colors.black.withValues(alpha: .5) : muted,
+    );
+    final rule = BorderSide(
+      color: t.brutal
+          ? Colors.black.withValues(alpha: .1)
+          : t.colors['line-muted']!,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (m.error != null)
+          // `m-3 shrink-0 font-bold`
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: RaftWarningBanner(m.error!),
+          ),
+        Container(
+          // `shrink-0 border-b border-line-muted px-4 py-3`
+          key: const ValueKey('member-page-search'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(border: Border(bottom: rule)),
+          child: RaftDialogTextInput(
+            controller: rosterSearch,
+            placeholder: 'Search members…',
+            leadingGlyph: RaftGlyph.search,
+            enabled: !m.loading,
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (m.loading)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 128),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const RaftSpinner(size: 14),
+                          const SizedBox(width: 8),
+                          Text(
+                            raftText(context, 'Loading members…'),
+                            style: note(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!m.loading && humans.isNotEmpty)
+                  _MemberSection(
+                    key: const ValueKey('member-page-section-humans'),
+                    label: raftText(context, 'Humans'),
+                    count: humans.length,
+                    rows: humans,
+                  ),
+                if (!m.loading && agents.isNotEmpty)
+                  _MemberSection(
+                    key: const ValueKey('member-page-section-agents'),
+                    label: raftText(context, 'Agents'),
+                    count: agents.length,
+                    rows: agents,
+                  ),
+                if (!m.loading && total == 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    child: Text(
+                      raftText(context, 'No members'),
+                      textAlign: TextAlign.center,
+                      style: note(),
+                    ),
+                  ),
+                if (!m.loading && total > 0 && humans.isEmpty && agents.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
+                    ),
+                    child: Text(
+                      raftText(
+                        context,
+                        'No matches for "${rosterSearch.text.trim()}"',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: note(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (!m.loading && m.onAdd != null)
+          Container(
+            // `shrink-0 border-t-2 border-line-muted p-3`, brutal `border-black`
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: RaftRecipeButton(
+              key: const ValueKey('add-member-open'),
+              label: raftText(context, 'Add Member'),
+              glyph: RaftGlyph.plus,
+              glyphSize: 14,
+              variant: RaftButtonRecipeVariant.outline,
+              size: RaftButtonRecipeSize.md,
+              expand: true,
+              gap: 6,
+              fontWeight: FontWeight.w700,
+              disabled: !m.hasCandidates,
+              onPressed: m.onAdd,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// `MemberPageSection`: a `SidebarSection` disclosure (starts open) over the
+/// member rows. Brutal header `mt-3 mb-1 h-6 px-2` holding a `h-6 gap-1.5
+/// border-2 border-transparent text-xs font-bold tracking-widest` button;
+/// elegant `mt-4 h-8 px-0` / `border border-transparent text-xs font-medium`.
+class _MemberSection extends StatefulWidget {
+  const _MemberSection({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.rows,
+  });
+  final String label;
+  final int count;
+  final List<RaftMemberRowData> rows;
+  @override
+  State<_MemberSection> createState() => _MemberSectionState();
+}
+
+class _MemberSectionState extends State<_MemberSection> {
+  bool open = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final brutal = t.brutal;
+    final fg = brutal ? Colors.black : t.colors['foreground-icon']!;
+    final title = raftCssTextStyle(
+      family: t.headingFont,
+      step: RaftTextSteps.xs,
+      weight: brutal ? FontWeight.w700 : FontWeight.w500,
+      color: fg,
+    ).copyWith(letterSpacing: brutal ? 12 * .1 : 0);
+    final count = brutal
+        ? raftCssTextStyle(
+            family: t.monoFont,
+            step: RaftTextSteps.xs,
+            weight: FontWeight.w500,
+            color: Colors.black.withValues(alpha: .7),
+          )
+        : raftCssTextStyle(
+            family: t.bodyFont,
+            step: RaftTextSteps.xs,
+            weight: FontWeight.w500,
+            color: fg,
+          );
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            top: brutal ? 12 : 16,
+            bottom: brutal ? 4 : 0,
+          ),
+          child: SizedBox(
+            height: brutal ? 24 : 32,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: brutal ? 8 : 0),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => open = !open),
+                  child: Semantics(
+                    button: true,
+                    expanded: open,
+                    child: Padding(
+                      // `border-2 border-transparent` (brutal) / `border`
+                      padding: EdgeInsets.symmetric(horizontal: brutal ? 2 : 1),
+                      child: Row(
+                        children: [
+                          SizedBox.square(
+                            dimension: 18,
+                            child: Center(
+                              child: Opacity(
+                                opacity: brutal ? 1 : .55,
+                                child: AnimatedRotation(
+                                  turns: open ? .25 : 0,
+                                  duration: reduce
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 150),
+                                  child: RaftIcon(
+                                    RaftGlyph.chevronRight,
+                                    size: 12,
+                                    color: fg,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: title,
+                            ),
+                          ),
+                          // `{" · "}{count}` inside a flex item: the leading space collapses.
+                          Text('· ${widget.count}', style: count),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (open)
+          for (final r in widget.rows) _MemberPageRow(row: r),
+      ],
+    );
+  }
+}
+
+/// `ChannelMemberRow` (row = profile button) with its `MemberRoleTag`
+/// trailing slot: `group flex items-start gap-2 px-3 py-2 hover:bg-fill-muted`,
+/// avatar `mt-1`, name `truncate text-sm` (human bold, agent medium) over a
+/// `truncate text-xs text-foreground-muted` line. From md the role tag and the
+/// hover actions share one grid cell (the tag hides while the actions show);
+/// below md they sit side by side.
+class _MemberPageRow extends StatefulWidget {
+  const _MemberPageRow({required this.row});
+  final RaftMemberRowData row;
+  @override
+  State<_MemberPageRow> createState() => _MemberPageRowState();
+}
+
+class _MemberPageRowState extends State<_MemberPageRow> {
+  bool hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final r = widget.row;
+    final wide =
+        MediaQuery.sizeOf(context).width >= RaftLayoutMetrics.desktopBreakpoint;
+    final ink = t.brutal ? Colors.black : t.strong;
+    final tag = r.roleLabel == null
+        ? null
+        : RaftBadge(
+            label: r.roleLabel!,
+            appearance: RaftBadgeRecipeAppearance.soft,
+            variant: r.guest
+                ? RaftBadgeRecipeVariant.information
+                : RaftBadgeRecipeVariant.muted,
+            fontFamily: t.monoFont,
+          );
+    final actions = r.onRemove == null
+        ? null
+        : _RemoveMemberButton(label: r.label, onPressed: r.onRemove!);
+    Widget? trailing;
+    if (wide && (tag != null || actions != null)) {
+      trailing = Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          if (tag != null)
+            Visibility(
+              visible: !(hovered && actions != null),
+              maintainSize: true,
+              maintainState: true,
+              maintainAnimation: true,
+              child: tag,
+            ),
+          if (actions != null)
+            Visibility(
+              visible: hovered,
+              maintainSize: true,
+              maintainState: true,
+              maintainAnimation: true,
+              child: actions,
+            ),
+        ],
+      );
+    } else if (tag != null || actions != null) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (tag != null) tag,
+          if (tag != null && actions != null) const SizedBox(width: 8),
+          if (actions != null) actions,
+        ],
+      );
+    }
+    return MouseRegion(
+      onEnter: (_) => setState(() => hovered = true),
+      onExit: (_) => setState(() => hovered = false),
+      child: Container(
+        color: hovered ? t.colors['fill-muted'] : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: r.avatar,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            r.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: raftCssTextStyle(
+                              family: t.headingFont,
+                              step: RaftTextSteps.sm,
+                              weight: r.human
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: ink,
+                            ),
+                          ),
+                        ),
+                        if (r.secondary != null && r.secondary!.isNotEmpty)
+                          SizedBox(
+                            width: double.infinity,
+                            child: Text(
+                              r.secondary!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: raftCssTextStyle(
+                                family: r.secondaryMono
+                                    ? t.monoFont
+                                    : t.headingFont,
+                                step: RaftTextSteps.xs,
+                                color: t.colors['foreground-muted'],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null) ...[const SizedBox(width: 8), trailing],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// `ChannelMemberRemoveButton` (member-management rows): `h-7 w-7 rounded-sm
+/// border border-line-muted bg-danger-soft text-danger-strong` with a
+/// `UserMinus size={14}`; brutal square, `border-black bg-brutal-red/20`.
+class _RemoveMemberButton extends StatelessWidget {
+  const _RemoveMemberButton({required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback onPressed;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final fg = t.brutal ? Colors.black : t.colors['danger-strong']!;
+    return RaftTooltip(
+      message: 'Remove $label',
+      child: Semantics(
+        button: true,
+        label: 'Remove $label',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: t.brutal
+                  ? t.colors['color-brutal-red']!.withValues(alpha: .2)
+                  : t.colors['danger-soft'],
+              border: Border.all(
+                color: t.brutal ? Colors.black : t.colors['line-muted']!,
+              ),
+              borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+            ),
+            child: RaftIcon(RaftGlyph.userMinus, size: 14, color: fg),
+          ),
+        ),
       ),
     );
   }

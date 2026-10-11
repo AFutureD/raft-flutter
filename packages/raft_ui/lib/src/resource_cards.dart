@@ -48,6 +48,24 @@ class RaftConversationCardRecipe {
   static const actionFade = Duration(milliseconds: 150);
   Color get background => saved || tokens.brutal ? tokens.panel : tokens.card;
   Color get hoverBackground => tokens.colors['fill-muted']!;
+
+  /// Persistent selected row (the row whose preview is open in the detail
+  /// pane). Deliberately quiet: the reader's eye belongs on the detail pane,
+  /// so the list only needs to answer "which one is open" at a glance. A very
+  /// light tint of the accent plus a leading accent bar; no border, shadow or
+  /// text-colour change. The accent is `info` (elegant) / `brutal-cyan` tint
+  /// with a black bar (brutal).
+  Color get selectedTint => tokens.brutal
+      ? tokens.colors['color-brutal-cyan']!.withValues(alpha: .08)
+      : tokens.colors['info']!.withValues(alpha: tokens.dark ? .06 : .05);
+
+  /// Fill of a selected row over [base] (the normal or hover fill).
+  Color selectedFill(Color base) => Color.alphaBlend(selectedTint, base);
+
+  /// Leading accent bar. Brutal 4px black, elegant 3px `info`.
+  Color get selectedEdge =>
+      tokens.brutal ? tokens.colors['color-black']! : tokens.colors['info']!;
+  double get selectedEdgeWidth => tokens.brutal ? 4 : 3;
   BorderSide get border => BorderSide(
     // SavedItem Card: `theme-brutal:border-2 theme-brutal:border-black`.
     color: saved && tokens.brutal
@@ -113,6 +131,7 @@ class RaftConversationCardRecipe {
       : unread
       ? tokens.strong
       : tokens.muted;
+
   Color get senderColor => tokens.brutal
       ? tokens.colors['color-black']!.withValues(alpha: .7)
       : tokens.muted;
@@ -126,6 +145,7 @@ class RaftConversationCard extends StatefulWidget {
     required this.child,
     required this.onOpen,
     this.saved = false,
+    this.selected = false,
     this.onContextMenu,
     this.onActivate,
     this.onPointerActivate,
@@ -150,6 +170,11 @@ class RaftConversationCard extends StatefulWidget {
   /// Host platform recognition window; it never delays the first activation.
   final Duration doubleClickInterval;
   final bool saved;
+
+  /// Persistent selected state: the row is the one currently open in the
+  /// master-detail preview. Stays painted while hovered, focused or unread;
+  /// ignored for [saved] cards.
+  final bool selected;
   final VoidCallback? onContextMenu;
   final String? semanticLabel;
   final Widget? actions;
@@ -205,11 +230,16 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
     final rt = RaftRecipeTokens(t);
     // raft-ui Card root shadow (brutal themeShadowMd, elegant themeShadowXs);
     // SavedItem opts out with `shadow-none`.
+    final selected = widget.selected && !widget.saved;
     final cardStyle = RaftCardRecipe.resolve(
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).root;
+    final base = hovered || focused
+        ? recipe.hoverBackground
+        : recipe.background;
+    final background = selected ? recipe.selectedFill(base) : base;
     Widget surface(Widget child) {
       if (widget.saved) {
         return Material(
@@ -234,13 +264,29 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
         applyText: false,
         clip: true,
         decorationOverride: (base) => base.copyWith(
-          color: hovered || focused
-              ? recipe.hoverBackground
-              : recipe.background,
+          color: background,
           border: Border.fromBorderSide(recipe.border),
           borderRadius: recipe.radius,
         ),
-        child: Material(type: MaterialType.transparency, child: child),
+        child: Material(
+          type: MaterialType.transparency,
+          child: selected
+              ? Stack(
+                  children: [
+                    child,
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: recipe.selectedEdgeWidth,
+                      child: IgnorePointer(
+                        child: ColoredBox(color: recipe.selectedEdge),
+                      ),
+                    ),
+                  ],
+                )
+              : child,
+        ),
       );
     }
 
@@ -256,6 +302,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
           onExit: (_) => setState(() => hovered = false),
           child: Semantics(
             button: true,
+            selected: selected,
             label: widget.semanticLabel,
             child: surface(
               InkWell(
@@ -308,7 +355,9 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
                                     ? Duration.zero
                                     : RaftConversationCardRecipe.actionFade,
                                 child: Material(
-                                  color: recipe.background,
+                                  color: selected
+                                      ? recipe.selectedFill(recipe.background)
+                                      : recipe.background,
                                   child: widget.actions!,
                                 ),
                               ),
