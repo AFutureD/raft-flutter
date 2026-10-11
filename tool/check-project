@@ -47,9 +47,15 @@ def effective_cpus(cpu, load1):
     return max(2, cpu - int(load1 or 0))
 
 
-def plan_parallelism(cpu, load1=0.0, env=None):
-    """Return (shards, jobs per shard); environment overrides win."""
+def plan_parallelism(cpu, load1=0.0, env=None, platform=None):
+    """Return (shards, jobs per shard); environment overrides win.
+
+    macOS defaults to one shard: every `flutter test` process re-links the
+    shared native_assets dylibs with install_name_tool, so two processes race
+    and one loses libsqlite3.dylib. The single shard runs more files at once.
+    """
     env = os.environ if env is None else env
+    platform = sys.platform if platform is None else platform
 
     def positive(name):
         raw = env.get(name, '').strip()
@@ -60,8 +66,8 @@ def plan_parallelism(cpu, load1=0.0, env=None):
         return int(raw)
 
     eff = effective_cpus(cpu, load1)
-    shards = positive('RAFT_CHECK_SHARDS') or max(1, min(8, eff // 3))
-    jobs = positive('RAFT_CHECK_JOBS') or max(2, min(4, eff // shards))
+    shards = positive('RAFT_CHECK_SHARDS') or (1 if platform == 'darwin' else max(1, min(8, eff // 3)))
+    jobs = positive('RAFT_CHECK_JOBS') or max(2, min(4 if shards > 1 else 8, eff // shards))
     return shards, jobs
 
 

@@ -39,6 +39,20 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 release.version_info(text)
 
+    def test_formal_build_passes_plain_version_to_about_and_clears_inherited_defines(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with patch.object(release, 'OUT', Path(temp)), \
+                    patch.dict(release.os.environ, {'DART_DEFINES': 'private-inherited-value'}), \
+                    patch.object(release, 'run', side_effect=RuntimeError('stop after command')) as commands:
+                with self.assertRaisesRegex(RuntimeError, 'stop after command'):
+                    release.build('windows')
+                version, number = release.version_info((release.APP / 'pubspec.yaml').read_text())
+                command = commands.call_args.args[0]
+                self.assertIn(f'--build-name={version}', command)
+                self.assertIn(f'--dart-define=RAFT_APP_VERSION={version}', command)
+                self.assertIn(f'--build-number={number}', command)
+                self.assertNotIn('DART_DEFINES', commands.call_args.kwargs['env'])
+
     def fixture(self, directory, platform='windows'):
         artifact = directory / 'raft.zip'
         artifact.write_bytes(b'compiled bundle')
