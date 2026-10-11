@@ -301,6 +301,14 @@ def main():
     def analyze():
         return run_logged([*tool_command('flutter'), 'analyze', '--no-pub'], root, local / 'analyze-all.txt', check_env) == 0
 
+    # Parallel shards share one native_assets build directory; on macOS two
+    # shards building it at once can lose a dylib before signing. Run the
+    # smallest test file alone first so the build hooks finish once. Its
+    # result is informational: the shards still run that file.
+    if len(plan) > 1 and sizes:
+        warmup = min(sizes, key=sizes.get)
+        run_logged([*tool_command('flutter'), 'test', warmup, '--no-pub'], app_dir, local / 'test-warmup.txt', check_env, shard_timeout)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(plan) + 2) as pool:
         host_future = pool.submit(host_tests)
         analyze_future = pool.submit(analyze)
