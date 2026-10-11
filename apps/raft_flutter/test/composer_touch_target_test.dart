@@ -39,15 +39,46 @@ Future<void> _settle(WidgetTester t, [int frames = 12]) async {
   }
 }
 
-/// Mounts the real phone shell with a gesture-bar inset and opens channel `ca`.
-Future<void> _openPhoneChannel(WidgetTester t, String theme) async {
+/// The conversation under test: a channel, a human DM or an agent DM.
+enum _Kind {
+  channel('ca', null),
+  humanDm('dm-human', 'user'),
+  agentDm('dm-agent', 'agent');
+
+  const _Kind(this.id, this.peerType);
+  final String id;
+  final String? peerType;
+}
+
+/// Mounts the real phone shell with a gesture-bar inset and opens [kind].
+Future<void> _openPhoneChannel(WidgetTester t, String theme, _Kind kind) async {
   debugDefaultTargetPlatformOverride = TargetPlatform.android;
   final f = RootFixture();
-  f.overrides['GET /messages/channel/ca'] = (_) => {
-    'messages': [for (var i = 1; i <= 4; i++) _message('m$i', 'Message $i', i)],
+  f.overrides['GET /messages/channel/${kind.id}'] = (_) => {
+    'messages': [
+      for (var i = 1; i <= 4; i++)
+        {..._message('m$i', 'Message $i', i), 'channelId': kind.id},
+    ],
     'hasMore': false,
     'hasNewer': false,
   };
+  if (kind.peerType != null) {
+    f.overrides['GET /channels/dm'] = (_) => [
+      {
+        'id': kind.id,
+        'name': 'Peer',
+        'type': 'dm',
+        'serverId': 'alpha',
+        'joined': true,
+        'latestSeq': '1',
+        'peerType': kind.peerType,
+        'peerId': 'peer-1',
+        'peerDisplayName': 'Peer',
+        'peerName': 'peer',
+      },
+    ];
+    f.overrides['POST /channels/${kind.id}/read'] = (_) => {};
+  }
   await f.mount(t, theme, 412, uri: Uri.parse('/s/alpha'));
   t.view.devicePixelRatio = _dpr;
   t.view.physicalSize = _size;
@@ -68,7 +99,7 @@ Future<void> _openPhoneChannel(WidgetTester t, String theme) async {
   });
   await f.flush(t);
   await _settle(t);
-  await t.tap(find.byKey(const ValueKey('sidebar-channel-ca')));
+  await t.tap(find.byKey(ValueKey('sidebar-channel-${kind.id}')));
   await f.flush(t);
   await _settle(t);
 }
@@ -104,32 +135,34 @@ Rect probeHitRegion(WidgetTester t, Finder action) {
 }
 
 void main() {
-  for (final theme in const ['brutal', 'elegant-light']) {
-    testWidgets(
-      'composer attach and send keep a phone-sized tap area on Android gesture navigation $theme',
-      (t) async {
-        await _openPhoneChannel(t, theme);
-        final actions = find.byType(RaftComposerAction);
-        expect(actions, findsAtLeastNWidgets(2));
-        final report = StringBuffer();
-        final failures = <String>[];
-        for (final e in actions.evaluate()) {
-          final w = e.widget as RaftComposerAction;
-          final f = find.byWidget(w);
-          final visual = t.getRect(f);
-          final hit = probeHitRegion(t, f);
-          report.writeln(
-            'PROBE $theme ${w.glyph.name} visual=${visual.width}x${visual.height}'
-            ' hit=${hit.width}x${hit.height} at ${hit.left},${hit.top}',
-          );
-          if (hit.width < _minWidth || hit.height < _minHeight) {
-            failures.add('${w.glyph.name} tappable $hit (visual $visual)');
+  for (final kind in _Kind.values) {
+    for (final theme in const ['brutal', 'elegant-light']) {
+      testWidgets(
+        'composer attach and send keep a phone-sized tap area on Android gesture navigation ${kind.name} $theme',
+        (t) async {
+          await _openPhoneChannel(t, theme, kind);
+          final actions = find.byType(RaftComposerAction);
+          expect(actions, findsAtLeastNWidgets(2));
+          final report = StringBuffer();
+          final failures = <String>[];
+          for (final e in actions.evaluate()) {
+            final w = e.widget as RaftComposerAction;
+            final f = find.byWidget(w);
+            final visual = t.getRect(f);
+            final hit = probeHitRegion(t, f);
+            report.writeln(
+              'PROBE ${kind.name} $theme ${w.glyph.name} visual=${visual.width}x${visual.height}'
+              ' hit=${hit.width}x${hit.height} at ${hit.left},${hit.top}',
+            );
+            if (hit.width < _minWidth || hit.height < _minHeight) {
+              failures.add('${w.glyph.name} tappable $hit (visual $visual)');
+            }
           }
-        }
-        stdout.write(report);
-        debugDefaultTargetPlatformOverride = null;
-        expect(failures, isEmpty, reason: '$report');
-      },
-    );
+          stdout.write(report);
+          debugDefaultTargetPlatformOverride = null;
+          expect(failures, isEmpty, reason: '$report');
+        },
+      );
+    }
   }
 }
