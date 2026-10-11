@@ -48,12 +48,12 @@ class RaftInfoRow extends StatelessWidget {
   final List<Widget> actions;
 
   static TextStyle valueStyle(RaftTokens t) => raftCssText.merge(
-    RaftTypography.body(
+    RaftTypography.heading(
       t,
       size: 14,
       line: 20,
-      color: t.brutal ? Colors.black : t.strong,
-    ),
+      weight: FontWeight.w400,
+    ).copyWith(color: t.brutal ? Colors.black : t.strong),
   );
 
   @override
@@ -74,10 +74,11 @@ class RaftInfoRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: raftCssText.merge(
-                      RaftTypography.body(
+                      RaftTypography.heading(
                         t,
                         size: 12,
                         line: 16,
+                        weight: FontWeight.w400,
                         color: raftPanelInk(
                           t,
                           .5,
@@ -313,9 +314,23 @@ class RaftPanelHeaderBar extends StatelessWidget {
     this.onBack,
     this.backTooltip = 'Back',
     this.actions = const [],
+    this.profileBody = false,
+    this.leftPadding,
+    this.bottomRule = false,
   });
   final String title;
   final String? subtitle;
+
+  /// Overrides the recipe's left inset (ActivityInboxPanel's `pl-3`).
+  final double? leftPadding;
+
+  /// A 1px `border-line-muted` rule under the header (the Activity header's
+  /// `border-b`; the canonical desktop header has none).
+  final bool bottomRule;
+
+  /// The header sits on raft-ui `ProfilePanelBody` (`dark:bg-layer-card`), whose
+  /// own fill the transparent header shows through in Elegant dark.
+  final bool profileBody;
 
   /// Pre-wrapped identity (AvatarSlot context="panel-header"), rendered in
   /// the PanelHeaderIcon cell.
@@ -376,11 +391,17 @@ class RaftPanelHeaderBar extends StatelessWidget {
         actions: actions,
       );
     }
-    return Container(
+    final header = Container(
       height: s.header.height,
       constraints: BoxConstraints(minHeight: s.header.minHeight ?? 0),
-      padding: s.header.padding,
-      decoration: s.header.decoration(rt),
+      padding: leftPadding == null
+          ? s.header.padding
+          : s.header.padding.copyWith(left: leftPadding),
+      decoration: bottomRule
+          ? s.header.decoration(rt).copyWith(
+              border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
+            )
+          : s.header.decoration(rt),
       child: Row(
         children: [
           if (onBack != null) ...[
@@ -430,6 +451,9 @@ class RaftPanelHeaderBar extends StatelessWidget {
         ],
       ),
     );
+    return profileBody && t.dark
+        ? ColoredBox(color: t.card, child: header)
+        : header;
   }
 }
 
@@ -535,11 +559,109 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
       child: SingleChildScrollView(
         controller: scroll,
         scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (var i = 0; i < widget.tabs.length; i++)
-              _tab(widget.tabs[i], i, style, base, rt, t),
-          ],
+        child: t.brutal
+            ? Row(
+                children: [
+                  for (var i = 0; i < widget.tabs.length; i++)
+                    _tab(widget.tabs[i], i, style, base, rt, t),
+                ],
+              )
+            // Elegant `tabs-list`: `h-12 gap-1 px-4` with a hairline rule; the
+            // `h-7` tabs sit centred and the 2px indicator on the list floor.
+            : Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: t.colors['line-hairline'] ?? t.colors['line-muted']!,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < widget.tabs.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 4),
+                      _elegantTab(widget.tabs[i], style, rt, t),
+                    ],
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _elegantTab(
+    RaftPanelTab<T> tab,
+    RaftTabsRecipeStyle Function(bool, bool) style,
+    RaftRecipeTokens rt,
+    RaftTokens t,
+  ) {
+    final active = tab.id == widget.value;
+    final recipe = style(active, hovered == tab.id);
+    final s = recipe.tab;
+    final svg = s.target('& svg:not([class*=\'size-\'])') ?? s.target('& svg');
+    final iconSize = svg?.width ?? 14;
+    final strokeValue = (s.target('& svg') ?? s)['stroke-width'];
+    final stroke = strokeValue is CssNum ? strokeValue.value : 2.0;
+    final fg = s.color?.resolve(rt) ?? t.strong;
+    final iconColor = s.target('& svg')?.color?.resolve(rt) ?? fg;
+    final label = raftCssText.merge(
+      RaftTypography.heading(t, size: 13, line: 19.5, weight: FontWeight.w500)
+          .copyWith(color: fg, letterSpacing: -0.065),
+    );
+    return MouseRegion(
+      key: keys.putIfAbsent(tab.id, GlobalKey.new),
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => hovered = tab.id),
+      onExit: (_) => setState(() => hovered = null),
+      child: Semantics(
+        selected: active,
+        button: true,
+        label: tab.label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: ValueKey(
+            'panel-tab-${tab.id is Enum ? (tab.id as Enum).name : tab.id}',
+          ),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => widget.onChanged(tab.id),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9.5),
+                child: Container(
+                  height: 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      tab.iconBuilder?.call(iconSize, iconColor, stroke) ??
+                          RaftIcon(
+                            tab.glyph!,
+                            size: iconSize,
+                            strokeWidth: stroke,
+                            color: iconColor,
+                          ),
+                      const SizedBox(width: 6),
+                      RaftCssText(tab.label, style: label, maxLines: 1),
+                    ],
+                  ),
+                ),
+              ),
+              if (active)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 2,
+                  child: ColoredBox(
+                    color:
+                        recipe.indicator.backgroundColor?.resolve(rt) ?? fg,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -585,6 +707,9 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
         label: tab.label,
         excludeSemantics: true,
         child: GestureDetector(
+          key: ValueKey(
+            'panel-tab-${tab.id is Enum ? (tab.id as Enum).name : tab.id}',
+          ),
           behavior: HitTestBehavior.opaque,
           onTap: () => widget.onChanged(tab.id),
           child: Container(
@@ -633,7 +758,8 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
 class RaftPanelIconButton extends StatelessWidget {
   const RaftPanelIconButton({
     super.key,
-    required this.glyph,
+    this.glyph = RaftGlyph.x,
+    this.icon,
     required this.tooltip,
     this.onPressed,
     this.iconSize = 14,
@@ -642,6 +768,10 @@ class RaftPanelIconButton extends StatelessWidget {
     this.onKeyboardActivate,
   });
   final RaftGlyph glyph;
+
+  /// Product artwork instead of [glyph], built with the icon size and the
+  /// recipe colour (`DirectMessageIcon`).
+  final Widget Function(double size, Color color)? icon;
   final String tooltip;
   final VoidCallback? onPressed;
   final double iconSize;
@@ -680,11 +810,13 @@ class RaftPanelIconButton extends StatelessWidget {
           height: s.height,
           alignment: Alignment.center,
           decoration: s.decoration(rt),
-          child: RaftIcon(
-            glyph,
-            size: iconSize,
-            color: s.color?.resolve(rt) ?? t.strong,
-          ),
+          child: icon != null
+              ? icon!(iconSize, s.color?.resolve(rt) ?? t.strong)
+              : RaftIcon(
+                  glyph,
+                  size: iconSize,
+                  color: s.color?.resolve(rt) ?? t.strong,
+                ),
         );
         if (anchorLink != null) {
           button = CompositedTransformTarget(link: anchorLink!, child: button);

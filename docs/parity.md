@@ -491,6 +491,27 @@ tool/parity-ext/run run --cases 'components.computers.detail.*' --refresh-react
 tool/parity-ext/run publish
 ```
 
+### Members / agents / activity / saved extension family (2026-10-11)
+
+`tool/parity-ext/build-member-cases.py` (fixture `fixtures/members.json`, React host
+`host/MemberCases.tsx`, Flutter `test/parity/cases/ext_members.dart`) adds 30 surfaces
+x 3 themes = 88 sampled cases `components.members-ext.*`: members directory list
+(default, group collapsed, selected human, row hover, empty, loading, error), human
+profile (owner/admin/member/guest/self/no-description, external identity, edit role,
+remove confirmation), agent detail tabs (profile, activity log empty/loading/error,
+reminders, workspace, apps, MCP incl. empty/loading), reset-agent dialogs (restart,
+session, full), profile edit dialogs (name, description, role), Invite human dialog
+(default, guest role select), Activity empty/loading/error and Saved empty/loading/error.
+`extFixture: "members"` pins the fixture file (the settings fixture's `GET /agents`
+would otherwise shadow the roster). Final run: 74/88 at >=98 % non-text geometry,
+84/88 at >=95 %, 22 at >=99.5 %; the rest is text anti-aliasing, the avatar
+badge-dot, and loading-skeleton pulse phase (Activity/Saved loading elegant ~78 %).
+
+No Flutter equivalent (so no case; not built here): report-issue dialog, agent
+unavailable panel, role-permission help dialog, seat-limit banner in the invite dialog.
+Flutter has agent migration (`agent_migration_view.dart`) but no extension case was
+added for its dialogs/progress yet.
+
 ### Manifest generation (2026-10-11)
 
 `tool/parity-ext/cases.json` is no longer committed (it was the one file every

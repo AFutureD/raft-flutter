@@ -2046,6 +2046,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         controller: w,
         userId: target.id,
         onClose: closeDesktopDetail,
+        showClose: false,
         onMessage: () => messageDesktopProfile(target),
       );
     }

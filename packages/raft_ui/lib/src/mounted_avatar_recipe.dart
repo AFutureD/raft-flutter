@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'css_pixel_snap.dart';
+
 import 'design_primitives.dart' show RaftTypography;
 import 'icons.dart';
 import 'theme.dart';
@@ -99,7 +101,7 @@ class RaftMountedAvatarRecipe {
   // MessageReplies fixture mounts compact avatars without presence chrome.
   double get badgeInset => tokens.brutal
       ? borderWidth - (panelHeader ? 4.75 : 2.75)
-      : panelHeader
+      : panelHeader || sidebarList
       ? 1
       : borderWidth + .333;
   Color get badgeBorder =>
@@ -260,7 +262,13 @@ class RaftMountedAvatarFrame extends StatelessWidget {
             Positioned(
               right: r.badgeInset,
               bottom: r.badgeInset,
-              child: _PresenceDot(recipe: r, presence: admitted),
+              // Sidebar rows: Blink keeps the fractional inset and paints the
+              // badge snapped to device pixels.
+              child: avatarContext == RaftMountedAvatarContext.sidebarList
+                  ? RaftCssPixelSnap(
+                      child: _PresenceDot(recipe: r, presence: admitted),
+                    )
+                  : _PresenceDot(recipe: r, presence: admitted),
             ),
         ],
       ),

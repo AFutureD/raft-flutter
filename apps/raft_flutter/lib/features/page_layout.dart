@@ -21,7 +21,14 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     this.actions = const [],
     this.mobile = false,
     this.variant = RaftPanelHeaderVariant.canonical,
+    this.leftInset,
+    this.bottomRule = false,
   });
+
+  /// Elegant desktop only: the host's own left padding (ActivityInboxPanel
+  /// `pl-3`) and the `border-b` rule it adds under the header.
+  final double? leftInset;
+  final bool bottomRule;
   final String title;
   final String? subtitle;
   final Widget? icon, leading;
@@ -76,6 +83,19 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
       );
     }
     final canonical = variant == RaftPanelHeaderVariant.canonical;
+    if (canonical && !t.brutal) {
+      // Elegant desktop PanelHeader: the 36px `fill-muted` icon tile and the
+      // title with its meta inline (the same bar the Agent / Human panels use).
+      return RaftPanelHeaderBar(
+        key: const Key('page-header-surface'),
+        title: title,
+        subtitle: subtitle,
+        leftPadding: leftInset,
+        bottomRule: bottomRule,
+        iconSlot: icon == null ? null : RaftPanelHeaderMutedTile(icon: icon!),
+        actions: actions,
+      );
+    }
     final source = recipes.RaftPanelHeaderRecipe.resolve(
       theme: t.recipeTheme,
       states: recipes.RaftRecipeStates(

@@ -309,6 +309,7 @@ abstract final class RaftTypography {
     double size = 16,
     double line = 24,
     FontWeight weight = FontWeight.w700,
+    Color? color,
   }) => TextStyle(
     fontFamily: t.headingFont,
     fontVariations: t.brutal || t.systemFonts
@@ -319,7 +320,7 @@ abstract final class RaftTypography {
     height: line / size,
     fontWeight: weight,
     letterSpacing: 0,
-    color: t.strong,
+    color: color ?? t.strong,
   );
 
   /// Original Text.Heading recipe; compact product titles use heading instead.

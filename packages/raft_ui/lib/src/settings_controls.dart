@@ -245,7 +245,12 @@ class RaftRecipeInput extends StatefulWidget {
     this.keyboardType,
     this.inputFormatters,
     this.maxLength,
+    this.recipeText = false,
   });
+
+  /// No callsite `text-sm`: the recipe's own size and leading (Elegant 14/20,
+  /// Brutal 16/24).
+  final bool recipeText;
 
   /// Callsite fixed box height (`box-border h-10`); content centres.
   final double? height;
@@ -321,7 +326,9 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
       tokens: tokens,
     ).root;
     // Callsite `text-sm`.
-    var text = _slotText(t, s).copyWith(fontSize: 14, height: 20 / 14);
+    var text = widget.recipeText
+        ? _slotText(t, s)
+        : _slotText(t, s).copyWith(fontSize: 14, height: 20 / 14);
     if (widget.mono) {
       text = text.copyWith(fontFamily: t.monoFont);
     }
@@ -378,7 +385,16 @@ class RaftRecipeTextarea extends StatefulWidget {
     this.minHeight = 64,
     this.maxLength,
     this.autofocus = false,
+    this.lineHeight = 1.625,
+    this.recipeText = false,
   });
+
+  /// No callsite text size / leading: the recipe's own (Elegant 14/20, Brutal
+  /// 16/24).
+  final bool recipeText;
+
+  /// Callsite leading (`leading-relaxed` 1.625 by default; plain `text-sm` 20/14).
+  final double lineHeight;
   final Key? fieldKey;
   final TextEditingController? controller;
   final String? placeholder;
@@ -413,7 +429,9 @@ class _RaftRecipeTextareaState extends State<RaftRecipeTextarea> {
       tokens: tokens,
     ).root;
     // Callsite `text-sm leading-relaxed`.
-    final text = _slotText(t, s).copyWith(fontSize: 14, height: 1.625);
+    final text = widget.recipeText
+        ? _slotText(t, s)
+        : _slotText(t, s).copyWith(fontSize: 14, height: widget.lineHeight);
     return Container(
       constraints: BoxConstraints(minHeight: widget.minHeight),
       decoration: s.decoration(tokens),
@@ -427,12 +445,9 @@ class _RaftRecipeTextareaState extends State<RaftRecipeTextarea> {
         minLines: 1,
         maxLines: null,
         maxLength: widget.maxLength,
-        buildCounter: (
-          _, {
-          required currentLength,
-          required isFocused,
-          maxLength,
-        }) => null,
+        buildCounter:
+            (_, {required currentLength, required isFocused, maxLength}) =>
+                null,
         cursorColor: text.color ?? t.strong,
         onChanged: widget.onChanged,
         decoration: _bare(
@@ -601,7 +616,11 @@ class RaftConfirmDialog extends StatefulWidget {
     this.showCancel = true,
     this.onConfirm,
     this.loadingLabel,
+    this.confirmGlyph,
   });
+
+  /// ConfirmDialog `confirmIcon` (`<RotateCcw size={14} />`).
+  final RaftGlyph? confirmGlyph;
 
   /// ConfirmDialog `onConfirm`: when set, Confirm runs it with the dialog
   /// open (both buttons disabled, Confirm reads [loadingLabel] beside a
@@ -684,22 +703,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
     final widget = this.widget;
     final title = widget.title, message = widget.message;
     final content = widget.content, maxWidth = widget.maxWidth;
-    final t = RaftTokens.of(context), tokens = RaftRecipeTokens(t);
-    final size = MediaQuery.sizeOf(context);
-    final d = RaftDialogRecipe.resolve(
-      theme: raftRecipeTheme(t),
-      states: RaftRecipeStates(
-        {if (t.dark) RaftRecipeStates.dark},
-        size.width,
-        size.height,
-      ),
-      tokens: tokens,
-    );
-    // Brutal: padded content with `gap-4`; Elegant: an unpadded popup whose
-    // header (`px-6 py-3`), body (`px-6 py-5`) and footer (`px-6 py-3`) own
-    // their padding and sit flush.
-    final gap = d.content.rowGap ?? (t.brutal ? 16.0 : 0.0);
-    final titleStyle = _slotText(t, d.title);
+    final t = RaftTokens.of(context);
     Widget body = DefaultTextStyle.merge(
       style: RaftConfirmDialog.messageStyle(t),
       child: content ?? RaftCssText(raftText(context, message ?? '')),
@@ -717,11 +721,90 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         ],
       );
     }
+    return RaftDialogShell(
+      surfaceKey: widget.surfaceKey,
+      title: title,
+      maxWidth: maxWidth,
+      onClose: loading ? null : cancel,
+      body: body,
+      footer: [
+        if (widget.showCancel)
+          RaftSettingsRecipeButton(
+            label: widget.cancelLabel,
+            size: RaftButtonRecipeSize.sm,
+            disabledOpacity: .3,
+            onPressed: loading ? null : cancel,
+          ),
+        ValueListenableBuilder<bool>(
+          valueListenable:
+              widget.confirmEnabled ?? const AlwaysStoppedAnimation(true),
+          builder: (context, enabled, _) => RaftSettingsRecipeButton(
+            key: widget.confirmKey,
+            label: loading
+                ? widget.loadingLabel ?? 'Processing…'
+                : widget.confirmLabel,
+            glyph: loading ? null : widget.confirmGlyph,
+            variant: widget.confirmVariant,
+            size: RaftButtonRecipeSize.sm,
+            disabledOpacity: .8,
+            onPressed: enabled && !loading ? confirm : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// raft-ui `Dialog` chrome as ConfirmDialog.tsx composes it: the centred
+/// `dialog` recipe surface (Brutal padded content with `gap-4`; Elegant
+/// unpadded header `px-6 py-3`, body `px-6 py-5`, footer `px-6 py-3`), the
+/// uppercase title with its close button, the scrolling [body] and the right
+/// aligned [footer] actions. [onClose] null disables the close button.
+class RaftDialogShell extends StatelessWidget {
+  const RaftDialogShell({
+    super.key,
+    required this.title,
+    required this.body,
+    required this.footer,
+    this.onClose,
+    this.maxWidth = 384,
+    this.surfaceKey,
+    this.outlineClose = false,
+  });
+  final String title;
+  final Widget body;
+  final List<Widget> footer;
+  final VoidCallback? onClose;
+  final double maxWidth;
+  final Key? surfaceKey;
+
+  /// `<Button variant="outline" size="icon-md"><X className="size-5" />`
+  /// (AgentProfileEditDialog) instead of the ConfirmDialog `DialogClose`.
+  final bool outlineClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context), tokens = RaftRecipeTokens(t);
+    final size = MediaQuery.sizeOf(context);
+    final d = RaftDialogRecipe.resolve(
+      theme: raftRecipeTheme(t),
+      states: RaftRecipeStates(
+        {if (t.dark) RaftRecipeStates.dark},
+        size.width,
+        size.height,
+      ),
+      tokens: tokens,
+    );
+    // Brutal: padded content with `gap-4`; Elegant: an unpadded popup whose
+    // header (`px-6 py-3`), body (`px-6 py-5`) and footer (`px-6 py-3`) own
+    // their padding and sit flush.
+    final gap = d.content.rowGap ?? (t.brutal ? 16.0 : 0.0);
+    final titleStyle = _slotText(t, d.title);
     return Center(
       child: Material(
         type: MaterialType.transparency,
         child: Container(
-          key: widget.surfaceKey,
+          key: surfaceKey,
           width: (size.width - 32).clamp(0, maxWidth).toDouble(),
           constraints: BoxConstraints(maxHeight: size.height - 32),
           padding: d.content.padding,
@@ -746,17 +829,17 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
                       label: '',
                       glyph: RaftGlyph.x,
                       // DialogClose: brutal `outline` / `icon-md`, X `size-5`.
-                      variant: t.brutal
+                      variant: t.brutal || outlineClose
                           ? RaftButtonRecipeVariant.outline
                           : RaftButtonRecipeVariant.ghost,
-                      size: t.brutal
+                      size: t.brutal || outlineClose
                           ? RaftButtonRecipeSize.iconMd
                           : RaftButtonRecipeSize.iconSm,
-                      glyphSize: t.brutal ? 20 : 16,
-                      restColor: t.brutal
+                      glyphSize: t.brutal || outlineClose ? 20 : 16,
+                      restColor: t.brutal || outlineClose
                           ? null
                           : t.colors['foreground-placeholder'],
-                      onPressed: loading ? null : cancel,
+                      onPressed: onClose,
                     ),
                   ],
                 ),
@@ -775,31 +858,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
                   alignment: WrapAlignment.end,
                   spacing: d.footer.columnGap ?? 12,
                   runSpacing: d.footer.rowGap ?? 12,
-                  children: [
-                    if (widget.showCancel)
-                      RaftSettingsRecipeButton(
-                        label: widget.cancelLabel,
-                        size: RaftButtonRecipeSize.sm,
-                        disabledOpacity: .3,
-                        onPressed: loading ? null : cancel,
-                      ),
-                    ValueListenableBuilder<bool>(
-                      valueListenable:
-                          widget.confirmEnabled ??
-                          const AlwaysStoppedAnimation(true),
-                      builder: (context, enabled, _) =>
-                          RaftSettingsRecipeButton(
-                            key: widget.confirmKey,
-                            label: loading
-                                ? widget.loadingLabel ?? 'Processing…'
-                                : widget.confirmLabel,
-                            variant: widget.confirmVariant,
-                            size: RaftButtonRecipeSize.sm,
-                            disabledOpacity: .8,
-                            onPressed: enabled && !loading ? confirm : null,
-                          ),
-                    ),
-                  ],
+                  children: footer,
                 ),
               ),
             ],

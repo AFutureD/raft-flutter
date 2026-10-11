@@ -19,19 +19,21 @@ RaftAvatarPresence? agentAvatarPresence(AgentAmbientDisplay? display) {
   );
 }
 
-/// Sidebar `AgentActivityDot`: the agent row's own `activity` (falling back to
-/// its `status`), shown on every agent row, offline included.
-RaftAvatarPresence agentRowPresence(Map<String, dynamic> row) =>
-    RaftAvatarPresence(
-      activity: switch (row['activity']) {
-        'working' => RaftAvatarActivity.working,
-        'thinking' => RaftAvatarActivity.thinking,
-        'error' => RaftAvatarActivity.error,
-        'offline' => RaftAvatarActivity.offline,
-        'online' => RaftAvatarActivity.online,
-        _ =>
-          row['status'] == 'active'
-              ? RaftAvatarActivity.online
-              : RaftAvatarActivity.offline,
-      },
-    );
+/// Presence of a directory row: the live `activity` (agent:activity event) or
+/// the row's own `activity`, else its `status` (`agentStatusFallbackActivity`).
+RaftAvatarPresence agentRowPresence(Map<String, dynamic> json, {String? live}) {
+  final activity = live ?? json['activity'];
+  return RaftAvatarPresence(
+    activity: switch (activity) {
+      'online' => RaftAvatarActivity.online,
+      'thinking' => RaftAvatarActivity.thinking,
+      'working' => RaftAvatarActivity.working,
+      'error' => RaftAvatarActivity.error,
+      'offline' => RaftAvatarActivity.offline,
+      _ =>
+        json['status'] == 'active'
+            ? RaftAvatarActivity.online
+            : RaftAvatarActivity.offline,
+    },
+  );
+}

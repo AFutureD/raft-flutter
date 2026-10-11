@@ -22,6 +22,7 @@ import 'recipes/token_binding.dart';
 import 'mounted_avatar_recipe.dart';
 import 'design_primitives.dart';
 import 'css_opacity.dart';
+import 'css_pixel_snap.dart';
 import 'icons.dart';
 import 'indicators.dart' show RaftWebPalette;
 import 'panel_layout.dart' show RaftCssText, RaftCssLineBox;
@@ -848,6 +849,7 @@ class RaftNavItem extends StatelessWidget {
     this.leading,
     this.description,
     this.labelSuffix,
+    this.tag,
     this.role = RaftNavItemRole.generic,
     this.viewportHeight,
     this.count,
@@ -870,6 +872,9 @@ class RaftNavItem extends StatelessWidget {
   final int unread;
   final Widget? trailing, leading;
   final String? description, labelSuffix;
+
+  /// Chip between the label and the description (a Guest `RaftSidebarTag`).
+  final Widget? tag;
   final RaftNavItemRole role;
   final double? viewportHeight;
 
@@ -1037,7 +1042,12 @@ class RaftNavItem extends StatelessWidget {
           )
         : LayoutBuilder(
             builder: (context, box) => Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
+              // `items-baseline`; a `self-center` tag switches the row to
+              // centre alignment with the description's 3px baseline step
+              // (a 20px name line, a 16px description line) kept explicit.
+              crossAxisAlignment: tag == null
+                  ? CrossAxisAlignment.baseline
+                  : CrossAxisAlignment.center,
               textBaseline: TextBaseline.alphabetic,
               children: [
                 ConstrainedBox(
@@ -1056,23 +1066,30 @@ class RaftNavItem extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (tag != null) ...[
+                  const SizedBox(width: 4),
+                  RaftCssPixelSnap(child: tag!),
+                ],
                 const SizedBox(width: 4),
                 Expanded(
-                  child: Text(
-                    description!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        RaftTypography.heading(
-                          t,
-                          size: 12,
-                          line: 16,
-                          weight: FontWeight.w500,
-                        ).copyWith(
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .4)
-                              : t.colors['foreground-muted'],
-                        ),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: tag == null ? 0 : 2),
+                    child: Text(
+                      description!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          RaftTypography.heading(
+                            t,
+                            size: 12,
+                            line: 16,
+                            weight: FontWeight.w500,
+                          ).copyWith(
+                            color: t.brutal
+                                ? Colors.black.withValues(alpha: .4)
+                                : t.colors['foreground-muted'],
+                          ),
+                    ),
                   ),
                 ),
               ],

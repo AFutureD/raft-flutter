@@ -405,7 +405,9 @@ void main() {
       expect(find.byType(MemberProfileView), findsOneWidget);
       expect(find.text('Public profile'), findsOneWidget);
       expect(t.state(find.byType(DesktopDirectoryView)), same(directory));
-      await t.tap(find.byTooltip('Close profile'));
+      // Web's desktop human panel has no close control (the panel header is
+      // the profile band); closing is the shell's detail-close action.
+      t.widget<MemberProfileView>(find.byType(MemberProfileView)).onClose!();
       await t.pumpAndSettle();
       expect(find.byType(MemberProfileView), findsNothing);
       expect(t.state(find.byType(DesktopDirectoryView)), same(directory));

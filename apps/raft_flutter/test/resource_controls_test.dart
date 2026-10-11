@@ -37,6 +37,7 @@ class _Workspace extends WorkspaceController {
   final calls = <({String path, Map<String, dynamic>? query})>[];
   Completer<dynamic>? people;
   List<Map<String, dynamic>> activity = [];
+  int? inboxUnread;
   List<Map<String, dynamic>> tasks = [];
   bool missingTaskSurface = false;
   bool denyTaskHistory = false;
@@ -88,7 +89,11 @@ class _Workspace extends WorkspaceController {
       }
       return {'events': []};
     }
-    return {'items': activity, 'hasMore': false};
+    return {
+      'items': activity,
+      'hasMore': false,
+      if (inboxUnread != null) 'totalUnreadCount': inboxUnread,
+    };
   }
 }
 
@@ -130,6 +135,7 @@ void main() {
   testWidgets(
     'classic Source Activity omits unsupported filter and terminal-view controls',
     (t) async {
+      w.inboxUnread = 1; // Mark all read shows only while something is unread.
       await mount(t, 'activity');
       expect(find.byTooltip('Filters'), findsNothing);
       expect(find.byTooltip('Activity actions'), findsNothing);
@@ -296,7 +302,8 @@ void main() {
     w.channels = [
       RaftChannel({
         'id': 'c',
-        'name': 'A very long accessible conversation name for the native filter menu',
+        'name':
+            'A very long accessible conversation name for the native filter menu',
         'joined': true,
       }),
     ];

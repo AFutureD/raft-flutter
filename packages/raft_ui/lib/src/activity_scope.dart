@@ -545,7 +545,12 @@ class RaftActivityLoadingList extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: t.panel,
-            border: Border.all(color: t.line, width: t.border),
+            // `border border-line-muted theme-brutal:border-2`: the muted rule
+            // colour stays in Brutal, only the width grows.
+            border: Border.all(
+              color: t.colors['line-muted']!,
+              width: t.brutal ? 2 : 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -554,16 +559,34 @@ class RaftActivityLoadingList extends StatelessWidget {
               const Row(
                 spacing: 10,
                 children: [
-                  RaftSkeleton(variant: RaftSkeletonVariant.line, width: 80),
-                  RaftSkeleton(variant: RaftSkeletonVariant.line, width: 64),
-                  RaftSkeleton(variant: RaftSkeletonVariant.line, width: 40),
+                  RaftSkeleton(
+                    variant: RaftSkeletonVariant.line,
+                    width: 80,
+                    themed: true,
+                  ),
+                  RaftSkeleton(
+                    variant: RaftSkeletonVariant.line,
+                    width: 64,
+                    themed: true,
+                  ),
+                  RaftSkeleton(
+                    variant: RaftSkeletonVariant.line,
+                    width: 40,
+                    themed: true,
+                  ),
                 ],
               ),
-              const RaftSkeleton(variant: RaftSkeletonVariant.line),
+              const RaftSkeleton(
+                variant: RaftSkeletonVariant.line,
+                themed: true,
+              ),
               const FractionallySizedBox(
                 widthFactor: .6,
                 alignment: Alignment.centerLeft,
-                child: RaftSkeleton(variant: RaftSkeletonVariant.line),
+                child: RaftSkeleton(
+                  variant: RaftSkeletonVariant.line,
+                  themed: true,
+                ),
               ),
             ],
           ),

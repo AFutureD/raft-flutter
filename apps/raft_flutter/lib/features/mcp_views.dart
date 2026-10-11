@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
@@ -504,183 +505,64 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
     );
   }
 
+  /// AgentMcpTab scope="agent": the read-only usage list (only servers this
+  /// Agent has called), in the tab's `px-5 py-4` scroll column.
+  Widget agentUsage(BuildContext context) {
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    String used(String? iso) {
+      final at = DateTime.tryParse(iso ?? '')?.toLocal();
+      return at == null
+          ? ''
+          : '${DateFormat.yMMMd(locale).format(at)} ${DateFormat('hh:mm a', locale).format(at)}';
+    }
+
+    return ListView(
+      primary: false,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      children: [
+        RaftMcpServersSection(
+          usage: true,
+          loading: loading && servers.isEmpty,
+          error: error == null
+              ? null
+              : raftText(context, 'Managed MCP request failed'),
+          servers: [
+            for (final server in servers)
+              if (server['usage'] is Map)
+                RaftMcpServerRow(
+                  id: '${server['id']}',
+                  name: '${server['name']}',
+                  provider: '${server['provider'] ?? 'custom'}',
+                  endpointUrl: '${server['endpointUrl'] ?? ''}',
+                  enabled: server['enabled'] != false,
+                  authMode: '${server['authMode'] ?? 'none'}',
+                  oauthStatus: server['oauthStatus'] as String?,
+                  hasCredentials: server['hasCredentials'] == true,
+                  description: server['description'] as String?,
+                  lastCheckError: server['lastCheckError'] as String?,
+                  usageCalls: () {
+                    final n = (server['usage']['invocationCount'] as num)
+                        .toInt();
+                    return '$n ${n == 1 ? 'call' : 'calls'}';
+                  }(),
+                  usageLastUsed: used(server['usage']['lastInvokedAt']),
+                  usageLastTool: '${server['usage']['lastToolName']}',
+                  tools: [
+                    for (final tool in managementRows(server['toolCatalog']))
+                      RaftMcpTool(
+                        '${tool['title'] ?? tool['name']}',
+                        tool['description'] as String?,
+                      ),
+                  ],
+                ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => widget.agentId == null
       ? serverCatalog(context)
-      : page(
-          'Agent MCP connections',
-          [
-            if (servers.isEmpty && !loading)
-              const Text(
-                'Add an MCP connection to make its tools available to agents.',
-              ),
-            if (recommendations.isNotEmpty) heading('Recommended connections'),
-            for (final recommendation in recommendations)
-              ListTile(
-                title: Text('${recommendation['name']}'),
-                subtitle: Text('${recommendation['description'] ?? ''}'),
-                trailing: w.can('manageIntegrations')
-                    ? action(
-                        'Add ${recommendation['name']}',
-                        () => run(() => edit({...recommendation, 'id': null})),
-                      )
-                    : null,
-              ),
-            for (final server in servers)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${server['name']}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (server['description'] != null)
-                        Text('${server['description']}'),
-                      SelectableText('${server['endpointUrl']}'),
-                      Text(
-                        '${server['enabled'] == true ? 'Enabled' : 'Disabled'} · ${server['authMode']} ${server['authMode'] == 'oauth' ? '· ${server['oauthStatus']}' : ''}',
-                      ),
-                      if (server['hasCredentials'] == true)
-                        Text(
-                          'Credential headers: ${managementStrings(server['credentialHeaderNames']).join(', ')}',
-                        ),
-                      if (server['lastCheckError'] != null)
-                        Text(
-                          'Connection check failed. Test the connection after reviewing its configuration.',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      if (server['lastCheckedAt'] != null)
-                        Text('Last checked: ${server['lastCheckedAt']}'),
-                      if (widget.agentId != null)
-                        Text(
-                          'Agent access: ${managementMap(server['assignment'])['enabled'] == true ? 'Enabled' : 'Disabled'}',
-                        ),
-                      if (server['usage'] is Map)
-                        Text(
-                          '${managementMap(server['usage'])['invocationCount']} admitted tool calls',
-                        ),
-                      for (final tool in managementRows(server['toolCatalog']))
-                        ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.handyman_outlined),
-                          title: Text('${tool['name']}'),
-                          subtitle: Text('${tool['description'] ?? ''}'),
-                        ),
-                      Wrap(
-                        children: [
-                          if (canAssign)
-                            action(
-                              'Tool access',
-                              () => run(() => assignment(server)),
-                            ),
-                          if (w.can('manageIntegrations')) ...[
-                            action(
-                              'Edit connection',
-                              () => run(() => edit(server)),
-                            ),
-                            if (managementStrings(
-                              server['credentialHeaderNames'],
-                            ).isNotEmpty)
-                              action(
-                                'Remove credential header',
-                                () => run(() => removeHeader(server)),
-                              ),
-                            if (server['authMode'] != 'oauth')
-                              action(
-                                'Test configuration',
-                                () => run(
-                                  () => testConfiguration(server),
-                                  refresh: false,
-                                ),
-                              ),
-                            action(
-                              'Test connection',
-                              () => run(() async {
-                                await w.client.post(
-                                  '/mcp/servers/${server['id']}/test',
-                                );
-                              }),
-                            ),
-                            action(
-                              server['enabled'] == true ? 'Disable' : 'Enable',
-                              () => run(() async {
-                                await w.client.patch(
-                                  '/mcp/servers/${server['id']}',
-                                  data: {'enabled': server['enabled'] != true},
-                                );
-                              }),
-                            ),
-                            action(
-                              'Delete connection',
-                              () => run(() async {
-                                await confirm(
-                                  'Delete ${server['name']}?',
-                                  'Remove this connection and its agent tool assignments.',
-                                  () async {
-                                    await w.client.delete(
-                                      '/mcp/servers/${server['id']}',
-                                    );
-                                  },
-                                  submit: 'Delete',
-                                  destructive: true,
-                                );
-                              }),
-                            ),
-                          ],
-                          if (server['authMode'] == 'oauth' &&
-                              w.can('manageExternalAuth')) ...[
-                            action(
-                              'Connect account',
-                              () => run(() async {
-                                final result = await w.client.post(
-                                  '/mcp/servers/${server['id']}/oauth/start',
-                                );
-                                await launchManaged(result['authorizationUrl']);
-                              }, refresh: false),
-                            ),
-                            if (server['hasCredentials'] == true)
-                              action(
-                                'Disconnect account',
-                                () => run(() async {
-                                  await confirm(
-                                    'Disconnect account?',
-                                    'This connection will no longer be authorized to access the provider account.',
-                                    () async {
-                                      await w.client.delete(
-                                        '/mcp/servers/${server['id']}/oauth',
-                                      );
-                                    },
-                                    submit: 'Disconnect',
-                                    destructive: true,
-                                  );
-                                }),
-                              ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-          actions: [
-            if (w.can('manageIntegrations'))
-              action(
-                'Test unsaved connection',
-                () => run(() => testConfiguration(), refresh: false),
-              ),
-            if (w.can('manageIntegrations'))
-              action(
-                'Add connection',
-                () => run(() => edit()),
-                glyph: RaftGlyph.plus,
-                glyphSize: 13,
-              ),
-          ],
-        );
+      : agentUsage(context);
 }
