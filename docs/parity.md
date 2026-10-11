@@ -507,9 +507,10 @@ would otherwise shadow the roster). Final run: 74/88 at >=98 % non-text geometry
 84/88 at >=95 %, 22 at >=99.5 %; the rest is text anti-aliasing, the avatar
 badge-dot, and loading-skeleton pulse phase (Activity/Saved loading elegant ~78 %).
 
-Not covered because Flutter has no equivalent (not built here): agent migration
-dialogs/progress, report-issue dialog, agent-unavailable panel, role-permission help
-dialog, billing seat-limit banner inside the invite dialog.
+No Flutter equivalent (so no case; not built here): report-issue dialog, agent
+unavailable panel, role-permission help dialog, seat-limit banner in the invite dialog.
+Flutter has agent migration (`agent_migration_view.dart`) but no extension case was
+added for its dialogs/progress yet.
 
 ### Manifest generation (2026-10-11)
 
