@@ -698,12 +698,15 @@ Future<void> showRaftRuntimeUsageSheet(
   barrierDismissible: true,
   barrierLabel: raftText(context, 'Close runtime usage'),
   barrierColor: Colors.black.withValues(alpha: .4),
-  pageBuilder: (dialogContext, _, _) => ListenableBuilder(
-    listenable: listenable,
-    builder: (sheetContext, _) => RaftRuntimeUsageSheet(
-      data: data(sheetContext),
-      onRefresh: onRefresh,
-      onClose: () => Navigator.of(dialogContext).maybePop(),
+  pageBuilder: (dialogContext, _, _) => Material(
+    type: MaterialType.transparency,
+    child: ListenableBuilder(
+      listenable: listenable,
+      builder: (sheetContext, _) => RaftRuntimeUsageSheet(
+        data: data(sheetContext),
+        onRefresh: onRefresh,
+        onClose: () => Navigator.of(dialogContext).maybePop(),
+      ),
     ),
   ),
 );
