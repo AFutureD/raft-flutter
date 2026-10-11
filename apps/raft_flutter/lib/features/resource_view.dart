@@ -10,6 +10,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/recipes.dart' hide RaftPanelHeaderRecipe;
 
+import '../data/source_activity_unread_store.dart';
 import '../data/workspace_controller.dart';
 import '../data/search_memory.dart';
 import '../data/activity_follow_state.dart';
@@ -644,6 +645,7 @@ class _ResourceViewState extends State<ResourceView> {
     viewWindows
       ..clear()
       ..addAll(snapshot.viewWindows);
+    inboxSerial = snapshot.inboxSerial;
     loading = false;
     // Channels lost while the page was away never reappear from the cache.
     refilterRows(lostChannels(snapshot.channelAccess, acceptedAccess));
@@ -686,8 +688,24 @@ class _ResourceViewState extends State<ResourceView> {
         scrollOffset: listOffset,
         sectionScrollOffsets: Map.of(activityScrollOffsets),
         viewWindows: Map.of(viewWindows),
+        inboxSerial: inboxSerial,
       ),
     );
+  }
+
+  /// Id of the newest shared-inbox window this page has presented.
+  int inboxSerial = 0;
+
+  /// The window the Activity badge's store accepted since this page last
+  /// presented one, when it answers this page's current request shape. Web's
+  /// list reads the same inboxStore `items` the badge counts, so opening
+  /// Activity paints the arrival that lit the badge on the first frame.
+  Map<String, dynamic>? sharedInboxSeed() {
+    if (widget.section != 'activity' ||
+        listView != SourceActivityUnreadStore.defaultInboxView) {
+      return null;
+    }
+    return w.activityUnreadIfBound?.windowSince(inboxSerial);
   }
 
   StreamSubscription<RaftEvent>? events;
@@ -1496,7 +1514,14 @@ class _ResourceViewState extends State<ResourceView> {
     w.addListener(authorityChanged);
     subscribeEvents();
     unawaited(activateSearchMemory(restore: widget.restoreSearchState));
-    if (restoreSnapshot()) {
+    final restored = restoreSnapshot();
+    final seed = sharedInboxSeed();
+    if (seed != null) {
+      // The badge's window is accepted data: present it before any request,
+      // then revalidate in place.
+      unawaited(load(keep: true, quietErrors: true, seed: seed));
+      unawaited(load(keep: true, quietErrors: true));
+    } else if (restored) {
       // Cached rows are on screen at once; revalidate them in place.
       unawaited(load(keep: true, quietErrors: true));
     } else {
@@ -1648,6 +1673,7 @@ class _ResourceViewState extends State<ResourceView> {
     bool append = false,
     bool keep = false,
     bool quietErrors = false,
+    Map<String, dynamic>? seed,
   }) async {
     if (widget.section == 'tasks' && widget.channelId != null && !tabActive) {
       reloadWhenActive = true;
@@ -1686,7 +1712,8 @@ class _ResourceViewState extends State<ResourceView> {
       });
       return;
     }
-    if (['search', 'tasks', 'activity', 'saved'].contains(widget.section)) {
+    if (seed == null &&
+        ['search', 'tasks', 'activity', 'saved'].contains(widget.section)) {
       unawaited(loadSenders(scope));
     }
     if (w.server == null ||
@@ -1819,7 +1846,7 @@ class _ResourceViewState extends State<ResourceView> {
           ? 20
           : 30;
       // Source requestLimit: a background reset spans the loaded window.
-      final windowSize = keep
+      final windowSize = keep && seed == null
           ? rows.length.clamp(pageSize, 100).toInt()
           : pageSize;
       // A background revalidation of the task list spans its loaded pages.
@@ -1858,9 +1885,12 @@ class _ResourceViewState extends State<ResourceView> {
               entry.key: entry.value,
         },
       ]);
-      var value = path == '/channels/inbox'
-          ? await w.sharedQuery(path, query: params)
-          : await w.query(path, query: params);
+      final sharedSerial = w.activityUnreadIfBound?.windowSerial ?? 0;
+      var value =
+          seed ??
+          (path == '/channels/inbox'
+              ? await w.sharedQuery(path, query: params)
+              : await w.query(path, query: params));
       if (!accepts(scope, request)) return;
       if (widget.section == 'activity' && filter != 'saved' && value is Map) {
         value = activityFollowState.window(value);
@@ -1956,6 +1986,11 @@ class _ResourceViewState extends State<ResourceView> {
         setState(() {
           rows = nextRows;
           rowsView = view;
+          if (widget.section == 'activity' &&
+              !append &&
+              view == SourceActivityUnreadStore.defaultInboxView) {
+            inboxSerial = sharedSerial;
+          }
           if (keep) error = null;
           if (enabledActivity && filter == 'saved') {
             savedActivityItems = List.of(rows);
@@ -1997,7 +2032,8 @@ class _ResourceViewState extends State<ResourceView> {
             taskTouched.clear();
           }
         });
-        if (widget.section == 'activity' &&
+        if (seed == null &&
+            widget.section == 'activity' &&
             !['saved', 'done'].contains(filter) &&
             value is Map &&
             value['totalUnreadCount'] is num) {
@@ -2005,7 +2041,8 @@ class _ResourceViewState extends State<ResourceView> {
             (value['totalUnreadCount'] as num).toInt(),
           );
         }
-        if (widget.section == 'activity' &&
+        if (seed == null &&
+            widget.section == 'activity' &&
             !['saved', 'done'].contains(filter) &&
             value is Map) {
           acceptActivityWindow?.call(value);

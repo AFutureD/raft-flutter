@@ -1012,6 +1012,10 @@ class WorkspaceController extends ChangeNotifier {
   SourceActivityUnreadStore get activityUnread =>
       _activityUnread ??= SourceActivityUnreadStore(this);
 
+  /// The shared Activity store when something already owns it; never creates
+  /// one (and so never starts its boot request).
+  SourceActivityUnreadStore? get activityUnreadIfBound => _activityUnread;
+
   SourceActivityUnreadStore acquireActivityUnread(Object owner) {
     _activityUnreadOwners.add(owner);
     return activityUnread;
@@ -4791,6 +4795,9 @@ class WorkspaceController extends ChangeNotifier {
     }
     return pending.then(_copyDecoded);
   }
+
+  /// A deep copy of a decoded response, so consumers never share its maps.
+  static dynamic copyDecoded(dynamic value) => _copyDecoded(value);
 
   static dynamic _copyDecoded(dynamic value) => switch (value) {
     Map() => <String, dynamic>{
