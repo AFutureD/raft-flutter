@@ -340,10 +340,13 @@ class RaftSettingsPanelFrame extends StatelessWidget {
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
       child: Container(
-        // The recipe's `border-l-2 border-black` / `border-l border-line-muted`
-        // carries no breakpoint: Web's phone Settings pages sit 2px (Brutal)
-        // inside the screen edge too.
-        decoration: attached
+        // Owner decision 2026-10-12: the recipe's `border-l-2 border-black` /
+        // `border-l border-line-muted` edge is desktop-only; phone pages draw
+        // no left edge line (intended difference from Web).
+        decoration:
+            attached &&
+                MediaQuery.sizeOf(context).width >=
+                    RaftLayoutMetrics.desktopBreakpoint
             ? BoxDecoration(
                 border: Border(
                   left: BorderSide(color: edge, width: t.brutal ? 2 : 1),

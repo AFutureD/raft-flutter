@@ -8,9 +8,13 @@
 //
 // Values come from the generated recipes (package:raft_ui/recipes.dart) and
 // tokens; Tailwind classes written in the Web JSX are resolved in comments.
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+
+import 'system_inset.dart';
+
 import 'package:flutter/rendering.dart';
 
 import 'design_primitives.dart';
@@ -306,9 +310,16 @@ class RaftModalBackdrop extends StatelessWidget {
                 child: content,
               );
             }
+            // Edge to edge: the layer spans the window, so a dialog taller
+            // than the screen must scroll clear of the gesture / nav bar.
+            // The centring area shrinks by the same amount (0 on desktop).
+            final inset = raftBottomInset(context);
             return SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: inset),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: box.maxHeight),
+                constraints: BoxConstraints(
+                  minHeight: math.max(0, box.maxHeight - inset),
+                ),
                 child: content,
               ),
             );

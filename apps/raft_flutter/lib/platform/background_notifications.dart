@@ -18,21 +18,24 @@ bool get mobileBackgroundSupported => Platform.isAndroid || Platform.isIOS;
 const _sessionOwnerName = 'raft.native.session-owner.v1';
 
 /// One process-wide owner of rotating credentials across Flutter engines.
-/// Workers delegate to a running UI client; UI startup waits for a headless
-/// owner's completion before it reads or changes the secure session.
+/// Workers delegate to a running UI client and yield to foreground startup.
+/// Only requests and credential writes wait; local cache reads never do.
 class NativeSessionOwner {
-  NativeSessionOwner({this.poll, bool? supported})
+  NativeSessionOwner({this.poll, this.onYield, bool? supported})
     : supported = supported ?? mobileBackgroundSupported;
   final bool supported;
   final Future<bool> Function()? poll;
+  final Future<void> Function()? onYield;
   ReceivePort? _port;
   Future<bool>? _polling;
   Future<void>? _acquiring;
-  Future<void> acquire() =>
-      _acquiring ??= _acquire().whenComplete(() => _acquiring = null);
-  Future<void> _acquire() async {
+  Future<void>? _yielding;
+  Future<void> acquire({bool foreground = false}) =>
+      _acquiring ??= _acquire(foreground).whenComplete(() => _acquiring = null);
+  Future<void> _acquire(bool foreground) async {
     if (!supported || _port != null) return;
     final deadline = DateTime.now().add(const Duration(seconds: 30));
+    SendPort? requestedYield;
     while (true) {
       final port = ReceivePort();
       if (IsolateNameServer.registerPortWithName(
@@ -40,7 +43,14 @@ class NativeSessionOwner {
         _sessionOwnerName,
       )) {
         _port = port;
+        _yielding = null;
         port.listen((message) async {
+          if (message == 'yield' && onYield != null) {
+            try {
+              await (_yielding ??= onYield!());
+            } catch (_) {}
+            return;
+          }
           if (message is! List ||
               message.length != 2 ||
               message[1] is! SendPort) {
@@ -62,6 +72,13 @@ class NativeSessionOwner {
         return;
       }
       port.close();
+      final existing = IsolateNameServer.lookupPortByName(_sessionOwnerName);
+      if (foreground && existing != null && existing != requestedYield) {
+        requestedYield = existing;
+        // The worker releases its own mapping after transport and persistence
+        // settle. Never steal a live owner's port or abandon a token rotation.
+        existing.send('yield');
+      }
       if (DateTime.now().isAfter(deadline)) {
         throw const RaftApiException(
           'Background session recovery is still running. Please retry.',
@@ -72,6 +89,15 @@ class NativeSessionOwner {
   }
 
   void release() {
+    if (_acquiring != null) {
+      unawaited(
+        _acquiring!.then<void>(
+          (_) => release(),
+          onError: (Object _, StackTrace _) {},
+        ),
+      );
+      return;
+    }
     if (_polling != null) {
       unawaited(
         _polling!.then<void>(
@@ -132,11 +158,20 @@ Future<bool> _runBackgroundInbox() async {
       reply.close();
     }
   }
-  final owner = NativeSessionOwner();
   RaftClient? client;
   Timer? budget;
+  var yielding = false;
+  final finished = Completer<void>();
+  final owner = NativeSessionOwner(
+    onYield: () async {
+      yielding = true;
+      client?.http.close(force: true);
+      await finished.future;
+    },
+  );
   try {
     await owner.acquire();
+    if (yielding) return true;
     final store = BackgroundInboxStore(),
         scope = await BackgroundInboxStore().scope();
     if (scope == null || !await store.enabled(scope)) return true;
@@ -161,6 +196,7 @@ Future<bool> _runBackgroundInbox() async {
         !await notificationPermission(plugin)) {
       return true;
     }
+    if (yielding) return true;
     client = RaftClient(
       origin: fields[0],
       sessionStore: SecureSessionStore(),
@@ -175,6 +211,7 @@ Future<bool> _runBackgroundInbox() async {
       () => client?.http.close(force: true),
     );
     if (!await client.restore() ||
+        yielding ||
         client.restoredOffline ||
         client.user?.id != fields[1]) {
       return true;
@@ -194,7 +231,8 @@ Future<bool> _runBackgroundInbox() async {
         }
       },
       deliver: (alert, selected) async {
-        if (await store.scope() != selected ||
+        if (yielding ||
+            await store.scope() != selected ||
             !await store.enabled(selected) ||
             !await notificationPermission(plugin)) {
           return false;
@@ -213,8 +251,12 @@ Future<bool> _runBackgroundInbox() async {
     return false;
   } finally {
     budget?.cancel();
-    await client?.dispose();
-    owner.release();
+    try {
+      await client?.dispose();
+    } finally {
+      owner.release();
+      finished.complete();
+    }
   }
 }
 
@@ -246,6 +288,7 @@ const notificationDetails = NotificationDetails(
   iOS: DarwinNotificationDetails(),
   macOS: DarwinNotificationDetails(),
   linux: LinuxNotificationDetails(),
+  windows: WindowsNotificationDetails(),
 );
 Future<bool> notificationPermission(
   FlutterLocalNotificationsPlugin plugin,

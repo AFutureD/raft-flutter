@@ -1,5 +1,6 @@
 """Exercise deployment transactions using fake SDK/ADB, never a real device."""
 import copy
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -34,6 +35,9 @@ class InstallTest(unittest.TestCase):
         self.fail_install = False
         self.corrupt_after = False
         self.installed = False
+        self.retained_packages = ''
+        self.appears_during_preflight = False
+        self.absence_checks = 0
 
     def fake_call(self, argv):
         argv = [str(arg) for arg in argv]
@@ -46,6 +50,11 @@ class InstallTest(unittest.TestCase):
             return f'Signer #1 certificate SHA-256 digest: {cert * 64}\n'
         if argv[3:6] == ['shell', 'dumpsys', 'package']:
             return self.new if self.installed else self.old
+        if argv[3:6] == ['shell', 'pm', 'list']:
+            self.absence_checks += 1
+            if self.appears_during_preflight and self.absence_checks > 1:
+                return f'package:{android.PACKAGE}\n'
+            return self.retained_packages
         if argv[3:6] == ['shell', 'pm', 'path']:
             return 'package:ignore\n' if self.old == 'missing' else 'package:/data/app/~~fixture==/raft==/base.apk\n'
         if argv[3] == 'pull':
@@ -84,6 +93,57 @@ class InstallTest(unittest.TestCase):
         self.assertFalse(self.mutations())
         self.assertNotIn('start', str(self.commands))
 
+    def test_first_install_is_explicit_and_verifies_created_package(self):
+        self.old = f'Unable to find package: {android.PACKAGE}\n'
+        with self.assertRaises(android.SafetyError):
+            self.update()
+        self.assertFalse(self.mutations())
+        report = self.update(first_install=True)
+        self.assertEqual(report['mode'], 'first-install')
+        self.assertEqual(report['status'], 'verified')
+        self.assertIsNone(report['before'])
+        self.assertEqual(report['after'], android.package_state(self.new))
+        self.assertEqual(self.mutations()[0][:-1], ['adb', '-s', 'owned-test-device', 'install', '--user', '0'])
+        self.assertEqual(len(self.mutations()), 1)
+        self.assertNotIn('uninstall', str(self.commands))
+
+    def test_first_install_preflight_is_read_only(self):
+        self.old = f'Unable to find package: {android.PACKAGE}\n'
+        report = self.update(first_install=True, check_only=True, launch=True)
+        self.assertEqual(report['status'], 'preflight-passed')
+        self.assertFalse(self.mutations())
+        self.assertNotIn('start', str(self.commands))
+
+    def test_first_install_rejects_existing_retained_and_concurrently_added_package(self):
+        absent = f'Unable to find package: {android.PACKAGE}\n'
+        for state, retained, concurrent in ((dump(), '', False),
+                                             (dump(installed=False), '', False),
+                                             (absent, f'package:{android.PACKAGE}\n', False),
+                                             (absent, '', True)):
+            with self.subTest(state=state, retained=retained, concurrent=concurrent):
+                self.old, self.retained_packages = state, retained
+                self.appears_during_preflight = concurrent
+                self.absence_checks = 0
+                with self.assertRaises(android.SafetyError):
+                    self.update(first_install=True, launch=True)
+                self.assertFalse(self.mutations())
+                self.assertNotIn('start', str(self.commands))
+
+    def test_first_install_failure_or_wrong_artifact_never_retries_or_launches(self):
+        self.old = f'Unable to find package: {android.PACKAGE}\n'
+        for failure in ('install', 'hash'):
+            with self.subTest(failure=failure):
+                self.commands.clear()
+                self.installed = False
+                self.fail_install = failure == 'install'
+                self.corrupt_after = failure == 'hash'
+                with self.assertRaises(android.SafetyError):
+                    self.update(first_install=True, launch=True)
+                self.assertEqual(len(self.mutations()), 1)
+                self.assertNotIn('uninstall', str(self.commands))
+                self.assertNotIn('start', str(self.commands))
+
+    @unittest.skipIf(os.name == 'nt', 'Android installer locking requires a macOS/Linux host')
     def test_same_device_updates_are_serialized_and_lock_releases(self):
         directory = Path(self.temp.name) / 'locks'
         with android.update_lock('owned-test-device', directory):

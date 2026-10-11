@@ -25,12 +25,16 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     this.variant = RaftPanelHeaderVariant.canonical,
     this.leftInset,
     this.bottomRule = false,
+    this.iconBackground,
   });
 
   /// Elegant desktop only: the host's own left padding (ActivityInboxPanel
   /// `pl-3`) and the `border-b` rule it adds under the header.
   final double? leftInset;
   final bool bottomRule;
+
+  /// Callsite `iconBg` (SavedPanel `bg-primary-soft`); null keeps the recipe fill.
+  final Color? iconBackground;
   final String title;
   final String? subtitle;
   final Widget? icon;
@@ -159,7 +163,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
               height: RaftLayoutMetrics.panelIcon,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: recipe.iconBackground,
+                color: iconBackground ?? recipe.iconBackground,
                 border: Border.all(color: t.line, width: t.border),
                 borderRadius: recipe.iconRadius,
               ),

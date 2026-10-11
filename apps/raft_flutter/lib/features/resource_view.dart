@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, ValueListenable, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
@@ -33,6 +34,7 @@ import 'task_selection_filter.dart';
 import 'sender_avatar_projection.dart';
 import 'message_reference_directory.dart';
 import 'private_route_guard.dart';
+import 'quick_switcher.dart' show QuickSwitcherFailure, classifySearchFailure;
 import 'resource_search.dart';
 import 'resource_list_updates.dart';
 import 'saved_sidebar_entry.dart';
@@ -370,6 +372,9 @@ class _ResourceViewState extends State<ResourceView> {
   /// The failure came from the blocking first read (no list on screen yet).
   bool errorWhileLoading = false;
   String? error;
+
+  /// Why the last Search read failed (Source `classifySearchFailure`).
+  QuickSwitcherFailure? searchFailureKind;
   String filter = 'all';
   ResourceFilters advanced = ResourceFilters();
   List<ResourceSender> senders = [];
@@ -997,6 +1002,9 @@ class _ResourceViewState extends State<ResourceView> {
     setState(() {
       errorWhileLoading = loading;
       error = '$cause';
+      searchFailureKind = widget.section == 'search'
+          ? classifySearchFailure(cause)
+          : null;
       loading = false;
     });
   }
@@ -1753,6 +1761,7 @@ class _ResourceViewState extends State<ResourceView> {
         clearRows();
         loading = false;
         error = 'This channel is no longer available.';
+        searchFailureKind = null;
       });
       return;
     }
@@ -2429,7 +2438,9 @@ class _ResourceViewState extends State<ResourceView> {
         if (widget.section == 'tasks') taskFilters(),
         // Web Inbox and Saved render no error line when the first read fails:
         // the (empty) list stays as is.
+        // Search shows its failure as a card inside the results instead.
         if (error != null &&
+            !(widget.section == 'search' && searchFailureKind != null) &&
             !(errorWhileLoading &&
                 rows.isEmpty &&
                 (widget.section == 'activity' || widget.section == 'saved')))
@@ -2492,17 +2503,24 @@ class _ResourceViewState extends State<ResourceView> {
 
   Widget resourceResultsBody(BuildContext context) {
     final scope = authority;
-    return loading && visibleRows.isEmpty
+    final searchHomeNow =
+        widget.section == 'search' &&
+        query.text.trim().isEmpty &&
+        (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery);
+    // Search keeps its summary, entity matches and a messages skeleton while
+    // the first read is in flight (Source `showInitialSkeleton`).
+    final searching = loading && visibleRows.isEmpty;
+    return searching && !(widget.section == 'search' && !searchHomeNow)
         // ConversationCardSkeleton: Inbox and Saved share the card
         // placeholder list.
         ? enabledActivity ||
                   widget.section == 'activity' ||
                   widget.section == 'saved'
               ? const RaftActivityLoadingList()
+              : widget.section == 'tasks'
+              ? const RaftTaskLoadingList()
               : Center(child: CircularProgressIndicator())
-        : widget.section == 'search' &&
-              query.text.trim().isEmpty &&
-              (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery)
+        : searchHomeNow
         ? searchHome(scope)
         : widget.section == 'search'
         ? ResourceSearchResults(
@@ -2522,7 +2540,23 @@ class _ResourceViewState extends State<ResourceView> {
             onEntity: (entity) => openSearchEntity(entity, scope),
             hasMore: hasMore,
             onMore: () => load(append: true),
+            loading: searching,
+            failure: error == null ? null : searchFailureKind,
+            onRetry: () => load(),
+            onSortRecent: advanced.searchSort == 'recent'
+                ? null
+                : () {
+                    advanced.searchSort = 'recent';
+                    load();
+                  },
           )
+        : widget.section == 'tasks' &&
+              widget.channelId != null &&
+              !loading &&
+              (taskLayout == 'board'
+                  ? lanes.values.every((lane) => lane.isEmpty)
+                  : rows.isEmpty)
+        ? channelTasksEmpty()
         : widget.section == 'tasks' && taskLayout == 'board'
         ? taskBoard()
         : widget.section == 'tasks' && rows.isNotEmpty
@@ -2828,7 +2862,11 @@ class _ResourceViewState extends State<ResourceView> {
             child: RaftSearchInput(
               controller: query,
               focusNode: queryFocus,
-              hint: raftText(context, 'Search messages'),
+              // search.placeholder: the shortcut hint follows on desktop.
+              hint: mobile
+                  ? raftText(context, 'Search channels, DMs, messages…')
+                  : '${raftText(context, 'Search channels, DMs, messages…')}   '
+                        '${defaultTargetPlatform == TargetPlatform.macOS ? '⌘K' : 'Ctrl+K'}',
               clearLabel: raftText(context, 'Clear search'),
               showEscape: !mobile,
               onClear: () {
@@ -3417,6 +3455,9 @@ class _ResourceViewState extends State<ResourceView> {
       mobile: mobile,
       leftInset: widget.section == 'activity' ? 12 : null,
       bottomRule: widget.section == 'activity',
+      iconBackground: widget.section == 'saved'
+          ? RaftTokens.of(context).colors['primary-soft']
+          : null,
       variant: widget.section == 'tasks'
           ? RaftPanelHeaderVariant.tasks
           : RaftPanelHeaderVariant.canonical,
@@ -4461,14 +4502,17 @@ class _ResourceViewState extends State<ResourceView> {
                 },
               ),
           ],
-          TextButton(
-            onPressed: () {
-              if (!accepts(scope)) return;
-              advanced = ResourceFilters();
-              query.clear();
-              load();
-            },
-            child: Text(raftText(context, 'Clear filters')),
+          RaftTouchTargetExpander(
+            minSize: const Size.square(RaftMetrics.touchTarget),
+            child: RaftTaskFilterButton(
+              onPressed: () {
+                if (!accepts(scope)) return;
+                advanced = ResourceFilters();
+                query.clear();
+                load();
+              },
+              child: Text(raftText(context, 'Clear All')),
+            ),
           ),
         ],
       ),
@@ -4812,18 +4856,19 @@ class _ResourceViewState extends State<ResourceView> {
                     final options = field == 'Channel'
                         ? channelOptions
                         : <String, String>{
-                            if (field == 'Assignee')
-                              'unassigned': raftTextZh(
-                                context,
-                                'Unassigned',
-                                '未分配',
-                              ),
+                            // IdentityFilterChip: "me" first, then Unassigned.
                             if (self != null)
                               'user:${self.id}': raftText(
                                 context,
                                 field == 'Creator'
                                     ? 'Created by me'
                                     : 'Assigned to me',
+                              ),
+                            if (field == 'Assignee')
+                              'unassigned': raftTextZh(
+                                context,
+                                'Unassigned',
+                                '未分配',
                               ),
                             for (final entry in ordered)
                               if (entry.key != 'user:${self?.id}')
@@ -4900,11 +4945,14 @@ class _ResourceViewState extends State<ResourceView> {
                 },
               ),
               if (!taskAdvanced.isEmpty)
-                TextButton(
-                  onPressed: () {
-                    if (accepts(scope)) setState(taskAdvanced.clear);
-                  },
-                  child: Text(raftText(context, 'Clear filters')),
+                RaftTouchTargetExpander(
+                  minSize: const Size.square(RaftMetrics.touchTarget),
+                  child: RaftTaskFilterButton(
+                    onPressed: () {
+                      if (accepts(scope)) setState(taskAdvanced.clear);
+                    },
+                    child: Text(raftText(context, 'Clear All')),
+                  ),
                 ),
             ],
           ),
@@ -5024,6 +5072,26 @@ class _ResourceViewState extends State<ResourceView> {
             childWhenDragging: Opacity(opacity: .4, child: card),
             child: card,
           );
+  }
+
+  /// TasksPanel channel mode with no task at all: the centred EmptyState
+  /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.
+  Widget channelTasksEmpty() {
+    final filtered = !taskAdvanced.isEmpty;
+    return RaftProductEmptyPanel(
+      title: raftText(
+        context,
+        filtered ? 'No tasks match this filter' : 'No tasks yet',
+      ),
+      description: raftText(
+        context,
+        filtered
+            ? 'Try a different combination or clear the current selection.'
+            : 'Create one with the New Task button.',
+      ),
+      icon: (context, size, color) =>
+          RaftIcon(RaftGlyph.checkSquare, size: size, color: color),
+    );
   }
 
   Widget taskBoard() {
@@ -5150,7 +5218,8 @@ class _ResourceViewState extends State<ResourceView> {
         key: ValueKey('task-${row['id']}'),
         title: name,
         number: '${row['taskNumber'] ?? row['number'] ?? ''}',
-        channel: '${row['channelName'] ?? ''}',
+        // TaskCard shows the channel chip only on the server-wide page.
+        channel: widget.channelId != null ? '' : '${row['channelName'] ?? ''}',
         status: status,
         description: '${row['descriptionPreview'] ?? row['description'] ?? ''}',
         assignee: row['claimedByName'] as String?,

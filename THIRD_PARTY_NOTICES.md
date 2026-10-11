@@ -6,6 +6,8 @@ Bundled Geist, Geist Mono, Hanken Grotesk and Inter fonts carry their respective
 
 The dependency versions are fixed in `pubspec.lock`. Flutter includes package license notices in its generated native assets; dependency source and licenses remain in the package cache. Native Mermaid rendering uses `mermaid_flutter` and its Dart dependencies; it does not bundle the Web Mermaid JavaScript runtime.
 
+The Windows host uses Microsoft.WindowsAppSDK 1.7.250310001 from official NuGet, pinned by SHA-256 in `windows/runner/windows_app_sdk.cmake`. Its bootstrap DLL is bundled; the full Windows App Runtime remains an external prerequisite. The package's unmodified [Microsoft license terms](docs/licenses/Microsoft-Windows-App-SDK-1.7-license.txt) and [third-party notices](docs/licenses/Microsoft-Windows-App-SDK-1.7-NOTICE.txt) are preserved here and copied to `data/licenses/windows-app-sdk/` in the Windows bundle.
+
 Exact icon geometry from the pinned Web dependency lucide-react 0.575.0 carries its ISC notice in `docs/licenses/lucide-0.575.0-ISC.txt` and `packages/raft_ui/LICENSE-LUCIDE`.
 
 Liberation Sans (diagram-only): unchanged fonts from fonts-liberation 1:2.1.5-3build1, copyright Google Corporation and Red Hat, Inc.; SIL OFL 1.1. See docs/licenses/LiberationSans-OFL.txt and docs/diagram-font-provenance.json.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'banner.dart';
 import 'components.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
@@ -195,112 +196,123 @@ class RaftPendingMentionActionStrip extends StatelessWidget {
         ],
       ),
     );
+    // Web `sm:` is the viewport media query (640px), not the strip width:
+    // `sm:flex-row sm:items-center` keeps the buttons on the text row, below it
+    // the row stacks with `gap-2` and the status clamps to two lines.
+    final wide = MediaQuery.sizeOf(context).width >= 640;
+    final info = Row(
+      children: [
+        RaftIcon(RaftGlyph.userX, size: 14, color: hint),
+        const SizedBox(width: 8),
+        SizedBox.square(
+          dimension: 20,
+          child:
+              action.avatar ??
+              RaftAvatar(
+                name: target,
+                size: 20,
+                kind: RaftAvatarKind.app,
+                mountedContext: RaftMountedAvatarContext.compactList,
+                content: RaftMountedAvatarFallback(
+                  avatarContext: RaftMountedAvatarContext.compactList,
+                  identity: RaftMountedAvatarIdentity.app,
+                  initials: target.replaceFirst('@', '').trim(),
+                ),
+              ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RaftCssText(
+                target,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: t.headingFont,
+                  fontSize: 12,
+                  height: 16 / 12,
+                  fontWeight: FontWeight.w700,
+                  color: t.strong,
+                ),
+              ),
+              RaftCssText(
+                status,
+                key: const ValueKey('pending-mention-action-status'),
+                maxLines: wide ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: t.headingFont,
+                  fontSize: 11,
+                  height: 16 / 11,
+                  color: t.colors['foreground-muted'],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final buttons = Row(
+      mainAxisSize: wide ? MainAxisSize.min : MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        if (local == RaftPendingMentionState.added)
+          done('Added')
+        else if (action.canAdd && local == null)
+          _StripButton(
+            variant: RaftButtonRecipeVariant.accent,
+            glyph: RaftGlyph.userPlus,
+            label: raftText(context, 'Add'),
+            onPressed: busy
+                ? null
+                : () => onMark(
+                    action.resolutionId,
+                    RaftPendingMentionState.added,
+                  ),
+          ),
+        if (local == RaftPendingMentionState.notified) ...[
+          const SizedBox(width: 6),
+          done('Queued'),
+        ] else if (action.canNotify && local == null) ...[
+          const SizedBox(width: 6),
+          _StripButton(
+            variant: RaftButtonRecipeVariant.outline,
+            glyph: RaftGlyph.bellRing,
+            label: raftText(context, 'Notify'),
+            onPressed: busy
+                ? null
+                : () => onMark(
+                    action.resolutionId,
+                    RaftPendingMentionState.notified,
+                  ),
+          ),
+        ],
+        const SizedBox(width: 6),
+        _StripButton(
+          variant: RaftButtonRecipeVariant.muted,
+          label: raftText(context, 'Ignore'),
+          onPressed: () => onDismiss(action.resolutionId),
+        ),
+      ],
+    );
     return AnimatedOpacity(
       key: ValueKey('pending-mention-${action.resolutionId}'),
       opacity: removing.contains(action.resolutionId) ? 0 : 1,
       duration: const Duration(milliseconds: 300),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              RaftIcon(RaftGlyph.userX, size: 14, color: hint),
-              const SizedBox(width: 8),
-              SizedBox.square(
-                dimension: 20,
-                child:
-                    action.avatar ??
-                    RaftAvatar(
-                      name: target,
-                      size: 20,
-                      kind: RaftAvatarKind.app,
-                      mountedContext: RaftMountedAvatarContext.compactList,
-                      content: RaftMountedAvatarFallback(
-                        avatarContext: RaftMountedAvatarContext.compactList,
-                        identity: RaftMountedAvatarIdentity.app,
-                        initials: target.replaceFirst('@', '').trim(),
-                      ),
-                    ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RaftCssText(
-                      target,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: t.headingFont,
-                        fontSize: 12,
-                        height: 16 / 12,
-                        fontWeight: FontWeight.w700,
-                        color: t.strong,
-                      ),
-                    ),
-                    RaftCssText(
-                      status,
-                      key: const ValueKey('pending-mention-action-status'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: t.headingFont,
-                        fontSize: 11,
-                        height: 16 / 11,
-                        color: t.colors['foreground-muted'],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (local == RaftPendingMentionState.added)
-                done('Added')
-              else if (action.canAdd && local == null)
-                _StripButton(
-                  variant: RaftButtonRecipeVariant.accent,
-                  glyph: RaftGlyph.userPlus,
-                  label: raftText(context, 'Add'),
-                  onPressed: busy
-                      ? null
-                      : () => onMark(
-                          action.resolutionId,
-                          RaftPendingMentionState.added,
-                        ),
-                ),
-              if (local == RaftPendingMentionState.notified) ...[
-                const SizedBox(width: 6),
-                done('Queued'),
-              ] else if (action.canNotify && local == null) ...[
-                const SizedBox(width: 6),
-                _StripButton(
-                  variant: RaftButtonRecipeVariant.outline,
-                  glyph: RaftGlyph.bellRing,
-                  label: raftText(context, 'Notify'),
-                  onPressed: busy
-                      ? null
-                      : () => onMark(
-                          action.resolutionId,
-                          RaftPendingMentionState.notified,
-                        ),
-                ),
+      child: wide
+          ? Row(
+              children: [
+                Expanded(child: info),
+                const SizedBox(width: 8),
+                buttons,
               ],
-              const SizedBox(width: 6),
-              _StripButton(
-                variant: RaftButtonRecipeVariant.muted,
-                label: raftText(context, 'Ignore'),
-                onPressed: () => onDismiss(action.resolutionId),
-              ),
-            ],
-          ),
-        ],
-      ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [info, const SizedBox(height: 8), buttons],
+            ),
     );
   }
 }
@@ -355,11 +367,46 @@ class RaftPendingMentionSlot extends StatelessWidget {
 /// composer (attachment-limit and send errors). raft-ui banner recipe; the
 /// `group-data-[size=sm]` description is `text-xs leading-4`.
 class RaftComposerNotice extends StatelessWidget {
-  const RaftComposerNotice({super.key, required this.message});
+  const RaftComposerNotice({
+    super.key,
+    required this.message,
+    this.onDismiss,
+    this.dismissLabel,
+  });
   final String message;
+
+  /// Web `Banner actions`: the trailing `Button ghost icon-xs` with an X
+  /// (delivery-warning and unresolved-mention banners).
+  final VoidCallback? onDismiss;
+  final String? dismissLabel;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    if (onDismiss != null) {
+      // Banner with `actions`: the public composition (grid action cell, the
+      // `@max-[24rem]` drop below the copy, status colours).
+      return DefaultTextStyle.merge(
+        style: TextStyle(fontFamily: t.headingFont),
+        child: RaftBanner(
+          description: message,
+          size: RaftBannerRecipeSize.sm,
+          // Measured on Web: the `icon-xs` button is 24px in Brutal but 16px in
+          // Elegant (the recipe resolves 24 for both); its 12px glyph stays.
+          action: SizedBox.square(
+            dimension: t.brutal ? 24 : 16,
+            child: RaftRecipeButton(
+              variant: RaftButtonRecipeVariant.ghost,
+              size: RaftButtonRecipeSize.iconXs,
+              glyph: RaftGlyph.x,
+              glyphSize: 12,
+              foreground: t.colors['warning-strong'],
+              tooltip: dismissLabel,
+              onPressed: onDismiss,
+            ),
+          ),
+        ),
+      );
+    }
     final resolver = RaftRecipeTokens(t);
     final s = RaftBannerRecipe.resolve(
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,

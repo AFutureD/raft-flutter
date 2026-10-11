@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:raft_client/raft_client.dart';
@@ -79,6 +81,16 @@ class _Notifications extends NativeNotificationService {
   }
 }
 
+class _WindowsNotifications extends _Notifications {
+  int presentations = 0;
+  @override
+  TargetPlatform get platform => TargetPlatform.windows;
+  @override
+  Future<void> presentWindow() async {
+    presentations++;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late _Client c;
@@ -102,6 +114,40 @@ void main() {
     w.dispose();
     await c.stream.close();
   });
+  test(
+    'Windows taps restore the window and retain message authorization',
+    () async {
+      await links.dispose();
+      final windows = _WindowsNotifications();
+      n = windows;
+      links = NativeContentCoordinator(
+        notifications: n,
+        links: const Stream.empty(),
+      );
+      await links.init();
+      links.bindWorkspace(w);
+      expect(links.desktop, isNotNull);
+      n.onTap!('raft-notification-test');
+      await Future<void>.delayed(Duration.zero);
+      expect(windows.presentations, 1);
+      expect(w.jumps, isEmpty);
+      final payload = jsonEncode({
+        'origin': c.origin,
+        'principal': 'alice',
+        'serverId': 's',
+        'uri': 'raft://v1/servers/s/channels/c/messages/m',
+      });
+      c.denied = true;
+      n.onTap!(payload);
+      await Future<void>.delayed(Duration.zero);
+      expect(w.jumps, isEmpty);
+      c.denied = false;
+      n.onTap!(payload);
+      await Future<void>.delayed(Duration.zero);
+      expect(w.jumps, ['c/m']);
+      expect(windows.presentations, 3);
+    },
+  );
   test('fresh membership/channel/message authority required before content navigation', () async {
     await links.navigate(
       const ContentTarget(serverSlug: 'team', channelId: 'c', messageId: 'm'),

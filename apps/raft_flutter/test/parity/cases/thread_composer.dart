@@ -256,7 +256,7 @@ class _ComposerHostState extends State<_ComposerHost> {
         RaftComposer(
           initialDraft: widget.draft,
           // As RaftChatView mounts it.
-          accessoryRow: raftComposerAccessory(w),
+          accessoryRow: raftComposerAccessory(context, w),
           taskAction: RaftComposerTaskToggle(
             key: const Key('composer-as-task'),
             checked: alsoCreateTask,

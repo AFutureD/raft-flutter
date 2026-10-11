@@ -437,6 +437,7 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
     if (!widget.agent) {
       return RaftProfilePreviewCard(
         avatar: avatar(row),
+        avatarTopInset: 2,
         name: name,
         subtitle: '@${row['name'] ?? ''}',
         description: description,
@@ -472,6 +473,7 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
         : null;
     return RaftProfilePreviewCard(
       avatar: avatar(row),
+      avatarTopInset: 2,
       name: name,
       subtitle: '@${row['name'] ?? ''}',
       status: RaftProfilePreviewStatus(
@@ -578,10 +580,12 @@ Widget senderProfileHoverCard({
       provider: author['provider'] as String?,
       workspaceName: author['workspaceName'] as String?,
       actorKind: author['actorKind'] as String?,
+      // AvatarSlot type="app": initials on the soft-signal fill (Brutal).
       avatar: RaftAvatarSlot(
         name: message.author,
         slot: RaftAvatarSlotContext.mentionCard,
         agent: false,
+        server: true,
         content: content,
       ),
       child: child,

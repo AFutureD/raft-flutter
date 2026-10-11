@@ -36,6 +36,8 @@ export 'src/thread_replies.dart';
 export 'src/message_context_menu.dart';
 export 'src/composer_pending_mentions.dart';
 export 'src/forward_composer.dart';
+export 'src/forward_desktop_dialog.dart';
+export 'src/channel_footer.dart';
 export 'src/attachment_comments.dart';
 
 export 'src/design_primitives.dart';
@@ -44,6 +46,7 @@ export 'src/indicators.dart';
 export 'src/live_agent_activity_bar.dart';
 export 'src/form_controls.dart';
 export 'src/list_items.dart';
+export 'src/list_page_parts.dart';
 export 'src/select_field.dart';
 export 'src/overlays/dialog.dart';
 export 'src/recipes/button_variants.g.dart'
@@ -53,6 +56,12 @@ export 'src/icons.dart';
 export 'src/recipes/toast_styles.g.dart' show RaftToastRecipeTone;
 export 'src/brand.dart';
 export 'src/auth_page.dart';
+export 'src/root_error_fallback.dart';
+export 'src/server_access_denied.dart';
+export 'src/archived_channels_section.dart';
+export 'src/setup_resume_bar.dart';
+export 'src/community_agreement_dialog.dart';
+export 'src/invite_accept_page.dart';
 export 'src/onboarding_previews.dart';
 
 export 'src/primitive_tokens.dart';
@@ -82,6 +91,8 @@ export 'src/feedback_workspace.dart';
 export 'src/settings_workspace.dart';
 export 'src/settings_billing.dart';
 export 'src/settings_applications.dart';
+export 'src/settings_app_editor.dart';
+export 'src/public_server.dart';
 export 'src/agent_dialogs.dart';
 export 'src/invite_human_dialog.dart';
 export 'src/role_permission_help_dialog.dart';

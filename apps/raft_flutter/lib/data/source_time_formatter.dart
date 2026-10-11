@@ -199,6 +199,31 @@ class SourceTimeFormatter {
     return '$day${_chinese ? ' ' : ', '} ${_clock(date)}'.replaceAll('  ', ' ');
   }
 
+  /// formatMediumDateTime: `toLocaleString({dateStyle: 'medium', timeStyle:
+  /// 'short'})` in the preferred zone ("Jun 10, 2026, 9:00 AM", zh
+  /// "2026年6月10日 09:00"); the short style does not pad the 12-hour hour.
+  ///
+  /// By default the account 12h / 24h preference applies (useTimeFormatter's
+  /// `formatMediumDateTime`, used by the archived channels list). Web's joint
+  /// over-limit grace deadline instead calls react-intl `formatDate(..., {
+  /// dateStyle: 'medium', timeStyle: 'short'})`, which follows the locale's
+  /// hour cycle; those call sites pass `followPreference: false`.
+  String mediumDateTime(Object? value, {bool followPreference = true}) {
+    final date = _date(value);
+    if (date == null) return value?.toString() ?? '';
+    final wall = wallTime(date);
+    final day = DateFormat.yMMMd(locale).format(wall);
+    final String clock;
+    if (!followPreference) {
+      clock = DateFormat.jm(locale).format(wall);
+    } else if (effectiveTimeFormat == SourceTimeFormat.twelveHour) {
+      clock = DateFormat(_chinese ? 'ah:mm' : 'h:mm a', locale).format(wall);
+    } else {
+      clock = DateFormat('HH:mm', locale).format(wall);
+    }
+    return '$day${_chinese ? ' ' : ', '}$clock';
+  }
+
   /// react-intl `formatDate(value, {month: 'short', day: 'numeric'})`.
   String shortDate(Object? value) {
     final date = _date(value);

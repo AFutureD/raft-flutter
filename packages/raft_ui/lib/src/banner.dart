@@ -30,6 +30,7 @@ class RaftBanner extends StatelessWidget {
     this.glyph,
     this.action,
     this.descriptionTail,
+    this.descriptionTailWeight,
     this.textAlign,
     this.footer,
   });
@@ -37,6 +38,9 @@ class RaftBanner extends StatelessWidget {
   /// An inline underlined link after the description copy, 4px (`ml-1`) from
   /// it: Web HistoryLimitBanner's `<button className="ml-1 underline">`.
   final ({String label, VoidCallback onPressed})? descriptionTail;
+
+  /// Callsite `font-bold` on the tail link (ChatPanel's billing links).
+  final FontWeight? descriptionTailWeight;
 
   /// Web `text-center` on the Banner root.
   final TextAlign? textAlign;
@@ -142,6 +146,7 @@ class RaftBanner extends StatelessWidget {
                 _TailedDescription(
                   text: raftText(context, description),
                   tail: descriptionTail!,
+                  tailWeight: descriptionTailWeight,
                   style: recipe.description
                       .text(tokens, base: base)
                       .copyWith(fontWeight: descriptionWeight),
@@ -253,8 +258,10 @@ class _TailedDescription extends StatelessWidget {
     required this.text,
     required this.tail,
     required this.style,
+    this.tailWeight,
     this.textAlign,
   });
+  final FontWeight? tailWeight;
   final String text;
   final ({String label, VoidCallback onPressed}) tail;
   final TextStyle style;
@@ -279,7 +286,10 @@ class _TailedDescription extends StatelessWidget {
                 onTap: tail.onPressed,
                 child: Text(
                   raftText(context, tail.label),
-                  style: style.copyWith(decoration: TextDecoration.underline),
+                  style: style.copyWith(
+                    decoration: TextDecoration.underline,
+                    fontWeight: tailWeight,
+                  ),
                 ),
               ),
             ),
@@ -289,6 +299,9 @@ class _TailedDescription extends StatelessWidget {
     ),
     textAlign: textAlign,
     style: style,
+    // The baseline-aligned link box must not grow its line past the CSS
+    // line-height (the inline-block link keeps the 20px line).
+    strutStyle: StrutStyle.fromTextStyle(style, forceStrutHeight: true),
   );
 }
 
@@ -299,12 +312,16 @@ class RaftHistoryLimitBanner extends StatelessWidget {
   const RaftHistoryLimitBanner({
     super.key,
     required this.message,
-    required this.linkLabel,
-    required this.onLink,
+    this.linkLabel,
+    this.onLink,
     this.inset = false,
   });
-  final String message, linkLabel;
-  final VoidCallback onLink;
+
+  /// [linkLabel] null renders the bare notice (ChatPanel's "Message not found"
+  /// banner shares the HistoryLimitBanner classes without the billing link).
+  final String message;
+  final String? linkLabel;
+  final VoidCallback? onLink;
   final bool inset;
 
   @override
@@ -320,7 +337,9 @@ class RaftHistoryLimitBanner extends StatelessWidget {
             size: RaftBannerRecipeSize.sm,
             textAlign: TextAlign.center,
             description: message,
-            descriptionTail: (label: linkLabel, onPressed: onLink),
+            descriptionTail: linkLabel == null
+                ? null
+                : (label: linkLabel!, onPressed: onLink ?? () {}),
           ),
         ),
       ),

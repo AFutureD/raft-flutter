@@ -29,24 +29,24 @@ list of pages that default-theme coverage must reach.
 
 ## Summary
 
-- Pages (rows) in the inventory: **180** in 9 areas, of which **20** are excluded as dead,
-  obsolete or not shown to normal users (below), leaving **160** pages that count. 7 dev-only / entry-less
-  routes are excluded on top (end of the document). 10 counted pages are flagged "verify" (reachability unclear).
-- Fully covered on every platform they exist on: **107**; partly covered (partial / wip): **5**; with at least one MISSING platform: **48**.
+- Pages (rows) in the inventory: **180** in 9 areas, of which **19** are excluded as dead,
+  obsolete or not shown to normal users (below), leaving **161** pages that count. 7 dev-only / entry-less
+  routes are excluded on top (end of the document). 9 counted pages are flagged "verify" (reachability unclear).
+- Fully covered on every platform they exist on: **154**; partly covered (partial / wip): **6**; with at least one MISSING platform: **1**.
 
 | platform | pages that exist there | ok | partial | wip | MISSING |
 | --- | --- | --- | --- | --- | --- |
-| Desktop (D) | 155 | 114 | 2 | 1 | 38 |
-| Phone (P) | 150 | 113 | 4 | 0 | 33 |
+| Desktop (D) | 156 | 153 | 2 | 1 | 0 |
+| Phone (P) | 150 | 145 | 4 | 0 | 1 |
 
 Excluded pages by reason (rows / extra routes):
 
 | reason | rows | routes | meaning |
 | --- | --- | --- | --- |
 | obsolete | 2 | 1 | no entry point, or reachable only for legacy data, or no production importer |
-| flag-off | 4 | 0 | exists only behind a server feature flag seeded default-off (staged / allowlist / preview) |
+| flag-off | 5 | 0 | exists only behind a server feature flag seeded default-off (staged / allowlist / preview) |
 | host-only | 2 | 0 | needs the Electron desktop shell bridge; not shown in a browser or a native client |
-| browser-only | 11 | 0 | a Web page that only exists in the browser; the Flutter app has no route or feature for it |
+| browser-only | 9 | 0 | a Web page that only exists in the browser; the Flutter app has no route or feature for it |
 | dev-only | 0 | 4 | development tooling, redirected away in production |
 | duplicate | 1 | 0 | the same screen as another row |
 | superseded | 0 | 2 | replaced by a newer page; only a redirect remains |
@@ -55,7 +55,7 @@ Findings:
 
 - The official suite covers phone only, so every desktop page depends on the extension suite; the extension
   suite is concentrated on Settings, Auth, Thread and Shell components and has almost no composed desktop screens.
-- 38 desktop and 33 phone page-platforms have no case.
+- 0 desktop and 1 phone page-platforms have no case.
 - Agent detail: `AgentDetailPanel` has seven tabs (profile, activity, chat, reminders, workspace, apps, MCP). The
   base branch already has desktop cases for six of them (`components.members-ext.agent.*`, including `mcp*`). Chat has
   no case on either platform and MCP has none on phone. Desktop agent-detail work is in progress on
@@ -67,54 +67,7 @@ Ordered by priority, then pages not flagged "verify" first, then missing on both
 
 | rank | # | page | where | priority |
 | --- | --- | --- | --- | --- |
-| 1 | 3.06 | Channel state banners (archived + Unarchive, read-only quota + upgrade, guest read-only + Join channel, joint locked, over-limit grace, message not found, channel unavailable) | D+P | P2 common |
-| 2 | 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | D+P | P2 common |
-| 3 | 3.31 | Action card in a message (install app, create agent, channel members, owner recovery) | D+P | P2 common |
-| 4 | 5.04 | Search page states (history + frequent, searching, no results, error + retry, load more, query too broad, beyond plan history) | D+P | P2 common |
-| 5 | 5.07 | Activity filters (All / Mentions / Unread) | D+P | P2 common |
-| 6 | 6.04 | Task filters (assignee, creator, channels popovers; clear all; filtered-empty) | D+P | P2 common |
-| 7 | 2.05 | Notification center (popover on desktop, sheet on phone) | D | P2 common |
-| 8 | 3.03 | Desktop with no conversation selected ("Select a channel" empty main) | D | P2 common |
-| 9 | 3.07 | Channel Files tab (list; empty, loading, error, load more) | D | P2 common |
-| 10 | 3.11 | Message context menu (default message, task message) | D | P2 common |
-| 11 | 3.14 | Forward composer (destinations, note, send) | D | P2 common |
-| 12 | 3.21 | Composer "As task" mode | D | P2 common |
-| 13 | 3.30 | Profile side panel (open from a sender) | D | P2 common |
-| 14 | 5.02 | Search results page (phone Search tab; desktop "view all results") | D | P2 common |
-| 15 | 5.09 | Saved messages list | D | P2 common |
-| 16 | 7.10 | Agent detail: Chat tab (channels and DMs of the agent) | P | P2 common |
-| 17 | 8.02 | Phone Computers page (list, needs-attention filter, empty, load error, refresh error) | P | P2 common |
-| 18 | 8.03 | Computer detail (header, identity, name / description edit, info, agents + bulk select, workspaces, service, recovery guide, offline, upgrading, disk low, legacy, delete) | P | P2 common |
-| 19 | 5.12 | Activity Done and Saved views, channel filter, sort, in-list search (verify) | D+P | P2 common |
-| 20 | 2.11 | Section emoji picker | D+P | P3 rare / admin / edge |
-| 21 | 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | D+P | P3 rare / admin / edge |
-| 22 | 3.12 | Reaction chips row and reactors tooltip | D+P | P3 rare / admin / edge |
-| 23 | 3.16 | Quoted message permalink preview and linked-message fallbacks | D+P | P3 rare / admin / edge |
-| 24 | 3.18 | Mermaid full-screen viewer | D+P | P3 rare / admin / edge |
-| 25 | 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | D+P | P3 rare / admin / edge |
-| 26 | 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | D+P | P3 rare / admin / edge |
-| 27 | 3.37 | Thread load failed (retry), guest read-only, joint locked | D+P | P3 rare / admin / edge |
-| 28 | 3.38 | In-thread search (search bar, next / previous match) | D+P | P3 rare / admin / edge |
-| 29 | 3.39 | Thread agent followers (list, remove, undo) | D+P | P3 rare / admin / edge |
-| 30 | 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | D+P | P3 rare / admin / edge |
-| 31 | 4.03 | Create shared (joint) channel dialog | D+P | P3 rare / admin / edge |
-| 32 | 5.08 | Activity item context menu (mark read / unread, follow, done) | D+P | P3 rare / admin / edge |
-| 33 | 5.11 | Saved item actions (copy link, copy Markdown, remove) | D+P | P3 rare / admin / edge |
-| 34 | 6.10 | Tasks loading and load-more states | D+P | P3 rare / admin / edge |
-| 35 | 2.10 | Section dialogs (new, rename, delete) | P | P3 rare / admin / edge |
-| 36 | 2.12 | Archive channel confirm (from the sidebar menu) | P | P3 rare / admin / edge |
-| 37 | 3.13 | Message selection mode (toolbar, share-as-image lightbox) | D | P3 rare / admin / edge |
-| 38 | 3.22 | Composer pending-mention action strip (agent outside the channel) | D | P3 rare / admin / edge |
-| 39 | 3.26 | Audio, video, PDF and diff / patch previews | P | P3 rare / admin / edge |
-| 40 | 3.28 | Mention hover activity preview | D | P3 rare / admin / edge |
-| 41 | 5.03 | Search channel filter dropdown | D | P3 rare / admin / edge |
-| 42 | 5.06 | Activity empty / loading / error | P | P3 rare / admin / edge |
-| 43 | 5.10 | Saved empty / loading / error | P | P3 rare / admin / edge |
-| 44 | 6.05 | Tasks list / board view toggle (the non-default view) | D | P3 rare / admin / edge |
-| 45 | 6.06 | Task status menu | D | P3 rare / admin / edge |
-| 46 | 8.04 | Add computer dialog (type step, connect step) | P | P3 rare / admin / edge |
-| 47 | 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | P | P3 rare / admin / edge |
-| 48 | 3.29 | External identity preview card and detail panel (verify) | D+P | P3 rare / admin / edge |
+| 1 | 7.10 | Agent detail: Chat tab (channels and DMs of the agent) | P | P2 common |
 
 ## 1. Auth, onboarding and public entry
 
@@ -133,19 +86,19 @@ Web: App.tsx AppShell / ServerResolver, components/auth, components/onboarding, 
 | 1.09 | Email verification (link wait, manual code, resent, errors) | `components/auth/EmailVerificationPage.tsx` | ok | ok |  | D: `components.auth-ext.desktop.verify.*`<br>P: `components.auth-ext.mobile.verify.*` |  |
 | 1.10 | Account identity (profile) setup | `components/auth/AccountIdentitySetupPage.tsx` | ok | ok | `screens.auth.profile-setup` | D: `components.auth-pages.desktop.identity.*`<br>P: `components.auth-pages.mobile.identity.*` |  |
 | 1.11 | Social auth callback (loading / error) | `components/auth/SocialAuthCallbackPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
-| 1.12 | Invite accept (email invite link; signed-out and signed-in variants, expired / invalid) | `components/auth/InviteAcceptPage.tsx` | ok | ok |  | D: `components.auth-pages.desktop.invite.*`<br>P: `components.auth-pages.mobile.invite.*` | First screen every invited user sees. Flutter page missing: invites are accepted from the Join workspace dialog. |
+| 1.12 | Invite accept (email invite link; signed-out and signed-in variants, expired / invalid) | `components/auth/InviteAcceptPage.tsx` | ok | ok |  | D: `components.auth-pages.desktop.invite.*`<br>P: `components.auth-pages.mobile.invite.*` | First screen every invited user sees. Flutter: InviteAcceptView / RaftInviteAcceptPage, opened by /join/<token>, ?invite=, raft://v1/join/<token> and the Join workspace dialog; Sign In / Create Account keep the token until the account is ready. |
 | 1.13 | Choose server | `components/auth/ServerSelector.tsx` | ok | ok | `screens.auth.choose-server`<br>`screens.home.choose-server` | D: `components.auth-ext.desktop.server.choose`<br>P: `components.auth-ext.mobile.server.choose` |  |
 | 1.14 | Create first server (no server yet) | `components/auth/ServerSelector.tsx, OnboardingCreateShell.tsx, ServerCreatePreview.tsx` | ok | ok |  | D: `components.auth-pages.desktop.server.create-first*`<br>P: `components.auth-ext.mobile.server.create-first*` |  |
 | 1.15 | Create another server | `components/auth/ServerSelector.tsx` | ok | ok |  | D: `components.auth-ext.desktop.server.create-more*`<br>P: `components.auth-ext.mobile.server.create-more*` |  |
-| 1.16 | Server access denied / server not found | `App.tsx ServerAccessDeniedPage` | ok | ok |  | D: `components.auth-pages.desktop.server-denied.*`<br>P: `components.auth-pages.mobile.server-denied.*` | Flutter page missing: an unknown slug opens the server selector. |
-| 1.17 | Servers loading and joining-community splash | `App.tsx ServerResolver, ServerSelectionPage` | ok | ok |  | D: `components.auth-pages.desktop.servers.*`<br>P: `components.auth-pages.mobile.servers.*` | Flutter page missing for the joining-community splash. |
-| 1.18 | Community agreement dialog (join a community server) | `components/server/CommunityAgreementDialog.tsx` | ok | ok |  | D: `components.auth-pages.desktop.community-agreement.*`<br>P: `components.auth-pages.mobile.community-agreement.*` | Flutter page missing: no community-agreement dialog. |
-| 1.19 | Public server preview (signed-out channel list + read-only messages, join / sign-in banner, unavailable) | `pages/PublicServerPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
-| 1.20 | Public server: join confirm dialog and guest join | `pages/PublicServerPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
+| 1.16 | Server access denied / server not found | `App.tsx ServerAccessDeniedPage` | ok | ok |  | D: `components.auth-pages.desktop.server-denied.*`<br>P: `components.auth-pages.mobile.server-denied.*` | Flutter: RaftServerAccessDeniedPage; an unknown /s/<slug> keeps its URL, names the fallback server and redirects after 3 s. |
+| 1.17 | Servers loading and joining-community splash | `App.tsx ServerResolver, ServerSelectionPage` | ok | ok |  | D: `components.auth-pages.desktop.servers.*`<br>P: `components.auth-pages.mobile.servers.*` | Flutter: /s/community for a non-member joins on arrival behind the "Joining community…" splash (community_join.dart); community-cn has no Flutter page. |
+| 1.18 | Community agreement dialog (join a community server) | `components/server/CommunityAgreementDialog.tsx` | ok | ok |  | D: `components.auth-pages.desktop.community-agreement.*`<br>P: `components.auth-pages.mobile.community-agreement.*` | Flutter: one RaftCommunityAgreementDialog (agreement from the 409 receipt) for the public-server guest join, over the not-found page for /s/community, and from the Help menu Join Community. |
+| 1.19 | Public server preview (signed-out channel list + read-only messages, join / sign-in banner, unavailable) | `pages/PublicServerPage.tsx` | ok | ok |  | D: `components.public-server.desktop.page.*`<br>`!*.join-*`<br>P: `components.public-server.mobile.page.*`<br>`!*.join-*` | Flutter: PublicServerView (signed-out /s/<slug> route in main.dart). The server-switcher notice and the join error banner are Web layout bugs (shrink-wrapped 28px column), so they have no case. |
+| 1.20 | Public server: join confirm dialog and guest join | `pages/PublicServerPage.tsx` | ok | ok |  | D: `components.public-server.desktop.page.join-*`<br>P: `components.public-server.mobile.page.join-*` |  |
 | 1.21 | Server setup survey (default, answered, other, save failed) | `components/onboarding/ServerSetupSurveyStep.tsx` | ok | ok |  | D: `components.auth-ext.desktop.setup.survey*`<br>P: `components.auth-ext.mobile.setup.survey*` |  |
 | 1.22 | Server setup: connect a computer (not connected, connecting, ready, not ready, offline recovery) | `components/onboarding/ServerSetupComputerRuntimeStep.tsx` | ok | ok |  | D: `components.auth-ext.desktop.setup.computer-*`<br>P: `components.auth-ext.mobile.setup.computer-*` |  |
 | 1.23 | Server setup: handoff step (default, starting) | `components/onboarding/ServerSetupHandoffStep.tsx` | ok | ok |  | D: `components.auth-ext.desktop.setup.handoff*`<br>P: `components.auth-ext.mobile.setup.handoff*` |  |
-| 1.24 | Server setup projection gate (loading, error, dedicated native surface, footer) | `components/onboarding/ServerSetupProjectionGate.tsx, SetupSessionFooter.tsx` | ok | ok |  | D: `components.auth-pages.desktop.setup-gate.*`<br>P: `components.auth-pages.mobile.setup-gate.*` | Flutter page missing: no deferred-setup resume bar; the dedicated surface is for native WebView hosts. |
+| 1.24 | Server setup projection gate (loading, error, dedicated native surface, footer) | `components/onboarding/ServerSetupProjectionGate.tsx, SetupSessionFooter.tsx` | ok | ok |  | D: `components.auth-pages.desktop.setup-gate.*`<br>P: `components.auth-pages.mobile.setup-gate.*` | Flutter: deferred-setup resume bar (RaftSetupResumeBar in ServerSetupGate). The dedicated-surface cases (loading / unavailable / load failed / complete) stay without a Flutter widget: that page exists for native WebView hosts, the app renders setup natively. |
 | 1.25 | Device login (/login/device): enter code, approve, approved, invalid / expired / used code | `pages/DeviceLoginPage.tsx` | excluded | excluded |  |  | The CLI / computer sign-in confirmation. [excluded: browser-only] |
 | 1.26 | App login handoff (/login/app) | `pages/AppLoginPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 | 1.27 | Login with Raft setup (/login-with-raft/setup, scope consent) | `pages/HumanLoginSetupPage.tsx, oauth/RequestedScopeConsent.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
@@ -154,7 +107,7 @@ Web: App.tsx AppShell / ServerResolver, components/auth, components/onboarding, 
 | 1.30 | Mobile download chooser (/download) | `pages/MobileDownloadChooserPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 | 1.31 | Chinese community page | `pages/ChineseCommunityPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 | 1.32 | PWA install prompt (iOS Safari add-to-home steps) | `components/pwa/PwaInstallPrompt.tsx` | n/a | excluded |  |  | [excluded: browser-only] |
-| 1.33 | Root error fallback (app crashed, reload) | `components/errors/RootErrorFallback.tsx` | ok | ok |  | D: `components.auth-pages.desktop.root-error.*`<br>P: `components.auth-pages.mobile.root-error.*` | Flutter page missing: no root error fallback. |
+| 1.33 | Root error fallback (app crashed, reload) | `components/errors/RootErrorFallback.tsx` | ok | ok |  | D: `components.auth-pages.desktop.root-error.*`<br>P: `components.auth-pages.mobile.root-error.*` | Flutter: RaftRootErrorFallback under RootErrorBoundary (release builds; debug keeps the framework error screen). |
 | 1.34 | App update gate (stale build, refresh to continue) | `components/errors/AppUpdateGate.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 
 ## 2. Shell and navigation
@@ -167,14 +120,14 @@ Web: components/layout (MainLayout, LeftRail, Sidebar, NotificationCenter, Mobil
 | 2.02 | Phone Home: sidebar as the home list (default, collapsed, loading) | `components/layout/Sidebar.tsx (mobileInline)` | n/a | ok | `screens.home.index`<br>`screens.home.loading` | P: `components.shell.mobile.sidebar.default`<br>`components.shell.mobile.sidebar.collapsed` |  |
 | 2.03 | Phone bottom tab bar | `components/layout/MobileBottomBarStack.tsx` | n/a | ok | `components.navigation.tabbar.states` |  |  |
 | 2.04 | Phone titlebar (server unread, notification trigger) | `components/layout/Sidebar.tsx, NotificationTrigger.tsx` | n/a | ok | `components.home.titlebar.states` |  |  |
-| 2.05 | Notification center (popover on desktop, sheet on phone) | `components/layout/NotificationCenter.tsx` | MISSING | ok | `components.home.notification-center.states` |  | Desktop: no case. [P2] |
+| 2.05 | Notification center (popover on desktop, sheet on phone) | `components/layout/NotificationCenter.tsx` | ok | ok | `components.home.notification-center.states` | D: `components.list-pages.notification.desktop-center` |  |
 | 2.06 | Server switcher menu | `components/ui/ServerSwitcherMenu.tsx` | ok | ok | `components.home.server-switcher.open` | D: `components.shell.desktop.server.menu` |  |
 | 2.07 | Rail help menu (docs, mobile app, community) | `components/layout/LeftRail.tsx` | ok | n/a |  | D: `components.shell.desktop.rail.help-menu` |  |
 | 2.08 | Row context menus (channel, muted channel, DM, agent DM, section, custom section, surface, Move to section) | `components/layout/Sidebar.tsx` | ok | partial |  | D: `components.shell.desktop.menu.*`<br>P: `components.shell.mobile.menu.*` | Phone: channel row menu only. |
 | 2.09 | Section sort menu | `components/layout/Sidebar.tsx` | ok | ok |  | D: `components.shell.desktop.sidebar.sort-menu`<br>P: `components.shell.mobile.sidebar.sort-menu` |  |
-| 2.10 | Section dialogs (new, rename, delete) | `components/layout/SidebarSectionDialog.tsx` | ok | MISSING |  | D: `components.shell.desktop.dialog.*-section` | Phone: no case. [P3] |
-| 2.11 | Section emoji picker | `components/layout/SidebarSectionEmojiPicker.tsx` | MISSING | MISSING |  |  | [P3] |
-| 2.12 | Archive channel confirm (from the sidebar menu) | `components/layout/Sidebar.tsx` | ok | MISSING |  | D: `components.shell.desktop.dialog.archive-channel` | Phone: no case. [P3] |
+| 2.10 | Section dialogs (new, rename, delete) | `components/layout/SidebarSectionDialog.tsx` | ok | ok |  | D: `components.shell.desktop.dialog.*-section`<br>P: `components.list-pages.dialogs.phone-*-section` |  |
+| 2.11 | Section emoji picker | `components/layout/SidebarSectionEmojiPicker.tsx` | ok | ok |  | D: `components.list-pages.dialogs.desktop-emoji-picker`<br>P: `components.list-pages.dialogs.phone-emoji-picker` | Flutter page missing: the section dialog emoji button is inert (no picker). |
+| 2.12 | Archive channel confirm (from the sidebar menu) | `components/layout/Sidebar.tsx` | ok | ok |  | D: `components.shell.desktop.dialog.archive-channel`<br>P: `components.list-pages.dialogs.phone-archive-channel` |  |
 | 2.13 | Conversation finder ("Find a conversation..." box and results) | `components/layout/SidebarConversationFinder.tsx` | excluded | excluded |  |  | [excluded: host-only] |
 | 2.14 | Live agent activity bar (tool finished, working, thinking, compacting, long) | `components/layout/LiveAgentActivityBar.tsx` | ok | ok |  | D: `components.liveactivity.desktop.*`<br>P: `components.liveactivity.mobile.*` |  |
 | 2.15 | Activity page frame (rail + inbox column edge) | `components/layout/MainLayout.tsx` | ok | ok |  | D: `components.shell.desktop.activity.frame`<br>P: `components.shell.mobile.activity.frame` |  |
@@ -193,43 +146,43 @@ Web: components/message (ChatPanel, MessageItem, MessageTimeline, MessageInput, 
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 3.01 | Channel screen (rail + sidebar + header + timeline + composer composed) | `components/layout/MainLayout.tsx ChannelRoute, message/ChatPanel.tsx` | ok | ok | `screens.thread.channel` | D: `components.screens-ext.channel.desktop.full`<br>P: `components.screens-ext.channel.mobile.full` | Composed 1280x800 and phone screens with a realistic message mix (markdown, code, mention, reactions, inline thread, system line). |
 | 3.02 | DM screen (human DM, agent DM composed) | `components/layout/MainLayout.tsx DmRoute` | ok | ok | `screens.thread.dm` | D: `components.screens-ext.dm.desktop.*`<br>P: `components.screens-ext.dm.mobile.agent` | Human and agent DM screens composed at 1280x800; phone has the agent DM. |
-| 3.03 | Desktop with no conversation selected ("Select a channel" empty main) | `components/message/ChatPanel.tsx (channel=null)` | MISSING | n/a |  |  | [P2] |
+| 3.03 | Desktop with no conversation selected ("Select a channel" empty main) | `components/message/ChatPanel.tsx (channel=null)` | ok | n/a |  | D: `components.conversation.empty.desktop.no-channel` |  |
 | 3.04 | Conversation header (channel, private, DM human / agent, description clamp, search button, Chat / Files / Tasks tabs) | `components/message/ChatPanel.tsx, channel/ChannelDescription.tsx` | ok | ok | `components.thread.header.states` | D: `components.channelheader.desktop.*`<br>P: `components.channelheader.mobile.*` |  |
 | 3.05 | Timeline (date dividers, empty channel, loading, history limit banner, beginning of messages, system groups, back to bottom) | `components/message/MessageTimeline.tsx, DateDivider.tsx, HistoryLimitBanner.tsx, SystemMessageGroupDisclosure.tsx` | ok | ok |  | D: `components.thread-ext.timeline.desktop.*`<br>P: `components.thread-ext.timeline.mobile.*` |  |
-| 3.06 | Channel state banners (archived + Unarchive, read-only quota + upgrade, guest read-only + Join channel, joint locked, over-limit grace, message not found, channel unavailable) | `components/message/ChatPanel.tsx` | MISSING | MISSING |  |  | [P2] |
-| 3.07 | Channel Files tab (list; empty, loading, error, load more) | `components/message/ChannelFilesPanel.tsx` | MISSING | ok | `components.thread.files.list` |  | Desktop: no case. Phone: populated list only. [P2] |
-| 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | `components/message/ChatPanel.tsx, task/TasksPanel.tsx` | MISSING | MISSING |  |  | Same panel as the Tasks page (6.01) minus the channel column. [P3] |
+| 3.06 | Channel state banners (archived + Unarchive, read-only quota + upgrade, guest read-only + Join channel, joint locked, over-limit grace, message not found, channel unavailable) | `components/message/ChatPanel.tsx` | ok | ok |  | D: `components.conversation.banner.desktop.*`<br>P: `components.conversation.banner.mobile.*` | Read-only quota and "Chat is unavailable" have no case: unreachable in the pinned source (maxChannels is -1 for every plan; ChatPanel readOnly is passed by the visual-testing host only). |
+| 3.07 | Channel Files tab (list; empty, loading, error, load more) | `components/message/ChannelFilesPanel.tsx` | ok | ok | `components.thread.files.list` | D: `components.conversation.files.desktop.*`<br>P: `components.conversation.files.mobile.*` | List, load more, empty, loading and error at both widths (the official case is the phone list). |
+| 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | `components/message/ChatPanel.tsx, task/TasksPanel.tsx` | ok | ok |  | D: `components.conversation.tasks.desktop.*`<br>P: `components.conversation.tasks.mobile.*` | Same panel as the Tasks page (6.01) minus the channel column. |
 | 3.09 | Message row (human, agent, system, deleted, rich markdown, code, long inline code, links, task chips) | `components/message/MessageItem.tsx, markdown/*` | partial | ok | `components.thread.message.row`<br>`components.thread.message-row.*` | D: `components.thread-ext.message.toolbar.desktop` | Desktop: rows only appear inside toolbar / forward / mermaid cases. |
 | 3.10 | Message hover toolbar and quick reaction picker | `components/message/MessageHoverToolbar.tsx` | ok | n/a |  | D: `components.thread-ext.message.toolbar*`<br>`components.thread-ext.message.picker*` |  |
-| 3.11 | Message context menu (default message, task message) | `components/message/MessageItem.tsx` | MISSING | ok | `components.thread.message-menu.*` |  | Desktop: right-click menu has no case. [P2] |
-| 3.12 | Reaction chips row and reactors tooltip | `components/message/MessageItem.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.13 | Message selection mode (toolbar, share-as-image lightbox) | `components/message/SelectModeToolbar.tsx, SelectShareLightbox.tsx` | MISSING | ok | `components.thread.message-share.*` |  | Desktop: no case. [P3] |
-| 3.14 | Forward composer (destinations, note, send) | `components/message/ForwardComposerDesktop.tsx, ForwardComposerMobile.tsx` | MISSING | ok | `components.thread.forward-modal` |  | Desktop dialog: no case. [P2] |
+| 3.11 | Message context menu (default message, task message) | `components/message/MessageItem.tsx` | ok | ok | `components.thread.message-menu.*` | D: `components.conversation.menu.desktop.*` |  |
+| 3.12 | Reaction chips row and reactors tooltip | `components/message/MessageItem.tsx` | ok | ok |  | D: `components.conversation.reactions.desktop.*`<br>P: `components.conversation.reactions.mobile.*` | The reactors tooltip is hover only (desktop). |
+| 3.13 | Message selection mode (toolbar, share-as-image lightbox) | `components/message/SelectModeToolbar.tsx, SelectShareLightbox.tsx` | ok | ok | `components.thread.message-share.*` | D: `components.conversation.selection.desktop.*` | Desktop: selection toolbar with one / two rows selected. The share-as-image lightbox has no case (it needs the html-to-image export). |
+| 3.14 | Forward composer (destinations, note, send) | `components/message/ForwardComposerDesktop.tsx, ForwardComposerMobile.tsx` | ok | ok | `components.thread.forward-modal` | D: `components.conversation.forward.desktop.*` | Desktop dialog opened from the selection toolbar (destinations column, preview, note composer). |
 | 3.15 | Forwarded bundle card in the timeline (single, multi, expanded, thread, restricted) | `components/message/ForwardedBundleCard.tsx` | ok | ok |  | D: `components.thread-ext.message.forward-*`<br>`!*.mobile`<br>P: `components.thread-ext.message.forward-*.mobile` |  |
-| 3.16 | Quoted message permalink preview and linked-message fallbacks | `components/message/QuotedMessagePermalinkPreview.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.16 | Quoted message permalink preview and linked-message fallbacks | `components/message/QuotedMessagePermalinkPreview.tsx` | ok | ok |  | D: `components.conversation.quote.desktop.*`<br>P: `components.conversation.quote.mobile.*` | Flutter page missing: a Raft message link renders as a plain link, without the QuotedMessageCard. |
 | 3.17 | Mermaid diagram card (toolbar, code view, diagram view) | `components/mermaid/MermaidDiagram.tsx` | ok | ok |  | D: `components.thread-ext.message.mermaid-*`<br>`!*.mobile`<br>P: `components.thread-ext.message.mermaid-toolbar.mobile` |  |
-| 3.18 | Mermaid full-screen viewer | `components/mermaid/MermaidDiagramViewer.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.18 | Mermaid full-screen viewer | `components/mermaid/MermaidDiagramViewer.tsx` | ok | ok |  | D: `components.conversation.mermaid.desktop.*`<br>P: `components.conversation.mermaid.mobile.*` | Flutter page missing: RaftMermaidBlock has the toolbar but no full-screen viewer. |
 | 3.19 | Composer (empty, draft with send enabled) | `components/message/MessageInput.tsx` | ok | ok | `components.thread.composer.empty`<br>`components.thread.composer.states` | D: `components.thread-ext.thread.desktop.composer`<br>P: `components.thread-ext.thread.mobile.composer` |  |
 | 3.20 | Composer @mention and #channel suggestion popovers | `components/message/MessageInput.tsx, mentionCandidates.ts` | ok | ok | `components.thread.composer.member-suggestions`<br>`components.thread.composer.channel-suggestions` | D: `components.screens-ext.composer.desktop.*` | Desktop: @mention (not-in-channel group) and #channel popovers over the composed channel screen. |
-| 3.21 | Composer "As task" mode | `components/message/MessageInput.tsx` | MISSING | ok | `components.thread.composer.as-task-selected` |  | Desktop: no case. [P2] |
-| 3.22 | Composer pending-mention action strip (agent outside the channel) | `components/message/PendingMentionActionStrip.tsx` | MISSING | ok | `components.thread.composer.pending-mention-actions` |  | Desktop: no case. [P3] |
+| 3.21 | Composer "As task" mode | `components/message/MessageInput.tsx` | ok | ok | `components.thread.composer.as-task-selected` | D: `components.composer-states.as-task.desktop.*`<br>P: `components.composer-states.as-task.mobile.*` | Checkbox on, draft typed, over the composed channel screen (bottom window). |
+| 3.22 | Composer pending-mention action strip (agent outside the channel) | `components/message/PendingMentionActionStrip.tsx` | ok | ok | `components.thread.composer.pending-mention-actions` | D: `components.composer-states.pending-mention.desktop.*`<br>P: `components.composer-states.pending-mention.mobile.*` | Send receipt with one row, then two rows (Add all footer); Add / Notify / Ignore result states (Added / Queued chips, fade) have no case. |
 | 3.23 | Composer attachments (image, file, mixed, checking, uploading, failed, over size / count, drag over) | `components/message/MessageInput.tsx, AttachmentChip.tsx` | ok | ok | `components.thread.composer.image-preview`<br>`components.thread.composer.file-previews` | D: `components.composerattachments.desktop.*`<br>P: `components.composerattachments.mobile.*` |  |
-| 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | `components/message/MessageInput.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | `components/message/MessageInput.tsx` | ok | ok |  | D: `components.composer-states.warning.desktop.*`<br>`components.composer-states.suggestions.desktop.*`<br>P: `components.composer-states.warning.mobile.*`<br>`components.composer-states.suggestions.mobile.*` | Agent-stopped (DM) and unresolved-mention banners come from the send receipt; conversion in progress disables Send; archived badge in the #channel popover. Mention-action failure notice and the generic error banner have no case here. |
 | 3.25 | Attachment viewers (image lightbox + gallery, text / csv / xlsx / markdown, html sandbox, comments panel) | `components/message/attachmentPreviewSurfaces.tsx, ImageLightbox.tsx` | ok | ok | `components.thread.comment-anchor` | D: `components.thread-ext.attachment.*`<br>`!*.mobile`<br>P: `components.thread-ext.attachment.*.mobile` |  |
-| 3.26 | Audio, video, PDF and diff / patch previews | `components/message/MessageItem.tsx, ui/CrossOriginPdfFrame.tsx` | partial | MISSING |  | D: `components.thread-ext.attachment.doc.header-pdf` | Only the PDF header has a case. [P3] |
-| 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | `components/message/ProfilePreviewCardContent.tsx` | MISSING | MISSING |  |  | [P2] |
-| 3.28 | Mention hover activity preview | `components/message/MentionHoverActivityPreview.tsx` | MISSING | n/a |  |  | [P3] |
-| 3.29 | External identity preview card and detail panel | `components/message/ExternalIdentityPreviewCard.tsx, profile/ExternalIdentityDetailPanel.tsx` | MISSING | MISSING |  |  | [verify] [P3] |
-| 3.30 | Profile side panel (open from a sender) | `components/profile/ProfilePanel.tsx` | MISSING | n/a |  |  | [P2] |
-| 3.31 | Action card in a message (install app, create agent, channel members, owner recovery) | `components/actions/ActionCard.tsx` | MISSING | MISSING |  |  | [P2] |
+| 3.26 | Audio, video, PDF and diff / patch previews | `components/message/MessageItem.tsx, ui/CrossOriginPdfFrame.tsx` | ok | ok |  | D: `components.thread-ext.attachment.doc.header-pdf`<br>`components.conversation.attach.desktop.*`<br>P: `components.conversation.attach.mobile.*` | Attachment rows for audio, video, PDF and a patch. Flutter shows audio / video as a generic attachment card: no inline players. |
+| 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | `components/message/ProfilePreviewCardContent.tsx` | ok | n/a |  | D: `components.conversation.profile.desktop.agent`<br>`components.conversation.profile.desktop.human` | Hover only: a touch screen never opens the PreviewCard (a tap navigates), so no phone case. Flutter does not wire the "Recent activity" link (no avatar / profile navigation), so the card shows the static divider form. |
+| 3.28 | Mention hover activity preview | `components/message/MentionHoverActivityPreview.tsx` | ok | n/a |  | D: `components.conversation.profile.desktop.agent-activity` |  |
+| 3.29 | External identity preview card and detail panel | `components/message/ExternalIdentityPreviewCard.tsx, profile/ExternalIdentityDetailPanel.tsx` | ok | ok |  | D: `components.conversation.external.desktop.*`<br>P: `components.conversation.external.mobile.*` | Hover card (desktop) is mapped; the detail panel / page is a Flutter page missing (the avatar is not tappable). [verify] |
+| 3.30 | Profile side panel (open from a sender) | `components/profile/ProfilePanel.tsx` | partial | n/a |  | D: `components.members-ext.human.*`<br>`components.members-ext.agent.*` | The panel body is HumanDetailPanel / AgentDetailPanel (7.03, 7.08-7.14, already covered). Flutter page missing: a sender avatar opens nothing (no side-panel entry from a message). |
+| 3.31 | Action card in a message (install app, create agent, channel members, owner recovery) | `components/actions/ActionCard.tsx` | ok | ok |  | D: `components.conversation.action.desktop.*`<br>P: `components.conversation.action.mobile.*` |  |
 | 3.32 | SOS dialog (confirm, stopped, guidance) | `components/message/SOSDialog.tsx` | ok | ok |  | D: `components.thread-ext.message.sos-*`<br>`!*.mobile`<br>P: `components.thread-ext.message.sos-confirm.mobile` |  |
 | 3.33 | Notification activation banner | `components/message/NotificationActivationBanner.tsx` | ok | ok |  | D: `components.thread-ext.message.banner.desktop`<br>P: `components.thread-ext.message.banner.mobile` |  |
-| 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | `components/message/MessageItem.tsx` | MISSING | MISSING |  |  | The Language & Region settings page has cases (9.05). [P3] |
+| 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | `components/message/MessageItem.tsx` | ok | ok |  | D: `components.conversation.translate.desktop.*`<br>P: `components.conversation.translate.mobile.*` | Auto translation to zh-cn: translating, translated, bilingual, failed. The Language & Region settings page has cases (9.05). |
 | 3.35 | Thread panel (replies, empty, loading, history limited, overflow menu) | `components/message/ThreadPanel.tsx, ThreadOverflowMenu.tsx` | ok | ok |  | D: `components.thread-ext.thread.desktop.*`<br>P: `components.thread-ext.thread.mobile.*` |  |
 | 3.36 | Inline thread replies preview | `components/message/InlineThreadReplies.tsx` | ok | ok |  | D: `components.thread-ext.inline.desktop.*`<br>P: `components.thread-ext.inline.mobile.*` |  |
-| 3.37 | Thread load failed (retry), guest read-only, joint locked | `components/message/ThreadPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.38 | In-thread search (search bar, next / previous match) | `components/message/ThreadPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 3.39 | Thread agent followers (list, remove, undo) | `components/thread/ThreadAgentFollowers.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.37 | Thread load failed (retry), guest read-only, joint locked | `components/message/ThreadPanel.tsx` | ok | ok |  | D: `components.conversation.threadstate.desktop.*`<br>P: `components.conversation.threadstate.mobile.*` | Also the Join-parent-channel CTA. Flutter gates a guest's channel / thread open on the viewChannel capability the role matrix denies guests, so the guest case cannot open the thread on desktop. |
+| 3.38 | In-thread search (search bar, next / previous match) | `components/message/ThreadPanel.tsx` | ok | ok |  | D: `components.conversation.threadsearch.desktop.*`<br>P: `components.conversation.threadsearch.mobile.*` | Flutter page missing: ThreadActions.onSearch is never wired (no "Search this thread" item, no search bar). |
+| 3.39 | Thread agent followers (list, remove, undo) | `components/thread/ThreadAgentFollowers.tsx` | ok | ok |  | D: `components.conversation.followers.desktop.*`<br>P: `components.conversation.followers.mobile.*` | Flutter page missing: RaftThreadHeader has a `followers` slot the app never fills. Remove / undo have no case. |
 | 3.40 | Channel overflow menu (members summary, inline edit, stop all agents confirm) | `components/channel/ChannelOverflowMenu.tsx` | excluded | excluded |  |  | [excluded: duplicate] |
 
 ## 4. Channel management dialogs
@@ -239,12 +192,12 @@ Web: components/channel, components/agent/ChannelMembers.tsx.
 | # | page / state | Web component | D | P | official (phone) ids | extension ids (brutal-light) | note |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 4.01 | Create channel dialog (public / private, members picker) | `components/channel/CreateChannelDialog.tsx` | ok | ok | `components.home.create-channel.dialog` | D: `components.dialogs.desktop.create-channel` |  |
-| 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | `components/channel/CreateChannelDialog.tsx` | MISSING | MISSING |  |  | [P3] |
-| 4.03 | Create shared (joint) channel dialog | `components/channel/CreateJointChannelDialog.tsx` | MISSING | MISSING |  |  | [P3] |
+| 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | `components/channel/CreateChannelDialog.tsx` | ok | ok |  | D: `components.list-pages.create-channel.desktop-*`<br>P: `components.list-pages.create-channel.phone-*` | Plan-limit state is unreachable in the pinned source (every plan has maxChannels -1). |
+| 4.03 | Create shared (joint) channel dialog | `components/channel/CreateJointChannelDialog.tsx` | ok | ok |  | D: `components.list-pages.members.desktop-create-joint`<br>P: `components.list-pages.members.phone-create-joint` |  |
 | 4.04 | Channel settings drawer (owner, admin, member, guest, private, archived, dirty, #all, DM, members overflow, tall windows) | `components/channel/EditChannelDialog.tsx, agent/ChannelMembers.tsx` | ok | ok | `components.channel.settings.panel` | D: `components.channelsettings.desktop.*`<br>P: `components.channelsettings.mobile.*` |  |
 | 4.05 | Channel settings confirmations (leave, archive, make private, hide #all, delete, unsaved changes) | `components/channel/EditChannelDialog.tsx` | ok | partial |  | D: `components.channelsettings.desktop.confirm-*`<br>`components.channelsettings.desktop.unsaved-prompt`<br>P: `components.channelsettings.mobile.confirm-delete` | Phone: delete confirm only. |
-| 4.06 | Add members to a channel | `components/channel/AddMembersDialog.tsx` | ok | ok | `components.channel.members.add-panel` | D: `components.channelsettings.desktop.members-page-add`<br>P: `components.members-pages.phone.channel-members.add-view` |  |
-| 4.07 | Remove channel member confirm (and the members page row actions: profile, Make admin / Demote) | `components/channel/useChannelMemberRemoval.tsx, agent/ChannelMembers.tsx` | ok | ok |  | D: `components.members-pages.desktop.channel-members.*`<br>P: `components.members-pages.phone.channel-members.*` |  |
+| 4.06 | Add members to a channel | `components/channel/AddMembersDialog.tsx` | ok | ok | `components.channel.members.add-panel` | D: `components.channelsettings.desktop.members-page-add`<br>`components.list-pages.members.desktop-add-dialog`<br>P: `components.members-pages.phone.channel-members.add-view`<br>`components.list-pages.members.phone-add-dialog` |  |
+| 4.07 | Remove channel member confirm (and the members page row actions: profile, Make admin / Demote) | `components/channel/useChannelMemberRemoval.tsx, agent/ChannelMembers.tsx` | ok | ok |  | D: `components.members-pages.desktop.channel-members.*`<br>`components.list-pages.members.desktop-remove-confirm`<br>P: `components.members-pages.phone.channel-members.*`<br>`components.list-pages.members.phone-remove-confirm` |  |
 
 ## 5. Search, Activity and Saved
 
@@ -253,17 +206,17 @@ Web: components/search, components/thread/ThreadsInbox.tsx, components/saved.
 | # | page / state | Web component | D | P | official (phone) ids | extension ids (brutal-light) | note |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 5.01 | Search overlay (desktop Cmd-K): home, recents, query, exact, selected, no results, loading, error, thread group, sender filter | `components/search/SearchOverlay.tsx, MessageSearchPage.tsx (overlay presentation)` | ok | n/a |  | D: `components.search-overlay.*` |  |
-| 5.02 | Search results page (phone Search tab; desktop "view all results") | `components/search/MessageSearchPage.tsx` | MISSING | ok | `components.home.search.results` |  | Desktop full-page presentation: no case. [P2] |
-| 5.03 | Search channel filter dropdown | `components/search/MessageSearchPage.tsx` | MISSING | ok | `components.home.search.channel-dropdown` |  | Desktop: no case (overlay filters-sender only). [P3] |
-| 5.04 | Search page states (history + frequent, searching, no results, error + retry, load more, query too broad, beyond plan history) | `components/search/MessageSearchPage.tsx` | MISSING | MISSING |  |  | Overlay variants have desktop cases (5.01); the full-page variants have none. [P2] |
+| 5.02 | Search results page (phone Search tab; desktop "view all results") | `components/search/MessageSearchPage.tsx` | ok | ok | `components.home.search.results` | D: `components.list-pages.search.desktop-results` |  |
+| 5.03 | Search channel filter dropdown | `components/search/MessageSearchPage.tsx` | ok | ok | `components.home.search.channel-dropdown` | D: `components.list-pages.search.desktop-channel-filter` |  |
+| 5.04 | Search page states (history + frequent, searching, no results, error + retry, load more, query too broad, beyond plan history) | `components/search/MessageSearchPage.tsx` | ok | ok |  | D: `components.list-pages.search.desktop-*`<br>P: `components.list-pages.search.phone-*` | Overlay variants are 5.01; the full-page variants are these cases. |
 | 5.05 | Activity inbox, populated list | `components/thread/ThreadsInbox.tsx` | ok | ok | `components.home.activity.results`<br>`screens.home.activity` | D: `components.screens-ext.activity.desktop.list` | Desktop: rail plus the 560px Activity master column with the official three-row inbox fixture. |
-| 5.06 | Activity empty / loading / error | `components/thread/ThreadsInbox.tsx` | ok | MISSING |  | D: `components.members-ext.activity.*`<br>`components.thread-ext.inbox.desktop.empty` | Phone: no case. [P3] |
-| 5.07 | Activity filters (All / Mentions / Unread) | `components/thread/ThreadsInbox.tsx` | MISSING | MISSING |  |  | [P2] |
-| 5.08 | Activity item context menu (mark read / unread, follow, done) | `components/thread/ThreadsInbox.tsx` | MISSING | MISSING |  |  | [P3] |
-| 5.09 | Saved messages list | `components/saved/SavedPanel.tsx` | MISSING | ok | `components.home.saved.results`<br>`screens.home.saved` |  | Desktop: no populated list case. [P2] |
-| 5.10 | Saved empty / loading / error | `components/saved/SavedPanel.tsx` | ok | MISSING |  | D: `components.members-ext.saved.*` | Phone: no case. [P3] |
-| 5.11 | Saved item actions (copy link, copy Markdown, remove) | `components/saved/SavedPanel.tsx` | MISSING | MISSING |  |  | [P3] |
-| 5.12 | Activity Done and Saved views, channel filter, sort, in-list search | `components/thread/ThreadsInbox.tsx` | MISSING | MISSING |  |  | [verify] [P2] |
+| 5.06 | Activity empty / loading / error | `components/thread/ThreadsInbox.tsx` | ok | ok |  | D: `components.members-ext.activity.*`<br>`components.thread-ext.inbox.desktop.empty`<br>P: `components.list-pages.activity.phone-empty`<br>`components.list-pages.activity.phone-loading`<br>`components.list-pages.activity.phone-error` |  |
+| 5.07 | Activity filters (All / Mentions / Unread) | `components/thread/ThreadsInbox.tsx` | ok | ok |  | D: `components.list-pages.activity.desktop-filter-*`<br>P: `components.list-pages.activity.phone-filter-*` |  |
+| 5.08 | Activity item context menu (mark read / unread, follow, done) | `components/thread/ThreadsInbox.tsx` | ok | ok |  | D: `components.list-pages.activity.desktop-context-menu`<br>P: `components.list-pages.activity.phone-context-menu` |  |
+| 5.09 | Saved messages list | `components/saved/SavedPanel.tsx` | ok | ok | `components.home.saved.results`<br>`screens.home.saved` | D: `components.list-pages.saved.desktop-list` |  |
+| 5.10 | Saved empty / loading / error | `components/saved/SavedPanel.tsx` | ok | ok |  | D: `components.members-ext.saved.*`<br>P: `components.list-pages.saved.phone-empty`<br>`components.list-pages.saved.phone-loading`<br>`components.list-pages.saved.phone-error` |  |
+| 5.11 | Saved item actions (copy link, copy Markdown, remove) | `components/saved/SavedPanel.tsx` | ok | ok |  | D: `components.list-pages.saved.desktop-actions`<br>P: `components.list-pages.saved.phone-actions` |  |
+| 5.12 | Activity Done and Saved views, channel filter, sort, in-list search | `components/thread/ThreadsInbox.tsx` | excluded | excluded |  |  | [excluded: flag-off] |
 
 ## 6. Tasks
 
@@ -274,13 +227,13 @@ Web: components/task.
 | 6.01 | Tasks page (desktop board / phone list) | `components/task/TasksPanel.tsx` | ok | ok | `screens.tasks.index`<br>`components.tasks.panel.states` | D: `components.taskspage.desktop.*`<br>P: `components.taskspage.mobile.*` |  |
 | 6.02 | Tasks page, empty lanes | `components/task/TasksPanel.tsx` | ok | ok |  | D: `components.wp6.tasks.empty-lanes`<br>`components.wp6.tasks.empty-lanes-expanded`<br>P: `components.wp6.tasks.empty-lanes-mobile` |  |
 | 6.03 | Task filter segmented control | `components/task/TaskFilterSegmentedControl.tsx` | excluded | excluded |  | D: `components.wp6.tasks.filter*`<br>`!*-mobile`<br>P: `components.wp6.tasks.filter*-mobile` | [excluded: obsolete] |
-| 6.04 | Task filters (assignee, creator, channels popovers; clear all; filtered-empty) | `components/task/TasksPanel.tsx` | MISSING | MISSING |  |  | [P2] |
-| 6.05 | Tasks list / board view toggle (the non-default view) | `components/task/TasksPanel.tsx` | MISSING | n/a |  |  | [P3] |
-| 6.06 | Task status menu | `components/task/StatusBadge.tsx, TasksPanel.tsx` | MISSING | ok | `components.tasks.status-menu` |  | Desktop: no case. [P3] |
+| 6.04 | Task filters (assignee, creator, channels popovers; clear all; filtered-empty) | `components/task/TasksPanel.tsx` | ok | ok |  | D: `components.list-pages.tasks.desktop-filter*`<br>P: `components.list-pages.tasks.phone-filter*` |  |
+| 6.05 | Tasks list / board view toggle (the non-default view) | `components/task/TasksPanel.tsx` | ok | n/a |  | D: `components.list-pages.tasks.desktop-board`<br>`components.list-pages.tasks.desktop-list` |  |
+| 6.06 | Task status menu | `components/task/StatusBadge.tsx, TasksPanel.tsx` | ok | ok | `components.tasks.status-menu` | D: `components.list-pages.tasks.desktop-status-menu` |  |
 | 6.07 | Create task dialog (default, filled, batch, title required) | `components/task/CreateTaskDialog.tsx` | ok | ok |  | D: `components.wp6.tasks.create-dialog*`<br>`!*-mobile`<br>P: `components.wp6.tasks.create-dialog*-mobile` |  |
 | 6.08 | Task detail (thread modal with properties, replies, history; every status) | `components/task/TaskProperties.tsx, message/ThreadPanel.tsx` | ok | ok | `screens.thread.task-thread` | D: `components.taskdetail.desktop.*`<br>P: `components.taskdetail.mobile.*` |  |
 | 6.09 | Legacy (v1) task panel, read-only | `components/task/LegacyTaskPanel.tsx` | excluded | excluded |  |  | [excluded: obsolete] |
-| 6.10 | Tasks loading and load-more states | `components/task/TasksPanel.tsx` | MISSING | MISSING |  |  | [P3] |
+| 6.10 | Tasks loading and load-more states | `components/task/TasksPanel.tsx` | ok | ok |  | D: `components.list-pages.tasks.desktop-loading`<br>`components.list-pages.tasks.desktop-load-more`<br>P: `components.list-pages.tasks.phone-loading`<br>`components.list-pages.tasks.phone-load-more` |  |
 
 ## 7. Members, humans and agents
 
@@ -322,10 +275,10 @@ Web: components/machine.
 | # | page / state | Web component | D | P | official (phone) ids | extension ids (brutal-light) | note |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 8.01 | Computers list in the rail (rows, every row state, empty, loading, selected, hover) | `components/layout/Sidebar.tsx (computers mode)` | ok | n/a |  | D: `components.computers.list.*` |  |
-| 8.02 | Phone Computers page (list, needs-attention filter, empty, load error, refresh error) | `components/machine/MobileComputersPanel.tsx` | n/a | MISSING |  |  | [P2] |
-| 8.03 | Computer detail (header, identity, name / description edit, info, agents + bulk select, workspaces, service, recovery guide, offline, upgrading, disk low, legacy, delete) | `components/machine/MachineDetailPanel.tsx` | ok | MISSING |  | D: `components.computers.detail.*` | Phone: no case. [P2] |
-| 8.04 | Add computer dialog (type step, connect step) | `components/machine/AddMachineDialog.tsx` | ok | MISSING |  | D: `components.computers.add-dialog*` | Phone: no case. Connected, plan-limit and failed steps have no case. [P3] |
-| 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | `components/machine/MachineDetailPanel.tsx` | ok | MISSING |  | D: `components.computers.dialog.*` | Phone: no case. [P3] |
+| 8.02 | Phone Computers page (list, needs-attention filter, empty, load error, refresh error) | `components/machine/MobileComputersPanel.tsx` | n/a | ok |  | P: `components.list-pages.computers.phone-list`<br>`components.list-pages.computers.phone-attention`<br>`components.list-pages.computers.phone-empty`<br>`components.list-pages.computers.phone-loading`<br>`components.list-pages.computers.phone-load-error`<br>`components.list-pages.computers.phone-refresh-error` |  |
+| 8.03 | Computer detail (header, identity, name / description edit, info, agents + bulk select, workspaces, service, recovery guide, offline, upgrading, disk low, legacy, delete) | `components/machine/MachineDetailPanel.tsx` | ok | ok |  | D: `components.computers.detail.*`<br>P: `components.list-pages.computers.phone-detail.*` |  |
+| 8.04 | Add computer dialog (type step, connect step) | `components/machine/AddMachineDialog.tsx` | ok | ok |  | D: `components.computers.add-dialog*`<br>P: `components.list-pages.computers.phone-add-dialog*` | Connected, plan-limit and failed steps have no case. |
+| 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | `components/machine/MachineDetailPanel.tsx` | ok | ok |  | D: `components.computers.dialog.*`<br>P: `components.list-pages.computers.phone-dialog.*` |  |
 | 8.06 | Runtime usage health chip and hover card | `components/machine/RuntimeAccountUsageChip.tsx` | ok | n/a |  | D: `components.computers.detail.runtime-usage.*` |  |
 
 ## 9. Settings
@@ -343,12 +296,12 @@ Web: components/settings/SettingsPanel.tsx (tabs in settingsNavigation.ts), Work
 | 9.07 | Notifications tab (web push, desktop native, app notification controls) | `components/settings/SettingsPanel.tsx NotificationsSection, AppNotificationsControls.tsx` | ok | ok | `components.settings.notifications.page` | D: `components.ext-settings.notifications.*`<br>`components.notifications.desktop.*` |  |
 | 9.08 | Server Profile tab (name, slug, avatar, description, public visibility) | `components/settings/SettingsPanel.tsx ProfileSection, PublicVisibilitySection` | ok | ok | `components.settings.server.profile` | D: `components.ext-settings.server.*` |  |
 | 9.09 | Server danger zone and its confirm modals (delete / leave server) | `components/settings/SettingsPanel.tsx DangerZoneSection` | ok | ok | `screens.settings.server-danger-modal` | D: `components.auth-pages.desktop.settings.server-danger-*` |  |
-| 9.10 | Archived channels list (Unarchive) | `components/settings/ArchivedChannelsSection.tsx` | ok | ok |  | D: `components.auth-pages.desktop.settings.archived-channels`<br>P: `components.auth-pages.mobile.settings.archived-channels` | Flutter page missing: no Archived channels section. |
+| 9.10 | Archived channels list (Unarchive) | `components/settings/ArchivedChannelsSection.tsx` | ok | ok |  | D: `components.auth-pages.desktop.settings.archived-channels`<br>P: `components.auth-pages.mobile.settings.archived-channels` | Flutter: ArchivedChannelsSection in Server settings (RaftArchivedChannelsSection); the React host patch now appends the channels once. |
 | 9.11 | Plan & Billing (free / trial, Pro, seats, checkout summary, confirm dialog, admin read-only, loading) | `components/settings/SettingsPanel.tsx PlanSection` | ok | ok | `screens.settings.billing-portal` | D: `components.ext-settings.billing.*`<br>`!*.mobile*`<br>P: `components.ext-settings.billing.mobile*` |  |
 | 9.12 | Billing: downgrade warning card | `components/settings/SettingsPanel.tsx DowngradeWarningCard` | ok | ok |  | D: `components.auth-pages.desktop.settings.downgrade-*`<br>P: `components.auth-pages.mobile.settings.downgrade-*` |  |
 | 9.13 | Administration (admins, system channels, invites, join links, agreement, onboarding, translation, analytics, member permissions) | `components/settings/SettingsPanel.tsx AdministrationTabContent` | ok | partial |  | D: `components.ext-settings.administration.*`<br>`!*.mobile.*`<br>P: `components.ext-settings.administration.mobile.*` | Phone: admins, join links, onboarding, pre-join agreement only. [verify] |
 | 9.14 | Applications (installed, my apps, marketplace list / detail, installed detail, member read-only, empty) | `components/settings/SettingsPanel.tsx IntegrationsSection` | ok | ok |  | D: `components.ext-settings.integrations.*`<br>`!*.mobile*`<br>P: `components.ext-settings.integrations.mobile*` |  |
-| 9.15 | Application editor (register app, redirect URLs, declared scopes, scope list) | `components/settings/SettingsPanel.tsx ConnectedAppEditorSection, DeclaredScopesPicker` | ok | ok |  | D: `components.auth-pages.desktop.settings.app-editor`<br>P: `components.auth-pages.mobile.settings.app-editor` | Flutter shows a generic form dialog, not the Web rail + sections editor. |
+| 9.15 | Application editor (register app, redirect URLs, declared scopes, scope list) | `components/settings/SettingsPanel.tsx ConnectedAppEditorSection, DeclaredScopesPicker` | ok | ok |  | D: `components.auth-pages.desktop.settings.app-editor`<br>P: `components.auth-pages.mobile.settings.app-editor` | Flutter: RaftConnectedAppEditorCard (rail + six sections) in connected_app_editor.dart; only the register (new app) state has a case. |
 | 9.16 | MCP Servers tab | `components/settings/SettingsPanel.tsx McpSettingsSection` | ok | ok |  | D: `components.ext-settings.mcp.*`<br>`!*.mobile`<br>P: `components.ext-settings.mcp.mobile` |  |
 | 9.17 | AI Providers tab (connections list) | `components/settings/ProviderConnectionsSettings.tsx` | ok | ok |  | D: `components.ext-settings.providers.*`<br>`!*.mobile`<br>P: `components.ext-settings.providers.mobile` | [verify] |
 | 9.18 | AI provider edit modal (gateway, preset, save failed) | `components/settings/EditProviderConnectionModal.tsx` | ok | ok |  | D: `components.wp6.settings.provider-edit`<br>`components.wp6.settings.provider-edit-preset`<br>`components.wp6.settings.provider-edit-error`<br>P: `components.wp6.settings.provider-edit-mobile`<br>`components.wp6.settings.provider-edit-preset-mobile` | [verify] |
@@ -369,8 +322,6 @@ number above.
 | # | page | reason | evidence |
 | --- | --- | --- | --- |
 | 1.11 | Social auth callback (loading / error) | browser-only | SocialAuthCallbackPage.tsx is the browser tab a Web OAuth redirect lands on (loading / error); the native client runs OAuth in the system browser and exchanges the code itself (RaftApp.completeOAuth), so no such page exists in the app. |
-| 1.19 | Public server preview (signed-out channel list + read-only messages, join / sign-in banner, unavailable) | browser-only | PublicServerPage.tsx is the anonymous signed-out preview served on the Web origin (App.tsx:971-1000); the Flutter app has no signed-out route besides sign-in, so there is no route or feature to match (product decision to confirm). |
-| 1.20 | Public server: join confirm dialog and guest join | browser-only | Join confirm / guest join of the anonymous public server page (see 1.19): no signed-out public preview exists in the Flutter app. |
 | 1.25 | Device login (/login/device): enter code, approve, approved, invalid / expired / used code | browser-only | DeviceLoginPage.tsx (/login/device) is the browser page the CLI / computer opens to approve a device code; the native client never renders it and has no route for it. |
 | 1.26 | App login handoff (/login/app) | browser-only | AppLoginPage.tsx (/login/app) is the HarmonyOS web-login hand-off (pages/AppLoginPage.tsx:10); not a Flutter surface. |
 | 1.27 | Login with Raft setup (/login-with-raft/setup, scope consent) | browser-only | HumanLoginSetupPage.tsx (/login-with-raft/setup) is the third-party 'Login with Raft' consent page opened in a browser; the Flutter app has no such route. |
@@ -383,6 +334,7 @@ number above.
 | 2.13 | Conversation finder ("Find a conversation..." box and results) | host-only | Sidebar.tsx:3856 renders SidebarConversationFinder only when isElectronDesktopShell(); the comment says "web withdraws it (@artin 2026-09-11)". |
 | 2.21 | Workspace grid mode (Labs: multi-panel desktop layout) | flag-off | workspaceGridAvailability.ts gates on flag chat_grid_layout_v0 (config named WORKSPACE_GRID_DEMO); migration 0151 "Workspace grid layout preview gate; Botiverse allowlist first", default_enabled=false. |
 | 3.40 | Channel overflow menu (members summary, inline edit, stop all agents confirm) | duplicate | ChannelOverflowMenu.tsx:568 renders EditChannelDialog: it is the channel settings sheet already listed as 4.04 / 4.05 (the channelsettings cases open it through the header gear). |
+| 5.12 | Activity Done and Saved views, channel filter, sort, in-list search | flag-off | ThreadsInbox.tsx gates Saved / Done views (:872-879), the channel filter (:665), sort and in-list search (:922) on activity_sidebar_inbox_v0; no server migration seeds that key, so it evaluates disabled unless an operator created it (the Flutter DesktopActivityFlag reads the same flag). |
 | 6.03 | Task filter segmented control | obsolete | TaskFilterSegmentedControl.tsx has no importer under src/; only tests/raftUiSegmentedControls.behavior.test.tsx and tests/raftUiIntegration.contract.test.ts import it. TasksPanel.tsx uses its own filter popovers (task.filter.*). |
 | 6.09 | Legacy (v1) task panel, read-only | obsolete | LegacyTaskPanel opens only for `task.isLegacy` rows (TasksPanel.tsx:972-976, MessageItem.tsx:4184); shared/src/agentText/tasks.ts:77 labels them "[LEGACY - read-only]"; new tasks open their message thread. |
 | 7.21 | Agent migration (move to another computer: dialog, progress, cancel, upgrade) | flag-off | AgentMigrationSection.tsx returns null unless useAgentMigrationUiEnabled() (flag agent_migration_v0); migration 0150 default_enabled=false, 0154 dark-launches it to the botiverse server only. |
@@ -413,7 +365,6 @@ before spending case effort.
 | # | page | what to verify |
 | --- | --- | --- |
 | 3.29 | External identity preview card and detail panel | External-identity cards come from provider-bridge senders; slack_bridge_v0 and external_projection_directory are seeded default false and fail closed (migration 0252), but messages from an already-enabled bridge would show them. Confirm the bridge is out of scope before dropping. |
-| 5.12 | Activity Done and Saved views, channel filter, sort, in-list search | ThreadsInbox.tsx gates Saved / Done views (:872-879), the channel filter (:665), sort and in-list search (:922) on activity_sidebar_inbox_v0; no server migration seeds that key, so it evaluates disabled unless an operator created it. Flutter already ships a Saved view. |
 | 9.04 | Account: workspace-mode card, usage data / storage | UsageDataSettings ("Share usage data") is behind product_analytics_settings_v0, documented "Default off: hidden until the default and the privacy-policy section are confirmed" (serverFeatureFlags.ts:31-35). |
 | 9.13 | Administration (admins, system channels, invites, join links, agreement, onboarding, translation, analytics, member permissions) | The product-analytics switch inside Administration is behind product_analytics_settings_v0 (default off, hidden); the other eight sections are visible. |
 | 9.17 | AI Providers tab (connections list) | provider_connections_v0 (migration 0217) was seeded default false, "initially limited to slock-android and botiverse servers"; the tab is hidden without it. Later rollout rules are not in the source. Cases exist (ext-settings.providers.*). |

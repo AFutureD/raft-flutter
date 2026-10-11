@@ -111,6 +111,9 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
   return '$failed$separator$current';
 }
 
+/// Why a jump target's message context could not be shown.
+enum MessageContextLoadError { notFound, beyondHistory }
+
 class WorkspaceController extends ChangeNotifier {
   void synchronizePagePresentation(
     WorkspaceController source, {
@@ -183,6 +186,7 @@ class WorkspaceController extends ChangeNotifier {
     hasNewer = source.hasNewer;
     historyLimited = source.historyLimited;
     highlightedMessageId = source.highlightedMessageId;
+    contextLoadError = source.contextLoadError;
     channelLoading = source.channelLoading;
     loadingOlder = source.loadingOlder;
     loading = source.loading;
@@ -1681,6 +1685,32 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Send-receipt warnings of the latest send per draft scope (Web MessageInput
+  /// `unresolvedMentionHandles` / `deliveryWarnings`): handles the server could
+  /// not resolve to a member, and whether a DM's agent is stopped.
+  final Map<String, ({List<String> unresolved, bool agentStopped})>
+  sendWarnings = {};
+
+  ({List<String> unresolved, bool agentStopped}) sendWarningsFor({
+    bool thread = false,
+  }) =>
+      (presentationSource?.sendWarnings ?? sendWarnings)[draftScope(
+        thread: thread,
+      )] ??
+      (unresolved: const [], agentStopped: false);
+
+  /// The banner's X (Web `dismissUnresolvedMentionWarning` /
+  /// `dismissDeliveryWarning`).
+  void dismissSendWarnings({bool thread = false}) {
+    if (presentationSource != null) {
+      presentationSource!.dismissSendWarnings(thread: thread);
+      return;
+    }
+    final scope = draftScope(thread: thread);
+    if (scope == null || sendWarnings.remove(scope) == null) return;
+    notifyListeners();
+  }
+
   /// `POST /messages/mention-actions/execute`; returns ids whose result
   /// status matches the action (`queued` for notify, `delivered` for add).
   Future<Set<String>> executeMentionActions(
@@ -2189,6 +2219,12 @@ class WorkspaceController extends ChangeNotifier {
       hasMore = false;
   bool connected = false;
   String? error;
+
+  /// Source messageStore `contextLoadError` for the open channel: the jump
+  /// target's context failed to load and the latest window replaced it.
+  /// `notFound` -> ChatPanel's "Message not found" banner; `beyondHistory` ->
+  /// the plan history-limit banner. Cleared by the next channel open or jump.
+  MessageContextLoadError? contextLoadError;
   final navigation = WorkspaceNavigation();
   String _unboundSection = 'chat';
   String? _navigationAuthority;
@@ -2402,7 +2438,10 @@ class WorkspaceController extends ChangeNotifier {
   /// adopted at once, so the remembered server and its cached channels paint
   /// without waiting for the network; [revalidateServerDirectory] then
   /// replaces it in the background.
-  Future<bool> loadServerDirectory({bool cachedFirst = false}) async {
+  Future<bool> loadServerDirectory({
+    bool cachedFirst = false,
+    void Function()? onCacheMiss,
+  }) async {
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot load the server directory.');
     }
@@ -2430,6 +2469,7 @@ class WorkspaceController extends ChangeNotifier {
         return true;
       }
     }
+    onCacheMiss?.call();
     final accepted = await client.servers();
     if (!current()) return false;
     _revokedServers.removeAll(accepted.map((server) => server.id));
@@ -2562,11 +2602,16 @@ class WorkspaceController extends ChangeNotifier {
   Future<void> selectServer(
     RaftRecord next, {
     void Function()? onHydrated,
+    void Function()? onCacheMiss,
   }) async {
     // A live mobile page presents the source's session; the source selects.
     final source = presentationSource;
     if (source != null) {
-      return source.selectServer(next, onHydrated: onHydrated);
+      return source.selectServer(
+        next,
+        onHydrated: onHydrated,
+        onCacheMiss: onCacheMiss,
+      );
     }
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot select a server.');
@@ -2703,7 +2748,11 @@ class WorkspaceController extends ChangeNotifier {
       };
     }
     notifyListeners();
-    if (cached is Map) onHydrated?.call();
+    if (cached is Map) {
+      onHydrated?.call();
+    } else {
+      onCacheMiss?.call();
+    }
     final readGeneration = readState.generation;
     List<List<RaftChannel>> values;
     try {
@@ -3829,6 +3878,9 @@ class WorkspaceController extends ChangeNotifier {
         preserveThread &&
         threadIdentity?.parentChannelId == next.id &&
         location.thread?.channelId == next.id;
+    if (!retainContextUntilAccepted && channel?.id != next.id) {
+      contextLoadError = null;
+    }
     channel = next;
     hasNewer = false;
     if (!retainThread) highlightedMessageId = null;
@@ -4406,6 +4458,24 @@ class WorkspaceController extends ChangeNotifier {
       pendingMentionActions[scope] = normalizePendingMentionActions(
         sent.receipt['pendingMentionActions'],
       );
+      sendWarnings[scope] = (
+        unresolved: [
+          for (final handle
+              in (sent.receipt['unresolvedMentionHandles'] as List? ??
+                  const []))
+            if (handle is String) handle,
+        ],
+        // Web `normalizeDeliveryWarnings`: agent targets stopped only.
+        agentStopped: (sent.receipt['deliveryWarnings'] as List? ?? const [])
+            .any(
+              (w) =>
+                  w is Map &&
+                  w['targetType'] == 'agent' &&
+                  w['reason'] == 'agent_stopped' &&
+                  w['targetId'] is String &&
+                  (w['targetId'] as String).isNotEmpty,
+            ),
+      );
       ledger.ingest([
         {...message.json, 'randomId': message.json['randomId'] ?? sentId},
       ], expectedGeneration: generation);
@@ -4712,8 +4782,9 @@ class WorkspaceController extends ChangeNotifier {
         }
         // A cached window stays readable when its revalidation fails.
         if (current() && cached == null) {
+          // ThreadPanel's in-panel "Couldn't load this thread" + Retry; Web raises
+          // no workspace-level error for it.
           _threadResolutionError = '$e';
-          error = '$e';
         }
       } finally {
         if (current()) {
@@ -4842,6 +4913,7 @@ class WorkspaceController extends ChangeNotifier {
         replaceEntry: replaceEntry,
       );
     }
+    contextLoadError = null;
     final generation = ledger.generation;
     var navigationWindow = navigationRevision;
     var authority = _windowAuthority();
@@ -5062,21 +5134,19 @@ class WorkspaceController extends ChangeNotifier {
         _pendingMessageContextWindow = null;
         highlightedMessageId = null;
         // Source falls back to latest after a missing/unavailable context.
-        final fallbackWindow = channelGeneration + 1;
         final fallback = selectChannel(
           next,
           navigate: navigate,
           retainContextUntilAccepted: true,
         );
-        final fallbackNavigation = navigationRevision;
         await fallback;
-        if (fallbackNavigation == navigationRevision &&
-            !_disposed &&
-            channelGeneration == fallbackWindow &&
+        if (!_disposed &&
             channel?.id == channelId &&
             generation == ledger.generation &&
             authority == _windowAuthority()) {
-          error = '$e';
+              contextLoadError = historyLimited
+              ? MessageContextLoadError.beyondHistory
+              : MessageContextLoadError.notFound;
           notifyListeners();
         }
       }
@@ -5087,6 +5157,32 @@ class WorkspaceController extends ChangeNotifier {
         channelLoading = false;
         notifyListeners();
       }
+    }
+  }
+
+  /// Web ChatPanel `joinChannel(channel.id)`: join the open channel, then
+  /// re-read the channel list so the sidebar and composer see the membership.
+  Future<void> joinOpenChannel() async {
+    try {
+      final c = channel!;
+      await command('POST', '/channels/${c.id}/join');
+      await refreshChannels();
+      await selectChannel(channels.firstWhere((next) => next.id == c.id));
+    } catch (e) {
+      setError('$e');
+    }
+  }
+
+  /// Web ThreadPanel `handleJoinParentChannel`: join the thread's parent
+  /// channel (the CTA that replaces the composer for a non-member).
+  Future<void> joinThreadParentChannel() async {
+    final id = threadParentChannelId;
+    if (id == null) return;
+    try {
+      await command('POST', '/channels/$id/join');
+      await refreshChannels();
+    } catch (e) {
+      setError('$e');
     }
   }
 

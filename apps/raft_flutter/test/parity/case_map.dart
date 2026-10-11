@@ -9,8 +9,11 @@ import 'cases/ext_auth_pages.dart';
 import 'cases/ext_channel_header.dart';
 import 'cases/ext_composer_attachments.dart';
 import 'cases/ext_channel_settings.dart';
+import 'cases/ext_composer_states.dart';
 import 'cases/ext_computers.dart';
+import 'cases/ext_conversation_pages.dart';
 import 'cases/ext_dialogs.dart';
+import 'cases/ext_list_pages.dart';
 import 'cases/ext_live_activity.dart';
 import 'cases/ext_members.dart';
 import 'cases/ext_members_pages.dart';
@@ -21,6 +24,7 @@ import 'cases/ext_thread.dart';
 import 'cases/ext_thread_attachments.dart';
 import 'cases/ext_thread_messages.dart';
 import 'cases/ext_notifications.dart';
+import 'cases/ext_public_server.dart';
 import 'cases/ext_task_detail.dart';
 import 'cases/ext_shell.dart';
 import 'cases/ext_wp6.dart';
@@ -60,8 +64,12 @@ final Map<String, ParityCase> parityCases = {
   ...extMembersPagesChannelCases,
   ...extAuthCases,
   ...extAuthPagesCases,
+  ...extPublicServerCases,
   ...extDialogCases,
   ...extScreenCases,
+  ...extComposerStateCases,
+  ...extListPageCases,
+  ...extConversationCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {
@@ -72,4 +80,5 @@ final Map<String, ParityUncovered> parityUncovered = {
   ...membersSettingsUncovered,
   ...screenUncovered,
   ...extAuthPagesUncovered,
+  ...extConversationUncovered,
 };

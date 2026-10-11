@@ -78,6 +78,14 @@ UI、纯Dart协议/同步、平台适配在 P0 合同后可并行，feature任�
 - 管理页面使用现网挂载路径与能力校验：providers、MCP、Apps、Slack、analytics、billing、setup、agents 和 Computers。未配置的第三方 OAuth、计费和 Slack provisioning 不产生模拟成功状态。
 - go_router 尚未作为路由权威接线；本地 URI 与通知由 NativeContentCoordinator 校验服务器成员资格并获取真实消息上下文。Android 原生 share/通知 bridge 和 Linux 单实例 URI 使用平台 facade。Android 周期后台收件箱兜底已有独立冷进程、去重和系统点击证据；iOS 仅源码接入。FCM/APNs 注册、Linux 服务端消息推送及独立桌面多窗口不属于当前已验证能力。
 
+### 前台启动与后台会话交接
+
+前台先只读本机已确认的账号与工作区缓存，不等待后台通知 worker 或 `/auth/me`。原生启动画面只保留到本地页面就绪；没有账号记录、服务器目录或频道缓存时，立即交给相应的首次加载界面，不用网络等待延长启动画面。正常恢复的第一个应用帧直接是缓存页面，网络重验原地更新。
+
+旋转凭据仍由同一个 `NativeSessionOwner` 独占：前台请求后台 worker 主动交接，worker 关闭网络连接并等待已开始的凭据写入完成后自行释放，前台不能抢占活跃锁。HTTP、刷新和 Socket.IO 连接等待交接后重读最新完整凭据（包括刷新重试绑定）；本地缓存展示不参与这个等待。交接发现会话被删除或变成另一账号时，退休旧客户端与旧账号缓存，不覆盖另一账号的会话。退出登录立即使旧请求失效，将凭据清理排在后续登录写入之前，并用后台最后保存的凭据撤销旧会话。
+
+定向覆盖由 `cached_restore_test`、`session_test`、`session_persistence_test`、`background_inbox_test` 和 `restart_cache_first_frame_test` 提供：包含 Android 布局下阻塞后台 owner 与全部启动网络读取、缓存页面交互、凭据轮换/刷新重试、撤权、退出与重新登录并发、连接启动以及等待中的 owner 释放。这些组件和逻辑回归不替代 Android/iOS 真机冷启动、系统后台调度或启动耗时采集。
+
 ## 当前共享组件与领域边界
 
 共享侧栏规则区分 raft-ui 通用组件与实际产品覆写。产品分组标题、计数、折叠与排序使用共享 recipe；Search/Activity 与 Saved 使用各自实际挂载角色，Saved 的总数来自真实 GET 元数据，与未读数分离。48 像素触摸范围属于原生适配，不能计为原版 24 像素动作布局相同。
@@ -150,3 +158,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 ### macOS 通知平台补充（2026-10-11）
 
 NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消费 WorkspaceController 唯一 SourceActivityUnreadStore 已接受的窗口，与 Activity 页面和未读标记共享长连接驱动的现有收件箱刷新，不创建第二连接、收件箱请求或周期轮询。OS 权限是桌面开关；只在后台消费新候选，读取独立 notification-settings 通知规则，核对当前已接受窗口，并维护账号/角色/权限代次/生命周期 fence。仅持久化时间基线和有界 message ID，不持久化通知正文。应用完全退出后的远程推送与 macOS 系统横幅/点击实机验收仍未覆盖。
+
+### Windows 通知平台补充（2026-10-11）
+
+Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNotifications／原生宿主提供稳定身份、官方 Windows App SDK 投递、ToastNotifier.Setting 及窗口恢复；业务授权与导航仍在 NativeContentCoordinator。系统权限在每次投递时重新读取，桌面不保存私有 opt-in。ETW 确认本机在显示前拒绝默认 foreground 激活（0x80070032），官方 SDK 的 protocol 对照已由用户确认在通知中心显示。因此产品使用 raft-notification 协议：暖点击转交同 exe 的现有窗口，冷点击经参数启动后等待回调初始化，仍保留全部账户／授权检查。主应用设置按钮发送已确认显示；本机另经用户授权登记机器级 Raft 协议后，用户确认品牌图标和暖点击返回正常。冷点击仍待实测，不以接口接受、历史、fixture 或旧 COM 探针代替。当前 x64 bundle 需要 Windows App Runtime 1.7。具体矩阵、独立身份和边界见 [Windows 通知](windows-notifications.md)。
