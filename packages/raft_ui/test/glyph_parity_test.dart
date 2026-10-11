@@ -21,7 +21,8 @@ final _dir = () {
   for (var d = Directory.current.absolute; ; d = d.parent) {
     final candidate = Directory('${d.path}/tool/glyph_parity');
     if (candidate.existsSync()) return candidate;
-    if (d.parent.path == d.path) throw StateError('tool/glyph_parity not found');
+    if (d.parent.path == d.path)
+      throw StateError('tool/glyph_parity not found');
   }
 }();
 
@@ -38,12 +39,14 @@ void main() {
   testWidgets('RaftIcon matches lucide-react rasterized by Chromium', (
     tester,
   ) async {
-    final spec = jsonDecode(
-      File('${_dir.path}/samples.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
-    final reference = jsonDecode(
-      File('${_dir.path}/reference/manifest.json').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    final spec =
+        jsonDecode(File('${_dir.path}/samples.json').readAsStringSync())
+            as Map<String, dynamic>;
+    final reference =
+        jsonDecode(
+              File('${_dir.path}/reference/manifest.json').readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     final sizes = (spec['sizes'] as List).cast<num>().map((s) => s.toDouble());
     final pitch = (spec['pitch'] as num).toInt();
     final inset = (spec['inset'] as num).toDouble();
@@ -198,8 +201,9 @@ void main() {
       File(out).writeAsStringSync(
         '${const JsonEncoder.withIndent(' ').convert(summary)}\n',
       );
-      File('${File(out).parent.path}/glyph-parity-flutter.png')
-          .writeAsBytesSync(flutterPng.buffer.asUint8List());
+      File(
+        '${File(out).parent.path}/glyph-parity-flutter.png',
+      ).writeAsBytesSync(flutterPng.buffer.asUint8List());
     }
     expect(meanInk, lessThan(_maxMeanInk), reason: 'mean ink delta');
     for (final r in rows) {

@@ -29,25 +29,111 @@ abstract final class RaftInputRecipe {
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftInputRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
+  static RaftInputRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
     return RaftInputRecipeStyle(root: s[0]);
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
   /// Distinct class lists (indices into [raftRecipeUtilities]).
   static const List<List<int>> _lists = [
-    [3127, 2753, 2765, 1687, 2975, 1686, 2649, 866, 900, 825, 2863, 1679, 1499, 1498, 1511, 1509, 1510],
-    [3127, 1687, 2975, 1686, 2649, 2818, 864, 894, 825, 993, 1124, 1142, 1110, 2753, 2765, 2976, 3061, 1605, 1613, 1168, 2712, 2860, 2264, 1674, 1071, 1652, 1665, 1063, 1066, 1500, 1508, 1503, 1505, 1507, 1584, 1582, 1581, 1593, 1589, 1585, 1501, 1502],
+    [
+      3127,
+      2753,
+      2765,
+      1687,
+      2975,
+      1686,
+      2649,
+      866,
+      900,
+      825,
+      2863,
+      1679,
+      1499,
+      1498,
+      1511,
+      1509,
+      1510,
+    ],
+    [
+      3127,
+      1687,
+      2975,
+      1686,
+      2649,
+      2818,
+      864,
+      894,
+      825,
+      993,
+      1124,
+      1142,
+      1110,
+      2753,
+      2765,
+      2976,
+      3061,
+      1605,
+      1613,
+      1168,
+      2712,
+      2860,
+      2264,
+      1674,
+      1071,
+      1652,
+      1665,
+      1063,
+      1066,
+      1500,
+      1508,
+      1503,
+      1505,
+      1507,
+      1584,
+      1582,
+      1581,
+      1593,
+      1589,
+      1585,
+      1501,
+      1502,
+    ],
   ];
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0], [1],
+    [0],
+    [1],
   ];
 }

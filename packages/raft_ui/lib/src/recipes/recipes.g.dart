@@ -243,7 +243,12 @@ export 'search_entity.g.dart';
 export 'search_message.g.dart';
 export 'search_thread.g.dart';
 
-typedef RaftRecipeResolver = Map<String, RaftSlotStyle> Function(Map<String, String?> props, {RaftRecipeStates states, RaftTokenResolver? tokens});
+typedef RaftRecipeResolver =
+    Map<String, RaftSlotStyle> Function(
+      Map<String, String?> props, {
+      RaftRecipeStates states,
+      RaftTokenResolver? tokens,
+    });
 
 /// tailwind-variants recipe name -> resolver.
 const Map<String, RaftRecipeResolver> raftRecipes = {
@@ -269,7 +274,8 @@ const Map<String, RaftRecipeResolver> raftRecipes = {
   'sidebarSectionRecipe': RaftSidebarSectionRecipe.resolveProps,
   'panel': RaftPanelRecipe.resolveProps,
   'conversationPanel': RaftConversationPanelRecipe.resolveProps,
-  'conversationPanelEmptyState': RaftConversationPanelEmptyStateRecipe.resolveProps,
+  'conversationPanelEmptyState':
+      RaftConversationPanelEmptyStateRecipe.resolveProps,
   'kbd': RaftKbdRecipe.resolveProps,
   'contextMenu': RaftContextMenuRecipe.resolveProps,
   'dropdownMenu': RaftDropdownMenuRecipe.resolveProps,
@@ -301,7 +307,8 @@ const Map<String, RaftRecipeResolver> raftRecipes = {
   'messageReaction': RaftMessageReactionRecipe.resolveProps,
   'messageReference': RaftMessageReferenceRecipe.resolveProps,
   'messageMultiSelect': RaftMessageMultiSelectRecipe.resolveProps,
-  'messageTextSelectionToolbar': RaftMessageTextSelectionToolbarRecipe.resolveProps,
+  'messageTextSelectionToolbar':
+      RaftMessageTextSelectionToolbarRecipe.resolveProps,
   'messageSystem': RaftMessageSystemRecipe.resolveProps,
   'messageBlock': RaftMessageBlockRecipe.resolveProps,
   'messageEmbed': RaftMessageEmbedRecipe.resolveProps,
@@ -313,8 +320,10 @@ const Map<String, RaftRecipeResolver> raftRecipes = {
   'messageImageGallery': RaftMessageImageGalleryRecipe.resolveProps,
   'messageVideoPreview': RaftMessageVideoPreviewRecipe.resolveProps,
   'messageForwardedBundle': RaftMessageForwardedBundleRecipe.resolveProps,
-  'messageForwardedBundleItem': RaftMessageForwardedBundleItemRecipe.resolveProps,
-  'messageForwardedBundleGallery': RaftMessageForwardedBundleGalleryRecipe.resolveProps,
+  'messageForwardedBundleItem':
+      RaftMessageForwardedBundleItemRecipe.resolveProps,
+  'messageForwardedBundleGallery':
+      RaftMessageForwardedBundleGalleryRecipe.resolveProps,
   'progress': RaftProgressRecipe.resolveProps,
   'messageTranslation': RaftMessageTranslationRecipe.resolveProps,
   'messageList': RaftMessageListRecipe.resolveProps,

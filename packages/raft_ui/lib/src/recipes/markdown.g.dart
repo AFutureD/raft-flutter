@@ -23,42 +23,91 @@ enum RaftMarkdownRecipeLevel {
 
 /// Resolved slots of [RaftMarkdownRecipe].
 class RaftMarkdownRecipeStyle {
-  const RaftMarkdownRecipeStyle({required this.heading, required this.paragraph, required this.link, required this.mark, required this.list, required this.listItem, required this.blockquote, required this.rule, required this.tableScroll, required this.table, required this.tableRow, required this.headerCell, required this.cell, required this.checkbox, required this.image, required this.inlineCode});
+  const RaftMarkdownRecipeStyle({
+    required this.heading,
+    required this.paragraph,
+    required this.link,
+    required this.mark,
+    required this.list,
+    required this.listItem,
+    required this.blockquote,
+    required this.rule,
+    required this.tableScroll,
+    required this.table,
+    required this.tableRow,
+    required this.headerCell,
+    required this.cell,
+    required this.checkbox,
+    required this.image,
+    required this.inlineCode,
+  });
 
   /// Slot `heading`.
   final RaftSlotStyle heading;
+
   /// Slot `paragraph`.
   final RaftSlotStyle paragraph;
+
   /// Slot `link`.
   final RaftSlotStyle link;
+
   /// Slot `mark`.
   final RaftSlotStyle mark;
+
   /// Slot `list`.
   final RaftSlotStyle list;
+
   /// Slot `listItem`.
   final RaftSlotStyle listItem;
+
   /// Slot `blockquote`.
   final RaftSlotStyle blockquote;
+
   /// Slot `rule`.
   final RaftSlotStyle rule;
+
   /// Slot `tableScroll`.
   final RaftSlotStyle tableScroll;
+
   /// Slot `table`.
   final RaftSlotStyle table;
+
   /// Slot `tableRow`.
   final RaftSlotStyle tableRow;
+
   /// Slot `headerCell`.
   final RaftSlotStyle headerCell;
+
   /// Slot `cell`.
   final RaftSlotStyle cell;
+
   /// Slot `checkbox`.
   final RaftSlotStyle checkbox;
+
   /// Slot `image`.
   final RaftSlotStyle image;
+
   /// Slot `inlineCode`.
   final RaftSlotStyle inlineCode;
 
-  Map<String, RaftSlotStyle> get slots => {'heading': heading, 'paragraph': paragraph, 'link': link, 'mark': mark, 'list': list, 'listItem': listItem, 'blockquote': blockquote, 'rule': rule, 'tableScroll': tableScroll, 'table': table, 'tableRow': tableRow, 'headerCell': headerCell, 'cell': cell, 'checkbox': checkbox, 'image': image, 'inlineCode': inlineCode};
+  Map<String, RaftSlotStyle> get slots => {
+    'heading': heading,
+    'paragraph': paragraph,
+    'link': link,
+    'mark': mark,
+    'list': list,
+    'listItem': listItem,
+    'blockquote': blockquote,
+    'rule': rule,
+    'tableScroll': tableScroll,
+    'table': table,
+    'tableRow': tableRow,
+    'headerCell': headerCell,
+    'cell': cell,
+    'checkbox': checkbox,
+    'image': image,
+    'inlineCode': inlineCode,
+  };
 }
 
 /// raft-ui recipe `markdown` (`src/components/markdown/markdown.recipe.ts`, index.mjs:8719).
@@ -69,21 +118,81 @@ class RaftMarkdownRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftMarkdownRecipe {
   static const String recipeName = 'markdown';
-  static const List<String> slotNames = ['heading', 'paragraph', 'link', 'mark', 'list', 'listItem', 'blockquote', 'rule', 'tableScroll', 'table', 'tableRow', 'headerCell', 'cell', 'checkbox', 'image', 'inlineCode'];
+  static const List<String> slotNames = [
+    'heading',
+    'paragraph',
+    'link',
+    'mark',
+    'list',
+    'listItem',
+    'blockquote',
+    'rule',
+    'tableScroll',
+    'table',
+    'tableRow',
+    'headerCell',
+    'cell',
+    'checkbox',
+    'image',
+    'inlineCode',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('level', ['1', '2', '3', '4', '5', '6'], null, true),
     RaftRecipeAxis('ordered', ['false', 'true'], 'false', false),
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftMarkdownRecipeStyle resolve({RaftMarkdownRecipeLevel? level, bool? ordered, required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [level?.css, ordered?.toString(), theme.name], states, tokens);
-    return RaftMarkdownRecipeStyle(heading: s[0], paragraph: s[1], link: s[2], mark: s[3], list: s[4], listItem: s[5], blockquote: s[6], rule: s[7], tableScroll: s[8], table: s[9], tableRow: s[10], headerCell: s[11], cell: s[12], checkbox: s[13], image: s[14], inlineCode: s[15]);
+  static RaftMarkdownRecipeStyle resolve({
+    RaftMarkdownRecipeLevel? level,
+    bool? ordered,
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [level?.css, ordered?.toString(), theme.name],
+      states,
+      tokens,
+    );
+    return RaftMarkdownRecipeStyle(
+      heading: s[0],
+      paragraph: s[1],
+      link: s[2],
+      mark: s[3],
+      list: s[4],
+      listItem: s[5],
+      blockquote: s[6],
+      rule: s[7],
+      tableScroll: s[8],
+      table: s[9],
+      tableRow: s[10],
+      headerCell: s[11],
+      cell: s[12],
+      checkbox: s[13],
+      image: s[14],
+      inlineCode: s[15],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -131,7 +240,33 @@ abstract final class RaftMarkdownRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [15, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [0, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [15, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [30, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [31, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [30, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [31, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [32, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [33, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [32, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [33, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [34, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [35, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [34, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [35, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
-    [36, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [37, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [36, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [37, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [36, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [37, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [36, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [37, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [36, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [37, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27], [36, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10], [37, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [15, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [0, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [15, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [30, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [31, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [30, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [31, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [32, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [33, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [32, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [33, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [34, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [35, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [34, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [35, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [36, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [37, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [36, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [37, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [36, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [37, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [36, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [37, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [36, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [37, 16, 17, 3, 18, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
+    [36, 1, 2, 3, 28, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 10],
+    [37, 16, 17, 3, 29, 5, 19, 20, 21, 22, 23, 24, 25, 13, 26, 27],
   ];
 }

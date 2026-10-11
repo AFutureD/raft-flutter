@@ -958,23 +958,25 @@ class _FeedbackAvatar extends StatelessWidget {
         child: Align(
           alignment: Alignment.topLeft,
           child: RaftRecipeBox(
-        style: s.root,
-        tokens: rt,
-        width: size,
-        height: size,
-        clip: true,
-        applyText: false,
-        decorationOverride: t.brutal ? null : (d) => d.copyWith(border: null),
-        child: RaftRecipeBox(
-          style: fallback,
-          tokens: rt,
-          width: double.infinity,
-          height: double.infinity,
-          alignment: Alignment.center,
-          applyText: false,
-          child: Text(initial, style: style),
-        ),
-      ),
+            style: s.root,
+            tokens: rt,
+            width: size,
+            height: size,
+            clip: true,
+            applyText: false,
+            decorationOverride: t.brutal
+                ? null
+                : (d) => d.copyWith(border: null),
+            child: RaftRecipeBox(
+              style: fallback,
+              tokens: rt,
+              width: double.infinity,
+              height: double.infinity,
+              alignment: Alignment.center,
+              applyText: false,
+              child: Text(initial, style: style),
+            ),
+          ),
         ),
       ),
     );

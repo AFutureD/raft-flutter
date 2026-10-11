@@ -20,16 +20,26 @@ enum RaftMessageForwardedBundleGalleryRecipeCount {
 
 /// Resolved slots of [RaftMessageForwardedBundleGalleryRecipe].
 class RaftMessageForwardedBundleGalleryRecipeStyle {
-  const RaftMessageForwardedBundleGalleryRecipeStyle({required this.root, required this.row, required this.tile});
+  const RaftMessageForwardedBundleGalleryRecipeStyle({
+    required this.root,
+    required this.row,
+    required this.tile,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `row`.
   final RaftSlotStyle row;
+
   /// Slot `tile`.
   final RaftSlotStyle tile;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'row': row, 'tile': tile};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'row': row,
+    'tile': tile,
+  };
 }
 
 /// raft-ui recipe `messageForwardedBundleGallery` (`src/components/message-forwarded-bundle/message-forwarded-bundle.recipe.ts`, index.mjs:11560).
@@ -45,14 +55,42 @@ abstract final class RaftMessageForwardedBundleGalleryRecipe {
     RaftRecipeAxis('count', ['1', '2', '3'], null, true),
   ];
 
-  static RaftMessageForwardedBundleGalleryRecipeStyle resolve({RaftMessageForwardedBundleGalleryRecipeCount? count, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [count?.css], states, tokens);
-    return RaftMessageForwardedBundleGalleryRecipeStyle(root: s[0], row: s[1], tile: s[2]);
+  static RaftMessageForwardedBundleGalleryRecipeStyle resolve({
+    RaftMessageForwardedBundleGalleryRecipeCount? count,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [count?.css],
+      states,
+      tokens,
+    );
+    return RaftMessageForwardedBundleGalleryRecipeStyle(
+      root: s[0],
+      row: s[1],
+      tile: s[2],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -68,6 +106,9 @@ abstract final class RaftMessageForwardedBundleGalleryRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2], [0, 3, 2], [0, 4, 2], [0, 5, 2],
+    [0, 1, 2],
+    [0, 3, 2],
+    [0, 4, 2],
+    [0, 5, 2],
   ];
 }

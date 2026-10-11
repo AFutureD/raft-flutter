@@ -227,34 +227,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'long author stays one header line rather than wrapping metadata',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
-          home: const Scaffold(
-            body: SizedBox(
-              width: 390,
-              child: RaftMessageRow(
-                author: 'Public long author with more characters than the reserved heading can hold',
-                timestamp: '14:30',
-                content: Text('Body'),
-              ),
+  testWidgets('long author stays one header line rather than wrapping metadata', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: const Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: RaftMessageRow(
+              author:
+                  'Public long author with more characters than the reserved heading can hold',
+              timestamp: '14:30',
+              content: Text('Body'),
             ),
           ),
         ),
-      );
-      final author = tester.widget<Text>(
-        find.text(
-          'Public long author with more characters than the reserved heading can hold',
-        ),
-      );
-      expect(author.maxLines, 1);
-      expect(author.overflow, TextOverflow.ellipsis);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      ),
+    );
+    final author = tester.widget<Text>(
+      find.text(
+        'Public long author with more characters than the reserved heading can hold',
+      ),
+    );
+    expect(author.maxLines, 1);
+    expect(author.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
 
   test(
     'source grouping and breakpoint overrides remain independent of pointer',

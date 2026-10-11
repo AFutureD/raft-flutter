@@ -34,8 +34,9 @@ Future<Color> pixel(WidgetTester tester, Offset position) async {
       await dir.create(recursive: true);
       final id = '${frameSequence++}'.padLeft(4, '0');
       final png = (await image.toByteData(format: ui.ImageByteFormat.png))!;
-      await File('${dir.path}/frame-$id.png')
-          .writeAsBytes(png.buffer.asUint8List());
+      await File(
+        '${dir.path}/frame-$id.png',
+      ).writeAsBytes(png.buffer.asUint8List());
       await File('${dir.path}/frames.jsonl').writeAsString(
         '${jsonEncode({
           'frame': id,

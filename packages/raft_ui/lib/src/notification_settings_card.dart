@@ -96,8 +96,9 @@ class RaftNotificationSettingsCard extends StatelessWidget {
         RaftSettingsSectionHeader(label: sectionLabel, glyph: RaftGlyph.bell),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: RaftSettingsCard.decoration(t)
-              .copyWith(color: t.brutal ? Colors.white : t.card),
+          decoration: RaftSettingsCard.decoration(
+            t,
+          ).copyWith(color: t.brutal ? Colors.white : t.card),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

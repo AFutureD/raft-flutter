@@ -8,24 +8,46 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftSearchRecipe].
 class RaftSearchRecipeStyle {
-  const RaftSearchRecipeStyle({required this.frame, required this.filtersRow, required this.viewport, required this.summary, required this.section, required this.sectionHeading, required this.list});
+  const RaftSearchRecipeStyle({
+    required this.frame,
+    required this.filtersRow,
+    required this.viewport,
+    required this.summary,
+    required this.section,
+    required this.sectionHeading,
+    required this.list,
+  });
 
   /// Slot `frame`.
   final RaftSlotStyle frame;
+
   /// Slot `filtersRow`.
   final RaftSlotStyle filtersRow;
+
   /// Slot `viewport`.
   final RaftSlotStyle viewport;
+
   /// Slot `summary`.
   final RaftSlotStyle summary;
+
   /// Slot `section`.
   final RaftSlotStyle section;
+
   /// Slot `sectionHeading`.
   final RaftSlotStyle sectionHeading;
+
   /// Slot `list`.
   final RaftSlotStyle list;
 
-  Map<String, RaftSlotStyle> get slots => {'frame': frame, 'filtersRow': filtersRow, 'viewport': viewport, 'summary': summary, 'section': section, 'sectionHeading': sectionHeading, 'list': list};
+  Map<String, RaftSlotStyle> get slots => {
+    'frame': frame,
+    'filtersRow': filtersRow,
+    'viewport': viewport,
+    'summary': summary,
+    'section': section,
+    'sectionHeading': sectionHeading,
+    'list': list,
+  };
 }
 
 /// raft-ui recipe `search` (`src/components/search/search.recipe.ts`, index.mjs:20200).
@@ -36,19 +58,59 @@ class RaftSearchRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftSearchRecipe {
   static const String recipeName = 'search';
-  static const List<String> slotNames = ['frame', 'filtersRow', 'viewport', 'summary', 'section', 'sectionHeading', 'list'];
+  static const List<String> slotNames = [
+    'frame',
+    'filtersRow',
+    'viewport',
+    'summary',
+    'section',
+    'sectionHeading',
+    'list',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftSearchRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftSearchRecipeStyle(frame: s[0], filtersRow: s[1], viewport: s[2], summary: s[3], section: s[4], sectionHeading: s[5], list: s[6]);
+  static RaftSearchRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftSearchRecipeStyle(
+      frame: s[0],
+      filtersRow: s[1],
+      viewport: s[2],
+      summary: s[3],
+      section: s[4],
+      sectionHeading: s[5],
+      list: s[6],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -72,6 +134,7 @@ abstract final class RaftSearchRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12, 13],
+    [0, 1, 2, 3, 4, 5, 6],
+    [7, 8, 9, 10, 11, 12, 13],
   ];
 }

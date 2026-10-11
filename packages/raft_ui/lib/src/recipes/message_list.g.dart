@@ -19,26 +19,51 @@ enum RaftMessageListRecipeTone {
 
 /// Resolved slots of [RaftMessageListRecipe].
 class RaftMessageListRecipeStyle {
-  const RaftMessageListRecipeStyle({required this.root, required this.viewport, required this.content, required this.dateDividerRoot, required this.dateDividerRule, required this.dateDividerChip, required this.notice, required this.historyLimited});
+  const RaftMessageListRecipeStyle({
+    required this.root,
+    required this.viewport,
+    required this.content,
+    required this.dateDividerRoot,
+    required this.dateDividerRule,
+    required this.dateDividerChip,
+    required this.notice,
+    required this.historyLimited,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `viewport`.
   final RaftSlotStyle viewport;
+
   /// Slot `content`.
   final RaftSlotStyle content;
+
   /// Slot `dateDividerRoot`.
   final RaftSlotStyle dateDividerRoot;
+
   /// Slot `dateDividerRule`.
   final RaftSlotStyle dateDividerRule;
+
   /// Slot `dateDividerChip`.
   final RaftSlotStyle dateDividerChip;
+
   /// Slot `notice`.
   final RaftSlotStyle notice;
+
   /// Slot `historyLimited`.
   final RaftSlotStyle historyLimited;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'viewport': viewport, 'content': content, 'dateDividerRoot': dateDividerRoot, 'dateDividerRule': dateDividerRule, 'dateDividerChip': dateDividerChip, 'notice': notice, 'historyLimited': historyLimited};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'viewport': viewport,
+    'content': content,
+    'dateDividerRoot': dateDividerRoot,
+    'dateDividerRule': dateDividerRule,
+    'dateDividerChip': dateDividerChip,
+    'notice': notice,
+    'historyLimited': historyLimited,
+  };
 }
 
 /// raft-ui recipe `messageList` (`src/components/message-list/message-list.recipe.ts`, index.mjs:12194).
@@ -49,20 +74,63 @@ class RaftMessageListRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftMessageListRecipe {
   static const String recipeName = 'messageList';
-  static const List<String> slotNames = ['root', 'viewport', 'content', 'dateDividerRoot', 'dateDividerRule', 'dateDividerChip', 'notice', 'historyLimited'];
+  static const List<String> slotNames = [
+    'root',
+    'viewport',
+    'content',
+    'dateDividerRoot',
+    'dateDividerRule',
+    'dateDividerChip',
+    'notice',
+    'historyLimited',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
     RaftRecipeAxis('tone', ['faint', 'muted'], 'faint', false),
   ];
 
-  static RaftMessageListRecipeStyle resolve({required RaftRecipeTheme theme, RaftMessageListRecipeTone? tone, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, tone?.css], states, tokens);
-    return RaftMessageListRecipeStyle(root: s[0], viewport: s[1], content: s[2], dateDividerRoot: s[3], dateDividerRule: s[4], dateDividerChip: s[5], notice: s[6], historyLimited: s[7]);
+  static RaftMessageListRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftMessageListRecipeTone? tone,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, tone?.css],
+      states,
+      tokens,
+    );
+    return RaftMessageListRecipeStyle(
+      root: s[0],
+      viewport: s[1],
+      content: s[2],
+      dateDividerRoot: s[3],
+      dateDividerRule: s[4],
+      dateDividerChip: s[5],
+      notice: s[6],
+      historyLimited: s[7],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -88,6 +156,9 @@ abstract final class RaftMessageListRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4, 5, 6, 7], [0, 1, 2, 3, 4, 5, 8, 7], [0, 1, 9, 10, 11, 12, 13, 14], [0, 1, 9, 10, 11, 12, 15, 14],
+    [0, 1, 2, 3, 4, 5, 6, 7],
+    [0, 1, 2, 3, 4, 5, 8, 7],
+    [0, 1, 9, 10, 11, 12, 13, 14],
+    [0, 1, 9, 10, 11, 12, 15, 14],
   ];
 }

@@ -354,9 +354,11 @@ class DiagramSemantic {
     if (parsed != null) return parsed;
     // The actual Web 11.16 base theme emits NaN lightness for this role.
     // SVG discards it and inherits the renderer root foreground fill.
-    if (role == 'quadrantPointFill' && css.contains('NaN%')) return color('primaryTextColor');
+    if (role == 'quadrantPointFill' && css.contains('NaN%'))
+      return color('primaryTextColor');
     throw StateError('Unsupported original diagram palette role: $role');
   }
+
   core.Color get background => color('background');
   core.Color get surface => color('primaryColor');
   core.Color get foreground => color('primaryTextColor');

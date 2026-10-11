@@ -178,7 +178,6 @@ class _MachineGroupRecipe extends RaftControlRecipe {
   }) => const [];
 }
 
-
 /// Tailwind `text-red-700` (oklch(50.5% 0.213 27.518)), the Sidebar's inline
 /// load-failure line in every theme.
 const raftSidebarErrorInk = Color(0xFFC10007);

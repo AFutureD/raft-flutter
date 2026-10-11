@@ -7,7 +7,9 @@ Future<void> fonts(WidgetTester t) => t.runAsync(() async {
   for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
     ByteData bytes;
     try {
-      bytes = await rootBundle.load('packages/raft_ui/assets/fonts/$family.ttf');
+      bytes = await rootBundle.load(
+        'packages/raft_ui/assets/fonts/$family.ttf',
+      );
     } on FlutterError {
       bytes = await rootBundle.load('assets/fonts/$family.ttf');
     }
@@ -80,9 +82,8 @@ void main() {
             // plain Text, a stacked 16/20 title over 12/16 meta in every
             // family, instead of Web's RaftCssText title/meta flow.
             final mobileBar = width < 768 && title == 'Designer';
-            Finder textOf(String value) => mobileBar
-                ? find.text(value, findRichText: true)
-                : css(value);
+            Finder textOf(String value) =>
+                mobileBar ? find.text(value, findRichText: true) : css(value);
             final heading = textOf(title), subtitle = textOf(meta);
             expect(heading, findsOneWidget);
             expect(subtitle, findsOneWidget);
@@ -149,7 +150,8 @@ void main() {
               body: SizedBox(
                 width: 260,
                 child: RaftChannelHeader(
-                  name: 'A very long channel title within a constrained desktop panel',
+                  name:
+                      'A very long channel title within a constrained desktop panel',
                   description: 'Accepted channel description',
                   onSearch: () => searches++,
                   onSettings: () {},

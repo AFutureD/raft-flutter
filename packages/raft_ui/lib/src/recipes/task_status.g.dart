@@ -41,17 +41,47 @@ abstract final class RaftTaskStatusRecipe {
   static const List<String> slotNames = ['base'];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
-    RaftRecipeAxis('status', ['todo', 'in-progress', 'in-review', 'done', 'closed'], null, true),
+    RaftRecipeAxis(
+      'status',
+      ['todo', 'in-progress', 'in-review', 'done', 'closed'],
+      null,
+      true,
+    ),
   ];
 
-  static RaftTaskStatusRecipeStyle resolve({required RaftRecipeTheme theme, RaftTaskStatusRecipeStatus? status, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, status?.css], states, tokens);
+  static RaftTaskStatusRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftTaskStatusRecipeStatus? status,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, status?.css],
+      states,
+      tokens,
+    );
     return RaftTaskStatusRecipeStyle(base: s[0]);
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -72,6 +102,17 @@ abstract final class RaftTaskStatusRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0], [1], [2], [3], [4], [5], [0], [6], [7], [8], [9], [10],
+    [0],
+    [1],
+    [2],
+    [3],
+    [4],
+    [5],
+    [0],
+    [6],
+    [7],
+    [8],
+    [9],
+    [10],
   ];
 }

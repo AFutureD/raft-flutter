@@ -158,8 +158,9 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
         : BorderRadius.circular(
             badge.borderRadius!.topLeft.x.clamp(0, 9999).toDouble(),
           );
-    final inherited = DefaultTextStyle.of(context).style
-        .merge(badge.textStyle(rt));
+    final inherited = DefaultTextStyle.of(
+      context,
+    ).style.merge(badge.textStyle(rt));
     final label = inherited.copyWith(
       // Badge sets no family: inherit the caller's mounted shell style.
       fontFamily: inherited.fontFamily,

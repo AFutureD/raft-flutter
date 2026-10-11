@@ -44,42 +44,42 @@ class RaftComposerDropOverlay extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.only(top: t.brutal ? 2 : 1),
           child: CustomPaint(
-          key: const ValueKey('composer-drop-overlay'),
-          foregroundPainter: _DashedFramePainter(color: frame, width: 2),
-          child: ColoredBox(
-            color: fill,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: t.brutal ? const Color(0xffffffff) : t.panel,
-                  border: Border.all(
-                    color: t.brutal
-                        ? const Color(0xff000000)
-                        : t.colors['line-strong']!,
-                    width: t.brutal ? 2 : 1,
+            key: const ValueKey('composer-drop-overlay'),
+            foregroundPainter: _DashedFramePainter(color: frame, width: 2),
+            child: ColoredBox(
+              color: fill,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-                  boxShadow: t.shadows,
-                ),
-                child: Text(
-                  raftText(context, label),
-                  style: TextStyle(
-                    fontFamily: t.bodyFont,
-                    fontFamilyFallback: t.fontFallback,
-                    fontSize: 14,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w700,
-                    color: t.brutal ? const Color(0xff000000) : t.strong,
+                  decoration: BoxDecoration(
+                    color: t.brutal ? const Color(0xffffffff) : t.panel,
+                    border: Border.all(
+                      color: t.brutal
+                          ? const Color(0xff000000)
+                          : t.colors['line-strong']!,
+                      width: t.brutal ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+                    boxShadow: t.shadows,
+                  ),
+                  child: Text(
+                    raftText(context, label),
+                    style: TextStyle(
+                      fontFamily: t.bodyFont,
+                      fontFamilyFallback: t.fontFallback,
+                      fontSize: 14,
+                      height: 20 / 14,
+                      fontWeight: FontWeight.w700,
+                      color: t.brutal ? const Color(0xff000000) : t.strong,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
         ),
       ),
     );

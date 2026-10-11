@@ -280,79 +280,79 @@ void main() {
     },
   );
 
-  testWidgets(
-    'table underline stays clipped and follows horizontal scrolling',
-    (tester) async {
-      final key = GlobalKey();
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.topLeft,
-              child: RepaintBoundary(
-                key: key,
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 140,
-                      child: RaftMessageBody(
-                        content: '| Link | Wide column |\n|---|---|\n| [Quest Machine 官方手册](https://example.invalid/manual) | ALongUnbrokenColumnThatRequiresHorizontalScrolling |',
-                      ),
+  testWidgets('table underline stays clipped and follows horizontal scrolling', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: RepaintBoundary(
+              key: key,
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 140,
+                    child: RaftMessageBody(
+                      content:
+                          '| Link | Wide column |\n|---|---|\n| [Quest Machine 官方手册](https://example.invalid/manual) | ALongUnbrokenColumnThatRequiresHorizontalScrolling |',
                     ),
-                    const SizedBox(width: 160, height: 80),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 160, height: 80),
+                ],
               ),
             ),
           ),
         ),
-      );
-      final rich = find.byWidgetPredicate(
-        (w) => w is RichText && w.text.toPlainText().startsWith(_label),
-      );
-      final paragraph = tester.renderObject<RenderParagraph>(rich);
-      final boundary =
-          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final bounds = paragraph.getBoxesForSelection(
-        const TextSelection(baseOffset: 0, extentOffset: _label.length),
-        boxHeightStyle: ui.BoxHeightStyle.strut,
-      );
-      final y =
-          (paragraph.localToGlobal(Offset.zero, ancestor: boundary).dy +
-                  bounds.first.bottom -
-                  2)
-              .floor();
-      Future<int> bluePixels(int left, int right) async {
-        final image = (await tester.runAsync(() => boundary.toImage()))!;
-        final bytes = (await tester.runAsync(
-          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
-        ))!;
-        var count = 0;
-        for (var x = left; x < right; x++) {
-          final p = (y * image.width + x) * 4;
-          if (bytes.getUint8(p) == 20 &&
-              bytes.getUint8(p + 1) == 71 &&
-              bytes.getUint8(p + 2) == 230)
-            count++;
-        }
-        image.dispose();
-        return count;
+      ),
+    );
+    final rich = find.byWidgetPredicate(
+      (w) => w is RichText && w.text.toPlainText().startsWith(_label),
+    );
+    final paragraph = tester.renderObject<RenderParagraph>(rich);
+    final boundary =
+        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final bounds = paragraph.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: _label.length),
+      boxHeightStyle: ui.BoxHeightStyle.strut,
+    );
+    final y =
+        (paragraph.localToGlobal(Offset.zero, ancestor: boundary).dy +
+                bounds.first.bottom -
+                2)
+            .floor();
+    Future<int> bluePixels(int left, int right) async {
+      final image = (await tester.runAsync(() => boundary.toImage()))!;
+      final bytes = (await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+      ))!;
+      var count = 0;
+      for (var x = left; x < right; x++) {
+        final p = (y * image.width + x) * 4;
+        if (bytes.getUint8(p) == 20 &&
+            bytes.getUint8(p + 1) == 71 &&
+            bytes.getUint8(p + 2) == 230)
+          count++;
       }
+      image.dispose();
+      return count;
+    }
 
-      expect(await bluePixels(0, 140), greaterThan(20));
-      expect(await bluePixels(142, 298), 0);
-      final dynamic render = tester.renderObject(
-        find.byType(MessageLinkUnderlines),
-      );
-      final position = tester
-          .state<ScrollableState>(find.byType(Scrollable))
-          .position;
-      position.jumpTo(position.maxScrollExtent);
-      await tester.pump();
-      expect(await bluePixels(0, 140), 0);
-      expect(render.debugGeometryBuildCount, 1);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    expect(await bluePixels(0, 140), greaterThan(20));
+    expect(await bluePixels(142, 298), 0);
+    final dynamic render = tester.renderObject(
+      find.byType(MessageLinkUnderlines),
+    );
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable))
+        .position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pump();
+    expect(await bluePixels(0, 140), 0);
+    expect(render.debugGeometryBuildCount, 1);
+    expect(tester.takeException(), isNull);
+  });
 }

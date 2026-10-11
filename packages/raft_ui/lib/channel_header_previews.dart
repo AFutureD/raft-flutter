@@ -19,7 +19,8 @@ class _ChannelHeaderPreviewState extends State<_ChannelHeaderPreview> {
     children: [
       RaftChannelHeader(
         name: 'Public channel',
-        description: 'A public description can wrap without hiding the channel identity.',
+        description:
+            'A public description can wrap without hiding the channel identity.',
         onBack: () => setState(() => result = 'Back'),
         onSearch: () => setState(() => result = 'Search channel'),
         onSettings: () => setState(() => result = 'Channel settings'),

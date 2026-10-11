@@ -65,15 +65,17 @@ class MessageContentRecipe {
       RaftTypography.body(
         tokens,
         size: fontSize,
-        line: lineHeight ?? (document
-            ? 24
-            : mountedMessage
-            ? switch (fontSize) {
-                12 => 16.0,
-                16 => 24.0,
-                _ => fontSize * 20 / 14,
-              }
-            : fontSize * 20 / 14),
+        line:
+            lineHeight ??
+            (document
+                ? 24
+                : mountedMessage
+                ? switch (fontSize) {
+                    12 => 16.0,
+                    16 => 24.0,
+                    _ => fontSize * 20 / 14,
+                  }
+                : fontSize * 20 / 14),
         // raft-ui messageItem `body`: brutal `text-sm text-black`.
         color:
             foreground ??
@@ -162,7 +164,9 @@ class MessageContentRecipe {
       // Web markdown `hr`: `my-2`, collapsing with the neighbours' `mb-1`
       // (flutter_markdown already inserts blockSpacing between blocks).
       'hr': _RulePadding(
-        first: source.trimLeft().startsWith(RegExp(r'(-{3,}|\*{3,}|_{3,})\s*(\n|$)')),
+        first: source.trimLeft().startsWith(
+          RegExp(r'(-{3,}|\*{3,}|_{3,})\s*(\n|$)'),
+        ),
         margin: 8,
         blockGap: gap,
       ),
@@ -311,7 +315,8 @@ class DocumentAttachmentRecipe {
     width: tokens.border,
   );
   // Collapsed 1px borders add 0.5px to each side of a cell's row.
-  EdgeInsets get cellInset => const EdgeInsets.symmetric(horizontal: 8, vertical: 4.25);
+  EdgeInsets get cellInset =>
+      const EdgeInsets.symmetric(horizontal: 8, vertical: 4.25);
 
   /// Inner cell grid: `border border-line-muted theme-brutal:border-black/40`.
   BorderSide get cellBorder => BorderSide(
@@ -335,7 +340,10 @@ class _RulePadding extends MarkdownPaddingBuilder {
   @override
   void visitElementBefore(dynamic element) {
     final collapsed = (margin - blockGap).clamp(0.0, margin).toDouble();
-    current = EdgeInsets.only(top: first ? margin : collapsed, bottom: collapsed);
+    current = EdgeInsets.only(
+      top: first ? margin : collapsed,
+      bottom: collapsed,
+    );
     first = false;
   }
 

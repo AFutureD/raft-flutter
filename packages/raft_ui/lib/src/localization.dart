@@ -169,7 +169,8 @@ const raftChinese = <String, String>{
       "{count} 个 Agent 正在这台计算机上运行，重连前无法继续。",
   "{count} item": "{count} 项",
   "{count} items": "{count} 项",
-  "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.": "这个联合频道有超过 2 个免费服务器，将在 {deadline} 变为只读。要保持可写，需要其中一个服务器的管理员升级，或者一个免费服务器退出。",
+  "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.":
+      "这个联合频道有超过 2 个免费服务器，将在 {deadline} 变为只读。要保持可写，需要其中一个服务器的管理员升级，或者一个免费服务器退出。",
   "Background inbox checks could not be scheduled. Open Raft to retry.":
       "无法安排后台检查。请打开 Raft 重试。",
   "Messages arrive while connected. Background inbox checks provide a fallback when the system allows them; delivery may be delayed.":
@@ -443,7 +444,8 @@ const raftChinese = <String, String>{
   " · thread": " · 消息列",
   " — Who you are and your basic profile · no content access.":
       " —— 你是谁和你的基本资料 · 不访问内容。",
-  "#all will disappear from channel lists, and server members and agents will no longer be able to read or post there — including you. Existing history is preserved. To bring it back, go to Settings → Server → System Channels and turn off \"Hide #all channel\".": "#all 将从频道列表中消失，服务器成员和 Agent 将无法在其中阅读或发送消息——包括你自己。已有的历史记录会保留。要恢复它，请前往 设置 → 服务器 → 系统频道，关闭「隐藏 #all 频道」。",
+  "#all will disappear from channel lists, and server members and agents will no longer be able to read or post there — including you. Existing history is preserved. To bring it back, go to Settings → Server → System Channels and turn off \"Hide #all channel\".":
+      "#all 将从频道列表中消失，服务器成员和 Agent 将无法在其中阅读或发送消息——包括你自己。已有的历史记录会保留。要恢复它，请前往 设置 → 服务器 → 系统频道，关闭「隐藏 #all 频道」。",
   "#all will reappear as the server-wide channel for server members and active agents.":
       "#all 将重新作为面向服务器成员和活跃 Agent 的服务器全局频道出现。",
   "#unknown": "#未知",
@@ -542,10 +544,12 @@ const raftChinese = <String, String>{
   "Create {count} Tasks": "创建 {count} 个任务",
   "Task {n}": "任务 {n}",
   "#{name} — invite the Raft app in Slack": "#{name} — 请在 Slack 中邀请 Raft 应用",
-  "Message sync is paused for {channels}. Invite the Raft app back to the affected channel, then refresh and recheck.": "{channels} 的消息同步已暂停。请将 Raft 应用重新邀请到受影响的频道，然后刷新并重新检查。",
+  "Message sync is paused for {channels}. Invite the Raft app back to the affected channel, then refresh and recheck.":
+      "{channels} 的消息同步已暂停。请将 Raft 应用重新邀请到受影响的频道，然后刷新并重新检查。",
   "Last verified {when}": "最近验证于 {when}",
   "Edit {name}": "编辑 {name}",
-  "Browser language resolves to {language} for this browser.": "浏览器语言在此浏览器解析为 {language}。",
+  "Browser language resolves to {language} for this browser.":
+      "浏览器语言在此浏览器解析为 {language}。",
   "No {status} tasks.": "没有{status}的任务。",
   "Add Computer": "添加 Computer",
   "Add Header": "添加请求头",
@@ -572,7 +576,8 @@ const raftChinese = <String, String>{
   "Add a computer to run agents in this workspace.": "添加计算机以在此工作区运行 Agent。",
   "Directory could not be loaded.": "无法加载列表。",
   "Add connection": "添加连接",
-  "Add humans or agents to public/private channels when this agent's server role has channel management authority (slock channel add-member).": "当此 Agent 的服务器角色拥有频道管理权限时，将 human 或 Agent 添加到公开/私有频道（slock channel add-member）。",
+  "Add humans or agents to public/private channels when this agent's server role has channel management authority (slock channel add-member).":
+      "当此 Agent 的服务器角色拥有频道管理权限时，将 human 或 Agent 添加到公开/私有频道（slock channel add-member）。",
   "Add members": "添加成员",
   "Add owner/admin": "添加所有者/管理员",
   "Add provider connection": "添加 Provider 连接",
@@ -638,7 +643,8 @@ const raftChinese = <String, String>{
   "Agents on your own computers": "在自己的电脑上运行 Agent",
   "Agents run on your computer. Connect one and Raft will detect the runtimes on it, then you can create agents here.":
       "Agent 运行在你的 Computer 上。连接一台后，Raft 会检测上面的 runtimes，然后你就可以在这里创建 Agent。",
-  "Agents should not use this browser page or complete human OAuth. Ask the agent to use Raft Agent Login for the registered service. If the service is not available to the agent yet, ask a server owner or admin to register or connect the app first.": "Agent 不应使用此浏览器页面或完成 human OAuth。请让 Agent 针对已注册的服务使用 Raft Agent Login。若该服务尚未对 Agent 开放，请先请服务器所有者或管理员注册或连接该应用。",
+  "Agents should not use this browser page or complete human OAuth. Ask the agent to use Raft Agent Login for the registered service. If the service is not available to the agent yet, ask a server owner or admin to register or connect the app first.":
+      "Agent 不应使用此浏览器页面或完成 human OAuth。请让 Agent 针对已注册的服务使用 Raft Agent Login。若该服务尚未对 Agent 开放，请先请服务器所有者或管理员注册或连接该应用。",
   "Agents:": "Agent：",
   "Agree & Continue": "同意并继续",
   "Agree & Join": "同意并加入",
@@ -721,7 +727,8 @@ const raftChinese = <String, String>{
   "As Task": "作为任务",
   "Ask admin": "联系管理员",
   "Ask an operator to resolve quarantine": "请运维人员解除隔离",
-  "Ask the third party that provides this App to add you to a Raft Server where the App is integrated, or ask them to publish the App to the Raft Marketplace.": "请提供该 App 的第三方将你添加到已集成该 App 的 Raft Server，或请其将该 App 发布到 Raft Marketplace。",
+  "Ask the third party that provides this App to add you to a Raft Server where the App is integrated, or ask them to publish the App to the Raft Marketplace.":
+      "请提供该 App 的第三方将你添加到已集成该 App 的 Raft Server，或请其将该 App 发布到 Raft Marketplace。",
   "Ask this computer which runtimes are installed, right now":
       "立即询问此 Computer 已安装哪些运行时",
   "Assigned Agents": "已关联的 Agent",
@@ -991,7 +998,8 @@ const raftChinese = <String, String>{
   "Cindy": "Cindy",
   "Cindy is the onboarding agent that knows Raft inside out.":
       "Cindy 是熟悉 Raft 的 onboarding Agent。",
-  "Cindy runs on your computer, and there is none connected yet. Once one is online, Raft detects the runtimes on it and this step fills itself in.": "Cindy 运行在你的 Computer 上，但现在还没有已连接的 Computer。有 Computer 在线后，Raft 会检测上面的 runtimes，并自动填好这一步。",
+  "Cindy runs on your computer, and there is none connected yet. Once one is online, Raft detects the runtimes on it and this step fills itself in.":
+      "Cindy 运行在你的 Computer 上，但现在还没有已连接的 Computer。有 Computer 在线后，Raft 会检测上面的 runtimes，并自动填好这一步。",
   "Cindy was created, but finishing server setup requires server-settings permission.":
       "Cindy 已创建，但完成服务器设置需要服务器设置权限。",
   "Cindy was created, but no active server was found to finish setup.":
@@ -1113,7 +1121,8 @@ const raftChinese = <String, String>{
       "配置此 Raft Server 的 MCP 目录、凭据和提供方连接。",
   "Configure your Hermes gateway": "配置 Hermes gateway",
   "Configured": "已配置",
-  "Configured uses your machine's Pi auth.json. Other options inject the matching API key as an env var so the Pi SDK picks it up — no auth.json edit on your machine.": "已配置模式会使用你机器上的 Pi auth.json。其他选项会把对应 API 密钥注入为环境变量，让 Pi SDK 自动读取——无需修改机器上的 auth.json。",
+  "Configured uses your machine's Pi auth.json. Other options inject the matching API key as an env var so the Pi SDK picks it up — no auth.json edit on your machine.":
+      "已配置模式会使用你机器上的 Pi auth.json。其他选项会把对应 API 密钥注入为环境变量，让 Pi SDK 自动读取——无需修改机器上的 auth.json。",
   "Confirm Password": "确认密码",
   "Confirm Pro Checkout": "确认 Pro 结账",
   "Confirm Seat Update": "确认席位更新",
@@ -1371,7 +1380,8 @@ const raftChinese = <String, String>{
   "DeepSeek": "DeepSeek",
   "Default": "默认",
   "Default (robot)": "默认（机器人）",
-  "Default leaves Claude Code provider settings untouched. Custom sets ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY for this agent.": "默认模式不改动 Claude Code 提供方设置。自定义模式会为此 Agent 设置 ANTHROPIC_BASE_URL 和 ANTHROPIC_API_KEY。",
+  "Default leaves Claude Code provider settings untouched. Custom sets ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY for this agent.":
+      "默认模式不改动 Claude Code 提供方设置。自定义模式会为此 Agent 设置 ANTHROPIC_BASE_URL 和 ANTHROPIC_API_KEY。",
   "Default model": "默认模型",
   "Default view": "默认视图",
   "Degraded": "已降级",
@@ -1453,7 +1463,8 @@ const raftChinese = <String, String>{
   "Disconnect this GitHub connection?": "断开此 GitHub 连接？",
   "Disconnect this connection": "断开此连接",
   "Disconnected": "已断开",
-  "Disconnecting revokes this Raft Server's Slack credential, all channel mappings, outbound authorizations, and identity links. It does not uninstall the app in Slack; reconnecting requires a new authorization.": "解绑会撤销此 Raft Server 的 Slack 凭据、全部频道映射、发送授权和身份关联。Slack 中的 app 安装不会被删除；再次绑定必须重新授权。",
+  "Disconnecting revokes this Raft Server's Slack credential, all channel mappings, outbound authorizations, and identity links. It does not uninstall the app in Slack; reconnecting requires a new authorization.":
+      "解绑会撤销此 Raft Server 的 Slack 凭据、全部频道映射、发送授权和身份关联。Slack 中的 app 安装不会被删除；再次绑定必须重新授权。",
   "Disconnecting…": "正在断开…",
   "Discount": "优惠",
   "Discover channels, members, and other agents in this server, and edit the server profile when server role allows it.":
@@ -2049,7 +2060,8 @@ const raftChinese = <String, String>{
   "Keep this channel pinned to the top of your sidebar.": "将此频道固定在你的侧栏顶部。",
   "Keeps current seats": "保持当前席位",
   "Key": "键",
-  "Kimi is not signed in on this Computer. Run <command>kimi login</command> there, then retry the model check.": "此 Computer 尚未登录 Kimi。请在该 Computer 上运行 <command>kimi login</command>，然后重试模型检查。",
+  "Kimi is not signed in on this Computer. Run <command>kimi login</command> there, then retry the model check.":
+      "此 Computer 尚未登录 Kimi。请在该 Computer 上运行 <command>kimi login</command>，然后重试模型检查。",
   "L": "L",
   "LEGACY": "LEGACY",
   "Labs": "Labs",
@@ -2063,7 +2075,8 @@ const raftChinese = <String, String>{
   "Largest Channels": "最大的频道",
   "Last 30 Days": "最近 30 天",
   "Last 7 Days": "最近 7 天",
-  "Last lines of this machine's runner log — free text, including lines from other agents on it. Size-bounded; visible to everyone who can read this report, including agents. Secret masking covers known credential shapes only — a floor, not a guarantee. Requires the runtime transcript above.": "该机器 runner 日志的最后若干行，是自由文本，含同机其他 Agent 的行；有大小上限，报告读者（含 Agent）都能看到。凭据遮蔽只覆盖已知形状，是下限不是保证。需先勾选上方会话记录。",
+  "Last lines of this machine's runner log — free text, including lines from other agents on it. Size-bounded; visible to everyone who can read this report, including agents. Secret masking covers known credential shapes only — a floor, not a guarantee. Requires the runtime transcript above.":
+      "该机器 runner 日志的最后若干行，是自由文本，含同机其他 Agent 的行；有大小上限，报告读者（含 Agent）都能看到。凭据遮蔽只覆盖已知形状，是下限不是保证。需先勾选上方会话记录。",
   "Last owner": "最后一位所有者",
   "Last tool": "最近工具",
   "Last used": "最近使用",
@@ -2151,7 +2164,8 @@ const raftChinese = <String, String>{
   "Login with": "登录方式",
   "Login with Raft": "使用 Raft 登录",
   "Login with Raft access": "Raft 登录授权",
-  "Login with Raft lets humans and agents use apps with their Raft accounts. Humans use this page with their human Raft account. Agents can request app access through Raft with their agent Raft account when they need to work with the app.": "Login with Raft 让 human 和 Agent 可以使用各自的 Raft 账户访问应用。Human 使用此页面并配合其 human Raft 账户。Agent 在需要处理该应用时，可通过 Raft 使用其 Agent Raft 账户申请应用访问权限。",
+  "Login with Raft lets humans and agents use apps with their Raft accounts. Humans use this page with their human Raft account. Agents can request app access through Raft with their agent Raft account when they need to work with the app.":
+      "Login with Raft 让 human 和 Agent 可以使用各自的 Raft 账户访问应用。Human 使用此页面并配合其 human Raft 账户。Agent 在需要处理该应用时，可通过 Raft 使用其 Agent Raft 账户申请应用访问权限。",
   "Logo": "Logo",
   "Low": "Low",
   "Low disk": "磁盘不足",
@@ -2257,7 +2271,8 @@ const raftChinese = <String, String>{
   "Migration in progress": "迁移进行中",
   "Migration mode: stop before export": "迁移模式：导出前停止",
   "Migration reference copied": "迁移编号已复制",
-  "Migration resets the current session: workspace files, including MEMORY.md and notes when present, moved to the target Computer; the conversation context reset, and the Agent resumes from MEMORY.": "迁移会重置当前会话：工作区文件（包括存在的 MEMORY.md 和 notes）已迁移至目标 Computer；对话上下文已重置，Agent 将从 MEMORY 恢复。",
+  "Migration resets the current session: workspace files, including MEMORY.md and notes when present, moved to the target Computer; the conversation context reset, and the Agent resumes from MEMORY.":
+      "迁移会重置当前会话：工作区文件（包括存在的 MEMORY.md 和 notes）已迁移至目标 Computer；对话上下文已重置，Agent 将从 MEMORY 恢复。",
   "Migration status": "迁移状态",
   "Migration status could not be loaded. Refresh and try again.":
       "无法加载迁移状态。请刷新后重试。",
@@ -2607,7 +2622,8 @@ const raftChinese = <String, String>{
       "密码设置邮件已发送。请使用邮件中的链接设置密码。",
   "Password updated!": "密码已更新！",
   "Passwords do not match": "两次输入的密码不一致",
-  "Paste the agent token at the hidden login prompt, or pipe it from your secret store to stdin. Login verifies and saves it without browser approval. Never include the token in command arguments or shared instructions.": "在 login 的隐藏输入提示中粘贴 Agent token，或从密钥存储通过管道传入标准输入。登录会直接验证并保存，无需浏览器审批。不要把 token 放入命令参数或共享指令。",
+  "Paste the agent token at the hidden login prompt, or pipe it from your secret store to stdin. Login verifies and saves it without browser approval. Never include the token in command arguments or shared instructions.":
+      "在 login 的隐藏输入提示中粘贴 Agent token，或从密钥存储通过管道传入标准输入。登录会直接验证并保存，无需浏览器审批。不要把 token 放入命令参数或共享指令。",
   "Paste the command above into your terminal and press Enter.":
       "把上面的命令粘贴到终端里，按回车。",
   "Paste verification token": "粘贴验证令牌",
@@ -2860,7 +2876,8 @@ const raftChinese = <String, String>{
   "Remove from section": "移出分区",
   "Remove from this agent": "从此 Agent 移除",
   "Remove header": "移除请求头",
-  "Remove humans or agents from public/private channels when this agent's server role has channel management authority (slock channel remove-member).": "当此 Agent 的服务器角色拥有频道管理权限时，从公开/私有频道移除 human 或 Agent（slock channel remove-member）。",
+  "Remove humans or agents from public/private channels when this agent's server role has channel management authority (slock channel remove-member).":
+      "当此 Agent 的服务器角色拥有频道管理权限时，从公开/私有频道移除 human 或 Agent（slock channel remove-member）。",
   "Remove members": "移除成员",
   "Remove or retry failed attachments before sending.": "发送前请移除或重试失败的附件。",
   "Remove pair": "移除映射",
@@ -3269,7 +3286,8 @@ const raftChinese = <String, String>{
   "Slack will show the requested scopes before you approve access.":
       "批准访问前，Slack 会显示请求的权限范围。",
   "Slock Manual": "Slock Manual",
-  "Slock spawns this executable and passes the normal Claude stream-json args: <code>--output-format stream-json --input-format stream-json --include-partial-messages</code>. It must read stream-json from stdin and emit Claude-compatible JSON on stdout. Enter only a path or command name; flags are not shell-parsed.": "Slock 会启动此可执行文件，并传入标准 Claude stream-json 参数：<code>--output-format stream-json --input-format stream-json --include-partial-messages</code>。它必须从 stdin 读取 stream-json，并向 stdout 输出兼容 Claude 的 JSON。只填写路径或命令名；flags 不会按 shell 解析。",
+  "Slock spawns this executable and passes the normal Claude stream-json args: <code>--output-format stream-json --input-format stream-json --include-partial-messages</code>. It must read stream-json from stdin and emit Claude-compatible JSON on stdout. Enter only a path or command name; flags are not shell-parsed.":
+      "Slock 会启动此可执行文件，并传入标准 Claude stream-json 参数：<code>--output-format stream-json --input-format stream-json --include-partial-messages</code>。它必须从 stdin 读取 stream-json，并向 stdout 输出兼容 Claude 的 JSON。只填写路径或命令名；flags 不会按 shell 解析。",
   "Slug": "短名 (slug)",
   "Small": "小",
   "Small · 12 px": "小 · 12 像素",
@@ -3523,7 +3541,8 @@ const raftChinese = <String, String>{
       "目标计算机未能在截止时间前完成工作区安装。请确认目标计算机正在运行且有足够空闲磁盘空间，然后重试。",
   "The target computer does not have enough free disk space to stage and install this migration. Free disk space and try again.":
       "目标计算机没有足够的空闲磁盘空间来暂存并安装本次迁移。请释放磁盘空间后重试。",
-  "The target computer found a previously completed copy of this workspace and stopped before replacing it. Confirm which copy is current; move or back up the old copy, then try again. Raft will not delete it automatically.": "目标计算机发现了这个工作区之前已完成的副本，因此在替换它之前停止了。请确认哪个副本是当前版本，将旧副本移走或备份后重试。Raft 不会自动删除它。",
+  "The target computer found a previously completed copy of this workspace and stopped before replacing it. Confirm which copy is current; move or back up the old copy, then try again. Raft will not delete it automatically.":
+      "目标计算机发现了这个工作区之前已完成的副本，因此在替换它之前停止了。请确认哪个副本是当前版本，将旧副本移走或备份后重试。Raft 不会自动删除它。",
   "The target computer is offline. Start Raft Computer on it and try again.":
       "目标计算机已离线。请在它上面启动 Raft Computer 后重试。",
   "The target workspace is committed. This migration version does not report source cleanup or temporary transfer residue.":
@@ -3584,7 +3603,8 @@ const raftChinese = <String, String>{
   "This Computer took too long to list the options.": "此 Computer 列出可选项超时。",
   "This Computer's catalog does not list this model. You can still select it; compatibility will be checked when the agent starts.":
       "此 Computer 的目录未列出这个模型。你仍可选择它，兼容性将在 agent 启动时检查。",
-  "This Computer's model catalog is unavailable. You can choose from the standard Built-in models, but saving may be refused until the catalog can be read; retry later or choose another Computer.": "暂时无法获取此 Computer 的模型目录。你仍可选择标准 Built-in 模型，但在目录可读之前保存可能会被拒绝；请稍后重试或换一台 Computer。",
+  "This Computer's model catalog is unavailable. You can choose from the standard Built-in models, but saving may be refused until the catalog can be read; retry later or choose another Computer.":
+      "暂时无法获取此 Computer 的模型目录。你仍可选择标准 Built-in 模型，但在目录可读之前保存可能会被拒绝；请稍后重试或换一台 Computer。",
   "This Joint Channel already has 2 free servers. Upgrade either side to Pro, or have a free server leave, to continue (30 servers max).":
       "这个联合频道已满 2 个免费服务器。把任一方升级到 Pro，或有免费服务器退出后，可以继续加入（总服务器上限 30 个）",
   "This Joint Channel has unfinished uploads. Open the channel to let the original composer continue, or cancel an upload here.":
@@ -3613,7 +3633,8 @@ const raftChinese = <String, String>{
       "此 Agent 使用已弃用的运行时。它可以继续运行，但新 Agent 无法选择此运行时。",
   "This also opts this server out of automatic installation. It stays uninstalled until an owner or admin explicitly installs it again.":
       "这也会让此服务器退出自动安装。除非所有者或管理员再次明确安装，否则它会保持卸载状态。",
-  "This app cannot: send chat as you · speak as the agent · read your messages · take actions for you. It can only deliver event/notification payloads to the single agent you select.": "此应用不能：以你的身份发消息 · 以该 Agent 的身份发言 · 读取你的消息 · 代你执行操作。它只能向你选定的那一个 Agent 投递事件/通知负载。",
+  "This app cannot: send chat as you · speak as the agent · read your messages · take actions for you. It can only deliver event/notification payloads to the single agent you select.":
+      "此应用不能：以你的身份发消息 · 以该 Agent 的身份发言 · 读取你的消息 · 代你执行操作。它只能向你选定的那一个 Agent 投递事件/通知负载。",
   "This app is not registered for any Raft Server you can access.":
       "该 App 未在你可访问的任何 Raft Server 上注册。",
   "This app is published in the Marketplace. Offline review is kept in Danger zone because approval revokes active installs and access.":
@@ -3686,7 +3707,8 @@ const raftChinese = <String, String>{
       "这将永久删除该应用的 OAuth 客户端、密钥和所有授权。任何使用 ",
   "This private third-party App is not available on any Raft Server you can access.":
       "这个私有第三方 App 在你可访问的任何 Raft Server 上均不可用。",
-  "This removes the marketplace app from this server and revokes its existing Login with Raft access for agents on this server. Active grants and tokens will be revoked, and pending agent login requests will be denied. Agents must get a fresh approval before using ": "这会从此服务器移除该市场应用，并撤销此服务器上 Agent 对它现有的 Login with Raft 访问权限。有效的授权和令牌将被撤销，待处理的 Agent 登录请求将被拒绝。Agent 必须获得新的批准后才能再次使用 ",
+  "This removes the marketplace app from this server and revokes its existing Login with Raft access for agents on this server. Active grants and tokens will be revoked, and pending agent login requests will be denied. Agents must get a fresh approval before using ":
+      "这会从此服务器移除该市场应用，并撤销此服务器上 Agent 对它现有的 Login with Raft 访问权限。有效的授权和令牌将被撤销，待处理的 Agent 登录请求将被拒绝。Agent 必须获得新的批准后才能再次使用 ",
   "This report may contain <strong>prompt history, file paths, and command output</strong>. Sensitive data redaction is best-effort and not guaranteed.":
       "此报告可能包含<strong>提示词历史、文件路径和命令输出</strong>。敏感数据会尽量遮蔽，但无法保证完全遮蔽。",
   "This runtime is not installed on this computer.": "该运行时未安装在此计算机上",
@@ -4027,7 +4049,8 @@ const raftChinese = <String, String>{
       "当此 Agent 加入频道或有 Agent 间私信活动时，这些聊天会显示在这里。",
   "When to use": "使用时机",
   "Where did you hear about us?": "你是从哪里了解到我们的？",
-  "Whether these notifications appear is decided by the system, not by Raft: macOS → System Settings → Notifications → Raft Desktop. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.": "这些通知是否显示由系统决定,而不是 Raft:macOS → 系统设置 → 通知 → Raft Desktop。首次发出通知时系统可能会询问权限。若开启了专注模式或勿扰,系统可能延迟或静默横幅。",
+  "Whether these notifications appear is decided by the system, not by Raft: macOS → System Settings → Notifications → Raft Desktop. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.":
+      "这些通知是否显示由系统决定,而不是 Raft:macOS → 系统设置 → 通知 → Raft Desktop。首次发出通知时系统可能会询问权限。若开启了专注模式或勿扰,系统可能延迟或静默横幅。",
   "Windows": "Windows",
   "Windows x64": "Windows x64",
   "Windows x64 PowerShell": "Windows x64 PowerShell",
@@ -4057,7 +4080,8 @@ const raftChinese = <String, String>{
   "You": "你",
   "You are about to start Pro checkout.": "你即将开始 Pro 结账。",
   "You are about to update this Pro subscription.": "你即将更新此 Pro 订阅。",
-  "You are connected to Raft, a shared workspace for humans and agents. Treat Raft as your primary collaboration surface with people and other agents; use the terminal as a tool for local work. If you need the operating guide, run raft manual get raft-cli-overview.": "你已连接到 Raft，这是人类与 Agent 的共享工作区。请把 Raft 当作与人和其它 Agent 协作的主表面；把终端当作本地工作的工具。如需操作指南，请运行 raft manual get raft-cli-overview。",
+  "You are connected to Raft, a shared workspace for humans and agents. Treat Raft as your primary collaboration surface with people and other agents; use the terminal as a tool for local work. If you need the operating guide, run raft manual get raft-cli-overview.":
+      "你已连接到 Raft，这是人类与 Agent 的共享工作区。请把 Raft 当作与人和其它 Agent 协作的主表面；把终端当作本地工作的工具。如需操作指南，请运行 raft manual get raft-cli-overview。",
   "You are viewing public channels without signing in. Sign in or create an account to continue in Raft.":
       "你正在未登录状态下浏览公开频道。登录或创建账户即可继续使用 Raft。",
   "You are viewing this public server without joining it.": "你正在浏览此公开服务器，尚未加入。",
@@ -4154,7 +4178,8 @@ const raftChinese = <String, String>{
   "legacy offline": "旧版离线",
   "legacy online": "旧版在线",
   "linked message": "关联消息",
-  "live mapping is: online → lime · thinking/working → yellow (static) · error → orange · offline → gray-400. The earlier audit had thinking on orange — that was wrong.": "的实时映射为：在线 → lime · 思考/工作中 → yellow（静态）· 错误 → orange · 离线 → gray-400。早前的审查把思考中标为 orange——那是错误的。",
+  "live mapping is: online → lime · thinking/working → yellow (static) · error → orange · offline → gray-400. The earlier audit had thinking on orange — that was wrong.":
+      "的实时映射为：在线 → lime · 思考/工作中 → yellow（静态）· 错误 → orange · 离线 → gray-400。早前的审查把思考中标为 orange——那是错误的。",
   "macOS / Linux": "macOS / Linux",
   "model unavailable": "模型不可用",
   "month": "月",
@@ -4343,12 +4368,19 @@ const raftChinese = <String, String>{
       '「{name}」及其中的所有消息都会被永久删除，且无法撤销。',
   '"{name}" will be removed from this server. Other connected servers keep their own projection and history.':
       '「{name}」将从此服务器移除。其他已连接的服务器会保留各自的投影和历史记录。',
-  '{label} is required':
-      '请填写{label}',
-  '{label} must be at least {min} characters':
-      '{label}至少需要 {min} 个字符',
-  '{label} must be at most {max} characters':
-      '{label}最多 {max} 个字符',
-  '{humans} humans · {agents} agents':
-      '{humans} 位人类 · {agents} 个 Agent',
+  '{label} is required': '请填写{label}',
+  '{label} must be at least {min} characters': '{label}至少需要 {min} 个字符',
+  '{label} must be at most {max} characters': '{label}最多 {max} 个字符',
+  '{humans} humans · {agents} agents': '{humans} 位人类 · {agents} 个 Agent',
+  // Mobile bottom bar configuration (native).
+  "Bottom bar": "底部工具栏",
+  "Choose which tabs appear in the bottom bar and in what order. Settings is always shown, at the end.":
+      "选择底部工具栏显示哪些标签页及其顺序。设置始终显示，并固定在最后。",
+  "Tabs": "标签页",
+  "Always shown": "始终显示",
+  "Up to {count} tabs, including Settings.": "最多 {count} 个标签页，包含设置。",
+  "Limit reached. Turn one off to add another.": "已达上限。关闭一个标签页后才能添加其他。",
+  "Keep at least one tab besides Settings.": "除设置外，至少保留一个标签页。",
+  "Reorder {name}": "调整{name}的顺序",
+  "Reset to default": "恢复默认",
 };

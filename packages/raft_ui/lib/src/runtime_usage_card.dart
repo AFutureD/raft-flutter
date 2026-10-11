@@ -340,7 +340,8 @@ class RaftRuntimeUsageSurface extends StatelessWidget {
       'unsupported' =>
         'Account usage is unavailable for this runtime or sign-in method.',
       'error' => 'Cached usage could not be read.',
-      'reauth_required' => 'Sign in again on this Computer. Last-known percentages are hidden until the provider authenticates.',
+      'reauth_required' =>
+        'Sign in again on this Computer. Last-known percentages are hidden until the provider authenticates.',
       _ => null,
     };
     return Column(

@@ -36,6 +36,7 @@ class RaftSpinnerRecipeStyle {
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `ring`.
   final RaftSlotStyle ring;
 
@@ -57,14 +58,40 @@ abstract final class RaftSpinnerRecipe {
     RaftRecipeAxis('variant', ['default', 'inverse'], null, true),
   ];
 
-  static RaftSpinnerRecipeStyle resolve({required RaftRecipeTheme theme, RaftSpinnerRecipeSize? size, RaftSpinnerRecipeVariant? variant, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, size?.css, variant?.css], states, tokens);
+  static RaftSpinnerRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftSpinnerRecipeSize? size,
+    RaftSpinnerRecipeVariant? variant,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, size?.css, variant?.css],
+      states,
+      tokens,
+    );
     return RaftSpinnerRecipeStyle(root: s[0], ring: s[1]);
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -91,7 +118,29 @@ abstract final class RaftSpinnerRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1], [2, 3], [4, 5], [6, 1], [7, 3], [8, 5], [9, 1], [10, 3], [11, 5], [12, 1], [13, 3], [14, 5], [15, 1], [15, 1], [15, 1], [15, 1],
-    [15, 1], [15, 1], [16, 1], [16, 1], [16, 1], [16, 1], [16, 1], [16, 1],
+    [0, 1],
+    [2, 3],
+    [4, 5],
+    [6, 1],
+    [7, 3],
+    [8, 5],
+    [9, 1],
+    [10, 3],
+    [11, 5],
+    [12, 1],
+    [13, 3],
+    [14, 5],
+    [15, 1],
+    [15, 1],
+    [15, 1],
+    [15, 1],
+    [15, 1],
+    [15, 1],
+    [16, 1],
+    [16, 1],
+    [16, 1],
+    [16, 1],
+    [16, 1],
+    [16, 1],
   ];
 }

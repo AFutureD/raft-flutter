@@ -85,7 +85,12 @@ final class CssVar extends CssValue {
   final CssValue? fallback;
   final String? token;
   @override
-  Object? toJson() => {'t': 'var', 'name': name, 'fb': fallback?.toJson(), if (token != null) 'token': token};
+  Object? toJson() => {
+    't': 'var',
+    'name': name,
+    'fb': fallback?.toJson(),
+    if (token != null) 'token': token,
+  };
   @override
   String toString() => token != null
       ? 'token($token${fallback != null ? ', $fallback' : ''})'
@@ -97,7 +102,11 @@ final class CssFunction extends CssValue {
   final String name;
   final List<CssValue> args;
   @override
-  Object? toJson() => {'t': 'fn', 'name': name, 'args': [for (final a in args) a.toJson()]};
+  Object? toJson() => {
+    't': 'fn',
+    'name': name,
+    'args': [for (final a in args) a.toJson()],
+  };
   @override
   String toString() => '$name(${args.join(', ')})';
 }
@@ -126,7 +135,10 @@ final class CssSeq extends CssValue {
   const CssSeq(this.items);
   final List<CssValue> items;
   @override
-  Object? toJson() => {'t': 'seq', 'items': [for (final a in items) a.toJson()]};
+  Object? toJson() => {
+    't': 'seq',
+    'items': [for (final a in items) a.toJson()],
+  };
   @override
   String toString() => items.join(' ');
 }
@@ -135,7 +147,10 @@ final class CssList extends CssValue {
   const CssList(this.items);
   final List<CssValue> items;
   @override
-  Object? toJson() => {'t': 'list', 'items': [for (final a in items) a.toJson()]};
+  Object? toJson() => {
+    't': 'list',
+    'items': [for (final a in items) a.toJson()],
+  };
   @override
   String toString() => items.join(', ');
 }
@@ -160,20 +175,22 @@ final class CssUnset extends CssValue {
 /// Canonical text form of a value (mirrors `canon()` in tool/recipes/gen_dart.mjs;
 /// used by the JS/Dart parity test).
 String raftCssCanonical(CssValue v) => switch (v) {
-      CssNum(:final value, :final unit) => '${_canonNum(value)}$unit',
-      CssKeyword(:final value) => value,
-      CssString(:final value) => '"$value"',
-      CssColor(:final argb) => '#${argb.toRadixString(16).padLeft(8, '0')}',
-      CssVar(:final name, :final fallback, :final token) =>
-        '${token != null ? 'token' : 'var'}(${token ?? name}${fallback != null ? '|${raftCssCanonical(fallback)}' : ''})',
-      CssFunction(:final name, :final args) => '$name(${args.map(raftCssCanonical).join(', ')})',
-      CssCalc(:final expr) => 'calc(${raftCssCanonical(expr)})',
-      CssOp(:final op, :final a, :final b) => '(${raftCssCanonical(a)} $op ${raftCssCanonical(b)})',
-      CssSeq(:final items) => items.map(raftCssCanonical).join(' '),
-      CssList(:final items) => items.map(raftCssCanonical).join(', '),
-      CssSlash() => '/',
-      CssUnset() => 'unset',
-    };
+  CssNum(:final value, :final unit) => '${_canonNum(value)}$unit',
+  CssKeyword(:final value) => value,
+  CssString(:final value) => '"$value"',
+  CssColor(:final argb) => '#${argb.toRadixString(16).padLeft(8, '0')}',
+  CssVar(:final name, :final fallback, :final token) =>
+    '${token != null ? 'token' : 'var'}(${token ?? name}${fallback != null ? '|${raftCssCanonical(fallback)}' : ''})',
+  CssFunction(:final name, :final args) =>
+    '$name(${args.map(raftCssCanonical).join(', ')})',
+  CssCalc(:final expr) => 'calc(${raftCssCanonical(expr)})',
+  CssOp(:final op, :final a, :final b) =>
+    '(${raftCssCanonical(a)} $op ${raftCssCanonical(b)})',
+  CssSeq(:final items) => items.map(raftCssCanonical).join(' '),
+  CssList(:final items) => items.map(raftCssCanonical).join(', '),
+  CssSlash() => '/',
+  CssUnset() => 'unset',
+};
 
 String _canonNum(double v) {
   final x = double.parse(v.toStringAsFixed(6));
@@ -232,7 +249,12 @@ final class RaftUtility {
 /// [viewportWidth] / [viewportHeight] / [containerWidth] (logical px); when
 /// those are null, width/height-conditioned rules do not apply.
 class RaftRecipeStates {
-  const RaftRecipeStates([this.flags = const <String>{}, this.viewportWidth, this.viewportHeight, this.containerWidth]);
+  const RaftRecipeStates([
+    this.flags = const <String>{},
+    this.viewportWidth,
+    this.viewportHeight,
+    this.containerWidth,
+  ]);
 
   static const RaftRecipeStates none = RaftRecipeStates();
 
@@ -261,20 +283,39 @@ class RaftRecipeStates {
   final double? viewportHeight;
   final double? containerWidth;
 
-  RaftRecipeStates copyWith({Set<String>? flags, double? viewportWidth, double? viewportHeight, double? containerWidth}) =>
-      RaftRecipeStates(flags ?? this.flags, viewportWidth ?? this.viewportWidth, viewportHeight ?? this.viewportHeight,
-          containerWidth ?? this.containerWidth);
+  RaftRecipeStates copyWith({
+    Set<String>? flags,
+    double? viewportWidth,
+    double? viewportHeight,
+    double? containerWidth,
+  }) => RaftRecipeStates(
+    flags ?? this.flags,
+    viewportWidth ?? this.viewportWidth,
+    viewportHeight ?? this.viewportHeight,
+    containerWidth ?? this.containerWidth,
+  );
 
-  static final RegExp _media = RegExp(r'^(width|height|container-width)(>=|<=|<|>)([\d.]+)$');
+  static final RegExp _media = RegExp(
+    r'^(width|height|container-width)(>=|<=|<|>)([\d.]+)$',
+  );
 
   bool matches(String atom) {
     if (atom.startsWith('not:')) return !matches(atom.substring(4));
     final m = _media.firstMatch(atom);
     if (m != null) {
-      final v = switch (m.group(1)) { 'width' => viewportWidth, 'height' => viewportHeight, _ => containerWidth };
+      final v = switch (m.group(1)) {
+        'width' => viewportWidth,
+        'height' => viewportHeight,
+        _ => containerWidth,
+      };
       if (v == null) return false;
       final n = double.parse(m.group(3)!);
-      return switch (m.group(2)) { '>=' => v >= n, '<=' => v <= n, '<' => v < n, _ => v > n };
+      return switch (m.group(2)) {
+        '>=' => v >= n,
+        '<=' => v <= n,
+        '<' => v < n,
+        _ => v > n,
+      };
     }
     return flags.contains(atom);
   }
@@ -290,7 +331,8 @@ final class TokenRef {
   final String name;
 
   /// CSS custom property name.
-  String get cssName => '--${name.replaceAllMapped(RegExp(r'([A-Z]|(?<=[a-z])[0-9]+)'), (m) => '-${m[0]!.toLowerCase()}')}';
+  String get cssName =>
+      '--${name.replaceAllMapped(RegExp(r'([A-Z]|(?<=[a-z])[0-9]+)'), (m) => '-${m[0]!.toLowerCase()}')}';
   @override
   bool operator ==(Object other) => other is TokenRef && other.name == name;
   @override
@@ -335,7 +377,9 @@ sealed class RaftColorRef {
       case CssKeyword(value: 'currentcolor'):
         return const RaftCurrentColor();
       case CssFunction(name: 'color-mix', :final args) when args.length == 3:
-        final space = args[0] is CssSeq ? (args[0] as CssSeq).items.elementAtOrNull(1) : null;
+        final space = args[0] is CssSeq
+            ? (args[0] as CssSeq).items.elementAtOrNull(1)
+            : null;
         final a = _mixPart(args[1]);
         final b = _mixPart(args[2]);
         if (space is! CssKeyword || a == null || b == null) return null;
@@ -367,11 +411,13 @@ final class RaftLiteralColor extends RaftColorRef {
   @override
   Color resolve(RaftTokenResolver tokens, {Color? currentColor}) => value;
   @override
-  bool operator ==(Object other) => other is RaftLiteralColor && other.value == value;
+  bool operator ==(Object other) =>
+      other is RaftLiteralColor && other.value == value;
   @override
   int get hashCode => value.hashCode;
   @override
-  String toString() => 'RaftLiteralColor(0x${value.toARGB32().toRadixString(16)})';
+  String toString() =>
+      'RaftLiteralColor(0x${value.toARGB32().toRadixString(16)})';
 }
 
 final class RaftTokenColor extends RaftColorRef {
@@ -381,9 +427,11 @@ final class RaftTokenColor extends RaftColorRef {
   @override
   String? get tokenName => token.name;
   @override
-  Color resolve(RaftTokenResolver tokens, {Color? currentColor}) => tokens.color(token.name);
+  Color resolve(RaftTokenResolver tokens, {Color? currentColor}) =>
+      tokens.color(token.name);
   @override
-  bool operator ==(Object other) => other is RaftTokenColor && other.token == token;
+  bool operator ==(Object other) =>
+      other is RaftTokenColor && other.token == token;
   @override
   int get hashCode => token.hashCode;
   @override
@@ -393,7 +441,8 @@ final class RaftTokenColor extends RaftColorRef {
 final class RaftCurrentColor extends RaftColorRef {
   const RaftCurrentColor();
   @override
-  Color resolve(RaftTokenResolver tokens, {Color? currentColor}) => currentColor ?? const Color(0xFF000000);
+  Color resolve(RaftTokenResolver tokens, {Color? currentColor}) =>
+      currentColor ?? const Color(0xFF000000);
 }
 
 /// CSS `color-mix(in <space>, a pa, b pb)` (oklab / oklch).
@@ -425,7 +474,8 @@ final class RaftTokenShadow extends RaftShadowLayer {
   const RaftTokenShadow(this.token);
   final TokenRef token;
   @override
-  bool operator ==(Object other) => other is RaftTokenShadow && other.token == token;
+  bool operator ==(Object other) =>
+      other is RaftTokenShadow && other.token == token;
   @override
   int get hashCode => token.hashCode;
   @override
@@ -433,33 +483,45 @@ final class RaftTokenShadow extends RaftShadowLayer {
 }
 
 final class RaftLiteralShadow extends RaftShadowLayer {
-  const RaftLiteralShadow({required this.offset, required this.blur, required this.spread, required this.color, this.inset = false});
+  const RaftLiteralShadow({
+    required this.offset,
+    required this.blur,
+    required this.spread,
+    required this.color,
+    this.inset = false,
+  });
   final bool inset;
   final Offset offset;
   final double blur;
   final double spread;
   final RaftColorRef color;
   @override
-  String toString() => 'RaftLiteralShadow(${inset ? 'inset ' : ''}$offset blur $blur spread $spread $color)';
+  String toString() =>
+      'RaftLiteralShadow(${inset ? 'inset ' : ''}$offset blur $blur spread $spread $color)';
 }
 
 extension RaftShadowLayers on List<RaftShadowLayer> {
   /// Outer shadows as Flutter [BoxShadow]s in Flutter paint order (CSS lists
   /// the top-most shadow first; Flutter paints the first entry first).
   /// Inset layers are skipped — see [insetLayers].
-  List<BoxShadow> toBoxShadows(RaftTokenResolver tokens, {Color? currentColor}) {
+  List<BoxShadow> toBoxShadows(
+    RaftTokenResolver tokens, {
+    Color? currentColor,
+  }) {
     final out = <BoxShadow>[];
     for (final layer in reversed) {
       switch (layer) {
         case RaftTokenShadow(:final token):
           out.addAll(tokens.shadow(token.name));
         case RaftLiteralShadow(inset: false):
-          out.add(BoxShadow(
-            color: layer.color.resolve(tokens, currentColor: currentColor),
-            offset: layer.offset,
-            blurRadius: layer.blur,
-            spreadRadius: layer.spread,
-          ));
+          out.add(
+            BoxShadow(
+              color: layer.color.resolve(tokens, currentColor: currentColor),
+              offset: layer.offset,
+              blurRadius: layer.blur,
+              spreadRadius: layer.spread,
+            ),
+          );
         case RaftLiteralShadow():
           break;
       }
@@ -467,7 +529,10 @@ extension RaftShadowLayers on List<RaftShadowLayer> {
     return out;
   }
 
-  List<RaftLiteralShadow> get insetLayers => [for (final l in this) if (l is RaftLiteralShadow && l.inset) l];
+  List<RaftLiteralShadow> get insetLayers => [
+    for (final l in this)
+      if (l is RaftLiteralShadow && l.inset) l,
+  ];
 }
 
 enum RaftRecipeTheme { brutal, elegant }
@@ -478,7 +543,12 @@ enum RaftRecipeTheme { brutal, elegant }
 /// mixed radix over the axes (first axis most significant); an axis that
 /// [allowsUnset] reserves option 0 for "prop omitted".
 final class RaftRecipeAxis {
-  const RaftRecipeAxis(this.name, this.values, this.defaultValue, this.allowsUnset);
+  const RaftRecipeAxis(
+    this.name,
+    this.values,
+    this.defaultValue,
+    this.allowsUnset,
+  );
   final String name;
   final List<String> values;
   final String? defaultValue;
@@ -491,7 +561,8 @@ final class RaftRecipeAxis {
       throw ArgumentError('Recipe axis "$name" requires a value');
     }
     final i = values.indexOf(v);
-    if (i < 0) throw ArgumentError.value(value, name, 'expected one of $values');
+    if (i < 0)
+      throw ArgumentError.value(value, name, 'expected one of $values');
     return allowsUnset ? i + 1 : i;
   }
 
@@ -499,52 +570,73 @@ final class RaftRecipeAxis {
 }
 
 final _generatedSlotTemplates =
-    Expando<RaftLruCache<_SlotTemplateKey, RaftSlotStyle>>('generated recipe slots');
+    Expando<RaftLruCache<_SlotTemplateKey, RaftSlotStyle>>(
+      'generated recipe slots',
+    );
 
 class _SlotTemplateKey {
   _SlotTemplateKey(List<int> classes, RaftRecipeStates states)
-      : classes = List.of(classes),
-        flags = states.flags.toList()..sort(),
-        width = states.viewportWidth,
-        height = states.viewportHeight,
-        containerWidth = states.containerWidth;
+    : classes = List.of(classes),
+      flags = states.flags.toList()..sort(),
+      width = states.viewportWidth,
+      height = states.viewportHeight,
+      containerWidth = states.containerWidth;
   final List<int> classes;
   final List<String> flags;
   final double? width, height, containerWidth;
 
   @override
-  bool operator ==(Object other) => other is _SlotTemplateKey &&
-      width == other.width && height == other.height &&
+  bool operator ==(Object other) =>
+      other is _SlotTemplateKey &&
+      width == other.width &&
+      height == other.height &&
       containerWidth == other.containerWidth &&
-      listEquals(classes, other.classes) && listEquals(flags, other.flags);
+      listEquals(classes, other.classes) &&
+      listEquals(flags, other.flags);
   @override
-  int get hashCode => Object.hash(Object.hashAll(classes), Object.hashAll(flags),
-      width, height, containerWidth);
+  int get hashCode => Object.hash(
+    Object.hashAll(classes),
+    Object.hashAll(flags),
+    width,
+    height,
+    containerWidth,
+  );
 }
 
 // Returned styles retain their existing mutable collection API. No caller can
 // mutate another caller's cached template, including nested CSS value lists.
 CssValue _copySlotValue(CssValue value) => switch (value) {
-  CssFunction(:final name, :final args) =>
-    CssFunction(name, [for (final v in args) _copySlotValue(v)]),
+  CssFunction(:final name, :final args) => CssFunction(name, [
+    for (final v in args) _copySlotValue(v),
+  ]),
   CssSeq(:final items) => CssSeq([for (final v in items) _copySlotValue(v)]),
   CssList(:final items) => CssList([for (final v in items) _copySlotValue(v)]),
   CssCalc(:final expr) => CssCalc(_copySlotValue(expr)),
-  CssOp(:final op, :final a, :final b) =>
-    CssOp(op, _copySlotValue(a), _copySlotValue(b)),
-  CssVar(:final name, :final fallback, :final token) =>
-    CssVar(name, fallback == null ? null : _copySlotValue(fallback), token),
+  CssOp(:final op, :final a, :final b) => CssOp(
+    op,
+    _copySlotValue(a),
+    _copySlotValue(b),
+  ),
+  CssVar(:final name, :final fallback, :final token) => CssVar(
+    name,
+    fallback == null ? null : _copySlotValue(fallback),
+    token,
+  ),
   _ => value,
 };
 
-RaftSlotStyle _bindSlotTemplate(RaftSlotStyle template, RaftTokenResolver? tokens) =>
-    RaftSlotStyle(
-      {for (final e in template.properties.entries) e.key: _copySlotValue(e.value)},
-      {for (final e in template.targets.entries) e.key:
-        {for (final p in e.value.entries) p.key: _copySlotValue(p.value)}},
-      List.of(template.classes),
-      tokens,
-    );
+RaftSlotStyle _bindSlotTemplate(
+  RaftSlotStyle template,
+  RaftTokenResolver? tokens,
+) => RaftSlotStyle(
+  {for (final e in template.properties.entries) e.key: _copySlotValue(e.value)},
+  {
+    for (final e in template.targets.entries)
+      e.key: {for (final p in e.value.entries) p.key: _copySlotValue(p.value)},
+  },
+  List.of(template.classes),
+  tokens,
+);
 
 /// Resolves every slot of an immutable generated recipe for one combination.
 ///
@@ -566,11 +658,16 @@ List<RaftSlotStyle> raftResolveRecipe(
   }
   final cache = _generatedSlotTemplates[engine] ??=
       RaftLruCache<_SlotTemplateKey, RaftSlotStyle>(512);
-  return [for (final list in combos[index]) _bindSlotTemplate(
-    cache.putIfAbsent(_SlotTemplateKey(lists[list], states),
-      () => engine.resolveSlot(lists[list], states)),
-    tokens,
-  )];
+  return [
+    for (final list in combos[index])
+      _bindSlotTemplate(
+        cache.putIfAbsent(
+          _SlotTemplateKey(lists[list], states),
+          () => engine.resolveSlot(lists[list], states),
+        ),
+        tokens,
+      ),
+  ];
 }
 
 // -------------------------------------------------------------------- engine
@@ -596,14 +693,20 @@ final class RaftRecipeEngine {
   @visibleForTesting
   int get debugTemplateCacheSize => _generatedSlotTemplates[this]?.length ?? 0;
 
-  RaftSlotStyle resolveSlot(List<int> classIndices, RaftRecipeStates states, [RaftTokenResolver? tokens]) {
+  RaftSlotStyle resolveSlot(
+    List<int> classIndices,
+    RaftRecipeStates states, [
+    RaftTokenResolver? tokens,
+  ]) {
     final byTarget = <String, List<_Entry>>{};
     for (final ci in classIndices) {
       final u = utilities[ci];
       for (var li = 0; li < u.layers.length; li++) {
         final layer = u.layers[li];
         if (!layer.atoms.every(states.matches)) continue;
-        (byTarget[layer.target] ??= []).add(_Entry(layer.specificity, u.order, li, layer));
+        (byTarget[layer.target] ??= []).add(
+          _Entry(layer.specificity, u.order, li, layer),
+        );
       }
     }
     final declared = <String, Map<String, CssValue>>{};
@@ -630,17 +733,23 @@ final class RaftRecipeEngine {
       CssValue? lookup(String name) {
         final own = props[name];
         if (own != null) return own;
-        if (target != 'self' && !registered.containsKey(name)) return self[name];
+        if (target != 'self' && !registered.containsKey(name))
+          return self[name];
         return null;
       }
 
       final ctx = _EvalContext(lookup, registered);
-      evaluated[target] = {for (final e in props.entries) e.key: ctx.evaluate(e.value, 0)};
+      evaluated[target] = {
+        for (final e in props.entries) e.key: ctx.evaluate(e.value, 0),
+      };
     }
     final classes = [for (final ci in classIndices) utilities[ci].name];
     return RaftSlotStyle(
       evaluated['self']!,
-      {for (final e in evaluated.entries) if (e.key != 'self') e.key: e.value},
+      {
+        for (final e in evaluated.entries)
+          if (e.key != 'self') e.key: e.value,
+      },
       classes,
       tokens,
     );
@@ -664,30 +773,37 @@ class _EvalContext {
         final args = [for (final a in rawArgs) evaluate(a, depth + 1)];
         if (args.any((a) => a is CssUnset)) return const CssUnset();
         if (name == 'min' || name == 'max' || name == 'clamp') {
-          if (args.every((a) => a is CssNum && a.unit == (args[0] as CssNum).unit)) {
+          if (args.every(
+            (a) => a is CssNum && a.unit == (args[0] as CssNum).unit,
+          )) {
             final vs = [for (final a in args) (a as CssNum).value];
             final unit = (args[0] as CssNum).unit;
             final v = name == 'min'
                 ? vs.reduce(math.min)
                 : name == 'max'
-                    ? vs.reduce(math.max)
-                    : math.min(math.max(vs[0], vs[1]), vs[2]);
+                ? vs.reduce(math.max)
+                : math.min(math.max(vs[0], vs[1]), vs[2]);
             return CssNum(v, unit);
           }
         }
-        if (name == 'color-mix') return _evalColorMix(args) ?? CssFunction(name, args);
+        if (name == 'color-mix')
+          return _evalColorMix(args) ?? CssFunction(name, args);
         return CssFunction(name, args);
       case CssSeq(:final items):
         final evaluated = [for (final x in items) evaluate(x, depth + 1)];
         if (evaluated.any((a) => a is CssUnset)) return const CssUnset();
-        final flat = [for (final x in evaluated) ...(x is CssSeq ? x.items : [x])];
+        final flat = [
+          for (final x in evaluated) ...(x is CssSeq ? x.items : [x]),
+        ];
         if (flat.length == 1) return flat.single;
         if (flat.any((x) => x is CssList)) return _resplit(flat);
         return CssSeq(flat);
       case CssList(:final items):
         final evaluated = [for (final x in items) evaluate(x, depth + 1)];
         if (evaluated.any((a) => a is CssUnset)) return const CssUnset();
-        return CssList([for (final x in evaluated) ...(x is CssList ? x.items : [x])]);
+        return CssList([
+          for (final x in evaluated) ...(x is CssList ? x.items : [x]),
+        ]);
       default:
         return node;
     }
@@ -712,7 +828,9 @@ class _EvalContext {
   CssValue _evalVar(CssVar node, int depth) {
     final set = lookup(node.name);
     if (set != null) return evaluate(set, depth + 1);
-    final fb = node.fallback == null ? null : evaluate(node.fallback!, depth + 1);
+    final fb = node.fallback == null
+        ? null
+        : evaluate(node.fallback!, depth + 1);
     if (node.token != null) return CssVar(node.name, fb, node.token);
     if (registered.containsKey(node.name)) {
       final init = registered[node.name];
@@ -728,7 +846,8 @@ class _EvalContext {
       return _arith(e.op, a, b) ?? CssOp(e.op, a, b);
     }
     if (e is CssCalc) return _evalMath(e.expr, depth + 1);
-    if (e is CssKeyword && e.value == 'infinity') return const CssNum(3.4028234663852886e38);
+    if (e is CssKeyword && e.value == 'infinity')
+      return const CssNum(3.4028234663852886e38);
     final v = evaluate(e, depth + 1);
     if (v is CssCalc) return v.expr;
     if (v is CssSeq && v.items.isEmpty) return const CssNum(0);
@@ -765,11 +884,16 @@ class _EvalContext {
   static CssValue? _evalColorMix(List<CssValue> args) {
     if (args.length != 3) return null;
     final spaceSeq = args[0] is CssSeq ? (args[0] as CssSeq).items : [args[0]];
-    final space = spaceSeq.length > 1 && spaceSeq[1] is CssKeyword ? (spaceSeq[1] as CssKeyword).value : null;
+    final space = spaceSeq.length > 1 && spaceSeq[1] is CssKeyword
+        ? (spaceSeq[1] as CssKeyword).value
+        : null;
     (CssValue?, double?) part(CssValue n) {
       final items = n is CssSeq ? n.items : [n];
       final color = items.where((x) => x is! CssNum).firstOrNull;
-      final pct = items.whereType<CssNum>().where((x) => x.unit == '%').firstOrNull;
+      final pct = items
+          .whereType<CssNum>()
+          .where((x) => x.unit == '%')
+          .firstOrNull;
       return (color, pct == null ? null : pct.value / 100);
     }
 
@@ -784,20 +908,33 @@ class _EvalContext {
 
 // --------------------------------------------------------------- colour math
 
-double _srgbToLinear(double c) => c <= 0.04045 ? c / 12.92 : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
-double _cbrt(double x) => x < 0 ? -math.pow(-x, 1 / 3).toDouble() : math.pow(x, 1 / 3).toDouble();
+double _srgbToLinear(double c) =>
+    c <= 0.04045 ? c / 12.92 : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+double _cbrt(double x) =>
+    x < 0 ? -math.pow(-x, 1 / 3).toDouble() : math.pow(x, 1 / 3).toDouble();
 
 // OKLab -> sRGB on Chromium 147's path, bit-exact with tool/gen-tokens and
 // tool/recipes (docs/design-tokens.md): OKLab -> LMS -> XYZ-D65 -> Bradford ->
 // XYZ-D50 -> inverse skcms sRGB gamut, float32 throughout.
 final Float32List _f32 = Float32List(1);
 double _f(double x) => (_f32..[0] = x)[0];
-List<List<double>> _m32(List<List<double>> m) => [for (final r in m) [for (final v in r) _f(v)]];
-List<double> _mul(List<List<double>> m, List<double> v) => [for (final r in m) r[0] * v[0] + r[1] * v[1] + r[2] * v[2]];
-List<double> _mul32(List<List<double>> m, List<double> v) =>
-    [for (final r in m) _f(_f(_f(r[0] * v[0]) + _f(r[1] * v[1])) + _f(r[2] * v[2]))];
-List<List<double>> _matmul(List<List<double>> a, List<List<double>> b) =>
-    [for (var i = 0; i < 3; i++) [for (var j = 0; j < 3; j++) a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j]]];
+List<List<double>> _m32(List<List<double>> m) => [
+  for (final r in m) [for (final v in r) _f(v)],
+];
+List<double> _mul(List<List<double>> m, List<double> v) => [
+  for (final r in m) r[0] * v[0] + r[1] * v[1] + r[2] * v[2],
+];
+List<double> _mul32(List<List<double>> m, List<double> v) => [
+  for (final r in m)
+    _f(_f(_f(r[0] * v[0]) + _f(r[1] * v[1])) + _f(r[2] * v[2])),
+];
+List<List<double>> _matmul(List<List<double>> a, List<List<double>> b) => [
+  for (var i = 0; i < 3; i++)
+    [
+      for (var j = 0; j < 3; j++)
+        a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j],
+    ],
+];
 List<List<double>> _inv3(List<List<double>> m) {
   final [a, b, c] = m[0];
   final [d, e, f] = m[1];
@@ -836,12 +973,16 @@ final _xyzD65ToD50 = () {
   ];
   return _m32(_matmul(_inv3(bradford), _matmul(scale, bradford)));
 }();
-final _xyzD50ToLinSrgb = _m32(_inv3(const [
-  [0.436065674, 0.385147095, 0.143066406],
-  [0.222488403, 0.716873169, 0.060607910],
-  [0.013916016, 0.097076416, 0.714096069],
-]));
-final _linSrgbToLms = _inv3(_matmul(_xyzD50ToLinSrgb, _matmul(_xyzD65ToD50, _lmsToXyzD65)));
+final _xyzD50ToLinSrgb = _m32(
+  _inv3(const [
+    [0.436065674, 0.385147095, 0.143066406],
+    [0.222488403, 0.716873169, 0.060607910],
+    [0.013916016, 0.097076416, 0.714096069],
+  ]),
+);
+final _linSrgbToLms = _inv3(
+  _matmul(_xyzD50ToLinSrgb, _matmul(_xyzD65ToD50, _lmsToXyzD65)),
+);
 final _lmsToOklab = _inv3(_oklabToLms);
 
 double _linearToSrgb(double c) {
@@ -856,12 +997,20 @@ List<double> _toOklab(int argb) {
     _srgbToLinear(((argb >> 8) & 255) / 255),
     _srgbToLinear((argb & 255) / 255),
   ];
-  return _mul(_lmsToOklab, [for (final v in _mul(_linSrgbToLms, rgb)) _cbrt(v)]);
+  return _mul(_lmsToOklab, [
+    for (final v in _mul(_linSrgbToLms, rgb)) _cbrt(v),
+  ]);
 }
 
 int _fromOklab(List<double> lab, double alpha) {
-  final lms = [for (final v in _mul32(_oklabToLms, [for (final x in lab) _f(x)])) _f(v * v * v)];
-  final lin = _mul32(_xyzD50ToLinSrgb, _mul32(_xyzD65ToD50, _mul32(_lmsToXyzD65, lms)));
+  final lms = [
+    for (final v in _mul32(_oklabToLms, [for (final x in lab) _f(x)]))
+      _f(v * v * v),
+  ];
+  final lin = _mul32(
+    _xyzD50ToLinSrgb,
+    _mul32(_xyzD65ToD50, _mul32(_lmsToXyzD65, lms)),
+  );
   int ch(double x) => (_linearToSrgb(x).clamp(0.0, 1.0) * 255).round();
   final a = (alpha * 255).round().clamp(0, 255);
   return (a << 24) | (ch(lin[0]) << 16) | (ch(lin[1]) << 8) | ch(lin[2]);
@@ -908,7 +1057,9 @@ int? raftMixColors(String space, int c1, double? p1, int c2, double? p2) {
     final h = h1 * w1 + h2 * w2;
     lab = [_f(l), _f(_f(c) * _f(math.cos(h))), _f(_f(c) * _f(math.sin(h)))];
   } else {
-    lab = [for (var i = 0; i < 3; i++) (x[i] * a1 * w1 + y[i] * a2 * w2) / alpha];
+    lab = [
+      for (var i = 0; i < 3; i++) (x[i] * a1 * w1 + y[i] * a2 * w2) / alpha,
+    ];
   }
   return _fromOklab(lab, alpha * alphaMult);
 }
@@ -953,11 +1104,12 @@ class RaftSlotStyle {
   double? length(String property) => _px(this[property]);
 
   double? _px(CssValue? v) => switch (v) {
-        CssNum(unit: 'px', :final value) => value,
-        CssNum(unit: '', value: 0) => 0,
-        CssVar(:final token?, :final fallback) => tokens?.number(token) ?? _px(fallback),
-        _ => null,
-      };
+    CssNum(unit: 'px', :final value) => value,
+    CssNum(unit: '', value: 0) => 0,
+    CssVar(:final token?, :final fallback) =>
+      tokens?.number(token) ?? _px(fallback),
+    _ => null,
+  };
 
   double? get width => length('width');
   double? get height => length('height');
@@ -969,11 +1121,11 @@ class RaftSlotStyle {
   double? get columnGap => length('column-gap');
 
   EdgeInsets _box(String prefix, [String suffix = '']) => EdgeInsets.fromLTRB(
-        length('$prefix-left$suffix') ?? 0,
-        length('$prefix-top$suffix') ?? 0,
-        length('$prefix-right$suffix') ?? 0,
-        length('$prefix-bottom$suffix') ?? 0,
-      );
+    length('$prefix-left$suffix') ?? 0,
+    length('$prefix-top$suffix') ?? 0,
+    length('$prefix-right$suffix') ?? 0,
+    length('$prefix-bottom$suffix') ?? 0,
+  );
 
   EdgeInsets get padding => _box('padding');
   EdgeInsets get margin => _box('margin');
@@ -983,32 +1135,53 @@ class RaftSlotStyle {
   EdgeInsets get borderWidth {
     double side(String s) {
       final style = this['border-$s-style'];
-      if (style == null || (style is CssKeyword && (style.value == 'none' || style.value == 'hidden'))) return 0;
+      if (style == null ||
+          (style is CssKeyword &&
+              (style.value == 'none' || style.value == 'hidden')))
+        return 0;
       final w = this['border-$s-width'];
       if (w == null) return 3; // CSS initial 'medium'
-      if (w is CssKeyword) return switch (w.value) { 'thin' => 1, 'thick' => 5, _ => 3 };
+      if (w is CssKeyword)
+        return switch (w.value) {
+          'thin' => 1,
+          'thick' => 5,
+          _ => 3,
+        };
       return _px(w) ?? 0;
     }
 
-    return EdgeInsets.fromLTRB(side('left'), side('top'), side('right'), side('bottom'));
+    return EdgeInsets.fromLTRB(
+      side('left'),
+      side('top'),
+      side('right'),
+      side('bottom'),
+    );
   }
 
-  RaftColorRef? borderColorOf(String side) => RaftColorRef.fromCss(this['border-$side-color']) ??
+  RaftColorRef? borderColorOf(String side) =>
+      RaftColorRef.fromCss(this['border-$side-color']) ??
       (this['border-$side-width'] != null ? const RaftCurrentColor() : null);
   RaftColorRef? get borderColor => borderColorOf('top');
 
   /// Corner radii in px (null when no radius is declared).
   BorderRadius? get borderRadius {
     final keys = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
-    if (!keys.any((k) => properties.containsKey('border-$k-radius'))) return null;
+    if (!keys.any((k) => properties.containsKey('border-$k-radius')))
+      return null;
     Radius r(String k) => Radius.circular(length('border-$k-radius') ?? 0);
-    return BorderRadius.only(topLeft: r('top-left'), topRight: r('top-right'), bottomRight: r('bottom-right'), bottomLeft: r('bottom-left'));
+    return BorderRadius.only(
+      topLeft: r('top-left'),
+      topRight: r('top-right'),
+      bottomRight: r('bottom-right'),
+      bottomLeft: r('bottom-left'),
+    );
   }
 
   // -------------------------------------------------------------- colours
 
   RaftColorRef? get color => RaftColorRef.fromCss(this['color']);
-  RaftColorRef? get backgroundColor => RaftColorRef.fromCss(this['background-color']);
+  RaftColorRef? get backgroundColor =>
+      RaftColorRef.fromCss(this['background-color']);
   RaftColorRef? get outlineColor => RaftColorRef.fromCss(this['outline-color']);
 
   // -------------------------------------------------------- typography
@@ -1084,10 +1257,10 @@ class RaftSlotStyle {
   // ------------------------------------------------------------- effects
 
   double? get opacity => switch (this['opacity']) {
-        CssNum(unit: '%', :final value) => value / 100,
-        CssNum(unit: '', :final value) => value,
-        _ => null,
-      };
+    CssNum(unit: '%', :final value) => value / 100,
+    CssNum(unit: '', :final value) => value,
+    _ => null,
+  };
 
   List<RaftShadowLayer> get boxShadow => raftShadowLayers(this['box-shadow']);
 
@@ -1101,9 +1274,10 @@ class RaftSlotStyle {
       CssNum(unit: '', :final value) => value,
       CssNum(unit: '%', :final value) => value / 100,
       CssKeyword(value: 'none') => 1,
-      CssSeq(:final items) when items.first is CssNum => (items.first as CssNum).unit == '%'
-          ? (items.first as CssNum).value / 100
-          : (items.first as CssNum).value,
+      CssSeq(:final items) when items.first is CssNum =>
+        (items.first as CssNum).unit == '%'
+            ? (items.first as CssNum).value / 100
+            : (items.first as CssNum).value,
       _ => null,
     };
   }
@@ -1112,7 +1286,9 @@ class RaftSlotStyle {
   Offset? get translate {
     final v = this['translate'];
     if (v is CssKeyword && v.value == 'none') return Offset.zero;
-    final items = v is CssSeq ? v.items : (v == null ? const <CssValue>[] : [v]);
+    final items = v is CssSeq
+        ? v.items
+        : (v == null ? const <CssValue>[] : [v]);
     if (items.isEmpty) return null;
     final x = _px(items[0]);
     final y = items.length > 1 ? _px(items[1]) : 0.0;
@@ -1122,14 +1298,17 @@ class RaftSlotStyle {
   Duration? get transitionDuration {
     var v = this['transition-duration'];
     if (v is CssList) v = v.items.first;
-    return v is CssNum && v.unit == 'ms' ? Duration(microseconds: (v.value * 1000).round()) : null;
+    return v is CssNum && v.unit == 'ms'
+        ? Duration(microseconds: (v.value * 1000).round())
+        : null;
   }
 
   Curve? get transitionCurve {
     var v = this['transition-timing-function'];
     if (v is CssList) v = v.items.first;
     switch (v) {
-      case CssFunction(name: 'cubic-bezier', :final args) when args.length == 4 && args.every((a) => a is CssNum):
+      case CssFunction(name: 'cubic-bezier', :final args)
+          when args.length == 4 && args.every((a) => a is CssNum):
         final n = [for (final a in args) (a as CssNum).value];
         return Cubic(n[0], n[1], n[2], n[3]);
       case CssKeyword(:final value):
@@ -1148,7 +1327,10 @@ class RaftSlotStyle {
 
   // --------------------------------------------------------------- layout
 
-  String? _kw(String p) => switch (this[p]) { CssKeyword(:final value) => value, _ => null };
+  String? _kw(String p) => switch (this[p]) {
+    CssKeyword(:final value) => value,
+    _ => null,
+  };
   String? get display => _kw('display');
   String? get position => _kw('position');
   String? get cursor => _kw('cursor');
@@ -1157,12 +1339,16 @@ class RaftSlotStyle {
   String? get pointerEvents => _kw('pointer-events');
   String? get visibility => _kw('visibility');
   String? get whiteSpace => _kw('white-space');
-  int? get zIndex => switch (this['z-index']) { CssNum(:final value) => value.round(), _ => null };
+  int? get zIndex => switch (this['z-index']) {
+    CssNum(:final value) => value.round(),
+    _ => null,
+  };
 
   // ------------------------------------------------------ Flutter helpers
 
   /// Text style from font/colour properties (unset values are inherited).
-  TextStyle textStyle(RaftTokenResolver tokens, {Color? currentColor}) => TextStyle(
+  TextStyle textStyle(RaftTokenResolver tokens, {Color? currentColor}) =>
+      TextStyle(
         color: color?.resolve(tokens, currentColor: currentColor),
         fontFamily: fontFamily,
         fontFamilyFallback: fontFamilyFallback?.skip(1).toList(),
@@ -1177,11 +1363,23 @@ class RaftSlotStyle {
     if (w == EdgeInsets.zero) return null;
     BorderSide side(String s, double width) => width <= 0
         ? BorderSide.none
-        : BorderSide(width: width, color: (borderColorOf(s) ?? const RaftCurrentColor()).resolve(tokens, currentColor: currentColor));
-    return Border(top: side('top', w.top), right: side('right', w.right), bottom: side('bottom', w.bottom), left: side('left', w.left));
+        : BorderSide(
+            width: width,
+            color: (borderColorOf(s) ?? const RaftCurrentColor()).resolve(
+              tokens,
+              currentColor: currentColor,
+            ),
+          );
+    return Border(
+      top: side('top', w.top),
+      right: side('right', w.right),
+      bottom: side('bottom', w.bottom),
+      left: side('left', w.left),
+    );
   }
 
-  BoxDecoration decoration(RaftTokenResolver tokens, {Color? currentColor}) => RaftRecipeDecoration(
+  BoxDecoration decoration(RaftTokenResolver tokens, {Color? currentColor}) =>
+      RaftRecipeDecoration(
         color: backgroundColor?.resolve(tokens, currentColor: currentColor),
         border: border(tokens, currentColor: currentColor),
         borderRadius: borderRadius,
@@ -1189,18 +1387,26 @@ class RaftSlotStyle {
       );
 
   @override
-  String toString() => 'RaftSlotStyle(${properties.entries.where((e) => !e.key.startsWith('--')).map((e) => '${e.key}: ${e.value}').join('; ')})';
+  String toString() =>
+      'RaftSlotStyle(${properties.entries.where((e) => !e.key.startsWith('--')).map((e) => '${e.key}: ${e.value}').join('; ')})';
 }
 
 /// Parses a resolved `box-shadow` value into layers (zero transparent layers
 /// such as Tailwind's `0 0 #0000` placeholders are dropped).
 List<RaftShadowLayer> raftShadowLayers(CssValue? v) {
-  if (v == null || v is CssUnset || (v is CssKeyword && v.value == 'none')) return const [];
+  if (v == null || v is CssUnset || (v is CssKeyword && v.value == 'none'))
+    return const [];
   final layers = v is CssList ? v.items : [v];
   final out = <RaftShadowLayer>[];
   for (final layer in layers) {
-    final items = (layer is CssSeq ? layer.items : [layer]).where((x) => !(x is CssSeq && x.items.isEmpty)).toList();
-    final zero = items.every((x) => (x is CssNum && x.value == 0) || (x is CssColor && (x.argb >>> 24) == 0));
+    final items = (layer is CssSeq ? layer.items : [layer])
+        .where((x) => !(x is CssSeq && x.items.isEmpty))
+        .toList();
+    final zero = items.every(
+      (x) =>
+          (x is CssNum && x.value == 0) ||
+          (x is CssColor && (x.argb >>> 24) == 0),
+    );
     if (zero) continue;
     if (layer is CssVar && layer.token != null) {
       out.add(RaftTokenShadow(TokenRef(layer.token!)));
@@ -1208,16 +1414,23 @@ List<RaftShadowLayer> raftShadowLayers(CssValue? v) {
     }
     if (layer is CssKeyword && layer.value == 'none') continue;
     final inset = items.any((x) => x is CssKeyword && x.value == 'inset');
-    final lengths = [for (final x in items) if (x is CssNum) x.unit == 'px' || x.value == 0 ? x.value : null];
-    final colorNode = items.where((x) => x is! CssNum && !(x is CssKeyword && x.value == 'inset')).firstOrNull;
+    final lengths = [
+      for (final x in items)
+        if (x is CssNum) x.unit == 'px' || x.value == 0 ? x.value : null,
+    ];
+    final colorNode = items
+        .where((x) => x is! CssNum && !(x is CssKeyword && x.value == 'inset'))
+        .firstOrNull;
     double at(int i) => i < lengths.length ? (lengths[i] ?? 0) : 0;
-    out.add(RaftLiteralShadow(
-      inset: inset,
-      offset: Offset(at(0), at(1)),
-      blur: at(2),
-      spread: at(3),
-      color: RaftColorRef.fromCss(colorNode) ?? const RaftCurrentColor(),
-    ));
+    out.add(
+      RaftLiteralShadow(
+        inset: inset,
+        offset: Offset(at(0), at(1)),
+        blur: at(2),
+        spread: at(3),
+        color: RaftColorRef.fromCss(colorNode) ?? const RaftCurrentColor(),
+      ),
+    );
   }
   return out;
 }

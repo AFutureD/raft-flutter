@@ -344,7 +344,8 @@ class RaftSettingsPanelFrame extends StatelessWidget {
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
       child: Container(
-        decoration: attached &&
+        decoration:
+            attached &&
                 MediaQuery.sizeOf(context).width >=
                     RaftLayoutMetrics.desktopBreakpoint
             ? BoxDecoration(
@@ -393,18 +394,19 @@ TextStyle raftSettingsBody(
   double line = 24,
   FontWeight weight = FontWeight.w400,
   Color? color,
-}) => RaftTypography.inherited(
-  t,
-  size: size,
-  line: line,
-  weight: weight,
-  color: color ?? t.strong,
-).copyWith(
-  fontVariations: t.brutal || t.systemFonts
-      ? null
-      : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
-  leadingDistribution: TextLeadingDistribution.even,
-);
+}) =>
+    RaftTypography.inherited(
+      t,
+      size: size,
+      line: line,
+      weight: weight,
+      color: color ?? t.strong,
+    ).copyWith(
+      fontVariations: t.brutal || t.systemFonts
+          ? null
+          : [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())],
+      leadingDistribution: TextLeadingDistribution.even,
+    );
 
 /// SectionHeader.tsx: `flex items-center gap-2`, a 16px icon in
 /// `text-foreground-muted theme-brutal:text-black/60`, and SectionEyebrow

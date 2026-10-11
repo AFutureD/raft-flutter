@@ -615,8 +615,8 @@ class _ServerDragHandle extends StatelessWidget {
     label: label,
     child: Focus(
       child: Listener(
-        onPointerDown: (e) => SliverReorderableList.of(context)
-            .startItemDragReorder(
+        onPointerDown: (e) =>
+            SliverReorderableList.of(context).startItemDragReorder(
               index: index,
               event: e,
               recognizer: e.kind == PointerDeviceKind.touch

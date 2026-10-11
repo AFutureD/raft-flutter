@@ -139,7 +139,10 @@ void main() {
               final capsule = tester.getSize(
                 find.byKey(const ValueKey('mobile-nav-source-capsule')),
               );
-              expect(capsule, const Size(208, 52)); // Source face geometry independent of transparent touch48 target.
+              expect(
+                capsule,
+                const Size(208, 52),
+              ); // Source face geometry independent of transparent touch48 target.
             }
             await tester.tap(find.byKey(const ValueKey('focus-tab-home')));
             await tester.pump(const Duration(milliseconds: 200));

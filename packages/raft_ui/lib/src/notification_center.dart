@@ -584,8 +584,9 @@ class _NotificationRow extends StatelessWidget {
 
   Widget _action(BuildContext context, RaftNotificationAction action) {
     final scale =
-        MediaQuery.textScalerOf(context)
-            .scale(_NotificationPrimitives.actionFont) /
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(_NotificationPrimitives.actionFont) /
         _NotificationPrimitives.actionFont;
     final buttonRecipe = _NotificationActionRecipe(
       recipe.tokens,
