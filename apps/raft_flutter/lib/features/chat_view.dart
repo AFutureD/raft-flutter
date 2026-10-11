@@ -132,8 +132,14 @@ class _RaftChatViewState extends State<RaftChatView>
   int? scrolledWindow, adapterWindow;
   int bindingRevision = 0;
   int selectionCaptureTicket = 0;
+  ModalRoute<dynamic>? preparationRoute;
   late final bodyPreparation = MessagePreparation(
-    isIdle: () => mounted && presentationActive && RaftFontWarmUp.isIdle,
+    isIdle: () =>
+        mounted &&
+        presentationActive &&
+        w.presentationActive &&
+        messagePreparationRouteIsIdle(preparationRoute) &&
+        RaftFontWarmUp.isIdle,
   );
   Object? bodyPreparationInputs;
 
@@ -286,6 +292,7 @@ class _RaftChatViewState extends State<RaftChatView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    preparationRoute = ModalRoute.of(context);
     final active =
         Visibility.of(context) && TickerMode.valuesOf(context).enabled;
     if (active != presentationActive) {
@@ -1106,7 +1113,7 @@ class _RaftChatViewState extends State<RaftChatView>
   /// Web MessageInput rows above the composer card: the error banner, then
   /// the pending-mention strip.
   Widget? composerAccessory() =>
-      raftComposerAccessory(w, thread: widget.thread);
+      raftComposerAccessory(context, w, thread: widget.thread);
 
   /// Web `openDraftImagePreview`: the local picture of a ready image in the
   /// lightbox.
@@ -2189,6 +2196,8 @@ class _RaftChatViewState extends State<RaftChatView>
     RaftMessage m, {
     bool parent = false,
     Widget? selectionLeading,
+    bool continuation = false,
+    bool nextContinuation = false,
   }) {
     // Optimistic rows share the final row's key and widget shape; only the
     // actions that need a server message id stay inert until it arrives.
@@ -2216,6 +2225,8 @@ class _RaftChatViewState extends State<RaftChatView>
       rowContext: widget.thread
           ? RaftMessageRowContext.thread
           : RaftMessageRowContext.main,
+      continuation: continuation,
+      nextContinuation: nextContinuation,
       author: m.author,
       avatar: senderAvatar(m),
       selectionLeading: selectionLeading,
@@ -2554,6 +2565,11 @@ class _RaftChatViewState extends State<RaftChatView>
         stamp != null &&
         (previous == null ||
             timeFormatter.dayKey(previous) != timeFormatter.dayKey(stamp));
+    final neighbours = displayedNeighbours(key, index);
+    final continuation = continuesGroup(neighbours.$1, message);
+    final following = neighbours.$2;
+    final nextContinuation =
+        following != null && continuesGroup(message, following);
     return RaftRowExtentRecorder(
       scope: rowExtentScope(context),
       id: key,
@@ -2573,11 +2589,57 @@ class _RaftChatViewState extends State<RaftChatView>
           Padding(
             key: ValueKey('message-wrapper-$key'),
             padding: const RaftTimelineCompositionRecipe().messageInset,
-            child: tile(message, captureFocus: captureFocus),
+            child: tile(
+              message,
+              captureFocus: captureFocus,
+              continuation: continuation,
+              nextContinuation: nextContinuation,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  /// The displayed rows before and after [key] (over the window when it is
+  /// indexed, else over [rows]).
+  (RaftMessage?, RaftMessage?) displayedNeighbours(String key, int? index) {
+    if (index != null) {
+      final list = adapter.messages;
+      return (
+        index > 0 ? source(list[index - 1]) : null,
+        index + 1 < list.length ? source(list[index + 1]) : null,
+      );
+    }
+    final current = rows;
+    final at = current.indexWhere((row) => w.messageKey(row) == key);
+    return (
+      at > 0 ? current[at - 1] : null,
+      at >= 0 && at + 1 < current.length ? current[at + 1] : null,
+    );
+  }
+
+  /// Source `messageGrouping.ts` computeMessageGrouping: [message] continues
+  /// [previous]'s sender group when both are chat rows from the same sender on
+  /// the same calendar day and neither carries a thread reply or a task (those
+  /// render standalone with their own header).
+  bool continuesGroup(RaftMessage? previous, RaftMessage message) {
+    if (previous == null) return false;
+    if (previous.string('messageType') == 'system' ||
+        message.string('messageType') == 'system') {
+      return false;
+    }
+    final before = previous.createdAt, now = message.createdAt;
+    if (before == null ||
+        now == null ||
+        timeFormatter.dayKey(before) != timeFormatter.dayKey(now)) {
+      return false;
+    }
+    bool standalone(RaftMessage m) =>
+        w.threadSummaries[m.id] != null || taskProjection.presentFor(m) != null;
+    if (standalone(previous) || standalone(message)) return false;
+    return previous.string('senderType') == message.string('senderType') &&
+        previous.string('senderId') == message.string('senderId');
   }
 
   String rowExtentScope(BuildContext context) {
@@ -2603,7 +2665,13 @@ class _RaftChatViewState extends State<RaftChatView>
     return raftRowExtents.guess(message.id, metadata, width);
   }
 
-  Widget tile(RaftMessage m, {bool parent = false, bool captureFocus = true}) {
+  Widget tile(
+    RaftMessage m, {
+    bool parent = false,
+    bool captureFocus = true,
+    bool continuation = false,
+    bool nextContinuation = false,
+  }) {
     final selectable = selection.active && m.string('messageType') != 'system';
     final checked = selectable && selection.ids.contains(m.id);
     // Web MessageMultiSelectCheckbox: circle, size lg, primary variant, in the
@@ -2611,6 +2679,8 @@ class _RaftChatViewState extends State<RaftChatView>
     final body = messageTile(
       m,
       parent: parent,
+      continuation: continuation,
+      nextContinuation: nextContinuation,
       selectionLeading: selectable
           ? RaftCheckbox(
               value: checked,
@@ -2937,11 +3007,6 @@ class _RaftChatViewState extends State<RaftChatView>
               },
               child: Focus(autofocus: true, child: selectionToolbar()),
             )
-          else if (w.conversationPaused)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(raftText(context, 'Channel conversion in progress')),
-            )
           else if (channelFooter != null)
             channelFooter
           else
@@ -3025,31 +3090,46 @@ class _RaftChatViewState extends State<RaftChatView>
                         d.checking ||
                         (d.error == null && d.id == null && !d.queued),
                   ),
-              submitTooltip: composerSendBlockTitle(
-                context,
-                w.uploads(thread: widget.thread),
-              ),
-              onSendBlocked: () => w.setComposerError(
-                composerSendBlockNotice(
-                  context,
-                  w.uploads(thread: widget.thread),
-                ),
-                thread: widget.thread,
-              ),
+              // Web MessageInput `conversionBlocked`: the composer stays and
+              // Send is disabled with the conversion notice as its title.
+              submitTooltip: w.conversationPaused
+                  ? raftText(context, 'Channel conversion in progress')
+                  : composerSendBlockTitle(
+                      context,
+                      w.uploads(thread: widget.thread),
+                    ),
+              onSendBlocked: w.conversationPaused
+                  ? null
+                  : () => w.setComposerError(
+                      composerSendBlockNotice(
+                        context,
+                        w.uploads(thread: widget.thread),
+                      ),
+                      thread: widget.thread,
+                    ),
               hint: widget.thread
                   ? raftText(context, 'Message thread')
+                  : w.channel?.type == 'dm'
+                  // Web ChatPanel: a DM composer reads `Message @<peer>`.
+                  ? raftFormat(context, 'Message @{name}', {
+                      'name': w.channel!.string(
+                        'peerDisplayName',
+                        w.channel!.string('peerName', w.channel!.name),
+                      ),
+                    })
                   : raftFormat(context, 'Message #{name}', {
                       'name': w.channel?.name ?? '',
                     }),
               enabled:
                   presentationActive &&
-                  !w.conversationPaused &&
                   (widget.thread
                       ? w.threadParentMessageId != null &&
                             w.threadSourceChannel?.archived != true &&
                             w.threadSourceChannel?.joined == true
                       : w.channel?.archived != true),
-              canSend: w.uploadsReady(thread: widget.thread),
+              canSend:
+                  !w.conversationPaused &&
+                  w.uploadsReady(thread: widget.thread),
               suggestions: composerDirectory.suggestions,
               onSuggestionsRequested: (prefix) {
                 if (presentationActive && currentComposer()) {

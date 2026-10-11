@@ -373,6 +373,9 @@ void main() {
             findsNothing,
           );
           // Activity is an auxiliary Source page; its own Back reaches Home.
+          // The popped channel page stays live (with its own Back) until the
+          // platform transition completes; only Activity's Back remains.
+          await tester.pump(const Duration(milliseconds: 500));
           expect(find.byType(RaftPanelAction), findsOneWidget);
           await tester.tap(find.byType(RaftPanelAction));
           await tester.pump();

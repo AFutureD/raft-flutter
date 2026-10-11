@@ -55,7 +55,7 @@ Future<void> main(List<String> argv) async {
         errors.add('$file: not resolvable');
         continue;
       }
-      final relative = context.relative(file, from: root);
+      final relative = context.relative(file, from: root).replaceAll('\\', '/');
       scanned.add(relative);
       for (final d in result.diagnostics) {
         if (d.severity == Severity.error) {

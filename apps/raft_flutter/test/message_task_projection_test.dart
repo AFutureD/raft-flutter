@@ -31,7 +31,11 @@ void main() {
       };
       final projection = MessageTaskProjection(w);
       addTearDown(projection.dispose);
-      await drain();
+      // The bucket read is async; a loaded machine can take longer than one
+      // fixed drain, so wait for the accepted row (bounded).
+      for (var i = 0; i < 100 && projection.byMessage.isEmpty; i++) {
+        await drain();
+      }
       final message = RaftMessage({'id': 'parent', 'channelId': 'c1'});
       expect(projection.taskFor(message)?['taskNumber'], 10);
       expect(projection.byMessage.keys, ['parent']);

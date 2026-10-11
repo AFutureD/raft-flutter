@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'agent_profile.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
+import 'localization.dart';
 import 'mobile_navigation.dart';
 import 'recipe_surface.dart';
 import 'rail_attention.dart';
@@ -421,7 +422,7 @@ class RaftServerResolutionBody extends StatelessWidget {
       color: t.product.brutalCream,
       child: Center(
         child: Text(
-          label,
+          raftText(context, label),
           style: RaftTypography.body(
             t,
             size: 20,

@@ -121,6 +121,8 @@ const raftChinese = <String, String>{
   "Notification settings could not be loaded.": "无法加载通知设置。",
   "Stops notifications from {serverName} for your account. Other servers are unchanged.":
       "停止接收来自 {serverName} 的通知，其他服务器不受影响。",
+  "Not notified: {handles}. Select a person or agent from the mention picker and try again if needed.":
+      "未通知：{handles}。如需通知，请从提及选择器中选择具体的人类成员或 Agent 后重试。",
   "Notifications from {serverName} are muted.": "已静音来自 {serverName} 的通知。",
   "Notifications from {serverName} are unmuted.": "已恢复来自 {serverName} 的通知。",
   "Comments · {filename}": "评论 · {filename}",
@@ -329,6 +331,7 @@ const raftChinese = <String, String>{
   "The message image could not be exported.": "无法导出消息图片。",
   "{count} attachment(s)": "{count} 个附件",
   "Message #{name}": "向 #{name} 发送消息",
+  "Message @{name}": "向 @{name} 发送消息",
   "Open shared message": "打开分享的消息",
   "Add shared content": "添加分享内容",
   "Select a joined conversation before adding shared content.":
@@ -411,6 +414,8 @@ const raftChinese = <String, String>{
   "Linux → your desktop environment's notification settings":
       "Linux → 桌面环境的通知设置",
   "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
+  "Manage notifications for Raft in {path}. Do Not Disturb may send notifications directly to the notification center without showing a banner.":
+      "在 {path} 中管理 Raft 的通知。开启请勿打扰时，通知可能直接进入通知中心，而不显示横幅。",
   "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
       "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
   "System Settings → Notifications": "系统设置 → 通知",
@@ -3291,6 +3296,8 @@ const raftChinese = <String, String>{
   "Show assigned Agents": "查看已关联的 Agent",
   "Show each agent's model next to its name in chat. On by default in the desktop app.":
       "在聊天里 Agent 名字旁显示它使用的模型。桌面端默认开启。",
+  "Show all {count} channels": "显示全部 {count} 个频道",
+  "Activity muted from seq {seq}": "活动已从序号 {seq} 起静音",
   "Show fewer": "收起",
   "Show joined channels only": "仅显示已加入的频道",
   "Show more": "展开全文",

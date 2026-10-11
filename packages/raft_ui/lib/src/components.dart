@@ -2441,18 +2441,21 @@ class _RaftComposerState extends State<RaftComposer> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               // `ComposerSuggestionGroup separated`:
-                              // `mt-1 pt-1`, brutal `border-t-2 border-black`.
-                              if (startGroup && index > 0)
+                              // `mt-1 pt-1`, brutal `border-t-2 border-black`;
+                              // Not-in-channel / Computers / Apps carry it even
+                              // as the first group (In-channel never does).
+                              if (startGroup && (index > 0 || group > 0))
                                 Container(
                                   margin: const EdgeInsets.only(top: 4),
-                                  height: 4 + (recipe.tokens.brutal ? 2 : 1),
+                                  // Elegant has the spacing only (no rule).
+                                  height: 4 + (recipe.tokens.brutal ? 2 : 0),
                                   alignment: Alignment.topCenter,
-                                  child: Container(
-                                    height: recipe.tokens.brutal ? 2 : 1,
-                                    color: recipe.tokens.brutal
-                                        ? Colors.black
-                                        : recipe.tokens.colors['line-hairline'],
-                                  ),
+                                  child: recipe.tokens.brutal
+                                      ? Container(
+                                          height: 2,
+                                          color: Colors.black,
+                                        )
+                                      : null,
                                 ),
                               if (startGroup && label != null)
                                 Padding(
@@ -2464,6 +2467,14 @@ class _RaftComposerState extends State<RaftComposer> {
                                     ),
                                     style: recipe.suggestionGroupLabel,
                                   ),
+                                ),
+                              // Elegant group: `flex-col gap-2` (2px) and the
+                              // label's `mb-0.5`; Brutal has neither.
+                              if (!recipe.tokens.brutal)
+                                SizedBox(
+                                  height: startGroup
+                                      ? (label != null ? 4 : 0)
+                                      : 2,
                                 ),
                               row,
                             ],
@@ -2784,6 +2795,9 @@ class _RaftComposerState extends State<RaftComposer> {
                                           SizedBox(width: recipe.metaGap),
                                         ],
                                         RaftComposerAction(
+                                          key: const ValueKey(
+                                            'composer-submit',
+                                          ),
                                           glyph: RaftGlyph.send,
                                           tooltip:
                                               widget.submitTooltip ?? 'Send',
@@ -2865,18 +2879,22 @@ class _RaftComposerSuggestionRowState
           child: ConstrainedBox(
             // Web options are `py-2` rows on touch as well (no 48px floor).
             constraints: const BoxConstraints(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: recipe.suggestionBackground(
-                  highlighted: widget.highlighted,
-                  hovered: hovered,
+            // Not-in-channel options carry `opacity-60` on the whole button
+            // (fill included, so a highlighted row is the lighter fill too).
+            child: Opacity(
+              opacity: !s.inChannel && s.isMention ? .6 : 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
-              ),
-              child: Opacity(
-                // Not-in-channel options carry `opacity-60`.
-                opacity: !s.inChannel && s.isMention ? .6 : 1,
+                decoration: BoxDecoration(
+                  color: recipe.suggestionBackground(
+                    highlighted: widget.highlighted,
+                    hovered: hovered,
+                  ),
+                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+                ),
                 child: Row(
                   children: [
                     if (s.isMention && s.avatar != null) ...[
@@ -2924,6 +2942,7 @@ class _RaftComposerSuggestionRowState
                                   ? s.name
                                   : (s.title ?? s.name),
                               detail: s.detail,
+                              archived: s.archived,
                               title: title,
                               meta: recipe.suggestionMetaFor(
                                 highlighted: widget.highlighted,
@@ -2949,10 +2968,14 @@ class _ChannelSuggestionBody extends StatelessWidget {
     required this.detail,
     required this.title,
     required this.meta,
+    this.archived = false,
   });
   final String name;
   final String? detail;
   final TextStyle title, meta;
+
+  /// Web `isArchived`: the `ComposerSuggestionAside` carries the archived Badge.
+  final bool archived;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
@@ -2992,6 +3015,11 @@ class _ChannelSuggestionBody extends StatelessWidget {
                 style: meta,
               ),
             ),
+          ] else if (archived)
+            const Spacer(),
+          if (archived) ...[
+            const SizedBox(width: 6),
+            RaftArchivedBadge(label: raftText(context, 'archived')),
           ],
         ],
       );
@@ -3187,6 +3215,41 @@ class RaftActorTypeBadge extends StatelessWidget {
       decoration: style.decoration,
       alignment: Alignment.center,
       child: Text(style.label, style: style.text),
+    );
+  }
+}
+
+/// raft-ui `Badge appearance="soft" variant="muted" uppercase` at its default
+/// size (the channel option's `archived` aside; the mention rows use the
+/// smaller [RaftActorTypeBadge]).
+class RaftArchivedBadge extends StatelessWidget {
+  const RaftArchivedBadge({super.key, required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final resolver = RaftRecipeTokens(t);
+    final s = RaftBadgeRecipe.resolve(
+      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      appearance: RaftBadgeRecipeAppearance.soft,
+      variant: RaftBadgeRecipeVariant.muted,
+      uppercase: true,
+      tokens: resolver,
+    ).root;
+    return Container(
+      height: s.height,
+      padding: s.padding,
+      decoration: s.decoration(resolver),
+      alignment: Alignment.center,
+      child: Text(
+        s.textTransform == 'uppercase' ? label.toUpperCase() : label,
+        style: s
+            .textStyle(resolver)
+            .copyWith(
+              fontFamily: t.headingFont,
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+      ),
     );
   }
 }

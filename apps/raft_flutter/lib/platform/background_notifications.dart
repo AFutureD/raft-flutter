@@ -246,6 +246,7 @@ const notificationDetails = NotificationDetails(
   iOS: DarwinNotificationDetails(),
   macOS: DarwinNotificationDetails(),
   linux: LinuxNotificationDetails(),
+  windows: WindowsNotificationDetails(),
 );
 Future<bool> notificationPermission(
   FlutterLocalNotificationsPlugin plugin,

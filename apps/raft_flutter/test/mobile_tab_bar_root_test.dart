@@ -41,6 +41,8 @@ void main() {
         // Home sub-page: an actual channel drill-in hides the tab bar.
         await t.tap(find.byKey(const ValueKey('sidebar-channel-ca')));
         await f.flush(t);
+        // The covered tab root is a live page until the push settles.
+        await settleRoute(t);
         expect(w.location.route, RaftRoute.channel);
         expect(find.byKey(tabBar), findsNothing);
         await t.tap(find.byKey(const Key('mobile-detail-back')));
@@ -55,6 +57,7 @@ void main() {
           find.byKey(const ValueKey('workspace-settings-nav-appearance')),
         );
         await f.flush(t);
+        await settleRoute(t);
         expect(w.location.settingsPath, ['appearance']);
         expect(find.byKey(tabBar), findsNothing);
         await t.tap(find.byKey(const Key('mobile-settings-back')));
@@ -142,6 +145,8 @@ void main() {
             w.navigation.navigate(RaftLocation.parse(path));
             w.notifyListeners();
             await f.flush(t);
+            // Covered pages stay live until the platform transition ends.
+            await settleRoute(t);
             final expected = RaftLocation.parse(path);
             expect(w.location.route, expected.route, reason: path);
             expect(w.location.entityId, expected.entityId, reason: path);

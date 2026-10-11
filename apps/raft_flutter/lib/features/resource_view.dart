@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, ValueListenable, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
@@ -20,6 +21,8 @@ import '../data/resource_row_reconcile.dart';
 import '../data/resource_snapshot_cache.dart';
 import '../data/task_board_reconcile.dart';
 import 'create_task_dialog.dart';
+import 'desktop_navigation_policy.dart'
+    show DesktopContentKind, DesktopContentTarget;
 import 'search_home.dart';
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
@@ -31,6 +34,7 @@ import 'task_selection_filter.dart';
 import 'sender_avatar_projection.dart';
 import 'message_reference_directory.dart';
 import 'private_route_guard.dart';
+import 'quick_switcher.dart' show QuickSwitcherFailure, classifySearchFailure;
 import 'resource_search.dart';
 import 'resource_list_updates.dart';
 import 'saved_sidebar_entry.dart';
@@ -55,6 +59,7 @@ class ResourceView extends StatefulWidget {
     this.onSearchQueryCommitted,
     this.onActivityItem,
     this.onActivityCanonical,
+    this.activitySelectedTarget,
     this.activitySidebarEnabled = false,
     this.compactActivitySidebar = false,
     this.onActivityUnreadAccepted,
@@ -104,6 +109,12 @@ class ResourceView extends StatefulWidget {
   /// when both clicks identify the same item. A different item opens at once.
   /// Custom embedded consumers without this callback keep immediate onOpen.
   final Future<void> Function(Map<String, dynamic>)? onActivityCanonical;
+
+  /// The item currently open in the desktop master-detail preview (the
+  /// location's content target); null on a phone or when nothing is open.
+  /// The matching Activity row paints the persistent selected state, which
+  /// therefore follows the location, not click timing or list order.
+  final DesktopContentTarget? activitySelectedTarget;
   final bool activitySidebarEnabled, compactActivitySidebar;
 
   /// Server-wide Activity total from an accepted window, independent of filter.
@@ -361,6 +372,9 @@ class _ResourceViewState extends State<ResourceView> {
   /// The failure came from the blocking first read (no list on screen yet).
   bool errorWhileLoading = false;
   String? error;
+
+  /// Why the last Search read failed (Source `classifySearchFailure`).
+  QuickSwitcherFailure? searchFailureKind;
   String filter = 'all';
   ResourceFilters advanced = ResourceFilters();
   List<ResourceSender> senders = [];
@@ -988,6 +1002,9 @@ class _ResourceViewState extends State<ResourceView> {
     setState(() {
       errorWhileLoading = loading;
       error = '$cause';
+      searchFailureKind = widget.section == 'search'
+          ? classifySearchFailure(cause)
+          : null;
       loading = false;
     });
   }
@@ -1744,6 +1761,7 @@ class _ResourceViewState extends State<ResourceView> {
         clearRows();
         loading = false;
         error = 'This channel is no longer available.';
+        searchFailureKind = null;
       });
       return;
     }
@@ -2420,7 +2438,9 @@ class _ResourceViewState extends State<ResourceView> {
         if (widget.section == 'tasks') taskFilters(),
         // Web Inbox and Saved render no error line when the first read fails:
         // the (empty) list stays as is.
+        // Search shows its failure as a card inside the results instead.
         if (error != null &&
+            !(widget.section == 'search' && searchFailureKind != null) &&
             !(errorWhileLoading &&
                 rows.isEmpty &&
                 (widget.section == 'activity' || widget.section == 'saved')))
@@ -2483,17 +2503,24 @@ class _ResourceViewState extends State<ResourceView> {
 
   Widget resourceResultsBody(BuildContext context) {
     final scope = authority;
-    return loading && visibleRows.isEmpty
+    final searchHomeNow =
+        widget.section == 'search' &&
+        query.text.trim().isEmpty &&
+        (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery);
+    // Search keeps its summary, entity matches and a messages skeleton while
+    // the first read is in flight (Source `showInitialSkeleton`).
+    final searching = loading && visibleRows.isEmpty;
+    return searching && !(widget.section == 'search' && !searchHomeNow)
         // ConversationCardSkeleton: Inbox and Saved share the card
         // placeholder list.
         ? enabledActivity ||
                   widget.section == 'activity' ||
                   widget.section == 'saved'
               ? const RaftActivityLoadingList()
+              : widget.section == 'tasks'
+              ? const RaftTaskLoadingList()
               : Center(child: CircularProgressIndicator())
-        : widget.section == 'search' &&
-              query.text.trim().isEmpty &&
-              (!advanced.hasSearchFilter || widget.initialSearchDeferUntilQuery)
+        : searchHomeNow
         ? searchHome(scope)
         : widget.section == 'search'
         ? ResourceSearchResults(
@@ -2513,6 +2540,15 @@ class _ResourceViewState extends State<ResourceView> {
             onEntity: (entity) => openSearchEntity(entity, scope),
             hasMore: hasMore,
             onMore: () => load(append: true),
+            loading: searching,
+            failure: error == null ? null : searchFailureKind,
+            onRetry: () => load(),
+            onSortRecent: advanced.searchSort == 'recent'
+                ? null
+                : () {
+                    advanced.searchSort = 'recent';
+                    load();
+                  },
           )
         : widget.section == 'tasks' &&
               widget.channelId != null &&
@@ -2826,7 +2862,11 @@ class _ResourceViewState extends State<ResourceView> {
             child: RaftSearchInput(
               controller: query,
               focusNode: queryFocus,
-              hint: raftText(context, 'Search messages'),
+              // search.placeholder: the shortcut hint follows on desktop.
+              hint: mobile
+                  ? raftText(context, 'Search channels, DMs, messages…')
+                  : '${raftText(context, 'Search channels, DMs, messages…')}   '
+                        '${defaultTargetPlatform == TargetPlatform.macOS ? '⌘K' : 'Ctrl+K'}',
               clearLabel: raftText(context, 'Clear search'),
               showEscape: !mobile,
               onClear: () {
@@ -3285,7 +3325,10 @@ class _ResourceViewState extends State<ResourceView> {
       decoration: BoxDecoration(
         color: t.panel,
         border: Border(
-          bottom: BorderSide(color: t.line, width: t.border),
+          bottom: BorderSide(
+            color: t.brutal ? t.colors['color-black']! : t.line,
+            width: t.border,
+          ),
         ),
       ),
       child: Row(
@@ -3412,6 +3455,9 @@ class _ResourceViewState extends State<ResourceView> {
       mobile: mobile,
       leftInset: widget.section == 'activity' ? 12 : null,
       bottomRule: widget.section == 'activity',
+      iconBackground: widget.section == 'saved'
+          ? RaftTokens.of(context).colors['primary-soft']
+          : null,
       variant: widget.section == 'tasks'
           ? RaftPanelHeaderVariant.tasks
           : RaftPanelHeaderVariant.canonical,
@@ -3427,6 +3473,26 @@ class _ResourceViewState extends State<ResourceView> {
           ? (widget.onBack ?? () {})
           : null,
     );
+  }
+
+  /// Whether [row] is the item open in the preview. Identity is the content
+  /// target's id (thread channel / channel), never the target's message focus:
+  /// that moves with unread state and refreshes, the row's identity does not.
+  /// A mention action additionally requires its own message, so opening an
+  /// ordinary channel row never lights up a mention row of that channel.
+  bool activityRowSelected(Map<String, dynamic> row) {
+    final target = widget.activitySelectedTarget;
+    if (widget.section != 'activity' || target == null) return false;
+    final kind = row['kind'];
+    if (kind == 'thread') {
+      return target.kind == DesktopContentKind.thread &&
+          target.id == row['threadChannelId'];
+    }
+    if (target.kind != DesktopContentKind.channel ||
+        target.id != row['channelId']) {
+      return false;
+    }
+    return kind != 'mention_action' || target.messageId == row['messageId'];
   }
 
   void activateActivity(
@@ -3873,6 +3939,7 @@ class _ResourceViewState extends State<ResourceView> {
               : ValueKey(
                   'activity-${row['kind']}-${row['channelId'] ?? row['messageId']}',
                 ),
+          selected: activityRowSelected(row),
           onOpen: () => openConversation(row, scope),
           onActivate: widget.onActivityCanonical == null
               ? null
@@ -4435,14 +4502,17 @@ class _ResourceViewState extends State<ResourceView> {
                 },
               ),
           ],
-          TextButton(
-            onPressed: () {
-              if (!accepts(scope)) return;
-              advanced = ResourceFilters();
-              query.clear();
-              load();
-            },
-            child: Text(raftText(context, 'Clear filters')),
+          RaftTouchTargetExpander(
+            minSize: const Size.square(RaftMetrics.touchTarget),
+            child: RaftTaskFilterButton(
+              onPressed: () {
+                if (!accepts(scope)) return;
+                advanced = ResourceFilters();
+                query.clear();
+                load();
+              },
+              child: Text(raftText(context, 'Clear All')),
+            ),
           ),
         ],
       ),
@@ -4786,18 +4856,19 @@ class _ResourceViewState extends State<ResourceView> {
                     final options = field == 'Channel'
                         ? channelOptions
                         : <String, String>{
-                            if (field == 'Assignee')
-                              'unassigned': raftTextZh(
-                                context,
-                                'Unassigned',
-                                '未分配',
-                              ),
+                            // IdentityFilterChip: "me" first, then Unassigned.
                             if (self != null)
                               'user:${self.id}': raftText(
                                 context,
                                 field == 'Creator'
                                     ? 'Created by me'
                                     : 'Assigned to me',
+                              ),
+                            if (field == 'Assignee')
+                              'unassigned': raftTextZh(
+                                context,
+                                'Unassigned',
+                                '未分配',
                               ),
                             for (final entry in ordered)
                               if (entry.key != 'user:${self?.id}')
@@ -4874,11 +4945,14 @@ class _ResourceViewState extends State<ResourceView> {
                 },
               ),
               if (!taskAdvanced.isEmpty)
-                TextButton(
-                  onPressed: () {
-                    if (accepts(scope)) setState(taskAdvanced.clear);
-                  },
-                  child: Text(raftText(context, 'Clear filters')),
+                RaftTouchTargetExpander(
+                  minSize: const Size.square(RaftMetrics.touchTarget),
+                  child: RaftTaskFilterButton(
+                    onPressed: () {
+                      if (accepts(scope)) setState(taskAdvanced.clear);
+                    },
+                    child: Text(raftText(context, 'Clear All')),
+                  ),
                 ),
             ],
           ),

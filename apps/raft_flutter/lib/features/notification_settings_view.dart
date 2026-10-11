@@ -317,7 +317,9 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     };
     return raftFormat(
       context,
-      'Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.',
+      platform == TargetPlatform.windows
+          ? 'Manage notifications for Raft in {path}. Do Not Disturb may send notifications directly to the notification center without showing a banner.'
+          : 'Whether these notifications appear is decided by the system, not by Raft: {path}. The system may ask for permission the first time a notification is posted. A Focus mode or Do Not Disturb may delay or silence banners.',
       {'path': path},
     );
   }
@@ -358,7 +360,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     // status.
     final unavailable = service.initialized && !service.available;
     if (!phone) {
-      return RaftNotificationSettingsCard(
+      final card = RaftNotificationSettingsCard(
         key: const ValueKey('notification-settings-card'),
         title: 'Desktop notifications',
         description: 'Raft Desktop shows system notifications for new DMs, direct mentions, and followed thread replies while the window is in the background. Web push is not used on desktop.',
@@ -366,7 +368,9 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
         hint: unavailable
             ? 'This desktop build cannot show system notifications.'
             : desktopHint(context, platform),
-        error: error,
+        error:
+            error ??
+            (platform == TargetPlatform.windows ? service.error : null),
         message: testPosted ? testSentMessage(context, platform) : null,
         actionLabel: 'Send a test notification',
         actionTone: RaftButtonRecipeVariant.success,
@@ -382,6 +386,24 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
                 ),
               ),
         muted: false,
+      );
+      if (platform != TargetPlatform.windows) return card;
+      return RaftGapColumn(
+        gap: RaftSpace.x3,
+        children: [
+          card,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: RaftButton(
+              label: 'Open notification settings',
+              tone: RaftButtonRecipeVariant.outline,
+              size: RaftButtonRecipeSize.sm,
+              onPressed: blocked
+                  ? null
+                  : () => nativeAction(service.openSettings),
+            ),
+          ),
+        ],
       );
     }
     final chinese = Localizations.maybeLocaleOf(context)?.languageCode == 'zh';

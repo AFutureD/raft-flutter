@@ -45,19 +45,11 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
       value.toLowerCase().replaceAll(RegExp('[^a-z0-9-]'), '-');
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
     String tr(String value) => raftText(context, value);
     if (widget.loading && widget.servers.isEmpty) {
       // App.tsx ServerRedirect/ServerSelectionPage owns this undecided state;
       // ServerSelector's first-server form is not mounted while it is loading.
-      return RaftAuthShell(
-        child: Center(
-          child: Text(
-            tr('Loading servers…'),
-            style: RaftTypography.heading(t, size: 20, line: 28),
-          ),
-        ),
-      );
+      return RaftServerResolutionBody(label: 'Loading servers…');
     }
     if (widget.error != null && widget.servers.isEmpty && !creating) {
       return RaftAuthShell(
@@ -100,8 +92,8 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
             if (!slugTouched) {
               slug.text = toSlug(value);
               slugField.currentState?.didChange(slug.text);
-              setState(() {});
             }
+            setState(() {});
           },
         ),
       ),
@@ -132,6 +124,7 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
             slugTouched = true;
             final normalized = toSlug(value);
             field.didChange(normalized);
+            setState(() {});
             if (normalized != value) {
               slug.value = TextEditingValue(
                 text: normalized,
@@ -156,8 +149,11 @@ class _GlobalServerSelectorState extends State<GlobalServerSelector> {
     if (first) {
       // OnboardingCreateShell (narrow): brand bar, then the form column
       // `flex w-full max-w-md flex-col gap-4` with the session footer.
-      return RaftAuthShell(
-        formPanel: true,
+      return RaftOnboardingShell(
+        preview: RaftServerCreatePreview(
+          serverName: name.text,
+          serverSlug: slug.text,
+        ),
         child: Column(
           key: const ValueKey('global-server-selector'),
           crossAxisAlignment: CrossAxisAlignment.stretch,

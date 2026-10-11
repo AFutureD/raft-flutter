@@ -263,8 +263,9 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
               Container(
                 // The panel background reaches the screen bottom; the composer
                 // clears the system bar (0 while the keyboard is up).
-                padding: const EdgeInsets.all(8)
-                    .copyWith(bottom: 8 + raftBottomInset(context)),
+                padding: const EdgeInsets.all(
+                  8,
+                ).copyWith(bottom: 8 + raftBottomInset(context)),
                 decoration: BoxDecoration(border: Border(top: rule)),
                 child: blockedMessage != null
                     ? Padding(

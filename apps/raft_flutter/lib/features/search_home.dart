@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/recipes.dart' as rui;
 
 import '../data/search_memory.dart';
 import 'public_avatar_url.dart';
@@ -100,6 +101,13 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
               RaftLayoutMetrics.desktopBreakpoint,
         );
     final homeRecipe = RaftSearchHomeRecipe(t);
+    final searchViewport = rui.RaftSearchRecipe.resolve(
+      theme: t.brutal ? rui.RaftRecipeTheme.brutal : rui.RaftRecipeTheme.elegant,
+      states: rui.RaftRecipeStates({
+        if (t.dark) rui.RaftRecipeStates.dark,
+      }, MediaQuery.sizeOf(context).width),
+      tokens: rui.RaftRecipeTokens(t),
+    ).viewport;
     final touch =
         MediaQuery.sizeOf(context).width <
         RaftSearchHomeRecipe.touchHistoryBreakpoint;
@@ -113,23 +121,15 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
       String label,
       RaftGlyph glyph, {
       List<Widget> actions = const [],
-    }) => Padding(
-      padding: RaftSearchHomeRecipe.headingInset,
-      child: Row(
-        children: [
-          RaftIcon(glyph, size: 12, color: t.muted),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(raftText(context, label), style: recipe.sectionTitle),
-          ),
-          ...actions,
-        ],
-      ),
-    );
+    }) => RaftSearchHomeHeading(label: label, glyph: glyph, actions: actions);
     return ListView(
       key: const PageStorageKey('search-home'),
       primary: false,
-      padding: raftScrollPadding(context, RaftSearchHomeRecipe.inset),
+      // SearchShellViewport padding plus the home `<div class="p-4">`.
+      padding: raftScrollPadding(
+        context,
+        searchViewport.padding.add(RaftSearchHomeRecipe.inset),
+      ),
       children: [
         if (widget.history.isNotEmpty) ...[
           heading(
@@ -137,16 +137,11 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
             RaftGlyph.clock3,
             actions: [
               if (touch)
-                RaftTextButton(
+                RaftSearchHomeAction(
                   label: editing ? 'Done' : 'Edit',
-                  visualHeight: 28,
                   onPressed: () => setState(() => editing = !editing),
                 ),
-              RaftTextButton(
-                label: 'Clear history',
-                visualHeight: 28,
-                onPressed: widget.onClear,
-              ),
+              RaftSearchHomeAction(label: 'Clear', onPressed: widget.onClear),
             ],
           ),
           Wrap(
@@ -169,20 +164,25 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
         ],
         heading('Frequently Used', RaftGlyph.star),
         if (widget.frequent.isEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: homeRecipe.tagBorder,
-                width: t.brutal ? 2 : 1,
-              ),
+          CustomPaint(
+            foregroundPainter: RaftDashedBorderPainter(
+              homeRecipe.tagBorder,
+              t.brutal ? 2 : 1,
             ),
-            child: Text(
+            child: Container(
+              width: double.infinity,
+              // `px-3 py-4` inside the border box.
+              padding: EdgeInsets.symmetric(
+                horizontal: 12.0 + (t.brutal ? 2 : 1),
+                vertical: 16.0 + (t.brutal ? 2 : 1),
+              ),
+              child: Text(
               raftText(
                 context,
                 'Channels and contacts you open from Search will appear here.',
               ),
               style: recipe.metadata,
+              ),
             ),
           )
         else
@@ -309,6 +309,7 @@ class _SearchHistoryTagState extends State<_SearchHistoryTag> {
                   variant: RaftControlVariant.ghost,
                   visualHeight: RaftSearchHomeRecipe.tagHeight,
                   padding: RaftSearchHomeRecipe.tagInset,
+                  minimumTargetSize: RaftSearchHomeRecipe.tagHeight,
                   onPressed: widget.onQuery,
                   child: ExcludeSemantics(
                     child: Row(

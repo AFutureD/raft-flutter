@@ -59,14 +59,15 @@ void main() {
       home: Scaffold(body: SingleChildScrollView(child: child)),
     ),
   );
-  Finder field(String label) => find.descendant(
-    of: find.byWidgetPredicate(
-      (widget) => widget is Semantics && widget.properties.label == label,
-    ),
-    matching: find.byType(TextField),
+  Finder field(String label) => find.byKey(
+    ValueKey(switch (label) {
+      'Current password' => 'account-current-password',
+      'New password' => 'account-new-password',
+      _ => 'account-confirm-password',
+    }),
   );
   Future<void> fill(WidgetTester t) async {
-    await t.tap(find.text('Change password').first);
+    await t.tap(find.byKey(const ValueKey('account-change-password')));
     await t.pumpAndSettle();
     await t.enterText(field('Current password'), 'fixture-current');
     await t.enterText(field('New password'), 'fixture-updated');
@@ -79,13 +80,13 @@ void main() {
       client.pendingMethods = Completer<dynamic>();
       await mount(t, AccountConnectionsView(controller: w, inline: true));
       await t.pump();
-      expect(find.text('Change password'), findsNothing);
+      expect(find.text('Change Password'), findsNothing);
       expect(find.text('Set password by email'), findsNothing);
       client.pendingMethods!.complete(client.methods);
       await t.pumpAndSettle();
       await fill(t);
-      await t.ensureVisible(find.byType(RaftButton).last);
-      await t.tap(find.byType(RaftButton).last);
+      await t.ensureVisible(find.byKey(const ValueKey('account-password-submit')));
+      await t.tap(find.byKey(const ValueKey('account-password-submit')));
       await t.pumpAndSettle();
       expect(client.mutations.single.path, '/auth/me');
       expect(client.mutations.single.method, 'PATCH');
@@ -98,7 +99,7 @@ void main() {
         '',
       );
       expect(t.widget<TextField>(field('New password')).controller!.text, '');
-      expect(find.text('Password updated.'), findsOneWidget);
+      expect(find.text('Password updated!'), findsOneWidget);
     },
   );
   testWidgets(
@@ -108,7 +109,7 @@ void main() {
       await mount(t, AccountPasswordEditor(controller: w));
       await t.pumpAndSettle();
       await fill(t);
-      await t.tap(find.byType(RaftButton));
+      await t.tap(find.byKey(const ValueKey('account-password-submit')));
       await t.pump();
       client.user = RaftRecord({'id': 'next'});
       w.notifyListeners();
@@ -116,8 +117,8 @@ void main() {
       expect(find.byType(TextField), findsNothing);
       client.pendingPatch!.complete({});
       await t.pumpAndSettle();
-      expect(find.text('Password updated.'), findsNothing);
-      await t.tap(find.text('Change password').first);
+      expect(find.text('Password updated!'), findsNothing);
+      await t.tap(find.byKey(const ValueKey('account-change-password')));
       await t.pumpAndSettle();
       expect(
         t.widget<TextField>(field('Current password')).controller!.text,
@@ -143,7 +144,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Google'), findsOneWidget);
       expect(find.text('GitHub'), findsNothing);
-      expect(find.text('Change password'), findsNothing);
+      expect(find.text('Change Password'), findsNothing);
       expect(find.text('Set password by email'), findsOneWidget);
       await t.tap(find.text('Disconnect'));
       await t.pumpAndSettle();

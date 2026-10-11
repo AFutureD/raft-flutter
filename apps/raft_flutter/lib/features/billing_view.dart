@@ -796,6 +796,7 @@ class _BillingState extends ManagementState<BillingView> {
       notices.add(
         RaftBillingNotice(
           tone: RaftBillingNoticeTone.downgrade,
+          bodyMargin: !expired,
           title: expired ? tr('Grace Period Expired') : tr('Plan Downgraded'),
           body: expired
               ? tr(

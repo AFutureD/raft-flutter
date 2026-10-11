@@ -176,7 +176,7 @@ void main() {
         final field = find.byWidgetPredicate(
           (widget) =>
               widget is TextField &&
-              widget.decoration?.hintText == 'Search messages',
+              widget.decoration?.hintText?.startsWith('Search channels, DMs, messages…') == true,
         );
         await t.enterText(field, 'needle');
         await t.pump(const Duration(milliseconds: 250));

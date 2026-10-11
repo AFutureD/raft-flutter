@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
 
@@ -31,8 +32,8 @@ Future<bool> showWorkspaceMenuInvite(
       role == workspace.server?.string('role') &&
       workspace.can('inviteMembers');
   if (!current()) return false;
-  final sent = await showRaftDialog<bool>(
-    context: context,
+  final sent = await showRaftModal<bool>(
+    context,
     builder: (_) => _InviteDialog(
       workspace: workspace,
       serverId: serverId!,
@@ -66,6 +67,37 @@ class _InviteDialogState extends State<_InviteDialog> {
     super.initState();
     unawaited(loadGuestFlag());
     unawaited(loadLink());
+    unawaited(loadBilling());
+  }
+
+  /// Web `loadBilling` (GET /billing/subscription): a failed summary leaves the
+  /// seat banner off.
+  Map<String, dynamic>? billing;
+  Future<void> loadBilling() async {
+    try {
+      final value = await w.query('/billing/subscription');
+      if (mounted && value is Map) {
+        setState(() => billing = Map<String, dynamic>.from(value));
+      }
+    } catch (_) {}
+  }
+
+  /// shared getBillingCapacityLimitState(capacity, usage, "human") +
+  /// formatBillingCapacityLimitMessage(..., " Upgrade for more.").
+  String? get seatLimitMessage {
+    final capacity = billing?['capacity'], usage = billing?['usage'];
+    if (capacity is! Map || usage is! Map) return null;
+    String? label;
+    num? used, limit;
+    final maxHumans = capacity['maxHumans'], humans = usage['humans'];
+    final maxSeats = capacity['maxUniversalSeats'], seats = usage['universalSeats'];
+    if (maxHumans is num && humans is num && maxHumans != -1 && humans + 1 > maxHumans) {
+      (label, used, limit) = ('Human seat limit', humans, maxHumans);
+    } else if (maxSeats is num && seats is num && maxSeats != -1 && seats + 1 > maxSeats) {
+      (label, used, limit) = ('Seat limit', seats, maxSeats);
+    }
+    if (label == null) return null;
+    return '${raftText(context, label)} reached ($used/$limit on ${billing?['displayName']} plan).${raftText(context, ' Upgrade for more.')}';
   }
 
   @override
@@ -214,6 +246,18 @@ class _InviteDialogState extends State<_InviteDialog> {
     onClose: () => Navigator.of(context).pop(false),
     onSend: send,
     canOfferGuest: guest,
+    seatLimitMessage: seatLimitMessage,
+    onViewBilling: () {
+      Navigator.of(context).pop(false);
+      w.navigation.navigate(
+        RaftLocation.at(
+          serverSlug: w.location.serverSlug,
+          route: RaftRoute.settings,
+          settingsPath: const ['billing'],
+        ),
+      );
+      w.notifyListeners();
+    },
     link: RaftInviteLink(
       loading: loading || busy,
       url: url,

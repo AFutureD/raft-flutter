@@ -51,7 +51,8 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     notifications.deliveryAllowed = () =>
         !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
     notifications.addListener(_notificationSettingsChanged);
-    if (notifications.platform == TargetPlatform.macOS) {
+    if (notifications.platform == TargetPlatform.macOS ||
+        notifications.platform == TargetPlatform.windows) {
       desktop = DesktopInboxNotifications(notifications: notifications);
       desktop!.bind(_workspace);
     }
@@ -60,11 +61,15 @@ class NativeContentCoordinator with WidgetsBindingObserver {
       receiveLink,
       onError: (_) {},
     );
+    await notifications.initialize();
     for (final argument in initialArguments) {
       final uri = Uri.tryParse(argument);
       if (uri != null) receiveLink(uri);
     }
-    await notifications.initialize();
+    if (notifications.platform == TargetPlatform.windows &&
+        initialArguments.contains('--windows-notification-test')) {
+      await notifications.test();
+    }
   }
 
   void bindWorkspace(WorkspaceController? workspace) {
@@ -166,6 +171,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
 
   void receiveLink(Uri uri) {
     if (_closed || uri.scheme == 'raft' && uri.host == 'oauth') return;
+    if (notifications.receiveWindowsActivation(uri)) return;
     final w = _workspace;
     if (w == null || w.client.user == null) {
       // Only a bounded content URI can wait for normal account restoration.
@@ -185,6 +191,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
 
   void _tap(String payload) {
     if (_closed) return;
+    unawaited(notifications.presentWindow().catchError((Object _) {}));
     if (Platform.isLinux) {
       unawaited(
         const MethodChannel('app.raft/window')

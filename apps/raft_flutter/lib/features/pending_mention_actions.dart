@@ -173,7 +173,11 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
 
 /// MessageInput slots above the composer card, in Web order: the error
 /// `Banner`, then the PendingMentionActionStrip.
-Widget? raftComposerAccessory(WorkspaceController w, {bool thread = false}) {
+Widget? raftComposerAccessory(
+  BuildContext context,
+  WorkspaceController w, {
+  bool thread = false,
+}) {
   final error = w.composerErrorFor(thread: thread);
   // Web `billingUploadQuotaError`: the quota failure keeps its chip and
   // leaves the message in its own banner.
@@ -183,15 +187,45 @@ Widget? raftComposerAccessory(WorkspaceController w, {bool thread = false}) {
       .map((d) => d.error!)
       .firstOrNull;
   final mentions = w.pendingMentionsFor(thread: thread).isNotEmpty;
-  if (error == null && quota == null && !mentions) return null;
-  final banners = [?error, ?quota];
+  // Web order: error, quota, delivery warning (DM), unresolved mentions
+  // (channel), then the strip. Both warnings carry a dismiss X.
+  final warnings = w.sendWarningsFor(thread: thread);
+  final dm = !thread && w.channel?.type == 'dm';
+  final stopped = dm && warnings.agentStopped;
+  final unresolved = !dm && warnings.unresolved.isNotEmpty;
+  if (error == null && quota == null && !stopped && !unresolved && !mentions) {
+    return null;
+  }
+  final banners = <Widget>[
+    if (error != null) RaftComposerNotice(message: error),
+    if (quota != null) RaftComposerNotice(message: quota),
+    if (stopped)
+      RaftComposerNotice(
+        message: raftText(
+          context,
+          'Message sent, but this agent is stopped and was not notified.',
+        ),
+        dismissLabel: raftText(context, 'Dismiss delivery warning'),
+        onDismiss: () => w.dismissSendWarnings(thread: thread),
+      ),
+    if (unresolved)
+      RaftComposerNotice(
+        message: raftFormat(
+          context,
+          'Not notified: {handles}. Select a person or agent from the mention picker and try again if needed.',
+          {'handles': warnings.unresolved.join(', ')},
+        ),
+        dismissLabel: raftText(context, 'Dismiss unnotified mention warning'),
+        onDismiss: () => w.dismissSendWarnings(thread: thread),
+      ),
+  ];
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     mainAxisSize: MainAxisSize.min,
     children: [
       for (var i = 0; i < banners.length; i++) ...[
         if (i > 0) const RaftComposerGap(),
-        RaftComposerNotice(message: banners[i]),
+        banners[i],
       ],
       if (banners.isNotEmpty && mentions) const RaftComposerGap(),
       if (mentions) PendingMentionActions(controller: w, thread: thread),

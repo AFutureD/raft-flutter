@@ -135,7 +135,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 
 ## 移动导航呈现（2026-10-10）
 
-窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。活动页面保留唯一 controller 子树，历史页仅暂存最后绘制的帧用于过渡；帧不持久化，并随账户、服务器或权限范围变化销毁。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。
+窄屏工作区由 `MobileWorkspacePages` 将既有 `WorkspaceNavigation` 历史投影为平台 `MaterialPage`，不建立第二份业务导航权威。历史页面保留实际 widget 子树及借用的呈现 controller，共享工作区已接受的数据；不再保存路由截图，并明确关闭路由快照。账号、服务器或权限范围变化会撤销旧页面。Tab 根页面与减少动态效果直接切换，层级页面采用 Flutter 平台默认进入、返回和返回手势。宽屏继续直接投影分栏内容。导航与后台数据更新的性能证据及剩余问题见 [移动路由性能调查](mobile-route-performance-investigation.md)。
 
 移动任务槽现在拥有独立 MaterialPage，桌面继续使用 modal / docked 呈现。频道设置与成员通过客户端 `channelPage=settings:<channelId>|members:<channelId>` 槽投影为页面；底层频道、消息串与任务 URI 合同仍保留。冷链接先补入底层目的地，系统返回与顶部返回消费同一份业务历史；页面身份与进入实例分离，退出动画中的旧实例不会与快速重入的新实例共享帧 key。宽窄切换保留活动子树和任务 owner；呈现实例只由既有业务历史派生，不维护额外业务位置。隐藏的工作区保留草稿与列表状态，排除焦点、语义并暂停动画。
 
@@ -150,3 +150,7 @@ The released APK smoke used an owned 16KiB Android emulator and synthetic input 
 ### macOS 通知平台补充（2026-10-11）
 
 NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消费 WorkspaceController 唯一 SourceActivityUnreadStore 已接受的窗口，与 Activity 页面和未读标记共享长连接驱动的现有收件箱刷新，不创建第二连接、收件箱请求或周期轮询。OS 权限是桌面开关；只在后台消费新候选，读取独立 notification-settings 通知规则，核对当前已接受窗口，并维护账号/角色/权限代次/生命周期 fence。仅持久化时间基线和有界 message ID，不持久化通知正文。应用完全退出后的远程推送与 macOS 系统横幅/点击实机验收仍未覆盖。
+
+### Windows 通知平台补充（2026-10-11）
+
+Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNotifications／原生宿主提供稳定身份、官方 Windows App SDK 投递、ToastNotifier.Setting 及窗口恢复；业务授权与导航仍在 NativeContentCoordinator。系统权限在每次投递时重新读取，桌面不保存私有 opt-in。ETW 确认本机在显示前拒绝默认 foreground 激活（0x80070032），官方 SDK 的 protocol 对照已由用户确认在通知中心显示。因此产品使用 raft-notification 协议：暖点击转交同 exe 的现有窗口，冷点击经参数启动后等待回调初始化，仍保留全部账户／授权检查。主应用设置按钮发送已确认显示；本机另经用户授权登记机器级 Raft 协议后，用户确认品牌图标和暖点击返回正常。冷点击仍待实测，不以接口接受、历史、fixture 或旧 COM 探针代替。当前 x64 bundle 需要 Windows App Runtime 1.7。具体矩阵、独立身份和边界见 [Windows 通知](windows-notifications.md)。

@@ -232,11 +232,14 @@ class ComposerDirectory extends ChangeNotifier {
   List<RaftComposerSuggestion> get suggestions => [
     ...people,
     for (final c in w.channels)
-      if (!c.archived && ['channel', 'private', 'joint'].contains(c.type))
+      // Web `channelAutocompleteCandidates`: archived channels stay listed
+      // (`GET /channels?archived=include`) with an `archived` Badge.
+      if (['channel', 'private', 'joint'].contains(c.type))
         RaftComposerSuggestion(
           type: 'channel',
           id: c.id,
           name: c.name,
+          archived: c.archived,
           detail: c.description.isEmpty ? null : c.description,
         ),
   ];
@@ -320,7 +323,13 @@ class ComposerDirectory extends ChangeNotifier {
   ) {
     final entries = <String, RaftComposerSuggestion>{};
     final memberIds = <String>{};
-    void add(Iterable<Map<String, dynamic>> raw, String type) {
+    // Source MessageInput lists server humans without a description; only the
+    // channel roster (and agents) carry one.
+    void add(
+      Iterable<Map<String, dynamic>> raw,
+      String type, {
+      bool describe = true,
+    }) {
       for (final value in raw) {
         final id = type == 'user'
             ? value['userId'] ?? value['id']
@@ -352,7 +361,9 @@ class ComposerDirectory extends ChangeNotifier {
           id: id,
           name: name,
           title: value['displayName'] as String? ?? previous?.title,
-          detail: value['description'] as String? ?? previous?.detail,
+          detail: describe
+              ? value['description'] as String? ?? previous?.detail
+              : previous?.detail,
           inChannel: memberIds.contains(key),
           avatar: _ComposerCandidateAvatar(
             directory: this,
@@ -388,11 +399,15 @@ class ComposerDirectory extends ChangeNotifier {
     if (!['private', 'joint'].contains(channel.type)) {
       final user = w.client.user;
       if (user != null) {
-        add([
-          {...user.json, 'id': user.id},
-        ], 'user');
+        add(
+          [
+            {...user.json, 'id': user.id},
+          ],
+          'user',
+          describe: false,
+        );
       }
-      add(w.entityDirectory.authorMembers, 'user');
+      add(w.entityDirectory.authorMembers, 'user', describe: false);
       add(w.entityDirectory.authorAgents, 'agent');
     }
     if (roster != null) {
