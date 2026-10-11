@@ -65,7 +65,7 @@ class RaftMessageTimeline extends StatefulWidget {
   /// Whether this visible pane can prepare nearby rows between input frames.
   ///
   /// When supplied, the default cache grows in small steps while idle, up to
-  /// four viewports on either side. An explicit [cacheExtent] takes precedence.
+  /// one viewport on either side. An explicit [cacheExtent] takes precedence.
   final bool Function()? canPrepareNearbyRows;
 
   /// Older history is requested within this many viewports of the top.
@@ -100,7 +100,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         (_) => () {
           final position = singlePosition;
           if (position == null) return;
-          final target = position.viewportDimension * 4;
+          final target = position.viewportDimension;
           if (nearbyCache >= target) {
             if (nearbyCache > target) setState(() => nearbyCache = target);
             nearbyPreparation.cancel();
@@ -120,6 +120,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
       prepareNearbyRows();
     } else {
       nearbyPreparation.cancel();
+      nearbyCache = 250;
     }
   }
 
@@ -143,10 +144,9 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   @override
   void didUpdateWidget(RaftMessageTimeline oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.epoch != widget.epoch ||
-        !identical(oldWidget.controller, widget.controller)) {
-      nearbyCache = 250;
-    }
+    // Expanded layout is idle work. A foreground data/route update must not
+    // retain its enlarged layout window after a data or route update.
+    nearbyCache = 250;
     if (widget.canPrepareNearbyRows != null && widget.cacheExtent == null) {
       prepareNearbyRows();
     } else {

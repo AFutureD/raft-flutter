@@ -396,12 +396,16 @@ void main() {
       );
       final mouse = await t.createGesture(kind: ui.PointerDeviceKind.mouse);
       await mouse.addPointer(location: const Offset(1190, 790));
+      final initialRows = find
+          .byType(RaftMessageRow, skipOffstage: false)
+          .evaluate()
+          .length;
       for (var i = 0; i < 45; i++) {
         await t.pump(const Duration(milliseconds: 32));
       }
       expect(
         find.byType(RaftMessageRow, skipOffstage: false).evaluate().length,
-        greaterThan(8),
+        greaterThan(initialRows),
       );
       await mouse.moveTo(const Offset(1000, 350));
       await t.pumpAndSettle();

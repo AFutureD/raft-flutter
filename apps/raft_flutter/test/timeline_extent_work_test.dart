@@ -122,6 +122,27 @@ void main() {
         lessThanOrEqualTo(20),
       );
       expect(find.text('row-997', skipOffstage: false), findsNothing);
+      idle = true;
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 32));
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      }
+      expect(
+        find.textContaining('row-', skipOffstage: false).evaluate().length,
+        greaterThan(12),
+      );
+      idle = false;
+      final beforeUpdate = RaftMessageTimeline.debugRowBuilds;
+      await tester.pumpWidget(view(true));
+      expect(
+        find.textContaining('row-', skipOffstage: false).evaluate().length,
+        lessThanOrEqualTo(12),
+      );
+      expect(
+        RaftMessageTimeline.debugRowBuilds - beforeUpdate,
+        lessThanOrEqualTo(24),
+        reason: 'Foreground updates rebuild a bounded window before layout retires old cache rows.',
+      );
       await tester.pumpWidget(view(false));
       final hidden = RaftMessageTimeline.debugRowBuilds;
       for (var i = 0; i < 20; i++) {
