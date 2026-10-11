@@ -83,3 +83,9 @@ Native flows: `tool/native-linux` (runs `integration_test/workspace_test.dart` o
 Work on one branch per task, ideally in its own `git worktree`, and keep to the files your task owns. While iterating run only the tests, `analyze` and `ds-audit` relevant to the change.
 
 Before handing a branch over, run `tool/prepare-handoff`. It merges the latest `origin/cindy/integration` into your branch (stopping on conflicts so you resolve them, not the integrator), runs `tool/check-project` under the shared gate lock, and prints one line with the branch, commit, base and gate result to paste into the handoff message. A handed-over branch therefore fast-forwards onto `cindy/integration`. Docs-only branches may use `--no-check`. Conventions for contributors and agents (UI rules, data lifecycle, performance bar) are in [AGENTS.md](../AGENTS.md).
+
+### System fonts in screenshot tests
+
+The shared test helper `tool/testing/system_fonts.dart` resolves system fonts under `/usr/share/fonts` by default. To use the same font files on another host, set `RAFT_TEST_FONT_DIR` to a directory with the same tree: `opentype/noto/NotoSansCJK-{Regular,Bold}.ttc` and, for parity captures, `truetype/noto/NotoColorEmoji.ttf` and `truetype/noto/NotoSans-{Regular,Bold}.ttf`. The override changes only file locations; font families, load order and capture settings stay the same.
+
+A screenshot test without all its required system fonts is reported as skipped with the missing paths and configuration hint. It emits no capture. The mobile tab bar configuration interaction test still runs without these screenshot fonts. A passing engineering gate with skipped screenshot tests does not certify those screenshots or parity coverage.

@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../tool/testing/system_fonts.dart';
+
 import 'package:raft_ui/activity_selected_previews.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -34,13 +37,11 @@ Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
         .load();
   }
   // The theme's CJK fallback: load the system font so zh renders.
-  const dir = '/usr/share/fonts/opentype/noto';
   final loader = FontLoader('Noto Sans CJK JP');
   // Badge text inherits the generic `sans-serif` fallback.
   final generic = FontLoader('sans-serif');
   var any = false;
-  for (final f in ['NotoSansCJK-Regular.ttc', 'NotoSansCJK-Bold.ttc']) {
-    final file = File('$dir/$f');
+  for (final file in cjkTestFonts()) {
     if (file.existsSync()) {
       final data = ByteData.sublistView(file.readAsBytesSync());
       loader.addFont(Future.value(data));
@@ -115,6 +116,12 @@ final _themes = [
 void main() {
   for (final (name, family, dark) in _themes) {
     testWidgets('selected Activity row states $name', (t) async {
+      final missingFonts = missingTestFontReason(cjkTestFonts());
+      if (missingFonts != null) {
+        markTestSkipped(missingFonts);
+        return;
+      }
+
       t.view.physicalSize = const Size(480 * 2, 640 * 2);
       t.view.devicePixelRatio = 2;
       addTearDown(t.view.reset);
