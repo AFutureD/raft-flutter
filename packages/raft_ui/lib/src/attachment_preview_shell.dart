@@ -7,6 +7,7 @@ import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
 import 'mobile_page_header.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 
 /// What the comments panel needs to act as the mobile bottom sheet header
@@ -143,7 +144,17 @@ class _RaftAttachmentPreviewShellState
             actions: actions,
           );
     final rule = t.brutal ? 2.0 : 1.0;
-    Widget body = ColoredBox(color: bodyColor, child: widget.child);
+    // The body background runs under the system bar; with no bottom sheet the
+    // content itself clears it.
+    Widget body = ColoredBox(
+      color: bodyColor,
+      child: comments != null && !wide
+          ? widget.child
+          : Padding(
+              padding: EdgeInsets.only(bottom: raftBottomInset(context)),
+              child: widget.child,
+            ),
+    );
     if (comments != null && wide) {
       body = Row(
         children: [
@@ -171,36 +182,42 @@ class _RaftAttachmentPreviewShellState
     }
     Widget? sheet;
     if (comments != null && !wide) {
-      final height = open ? size.height * .45 : 40.0;
+      // The sheet's own background reaches the screen bottom; collapsed it
+      // grows by the system inset, open the composer pads itself.
+      final inset = raftBottomInset(context);
+      final height = open ? size.height * .45 : 40.0 + inset;
       sheet = Positioned(
         left: 0,
         right: 0,
         bottom: 0,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          height: height,
-          decoration: BoxDecoration(
-            color: t.brutal ? Colors.white : t.panel,
-            border: Border(
-              top: BorderSide(
-                color: t.brutal ? Colors.black : t.colors['line-muted']!,
-                width: rule,
+        child: RaftNavigationBarStyle(
+          background: t.brutal ? Colors.white : t.panel,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            height: height,
+            decoration: BoxDecoration(
+              color: t.brutal ? Colors.white : t.panel,
+              border: Border(
+                top: BorderSide(
+                  color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                  width: rule,
+                ),
               ),
             ),
-          ),
-          child: ClipRect(
-            child: OverflowBox(
-              alignment: Alignment.topLeft,
-              minHeight: 0,
-              maxHeight: size.height * .45,
-              child: SizedBox(
-                height: size.height * .45,
-                child: comments(
-                  context,
-                  RaftCommentsSheetControls(
-                    expanded: open,
-                    onToggle: () => setOpen(!open),
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topLeft,
+                minHeight: 0,
+                maxHeight: size.height * .45,
+                child: SizedBox(
+                  height: size.height * .45,
+                  child: comments(
+                    context,
+                    RaftCommentsSheetControls(
+                      expanded: open,
+                      onToggle: () => setOpen(!open),
+                    ),
                   ),
                 ),
               ),
@@ -220,6 +237,7 @@ class _RaftAttachmentPreviewShellState
       child: Focus(
         autofocus: true,
         child: SafeArea(
+          bottom: false,
           child: Stack(
             children: [
               Positioned(

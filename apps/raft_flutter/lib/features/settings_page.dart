@@ -154,7 +154,7 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
     Widget list(String? activeId) => ListView(
       key: PageStorageKey(mobile ? 'settings-mobile-list' : 'settings-sidebar'),
       primary: false,
-      padding: RaftSettingsSidebarList.inset(t),
+      padding: raftScrollPadding(context, RaftSettingsSidebarList.inset(t)),
       children: [RaftSettingsSidebarList(groups: groups, activeId: activeId)],
     );
     Widget navigation() => mobile
@@ -188,7 +188,10 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
         ? ListView(
             key: PageStorageKey('settings-page-${active.id}'),
             primary: false,
-            padding: RaftSettingsPanelFrame.contentInset,
+            padding: raftScrollPadding(
+              context,
+              RaftSettingsPanelFrame.contentInset,
+            ),
             children: [
               KeyedSubtree(
                 key: ValueKey(active.id),

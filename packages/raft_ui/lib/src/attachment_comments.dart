@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'attachment_preview_shell.dart' show RaftCommentsSheetControls;
 import 'dialog_card.dart' show RaftRecipeButton;
 import 'icons.dart';
+import 'system_inset.dart';
 import 'recipes/button_variants.g.dart';
 import 'design_primitives.dart';
 import 'localization.dart';
@@ -165,7 +166,13 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
             // `border-b-2 px-3 py-2 gap-2`, title `text-xs font-bold truncate`.
             Container(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              decoration: BoxDecoration(border: Border(bottom: rule)),
+              // Collapsed, the header is the whole sheet: its rule would sit
+              // exactly on the system bar line once the sheet extends under it.
+              decoration: BoxDecoration(
+                border: collapsedBody && raftBottomInset(context) > 0
+                    ? null
+                    : Border(bottom: rule),
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -250,7 +257,11 @@ class RaftAttachmentCommentsPanel extends StatelessWidget {
             // `border-t-2 p-2`.
             if (!collapsedBody)
             Container(
-              padding: const EdgeInsets.all(8),
+              // The panel background reaches the screen bottom; the composer
+              // clears the system bar (0 while the keyboard is up).
+              padding: const EdgeInsets.all(
+                8,
+              ).copyWith(bottom: 8 + raftBottomInset(context)),
               decoration: BoxDecoration(border: Border(top: rule)),
               child: blockedMessage != null
                   ? Padding(
@@ -406,14 +417,23 @@ class _CommentCard extends StatelessWidget {
 
 /// Full-height host for the comments panel opened from an attachment
 /// preview on touch layouts (Material ancestor for the composer field).
+///
+/// The page background reaches the screen bottom; the composer inside pads
+/// itself by the system inset.
 class RaftAttachmentCommentsPage extends StatelessWidget {
   const RaftAttachmentCommentsPage({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) => Material(
-    color: RaftTokens.of(context).brutal
+  Widget build(BuildContext context) {
+    final color = RaftTokens.of(context).brutal
         ? Colors.white
-        : RaftTokens.of(context).colors['layer-panel'],
-    child: SafeArea(child: child),
-  );
+        : RaftTokens.of(context).colors['layer-panel']!;
+    return RaftNavigationBarStyle(
+      background: color,
+      child: Material(
+        color: color,
+        child: SafeArea(bottom: false, child: child),
+      ),
+    );
+  }
 }

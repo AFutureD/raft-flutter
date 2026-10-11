@@ -5,6 +5,7 @@
 // The app supplies data and callbacks; every class list is resolved here.
 import 'package:flutter/material.dart';
 
+import 'system_inset.dart';
 import 'banner.dart';
 import 'components.dart' show RaftButton;
 import 'design_primitives.dart' show RaftSpinner, RaftTypography;
@@ -754,7 +755,10 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
     if (widget.scrollable) {
       return ListView.builder(
         primary: false,
-        padding: RaftSettingsPanelFrame.contentInset,
+        padding: raftScrollPadding(
+          context,
+          RaftSettingsPanelFrame.contentInset,
+        ),
         itemCount: items.length,
         itemBuilder: (context, index) => items[index](context),
       );

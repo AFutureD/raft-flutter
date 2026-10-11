@@ -521,8 +521,9 @@ class ResourceSearchResults extends StatelessWidget {
       // SearchViewport padding plus the results `<div class="p-4">`.
       slivers: [
         SliverPadding(
-          padding: slots.viewport.padding.add(
-            RaftResourceMetrics.searchResultsInset,
+          padding: raftScrollPadding(
+            context,
+            slots.viewport.padding.add(RaftResourceMetrics.searchResultsInset),
           ),
           sliver: SliverMainAxisGroup(
             slivers: [

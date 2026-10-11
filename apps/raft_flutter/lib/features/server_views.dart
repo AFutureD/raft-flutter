@@ -298,7 +298,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
         .toUpperCase();
     return ListView(
       primary: false,
-      padding: RaftSettingsPanelFrame.contentInset,
+      padding: raftScrollPadding(context, RaftSettingsPanelFrame.contentInset),
       children: [
         const RaftSettingsSectionHeader(
           label: 'Profile',
@@ -631,7 +631,7 @@ class _MembersViewState extends State<MembersView> {
         child: loading
             ? Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.all(24),
+                padding: raftScrollPadding(context, const EdgeInsets.all(24)),
                 children: [
                   if (!widget.mobileRoot)
                     Row(

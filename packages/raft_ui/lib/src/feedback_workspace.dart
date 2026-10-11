@@ -32,6 +32,7 @@ import 'recipes/message_reference.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/textarea_counter.g.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 
@@ -686,9 +687,12 @@ class RaftFeedbackNewForm extends StatelessWidget {
           RaftFeedbackViewHeader(title: 'New feedback', onBack: onBack),
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                vertical: narrow ? 16 : 18,
-                horizontal: narrow ? 16 : 18,
+              padding: raftScrollPadding(
+                context,
+                EdgeInsets.symmetric(
+                  vertical: narrow ? 16 : 18,
+                  horizontal: narrow ? 16 : 18,
+                ),
               ),
               child: Align(
                 alignment: Alignment.topCenter,
@@ -1022,9 +1026,12 @@ class RaftFeedbackConversation extends StatelessWidget {
     final list = ListView(
       key: const ValueKey('feedback-conversation'),
       controller: controller,
-      padding: EdgeInsets.only(
-        top: 2,
-        bottom: 12 + (composer != null && !t.brutal ? 160 : 0),
+      padding: raftScrollPadding(
+        context,
+        EdgeInsets.only(
+          top: 2,
+          bottom: 12 + (composer != null && !t.brutal ? 160 : 0),
+        ),
       ),
       children: [
         if (error != null)
@@ -1065,9 +1072,13 @@ class RaftFeedbackConversation extends StatelessWidget {
     if (composer != null) {
       footer = Container(
         key: const ValueKey('feedback-reply-footer'),
-        padding: narrow
-            ? const EdgeInsets.fromLTRB(14, 12, 14, 14)
-            : const EdgeInsets.fromLTRB(18, 14, 18, 18),
+        padding:
+            (narrow
+                    ? const EdgeInsets.fromLTRB(14, 12, 14, 14)
+                    : const EdgeInsets.fromLTRB(18, 14, 18, 18))
+                .copyWith(
+                  bottom: (narrow ? 14 : 18) + raftBottomInset(context),
+                ),
         decoration: t.brutal
             ? BoxDecoration(
                 color: t.colors['layer-canvas'],

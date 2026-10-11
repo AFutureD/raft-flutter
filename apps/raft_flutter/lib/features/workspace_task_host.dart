@@ -300,8 +300,8 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
               backgroundColor: pageColor,
               body: RaftSystemBarSurface(
                 statusBarBackground: pageColor,
-                navigationBarBackground: pageColor,
                 child: SafeArea(
+                  bottom: false,
                   child: SourceTaskSurface(
                     key: ValueKey(identity),
                     owner: task,

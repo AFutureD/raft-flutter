@@ -199,7 +199,7 @@ void main() {
         expect(r.lift, lessThan(60));
       });
 
-      testWidgets('Home: keyboard up lifts the tab bar, down restores it', (
+      testWidgets('Home: bar stays at rest when the keyboard is up', (
         tester,
       ) async {
         final r = _Rig(tester, family);
@@ -209,15 +209,38 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         debugPrint('Home keyboard UP lift=${r.lift} (rest $rest)');
-        // KNOWN DEFECT (diagnosis, see Scaffold at workspace_view.dart:1314):
-        // the in-flow tab bar rides above the keyboard. Flip this expectation
-        // to `rest` when the bar is made to ignore viewInsets.
-        expect(r.lift, closeTo(rest + _keyboard.bottom, .5));
+        // Fixed: the workspace Scaffold no longer resizes for the keyboard;
+        // the adaptive workspace shrinks only the content above the bar, and
+        // the bar reads the stable system inset, so it never follows the IME.
+        expect(r.lift, closeTo(rest, .5), reason: 'bar must ignore viewInsets');
         r.keyboard(false);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         debugPrint('Home keyboard DOWN lift=${r.lift}');
         expect(r.lift, closeTo(rest, .5), reason: 'restored after keyboard');
+      });
+
+      testWidgets('Home: bar stays put with the engine padding (nav bar 0)', (
+        tester,
+      ) async {
+        // Real Android: padding = max(0, viewPadding - viewInsets), so the
+        // keyboard replaces the nav-bar padding while viewPadding keeps it.
+        // A stale (flutter#118761) inset after hide must not leave the bar
+        // lifted either: this models the stuck state, bar stays at rest.
+        final r = _Rig(tester, family);
+        await r.start();
+        final rest = r.lift;
+        r.keyboard(true);
+        tester.view.padding = const FakeViewPadding(top: 24);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(r.lift, closeTo(rest, .5), reason: 'IME must not lift the bar');
+        // Stuck state: system bar back, viewInsets still non-zero.
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(r.lift, closeTo(rest, .5), reason: 'stale inset must not lift');
+        r.keyboard(false);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(r.lift, closeTo(rest, .5));
       });
 
       testWidgets('channel composer focus, Back to Home, keyboard down', (

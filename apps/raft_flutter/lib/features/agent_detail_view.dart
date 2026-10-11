@@ -542,7 +542,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     ];
     return ListView(
       key: const Key('fleet-detail'),
-      padding: EdgeInsets.zero,
+      padding: raftScrollPadding(context),
       children: [
         RaftProfileIdentity(
           name: displayName,

@@ -379,6 +379,20 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     ];
   }
 
+  /// Mobile elegant root: the floating tab bar's clearance (68 / 116 + inset)
+  /// arrives as MediaQuery padding from the adaptive workspace, so the recipe's
+  /// own 68 is dropped to avoid counting it twice.
+  EdgeInsets directoryPadding(RaftSidebarRecipe recipe) {
+    final inset = recipe
+        .contentInset(headerInFlow: true)
+        .resolve(Directionality.of(context));
+    final floatingBar = widget.mobileRoot && !RaftTokens.of(context).brutal;
+    return raftScrollPadding(
+      context,
+      floatingBar ? inset.copyWith(bottom: 0) : inset,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -526,7 +540,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
           ? computersList(t, computers)
           : ListView.builder(
               key: const Key('desktop-directory-list'),
-              padding: recipe.contentInset(headerInFlow: true),
+              padding: directoryPadding(recipe),
               itemCount: items.length,
               findChildIndexCallback: (key) =>
                   key is ValueKey<String> ? indices[key.value] : null,

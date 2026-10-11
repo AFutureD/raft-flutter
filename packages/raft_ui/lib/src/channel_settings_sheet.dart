@@ -5,6 +5,7 @@
 // passes them in as plain values and callbacks.
 import 'package:flutter/material.dart';
 
+import 'system_inset.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
@@ -389,7 +390,7 @@ class RaftChannelSettingsSheet extends StatelessWidget {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: raftScrollPadding(context, const EdgeInsets.all(16)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: body,

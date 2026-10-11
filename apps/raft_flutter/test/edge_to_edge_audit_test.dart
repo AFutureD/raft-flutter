@@ -1,8 +1,13 @@
-// Evidence harness for docs/edge-to-edge-audit.md. It renders real mobile
-// routes on a simulated Android phone whose system navigation bar is
-// transparent (edge-to-edge) and tints the bar region, so any opaque strip
-// that the app paints or leaves under the bar is visible. Not a failing
-// assertion of the bug: it only checks that each capture was produced.
+// Edge-to-edge regression suite (docs/edge-to-edge-audit.md). It renders real
+// mobile routes on a simulated Android phone whose system navigation bar is
+// transparent (edge-to-edge), tints the bar region in the PNGs, and asserts:
+//  * no opaque strip under the bar (no colour step at the bar line, uniform
+//    colour in the band; brutal tab roots own a panel-coloured band),
+//  * scroll lists can scroll their last text clear of the bar (and of the
+//    floating tab capsule on elegant tab roots),
+//  * bottom-anchored controls reach the screen bottom,
+//  * keyboard up: composer sits on the keyboard with no double inset padding,
+//    and the home tab bar never follows the keyboard.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -40,7 +45,7 @@ enum Nav {
 Directory outDir() {
   final dir = Directory(
     Platform.environment['RAFT_EDGE_AUDIT_DIR'] ??
-        '${Directory.current.path}/../../.local/edge-to-edge',
+        '${Directory.current.path}/../../.local/edge-to-edge-after',
   )..createSync(recursive: true);
   return dir;
 }
@@ -69,13 +74,14 @@ String _hex(int argb) =>
 
 /// Renders the whole root layer and tints the status/navigation bar bands.
 /// Also records what colour the app itself leaves under the bar.
-Future<void> shoot(
+Future<Map<String, Object?>> shoot(
   WidgetTester t,
   String name, {
   required Nav nav,
   double keyboardPx = 0,
   String? probe,
 }) async {
+  late Map<String, Object?> result;
   final renderView = t.binding.renderViews.first;
   final layer = renderView.debugLayer! as OffsetLayer;
   final bounds = Offset.zero & (renderView.size * _dpr);
@@ -98,6 +104,24 @@ Future<void> shoot(
       for (final x in [3, w ~/ 2, w - 4]) px(x, bandY),
     };
     final above = px(3, bandTop - 8);
+    // Strip detection on the two edge columns (no content lives there): the
+    // colour must not step at the bar line and must be uniform inside it.
+    bool noStep = true, uniform = true;
+    for (final x in [3, w - 4]) {
+      final over = px(x, bandTop - 3), under = px(x, bandTop + 3);
+      if (over != under) noStep = false;
+      for (var y = bandTop + 3; y < h; y += 7) {
+        if (px(x, y) != under) uniform = false;
+      }
+    }
+    result = {
+      'name': name,
+      'nav': nav.id,
+      'noStep': noStep,
+      'bandUniform': uniform,
+      'bandColour': _hex(px(3, bandY)),
+      'colourAboveBar': _hex(px(3, bandTop - 3)),
+    };
     metrics.add({
       'name': name,
       'nav': nav.id,
@@ -138,6 +162,7 @@ Future<void> shoot(
     image.dispose();
     out.dispose();
   });
+  return result;
 }
 
 String mq(BuildContext c) {
@@ -265,10 +290,28 @@ Map<String, dynamic> _message(String id, String text, {int seq = 1}) => {
 };
 
 class Scenario {
-  const Scenario(this.name, this.path, {this.act, this.nav = Nav.gesture});
+  const Scenario(
+    this.name,
+    this.path, {
+    this.act,
+    this.nav = Nav.gesture,
+    this.root = false,
+    this.bottomControl = false,
+    this.dark = false,
+  });
   final String name, path;
   final Nav nav;
   final Future<void> Function(WidgetTester t, RootFixture f)? act;
+
+  /// One of the four tab roots (the tab bar owns the bottom inset).
+  final bool root;
+
+  /// A bottom-anchored control (composer, footer, sheet) must reach the
+  /// screen bottom.
+  final bool bottomControl;
+
+  /// Also captured in the dark elegant theme.
+  final bool dark;
 }
 
 Future<void> settle(WidgetTester t, [int frames = 12]) async {
@@ -322,28 +365,49 @@ Future<void> openForward(WidgetTester t, RootFixture f) async {
 }
 
 final scenarios = <Scenario>[
-  const Scenario('01-home-root', '/s/alpha'),
-  const Scenario('02-tasks-root', '/s/alpha/tasks'),
+  const Scenario('01-home-root', '/s/alpha', root: true),
+  const Scenario('02-tasks-root', '/s/alpha/tasks', root: true),
   const Scenario(
     '05-tasks-root-scrolled-end',
     '/s/alpha/tasks',
     act: scrollToEnd,
+    root: true,
   ),
   const Scenario(
     '06-settings-root-scrolled-end',
     '/s/alpha/settings',
     act: scrollToEnd,
+    root: true,
   ),
-  const Scenario('07-home-root-scrolled-end', '/s/alpha', act: scrollToEnd),
-  const Scenario('03-members-root', '/s/alpha/members'),
-  const Scenario('04-settings-root', '/s/alpha/settings'),
-  const Scenario('10-channel-chat', '/s/alpha', act: openChannel),
-  const Scenario('11-thread', '/s/alpha/channel/ca?thread=ca:ma'),
-  const Scenario('12-search', '/s/alpha/search'),
+  const Scenario(
+    '07-home-root-scrolled-end',
+    '/s/alpha',
+    act: scrollToEnd,
+    root: true,
+  ),
+  const Scenario('03-members-root', '/s/alpha/members', root: true),
+  const Scenario('04-settings-root', '/s/alpha/settings', root: true),
+  const Scenario(
+    '10-channel-chat',
+    '/s/alpha',
+    act: openChannel,
+    bottomControl: true,
+    dark: true,
+  ),
+  const Scenario(
+    '11-thread',
+    '/s/alpha/channel/ca?thread=ca:ma',
+    bottomControl: true,
+  ),
+  const Scenario('12-search', '/s/alpha/search', dark: true),
   const Scenario('13-activity', '/s/alpha/activity'),
   const Scenario('14-saved', '/s/alpha/saved'),
   const Scenario('15-settings-account', '/s/alpha/settings/account'),
-  const Scenario('16-settings-workspace', '/s/alpha/settings/server'),
+  const Scenario(
+    '16-settings-workspace',
+    '/s/alpha/settings/server',
+    dark: true,
+  ),
   const Scenario('17-computers', '/s/alpha/computers'),
   const Scenario('18-member-detail', '/s/alpha/human/bob'),
   const Scenario(
@@ -354,8 +418,19 @@ final scenarios = <Scenario>[
     '21-channel-members-page',
     '/s/alpha/channel/ca?channelPage=members:ca',
   ),
-  const Scenario('22-task-detail', '/s/alpha/tasks', act: openTask),
-  const Scenario('23-attachment-preview', '/s/alpha', act: openAttachment),
+  const Scenario(
+    '22-task-detail',
+    '/s/alpha/tasks',
+    act: openTask,
+    bottomControl: true,
+    dark: true,
+  ),
+  const Scenario(
+    '23-attachment-preview',
+    '/s/alpha',
+    act: openAttachment,
+    bottomControl: true,
+  ),
   const Scenario('24-forward-composer', '/s/alpha', act: openForward),
   // Same pages with a 3-button bar (126px).
   const Scenario(
@@ -363,8 +438,9 @@ final scenarios = <Scenario>[
     '/s/alpha',
     act: openChannel,
     nav: Nav.buttons,
+    bottomControl: true,
   ),
-  const Scenario('01-home-root', '/s/alpha', nav: Nav.buttons),
+  const Scenario('01-home-root', '/s/alpha', nav: Nav.buttons, root: true),
   const Scenario('12-search', '/s/alpha/search', nav: Nav.buttons),
   const Scenario(
     '16-settings-workspace',
@@ -420,14 +496,183 @@ void mqProbeTests() {
   }
 }
 
+/// Rect of the first element of [type] (global dp).
+Rect rectOf(WidgetTester t, Finder f) => t.getRect(f.first);
+
+/// Scrolls the lowest wide scroll view that runs under the bar to its end and
+/// returns the lowest visible text bottom (dp), or null if there is none.
+Future<double?> lowestTextAfterScrollToEnd(WidgetTester t) async {
+  final screenH = _size.height / _dpr;
+  Element? target;
+  double targetBottom = -1;
+  for (final e in find.byType(Scrollable).evaluate()) {
+    final box = e.renderObject;
+    if (box is! RenderBox || !box.hasSize || !box.attached) continue;
+    if (box.size.width < 300 || box.size.height < 150) continue;
+    final axis = (e.widget as Scrollable).axisDirection;
+    if (axis == AxisDirection.left || axis == AxisDirection.right) continue;
+    final bottom = box.localToGlobal(Offset(0, box.size.height)).dy;
+    if (bottom < screenH - 1) continue; // ends above the bar: not under it
+    if (bottom > targetBottom) {
+      target = e;
+      targetBottom = bottom;
+    }
+  }
+  if (target == null) return null;
+  final state = t.state<ScrollableState>(
+    find.byElementPredicate((e) => e == target),
+  );
+  if (state.position.axis != Axis.vertical) return null;
+  state.position.jumpTo(state.position.maxScrollExtent);
+  await settle(t, 4);
+  double? lowest;
+  for (final e
+      in find
+          .descendant(
+            of: find.byElementPredicate((e) => e == target),
+            matching: find.byType(RichText),
+          )
+          .evaluate()) {
+    final box = e.renderObject;
+    if (box is! RenderBox || !box.hasSize || !box.attached) continue;
+    final r = box.localToGlobal(Offset.zero) & box.size;
+    if (r.top >= screenH || r.bottom <= 0 || r.isEmpty) continue;
+    if (lowest == null || r.bottom > lowest) lowest = r.bottom;
+  }
+  return lowest;
+}
+
+/// A bottom-anchored control whose own background reaches the screen bottom.
+bool bottomControlReachesEdge(WidgetTester t) {
+  final screenH = _size.height / _dpr;
+  for (final e in find.byType(RaftNavigationBarStyle).evaluate()) {
+    final box = e.renderObject;
+    if (box is! RenderBox || !box.hasSize || !box.attached) continue;
+    final r = box.localToGlobal(Offset.zero) & box.size;
+    if ((r.bottom - screenH).abs() < .5 && r.width > 300 && r.height > 20) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Asserts what every captured page must satisfy under the system bar.
+Future<void> assertEdgeToEdge(
+  WidgetTester t,
+  Scenario s,
+  String theme,
+  Map<String, Object?> m,
+) async {
+  final label = '${s.name} $theme ${s.nav.id}';
+  final brutalRoot = s.root && theme == 'brutal';
+  if (brutalRoot) {
+    // The in-flow brutal tab bar owns the bar band and paints it panel-coloured.
+    expect(m['bandUniform'], isTrue, reason: '$label: band not uniform');
+  } else {
+    expect(
+      m['noStep'],
+      isTrue,
+      reason:
+          '$label: opaque strip: colour above the bar ${m['colourAboveBar']} '
+          'differs from the band ${m['bandColour']}',
+    );
+    expect(m['bandUniform'], isTrue, reason: '$label: band not uniform');
+  }
+  if (s.bottomControl) {
+    expect(
+      bottomControlReachesEdge(t),
+      isTrue,
+      reason: '$label: bottom control does not reach the screen bottom',
+    );
+  }
+  // Last item scrolls clear of the bar (and of the floating capsule).
+  final gap = scrollGap(t);
+  if (gap != null && gap < 1) {
+    final inset = s.nav.px / _dpr;
+    final floating = s.root && theme != 'brutal';
+    // Capsule: 8 gap + 52 capsule + 8 + inset = Web's 68 + inset.
+    final barTop = _size.height / _dpr - inset - (floating ? 60 : 0);
+    final lowest = await lowestTextAfterScrollToEnd(t);
+    metrics.add({
+      'name': '$label scroll-end',
+      'lowestTextDp': lowest?.toStringAsFixed(1),
+      'barTopDp': barTop.toStringAsFixed(1),
+    });
+    if (lowest != null) {
+      expect(
+        lowest,
+        lessThanOrEqualTo(barTop + .5),
+        reason:
+            '$label: last text ends at $lowest dp, under the bar '
+            '(bar top $barTop dp)',
+      );
+    }
+  }
+}
+
+/// Keyboard up / down on a bottom composer (chat or thread).
+Future<void> composerKeyboardScenario(
+  WidgetTester t,
+  String theme,
+  String name,
+  String path, {
+  Future<void> Function(WidgetTester t, RootFixture f)? act,
+}) async {
+  final f = await mountAt(t, theme, path, Nav.gesture, fixture: richFixture());
+  await act?.call(t, f);
+  final screenH = _size.height / _dpr;
+  final inset = Nav.gesture.px / _dpr;
+  final host = find.byKey(const ValueKey('composer-host-slot'));
+  final shell = find.byKey(const ValueKey('composer-shell-slot'));
+  double padBelowShell() => rectOf(t, host).bottom - rectOf(t, shell).bottom;
+  // Resting: the host background reaches the bottom and pads by the inset.
+  expect(rectOf(t, host).bottom, closeTo(screenH, .5), reason: '$name rest');
+  final restPad = padBelowShell();
+  await t.tap(find.byType(EditableText).last);
+  await settle(t, 3);
+  const kb = 300 * _dpr;
+  setInsets(t, Nav.gesture, keyboardPx: kb);
+  await settle(t, 5);
+  final kbTop = screenH - kb / _dpr;
+  // Keyboard up: the composer sits exactly on the keyboard, and the inset is
+  // not counted twice (the nav bar is under the keyboard).
+  expect(rectOf(t, host).bottom, closeTo(kbTop, .5), reason: '$name on IME');
+  expect(
+    padBelowShell(),
+    closeTo(restPad - inset, .5),
+    reason: '$name: keyboard up must drop the nav inset (no double padding)',
+  );
+  await shoot(
+    t,
+    '$name-up-$theme',
+    nav: Nav.gesture,
+    keyboardPx: kb,
+    probe: mq(t.element(find.byType(EditableText).last)),
+  );
+  setInsets(t, Nav.gesture);
+  FocusManager.instance.primaryFocus?.unfocus();
+  await settle(t, 8);
+  expect(rectOf(t, host).bottom, closeTo(screenH, .5), reason: '$name down');
+  expect(padBelowShell(), closeTo(restPad, .5), reason: '$name restored');
+  await shoot(
+    t,
+    '$name-down-$theme',
+    nav: Nav.gesture,
+    probe: mq(t.element(find.byType(EditableText).last)),
+  );
+  debugDefaultTargetPlatformOverride = null;
+}
+
 void main() {
   mqProbeTests();
   tearDownAll(() {
     File('${outDir().path}/metrics.json')
         .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(metrics));
   });
-  for (final theme in const ['brutal', 'elegant-light']) {
+  for (final theme in const ['brutal', 'elegant-light', 'elegant-dark']) {
+    final dark = theme == 'elegant-dark';
     for (final s in scenarios) {
+      if (dark && (!s.dark || s.nav != Nav.gesture)) continue;
       testWidgets('${s.name} $theme ${s.nav.id}', (t) async {
         final f = await mountAt(
           t,
@@ -446,43 +691,51 @@ void main() {
                 .join('\n'),
           );
         }
-        await shoot(t, '${s.name}-$theme-${s.nav.id}', nav: s.nav);
+        final m = await shoot(t, '${s.name}-$theme-${s.nav.id}', nav: s.nav);
+        await assertEdgeToEdge(t, s, theme, m);
         debugDefaultTargetPlatformOverride = null;
       });
     }
-    // Keyboard up / down on the channel composer.
     testWidgets('30-chat-keyboard $theme', (t) async {
-      final f = await mountAt(
+      await composerKeyboardScenario(
         t,
         theme,
+        '30-chat-keyboard',
         '/s/alpha',
-        Nav.gesture,
-        fixture: richFixture(),
+        act: openChannel,
       );
-      await openChannel(t, f);
-      await t.tap(find.byType(EditableText).last);
-      await settle(t, 3);
+    });
+    testWidgets('32-thread-keyboard $theme', (t) async {
+      await composerKeyboardScenario(
+        t,
+        theme,
+        '32-thread-keyboard',
+        '/s/alpha/channel/ca?thread=ca:ma',
+      );
+    });
+    if (dark) continue;
+    // Home tab bar: the keyboard must not lift it (owner report 2).
+    testWidgets('40-home-keyboard $theme', (t) async {
+      await mountAt(t, theme, '/s/alpha', Nav.gesture, fixture: richFixture());
+      const key = Key('workspace-mobile-navigation');
+      double lift() => _size.height / _dpr - rectOf(t, find.byKey(key)).bottom;
+      final rest = lift();
+      await shoot(t, '40-home-keyboard-rest-$theme', nav: Nav.gesture);
       const kb = 300 * _dpr;
       setInsets(t, Nav.gesture, keyboardPx: kb);
       await settle(t, 5);
+      expect(lift(), closeTo(rest, .5), reason: 'tab bar must not follow IME');
       await shoot(
         t,
-        '30-chat-keyboard-up-$theme',
+        '41-home-keyboard-up-$theme',
         nav: Nav.gesture,
         keyboardPx: kb,
-        probe: mq(t.element(find.byType(EditableText).last)),
       );
       setInsets(t, Nav.gesture);
-      FocusManager.instance.primaryFocus?.unfocus();
-      await settle(t, 8);
-      await shoot(
-        t,
-        '31-chat-keyboard-down-$theme',
-        nav: Nav.gesture,
-        probe: mq(t.element(find.byType(EditableText).last)),
-      );
+      await settle(t, 5);
+      expect(lift(), closeTo(rest, .5), reason: 'tab bar restored');
+      await shoot(t, '42-home-keyboard-down-$theme', nav: Nav.gesture);
       debugDefaultTargetPlatformOverride = null;
-      expect(f.workspace(t), isNotNull);
     });
     testWidgets('25-share-picker $theme', (t) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -516,7 +769,17 @@ void main() {
         ),
       );
       await settle(t, 6);
-      await shoot(t, '25-share-picker-$theme-gesture', nav: Nav.gesture);
+      final m = await shoot(
+        t,
+        '25-share-picker-$theme-gesture',
+        nav: Nav.gesture,
+      );
+      await assertEdgeToEdge(
+        t,
+        const Scenario('25-share-picker', '', bottomControl: true),
+        theme,
+        m,
+      );
       debugDefaultTargetPlatformOverride = null;
     });
   }

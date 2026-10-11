@@ -10,20 +10,34 @@ import 'mounted_avatar_recipe.dart';
 import 'recipes/input.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
+import 'system_inset.dart';
 import 'theme.dart';
 
 /// `fixed inset-0 z-40 flex flex-col bg-layer-canvas text-foreground-strong`.
+///
+/// Edge to edge: only the top (and sides) are safe-area padded. The list and
+/// footer pad themselves by [raftBottomInset] (`pb-[max(12px, inset)]`), and the
+/// page sits above the keyboard, so the inset is 0 while it is open.
 class RaftForwardPage extends StatelessWidget {
   const RaftForwardPage({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) => Material(
-    color: RaftTokens.of(context).colors['layer-canvas'],
-    child: DefaultTextHeightBehavior(
-      textHeightBehavior: raftCssTextHeightBehavior,
-      child: SafeArea(child: child),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return Material(
+      color: RaftTokens.of(context).colors['layer-canvas'],
+      child: DefaultTextHeightBehavior(
+        textHeightBehavior: raftCssTextHeightBehavior,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+          child: MediaQuery(
+            data: media.removeViewInsets(removeBottom: true),
+            child: SafeArea(bottom: false, child: child),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// `flex min-h-14 items-center gap-3 border-b px-3 py-2`; brutal
@@ -165,7 +179,7 @@ class RaftForwardTargetsBody extends StatelessWidget {
       color: t.strong,
     );
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -187,7 +201,12 @@ class RaftForwardTargetsBody extends StatelessWidget {
           ),
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 8),
+              // 12 (body padding) + 8, plus the system inset: the list runs
+              // under the bar and the last row scrolls clear of it.
+              padding: raftScrollPadding(
+                context,
+                const EdgeInsets.only(bottom: 20),
+              ),
               itemCount: itemCount ?? rows.length,
               itemBuilder: itemBuilder ?? (_, index) => rows[index],
               separatorBuilder: (_, _) => const SizedBox(height: 6),
@@ -383,6 +402,7 @@ class RaftForwardPreviewStep extends StatelessWidget {
       children: [
         Expanded(
           child: ListView(
+            // The footer below owns the inset; the list ends above it.
             padding: const EdgeInsets.all(12),
             children: [
               if (error != null)
@@ -401,7 +421,7 @@ class RaftForwardPreviewStep extends StatelessWidget {
             ],
           ),
         ),
-        Container(
+        RaftBottomInsetSurface(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: t.brutal ? Colors.white : t.colors['layer-panel'],

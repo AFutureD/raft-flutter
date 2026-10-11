@@ -1,6 +1,7 @@
 library;
 
 export 'src/theme.dart';
+export 'src/system_inset.dart';
 export 'src/components.dart';
 
 export 'src/task.dart';

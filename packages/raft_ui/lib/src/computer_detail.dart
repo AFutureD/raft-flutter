@@ -643,6 +643,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
               color: t.brutal ? Colors.white : t.colors['layer-panel']!,
               child: SingleChildScrollView(
                 key: const Key('fleet-detail'),
+                padding: raftScrollPadding(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

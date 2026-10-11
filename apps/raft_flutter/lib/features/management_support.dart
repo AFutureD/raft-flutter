@@ -525,7 +525,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
       Expanded(
         child: ListView(
           key: PageStorageKey((widget.runtimeType, title)),
-          padding: const EdgeInsets.all(16),
+          padding: raftScrollPadding(context, const EdgeInsets.all(16)),
           children: children,
         ),
       ),

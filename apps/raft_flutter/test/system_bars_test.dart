@@ -53,7 +53,6 @@ void main() {
         surface.statusBarBackground,
         tokens.brutal ? tokens.product.softSignal : tokens.panel,
       );
-      expect(surface.navigationBarBackground, tokens.canvas);
       final boundary =
           boundaryKey.currentContext!.findRenderObject()!
               as RenderRepaintBoundary;

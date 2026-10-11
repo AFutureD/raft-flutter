@@ -129,7 +129,7 @@ class _ResourceSearchHomeState extends State<ResourceSearchHome> {
     return ListView(
       key: const PageStorageKey('search-home'),
       primary: false,
-      padding: RaftSearchHomeRecipe.inset,
+      padding: raftScrollPadding(context, RaftSearchHomeRecipe.inset),
       children: [
         if (widget.history.isNotEmpty) ...[
           heading(

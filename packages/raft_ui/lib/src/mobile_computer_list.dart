@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'system_inset.dart';
 import 'components.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
@@ -117,7 +118,7 @@ class RaftMobileComputerList extends StatelessWidget {
       color: t.canvas,
       child: ListView(
         key: const Key('mobile-computers-list'),
-        padding: const EdgeInsets.all(16),
+        padding: raftScrollPadding(context, const EdgeInsets.all(16)),
         children: [
           for (final (index, child) in children.indexed) ...[
             if (index > 0) const SizedBox(height: 10),

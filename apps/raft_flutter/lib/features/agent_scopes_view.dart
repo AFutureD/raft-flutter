@@ -141,7 +141,7 @@ class _AgentScopesViewState extends State<AgentScopesView> {
         ? Center(child: CircularProgressIndicator())
         : ListView(
             key: const Key('agent-scope-list'),
-            padding: const EdgeInsets.all(24),
+            padding: raftScrollPadding(context, const EdgeInsets.all(24)),
             children: [
               if (error != null)
                 Semantics(liveRegion: true, child: Text(error!)),

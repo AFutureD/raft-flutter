@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'system_inset.dart';
 import 'avatar_content.dart';
 import 'components.dart' show RaftButton;
 import 'icons.dart';
@@ -991,7 +992,10 @@ class RaftActivityLogView extends StatelessWidget {
                     ),
                   )
                 : ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: raftScrollPadding(
+                      context,
+                      const EdgeInsets.symmetric(vertical: 8),
+                    ),
                     children: [for (final e in entries) _row(t, e)],
                   ),
           ),
@@ -1305,7 +1309,7 @@ class RaftReminderListView extends StatelessWidget {
     return ColoredBox(
       color: t.brutal ? Colors.white : t.colors['layer-panel']!,
       child: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: raftScrollPadding(context, const EdgeInsets.all(20)),
         children: [
           // Only an empty list waits on a first read; a refresh of rows already
           // shown never inserts a line above them.
@@ -1540,7 +1544,10 @@ class RaftWorkspaceTreeView extends StatelessWidget {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: raftScrollPadding(
+                context,
+                const EdgeInsets.symmetric(vertical: 4),
+              ),
               children: error != null
                   ? [RaftCssText(error!, textAlign: TextAlign.center)]
                   : [for (final n in nodes) _node(t, n)],
@@ -1810,7 +1817,10 @@ class RaftPanelGroups extends StatelessWidget {
     return ColoredBox(
       color: t.brutal ? Colors.white : t.colors['layer-panel']!,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: raftScrollPadding(
+          context,
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        ),
         children: [
           for (var g = 0; g < groups.length; g++) ...[
             if (g > 0) SizedBox(height: gap),

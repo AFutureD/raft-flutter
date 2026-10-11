@@ -244,7 +244,18 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
                 },
               ),
             ),
-            RaftPanel(
+            // The footer paints to the screen edge and pads by the system inset.
+            RaftBottomInsetSurface(
+              decoration: BoxDecoration(
+                color: RaftTokens.of(context).panel,
+                border: Border(
+                  top: BorderSide(
+                    color: RaftTokens.of(context).line,
+                    width: RaftTokens.of(context).border,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.all(RaftSpace.x4),
               child: Row(
                 children: [
                   Expanded(
