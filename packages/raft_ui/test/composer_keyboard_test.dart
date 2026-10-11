@@ -271,7 +271,7 @@ void main() {
         await tester.enterText(find.byType(TextField), 'draft');
         await _chord(tester, LogicalKeyboardKey.enter);
         expect(rig.sent, isEmpty);
-        await tester.tap(find.byTooltip('Send message (Ctrl+Enter)'));
+        await tester.tap(find.byTooltip('Send'));
         await tester.pump();
         expect(rig.sent, ['draft']);
       });

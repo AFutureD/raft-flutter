@@ -2775,7 +2775,7 @@ class _RaftComposerState extends State<RaftComposer> {
                                           glyph: RaftGlyph.send,
                                           tooltip:
                                               widget.submitTooltip ??
-                                              'Send message (Ctrl+Enter)',
+                                              'Send',
                                           submit: true,
                                           busy: busy,
                                           spinner: widget.submitSpinner,

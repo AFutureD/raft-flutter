@@ -4269,7 +4269,6 @@ const raftChinese = <String, String>{
   "Workspaces": "工作空间",
   "Remove attachment": "移除附件",
   "Retry upload": "重试上传",
-  "Send message (Ctrl+Enter)": "发送消息（Ctrl+Enter）",
   "Message actions": "消息操作",
   "Show less": "收起",
   "Create agent": "创建智能体",

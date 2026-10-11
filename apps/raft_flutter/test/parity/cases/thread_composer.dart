@@ -172,7 +172,7 @@ ParityCase _composer({
           if (sendForPendingMentions) {
             // React: `click button[aria-label='Send']` with the mouse, which
             // then stays at that point.
-            final at = t.getCenter(find.byTooltip('Send message (Ctrl+Enter)'));
+            final at = t.getCenter(find.byTooltip('Send'));
             final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
             await mouse.addPointer(location: at);
             await mouse.down(at);
