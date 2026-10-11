@@ -13,18 +13,22 @@
 // `routes` + the case's `routeSet`.
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart' show addTearDown;
+import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/source_time_formatter.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/data/workspace_entity_directory.dart';
+import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../parity_harness.dart';
 import 'thread_composer/fake_workspace.dart';
-import 'thread_messages/chat_stage.dart' show ParityIdentities;
+import 'thread_messages/chat_stage.dart';
 
 Map<String, dynamic> _fx(ParityContext ctx) =>
     ctx.fixtures['ext:conversation'] as Map<String, dynamic>;
@@ -238,6 +242,209 @@ final ParityCase _windowCase = ParityCase(
   build: _buildWindow,
 );
 
+
+// --------------------------------------------------------------------------
+// view=row: one message row on a panel-coloured box (Web MessageItem)
+// --------------------------------------------------------------------------
+
+/// The column background messages sit on (`bg-layer-panel`, brutal white).
+Color _panel(BuildContext context) {
+  final t = RaftTokens.of(context);
+  return t.brutal ? Colors.white : t.panel;
+}
+
+/// [ChatStage] whose capture canvas is painted with the panel colour (the
+/// official stage hard-codes white, right only for the light themes).
+class _RowStage extends ChatStage {
+  _RowStage(
+    super.ctx, {
+    required super.messages,
+    required super.rowWidth,
+    required super.rowOrigin,
+    required Size super.canvas,
+    super.threadSummaries,
+    super.tasks,
+  });
+
+  @override
+  Widget build() {
+    final canvas = this.canvas!;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: ValueListenableBuilder(
+        valueListenable: geometry,
+        builder: (context, g, _) {
+          final (chatWidth, shift, _) = g;
+          final windowed = ClipRect(
+            child: SizedBox(
+              width: g.$3?.width ?? chatWidth,
+              height: g.$3?.height ?? 844,
+              child: OverflowBox(
+                alignment: Alignment.topLeft,
+                minWidth: chatWidth,
+                maxWidth: chatWidth,
+                minHeight: 1800,
+                maxHeight: 1800,
+                child: Transform.translate(
+                  offset: shift,
+                  child: RaftChatView(key: chatKey, controller: w),
+                ),
+              ),
+            ),
+          );
+          // A zero canvas height is the CSS auto height: the row plus its top inset.
+          final size = canvas.height > 0
+              ? canvas
+              : Size(canvas.width, rowOrigin.dy + (g.$3?.height ?? 120));
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                child: ctx.target(
+                  SizedBox.fromSize(
+                    size: size,
+                    child: ClipRect(
+                      child: ColoredBox(
+                        color: _panel(context),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned(
+                              left: rowOrigin.dx,
+                              top: rowOrigin.dy,
+                              child: windowed,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+_RowStage _rowStage(ParityContext ctx) {
+  final row = Map<String, dynamic>.from(
+    (_fx(ctx)['rows'] as Map)[ctx.props['row']] as Map,
+  );
+  final message = Map<String, dynamic>.from(row['message'] as Map);
+  final width = (ctx.props['boxWidth'] as num?)?.toDouble() ?? 440;
+  // No boxHeight: the box is as tall as its row (CSS auto height), height 0.
+  final height = (ctx.props['boxHeight'] as num?)?.toDouble() ?? 0;
+  final padX = (ctx.props['padX'] as num?)?.toDouble() ?? 16;
+  final padTop = (ctx.props['padTop'] as num?)?.toDouble() ?? 32;
+  final summary = row['threadSummary'];
+  final task = row['linkedTask'];
+  final stage = _RowStage(
+    ctx,
+    rowWidth: width - 2 * padX,
+    rowOrigin: Offset(padX, padTop),
+    canvas: Size(width, height),
+    messages: [
+      {'threadId': null, ...message},
+    ],
+    threadSummaries: summary == null
+        ? const {}
+        : {message['id'] as String: Map<String, dynamic>.from(summary as Map)},
+    tasks: task == null ? const [] : [Map<String, dynamic>.from(task as Map)],
+  );
+  // The fixture's routes (activity log, ...) on top of the stage's defaults.
+  final routeSet =
+      (_fx(ctx)['routeSets'] as Map)[ctx.props['routeSet']] as Map? ?? {};
+  for (final MapEntry(:key, :value) in {
+    ...Map<String, dynamic>.from(_fx(ctx)['routes'] as Map),
+    ...Map<String, dynamic>.from(routeSet),
+  }.entries) {
+    stage.client.routes[key] = (_) => value;
+  }
+  // The server's computer list (Computer fact of the profile card).
+  final machine = Map<String, dynamic>.from(
+    ctx.fixtureData['machines']['primary'] as Map,
+  );
+  stage.client.routes['GET /servers/visual-server/machines'] = (_) => {
+    'machines': [
+      {
+        'id': machine['id'],
+        'name': machine['name'],
+        'status': 'online',
+        'runtimes': ['codex', 'claude'],
+        'hostname': machine['hostname'],
+        'isComputer': true,
+      },
+    ],
+  };
+  return stage;
+}
+
+Future<void> _pumpFrames(WidgetTester t, [int n = 8]) async {
+  for (var i = 0; i < n; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+  }
+}
+
+/// A mouse that stays on the page until the case ends, like Playwright's.
+Future<TestGesture> _mouse(WidgetTester t) async {
+  final g = await t.createGesture(kind: PointerDeviceKind.mouse);
+  await g.addPointer(location: Offset.zero);
+  addTearDown(g.removePointer);
+  return g;
+}
+
+/// Profile preview card (3.27) and its recent-activity section (3.28): the
+/// pointer rests on the sender avatar until the hover card opens.
+final ParityCase _profileCase = ParityCase(
+  widgets: const [
+    'raft_flutter:RaftChatView',
+    'raft_flutter:ProfilePreviewHoverCard',
+    'raft_ui:RaftProfilePreviewCard',
+  ],
+  notes: 'Extension suite (not official). Real RaftChatView row, hover card on the avatar.',
+  settle: const Duration(milliseconds: 300),
+  build: (ctx) => stageFor(ctx, () => _rowStage(ctx)).build(),
+  interact: (t, ctx) async {
+    final stage = stageFor(ctx, () => _rowStage(ctx));
+    stage.w.entityDirectory.ensure({WorkspaceEntityKind.computers});
+    await _pumpFrames(t);
+    await stage.alignRow(t);
+    final mouse = await _mouse(t);
+    await mouse.moveTo(t.getCenter(find.byType(ProfilePreviewHoverCard).first));
+    for (var i = 0; i < 30; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+  },
+);
+
+/// A plain row case: the real RaftChatView row on the panel-coloured box; the
+/// optional [act] runs once the row is aligned (hover, click, ...).
+ParityCase _rowCase({
+  List<String> widgets = const [],
+  Future<void> Function(WidgetTester t, ParityContext ctx, _RowStage stage)? act,
+  Duration settle = const Duration(milliseconds: 300),
+}) => ParityCase(
+  widgets: ['raft_flutter:RaftChatView', 'raft_ui:RaftMessageRow', ...widgets],
+  notes: 'Extension suite (not official). Real RaftChatView row on a panel-coloured box.',
+  settle: settle,
+  build: (ctx) => stageFor(ctx, () => _rowStage(ctx)).build(),
+  interact: (t, ctx) async {
+    final stage = stageFor(ctx, () => _rowStage(ctx)) as _RowStage;
+    // The workspace bootstrap loads the directories the rows resolve names
+    // from; they must land before the row is measured (a longer name re-wraps).
+    stage.w.entityDirectory.ensure({WorkspaceEntityKind.computers});
+    await _pumpFrames(t);
+    await stage.alignRow(t);
+    await act?.call(t, ctx, stage);
+    await _pumpFrames(t);
+  },
+);
+
 /// Every extension conversation-page case, keyed by id (3 themes each).
 final Map<String, ParityCase> extConversationCases = () {
   final cases = <String, ParityCase>{};
@@ -248,6 +455,20 @@ final Map<String, ParityCase> extConversationCases = () {
   }
 
   add('empty', 'desktop', 'no-channel', _windowCase);
+  for (final state in const ['agent', 'agent-activity', 'human']) {
+    add('profile', 'desktop', state, _profileCase);
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const [
+      'install-app',
+      'create-agent',
+      'channel-members',
+      'owner-recovery',
+      'executed',
+    ]) {
+      add('action', platform, state, _rowCase(widgets: const ['raft_flutter:MessageActionCard']));
+    }
+  }
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'archived',

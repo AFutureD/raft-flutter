@@ -77,6 +77,184 @@
   "parentMessageId": "msg-thread-parent",
   "threadChannelId": "thread-cv-1"
  },
+ "rows": {
+  "profile-agent": {
+   "message": {
+    "id": "msg-cv-profile-agent",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Captured the visual baselines and queued React parity.",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "profile-human": {
+   "message": {
+    "id": "msg-cv-profile-human",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "user",
+    "senderId": "visual-human-designer",
+    "senderName": "designer",
+    "content": "Reviewing the diffs after lunch.",
+    "createdAt": "2026-06-22T02:30:00.000Z"
+   }
+  },
+  "action-install-app": {
+   "message": {
+    "id": "msg-cv-action-install",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "I prepared the install so you can approve it.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "actionMetadata": {
+     "kind": "action-card",
+     "sourceServerId": "visual-server",
+     "action": {
+      "type": "integration:install_marketplace_app",
+      "clientId": "client-acme-notes",
+      "clientKey": "acme-notes",
+      "clientName": "Acme Notes",
+      "clientNameSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "agentId": "agent-cindy",
+      "agentName": "Cindy",
+      "scopes": [
+       "openid",
+       "profile",
+       "agent:read"
+      ]
+     },
+     "state": "prepared",
+     "confirmationVersion": 1
+    }
+   }
+  },
+  "action-create-agent": {
+   "message": {
+    "id": "msg-cv-action-agent",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Here is the agent I would like to create.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "actionMetadata": {
+     "kind": "action-card",
+     "sourceServerId": "visual-server",
+     "action": {
+      "type": "agent:create",
+      "name": "release-bot",
+      "description": "Watches the release gates and posts diff links.",
+      "suggestedComputer": "computer-mbp"
+     },
+     "state": "prepared",
+     "confirmationVersion": 1
+    }
+   }
+  },
+  "action-channel-members": {
+   "message": {
+    "id": "msg-cv-action-members",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "These people should be in the channel.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "actionMetadata": {
+     "kind": "action-card",
+     "sourceServerId": "visual-server",
+     "action": {
+      "type": "channel:add_member",
+      "channel": "channel-design",
+      "humans": [
+       "visual-human-designer"
+      ],
+      "agents": [
+       "agent-cindy"
+      ]
+     },
+     "state": "prepared",
+     "confirmationVersion": 1
+    }
+   }
+  },
+  "action-owner-recovery": {
+   "message": {
+    "id": "msg-cv-action-recovery",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "The app owner needs to be recovered.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "actionMetadata": {
+     "kind": "action-card",
+     "sourceServerId": "visual-server",
+     "action": {
+      "type": "integration:recover_app_owner",
+      "clientKey": "acme-notes",
+      "targetAgent": "agent-cindy"
+     },
+     "state": "prepared",
+     "confirmationVersion": 1
+    }
+   }
+  },
+  "action-executed": {
+   "message": {
+    "id": "msg-cv-action-done",
+    "seq": 1,
+    "serverId": "visual-server",
+    "channelId": "channel-design",
+    "messageType": "chat",
+    "senderType": "agent",
+    "senderId": "agent-cindy",
+    "senderName": "Cindy",
+    "content": "Here is the agent I would like to create.",
+    "createdAt": "2026-06-22T02:30:00.000Z",
+    "actionMetadata": {
+     "kind": "action-card",
+     "sourceServerId": "visual-server",
+     "action": {
+      "type": "agent:create",
+      "name": "release-bot",
+      "description": "Watches the release gates and posts diff links."
+     },
+     "state": "executed",
+     "confirmationVersion": 1,
+     "executedAt": "2026-06-22T02:40:00.000Z",
+     "executedByUserId": "visual-user",
+     "executedByUserName": "artin",
+     "result": {
+      "kind": "agent",
+      "id": "agent-release-bot",
+      "name": "release-bot"
+     }
+    }
+   }
+  }
+ },
  "routes": {
   "GET /channels/threads/followers": {
    "threads": []
@@ -324,6 +502,45 @@
   }
  },
  "routeSets": {
+  "cv-activity": {
+   "GET /agents/agent-cindy/activity-log": [
+    {
+     "timestamp": 1782095100000,
+     "entry": {
+      "kind": "thinking",
+      "text": "Planning the Android capture run"
+     }
+    },
+    {
+     "timestamp": 1782095160000,
+     "entry": {
+      "kind": "tool_start",
+      "toolName": "Bash"
+     }
+    },
+    {
+     "timestamp": 1782095220000,
+     "entry": {
+      "kind": "text",
+      "text": "Captured 42 cases, 3 need review"
+     }
+    },
+    {
+     "timestamp": 1782095280000,
+     "entry": {
+      "kind": "tool_start",
+      "toolName": "Read"
+     }
+    },
+    {
+     "timestamp": 1782095340000,
+     "entry": {
+      "kind": "thinking",
+      "text": "Comparing the elegant-dark borders"
+     }
+    }
+   ]
+  },
   "cv-msg-missing": {
    "GET /messages/context/msg-missing": {
     "$status": 404,

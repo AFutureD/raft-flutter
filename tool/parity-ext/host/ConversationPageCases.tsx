@@ -30,6 +30,8 @@ type ParityExtCvProps = {
   row: string;
   boxWidth: number | null;
   boxHeight: number | null;
+  padX: number;
+  padTop: number;
 };
 
 function parityExtCvProps(): ParityExtCvProps | null {
@@ -53,6 +55,8 @@ function parityExtCvProps(): ParityExtCvProps | null {
     row: params.get("row") ?? "",
     boxWidth: num("boxWidth"),
     boxHeight: num("boxHeight"),
+    padX: num("padX") ?? 16,
+    padTop: num("padTop") ?? 32,
   };
 }
 
@@ -110,8 +114,46 @@ function ParityExtCvWindowView({ p }: { p: ParityExtCvProps }) {
   );
 }
 
+// The column background a message sits on (ChatPanel / ThreadPanel scroller).
+const parityExtCvPanelClass = "bg-layer-panel theme-brutal:bg-white";
+
+type ParityExtCvRow = {
+  message: Record<string, unknown>;
+  threadSummary?: Record<string, unknown>;
+  linkedTask?: Record<string, unknown>;
+  hideThreadActions?: boolean;
+};
+
+function ParityExtCvRowView({ p }: { p: ParityExtCvProps }) {
+  useMemo(() => primeDirectVisualStores(p.caseId), [p.caseId]);
+  const spec = (parityExtCvFixture.rows as Record<string, ParityExtCvRow>)[p.row];
+  const message = { channelId: fxChannels.design.id, threadId: null, ...spec.message } as unknown as Message;
+  const channels = useChannelStore.getState().channels;
+  return (
+    <main className="min-h-screen bg-white p-0 font-display text-black">
+      <div
+        data-visual-case={p.caseId}
+        className={parityExtCvPanelClass}
+        // flow-root keeps the row's own block margins inside the box (auto height).
+        style={{ width: p.boxWidth ?? 440, height: p.boxHeight ?? undefined, padding: `${p.padTop}px ${p.padX}px 0`, boxSizing: "border-box", display: "flow-root" }}
+      >
+        <MessageItem
+          message={message}
+          mentionMap={buildMentionMap(visualAgents, visualMembers)}
+          channels={channels}
+          previewSenderAgent={message.senderId === fxCindy.id ? visualAgents[0] : undefined}
+          threadSummary={spec.threadSummary as never}
+          linkedTask={spec.linkedTask as never}
+          hideThreadActions={spec.hideThreadActions}
+        />
+      </div>
+    </main>
+  );
+}
+
 function parityExtConversationElement() {
   const p = parityExtCvProps();
   if (!p) return null;
+  if (p.view === "row") return <ParityExtCvRowView p={p} />;
   return <ParityExtCvWindowView p={p} />;
 }
