@@ -102,6 +102,7 @@ class _RaftBadgeState extends State<RaftBadge> {
     Widget badge = RaftRecipeBox(
       style: s,
       tokens: rt,
+      controlLabel: true,
       decorationOverride: widget.radius == null
           ? null
           : (d) =>

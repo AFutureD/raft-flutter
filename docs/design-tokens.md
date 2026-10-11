@@ -54,6 +54,13 @@ RaftTokens (ThemeExtension, theme.dart) ── RaftTokens.of(context)
 `RaftPrimitiveColors`, `RaftScale` and `RaftProductShadows` are theme-invariant
 static classes.
 
+## Typography policy token
+
+`tool/design-source/control-typography.json` (authored, Flutter-only; no Web CSS
+counterpart) -> `tokens/typography.g.dart` (`RaftControlTypographyTokens`): the line height
+of single-line control labels on Android with a Chinese locale. Applied by
+`RaftControlTypography`; see docs/android-cjk-control-typography.md.
+
 ## Regenerate
 
 ```

@@ -17,6 +17,7 @@ import 'system_inset.dart';
 
 import 'package:flutter/rendering.dart';
 
+import 'control_typography.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
@@ -151,12 +152,15 @@ class RaftRecipeButton extends StatelessWidget {
     final base = root.textStyle(tokens);
     final color = foreground ?? base.color ?? t.ink;
     final step = textStep;
-    final text = base.copyWith(
-      color: color,
-      fontWeight: fontWeight ?? base.fontWeight,
-      fontSize: step?.$1 ?? base.fontSize,
-      height: step == null ? base.height : step.$2 / step.$1,
-      leadingDistribution: TextLeadingDistribution.even,
+    final text = RaftControlTypography.of(
+      context,
+      base.copyWith(
+        color: color,
+        fontWeight: fontWeight ?? base.fontWeight,
+        fontSize: step?.$1 ?? base.fontSize,
+        height: step == null ? base.height : step.$2 / step.$1,
+        leadingDistribution: TextLeadingDistribution.even,
+      ),
     );
     final svg = root.target("& svg:not([class*='size-'])");
     final iconSize = glyphSize ?? svg?.width ?? 16;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'control_typography.dart';
 import 'localization.dart';
 
 import 'theme.dart';
@@ -92,7 +93,7 @@ class RaftTaskStatus extends StatelessWidget {
           ExcludeSemantics(child: RaftSymbol(icon, size: 10, color: fg)),
           Text(
             raftText(context, raftTaskStatusLabel(status)),
-            style: recipe.label(fg),
+            style: RaftControlTypography.of(context, recipe.label(fg)),
           ),
         ],
       ),
@@ -656,13 +657,16 @@ class RaftTaskSectionBadge extends StatelessWidget {
           ),
           Text(
             upper ? label.toUpperCase() : label,
-            style: base.copyWith(
-              fontFamily: base.fontFamily ?? t.headingFont,
-              fontSize: size,
-              // Unset line-height inherits the trigger button's 1.5.
-              height: base.height ?? 1.5,
-              color: fg,
-              letterSpacing: upper ? 0 : base.letterSpacing,
+            style: RaftControlTypography.of(
+              context,
+              base.copyWith(
+                fontFamily: base.fontFamily ?? t.headingFont,
+                fontSize: size,
+                // Unset line-height inherits the trigger button's 1.5.
+                height: base.height ?? 1.5,
+                color: fg,
+                letterSpacing: upper ? 0 : base.letterSpacing,
+              ),
             ),
           ),
         ],

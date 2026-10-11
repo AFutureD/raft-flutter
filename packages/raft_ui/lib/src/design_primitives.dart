@@ -19,6 +19,7 @@ import 'localization.dart';
 import 'theme.dart';
 import 'primitive_tokens.dart';
 import 'tokens/tokens.dart';
+import 'control_typography.dart';
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
@@ -1212,12 +1213,15 @@ class _RaftControlState extends State<RaftControl> {
                               size: recipe.iconSize,
                             ),
                             child: DefaultTextStyle(
-                              style: recipe.textStyle.copyWith(
-                                color:
-                                    widget.kind == RaftControlKind.textLink &&
-                                        hovered
-                                    ? t.strong
-                                    : recipe.foregroundFor(hovered: hovered),
+                              style: RaftControlTypography.of(
+                                context,
+                                recipe.textStyle.copyWith(
+                                  color:
+                                      widget.kind == RaftControlKind.textLink &&
+                                          hovered
+                                      ? t.strong
+                                      : recipe.foregroundFor(hovered: hovered),
+                                ),
                               ),
                               child: Center(
                                 widthFactor: 1,
@@ -2531,18 +2535,21 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                         widget.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: recipe.label.copyWith(
-                          fontWeight:
-                              widget.selected ||
-                                  widget.kind == RaftMenuKind.selectionPopover
-                              ? FontWeight.w700
-                              : recipe.label.fontWeight,
-                          fontStyle: widget.italic ? FontStyle.italic : null,
-                          color: widget.italic
-                              ? (t.brutal
-                                    ? Colors.black.withValues(alpha: .7)
-                                    : t.muted)
-                              : null,
+                        style: RaftControlTypography.of(
+                          context,
+                          recipe.label.copyWith(
+                            fontWeight:
+                                widget.selected ||
+                                    widget.kind == RaftMenuKind.selectionPopover
+                                ? FontWeight.w700
+                                : recipe.label.fontWeight,
+                            fontStyle: widget.italic ? FontStyle.italic : null,
+                            color: widget.italic
+                                ? (t.brutal
+                                      ? Colors.black.withValues(alpha: .7)
+                                      : t.muted)
+                                : null,
+                          ),
                         ),
                       ),
                     ),
@@ -3325,6 +3332,7 @@ class _SegmentedItem<T> extends StatelessWidget {
         return RaftRecipeBox(
           style: s.item,
           tokens: rt,
+          controlLabel: true,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3343,9 +3351,16 @@ class _SegmentedItem<T> extends StatelessWidget {
                 child: Builder(
                   builder: (context) {
                     final inherited = RaftInheritedFontScope.active(context);
-                    final label = s.label
-                        .text(rt, base: DefaultTextStyle.of(context).style)
-                        .copyWith(fontFamily: inherited ? t.headingFont : null);
+                    // The label restates its own style, so the box's control
+                    // profile reaches it only through this resolve.
+                    final label = RaftControlTypography.of(
+                      context,
+                      s.label
+                          .text(rt, base: DefaultTextStyle.of(context).style)
+                          .copyWith(
+                            fontFamily: inherited ? t.headingFont : null,
+                          ),
+                    );
                     final text = Text(
                       option.label,
                       maxLines: 1,
@@ -3380,9 +3395,12 @@ class _SegmentedItem<T> extends StatelessWidget {
                 Builder(
                   builder: (context) => Text(
                     option.count!,
-                    style: s.count.text(
-                      rt,
-                      base: DefaultTextStyle.of(context).style,
+                    style: RaftControlTypography.of(
+                      context,
+                      s.count.text(
+                        rt,
+                        base: DefaultTextStyle.of(context).style,
+                      ),
                     ),
                   ),
                 ),

@@ -3397,6 +3397,7 @@ class _ResourceViewState extends State<ResourceView> {
                 child: RaftCssText(
                   raftText(context, 'Mark all read'),
                   style: RaftResourceMetrics.activityToolbarActionLabel,
+                  controlLabel: true,
                 ),
               ),
             ),

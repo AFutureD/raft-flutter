@@ -5,6 +5,7 @@ export 'panel_layout.dart' show raftRecipeTheme;
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
+import 'control_typography.dart';
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
@@ -187,11 +188,16 @@ class _RaftSettingsSidebarItemState extends State<RaftSettingsSidebarItem> {
                     // paragraph height, sets the row height.
                     child: SizedBox(
                       height: text.fontSize! * text.height!,
-                      child: Text(
-                        raftText(context, widget.entry.label),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text,
+                      // The control profile changes the line height inside
+                      // that fixed box; keep the label centred in it.
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          raftText(context, widget.entry.label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RaftControlTypography.of(context, text),
+                        ),
                       ),
                     ),
                   ),

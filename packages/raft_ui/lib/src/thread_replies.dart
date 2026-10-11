@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'control_typography.dart';
 import 'components.dart';
 import 'localization.dart';
 import 'theme.dart';
@@ -211,12 +212,15 @@ class _RaftThreadRepliesBadgeState extends State<RaftThreadRepliesBadge> {
       tokens: resolver,
     ).root;
     // The badge sets no family: it inherits MessageItem's `font-display`.
-    final text = s
-        .textStyle(resolver)
-        .copyWith(
-          fontFamily: tokens.headingFont,
-          leadingDistribution: TextLeadingDistribution.even,
-        );
+    final text = RaftControlTypography.of(
+      context,
+      s
+          .textStyle(resolver)
+          .copyWith(
+            fontFamily: tokens.headingFont,
+            leadingDistribution: TextLeadingDistribution.even,
+          ),
+    );
     final color = text.color;
     final gap = SizedBox(width: s.columnGap ?? 4);
     Widget dot() => Opacity(opacity: .6, child: Text('·', style: text));

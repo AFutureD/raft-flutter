@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'control_typography.dart';
 import 'form_controls.dart';
 
 import 'design_primitives.dart';
@@ -439,16 +440,19 @@ class _ActivityButton extends StatelessWidget {
           ),
           alignment: Alignment.centerLeft,
           child: DefaultTextStyle(
-            style: RaftTypography.body(
-              t,
-              size: fontSize ?? (dialog ? 14 : 12),
-              line: fontSize == 10
-                  ? 15
-                  : dialog
-                  ? 20
-                  : 16,
-              weight: FontWeight.w700,
-              color: t.brutal ? black : t.ink,
+            style: RaftControlTypography.of(
+              context,
+              RaftTypography.body(
+                t,
+                size: fontSize ?? (dialog ? 14 : 12),
+                line: fontSize == 10
+                    ? 15
+                    : dialog
+                    ? 20
+                    : 16,
+                weight: FontWeight.w700,
+                color: t.brutal ? black : t.ink,
+              ),
             ),
             child: ExcludeSemantics(child: child),
           ),
