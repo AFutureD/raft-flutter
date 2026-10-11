@@ -1279,17 +1279,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       if (DesktopNavigationPolicy.forSection(route).contentMasterDetail) {
         content = DesktopMasterDetail(
           master: content,
-          // Reserve Activity's preview column from its first frame. Opening
-          // a preview must not resize the row underneath a double click.
-          detail:
-              desktopContentDetail() ??
-              (route == 'activity' &&
-                      wide &&
-                      activityFlag.masterDetail(
-                        MediaQuery.sizeOf(context).width,
-                      )
-                  ? const SizedBox.expand()
-                  : null),
+          detail: desktopContentDetail(),
           compact: thread,
           wideWidth: masterWideWidth,
           compactWidth: masterCompactWidth,

@@ -207,6 +207,9 @@ void main() {
           );
           expect(w.navigation.entries.length, entries);
           if (channelAfterThread) {
+            // This is an independent retarget, outside the pointer upgrade
+            // window. Rapid second-list-click upgrades have separate coverage.
+            await tester.pump(const Duration(milliseconds: 301));
             observed.clear();
             await tester.tap(
               find.byKey(

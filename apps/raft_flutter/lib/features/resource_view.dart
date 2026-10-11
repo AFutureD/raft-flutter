@@ -2463,7 +2463,15 @@ class _ResourceViewState extends State<ResourceView> {
       enabled: mobileActivityRefresh,
       onRefresh: () =>
           accepts(scope) && filter == view ? load(keep: true) : Future.value(),
-      child: resourceResultsBody(context),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        // Blank list space can continue the pointer gesture too. Nested card
+        // actions win their own tap arena; filters and details are outside.
+        onTap: widget.section == 'activity' && activityGestureCurrent
+            ? upgradeActivityGesture
+            : null,
+        child: resourceResultsBody(context),
+      ),
     );
   }
 
@@ -3415,25 +3423,25 @@ class _ResourceViewState extends State<ResourceView> {
     Map<String, dynamic> row,
     String scope,
     int detail,
-    double? height,
-  ) {
+    double? height, {
+    bool pointer = false,
+  }) {
     if (!accepts(scope)) return;
     final canonical = widget.onActivityCanonical;
     if (canonical == null) {
       unawaited(openConversation(row, scope));
       return;
     }
-    if (detail >= 2 &&
-        activityGestureCurrent &&
-        activityGestureKey == rowKey(row)) {
-      // Reading changes the badge; focus still comes from the first click's
-      // original DTO, including firstUnread/firstMention.
-      final original = activityGestureRow!;
-      setState(clearActivityGesture);
-      unawaited(canonical(Map<String, dynamic>.from(original)));
+    if (pointer && activityGestureCurrent) {
+      upgradeActivityGesture();
       return;
     }
     clearActivityGesture();
+    if (!pointer) {
+      // Keyboard and semantic activation never continue a mouse gesture.
+      unawaited(openConversation(row, scope));
+      return;
+    }
     activityGestureRows = List.of(rows);
     activityGestureRow = Map<String, dynamic>.from(row);
     activityGestureKey = rowKey(row);
@@ -3450,6 +3458,17 @@ class _ResourceViewState extends State<ResourceView> {
       setState(clearActivityGesture);
     });
     setState(() {});
+  }
+
+  void upgradeActivityGesture() {
+    if (!activityGestureCurrent) return;
+    final canonical = widget.onActivityCanonical;
+    if (canonical == null) return;
+    // The list narrows after the first click, so a second primary list tap
+    // upgrades that first DTO even if a different card is now underneath it.
+    final original = activityGestureRow!;
+    setState(clearActivityGesture);
+    unawaited(canonical(Map<String, dynamic>.from(original)));
   }
 
   /// Source ThreadsInbox handleOpen / double-click: opening an unread row
@@ -3844,6 +3863,15 @@ class _ResourceViewState extends State<ResourceView> {
                   scope,
                   detail,
                   (cardContext.findRenderObject() as RenderBox?)?.size.height,
+                ),
+          onPointerActivate: widget.onActivityCanonical == null
+              ? null
+              : (detail) => activateActivity(
+                  row,
+                  scope,
+                  detail,
+                  (cardContext.findRenderObject() as RenderBox?)?.size.height,
+                  pointer: true,
                 ),
           doubleClickInterval: pin
               ? activityGestureInterval!

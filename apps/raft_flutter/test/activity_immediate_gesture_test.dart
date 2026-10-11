@@ -9,7 +9,16 @@ import 'activity_open_clears_new_test.dart' show activityRow;
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final mode in ['double', 'expire', 'filter', 'authority', 'different']) {
+  for (final mode in [
+    'double',
+    'expire',
+    'filter',
+    'authority',
+    'different',
+    'late',
+    'keyboard',
+    'blank',
+  ]) {
     testWidgets(
       'Unread gesture $mode preserves hit target and original focus',
       (tester) async {
@@ -102,11 +111,35 @@ void main() {
           await tester.pump();
           expect(card, findsNothing);
           expect(next, findsNothing);
-        } else {
+        } else if (mode == 'different') {
+          await tester.tap(next);
+          expect(preview, hasLength(1));
+          expect(canonical.single['threadChannelId'], 'thread-1');
+          expect(canonical.single['firstUnreadMessageId'], 'first');
+          expect(canonical.single['firstMentionMessageId'], 'mention');
+        } else if (mode == 'late') {
+          await tester.pump(const Duration(milliseconds: 151));
           await tester.tap(next);
           expect(preview, hasLength(2));
           expect(preview.last['threadChannelId'], 'thread-2');
           expect(canonical, isEmpty);
+        } else if (mode == 'keyboard') {
+          Focus.of(
+            tester.element(
+              find
+                  .descendant(of: next, matching: find.byType(RaftCssText))
+                  .first,
+            ),
+          ).requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          expect(preview, hasLength(2));
+          expect(preview.last['threadChannelId'], 'thread-2');
+          expect(canonical, isEmpty);
+        } else {
+          await tester.tapAt(nextRect.bottomLeft + const Offset(35, 35));
+          expect(preview, hasLength(1));
+          expect(canonical.single['threadChannelId'], 'thread-1');
         }
         await tester.pumpAndSettle();
         await tester.pumpWidget(const SizedBox());

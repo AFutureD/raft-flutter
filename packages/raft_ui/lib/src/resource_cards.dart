@@ -128,6 +128,7 @@ class RaftConversationCard extends StatefulWidget {
     this.saved = false,
     this.onContextMenu,
     this.onActivate,
+    this.onPointerActivate,
     this.doubleClickInterval = kDoubleTapTimeout,
     this.semanticLabel,
     this.actions,
@@ -139,6 +140,12 @@ class RaftConversationCard extends StatefulWidget {
   /// keyboard/semantic activation reports 1. The consumer owns any delay and
   /// navigation policy. The first click is delivered immediately.
   final ValueChanged<int>? onActivate;
+
+  /// The optional override for primary pointer activation.
+  ///
+  /// Pointer taps use this callback instead of [onActivate]. Keyboard and
+  /// semantic activation still use [onActivate], or [onOpen] when absent.
+  final ValueChanged<int>? onPointerActivate;
 
   /// Host platform recognition window; it never delays the first activation.
   final Duration doubleClickInterval;
@@ -163,7 +170,9 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
   int clickCount = 0;
 
   void deliverActivation() {
-    final callback = widget.onActivate;
+    final callback = pendingTapPosition != null
+        ? widget.onPointerActivate ?? widget.onActivate
+        : widget.onActivate;
     if (callback == null) {
       widget.onOpen();
       return;
@@ -257,7 +266,9 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
                 // InkWell.onDoubleTap would delay the first onTap before the
                 // consumer sees it. Count successful primary
                 // taps without installing a double-tap recognizer instead.
-                onTapDown: widget.onActivate == null
+                onTapDown:
+                    widget.onActivate == null &&
+                        widget.onPointerActivate == null
                     ? null
                     : (details) {
                         pendingTapTime = SchedulerBinding
