@@ -2130,6 +2130,9 @@ class _ResourceViewState extends State<ResourceView> {
                     )
                   : null,
             )
+          // SavedPanel: `bg-layer-canvas-muted theme-brutal:bg-white`.
+          : widget.section == 'saved'
+          ? BoxDecoration(color: t.brutal ? t.panel : t.sidebar)
           : null,
       child: widget.section == 'tasks'
           ? DefaultTextStyle.merge(
@@ -2330,7 +2333,11 @@ class _ResourceViewState extends State<ResourceView> {
         if (['saved', 'activity'].contains(widget.section) && extraFilters)
           advancedFilters(),
         if (widget.section == 'tasks') taskFilters(),
-        if (error != null)
+        // Web Inbox and Saved render no error line: a failed read leaves the
+        // (empty) list as is.
+        if (error != null &&
+            !(rows.isEmpty &&
+                (widget.section == 'activity' || widget.section == 'saved')))
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
@@ -2368,7 +2375,11 @@ class _ResourceViewState extends State<ResourceView> {
   Widget resourceResults(BuildContext context) {
     final scope = authority;
     return loading && rows.isEmpty
-        ? enabledActivity
+        // ConversationCardSkeleton: Inbox and Saved share the card
+        // placeholder list.
+        ? enabledActivity ||
+                  widget.section == 'activity' ||
+                  widget.section == 'saved'
               ? const RaftActivityLoadingList()
               : Center(child: CircularProgressIndicator())
         : widget.section == 'search' &&
@@ -2404,25 +2415,37 @@ class _ResourceViewState extends State<ResourceView> {
               primary: false,
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: RaftEmptyState(
-                  title: enabledActivity
-                      ? activityEmptyTitle
-                      : widget.section == 'search'
-                      ? 'Search your workspace'
-                      : 'No ${widget.section}',
-                  detail: enabledActivity
-                      ? activityEmptyDetail
-                      : widget.section == 'search'
-                      ? 'Enter words to find messages.'
-                      : 'There are no items in this view.',
-                  glyph: enabledActivity
-                      ? (filter == 'saved'
-                            ? RaftGlyph.bookmark
-                            : filter == 'done'
-                            ? RaftGlyph.checkCircle2
-                            : RaftGlyph.messageSquareText)
-                      : null,
-                ),
+                child: widget.section == 'activity' || widget.section == 'saved'
+                    // ui/EmptyState: Inbox and Saved share the product empty
+                    // state (recipe icon tile, title, copy).
+                    ? RaftProductEmptyState(
+                        title: widget.section == 'saved'
+                            ? raftText(context, 'No saved messages yet')
+                            : raftText(context, activityEmptyTitle),
+                        description: widget.section == 'saved'
+                            ? raftText(
+                                context,
+                                'Save a message by selecting its bookmark icon.',
+                              )
+                            : raftText(context, activityEmptyDetail),
+                        icon: (context, size, color) => RaftIcon(
+                          widget.section == 'saved' || filter == 'saved'
+                              ? RaftGlyph.bookmark
+                              : filter == 'done'
+                              ? RaftGlyph.checkCircle2
+                              : RaftGlyph.messageSquareText,
+                          size: size,
+                          color: color,
+                        ),
+                      )
+                    : RaftEmptyState(
+                        title: widget.section == 'search'
+                            ? 'Search your workspace'
+                            : 'No ${widget.section}',
+                        detail: widget.section == 'search'
+                            ? 'Enter words to find messages.'
+                            : 'There are no items in this view.',
+                      ),
               ),
             ),
           )
@@ -3063,7 +3086,8 @@ class _ResourceViewState extends State<ResourceView> {
     'done' => 'Items you mark done appear here and can be restored.',
     _ when advanced.channelId != null =>
       'Try another channel or clear the channel filter.',
-    'mentions' => 'Channels, DMs, and threads where someone @mentions you will appear here.',
+    'mentions' =>
+      'Channels, DMs, and threads where someone @mentions you will appear here.',
     _ => 'Channels, DMs, and followed threads stay here until they are done.',
   };
 
@@ -3175,34 +3199,41 @@ class _ResourceViewState extends State<ResourceView> {
               ),
             ),
           ),
-          const SizedBox(width: RaftResourceMetrics.activityToolbarGap),
-          // Button sm outline `h-8 px-2 text-xs font-bold`.
-          RaftInteractive(
-            semanticLabel: raftText(context, 'Mark all read'),
-            onPressed: () =>
-                command('POST', '/channels/inbox/read-all', sourceScope: scope),
-            builder: (context, state) => RaftRecipeBox(
-              style: RaftButtonRecipe.resolve(
-                theme: t.recipeTheme,
-                variant: RaftButtonRecipeVariant.outline,
-                size: RaftButtonRecipeSize.sm,
-                states: t.recipeStates(
-                  hovered: state.hovered,
-                  pressed: state.pressed,
-                  focusVisible: state.focusVisible,
-                ),
+          // `showMarkAllRead`: only while something is unread.
+          if ((totalUnreadCount ?? 0) > 0 &&
+              !['saved', 'done'].contains(filter)) ...[
+            const SizedBox(width: RaftResourceMetrics.activityToolbarGap),
+            // Button sm outline `h-8 px-2 text-xs font-bold`.
+            RaftInteractive(
+              semanticLabel: raftText(context, 'Mark all read'),
+              onPressed: () => command(
+                'POST',
+                '/channels/inbox/read-all',
+                sourceScope: scope,
+              ),
+              builder: (context, state) => RaftRecipeBox(
+                style: RaftButtonRecipe.resolve(
+                  theme: t.recipeTheme,
+                  variant: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  states: t.recipeStates(
+                    hovered: state.hovered,
+                    pressed: state.pressed,
+                    focusVisible: state.focusVisible,
+                  ),
+                  tokens: t.recipeTokens,
+                ).root,
                 tokens: t.recipeTokens,
-              ).root,
-              tokens: t.recipeTokens,
-              height: RaftResourceMetrics.activityToolbarActionHeight,
-              padding: RaftResourceMetrics.activityToolbarActionInset,
-              alignment: Alignment.center,
-              child: RaftCssText(
-                raftText(context, 'Mark all read'),
-                style: RaftResourceMetrics.activityToolbarActionLabel,
+                height: RaftResourceMetrics.activityToolbarActionHeight,
+                padding: RaftResourceMetrics.activityToolbarActionInset,
+                alignment: Alignment.center,
+                child: RaftCssText(
+                  raftText(context, 'Mark all read'),
+                  style: RaftResourceMetrics.activityToolbarActionLabel,
+                ),
               ),
             ),
-          ),
+          ],
           if (extraFilters)
             RaftTooltip(
               message: raftText(context, 'Activity actions'),
@@ -3252,6 +3283,8 @@ class _ResourceViewState extends State<ResourceView> {
       },
       height: raftPageHeaderHeight(context),
       mobile: mobile,
+      leftInset: widget.section == 'activity' ? 12 : null,
+      bottomRule: widget.section == 'activity',
       variant: widget.section == 'tasks'
           ? RaftPanelHeaderVariant.tasks
           : RaftPanelHeaderVariant.canonical,
@@ -3369,8 +3402,9 @@ class _ResourceViewState extends State<ResourceView> {
     final controller = w;
     final identity = SourceReadAllIdentity.capture(controller.client);
     try {
-      final receipt = await SourceReadAllTransport.of(controller.client)
-          .readAll(scopeId, identity: identity);
+      final receipt = await SourceReadAllTransport.of(
+        controller.client,
+      ).readAll(scopeId, identity: identity);
       if (identity.current(controller.client)) {
         controller.acceptReadAllAck(
           scopeId,

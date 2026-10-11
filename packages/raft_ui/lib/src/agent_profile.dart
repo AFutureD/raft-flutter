@@ -288,10 +288,7 @@ class RaftAvatarSlot extends StatelessWidget {
         );
     if (clipPadding && base.color != null) {
       child = DecoratedBox(
-        decoration: BoxDecoration(
-          color: base.color,
-          borderRadius: radius,
-        ),
+        decoration: BoxDecoration(color: base.color, borderRadius: radius),
         child: child,
       );
     }
@@ -1453,7 +1450,12 @@ class RaftWorkspaceTreeView extends StatelessWidget {
     this.onCopyPath,
     this.onToggleHidden,
     this.onRefresh,
+    this.preview,
   });
+
+  /// Right pane of the `md:` split layout (an open file); when the panel is
+  /// wide and this is null the pane shows "Select a file to view".
+  final Widget? preview;
   final String path;
   final List<RaftWorkspaceNode> nodes;
   final bool loading, showHidden;
@@ -1470,82 +1472,152 @@ class RaftWorkspaceTreeView extends StatelessWidget {
       .4,
       t.colors['foreground-placeholder']!,
     );
+    final wide = MediaQuery.sizeOf(context).width >= 768;
+    final pathBar = Container(
+      height: 37,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(border: Border(bottom: hairline)),
+      child: Row(
+        children: [
+          Flexible(
+            child: RaftCssText(
+              path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RaftPanelText.monoCaption(t),
+            ),
+          ),
+          const SizedBox(width: 8),
+          RaftInlineIconButton(
+            glyph: RaftGlyph.copy,
+            tooltip: raftText(context, 'Copy path'),
+            onPressed: onCopyPath,
+          ),
+        ],
+      ),
+    );
+    final treeHeader = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(border: Border(bottom: hairline)),
+      child: Row(
+        children: [
+          Expanded(child: RaftSectionEyebrow(raftText(context, 'Workspace'))),
+          SizedBox.square(
+            dimension: 28,
+            child: Center(
+              child: RaftInlineIconButton(
+                glyph: showHidden ? RaftGlyph.eye : RaftGlyph.eyeOff,
+                size: 13,
+                tooltip: raftText(context, 'Hidden files'),
+                onPressed: onToggleHidden,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          RaftInlineIconButton(
+            glyph: RaftGlyph.refreshCw,
+            tooltip: raftText(context, 'Refresh'),
+            onPressed: onRefresh,
+          ),
+        ],
+      ),
+    );
+    final treeList = Expanded(
+      child: loading && nodes.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: RaftCssText(
+                raftText(context, 'Loading…'),
+                textAlign: TextAlign.center,
+                style: RaftTypography.mono(
+                  t,
+                  size: 14,
+                  line: 20,
+                  color: placeholder,
+                ),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              children: error != null
+                  ? [RaftCssText(error!, textAlign: TextAlign.center)]
+                  : [for (final n in nodes) _node(t, n)],
+            ),
+    );
+    final panel = t.brutal ? Colors.white : t.colors['layer-panel']!;
+    if (!wide) {
+      return ColoredBox(
+        color: panel,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [pathBar, treeHeader, treeList],
+        ),
+      );
+    }
+    // `md:` split: full-width path bar, a 256px tree column (`border-r`) and
+    // the file pane on `bg-layer-canvas-muted`.
     return ColoredBox(
-      color: t.brutal ? Colors.white : t.colors['layer-panel']!,
+      // `bg-layer-canvas-muted` (Brutal paints the cream here).
+      color: t.brutal ? t.colors['color-brutal-cream']! : t.sidebar,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(border: Border(bottom: hairline)),
-            child: Row(
-              children: [
-                Flexible(
-                  child: RaftCssText(
-                    path,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: RaftPanelText.monoCaption(t),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                RaftInlineIconButton(
-                  glyph: RaftGlyph.copy,
-                  tooltip: raftText(context, 'Copy path'),
-                  onPressed: onCopyPath,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(border: Border(bottom: hairline)),
-            child: Row(
-              children: [
-                Expanded(
-                  child: RaftSectionEyebrow(raftText(context, 'Workspace')),
-                ),
-                SizedBox.square(
-                  dimension: 28,
-                  child: Center(
-                    child: RaftInlineIconButton(
-                      glyph: showHidden ? RaftGlyph.eye : RaftGlyph.eyeOff,
-                      size: 13,
-                      tooltip: raftText(context, 'Hidden files'),
-                      onPressed: onToggleHidden,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                RaftInlineIconButton(
-                  glyph: RaftGlyph.refreshCw,
-                  tooltip: raftText(context, 'Refresh'),
-                  onPressed: onRefresh,
-                ),
-              ],
-            ),
-          ),
+          ColoredBox(color: panel, child: pathBar),
           Expanded(
-            child: loading && nodes.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: RaftCssText(
-                      raftText(context, 'Loading…'),
-                      textAlign: TextAlign.center,
-                      style: RaftTypography.mono(
-                        t,
-                        size: 14,
-                        line: 20,
-                        color: placeholder,
-                      ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 256,
+                  decoration: BoxDecoration(
+                    color: panel,
+                    border: Border(
+                      right: t.brutal
+                          ? const BorderSide(color: Colors.black, width: 2)
+                          : BorderSide(color: t.colors['line-muted']!),
                     ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    children: error != null
-                        ? [RaftCssText(error!, textAlign: TextAlign.center)]
-                        : [for (final n in nodes) _node(t, n)],
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [treeHeader, treeList],
+                  ),
+                ),
+                Expanded(
+                  child:
+                      preview ??
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Opacity(
+                              opacity: .3,
+                              child: RaftIcon(
+                                RaftGlyph.file,
+                                size: 32,
+                                color: t.brutal
+                                    ? Colors.black.withValues(alpha: .3)
+                                    : placeholder,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            RaftCssText(
+                              raftText(context, 'Select a file to view'),
+                              style: RaftTypography.mono(
+                                t,
+                                size: 14,
+                                line: 20,
+                                color: t.brutal
+                                    ? Colors.black.withValues(alpha: .3)
+                                    : placeholder,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1624,12 +1696,60 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
     required this.path,
     required this.content,
     this.onBack,
+    this.embedded = false,
   });
   final String path, content;
   final VoidCallback? onBack;
+
+  /// The desktop right pane: header `border-b bg-layer-panel px-4 py-2` with the
+  /// path (`font-mono text-sm font-medium`), no back arrow, `p-4` content.
+  final bool embedded;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    if (embedded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: t.brutal ? Colors.white : t.colors['layer-panel'],
+              border: Border(
+                bottom: BorderSide(
+                  color: raftPanelInk(t, .1, t.colors['line-muted']!),
+                ),
+              ),
+            ),
+            child: RaftCssText(
+              path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RaftTypography.mono(
+                t,
+                size: 14,
+                line: 20,
+                color: t.brutal ? Colors.black : t.strong,
+              ).copyWith(fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: SelectableText(
+                content,
+                style: RaftTypography.mono(
+                  t,
+                  size: 14,
+                  line: 20,
+                  color: t.brutal ? Colors.black : t.strong,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

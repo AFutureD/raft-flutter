@@ -17,3 +17,4 @@ build-shell-cases.py
 build-thread-attachments.py
 build-thread-cases.py
 build-thread-messages.py
+build-member-cases.py

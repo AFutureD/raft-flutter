@@ -9,10 +9,12 @@ import 'dialog_card.dart' show raftRecipeThemeOf;
 import 'icons.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
+import 'recipes/field.g.dart' as field_recipe;
 import 'recipes/radio_group.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'banner.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'settings_controls.dart';
 import 'settings_layout.dart' show RaftSettingsText;
 import 'theme.dart';
@@ -149,7 +151,7 @@ class _RaftResetAgentDialogState extends State<RaftResetAgentDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // `block text-sm font-bold uppercase`
-                        Text(
+                        RaftCssText(
                           raftText(context, o.$2).toUpperCase(),
                           style: RaftTypography.body(
                             t,
@@ -161,7 +163,7 @@ class _RaftResetAgentDialogState extends State<RaftResetAgentDialog> {
                         ),
                         const SizedBox(height: 4),
                         // `mt-1 block text-xs text-foreground-muted`
-                        Text(
+                        RaftCssText(
                           raftText(context, o.$3),
                           style: RaftTypography.body(
                             t,
@@ -284,13 +286,23 @@ class _RaftAgentProfileEditDialogState
     }
   }
 
-  Widget label(RaftTokens t, String text) => Text(
+  /// `FormField` label `mb-1` plus the Field root's recipe `gap`.
+  double fieldGap(RaftTokens t) =>
+      4 +
+      (field_recipe.RaftFieldRecipe.resolve(
+                theme: raftRecipeThemeOf(t),
+                states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
+                tokens: RaftRecipeTokens(t),
+              ).root.rowGap ??
+              0);
+
+  Widget label(RaftTokens t, String text) => RaftCssText(
     raftText(context, text),
     style: RaftTypography.body(
       t,
       size: 14,
       line: 20,
-      weight: FontWeight.w500,
+      weight: t.brutal ? FontWeight.w700 : FontWeight.w500,
       color: t.brutal ? Colors.black : t.ink,
     ),
   );
@@ -303,19 +315,19 @@ class _RaftAgentProfileEditDialogState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           label(t, 'Description'),
-          const SizedBox(height: 10),
+          SizedBox(height: fieldGap(t)),
           RaftRecipeTextarea(
             fieldKey: const ValueKey('agent-profile-edit-description'),
             controller: description,
             minHeight: 96,
-            lineHeight: 20 / 14,
+            recipeText: true,
             autofocus: true,
             placeholder: raftText(context, 'Describe what this agent does'),
             onChanged: (_) => setState(() {}),
           ),
           if (tooLong) ...[
             const SizedBox(height: 4),
-            Text(
+            RaftCssText(
               raftFormat(
                 context,
                 'Description must be {count} characters or fewer.',
@@ -340,7 +352,7 @@ class _RaftAgentProfileEditDialogState
                   children: [
                     RaftRadioMark(checked: role == o.$1),
                     const SizedBox(width: 8),
-                    Text(
+                    RaftCssText(
                       raftText(context, o.$2),
                       style: RaftTypography.body(
                         t,
@@ -361,10 +373,11 @@ class _RaftAgentProfileEditDialogState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           label(t, 'Display name'),
-          const SizedBox(height: 10),
+          SizedBox(height: fieldGap(t)),
           RaftRecipeInput(
             fieldKey: const ValueKey('agent-profile-edit-display-name'),
             controller: name,
+            recipeText: true,
             autofocus: true,
             placeholder: widget.namePlaceholder,
             onChanged: (_) => setState(() {}),
@@ -400,7 +413,6 @@ class _RaftAgentProfileEditDialogState
           label: raftText(context, 'Save'),
           variant: RaftButtonRecipeVariant.accent,
           size: RaftButtonRecipeSize.sm,
-          disabledOpacity: .8,
           onPressed: dirty && !tooLong && !saving ? save : null,
         ),
       ],

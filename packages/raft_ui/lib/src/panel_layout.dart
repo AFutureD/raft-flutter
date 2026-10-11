@@ -315,9 +315,18 @@ class RaftPanelHeaderBar extends StatelessWidget {
     this.backTooltip = 'Back',
     this.actions = const [],
     this.profileBody = false,
+    this.leftPadding,
+    this.bottomRule = false,
   });
   final String title;
   final String? subtitle;
+
+  /// Overrides the recipe's left inset (ActivityInboxPanel's `pl-3`).
+  final double? leftPadding;
+
+  /// A 1px `border-line-muted` rule under the header (the Activity header's
+  /// `border-b`; the canonical desktop header has none).
+  final bool bottomRule;
 
   /// The header sits on raft-ui `ProfilePanelBody` (`dark:bg-layer-card`), whose
   /// own fill the transparent header shows through in Elegant dark.
@@ -385,8 +394,14 @@ class RaftPanelHeaderBar extends StatelessWidget {
     final header = Container(
       height: s.header.height,
       constraints: BoxConstraints(minHeight: s.header.minHeight ?? 0),
-      padding: s.header.padding,
-      decoration: s.header.decoration(rt),
+      padding: leftPadding == null
+          ? s.header.padding
+          : s.header.padding.copyWith(left: leftPadding),
+      decoration: bottomRule
+          ? s.header.decoration(rt).copyWith(
+              border: Border(bottom: BorderSide(color: t.colors['line-muted']!)),
+            )
+          : s.header.decoration(rt),
       child: Row(
         children: [
           if (onBack != null) ...[
@@ -743,7 +758,8 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
 class RaftPanelIconButton extends StatelessWidget {
   const RaftPanelIconButton({
     super.key,
-    required this.glyph,
+    this.glyph = RaftGlyph.x,
+    this.icon,
     required this.tooltip,
     this.onPressed,
     this.iconSize = 14,
@@ -752,6 +768,10 @@ class RaftPanelIconButton extends StatelessWidget {
     this.onKeyboardActivate,
   });
   final RaftGlyph glyph;
+
+  /// Product artwork instead of [glyph], built with the icon size and the
+  /// recipe colour (`DirectMessageIcon`).
+  final Widget Function(double size, Color color)? icon;
   final String tooltip;
   final VoidCallback? onPressed;
   final double iconSize;
@@ -790,11 +810,13 @@ class RaftPanelIconButton extends StatelessWidget {
           height: s.height,
           alignment: Alignment.center,
           decoration: s.decoration(rt),
-          child: RaftIcon(
-            glyph,
-            size: iconSize,
-            color: s.color?.resolve(rt) ?? t.strong,
-          ),
+          child: icon != null
+              ? icon!(iconSize, s.color?.resolve(rt) ?? t.strong)
+              : RaftIcon(
+                  glyph,
+                  size: iconSize,
+                  color: s.color?.resolve(rt) ?? t.strong,
+                ),
         );
         if (anchorLink != null) {
           button = CompositedTransformTarget(link: anchorLink!, child: button);

@@ -145,7 +145,7 @@ function ParityExtMbResource({ props, caseId }: { props: ParityExtMbProps; caseI
   }, [state]);
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
-      <div data-visual-case={caseId} style={{ width: 342, height: 620, overflow: "hidden" }}>
+      <div data-visual-case={caseId} style={{ width: 342, height: 620, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         {panel === "saved" ? <SavedPanel /> : <ThreadsInbox />}
       </div>
     </main>

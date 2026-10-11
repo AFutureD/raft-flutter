@@ -629,9 +629,15 @@ class RaftSkeleton extends StatefulWidget {
     this.variant = RaftSkeletonVariant.block,
     this.width,
     this.height,
+    this.themed = false,
   });
 
   final RaftSkeletonVariant variant;
+
+  /// The raft-ui `Skeleton` defaults (Elegant: `rounded-full` /
+  /// `rounded-md` `bg-foreground-strong/8`); the sidebar rows pass `bg-ink-10`
+  /// squares in every theme instead.
+  final bool themed;
 
   /// Explicit size classes (`w-*`, `h-*`, `size-*`); `line` defaults to h-3.
   final double? width, height;
@@ -669,33 +675,51 @@ class _RaftSkeletonState extends State<RaftSkeleton>
   @override
   Widget build(BuildContext context) {
     const black = RaftPrimitiveColors.black;
-    final box = switch (widget.variant) {
-      RaftSkeletonVariant.line => Container(
-        width: widget.width,
-        height: widget.height ?? 12,
-        // CSS black/10 is stored in an 8-bit alpha channel before compositing.
-        // Preserve that quantization (26/255), rather than rounding the final
-        // floating-point white/black blend to 230 instead of source 229.
-        color: black.withAlpha(26),
-      ),
-      RaftSkeletonVariant.block => Container(
-        width: widget.width,
-        height: widget.height,
-        // CSS black/10 is stored in an 8-bit alpha channel before compositing.
-        // Preserve that quantization (26/255), rather than rounding the final
-        // floating-point white/black blend to 230 instead of source 229.
-        color: black.withAlpha(26),
-      ),
-      RaftSkeletonVariant.circle => Container(
-        width: widget.width,
-        height: widget.height,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: black.withValues(alpha: .05),
-          border: Border.all(color: black, width: 2),
-        ),
-      ),
-    };
+    final t = RaftTokens.of(context);
+    final themedFill = t.colors['foreground-strong']!.withValues(alpha: .08);
+    final box =
+        widget.themed &&
+            !t.brutal &&
+            widget.variant != RaftSkeletonVariant.circle
+        ? Container(
+            width: widget.width,
+            height:
+                widget.height ??
+                (widget.variant == RaftSkeletonVariant.line ? 12 : null),
+            decoration: BoxDecoration(
+              color: themedFill,
+              borderRadius: BorderRadius.circular(
+                widget.variant == RaftSkeletonVariant.line ? 999 : 6,
+              ),
+            ),
+          )
+        : switch (widget.variant) {
+            RaftSkeletonVariant.line => Container(
+              width: widget.width,
+              height: widget.height ?? 12,
+              // CSS black/10 is stored in an 8-bit alpha channel before compositing.
+              // Preserve that quantization (26/255), rather than rounding the final
+              // floating-point white/black blend to 230 instead of source 229.
+              color: black.withAlpha(26),
+            ),
+            RaftSkeletonVariant.block => Container(
+              width: widget.width,
+              height: widget.height,
+              // CSS black/10 is stored in an 8-bit alpha channel before compositing.
+              // Preserve that quantization (26/255), rather than rounding the final
+              // floating-point white/black blend to 230 instead of source 229.
+              color: black.withAlpha(26),
+            ),
+            RaftSkeletonVariant.circle => Container(
+              width: widget.width,
+              height: widget.height,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: black.withValues(alpha: .05),
+                border: Border.all(color: black, width: 2),
+              ),
+            ),
+          };
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: pulse,

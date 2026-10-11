@@ -22,8 +22,11 @@ tool/parity-ext/fixtures/members.json.
 import json
 import os
 import pathlib
+import sys
 
 here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(here))
+from builders import manifest_path  # noqa: E402
 THEMES = {'brutal': 'brutal-light', 'elegant': 'elegant-light', 'elegant-dark': 'elegant-dark'}
 DESKTOP = {'width': 1280, 'height': 800, 'density': 1}
 MOBILE = {'width': 390, 'height': 844, 'density': 3}
@@ -171,11 +174,15 @@ FIXTURE = {
         **{f'GET /servers/{SID}/members/{p["userId"]}/profile': p for p in PROFILES.values()},
         **{f'GET /agents/{a["id"]}': a for a in ROSTER},
         'GET /channels/inbox': ACTIVITY_FIXTURE,
+        'POST /feature-flags/evaluate': {'evaluations': [{'key': 'server_guest_v0', 'enabled': False}]},
+        f'GET /servers/{SID}/join-links': [{'id': 'join-link-1', 'token': 'visual-join-token', 'maxUses': None,
+                                           'expiresAt': None, 'useCount': 0}],
         'POST /channels/inbox/done': {},
         'POST /channels/threads/done': {},
         f'GET /mcp/agents/{AGENT_ID_FX}': {'servers': [MCP_NOTION, MCP_LINEAR, MCP_CUSTOM], 'recommendations': []},
     },
     'routeSets': {
+        'invite-guest': {'POST /feature-flags/evaluate': {'evaluations': [{'key': 'server_guest_v0', 'enabled': True}]}},
         'list-empty': {'GET /agents': [], f'GET /servers/{SID}/members': []},
         'list-loading': {'GET /agents': {'$pending': True}, f'GET /servers/{SID}/members': {'$pending': True}},
         'mcp-empty': {f'GET /mcp/agents/{AGENT_ID_FX}': {'servers': [MCP_CUSTOM], 'recommendations': []}},
@@ -266,7 +273,9 @@ for key, title, who in [
 
 AGENT_HINT = SRC + 'agent/AgentDetailPanel.tsx (AgentRoute in MainLayout, desktop shell)'
 AGENT_ID = 'agent-product-ux'
-WEB_TABS = {'profile': 'profile', 'activity': 'activity', 'chat': 'chat', 'reminders': 'reminders',
+# 'chat' is not covered: the Flutter Chat tab is a plain list, Web's Channels & DMs tab is
+# not ported (docs/parity.md).
+WEB_TABS = {'profile': 'profile', 'activity': 'activity', 'reminders': 'reminders',
             'workspace': 'workspace', 'apps': 'integrations', 'mcp': 'mcp'}
 
 
@@ -323,7 +332,7 @@ INVITE_HINT = SRC + 'member/InviteHumanDialog.tsx'
 for key, title, guest in [('invite.default', 'Invite human dialog', 'false'),
                           ('invite.guest', 'Invite human dialog: per-row role (guest invites on)', 'true')]:
     add(key, title, 'invite', selector=CARD_DLG, android_key='invite-dialog', hint=INVITE_HINT,
-        props={'guest': guest})
+        props={'guest': guest}, route_set='invite-guest' if guest == 'true' else None)
 
 # Human profile dialogs / editing.
 add('human.remove-confirm', 'Human profile: remove member confirmation', 'main', selector=DLG,
@@ -341,7 +350,8 @@ agent_case('agent.activity-loading', 'Agent detail: Activity tab, loading', 'act
 agent_case('agent.activity-error', 'Agent detail: Activity tab, failed to load', 'activity', route_set='agent-log-error')
 
 # Activity / Saved panels, mounted like the official `components.home.*.results` cases
-# (342x620 box on the 390 mobile viewport).
+# (342x620 box) on the desktop viewport: the mobile page header is the owner's native design,
+# not Web's PanelHeader, so these states are compared with the desktop header.
 RES_SEL = '[data-visual-case]'
 ACT_HINT = SRC + 'thread/ThreadsInbox.tsx'
 SAVED_HINT = SRC + 'saved/SavedPanel.tsx'
@@ -353,13 +363,11 @@ for key, title, panel, state, rs in [
     ('saved.loading', 'Saved: loading', 'saved', 'loading', 'saved-loading'),
     ('saved.error', 'Saved: failed to load', 'saved', 'error', 'saved-error'),
 ]:
-    add(key, title, 'resource', platform='mobile', viewport=MOBILE, selector=RES_SEL, android_key=None,
+    add(key, title, 'resource', platform='desktop', viewport=DESKTOP, selector=RES_SEL, android_key=None,
         hint=ACT_HINT if panel == 'activity' else SAVED_HINT, props={'panel': panel, 'state': state}, route_set=rs)
-add('activity.mark-done', 'Activity: after marking the first thread done', 'resource', platform='mobile',
-    viewport=MOBILE, selector=RES_SEL, android_key=None, hint=ACT_HINT,
-    props={'panel': 'activity', 'state': 'results'},
-    interactions=[{'type': 'wait', 'ms': 800}, click('button[aria-label="Mark as Done"]'), {'type': 'wait', 'ms': 600}],
-    android_interactions=[tap('activity-mark-done-first')])
+# activity.mark-done is not covered: the Flutter Activity list has no per-row
+# "Mark as Done" action (listed as missing in docs/parity.md).
+
 
 
 def build_cases():
@@ -402,7 +410,7 @@ def write_keys():
 def main():
     write_keys()
     (here / 'fixtures' / 'members.json').write_text(json.dumps(FIXTURE, indent=1, ensure_ascii=False) + '\n')
-    path = here / 'cases.json'
+    path = manifest_path()
     manifest = json.loads(path.read_text())
     cases = build_cases()
     manifest['cases'] = [c for c in manifest['cases'] if not c['id'].startswith(PREFIX)] + cases

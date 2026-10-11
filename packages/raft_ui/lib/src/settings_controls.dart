@@ -245,7 +245,12 @@ class RaftRecipeInput extends StatefulWidget {
     this.keyboardType,
     this.inputFormatters,
     this.maxLength,
+    this.recipeText = false,
   });
+
+  /// No callsite `text-sm`: the recipe's own size and leading (Elegant 14/20,
+  /// Brutal 16/24).
+  final bool recipeText;
 
   /// Callsite fixed box height (`box-border h-10`); content centres.
   final double? height;
@@ -321,7 +326,9 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
       tokens: tokens,
     ).root;
     // Callsite `text-sm`.
-    var text = _slotText(t, s).copyWith(fontSize: 14, height: 20 / 14);
+    var text = widget.recipeText
+        ? _slotText(t, s)
+        : _slotText(t, s).copyWith(fontSize: 14, height: 20 / 14);
     if (widget.mono) {
       text = text.copyWith(fontFamily: t.monoFont);
     }
@@ -379,7 +386,12 @@ class RaftRecipeTextarea extends StatefulWidget {
     this.maxLength,
     this.autofocus = false,
     this.lineHeight = 1.625,
+    this.recipeText = false,
   });
+
+  /// No callsite text size / leading: the recipe's own (Elegant 14/20, Brutal
+  /// 16/24).
+  final bool recipeText;
 
   /// Callsite leading (`leading-relaxed` 1.625 by default; plain `text-sm` 20/14).
   final double lineHeight;
@@ -417,7 +429,9 @@ class _RaftRecipeTextareaState extends State<RaftRecipeTextarea> {
       tokens: tokens,
     ).root;
     // Callsite `text-sm leading-relaxed`.
-    final text = _slotText(t, s).copyWith(fontSize: 14, height: widget.lineHeight);
+    final text = widget.recipeText
+        ? _slotText(t, s)
+        : _slotText(t, s).copyWith(fontSize: 14, height: widget.lineHeight);
     return Container(
       constraints: BoxConstraints(minHeight: widget.minHeight),
       decoration: s.decoration(tokens),

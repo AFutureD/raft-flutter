@@ -353,7 +353,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     if (widget.actions.onMessage != null)
       RaftPanelIconButton(
         key: const Key('agent-profile-inline-message'),
-        glyph: RaftGlyph.messageSquareMore,
+        icon: (size, color) => RaftDirectMessageIcon(size: size, color: color),
         tooltip: raftText(context, 'Direct Message'),
         onPressed: widget.actions.onMessage,
       ),
@@ -1509,7 +1509,8 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
   @override
   Widget build(BuildContext context) {
     final path = '~/.slock/agents/${widget.agentId}/';
-    if (openFile != null) {
+    final wide = MediaQuery.sizeOf(context).width >= 768;
+    if (openFile != null && !wide) {
       return RaftWorkspaceFilePreview(
         path: openFile!,
         content: openContent ?? '',
@@ -1517,6 +1518,13 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
       );
     }
     return RaftWorkspaceTreeView(
+      preview: openFile == null
+          ? null
+          : RaftWorkspaceFilePreview(
+              embedded: true,
+              path: openFile!,
+              content: openContent ?? '',
+            ),
       path: path,
       nodes: nodes('', 0),
       loading: loading,

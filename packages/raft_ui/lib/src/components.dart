@@ -22,6 +22,7 @@ import 'recipes/token_binding.dart';
 import 'mounted_avatar_recipe.dart';
 import 'design_primitives.dart';
 import 'css_opacity.dart';
+import 'css_pixel_snap.dart';
 import 'icons.dart';
 import 'indicators.dart' show RaftWebPalette;
 import 'panel_layout.dart' show RaftCssText, RaftCssLineBox;
@@ -1065,7 +1066,10 @@ class RaftNavItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (tag != null) ...[const SizedBox(width: 4), tag!],
+                if (tag != null) ...[
+                  const SizedBox(width: 4),
+                  RaftCssPixelSnap(child: tag!),
+                ],
                 const SizedBox(width: 4),
                 Expanded(
                   child: Padding(

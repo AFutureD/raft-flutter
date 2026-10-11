@@ -17,7 +17,6 @@ const extMemberCaseKinds = {
   'human.no-description': 'main',
   'agent.profile': 'main',
   'agent.activity': 'main',
-  'agent.chat': 'main',
   'agent.reminders': 'main',
   'agent.workspace': 'main',
   'agent.apps': 'main',
@@ -43,5 +42,4 @@ const extMemberCaseKinds = {
   'saved.empty': 'resource',
   'saved.loading': 'resource',
   'saved.error': 'resource',
-  'activity.mark-done': 'resource',
 };

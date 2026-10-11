@@ -1249,6 +1249,23 @@
     }
    ]
   },
+  "POST /feature-flags/evaluate": {
+   "evaluations": [
+    {
+     "key": "server_guest_v0",
+     "enabled": false
+    }
+   ]
+  },
+  "GET /servers/visual-server/join-links": [
+   {
+    "id": "join-link-1",
+    "token": "visual-join-token",
+    "maxUses": null,
+    "expiresAt": null,
+    "useCount": 0
+   }
+  ],
   "POST /channels/inbox/done": {},
   "POST /channels/threads/done": {},
   "GET /mcp/agents/agent-product-ux": {
@@ -1376,6 +1393,16 @@
   }
  },
  "routeSets": {
+  "invite-guest": {
+   "POST /feature-flags/evaluate": {
+    "evaluations": [
+     {
+      "key": "server_guest_v0",
+      "enabled": true
+     }
+    ]
+   }
+  },
   "list-empty": {
    "GET /agents": [],
    "GET /servers/visual-server/members": []

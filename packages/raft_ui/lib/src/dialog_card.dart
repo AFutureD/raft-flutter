@@ -722,10 +722,14 @@ class RaftDialogTextInput extends StatelessWidget {
     this.leadingGlyph,
     this.onSubmitted,
     this.fieldKey,
+    this.readOnly = false,
+    this.mono = false,
   });
   final TextEditingController controller;
   final String? placeholder;
-  final bool multiline, autofocus, enabled;
+
+  /// Web `readOnly` Input; [mono] is `font-mono text-xs`.
+  final bool multiline, autofocus, enabled, readOnly, mono;
   final RaftGlyph? leadingGlyph;
   final ValueChanged<String>? onSubmitted;
   final Key? fieldKey;
@@ -739,12 +743,21 @@ class RaftDialogTextInput extends StatelessWidget {
       key: fieldKey,
       controller: controller,
       enabled: enabled,
+      readOnly: readOnly,
       autofocus: autofocus,
       // `disabled:` text: elegant foreground-disabled; brutal dims the whole
       // Textarea (`disabled:opacity-60`, below), not the Input.
-      style: enabled || t.brutal
-          ? t.fieldStyle
-          : t.fieldStyle.copyWith(color: t.colors['foreground-disabled']),
+      style:
+          (enabled || t.brutal
+                  ? t.fieldStyle
+                  : t.fieldStyle.copyWith(
+                      color: t.colors['foreground-disabled'],
+                    ))
+              .copyWith(
+                fontFamily: mono ? t.monoFont : null,
+                fontSize: mono ? 12 : null,
+                height: mono ? 16 / 12 : null,
+              ),
       minLines: multiline ? null : 1,
       maxLines: multiline ? null : 1,
       expands: multiline,

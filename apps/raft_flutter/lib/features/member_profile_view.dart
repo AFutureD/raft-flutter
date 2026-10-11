@@ -221,6 +221,8 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The editor badge sits in an `inline-block` line box (1px lower).
+        const SizedBox(height: 1),
         RaftInlineBadgeEditor(
           label: name(roleValue),
           selectedId: roleValue,
@@ -350,7 +352,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
                   w.server?.string('role') != 'guest' &&
                   profile['role'] != 'guest')
                 RaftPanelIconButton(
-                  glyph: RaftGlyph.messageSquareMore,
+                  icon: (size, color) => RaftDirectMessageIcon(size: size, color: color),
                   tooltip: raftText(context, 'Message'),
                   onPressed: busy
                       ? null

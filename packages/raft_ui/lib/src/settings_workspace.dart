@@ -533,7 +533,14 @@ class RaftMcpServerRow {
     this.lastCheckError,
     this.tools = const [],
     this.actions = const [],
+    this.usageCalls,
+    this.usageLastUsed,
+    this.usageLastTool,
   });
+
+  /// Agent scope usage (`dl`): "42 calls", the last invocation's date and the
+  /// tool name; null outside the Agent MCP usage view.
+  final String? usageCalls, usageLastUsed, usageLastTool;
   final String id, name, provider, endpointUrl, authMode;
   final bool enabled, hasCredentials;
   final String? oauthStatus, description, lastCheckError;
@@ -567,7 +574,12 @@ class RaftMcpServersSection extends StatefulWidget {
     this.loading = false,
     this.error,
     this.onAddServer,
+    this.usage = false,
   });
+
+  /// AgentMcpTab scope="agent": the read-only "MCP usage" view (title and
+  /// copy, header loading text, usage grid per card, usage empty state).
+  final bool usage;
   final List<RaftMcpServerRow> servers;
   final List<RaftMcpRecommendation> recommendations;
   final bool loading;
@@ -631,10 +643,29 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header(
-            'MCP servers',
+            widget.usage ? 'MCP usage' : 'MCP servers',
             widget.servers.length,
-            action: widget.onAddServer == null ? null : addButton(),
-            detail: 'Configure the MCP catalog, credentials, and provider connections for this Raft Server.',
+            action: widget.usage
+                ? (widget.loading
+                      ? Text(
+                          raftText(context, 'Loading…'),
+                          style: RaftTypography.body(
+                            t,
+                            size: 12,
+                            line: 16,
+                            weight: FontWeight.w700,
+                            color: t.brutal
+                                ? Colors.black.withValues(alpha: .5)
+                                : t.muted,
+                          ),
+                        )
+                      : null)
+                : widget.onAddServer == null
+                ? null
+                : addButton(),
+            detail: widget.usage
+                ? 'MCP servers this Agent has used. Enabled Server tools are available automatically.'
+                : 'Configure the MCP catalog, credentials, and provider connections for this Raft Server.',
           ),
           const SizedBox(height: 12),
           if (widget.loading)
@@ -651,7 +682,8 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
             )
           else if (widget.servers.isEmpty)
             _McpEmptyState(
-              action: widget.onAddServer == null
+              usage: widget.usage,
+              action: widget.onAddServer == null || widget.usage
                   ? null
                   : addButton(primary: true),
             )
@@ -836,6 +868,10 @@ class _McpServerCard extends StatelessWidget {
                         color: placeholder,
                       ),
                     ),
+                    if (server.usageCalls != null) ...[
+                      const SizedBox(height: 12),
+                      _McpUsageGrid(server: server),
+                    ],
                     if (server.lastCheckError != null) ...[
                       const SizedBox(height: 12),
                       RaftBanner(
@@ -990,9 +1026,62 @@ class _McpServerCard extends StatelessWidget {
 
 /// raft-ui EmptyState with the Blocks icon (36px; elegant `size-4.5` inside
 /// the `rounded-md bg-fill-muted p-2` tile), title, description and action.
+/// `dl mt-3 grid grid-cols-3 gap-2 text-xs`: Calls / Last used / Last tool.
+class _McpUsageGrid extends StatelessWidget {
+  const _McpUsageGrid({required this.server});
+  final RaftMcpServerRow server;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final strong = RaftTypography.body(
+      t,
+      size: 12,
+      line: 16,
+      weight: FontWeight.w700,
+      color: t.brutal ? Colors.black : t.strong,
+    );
+    final value = RaftTypography.body(
+      t,
+      size: 12,
+      line: 16,
+      color: t.brutal ? Colors.black.withValues(alpha: .65) : t.muted,
+    );
+    Widget cell(String label, String text, {bool mono = false}) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(raftText(context, label), style: strong),
+          Text(
+            text,
+            style: mono
+                ? RaftTypography.mono(
+                    t,
+                    size: 12,
+                    line: 16,
+                    color: value.color,
+                  )
+                : value,
+          ),
+        ],
+      ),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        cell('Calls', server.usageCalls ?? ''),
+        const SizedBox(width: 8),
+        cell('Last used', server.usageLastUsed ?? ''),
+        const SizedBox(width: 8),
+        cell('Last tool', server.usageLastTool ?? '', mono: true),
+      ],
+    );
+  }
+}
+
 class _McpEmptyState extends StatelessWidget {
-  const _McpEmptyState({this.action});
+  const _McpEmptyState({this.action, this.usage = false});
   final Widget? action;
+  final bool usage;
 
   @override
   Widget build(BuildContext context) {
@@ -1021,7 +1110,10 @@ class _McpEmptyState extends StatelessWidget {
             ),
           const SizedBox(height: 8),
           Text(
-            raftText(context, 'No managed MCP servers yet'),
+            raftText(
+              context,
+              usage ? 'No MCP usage yet' : 'No managed MCP servers yet',
+            ),
             textAlign: TextAlign.center,
             style: t.brutal
                 ? RaftTypography.heading(
@@ -1043,7 +1135,9 @@ class _McpEmptyState extends StatelessWidget {
             child: Text(
               raftText(
                 context,
-                'Add a Streamable HTTP server or start from a recommended integration.',
+                usage
+                    ? 'Enabled MCP servers are available automatically and appear here after this Agent calls one.'
+                    : 'Add a Streamable HTTP server or start from a recommended integration.',
               ),
               textAlign: TextAlign.center,
               style: text.bodyMuted.copyWith(
