@@ -530,10 +530,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
               itemCount: items.length,
               findChildIndexCallback: (key) =>
                   key is ValueKey<String> ? indices[key.value] : null,
-              itemBuilder: (context, index) => KeyedSubtree(
-                key: ValueKey(items[index].id),
-                child: items[index].build(context),
-              ),
+              itemBuilder: (context, index) => items[index].build(context),
             ),
     );
     return KeyedSubtree(
