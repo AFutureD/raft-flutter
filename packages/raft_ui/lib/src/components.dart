@@ -2795,6 +2795,9 @@ class _RaftComposerState extends State<RaftComposer> {
                                           SizedBox(width: recipe.metaGap),
                                         ],
                                         RaftComposerAction(
+                                          key: const ValueKey(
+                                            'composer-submit',
+                                          ),
                                           glyph: RaftGlyph.send,
                                           tooltip:
                                               widget.submitTooltip ?? 'Send',
