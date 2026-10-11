@@ -1,0 +1,293 @@
+import 'dart:async';
+import 'dart:ffi';
+import 'dart:io';
+
+import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
+import '../src/third_party/performance_hint.g.dart';
+import '../src/third_party/unistd.g.dart';
+
+const androidPerformanceHintsEnabled = bool.fromEnvironment(
+  'RAFT_ANDROID_PERFORMANCE_HINT',
+  defaultValue: true,
+);
+
+/// The backend runs synchronously on the same thread as the Flutter UI isolate.
+abstract interface class PerformanceHintBackend {
+  bool open(int targetNanos);
+  int updateTarget(int targetNanos);
+  int report(int actualNanos);
+  int reset();
+  void close();
+}
+
+class _AndroidHintBackend implements PerformanceHintBackend {
+  _AndroidHintBackend(this.canReset);
+  final bool canReset;
+  Pointer<APerformanceHintSession> session = nullptr;
+  int? uiThreadId;
+
+  static PerformanceHintBackend? load() {
+    if (!androidPerformanceHintsEnabled || !Platform.isAndroid || kDebugMode) {
+      return null;
+    }
+    try {
+      DynamicLibrary.open('libandroid.so');
+      final library = DynamicLibrary.process();
+      for (final symbol in [
+        'APerformanceHint_getManager',
+        'APerformanceHint_createSession',
+        'APerformanceHint_closeSession',
+        'APerformanceHint_updateTargetWorkDuration',
+        'APerformanceHint_reportActualWorkDuration',
+      ]) {
+        if (!library.providesSymbol(symbol)) return null;
+      }
+      if (!library.providesSymbol('gettid')) return null;
+      return _AndroidHintBackend(
+        library.providesSymbol('APerformanceHint_notifyWorkloadReset'),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  bool open(int targetNanos) {
+    final manager = APerformanceHint_getManager();
+    if (manager == nullptr) return false;
+    final tids = calloc<Int32>();
+    try {
+      // Never infer the UI thread from thread names or engine configuration.
+      tids.value = gettid();
+      uiThreadId = tids.value;
+      session = APerformanceHint_createSession(manager, tids, 1, targetNanos);
+      return session != nullptr;
+    } finally {
+      calloc.free(tids);
+    }
+  }
+
+  @override
+  int updateTarget(int targetNanos) =>
+      APerformanceHint_updateTargetWorkDuration(session, targetNanos);
+  @override
+  int report(int actualNanos) {
+    // A future engine thread migration must not leave us hinting the old thread.
+    if (gettid() != uiThreadId) return 32;
+    return APerformanceHint_reportActualWorkDuration(session, actualNanos);
+  }
+
+  @override
+  int reset() {
+    if (!canReset) return 0;
+    final identifier = 'raft-ui-frame-burst'.toNativeUtf8();
+    try {
+      return APerformanceHint_notifyWorkloadReset(
+        session,
+        true,
+        false,
+        identifier.cast(),
+      );
+    } finally {
+      calloc.free(identifier);
+    }
+  }
+
+  @override
+  void close() {
+    if (session != nullptr) {
+      APerformanceHint_closeSession(session);
+      session = nullptr;
+    }
+  }
+}
+
+/// Owns one short-lived CPU session; unsupported devices and service failures
+/// permanently fall back to ordinary scheduling for this binding's lifetime.
+class PerformanceHintController {
+  PerformanceHintController(this.backend);
+  final PerformanceHintBackend? backend;
+  final Stopwatch _clock = Stopwatch()..start();
+  Timer? _idleTimer;
+  int _lastWorkMicros = 0;
+  int _target = 0;
+  bool _active = false;
+  bool _foreground = true;
+  bool _failed = false;
+  int sessionsOpened = 0;
+  int reports = 0;
+  int resets = 0;
+  int errors = 0;
+
+  bool get active => _active;
+  Map<String, Object> get diagnostics => {
+    'enabled': androidPerformanceHintsEnabled,
+    'backendAvailable': backend != null,
+    'active': active,
+    'sessionsOpened': sessionsOpened,
+    'reports': reports,
+    'resets': resets,
+    'errors': errors,
+    'scope': 'Dart UI CPU; excludes raster/GPU',
+    if (backend is _AndroidHintBackend) ...{
+      'uiThreadId': (backend as _AndroidHintBackend).uiThreadId ?? 0,
+      'advanceResetAvailable': (backend as _AndroidHintBackend).canReset,
+    },
+  };
+
+  static int targetForRefreshRate(double refreshRate) {
+    final hz = refreshRate.isFinite && refreshRate >= 1 ? refreshRate : 60.0;
+    return (1000000000 / hz).round().clamp(1, 1000000000);
+  }
+
+  void begin(double refreshRate) {
+    if (backend == null || !_foreground || _failed) return;
+    _lastWorkMicros = _clock.elapsedMicroseconds;
+    final target = targetForRefreshRate(refreshRate);
+    try {
+      if (!_active) {
+        if (!backend!.open(target)) {
+          _failed = true;
+          return;
+        }
+        _active = true;
+        _target = target;
+        sessionsOpened++;
+        final result = backend!.reset();
+        // EBUSY means the optional advance hint was rate limited.
+        if (result != 0 && result != 16) {
+          _fail();
+          return;
+        }
+        resets++;
+        _idleTimer = Timer(const Duration(milliseconds: 400), _expire);
+      } else if (_target != target) {
+        if (backend!.updateTarget(target) != 0) {
+          _fail();
+          return;
+        }
+        _target = target;
+      }
+    } catch (_) {
+      _fail();
+    }
+  }
+
+  void report(int durationNanos) {
+    if (!_active || durationNanos <= 0) return;
+    _lastWorkMicros = _clock.elapsedMicroseconds;
+    try {
+      if (backend!.report(durationNanos) != 0) {
+        _fail();
+      } else {
+        reports++;
+      }
+    } catch (_) {
+      _fail();
+    }
+  }
+
+  void setForeground(bool foreground) {
+    _foreground = foreground;
+    if (!foreground) close();
+  }
+
+  void _expire() {
+    _idleTimer = null;
+    final remaining = 400000 - (_clock.elapsedMicroseconds - _lastWorkMicros);
+    if (remaining > 0 && _active) {
+      _idleTimer = Timer(Duration(microseconds: remaining), _expire);
+    } else {
+      close();
+    }
+  }
+
+  void _fail() {
+    errors++;
+    _failed = true;
+    close();
+  }
+
+  void close() {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    if (_active) {
+      _active = false;
+      try {
+        backend!.close();
+      } catch (_) {
+        errors++;
+      }
+    }
+  }
+}
+
+/// Measures the synchronous frame cycle (including animations and microtasks),
+/// before timing batches reach addTimingsCallback. No raster/GPU timing is used.
+mixin AndroidPerformanceHintBinding on WidgetsBinding {
+  PerformanceHintController? _hints;
+  Stopwatch? _frameClock;
+  Map<String, Object>? get performanceHintDiagnostics => _hints?.diagnostics;
+
+  @override
+  void initInstances() {
+    super.initInstances();
+    _hints = PerformanceHintController(_AndroidHintBackend.load());
+    _hints!.setForeground(
+      lifecycleState == null || lifecycleState == AppLifecycleState.resumed,
+    );
+  }
+
+  double get _displayRefreshRate => platformDispatcher.views.isEmpty
+      ? 60
+      : platformDispatcher.views.first.display.refreshRate;
+
+  @override
+  void scheduleFrame() {
+    _hints?.begin(_displayRefreshRate);
+    super.scheduleFrame();
+  }
+
+  @override
+  void handleBeginFrame(Duration? rawTimeStamp) {
+    _hints?.begin(_displayRefreshRate);
+    if (_hints?.active == true) _frameClock = Stopwatch()..start();
+    super.handleBeginFrame(rawTimeStamp);
+  }
+
+  @override
+  void handleDrawFrame() {
+    try {
+      super.handleDrawFrame();
+    } finally {
+      final clock = _frameClock;
+      _frameClock = null;
+      if (clock != null) {
+        clock.stop();
+        _hints?.report(
+          (clock.elapsedTicks * 1000000000 / clock.frequency).round(),
+        );
+      }
+    }
+  }
+
+  @override
+  void handleAppLifecycleStateChanged(AppLifecycleState state) {
+    _hints?.setForeground(state == AppLifecycleState.resumed);
+    super.handleAppLifecycleStateChanged(state);
+  }
+}
+
+class RaftWidgetsFlutterBinding extends WidgetsFlutterBinding
+    with AndroidPerformanceHintBinding {
+  static WidgetsBinding ensureInitialized() {
+    try {
+      return WidgetsBinding.instance;
+    } on Error {
+      return RaftWidgetsFlutterBinding();
+    }
+  }
+}

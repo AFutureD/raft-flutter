@@ -23,6 +23,8 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:raft_flutter/platform/android_performance_hint.dart';
+
 import 'perf_lab/fixtures.dart';
 import 'perf_lab/probe.dart';
 
@@ -91,8 +93,10 @@ class _HostState extends State<_Host> {
   );
 }
 
+class _HintLabBinding extends IntegrationTestWidgetsFlutterBinding with AndroidPerformanceHintBinding {}
+
 void main() {
-  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = _HintLabBinding();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
   final sampler = LabSampler();
   testWidgets('perf lab', (t) async {
@@ -122,6 +126,7 @@ void main() {
       'viewWidth': view.physicalSize.width,
       'viewHeight': view.physicalSize.height,
       'dartVersion': Platform.version,
+      'performanceHint': binding.performanceHintDiagnostics,
     });
     final images = await LabImages.start();
     addTearDown(() => images.server.close(force: true));
@@ -956,7 +961,7 @@ void main() {
       await t.pump();
     }
     binding.reportData = {'perfLab': {'scenarios': lab.results.length, 'failures': failures, 'samplerAttached': sampler.attached}};
-    await sampler.send('done', {'failures': failures});
+    await sampler.send('done', {'failures': failures, 'performanceHint': binding.performanceHintDiagnostics});
     expect(failures, isEmpty);
   }, semanticsEnabled: semantics);
 }
