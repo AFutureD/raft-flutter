@@ -23,6 +23,7 @@ import 'settings_controls.dart';
 import 'settings_layout.dart';
 import 'tokens/shadows.g.dart' show RaftProductShadows;
 import 'workspace_shell.dart' show RaftWorkspaceRailAction;
+import 'status_bar.dart';
 import 'theme.dart';
 import 'viewport_breakpoints.dart';
 
@@ -95,69 +96,72 @@ class RaftPublicChannelSidebar extends StatelessWidget {
     return Semantics(
       container: true,
       label: raftText(context, label),
-      child: Container(
-        key: const ValueKey('public-server-channel-sidebar'),
-        width: sm ? (width ?? 240) : 144,
-        decoration: BoxDecoration(
-          color: t.brutal ? t.product.brutalCream : t.colors['layer-inset'],
-          border: Border(right: rule),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              height: headerHeight,
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: RaftSpace.x4),
-              decoration: BoxDecoration(border: Border(bottom: rule)),
-              child: Semantics(
-                header: true,
-                child: Text(
-                  serverName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: RaftTypography.inherited(
-                    t,
-                    size: 16,
-                    line: 24,
-                    weight: FontWeight.w700,
-                    color: text.strong,
+      child: RaftStatusBarSource(
+        color: t.brutal ? t.product.brutalCream : t.colors['layer-inset']!,
+        child: Container(
+          key: const ValueKey('public-server-channel-sidebar'),
+          width: sm ? (width ?? 240) : 144,
+          decoration: BoxDecoration(
+            color: t.brutal ? t.product.brutalCream : t.colors['layer-inset'],
+            border: Border(right: rule),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                height: headerHeight,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: RaftSpace.x4),
+                decoration: BoxDecoration(border: Border(bottom: rule)),
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    serverName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: RaftTypography.inherited(
+                      t,
+                      size: 16,
+                      line: 24,
+                      weight: FontWeight.w700,
+                      color: text.strong,
+                    ),
                   ),
                 ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(RaftSpace.x3),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      RaftSpace.x2,
-                      0,
-                      RaftSpace.x2,
-                      RaftSpace.x2,
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(RaftSpace.x3),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        RaftSpace.x2,
+                        0,
+                        RaftSpace.x2,
+                        RaftSpace.x2,
+                      ),
+                      child: Text(
+                        raftText(context, label).toUpperCase(),
+                        style: RaftTypography.inherited(
+                          t,
+                          size: 11,
+                          line: 16.5,
+                          weight: FontWeight.w700,
+                          color: t.colors['foreground-hint'] ?? t.muted,
+                        ).copyWith(letterSpacing: 11 * .05),
+                      ),
                     ),
-                    child: Text(
-                      raftText(context, label).toUpperCase(),
-                      style: RaftTypography.inherited(
-                        t,
-                        size: 11,
-                        line: 16.5,
-                        weight: FontWeight.w700,
-                        color: t.colors['foreground-hint'] ?? t.muted,
-                      ).copyWith(letterSpacing: 11 * .05),
-                    ),
-                  ),
-                  for (final channel in channels)
-                    _ChannelButton(
-                      channel: channel,
-                      selected: channel.id == selectedId,
-                      onPressed: () => onSelect(channel.id),
-                    ),
-                ],
+                    for (final channel in channels)
+                      _ChannelButton(
+                        channel: channel,
+                        selected: channel.id == selectedId,
+                        onPressed: () => onSelect(channel.id),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -480,24 +484,27 @@ class RaftPublicSettingsSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final sm = raftBreakpointWidth(context) >= 640;
-    return Container(
-      key: const ValueKey('public-server-settings-sidebar'),
-      width: sm ? 240 : 144,
-      decoration: BoxDecoration(
-        color: t.brutal ? t.product.brutalCream : t.colors['layer-inset'],
-        border: Border(right: _publicRule(t)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RaftPublicSidebarHeader(title: title),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: RaftSettingsSidebarList.inset(t),
-              child: child,
+    return RaftStatusBarSource(
+      color: t.brutal ? t.product.brutalCream : t.colors['layer-inset']!,
+      child: Container(
+        key: const ValueKey('public-server-settings-sidebar'),
+        width: sm ? 240 : 144,
+        decoration: BoxDecoration(
+          color: t.brutal ? t.product.brutalCream : t.colors['layer-inset'],
+          border: Border(right: _publicRule(t)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RaftPublicSidebarHeader(title: title),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: RaftSettingsSidebarList.inset(t),
+                child: child,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -680,40 +687,53 @@ class RaftPublicServerLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     // The page sits outside any Scaffold: a Material layer supplies the text
     // defaults (no debug underline) and ink for the controls.
+    final t = RaftTokens.of(context);
     return Material(
       type: MaterialType.transparency,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: RaftPublicSurface(
-              child: Row(
-                key: const ValueKey('public-server-page'),
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ?rail,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              Positioned.fill(child: columns),
-                              if (threadOverlay != null)
-                                Positioned.fill(child: threadOverlay!),
-                            ],
-                          ),
+      // Edge to edge: the status bar shows the header under it (published by
+      // RaftPanelHeaderBar), else the page surface.
+      child: RaftStatusBarHost(
+        fallback: t.brutal ? Colors.white : t.colors['layer-canvas']!,
+        expand: true,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: RaftPublicSurface(
+                // Only the top inset: the banner and rail handle the sides/bottom.
+                child: SafeArea(
+                  left: false,
+                  right: false,
+                  bottom: false,
+                  child: Row(
+                    key: const ValueKey('public-server-page'),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ?rail,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(child: columns),
+                                  if (threadOverlay != null)
+                                    Positioned.fill(child: threadOverlay!),
+                                ],
+                              ),
+                            ),
+                            banner,
+                          ],
                         ),
-                        banner,
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-          ...overlays,
-        ],
+            ...overlays,
+          ],
+        ),
       ),
     );
   }

@@ -20,6 +20,7 @@ import 'recipes/panel_header.g.dart';
 import 'recipes/tabs.g.dart';
 import 'recipes/token_binding.dart';
 import 'recipe_surface.dart' show raftCssText;
+import 'status_bar.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -492,9 +493,20 @@ class RaftPanelHeaderBar extends StatelessWidget {
         ],
       ),
     );
-    return profileBody && t.dark
-        ? ColoredBox(color: t.card, child: header)
-        : header;
+    // The surface the user sees: the recipe's own fill, else (transparent
+    // header) the profile body it sits on.
+    final fill = s.header.decoration(rt).color;
+    final shown = fill != null && fill.a != 0
+        ? fill
+        : profileBody && t.dark
+        ? t.card
+        : Colors.transparent;
+    return RaftStatusBarSource(
+      color: shown,
+      child: profileBody && t.dark
+          ? ColoredBox(color: t.card, child: header)
+          : header,
+    );
   }
 }
 

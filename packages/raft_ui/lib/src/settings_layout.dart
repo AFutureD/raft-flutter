@@ -11,6 +11,7 @@ import 'localization.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/recipes.g.dart';
 import 'recipes/token_binding.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 import 'tokens/shadows.g.dart';
 
@@ -247,47 +248,50 @@ class RaftSettingsPanelHeader extends StatelessWidget {
     ).merge(s.title.textStyle(tokens));
     final height =
         header.height ?? RaftLayoutMetrics.shellHeaderHeight(t, size.height);
-    return Container(
-      height: height,
-      padding: header.padding,
-      decoration: header.decoration(tokens),
-      child: Row(
-        children: [
-          if (mobile && onMobileBack != null) ...[
-            // AppPanelHeader `onMobileBack`: the raft-ui PanelAction boxed
-            // ArrowLeft, touch area extended around the Web-sized visual.
-            RaftPanelAction(
-              key: backKey,
-              glyph: RaftGlyph.arrowLeft,
-              tooltip: raftText(context, backTooltip),
-              onPressed: onMobileBack,
-              minHitExtent: RaftMetrics.touchTarget,
-            ),
-            SizedBox(width: header.columnGap ?? 12),
-          ],
-          if (!mobile && glyph != null) ...[
-            Container(
-              width: s.headerIcon.width,
-              height: s.headerIcon.height,
-              alignment: Alignment.center,
-              decoration: s.headerIcon.decoration(tokens),
-              child: RaftIcon(
-                glyph!,
-                size: 18,
-                color: s.headerIcon.textStyle(tokens).color,
+    return RaftStatusBarSource(
+      color: header.decoration(tokens).color ?? Colors.transparent,
+      child: Container(
+        height: height,
+        padding: header.padding,
+        decoration: header.decoration(tokens),
+        child: Row(
+          children: [
+            if (mobile && onMobileBack != null) ...[
+              // AppPanelHeader `onMobileBack`: the raft-ui PanelAction boxed
+              // ArrowLeft, touch area extended around the Web-sized visual.
+              RaftPanelAction(
+                key: backKey,
+                glyph: RaftGlyph.arrowLeft,
+                tooltip: raftText(context, backTooltip),
+                onPressed: onMobileBack,
+                minHitExtent: RaftMetrics.touchTarget,
+              ),
+              SizedBox(width: header.columnGap ?? 12),
+            ],
+            if (!mobile && glyph != null) ...[
+              Container(
+                width: s.headerIcon.width,
+                height: s.headerIcon.height,
+                alignment: Alignment.center,
+                decoration: s.headerIcon.decoration(tokens),
+                child: RaftIcon(
+                  glyph!,
+                  size: 18,
+                  color: s.headerIcon.textStyle(tokens).color,
+                ),
+              ),
+              SizedBox(width: header.columnGap ?? 12),
+            ],
+            Expanded(
+              child: RaftCssText(
+                raftText(context, title),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
               ),
             ),
-            SizedBox(width: header.columnGap ?? 12),
           ],
-          Expanded(
-            child: RaftCssText(
-              raftText(context, title),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: titleStyle,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
+import '../platform/system_bars.dart';
 import 'managed_agent_launcher.dart';
 import 'agent_scopes_view.dart';
 import 'agent_migration_view.dart';
@@ -387,13 +388,16 @@ class _FleetViewState extends State<FleetView> {
                     context,
                     MaterialPageRoute<void>(
                       // ds-allow: Standalone native route supplies the Material host and system insets; workspace routes already own them.
-                      builder: (_) => Scaffold(
-                        body: SafeArea(
-                          bottom: false,
-                          child: FleetDetail(
-                            controller: w,
-                            computers: true,
-                            initial: row,
+                      builder: (context) => Scaffold(
+                        body: RaftSystemBarSurface(
+                          statusBarFallback: RaftTokens.of(context).panel,
+                          child: SafeArea(
+                            bottom: false,
+                            child: FleetDetail(
+                              controller: w,
+                              computers: true,
+                              initial: row,
+                            ),
                           ),
                         ),
                       ),
