@@ -1,6 +1,6 @@
 # 不必要交互等待复查（2026-10-11）
 
-基于 `ff6e87f`；Kevin 在 #raft-flutter:5eb81aac 的 db8c7116 批准即时预览，f108f60b 要求全 App 复查。此次修复 Activity 首击固定等待和搜索手动重试的等待。下表给出仍值得处理的串行加载；这不是整 App 已无卡顿的结论。
+库存基于 `ff6e87f`，修复已更新到 `70bdfa0`；Kevin 在 #raft-flutter:5eb81aac 的 db8c7116 批准即时预览，f108f60b 要求全 App 复查。此次修复 Activity 首击固定等待和搜索手动重试的等待。下表给出仍值得处理的串行加载；这不是整 App 已无卡顿的结论。
 
 ## 已修复
 
@@ -38,3 +38,5 @@ macOS 通过只读 MethodChannel 获取 `NSEvent.doubleClickInterval`，默认�
 扫描 App 与全部本地 packages 的 406 个非生成 Dart 库文件，得到 103 个延时/防抖文本命中，分布在 46 个文件；排除 test/dev/previews/example/build；再复核 Timer、Future.delayed、防抖，以及频道、线程、详情、启动/缓存/目录恢复的 await 依赖。库存保留文件路径、行号和原文；命中包含注释、声明与 cancel，不把命中数当问题数。原生包装也作延时模式筛查。控制器草稿挂起实验和实际 widget 点击独立于 native 性能测量；它们证明控制流，不代表手机/真实磁盘的固定耗时。
 
 只有经过实际调用链与可复现条件确认的前两项当场修复；未测候选明确标出。完整批次工程检查由 Cindy 执行。原生 profile 工具只使用本地假数据与后台 Computer Use；点击延迟、帧耗时、真实120fps覆盖是不同指标，不能相互替代。
+
+原生 profile 前后对比、样本范围与复测方法见 [Activity 即时预览原生对比](activity-preview-performance.md)。
