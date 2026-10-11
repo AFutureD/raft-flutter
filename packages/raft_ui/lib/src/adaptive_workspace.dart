@@ -13,6 +13,9 @@ import 'tooltip.dart' show RaftTooltip;
 
 /// A window-sized workspace layout. Panel sizes follow the Web panel contract.
 /// The host owns navigation, persistence, and the mobile application bar.
+///
+/// Visited desktop sidebars retain state while hidden; their latest data widgets
+/// are applied when shown. Change [key] when the content's authority changes.
 class RaftAdaptiveWorkspace extends StatefulWidget {
   const RaftAdaptiveWorkspace({
     super.key,
@@ -34,7 +37,8 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   final Widget content, sidebar, rail;
 
   /// The host derives this from the mounted route, not panel width or theme.
-  /// Tasks and content masters must not retain hidden conversation navigation.
+  /// Tasks and content masters exclude conversation navigation from layout,
+  /// interaction and semantics.
   final bool sidebarVisible;
   final Widget? thread, mobileNavigation;
   final void Function(bool mainVisible, bool threadVisible)?
@@ -114,7 +118,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
     );
   }
 
-  bool sidebarMounted = false;
+  Widget? retainedSidebar;
   late double sidebarWidth = widget.sidebarWidth.clamp(180, 320);
   late double threadWidth = widget.threadWidth;
 
@@ -144,7 +148,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
     builder: (context, constraints) {
       final width = constraints.maxWidth;
       if (width < RaftAdaptiveWorkspace.desktopMinWidth) {
-        sidebarMounted = false;
+        retainedSidebar = null;
         // Keep the content's parent chain stable when a detail hides the bar
         // or the theme switches between in-flow and floating navigation.
         return Column(
@@ -171,7 +175,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
           ],
         );
       }
-      if (widget.sidebarVisible) sidebarMounted = true;
+      if (widget.sidebarVisible) retainedSidebar = widget.sidebar;
       final t = RaftTokens.of(context);
       final railWidth = RaftLayoutMetrics.railWidth(
         t,
@@ -205,10 +209,12 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
               // Keep the visited sidebar at its fixed panel width while
               // another route owns the content. Offstage consumes no width
               // and excludes paint/hit tests/semantics; focus and tickers are
-              // gated separately. Initial hidden routes remain lazy.
+              // gated separately. Initial hidden routes remain lazy. Hidden
+              // data widgets catch up atomically when shown, without rebuilding
+              // the inactive list on unrelated owner notifications.
               Offstage(
                 offstage: !widget.sidebarVisible,
-                child: !sidebarMounted
+                child: retainedSidebar == null
                     ? const SizedBox.shrink()
                     : TickerMode(
                         enabled: widget.sidebarVisible,
@@ -231,7 +237,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                               color: t.brutal
                                   ? t.colors['brutal-cream']
                                   : t.sidebar,
-                              child: widget.sidebar,
+                              child: retainedSidebar,
                             ),
                           ),
                         ),

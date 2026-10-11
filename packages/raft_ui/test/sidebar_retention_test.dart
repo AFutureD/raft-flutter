@@ -7,7 +7,8 @@ class _Lifetime {
 }
 
 class _Sidebar extends StatefulWidget {
-  const _Sidebar(this.lifetime);
+  const _Sidebar(this.lifetime, {this.label = 'current'});
+  final String label;
   final _Lifetime lifetime;
   @override
   State<_Sidebar> createState() => _SidebarState();
@@ -17,6 +18,7 @@ class _SidebarState extends State<_Sidebar> {
   final edit = TextEditingController();
   final focus = FocusNode();
   final scroll = ScrollController();
+  int builds = 0;
   @override
   void initState() {
     super.initState();
@@ -33,34 +35,42 @@ class _SidebarState extends State<_Sidebar> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      TextField(controller: edit, focusNode: focus),
-      Expanded(
-        child: ListView.builder(
-          controller: scroll,
-          itemCount: 100,
-          itemExtent: 40,
-          itemBuilder: (_, i) => Text('Sidebar item $i'),
+  Widget build(BuildContext context) {
+    ++builds;
+    return Column(
+      children: [
+        Text(widget.label),
+        TextField(controller: edit, focusNode: focus),
+        Expanded(
+          child: ListView.builder(
+            controller: scroll,
+            itemCount: 100,
+            itemExtent: 40,
+            itemBuilder: (_, i) => Text('Sidebar item $i'),
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
-Widget _host(_Lifetime lifetime, bool visible, {String authority = 'alice'}) =>
-    MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
-      home: Scaffold(
-        body: RaftAdaptiveWorkspace(
-          key: ValueKey(authority),
-          sidebarVisible: visible,
-          sidebar: _Sidebar(lifetime),
-          rail: const Text('Rail'),
-          content: const SizedBox.expand(key: Key('content')),
-        ),
-      ),
-    );
+Widget _host(
+  _Lifetime lifetime,
+  bool visible, {
+  String authority = 'alice',
+  String label = 'current',
+}) => MaterialApp(
+  theme: raftTheme(RaftFamily.elegant),
+  home: Scaffold(
+    body: RaftAdaptiveWorkspace(
+      key: ValueKey(authority),
+      sidebarVisible: visible,
+      sidebar: _Sidebar(lifetime, label: label),
+      rail: const Text('Rail'),
+      content: const SizedBox.expand(key: Key('content')),
+    ),
+  ),
+);
 
 Future<void> _desktop(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
@@ -121,15 +131,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final family in RaftFamily.values) {
+  testWidgets(
+    'hidden sidebar defers data widgets until its first visible frame',
+    (tester) async {
+      await _desktop(tester);
+      final lifetime = _Lifetime();
+      await tester.pumpWidget(_host(lifetime, true, label: 'original'));
+      final state = tester.state<_SidebarState>(find.byType(_Sidebar));
+      final firstBuilds = state.builds;
+      for (var i = 0; i < 5; i++) {
+        await tester.pumpWidget(_host(lifetime, false, label: 'hidden-$i'));
+      }
+      expect(state.builds, firstBuilds);
+      await tester.pumpWidget(_host(lifetime, true, label: 'latest'));
+      expect(find.text('latest'), findsOneWidget);
+      expect(find.text('original'), findsNothing);
+      expect(tester.state(find.byType(_Sidebar)), same(state));
+      expect(state.builds, firstBuilds + 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final variant in [
+    (RaftFamily.brutal, false),
+    (RaftFamily.elegant, false),
+    (RaftFamily.elegant, true),
+  ]) {
+    final family = variant.$1;
+    final dark = variant.$2;
     testWidgets(
-      '$family hidden retained menu closes and rejects stale actions',
+      '$family/dark:$dark hidden retained menu closes and rejects stale actions',
       (tester) async {
         final controller = RaftMenuController();
         addTearDown(controller.dispose);
         var actions = 0;
         Widget host(bool active) => MaterialApp(
-          theme: raftTheme(family),
+          theme: raftTheme(family, dark: dark),
           home: Scaffold(
             body: TickerMode(
               enabled: active,
