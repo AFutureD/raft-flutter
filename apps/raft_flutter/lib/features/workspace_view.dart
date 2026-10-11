@@ -12,6 +12,7 @@ import 'package:raft_ui/recipes.dart' as recipes;
 
 import 'announcement_host.dart';
 import '../data/workspace_controller.dart';
+import '../platform/route_frame_diagnostics.dart';
 import '../data/workspace_entity_directory.dart';
 import '../data/source_activity_unread_store.dart';
 import '../data/source_mobile_app_badge.dart';
@@ -982,6 +983,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
         listenable: Listenable.merge([w, mobileTabbar]),
         builder: (context, _) {
           updateChannelAuthority();
+          if (RouteFrameDiagnostics.enabled) {
+            RouteFrameDiagnostics.location(
+              w.location.thread == null
+                  ? w.location.route.name
+                  : '${w.location.route.name}/thread',
+            );
+          }
           bindPageAuthority();
           if (mobileStorageAuthority != desktopAuthority) {
             mobileStorageAuthority = desktopAuthority;
@@ -1016,6 +1024,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
       workspaceMode,
     ]),
     builder: (context, _) {
+      final buildStarted = RouteFrameDiagnostics.enabled
+          ? RouteFrameDiagnostics.now()
+          : 0;
       // Computers and Activity are tab roots only while the bar has them.
       w.navigation.mobileTabs = mobileTabIds.toSet();
       final attentionOwner = activityUnread;
@@ -1779,6 +1790,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     : workspace(dockWidth, onEscape),
               ),
       );
+      if (RouteFrameDiagnostics.enabled) {
+        RouteFrameDiagnostics.scope('shellBuildUs', buildStarted);
+      }
       return body;
     },
   );

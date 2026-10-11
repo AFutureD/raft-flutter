@@ -72,7 +72,12 @@ class _MobileWorkspaceRouteState extends State<_MobileWorkspaceRoute> {
     }
     return IgnorePointer(
       ignoring: !active,
-      child: ExcludeSemantics(excluding: !active, child: content!),
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: RouteFrameDiagnostics.enabled
+            ? RouteFrameProbe(child: content!)
+            : content!,
+      ),
     );
   }
 }
