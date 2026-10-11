@@ -187,6 +187,9 @@ void main() {
         w.setSection('settings');
         await t.pumpAndSettle();
         final settings = t.state(find.byType(WorkspaceSettings));
+        final settingsWidget = t.widget<WorkspaceSettings>(
+          find.byType(WorkspaceSettings),
+        );
         expect(find.byType(RaftChatView), findsNothing);
         expect(find.bySemanticsLabel('Public fixture'), findsNothing);
         expect(editor.focusNode!.hasFocus, isFalse);
@@ -216,6 +219,33 @@ void main() {
         w.setSection('settings');
         await t.pumpAndSettle();
         expect(t.state(find.byType(WorkspaceSettings)), same(settings));
+        expect(
+          t.widget<WorkspaceSettings>(find.byType(WorkspaceSettings)),
+          same(settingsWidget),
+        );
+        w.setSection('chat');
+        await t.pumpAndSettle();
+        client.user = RaftRecord({
+          ...client.user!.json,
+          'displayName': 'Updated Alice',
+        });
+        w.notifyListeners();
+        await t.pump();
+        w.setSection('settings');
+        // Updated profile data must be final on the first returning frame.
+        await t.pump();
+        expect(t.state(find.byType(WorkspaceSettings)), same(settings));
+        expect(
+          t.widget<WorkspaceSettings>(find.byType(WorkspaceSettings)),
+          isNot(same(settingsWidget)),
+        );
+        expect(
+          t
+              .widgetList<TextField>(find.byType(TextField))
+              .any((field) => field.controller?.text == 'Updated Alice'),
+          isTrue,
+        );
+        await t.pumpAndSettle();
         w.setSection('members');
         await t.pumpAndSettle();
         expect(

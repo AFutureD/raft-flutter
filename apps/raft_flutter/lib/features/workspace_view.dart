@@ -119,6 +119,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
   // The most recently admitted Settings page survives a conversation visit.
   // Other destinations retire it; workspace authority retires both panes.
   Widget? retainedSettingsContent;
+  Widget? accountSettingsWidget;
+  Object? accountSettingsInputs;
 
   /// Sidebar.tsx `menuOpen`: the row whose context menu is open (`c:<id>` /
   /// `a:<id>`) keeps its muted fill.
@@ -890,6 +892,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           );
         }
         retainedSettingsContent = null;
+        accountSettingsWidget = null;
+        accountSettingsInputs = null;
         lastAuthority = authority;
         final navigator = Navigator.of(context);
         for (final observer
@@ -1253,6 +1257,10 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         final currentContent = content;
         if (!showingConversation) {
           retainedSettingsContent = route == 'settings' ? currentContent : null;
+          if (route != 'settings') {
+            accountSettingsWidget = null;
+            accountSettingsInputs = null;
+          }
         }
         // Keep one admitted conversation, not an unbounded cache of routes.
         // The pager removes hidden content from layout, focus and semantics;
@@ -3375,16 +3383,42 @@ class _WorkspaceViewState extends State<WorkspaceView> {
 
   Widget settings() {
     final scope = mobileAuthority;
-    return KeyedSubtree(
+    final tab = WorkspaceNavigation.settingsTab(
+      w.location.settingsPath.firstOrNull ?? 'account',
+    );
+    // Reuse the admitted Account subtree when its actual inputs are unchanged.
+    // Compare record contents, including profile updates within one session.
+    // Other settings pages continue receiving controller projection updates.
+    final inputs = (
+      lastAuthority,
+      scope,
+      jsonEncode(w.client.user?.json),
+      jsonEncode(w.server?.json),
+      tab,
+      w.location.settingsPath.isEmpty,
+      mobileSettingsRevision,
+      widget.appearance.mode,
+      widget.appearance.light,
+      widget.onAppearance,
+      widget.notifications,
+      widget.onLogout,
+      presentation,
+      workspaceMode,
+      providerEnabled,
+      bridgeEnabled,
+      labsEnabled,
+    );
+    if (tab == 'account' && inputs == accountSettingsInputs) {
+      return accountSettingsWidget!;
+    }
+    final content = KeyedSubtree(
       key: const Key('workspace-account-settings'),
       child: WorkspaceSettings(
         key: ValueKey(
           'workspace-account-settings-${w.client.generation}-${w.client.user?.id}-${w.server?.id}-${w.server?.string('role')}',
         ),
         controller: w,
-        initialTab: WorkspaceNavigation.settingsTab(
-          w.location.settingsPath.firstOrNull ?? 'account',
-        ),
+        initialTab: tab,
         workspaceModeCard: modeCard(),
         appearance: widget.appearance,
         onAppearance: (appearance) => widget.onAppearance(appearance),
@@ -3415,5 +3449,8 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         labsEnabled: labsEnabled,
       ),
     );
+    accountSettingsInputs = tab == 'account' ? inputs : null;
+    accountSettingsWidget = tab == 'account' ? content : null;
+    return content;
   }
 }
