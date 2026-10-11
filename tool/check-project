@@ -183,17 +183,19 @@ def slowest_tests(results, count=SLOWEST_TESTS):
     return [{'name': r['name'], 'file': r['file'], 'seconds': r['seconds']} for r in real[:count]]
 
 
-def format_summary(shards, failures, totals, slowest):
-    """Human-readable gate summary; failures are listed by test name."""
+def format_summary(shards, failures, totals, slowest, limit=None):
+    """Human-readable gate summary; failures are listed by test name (first `limit` if given)."""
     lines = [f"Dart tests: {totals['passed']} passed, {totals['skipped']} skipped, {len(failures)} failed across {len(shards)} shard(s)."]
     for shard in shards:
         state = 'ok' if shard['passed'] else 'FAILED'
         lines.append(f"  shard {shard['index']}: {state} {shard['seconds']:.0f}s, {len(shard['files'])} files (log {shard['log']})")
     if failures:
         lines.append('Failed tests:')
-        for f in failures:
-            detail = {'incomplete': 'did not finish (shard killed or crashed)'}.get(f['status'], f['error'])
+        for f in failures[:limit]:
+            detail = f['error'] or ('did not finish (shard killed or crashed)' if f['status'] == 'incomplete' else '')
             lines.append(f"  [{f['shard']}] {f['file']}: {f['name']}" + (f' -- {detail}' if detail else ''))
+        if limit is not None and len(failures) > limit:
+            lines.append(f'  ... and {len(failures) - limit} more in .local/check-summary.txt')
     lines.append(f'Slowest {len(slowest)} tests:')
     lines.extend(f"  {s['seconds']:7.1f}s  {s['file']}: {s['name']}" for s in slowest)
     return '\n'.join(lines) + '\n'
@@ -320,11 +322,12 @@ def main():
         totals['passed'] += summary['passed']
         totals['skipped'] += summary['skipped']
         failures += [{**f, 'shard': shard['index']} for f in summary['failed']]
-        failures += [{'name': 'never finished: shard was killed or crashed before this file ran', 'file': f, 'status': 'incomplete', 'error': '', 'shard': shard['index']} for f in never_ran]
+        failures += [{'name': '(file never ran)', 'file': f, 'status': 'incomplete', 'error': '', 'shard': shard['index']} for f in never_ran]
         if not shard['passed'] and not summary['failed'] and not never_ran:
             reason = f"exit code {shard['code']}" if shard['code'] != 0 else f'no "{PASS_MARKER}" line in the log'
             failures.append({'name': f"shard stopped without a recorded test failure ({reason}); see {shard['log']}", 'file': '', 'status': 'failed', 'error': '', 'shard': shard['index']})
-        durations.update(file_durations(parsed, shard['index']))
+        if shard['code'] in (0, 1):  # a killed or crashed shard has truncated file times
+            durations.update(file_durations(parsed, shard['index']))
         all_results += parsed
     tests_passed = all(s['passed'] for s in shards) and bool(shards)
     results['all-project-tests.txt'] = tests_passed
@@ -342,7 +345,7 @@ def main():
     (local / 'check-durations.json').write_text(json.dumps({
         'sourceHash': source_hash, 'wallSeconds': round(time.monotonic() - started, 1), 'shards': len(shards), 'jobsPerShard': jobs,
         'slowestTests': slowest, 'files': dict(sorted(merged.items()))}, indent=2), encoding='utf-8')
-    sys.stderr.write(summary_text)
+    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40))
 
     changed = stamp() != source_hash
     ok = all(results.values()) and not changed

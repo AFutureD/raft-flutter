@@ -148,6 +148,14 @@ class SummaryTests(unittest.TestCase):
         self.assertIn('cut off -- did not finish', text)
         self.assertIn('12.3s  f: slow one', text)
 
+    def test_limit_truncates_the_listing_not_the_count(self):
+        failures = [{'name': f't{i}', 'file': 'f', 'status': 'failed', 'error': 'e', 'shard': 0} for i in range(5)]
+        text = check.format_summary([], failures, {'passed': 0, 'skipped': 0}, [], limit=2)
+        self.assertIn('5 failed', text)
+        self.assertIn('f: t1', text)
+        self.assertNotIn('f: t2', text)
+        self.assertIn('and 3 more', text)
+
     def test_history_weights_read_previous_run(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
