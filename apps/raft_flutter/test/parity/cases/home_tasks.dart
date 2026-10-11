@@ -448,7 +448,7 @@ final ParityCase _tasksPanel = ParityCase(
     final done = find.byKey(const ValueKey('task-group-done'));
     final list = find
         .descendant(
-          of: find.byType(ListView),
+          of: find.byType(CustomScrollView),
           matching: find.byType(Scrollable),
         )
         .first;
