@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
@@ -104,16 +105,31 @@ void main() {
           const ValueKey('sidebar-group-system:pinned'),
         );
         final joint = find.byKey(const ValueKey('sidebar-group-system:joint'));
-        expect(t.getSize(pinned).height, 89);
-        expect(t.getSize(joint).height, 68);
-        expect(t.getRect(joint).top, t.getRect(pinned).bottom);
+        Rect groupRect(Finder group) {
+          final sliver = t.renderObject<RenderSliver>(group);
+          final header = find.descendant(
+            of: group,
+            matching: find.byType(RaftSidebarSectionHeader),
+          );
+          final top = t.getTopLeft(header);
+          return Rect.fromLTWH(
+            top.dx,
+            top.dy,
+            t.getSize(header).width,
+            sliver.geometry!.scrollExtent,
+          );
+        }
+
+        expect(groupRect(pinned).height, 89);
+        expect(groupRect(joint).height, 68);
+        expect(groupRect(joint).top, groupRect(pinned).bottom);
         expect(find.text('Drag channels or DMs here to pin'), findsOneWidget);
         expect(find.text('No joint channels yet'), findsOneWidget);
         await t.tap(
           find.byKey(const ValueKey('sidebar-disclosure-system:pinned')),
         );
         await t.pumpAndSettle();
-        expect(t.getSize(pinned).height, 40);
+        expect(groupRect(pinned).height, 40);
         expect(find.text('Drag channels or DMs here to pin'), findsNothing);
         expect(find.text('No joint channels yet'), findsOneWidget);
         presentation.update(presentation.key, hideEmptySections: true);

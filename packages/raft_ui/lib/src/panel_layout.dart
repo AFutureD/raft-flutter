@@ -1031,6 +1031,19 @@ class _BlinkMetrics {
       });
 }
 
+// A retained repaint boundary may paint before an offscreen route ancestor
+// has completed layout. Its transform can depend on a size that is not ready.
+double _laidOutGlobalTop(RenderBox box) {
+  for (
+    RenderObject? ancestor = box.parent;
+    ancestor != null;
+    ancestor = ancestor.parent
+  ) {
+    if (ancestor is RenderBox && !ancestor.hasSize) return double.nan;
+  }
+  return box.localToGlobal(Offset.zero).dy;
+}
+
 class _RenderCssLineBox extends RenderProxyBox {
   _RenderCssLineBox(this._style, this._textScaler);
   TextStyle _style;
@@ -1085,7 +1098,7 @@ class _RenderCssLineBox extends RenderProxyBox {
 
   double get _shift {
     final flutter = _flutterBaseline;
-    final top = localToGlobal(Offset.zero).dy;
+    final top = _laidOutGlobalTop(this);
     // Kept-alive sliver children can paint their own repaint boundary while
     // their ancestor has no screen transform. Align locally until attached.
     if (!top.isFinite) return _metrics.baseline - flutter;
@@ -1167,7 +1180,7 @@ class _RenderCssTopBorder extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     super.paint(context, offset);
-    final top = localToGlobal(Offset.zero).dy;
+    final top = _laidOutGlobalTop(this);
     final shift = top.isFinite ? (top + .5).floorToDouble() - top : 0.0;
     context.canvas.drawRect(
       Rect.fromLTWH(offset.dx, offset.dy + shift, size.width, _width),

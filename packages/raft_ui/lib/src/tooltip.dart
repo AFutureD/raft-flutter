@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'design_primitives.dart' show RaftTouchTarget;
 import 'pointer_intent.dart';
 import 'theme.dart';
 
@@ -521,9 +522,8 @@ class _RaftTooltipState extends State<RaftTooltip>
   // Keep each portal's traversal anchor distinct when a list merges child
   // semantics. Flutter 3.47 can otherwise serialize an orphan overlay node,
   // freezing the native accessibility bridge after scrolling or dismissal.
-  Widget build(BuildContext context) => Semantics(
-    container: true,
-    child: OverlayPortal(
+  Widget build(BuildContext context) {
+    final child = OverlayPortal(
       controller: portal,
       overlayChildBuilder: (overlayContext) {
         final rect = _anchorRect();
@@ -587,8 +587,13 @@ class _RaftTooltipState extends State<RaftTooltip>
           ),
         ),
       ),
-    ),
-  );
+    );
+    // Keep the portal's own boundary as large as its external touch target;
+    // an inner 28/32px boundary would split off the accessible tap action.
+    return context.findAncestorWidgetOfExactType<RaftTouchTarget>() != null
+        ? RaftTouchTarget(child: child)
+        : Semantics(container: true, child: child);
+  }
 }
 
 class _TooltipPlacement extends MultiChildLayoutDelegate {

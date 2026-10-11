@@ -100,3 +100,31 @@ Providers、Labs、Bridges 在该 fixture 的功能开关下未开启；空市�
 - 可避免的整表布局、历史高度扫描、首次引用扫描、状态销毁、隐藏行重建、折叠重复布局和语义角色合并已有修复；尚需继续减少可见聊天返回重建和公共样式解析的重复工作，并补齐未建模页面与真实连续手势的验证。
 
 原始证据按 `before-v3` / `after-v3`、`before-v4`、`collapse-v4`、`account-reused-v4`、`input-role-v4` 保存，源码 manifest 记录逐文件哈希。不要用不同 fixture、诊断入口或语义条件混算，也不要把三页瞬时跳转的峰值换算成日常平均 FPS。
+
+
+## Full-suite review repair (after 7f65d36)
+
+Cindy's full suite found 20 regressions against ccfa888. The listed seven test
+files now pass locally: 53 application tests, plus 91 related design-system
+tests (including the three listed design-system files). The review fixes:
+
+- Preserve a tooltip portal's independent semantics anchor while expanding its
+  boundary to the existing 48px touch target. A nested 28/32px boundary had
+  split the accessible tap action from the expanded target. Ordinary desktop
+  buttons still own a boundary, and sibling copy retains its original role.
+- Use the existing local text/border alignment fallback while a retained
+  repaint boundary has an ancestor awaiting layout. This prevents mobile
+  Activity Back transitions from reading a missing ancestor size.
+- Measure sidebar sliver scroll extent and actual header positions in the
+  geometry tests, retaining the original 89/68/40px and adjacency assertions.
+  Inspect the lazy channel-settings action region before checking offered and
+  forbidden Stop Agents permissions. Read mobile sidebar inset from its
+  SliverPadding, retaining the original layout and navigation assertions.
+- Update the overlay lifetime test for the intended scroll-dismiss behavior;
+  fresh reopening still tracks the current anchor, clips offscreen actions,
+  and cannot survive route or owner removal.
+
+No new native frame timings are claimed for these review repairs. The native
+measurements above retain their recorded source identities. Full-project
+revalidation remains owned by Cindy; the overall performance investigation is
+still active.

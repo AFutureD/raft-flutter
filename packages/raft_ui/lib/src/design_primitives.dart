@@ -3069,8 +3069,10 @@ class _RaftInteractiveState extends State<RaftInteractive> {
     );
     Widget result = Semantics(
       // TouchTarget supplies this boundary and its larger semantics rect on
-      // touch devices. Desktop controls need their own role/action boundary.
-      container: !touch,
+      // touch devices, including controls whose inner density is desktop to
+      // preserve visual geometry. Other desktop controls own their boundary.
+      container: !touch &&
+          context.findAncestorWidgetOfExactType<RaftTouchTarget>() == null,
       label: widget.semanticLabel,
       excludeSemantics: widget.busy,
       button: widget.button,

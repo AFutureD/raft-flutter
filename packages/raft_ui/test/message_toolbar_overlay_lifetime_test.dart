@@ -3,75 +3,96 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/src/message_row_recipe.dart';
 import 'package:raft_ui/src/theme.dart';
 
-Widget publicRow({bool coarse = false}) => RaftMessageRow(
-  key: const Key('owned-row'),
-  author: 'Public',
-  timestamp: '14:30',
-  coarsePointer: coarse,
-  popupOpen: true,
-  content: const Text('Public body'),
-  toolbar: RaftMessageToolbar(
-    children: [
-      RaftMessageToolbarAction(
-        key: const Key('owned-action'),
-        label: 'Owned action',
-        icon: const SizedBox(),
-        onPressed: () {},
-      ),
-    ],
-  ),
-);
-
-void main() {
-  testWidgets('portal follows scrolling and vanishes beyond owning viewport', (
-    tester,
-  ) async {
-    final scroll = ScrollController();
-    addTearDown(scroll.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(RaftFamily.brutal),
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: 390,
-              height: 180,
-              child: SingleChildScrollView(
-                controller: scroll,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 80),
-                    publicRow(),
-                    const SizedBox(height: 1000),
-                  ],
-                ),
-              ),
-            ),
+Widget publicRow({bool coarse = false, bool popupOpen = true}) =>
+    RaftMessageRow(
+      key: const Key('owned-row'),
+      author: 'Public',
+      timestamp: '14:30',
+      coarsePointer: coarse,
+      popupOpen: popupOpen,
+      content: const Text('Public body'),
+      toolbar: RaftMessageToolbar(
+        children: [
+          RaftMessageToolbarAction(
+            key: const Key('owned-action'),
+            label: 'Owned action',
+            icon: const SizedBox(),
+            onPressed: () {},
           ),
-        ),
+        ],
       ),
     );
-    await tester.pump();
-    final before = tester.getRect(find.byKey(const Key('owned-action')));
-    scroll.jumpTo(40);
-    await tester.pump();
-    await tester.pump();
-    final after = tester.getRect(find.byKey(const Key('owned-action')));
-    expect(after.top, before.top - 40);
-    scroll.jumpTo(220);
-    await tester.pump();
-    await tester.pump();
-    expect(find.byKey(const Key('owned-action')), findsNothing);
-    scroll.jumpTo(0);
-    await tester.pump();
-    await tester.pump();
-    expect(find.byKey(const Key('owned-action')), findsOneWidget);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    expect(find.byKey(const Key('owned-action')), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+
+void main() {
+  testWidgets(
+    'scroll retires portal; fresh opening uses current viewport anchor',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      var popupOpen = true;
+      late StateSetter update;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return MaterialApp(
+              theme: raftTheme(RaftFamily.brutal),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 390,
+                    height: 180,
+                    child: SingleChildScrollView(
+                      controller: scroll,
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 80),
+                          publicRow(popupOpen: popupOpen),
+                          const SizedBox(height: 1000),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      await tester.pump();
+      final before = tester.getRect(find.byKey(const Key('owned-action')));
+      scroll.jumpTo(40);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(const Key('owned-action')), findsNothing);
+      Future<void> reopen() async {
+        update(() => popupOpen = false);
+        await tester.pump();
+        update(() => popupOpen = true);
+        await tester.pump();
+        await tester.pump();
+      }
+
+      await reopen();
+      final after = tester.getRect(find.byKey(const Key('owned-action')));
+      expect(after.top, before.top - 40);
+      scroll.jumpTo(220);
+      await tester.pump();
+      await tester.pump();
+      await reopen();
+      expect(find.byKey(const Key('owned-action')), findsNothing);
+      scroll.jumpTo(0);
+      await tester.pump();
+      await tester.pump();
+      await reopen();
+      expect(find.byKey(const Key('owned-action')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(find.byKey(const Key('owned-action')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'hidden route, coarse pointer and removed row cannot retain an overlay',

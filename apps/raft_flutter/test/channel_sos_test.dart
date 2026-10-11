@@ -35,6 +35,19 @@ Future<void> _open(
     ),
   );
   await tester.pumpAndSettle();
+  // The settings actions are now lazily built. Visit the final region before
+  // checking both the offered and forbidden permission cases.
+  final scrollable = find
+      .descendant(
+        of: find.byType(ChannelSettings),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  final position = tester.state<ScrollableState>(scrollable).position;
+  for (var i = 0; i < 4; i++) {
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+  }
 }
 
 Finder get _stopAgents => find.text('Stop Agents');

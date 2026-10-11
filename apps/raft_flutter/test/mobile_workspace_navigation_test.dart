@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
@@ -702,11 +703,11 @@ void main() {
         tester.getTopLeft(find.byKey(const Key('nav-search'))).dy,
         lessThan(tester.getTopLeft(find.byKey(const Key('nav-activity'))).dy),
       );
-      final sidebar = tester.widget<ListView>(
+      final sidebar = tester.widget<CustomScrollView>(
         find.byKey(const Key('workspace-sidebar')),
       );
       expect(
-        sidebar.padding,
+        (sidebar.slivers.first as SliverPadding).padding,
         const EdgeInsetsDirectional.fromSTEB(8, 12, 8, 68),
       );
       final channelRow = find.byKey(const ValueKey('sidebar-channel-c'));
@@ -752,17 +753,26 @@ void main() {
         const ValueKey('sidebar-disclosure-system:channels'),
       );
       expect(tester.widget<RaftSidebarSectionHeader>(section).count, 1);
+      Rect groupRect(String id) {
+        final group = find.byKey(ValueKey('sidebar-group-system:$id'));
+        final sliver = tester.renderObject<RenderSliver>(group);
+        final header = find.descendant(
+          of: group,
+          matching: find.byType(RaftSidebarSectionHeader),
+        );
+        final top = tester.getTopLeft(header);
+        return Rect.fromLTWH(
+          top.dx, top.dy, tester.getSize(header).width,
+          sliver.geometry!.scrollExtent,
+        );
+      }
       expect(
-        tester
-            .getRect(find.byKey(const ValueKey('sidebar-group-system:pinned')))
-            .top,
+        groupRect('pinned').top,
         tester.getRect(find.byKey(const Key('nav-saved'))).bottom,
       );
       expect(
         tester.getRect(section).top,
-        tester
-            .getRect(find.byKey(const ValueKey('sidebar-group-system:joint')))
-            .bottom,
+        groupRect('joint').bottom,
       );
       expect(tester.getRect(disclosure).top - tester.getRect(section).top, 12);
       await tester.tap(disclosure);
