@@ -316,6 +316,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     }
   }
 
+  /// Opens [target] without waiting for the network. The destination is
+  /// published from what the device already knows (the selected workspace's
+  /// cached channel list, or just its URL, which the workspace view renders as
+  /// a loading channel), and membership, channel and message authority are
+  /// verified concurrently. A denial reverts the optimistic entry and reports
+  /// the failure; nothing is sent or written on the strength of the cache.
   Future<void> navigate(
     ContentTarget target, {
     bool replaceEntry = false,
@@ -331,65 +337,152 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         _scope == scope &&
         _epoch == epoch &&
         _navigation == navigation;
+    final slug = w.location.serverSlug;
+    final ownWorkspace = target.serverId != null
+        ? target.serverId == w.client.serverId
+        : target.serverSlug == slug;
+    final known = !ownWorkspace
+        ? null
+        : [...w.channels, ...w.dms]
+              .where(
+                (c) =>
+                    c.id == target.channelId &&
+                    w.can('viewChannel', resource: c),
+              )
+              .firstOrNull;
+    final previous = w.location;
+    final previousIndex = w.navigation.index;
+    var published = false, replacedEntry = replaceEntry;
+    // Verification starts first so it overlaps the page opening below.
+    final authorization = _authorizeContent(w.client, target, valid);
+    unawaited(authorization.then<void>((_) {}, onError: (Object _) {}));
     try {
-      final (server, channel) = await _authorizeContent(
-        w.client,
-        target,
-        valid,
-      );
-      if (!valid()) return;
-      // Content links never switch the signed-in account or coordinator origin.
-      // Cross-server links require an explicit server selection in the app first.
-      if (server.id != w.client.serverId) {
-        w.setError('Select the linked workspace before opening this message.');
-        return;
-      }
-      if (target.parentMessageId != null) {
-        if (!w.can('viewChannel', resource: channel)) {
-          throw const RaftApiException('Unavailable channel.');
-        }
-        final destination =
-            RaftLocation.at(
-              serverSlug: w.location.serverSlug,
-              route: channel.type == 'dm' ? RaftRoute.dm : RaftRoute.channel,
-              entityId: channel.id,
-            ).withQuery({
-              'thread': '${channel.id}:${target.parentMessageId}',
-              'msg': target.messageId,
-            });
-        // Publish the complete destination once. The parent channel tail and
-        // reply window then load independently, without an intermediate page.
+      Future<void>? opening;
+      if (known != null) {
+        published = true;
+        opening = _open(w, target, known, replaceEntry: replaceEntry);
+        // Its failure is reported once, below, after verification settles.
+        unawaited(opening.then<void>((_) {}, onError: (Object _) {}));
+      } else if (ownWorkspace) {
+        // Unknown to the device: show the destination's loading shell now.
+        published = true;
         w.navigation.navigate(
-          destination,
+          _destination(w, target, target.kind == 'dm'),
           kind: replaceEntry
               ? RaftNavigationKind.replace
               : RaftNavigationKind.push,
         );
-        w.channel = channel;
-        final opening = w.openThreadIdentity(
-          parentChannelId: channel.id,
-          parentMessageId: target.parentMessageId!,
-          focusedMessageId: target.messageId,
-          initialThreadChannelId: target.threadId,
-          navigate: false,
-        );
-        await Future.wait([
-          opening,
-          w.selectChannel(channel, navigate: false, preserveThread: true),
-        ]);
-      } else {
-        await w.jumpToMessage(
-          target.channelId,
-          target.messageId,
-          replaceEntry: replaceEntry,
-        );
+        replacedEntry = true;
+        w.notifyListeners();
       }
+      final (server, channel) = await authorization;
+      if (!valid()) return;
+      // Content links never switch the signed-in account or coordinator origin.
+      // Cross-server links require an explicit server selection in the app first.
+      if (server.id != w.client.serverId) {
+        throw const RaftApiException('Unavailable workspace.');
+      }
+      if (target.parentMessageId != null &&
+          !w.can('viewChannel', resource: channel)) {
+        throw const RaftApiException('Unavailable channel.');
+      }
+      opening ??= _open(w, target, channel, replaceEntry: replacedEntry);
+      await opening;
     } catch (_) {
       if (valid()) {
+        if (published) _revert(w, previous, previousIndex, replaceEntry);
         w.setError(
           'This link is unavailable for the current account or workspace.',
         );
       }
+    }
+  }
+
+  RaftLocation _destination(
+    WorkspaceController w,
+    ContentTarget target,
+    bool dm,
+  ) {
+    final base = RaftLocation.at(
+      serverSlug: w.location.serverSlug,
+      route: dm ? RaftRoute.dm : RaftRoute.channel,
+      entityId: target.channelId,
+    );
+    return target.parentMessageId != null
+        ? base.withQuery({
+            'thread': '${target.channelId}:${target.parentMessageId}',
+            'msg': target.messageId,
+          })
+        : target.messageId != null
+        ? base.withQuery({'msg': target.messageId})
+        : base;
+  }
+
+  /// Publishes [channel]'s destination and loads it. Everything before the
+  /// first await runs synchronously, so the page opens on the next frame.
+  Future<void> _open(
+    WorkspaceController w,
+    ContentTarget target,
+    RaftChannel channel, {
+    required bool replaceEntry,
+  }) async {
+    if (target.parentMessageId != null) {
+      if (!w.can('viewChannel', resource: channel)) {
+        throw const RaftApiException('Unavailable channel.');
+      }
+      // Publish the complete destination once. The parent channel tail and
+      // reply window then load independently, without an intermediate page.
+      w.navigation.navigate(
+        _destination(w, target, channel.type == 'dm'),
+        kind: replaceEntry
+            ? RaftNavigationKind.replace
+            : RaftNavigationKind.push,
+      );
+      w.channel = channel;
+      final opening = w.openThreadIdentity(
+        parentChannelId: channel.id,
+        parentMessageId: target.parentMessageId!,
+        focusedMessageId: target.messageId,
+        initialThreadChannelId: target.threadId,
+        navigate: false,
+      );
+      await Future.wait([
+        opening,
+        w.selectChannel(channel, navigate: false, preserveThread: true),
+      ]);
+    } else {
+      await w.jumpToMessage(
+        target.channelId,
+        target.messageId,
+        replaceEntry: replaceEntry,
+      );
+    }
+  }
+
+  /// A denied optimistic entry leaves as Back would: the history entry it
+  /// added is dropped (or, for a replaced start page, restored) and the
+  /// workspace follows the location again.
+  void _revert(
+    WorkspaceController w,
+    RaftLocation previous,
+    int previousIndex,
+    bool replaced,
+  ) {
+    if (replaced) {
+      w.navigation.navigate(previous, kind: RaftNavigationKind.replace);
+    } else if (w.navigation.index > previousIndex && previousIndex >= 0) {
+      w.navigation.back();
+    } else {
+      return;
+    }
+    final next = w.location;
+    if (next.thread == null) w.closeThread(navigate: false);
+    w.notifyListeners();
+    if ({RaftRoute.channel, RaftRoute.dm}.contains(next.route) &&
+        w.channel?.id != next.entityId) {
+      unawaited(
+        w.jumpToMessage(next.entityId!, next.messageId, navigate: false),
+      );
     }
   }
 

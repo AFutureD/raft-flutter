@@ -3147,6 +3147,8 @@ const raftChinese = <String, String>{
   "The shared content could not be added. Please try again.": "无法添加分享内容，请重试。",
   "Join {name} to add shared content?": "加入 {name} 以添加分享内容？",
   "Select destinations": "选择目标",
+  "Preparing {done} of {total} files": "正在准备文件（{done}/{total}）",
+  "The selected destination is no longer available.": "所选目标已不可用。",
   "Select messages from one conversation or thread.": "请选择同一会话或消息列中的消息。",
   "Select multiple": "多选",
   "Select one agent for member onboarding flows, or disable automatic onboarding.":
