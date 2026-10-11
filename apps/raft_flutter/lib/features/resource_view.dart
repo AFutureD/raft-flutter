@@ -2414,6 +2414,21 @@ class _ResourceViewState extends State<ResourceView> {
       : const ['all', 'unread', 'mentions'];
 
   Widget resourceResults(BuildContext context) {
+    final scope = authority, view = filter;
+    // Inside each pager page: a wrapper outside PageView would receive the
+    // horizontal pager's notifications instead of this vertical list's.
+    return RaftPullToRefresh(
+      enabled: mobileActivityRefresh,
+      onRefresh: () =>
+          accepts(scope) && filter == view ? load(keep: true) : Future.value(),
+      child: resourceResultsBody(context),
+    );
+  }
+
+  bool get mobileActivityRefresh =>
+      widget.section == 'activity' && RaftAdaptiveWorkspace.compactOf(context);
+
+  Widget resourceResultsBody(BuildContext context) {
     final scope = authority;
     return loading && rows.isEmpty
         // ConversationCardSkeleton: Inbox and Saved share the card
@@ -2454,6 +2469,9 @@ class _ResourceViewState extends State<ResourceView> {
         ? LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
               primary: false,
+              physics: mobileActivityRefresh
+                  ? const AlwaysScrollableScrollPhysics()
+                  : null,
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: widget.section == 'activity' || widget.section == 'saved'
@@ -2556,6 +2574,9 @@ class _ResourceViewState extends State<ResourceView> {
               listView,
             )),
       controller: listScroll,
+      physics: mobileActivityRefresh
+          ? const AlwaysScrollableScrollPhysics()
+          : null,
       padding: const EdgeInsets.all(16),
       // SavedPanel loads the next page when its sentinel comes
       // within `rootMargin: 240px` of the scroller.
@@ -4294,6 +4315,9 @@ class _ResourceViewState extends State<ResourceView> {
     return ListView(
       key: PageStorageKey(('activity-grouped-list', value)),
       controller: viewFilter == null ? listScroll : activityScrolls[value],
+      physics: mobileActivityRefresh
+          ? const AlwaysScrollableScrollPhysics()
+          : null,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         for (final group in groups.values) ...[

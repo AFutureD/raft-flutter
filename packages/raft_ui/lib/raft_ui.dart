@@ -64,6 +64,7 @@ export 'src/switch.dart';
 
 export 'src/mobile_navigation.dart';
 export 'src/section_pager.dart';
+export 'src/pull_to_refresh.dart';
 export 'src/mermaid_toolbar_recipe.dart';
 
 export 'src/sidebar_section.dart';
