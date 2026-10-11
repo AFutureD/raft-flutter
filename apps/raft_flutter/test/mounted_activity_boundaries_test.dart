@@ -87,23 +87,25 @@ void main() {
             await t.tap(row);
             final split = width >= (enabled ? 768 : 1024);
             final target = split ? 'first-channel' : 'mention-channel';
-            await t.pump(const Duration(milliseconds: 219));
-            if (split) {
-              expect(w.location.route, RaftRoute.activity);
-              expect(w.location.content, isNull);
+            void expectLocation() {
+              expect(
+                w.location.route,
+                split ? RaftRoute.activity : RaftRoute.channel,
+              );
+              expect(
+                w.location.content?.kind,
+                split ? RaftContentKind.channel : null,
+              );
+              expect(w.location.content?.id, split ? 'c1' : null);
+              expect(w.location.messageId, target);
+              expect(w.navigation.entries.length, entries + (split ? 0 : 1));
             }
-            await t.pump(const Duration(milliseconds: 1));
-            await flush(t);
-            expect(
-              w.location.route,
-              split ? RaftRoute.activity : RaftRoute.channel,
-            );
-            expect(
-              w.location.content?.kind,
-              split ? RaftContentKind.channel : null,
-            );
-            expect(w.location.messageId, target);
-            expect(w.navigation.entries.length, entries + (split ? 0 : 1));
+
+            // First activation selects the correct location before a frame
+            // or any held context response; double-click retention is separate.
+            expectLocation();
+            await t.pump();
+            expectLocation();
             expect(
               find.byType(ResourceView),
               split ? findsOneWidget : findsNothing,
@@ -114,6 +116,20 @@ void main() {
               false,
             );
             expect(find.byType(RaftComposer), findsOneWidget);
+            // Passing the old 220ms boundary cannot rewrite the location or
+            // add a second navigation entry while the response is still held.
+            await t.pump(const Duration(milliseconds: 219));
+            expectLocation();
+            await t.pump(const Duration(milliseconds: 1));
+            expectLocation();
+            await flush(t);
+            final contexts = api.calls.where(
+              (request) => request.path.startsWith('/messages/context/'),
+            );
+            expect(contexts.map((request) => request.path), [
+              '/messages/context/$target',
+            ]);
+            expect(contexts.single.queryParameters['channelId'], 'c1');
             pending.complete({
               'messages': [message(target, 'c1')],
             });
