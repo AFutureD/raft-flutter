@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -7,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../data/workspace_cache.dart';
+import '../data/workspace_cache_codec.dart';
 
 /// On-device workspace cache (see [WorkspaceCache] for the validity rule).
 class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
@@ -46,6 +46,79 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     );
   }
 
+  // Serialization may await an isolate. Keep writes and permission purges in
+  // call order so a pending encode cannot re-create data after revocation.
+  Future<void> _operations = Future<void>.value();
+  Future<void>? _closing;
+
+  Future<T> _ordered<T>(Future<T> Function() action) {
+    if (_closing != null) return Future<T>.error(StateError('Cache is closed'));
+    final result = _operations.then((_) => action());
+    _operations = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  @override
+  Future<void> close() => _closing ??= _closeAfterOperations();
+
+  Future<void> _closeAfterOperations() async {
+    await _operations;
+    await super.close();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> readTranslations(
+    String origin,
+    String principal,
+    String server,
+  ) => _ordered(() => _readTranslations(origin, principal, server));
+
+  @override
+  Future<void> writeTranslations(
+    String origin,
+    String principal,
+    String server,
+    List<Map<String, dynamic>> entries,
+  ) => _ordered(() => _writeTranslations(origin, principal, server, entries));
+
+  @override
+  Future<dynamic> read(
+    String origin,
+    String principal,
+    String server,
+    String kind,
+    String id,
+  ) => _ordered(() => _read(origin, principal, server, kind, id));
+
+  @override
+  Future<void> write(
+    String origin,
+    String principal,
+    String server,
+    String kind,
+    String id,
+    dynamic value,
+  ) => _ordered(() => _write(origin, principal, server, kind, id, value));
+
+  @override
+  Future<void> revokeChannel(
+    String origin,
+    String principal,
+    String server,
+    String channel,
+  ) => _ordered(() => _revokeChannel(origin, principal, server, channel));
+
+  @override
+  Future<void> clearAccount(String origin, String principal) =>
+      _ordered(() => _clearAccount(origin, principal));
+
+  @override
+  Future<void> revokeServer(String origin, String principal, String server) =>
+      _ordered(() => _revokeServer(origin, principal, server));
+
   @override
   int get schemaVersion => 2;
   @override
@@ -77,8 +150,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
       message_id TEXT NOT NULL, channel_id TEXT NOT NULL, payload TEXT NOT NULL,
       PRIMARY KEY (origin, principal, server, message_id))''');
 
-  @override
-  Future<List<Map<String, dynamic>>> readTranslations(
+  Future<List<Map<String, dynamic>>> _readTranslations(
     String origin,
     String principal,
     String server,
@@ -92,23 +164,22 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
         Variable(translationRetention),
       ],
     ).get();
-    return [
-      for (final row in rows)
-        if (jsonDecode(row.read<String>('payload')) case final Map value)
-          Map<String, dynamic>.from(value),
-    ];
+    return decodeWorkspaceTranslations([
+      for (final row in rows) row.read<String>('payload'),
+    ]);
   }
 
-  @override
-  Future<void> writeTranslations(
+  Future<void> _writeTranslations(
     String origin,
     String principal,
     String server,
     List<Map<String, dynamic>> entries,
   ) async {
     if (entries.isEmpty) return;
+    final payloads = await encodeWorkspaceTranslations(entries);
     await transaction(() async {
-      for (final entry in entries) {
+      for (var index = 0; index < entries.length; index++) {
+        final entry = entries[index];
         // REPLACE gives the row a new rowid: rowid order is last-use order.
         await customStatement(
           'INSERT OR REPLACE INTO message_translations (origin,principal,server,message_id,channel_id,payload) VALUES (?,?,?,?,?,?)',
@@ -118,7 +189,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
             server,
             '${entry['messageId']}',
             '${entry['channelId'] ?? ''}',
-            jsonEncode(_cacheSafe(entry)),
+            payloads[index],
           ],
         );
       }
@@ -150,8 +221,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     Variable(kind),
     Variable(id),
   ];
-  @override
-  Future<dynamic> read(
+  Future<dynamic> _read(
     String origin,
     String principal,
     String server,
@@ -162,11 +232,12 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
       'SELECT payload FROM workspace_cache WHERE origin=? AND principal=? AND server=? AND kind=? AND id=?',
       variables: _key(origin, principal, server, kind, id),
     ).getSingleOrNull();
-    return row == null ? null : jsonDecode(row.read<String>('payload'));
+    return row == null
+        ? null
+        : decodeWorkspaceCache(row.read<String>('payload'));
   }
 
-  @override
-  Future<void> write(
+  Future<void> _write(
     String origin,
     String principal,
     String server,
@@ -180,11 +251,12 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
         [origin, principal, server, kind, id],
       );
     } else {
+      final payload = await encodeWorkspaceCache(value);
       // REPLACE (not an in-place update) gives the row a new rowid: rowid
       // order is last-write order for eviction.
       await customStatement(
         'INSERT OR REPLACE INTO workspace_cache (origin,principal,server,kind,id,payload) VALUES (?,?,?,?,?,?)',
-        [origin, principal, server, kind, id, jsonEncode(_cacheSafe(value))],
+        [origin, principal, server, kind, id, payload],
       );
       if (_windowKinds.contains(kind)) {
         await customStatement(
@@ -203,8 +275,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     }
   }
 
-  @override
-  Future<void> revokeChannel(
+  Future<void> _revokeChannel(
     String origin,
     String principal,
     String server,
@@ -229,8 +300,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     );
   }
 
-  @override
-  Future<void> clearAccount(String origin, String principal) async {
+  Future<void> _clearAccount(String origin, String principal) async {
     await customStatement(
       'DELETE FROM workspace_cache WHERE origin=? AND principal=?',
       [origin, principal],
@@ -241,8 +311,7 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
     );
   }
 
-  @override
-  Future<void> revokeServer(
+  Future<void> _revokeServer(
     String origin,
     String principal,
     String server,
@@ -255,39 +324,5 @@ class DriftWorkspaceCache extends GeneratedDatabase implements WorkspaceCache {
       'DELETE FROM message_translations WHERE origin=? AND principal=? AND server=?',
       [origin, principal, server],
     );
-  }
-
-  static dynamic _cacheSafe(dynamic value) {
-    if (value is Map) {
-      return {
-        for (final e in value.entries)
-          if (!{
-            'accessToken',
-            'refreshToken',
-            'apiKey',
-            'bootstrapToken',
-            'previewToken',
-            'providerSecret',
-            'clientSecret',
-            'authorization',
-            'signedUrl',
-            'downloadUrl',
-            'uploadUrl',
-          }.contains(e.key))
-            e.key.toString(): _cacheSafe(e.value),
-      };
-    }
-    if (value is List) return value.map(_cacheSafe).toList();
-    if (value is String &&
-        (value.contains('X-Amz-') ||
-            value.contains('Signature=') ||
-            value.contains('access_token=') ||
-            RegExp(
-              r'(?:[?&])(?:token|previewToken|bootstrapToken|refresh_token|api_key)=',
-              caseSensitive: false,
-            ).hasMatch(value))) {
-      return null;
-    }
-    return value;
   }
 }
