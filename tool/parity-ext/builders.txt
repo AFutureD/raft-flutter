@@ -20,3 +20,4 @@ build-thread-messages.py
 build-wp6-cases.py
 build-member-cases.py
 build-auth-cases.py
+build-desktop-dialogs.py

@@ -738,6 +738,8 @@ for tab, title, flags in [
     ('server', 'Server Profile', ''), ('billing', 'Plan & Billing', ''), ('administration', 'Administration', ''),
     ('integrations', 'Applications', ''), ('mcp', 'MCP Servers', ''), ('labs', 'Labs', 'labs'),
     ('providers', 'AI Providers', 'providers'), ('im-bridges', 'IM Bridges', 'bridge'),
+    # Personal group tabs (page inventory 9.02, 9.06, 9.07): no desktop page case before.
+    ('account', 'Account', ''), ('appearance', 'Appearance', ''), ('notifications', 'Notifications', ''),
 ]:
     settings_case(f'{tab}.page', f'{title}: whole page', tab=tab, flags=flags)
     settings_case(f'{tab}.panel', f'{title}: panel', tab=tab, region='panel', flags=flags, viewport=FRAME_TALL)
@@ -812,6 +814,14 @@ settings_case('billing.mobile', 'Plan & Billing: mobile page', tab='billing', vi
               platform='mobile', hint=PLAN_HINT)
 settings_case('billing.mobile-pro', 'Plan & Billing: mobile page, Pro', tab='billing', viewport=MOBILE_FRAME,
               platform='mobile', route_set='billing-pro', hint=PLAN_HINT)
+# Phone sub-pages of the Resources / Workspace tabs that only had desktop cases
+# (page inventory 9.16-9.22): SettingsPanel fills the 390px viewport.
+for tab, title, flags in [
+    ('about', 'About', ''), ('mcp', 'MCP Servers', ''), ('labs', 'Labs', 'labs'),
+    ('providers', 'AI Providers', 'providers'), ('im-bridges', 'IM Bridges', 'bridge'),
+]:
+    settings_case(f'{tab}.mobile', f'{title}: mobile page', tab=tab, viewport=MOBILE_FRAME, platform='mobile',
+                  flags=flags)
 
 settings_case('integrations.installed', 'Applications: Installed tab', tab='integrations', region='panel',
               hint=APPS_HINT, interactions=[apps_tab('installed')],
