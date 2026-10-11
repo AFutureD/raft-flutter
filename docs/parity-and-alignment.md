@@ -38,7 +38,7 @@ tool/parity-ext/run summary
 
 ## Page inventory
 
-[`docs/parity-page-inventory.md`](parity-page-inventory.md) lists every Web page, modal and state with desktop/phone coverage (`ok`, `partial`, `wip`, `MISSING`, `n/a`, `excluded`) and a priority. It is generated from rows in `tool/parity-ext/inventory.py`: edit the rows, run `python3 tool/parity-ext/inventory.py` to regenerate, and `python3 tool/parity-ext/inventory.py --check` to verify (the unit tests fail on a stale document). Note that running it without `--check` rewrites the document.
+The page inventory (every Web page, modal and state with desktop/phone coverage `ok`, `partial`, `web-only`, `MISSING`, `n/a`, `excluded`, and a priority) is generated on demand, not committed: `python3 tool/parity-ext/inventory.py --write build/parity-ext/page-inventory.md` (add `--case-map build/parity-ext/visual-testing-results/android-case-map.json` or run after a parity-ext run to see `web-only` pages). The rows in `tool/parity-ext/inventory.py` hold only Web page metadata and the expected case ids; every status is computed from the case ids that exist in the built manifests and the `noFlutterSurface` flags, so branches that add cases never edit it. `python3 tool/parity-ext/inventory.py --check` validates the rows and id globs.
 
 ## Alignment audit
 

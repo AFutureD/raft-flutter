@@ -60,9 +60,20 @@ sampling dropped (`PARITY_EXT_ALL_DARK=1` keeps every elegant-dark case; elegant
 
 ## Page inventory
 
-`docs/parity-page-inventory.md` lists every Web page / modal / state and which have a brutal-light case (official id or
-extension id) or none. After adding cases update the matching row in `tool/parity-ext/inventory.py` (the `d=` / `p=`
-ids) and run `python3 tool/parity-ext/inventory.py`; the unit tests fail on a stale document or an unknown id.
+The page inventory lists every Web page / modal / state and which have a brutal-light case (official id or extension id)
+or none. It is **generated on demand and not committed**:
+
+```bash
+python3 tool/parity-ext/inventory.py --write build/parity-ext/page-inventory.md   # or --stdout
+python3 tool/parity-ext/inventory.py --check                                      # validate rows / id globs only
+```
+
+Rows in `tool/parity-ext/inventory.py` hold Web page metadata, the *expected* case-id globs per platform (`d=`, `p=`,
+official `off=`) and the excluded / verify marks. ok / partial / MISSING / web-only is **computed** from the case ids that
+exist in the built manifests and the Flutter `noFlutterSurface` flags (read from a parity-ext run's
+`visual-testing-results/android-case-map.json`), so adding cases for a listed page edits nothing. Only a **new Web page**
+needs a new row (or a MISSING row gets the glob of the ids you now built); never write a status. `--check` fails on
+malformed globs and on globs matching the other platform's cases, not on documents.
 
 ## Rules
 

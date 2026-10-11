@@ -337,13 +337,63 @@ class ThemeSamplingTest(unittest.TestCase):
 
 
 class PageInventoryTest(unittest.TestCase):
-    def test_every_extension_id_names_a_brutal_light_case_on_the_right_platform(self):
-        official = inventory.official_ids()  # None without the raft-source checkout
-        self.assertEqual(inventory.problems(official=official), [])
+    @classmethod
+    def setUpClass(cls):
+        cls.ctx = inventory.default_context()  # manifest from the builders, official ids when the checkout exists
 
-    def test_document_is_up_to_date(self):
-        self.assertEqual(inventory.DOC.read_text(), inventory.render(),
-                         'run: python3 tool/parity-ext/inventory.py')
+    def test_rows_and_id_globs_are_consistent(self):
+        self.assertEqual(inventory.problems(self.ctx), [])
+
+    def test_document_renders_without_a_committed_copy(self):
+        self.assertFalse((ROOT / 'docs/parity-page-inventory.md').exists(),
+                         'the inventory is generated on demand: python3 tool/parity-ext/inventory.py --write <path>')
+        text = inventory.render(self.ctx)
+        self.assertIn('## Prioritized missing pages', text)
+        self.assertIn('## Cases no row claims', text)
+        self.assertNotIn('wip', text.split('## Summary')[1].split('## Prioritized')[0])
+
+    def test_status_is_computed_from_existing_case_ids(self):
+        row = inventory.Row('9.99', 'demo', 'x.tsx', 'DP', off=['components.demo.official'],
+                            d=['components.demo.desktop.*', '!*.skip'], p=['components.demo.mobile.a'])
+        cases = [('components.demo.desktop.a', 1280), ('components.demo.desktop.skip', 1280), ('components.demo.mobile.a', 390)]
+        st = lambda ctx, plat: row.state(plat, ctx)
+        # official ids unknown (no checkout) count as existing
+        self.assertEqual((st(inventory.Context(cases), 'D'), st(inventory.Context(cases), 'P')), ('ok', 'ok'))
+        # nothing built yet: expected ids, no cases
+        none = inventory.Context([], official=[])
+        self.assertEqual((st(none, 'D'), st(none, 'P')), ('MISSING', 'MISSING'))
+        # only part of the expected phone ids exist
+        part = inventory.Context([('components.demo.mobile.a', 390)], official=[])
+        self.assertEqual(st(part, 'P'), 'partial')
+        # negations only remove matches
+        only_skip = inventory.Context([('components.demo.desktop.skip', 1280)], official=[])
+        self.assertEqual(st(only_skip, 'D'), 'MISSING')
+        # noFlutterSurface-only coverage
+        web = inventory.Context(cases, official=['components.demo.official'], web_only={'components.demo.desktop.a'})
+        self.assertEqual(st(web, 'D'), 'web-only')
+        self.assertEqual(st(web, 'P'), 'ok')
+        # a case appearing flips the status without touching the row
+        later = inventory.Context(cases + [('components.demo.mobile.b', 390)], official=['components.demo.official'])
+        self.assertEqual(st(later, 'P'), 'ok')
+        # mark: known fewer states than the page has
+        marked = inventory.Row('9.98', 'demo', 'x.tsx', 'D', d=['components.demo.desktop.*'], d_state='partial')
+        self.assertEqual(marked.state('D', inventory.Context(cases)), 'partial')
+        self.assertEqual(marked.state('P', inventory.Context(cases)), 'n/a')
+        self.assertEqual(inventory.Row('9.97', 'demo', 'x', 'D', d=['components.demo.*'],
+                                       excl=('obsolete', 'reason')).state('D', inventory.Context(cases)), 'excluded')
+
+    def test_problems_report_malformed_globs_and_wrong_platform_matches(self):
+        bad = inventory.Row('9.96', 'demo', 'x', 'D', d=['nothing.demo', 'components.demo.*'], p=['components.demo.*'])
+        ctx = inventory.Context([('components.demo.a', 390)])
+        with mock.patch.object(inventory, 'all_rows', return_value=[bad]):
+            out = inventory.problems(ctx)
+        self.assertTrue(any('malformed or unknown extension id prefix: nothing.demo' in o for o in out), out)
+        self.assertTrue(any('desktop glob components.demo.* matches a 390 wide' in o for o in out), out)
+        self.assertTrue(any('extension ids given for P' in o for o in out), out)
+        # an expected id with no case yet is fine
+        ok = inventory.Row('9.95', 'demo', 'x', 'D', d=['components.not-built-yet.*'])
+        with mock.patch.object(inventory, 'all_rows', return_value=[ok]):
+            self.assertEqual(inventory.problems(inventory.Context([])), [])
 
     def test_row_numbers_are_unique_and_states_are_known(self):
         rows = inventory.all_rows()
@@ -351,7 +401,7 @@ class PageInventoryTest(unittest.TestCase):
         for r in rows:
             self.assertIn(r.prio, (1, 2, 3))
             self.assertTrue(set(r.ap) <= set('DP') and r.ap, r.num)
-            self.assertTrue({r.state('D'), r.state('P')} <= {'ok', 'partial', 'wip', 'MISSING', 'n/a', 'excluded'})
+            self.assertTrue({r.state('D'), r.state('P')} <= {'ok', 'partial', 'web-only', 'MISSING', 'n/a', 'excluded'})
 
     def test_missing_list_is_ordered_by_priority(self):
         prios = [r.prio for r in inventory.missing_rows()]
