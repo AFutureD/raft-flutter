@@ -8,8 +8,10 @@
 import 'package:flutter/material.dart';
 
 import 'hover_card.dart';
+import 'icons.dart';
 import 'mounted_task_chip.dart';
 import 'panel_layout.dart' show raftCssBaseline;
+import 'recipe_surface.dart' show RaftRecipeBinding;
 import 'recipes/badge.g.dart';
 import 'recipes/message_reference.g.dart';
 import 'recipes/recipe_runtime.dart';
@@ -38,12 +40,28 @@ enum RaftReferenceKind {
 
   /// Unknown task number (`Badge variant="muted"`).
   unknownTask,
+
+  /// A Raft message permalink in a body (`ReferenceChip variant="link"` with a
+  /// Link icon, the channel label and a trailing `msg`).
+  permalink,
+
+  /// The same link whose target could not be read ("Unavailable linked
+  /// message", a non-interactive span).
+  permalinkUnavailable,
 }
 
 @immutable
 class RaftReferenceAppearance {
-  const RaftReferenceAppearance(this.kind, {this.taskStatus, this.hoverCard});
+  const RaftReferenceAppearance(
+    this.kind, {
+    this.taskStatus,
+    this.hoverCard,
+    this.label,
+  });
   final RaftReferenceKind kind;
+
+  /// Shown instead of the link text (a permalink chip's channel label).
+  final String? label;
   final RaftMessageTaskStatus? taskStatus;
 
   /// MentionLink PreviewCard content (delay 200, closeDelay 120, 280 wide).
@@ -96,7 +114,7 @@ InlineSpan raftReferenceSpan(
     );
   } else {
     child = RaftReferenceChip(
-      label: label,
+      label: appearance.label ?? label,
       appearance: appearance,
       fontSize: base.fontSize ?? 14,
       fontFamily: base.fontFamily,
@@ -260,6 +278,21 @@ class RaftReferenceChip extends StatelessWidget {
           variant: RaftMessageReferenceRecipeVariant.link,
           tokens: resolver,
         ).root;
+      case RaftReferenceKind.permalink ||
+          RaftReferenceKind.permalinkUnavailable:
+        // `<MessageReferenceChip variant="link"><Link/>label</…>`: the
+        // `has:>svg` states add the Brutal icon cell (`::before`).
+        s = RaftMessageReferenceRecipe.resolve(
+          theme: _theme(t),
+          variant: RaftMessageReferenceRecipeVariant.link,
+          states: t.recipeStates(extra: const ['has:>svg']),
+          tokens: resolver,
+        ).root;
+    }
+    if (appearance.kind == RaftReferenceKind.permalink ||
+        appearance.kind == RaftReferenceKind.permalinkUnavailable) {
+      // `<Icon size={12} className="shrink-0" />`
+      icon = const RaftIcon(RaftGlyph.link, size: 12);
     }
     final decoration = s.decoration(resolver);
     final size = s.fontSize ?? fontSize;
@@ -279,6 +312,25 @@ class RaftReferenceChip extends StatelessWidget {
       leadingDistribution: TextLeadingDistribution.even,
     );
     final gap = s.columnGap ?? 4;
+    // Brutal `has:>svg`: the glyph sits in a full-height cell filled by the
+    // `::before` background with a right rule, svg margin 3px each side.
+    final before = s.before;
+    final Widget? iconCell = icon != null && before != null
+        ? Container(
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: before.backgroundColor?.resolve(resolver),
+              border: Border(
+                right: BorderSide(
+                  color: before.border(resolver)?.right.color ?? Colors.black,
+                  width: before.border(resolver)?.right.width ?? 1,
+                ),
+              ),
+            ),
+            child: Center(child: icon),
+          )
+        : null;
     final chip = Container(
       height: appearance.kind == RaftReferenceKind.unknownTask
           ? s.height
@@ -294,7 +346,12 @@ class RaftReferenceChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[icon, SizedBox(width: gap)],
+          if (icon != null && iconCell != null)
+            iconCell
+          else if (icon != null) ...[
+            icon,
+            SizedBox(width: gap),
+          ],
           Flexible(
             // CSS uses the declared line-height as the inline-flex line box.
             // RenderParagraph rounds its natural height to whole pixels.
@@ -329,6 +386,23 @@ class RaftReferenceChip extends StatelessWidget {
               ),
             ),
           ),
+          if (appearance.kind == RaftReferenceKind.permalink) ...[
+            SizedBox(width: gap),
+            // `text-[10px] font-normal leading-none text-foreground-placeholder`
+            Text(
+              'msg',
+              style: TextStyle(
+                fontFamily: fontFamily ?? t.headingFont,
+                fontFamilyFallback: fontFamilyFallback,
+                fontSize: 10,
+                height: 1,
+                fontWeight: FontWeight.w400,
+                color: t.brutal
+                    ? Colors.black.withValues(alpha: .5)
+                    : t.colors['foreground-placeholder'],
+              ),
+            ),
+          ],
         ],
       ),
     );

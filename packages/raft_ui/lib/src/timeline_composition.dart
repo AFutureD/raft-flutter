@@ -23,6 +23,13 @@ class RaftTimelineCompositionRecipe {
   // ChatPanel/ThreadPanel ordinary MessageItem wrappers; date/header/parent
   // have separate composition and must not receive this inset twice.
   EdgeInsets get messageInset => const EdgeInsets.symmetric(horizontal: 12);
+
+  /// Intended difference from Web (owner decision 2026-10-12): on a phone the
+  /// wrapper drops its inset so the avatar lines up with the header buttons
+  /// (20 dp in Brutal: row margin 12 + border 2 + padding 6) and a Brutal
+  /// row's box edge lines up with the composer.
+  EdgeInsets messageInsetFor(double viewportWidth) =>
+      viewportWidth < 768 ? EdgeInsets.zero : messageInset;
   double get sentinelExtent => 1;
   EdgeInsets get channelHeaderInset =>
       const EdgeInsets.only(left: 12, right: 12, top: 12);
