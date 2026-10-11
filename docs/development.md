@@ -65,7 +65,7 @@ tool/ds-audit --check                                                           
 
 Native flows: `tool/native-linux` (runs `integration_test/workspace_test.dart` on Linux) and `tool/native-test emulator-5580` (Android). Both need an isolated local server and a private fixture identity in the ignored `.local/test-user.json`; never put login data in source, assets or build arguments.
 
-`tool/ds-audit` is an AST-based scan of `apps/raft_flutter/lib` for Material widgets, literal dimensions, fonts, radii and colors. It compares per-file and per-category counts with the checked-in `tool/ds-audit-baseline.json`; `--check` fails if any count grew, `--update-baseline` lowers the baseline, and `// ds-allow: <reason>` marks reviewed platform-only code. Rules: [design-system migration](ds-migration.md).
+`tool/ds-audit` is an AST-based scan of `apps/raft_flutter/lib` for Material widgets, literal dimensions, fonts, radii and colors. It compares per-file and per-category counts with the checked-in `tool/ds-audit-baseline.json`; `--check` fails if any count grew and passes (with a "baseline can lower" note) when counts went down, so feature branches never edit the baseline; the integration owner runs `--update-baseline` after merges and commits it separately; and `// ds-allow: <reason>` marks reviewed platform-only code. Rules: [design-system migration](ds-migration.md).
 
 ## Merge gate: `tool/check-project`
 

@@ -7,9 +7,15 @@ prints a summary and compares per-file/per-category counts with the checked-in
 baseline tool/ds-audit-baseline.json.
 
   tool/ds-audit                     summary + baseline comparison (exit 0)
-  tool/ds-audit --check             exit 1 if any file/category count grew
-  tool/ds-audit --update-baseline   lower the baseline to the current counts
+  tool/ds-audit --check             exit 1 if any file/category count grew (a decrease never fails)
+  tool/ds-audit --update-baseline   lower the baseline to the current counts (integration branch only)
   tool/ds-audit --json PATH...      print aggregated JSON for given paths
+
+Workflow: a feature branch only has to keep every count at or below the baseline
+and never edits tool/ds-audit-baseline.json (parallel branches that lower the same
+file would conflict on it). Counts that went down only print a "can lower" note.
+After a batch is merged, the integration owner runs `tool/ds-audit --update-baseline`
+and commits the lowered baseline as a separate small commit.
 
 Rules for every category: docs/ds-migration.md ("Audit rules").
 Escape hatch for genuinely platform-only code (reviewed, counted separately):
@@ -117,8 +123,8 @@ def baseline_document(report):
     return {
         'version': 1,
         'scope': SCOPE,
-        'about': 'Ratchet for tool/ds-audit. Counts may only go down. '
-                 f'Regenerate with `{UPDATE_HINT}` after removing violations.',
+        'about': 'Ratchet for tool/ds-audit. Counts may only go down. Feature branches never edit this file; '
+                 f'the integration owner runs `{UPDATE_HINT}` after merges (separate small commit).',
         'totals': report['totals'],
         'files': report['files'],
     }
@@ -157,8 +163,9 @@ def format_comparison(regressions, improvements):
         lines.append('Use raft_ui components/tokens instead (docs/ds-migration.md). Genuinely '
                      'platform-only code may carry `// ds-allow: <reason>` for review.')
     if improvements:
-        lines.append(f'{len(improvements)} file/category count(s) went down; lock them in with '
-                     f'`{UPDATE_HINT}` and commit tool/ds-audit-baseline.json:')
+        lines.append(f'baseline can lower: {len(improvements)} file/category count(s) went down. This does not fail '
+                     f'--check; do NOT edit tool/ds-audit-baseline.json on a feature branch. The integration owner runs '
+                     f'`{UPDATE_HINT}` after merges and commits it separately:')
         lines += [f'  {f}: {c} {b} -> {n}' for f, c, b, n in improvements]
     if not regressions and not improvements:
         lines.append('baseline: no change')
