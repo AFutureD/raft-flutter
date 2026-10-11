@@ -11,6 +11,7 @@ import 'recipes/input.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'system_inset.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// `fixed inset-0 z-40 flex flex-col bg-layer-canvas text-foreground-strong`.
@@ -24,15 +25,22 @@ class RaftForwardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    return Material(
-      color: RaftTokens.of(context).colors['layer-canvas'],
-      child: DefaultTextHeightBehavior(
-        textHeightBehavior: raftCssTextHeightBehavior,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-          child: MediaQuery(
-            data: media.removeViewInsets(removeBottom: true),
-            child: SafeArea(bottom: false, child: child),
+    final canvas = RaftTokens.of(context).colors['layer-canvas']!;
+    // The status bar shows the page's own header colour (a RaftPanelHeaderBar
+    // child publishes it), else the canvas.
+    return RaftStatusBarHost(
+      fallback: canvas,
+      expand: true,
+      child: Material(
+        color: canvas,
+        child: DefaultTextHeightBehavior(
+          textHeightBehavior: raftCssTextHeightBehavior,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+            child: MediaQuery(
+              data: media.removeViewInsets(removeBottom: true),
+              child: SafeArea(bottom: false, child: child),
+            ),
           ),
         ),
       ),

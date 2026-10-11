@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import '../data/device_preferences.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
+import 'page_layout.dart';
 import 'app_notifications_catalog.dart';
 
 const integrationScopeLabels = <String, String>{
@@ -353,7 +354,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
       context,
       MaterialPageRoute<void>(
         builder: (_) => Scaffold(
-          appBar: AppBar(title: Text(app['name'] ?? 'App')),
+          appBar: raftPageAppBar(context, title: '${app['name'] ?? 'App'}'),
           body: AppManagementView(
             controller: w,
             appId: app['id'],

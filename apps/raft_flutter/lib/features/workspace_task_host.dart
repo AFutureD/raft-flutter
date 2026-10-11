@@ -299,7 +299,7 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
             Scaffold(
               backgroundColor: pageColor,
               body: RaftSystemBarSurface(
-                statusBarBackground: pageColor,
+                statusBarFallback: pageColor,
                 child: SafeArea(
                   bottom: false,
                   child: SourceTaskSurface(

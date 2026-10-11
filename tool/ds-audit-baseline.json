@@ -4,21 +4,20 @@
  "about": "Ratchet for tool/ds-audit. Counts may only go down. Regenerate with `tool/ds-audit --update-baseline` after removing violations.",
  "totals": {
   "style.border_radius": 10,
-  "style.dimension": 41,
+  "style.dimension": 40,
   "style.duration": 2,
-  "style.edge_insets": 57,
+  "style.edge_insets": 54,
   "style.font_size": 1,
   "style.font_weight": 5,
   "style.material_colors": 27,
   "style.material_icons": 18,
   "style.material_theme": 26,
-  "style.sized_box": 55,
+  "style.sized_box": 54,
   "style.text_metrics": 1,
   "style.text_style": 9,
-  "widget.app_bar": 1,
-  "widget.button": 36,
+  "widget.button": 34,
   "widget.chip": 4,
-  "widget.dialog": 42,
+  "widget.dialog": 41,
   "widget.icon_button": 10,
   "widget.ink": 1,
   "widget.list_tile": 25,
@@ -123,7 +122,7 @@
   },
   "apps/raft_flutter/lib/features/chat_view.dart": {
    "style.dimension": 2,
-   "style.edge_insets": 2,
+   "style.edge_insets": 1,
    "style.sized_box": 1,
    "widget.snackbar": 6
   },
@@ -156,7 +155,6 @@
    "widget.text_field": 4
   },
   "apps/raft_flutter/lib/features/integrations_views.dart": {
-   "widget.app_bar": 1,
    "widget.other": 1,
    "widget.scaffold": 1
   },
@@ -177,7 +175,7 @@
    "style.sized_box": 1,
    "style.text_style": 1,
    "widget.button": 2,
-   "widget.dialog": 2,
+   "widget.dialog": 1,
    "widget.icon_button": 1,
    "widget.progress": 1
   },
@@ -239,7 +237,7 @@
    "style.sized_box": 9,
    "style.text_metrics": 1,
    "style.text_style": 1,
-   "widget.button": 6,
+   "widget.button": 4,
    "widget.chip": 2,
    "widget.dialog": 6,
    "widget.icon_button": 2,
@@ -250,9 +248,8 @@
    "widget.text_field": 4
   },
   "apps/raft_flutter/lib/features/search_home.dart": {
-   "style.dimension": 1,
    "style.edge_insets": 2,
-   "style.sized_box": 3
+   "style.sized_box": 2
   },
   "apps/raft_flutter/lib/features/server_setup_gate.dart": {
    "style.dimension": 1,
@@ -315,7 +312,7 @@
   },
   "apps/raft_flutter/lib/features/task_selection_filter.dart": {
    "style.dimension": 2,
-   "style.edge_insets": 4,
+   "style.edge_insets": 2,
    "style.material_colors": 1,
    "widget.menu": 1,
    "widget.text_field": 2
