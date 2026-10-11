@@ -180,3 +180,32 @@ The native comparison below is 426eddb versus b7eaf0e, captured with the same cl
 | 32-search-results-scroll | 38.297 | 37.051 | 5.452 | 3.907 |
 
 Evidence packet: separate baseline/candidate native frames and source manifests, the full comparison, AOT attribution JSON and harness receipt, official/extension summaries, explicit extension selection and PNG hashes. No binaries, authenticated VM service addresses, CPU traces or credentials are included. Native background targeting exposes no window-resize API; widget width/fold regressions remain separate from a native resize measurement.
+
+
+## Attachment retention history index (3d110da)
+
+Unrelated WorkspaceController notifications previously invalidated the attachment retention metadata index because its stamp included `_stateStamp`. With a decoded image retained after its owner releases it, each Chat/Settings notification rescanned the admitted channels and every retained parent/thread message. The new admission projection still rechecks `can()` and revocations at every former invalidation boundary, including a ledger update before the next notification. It retains the admitted channel-id list identity when its contents are equal. The expensive history index now depends on ledger revision, image scope and that admitted id projection. Canonical metadata comparison and the active image authority path are unchanged.
+
+The old implementation with the test-only scan counter failed two performance assertions: 20 navigation notifications performed 21 scans instead of one, and replacing channel records with the same ids performed a second scan. Its four lifecycle/security cases passed. The optimized implementation passes seven focused tests and 35 related attachment tests in total, with clean application analysis. Tests use a real decoded PNG and release its owner before checking canonical retention; they cover same-length in-place channel replacement, same-id metadata revision, actual channel removal, role/principal changes and direct ledger updates before notification. These counters prove work elimination, not an elapsed-time or FPS improvement.
+
+Thirteen matching native background Profile actions compared clean b7eaf0e (production libraries byte-equivalent to aa7ffc6) with 3d110da. The clean harness/fixture, routes, 120Hz display, DPR 2, 2400x1600 physical view and enabled semantics match. All actions completed with usable native accessibility and no runtime errors or fixture misses. The source manifests enumerate 569 then 597 files: the extra 28 files are unchanged from the original lab checkout, and the sole changed previously enumerated source is workspace_controller.dart.
+
+Results remain mixed. First Settings and two repeated Settings visits were slower in this pass; two Chat returns were faster and the third was slower. No stable whole-page benefit is claimed. Cold and transition peaks still exceed 8.33ms. Sparse wheel/action samples are not continuous-gesture or native window-resize acceptance; engine build duration excludes semantics/finalize/post-frame work.
+
+| operation | before build max ms | after build max ms | before raster max ms | after raster max ms |
+| --- | ---: | ---: | ---: | ---: |
+| 01-chat-00-cold-scroll | 42.753 | 43.667 | 21.429 | 21.571 |
+| 02-chat-00-small-scroll | 3.035 | 2.835 | 18.336 | 20.823 |
+| 03-chat-live-event | 21.843 | 29.124 | 7.095 | 7.092 |
+| 04-channel-01-entry | 14.997 | 14.752 | 4.113 | 5.293 |
+| 05-channel-settings | 8.114 | 13.774 | 7.530 | 10.371 |
+| 06-channel-settings-close | 2.341 | 1.941 | 11.607 | 13.407 |
+| 07-settings-first | 20.941 | 27.378 | 10.063 | 9.242 |
+| 08-chat-return | 30.527 | 23.243 | 5.792 | 9.290 |
+| 09-settings-warm | 14.265 | 19.991 | 2.719 | 3.101 |
+| 10-chat-return | 27.927 | 18.698 | 8.193 | 9.513 |
+| 11-settings-warm | 13.901 | 21.422 | 2.744 | 2.669 |
+| 12-chat-return | 30.083 | 31.074 | 8.870 | 9.552 |
+| 13-settings-warm | 21.224 | 20.529 | 2.492 | 3.136 |
+
+The review packet includes both sets of raw frames, source/build receipts, comparison, original failing assertions, final test/analysis/audit logs and this report. It excludes native binaries, CPU traces and authenticated VM endpoints.
