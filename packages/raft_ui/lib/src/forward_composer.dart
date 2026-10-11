@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'components.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
+import 'indicators.dart' show RaftCheckbox;
 import 'mounted_avatar_recipe.dart';
 import 'recipes/input.g.dart';
 import 'recipes/recipe_runtime.dart';
@@ -524,13 +525,10 @@ class _RaftForwardTargetRowState extends State<RaftForwardTargetRow> {
               child: Row(
                 children: [
                   if (widget.checkbox) ...[
-                    SizedBox.square(
-                      dimension: 16,
-                      child: Checkbox(
-                        value: widget.selected,
-                        onChanged: null,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
+                    // raft-ui `Checkbox` (14px), pointer-events-none in the row.
+                    ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: RaftCheckbox(value: widget.selected),
                       ),
                     ),
                     const SizedBox(width: 8),

@@ -538,7 +538,13 @@ void main() {
         await f.pushUri(t, '/s/unauthorized/settings/account');
         await f.flush(t);
         expect(find.byType(WorkspaceView), findsNothing);
-        expect(f.router(t).currentConfiguration.toString(), '/');
+        // Web ServerResolver: a slug the account does not have shows
+        // "Server not found" at the same URL, then redirects.
+        expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
+        expect(
+          f.router(t).currentConfiguration.toString(),
+          '/s/unauthorized/settings/account',
+        );
         expect(w.server!.id, 'b');
         await f.close(t);
       },

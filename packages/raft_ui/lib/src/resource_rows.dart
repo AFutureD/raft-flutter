@@ -10,6 +10,7 @@ import 'flex_shrink_row.dart';
 import 'icons.dart';
 import 'inline_badge_editor.dart';
 import 'localization.dart';
+import 'search_result_surface.dart' show RaftTaskFilterButton;
 import 'theme.dart';
 
 /// SavedItem metadata row (packages/web/src/components/saved/SavedPanel.tsx):
@@ -193,18 +194,20 @@ class RaftNewTaskButton extends StatelessWidget {
   const RaftNewTaskButton({super.key, required this.onPressed});
   final VoidCallback? onPressed;
   @override
-  Widget build(BuildContext context) => RaftControl(
-    variant: RaftControlVariant.outline,
-    visualHeight: 32,
-    semanticLabel: raftText(context, 'New Task'),
-    onPressed: onPressed,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: 4,
-      children: [
-        const RaftIcon(RaftGlyph.plus, size: 12),
-        Text(raftText(context, 'New Task')),
-      ],
+  Widget build(BuildContext context) => Semantics(
+    label: raftText(context, 'New Task'),
+    button: true,
+    excludeSemantics: true,
+    child: RaftTaskFilterButton(
+      onPressed: onPressed,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 4,
+        children: [
+          const RaftIcon(RaftGlyph.plus, size: 12),
+          Text(raftText(context, 'New Task')),
+        ],
+      ),
     ),
   );
 }

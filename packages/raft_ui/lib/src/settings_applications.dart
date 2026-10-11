@@ -175,7 +175,11 @@ class RaftConnectedAppsSection extends StatelessWidget {
     this.emptyMessage,
     this.myAppsIntro,
     this.reviewNote,
+    this.secretReveal,
   });
+
+  /// `renderClientSecretReveal` under the filters while the editor is closed.
+  final Widget? secretReveal;
   final String description;
   final String? adminNote;
   final bool loading;
@@ -447,6 +451,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
       intro,
       filters,
       if (error != null && error!.isNotEmpty) RaftConnectedAppsError(error!),
+      ?secretReveal,
       body,
     ];
     if (scrollable) {
