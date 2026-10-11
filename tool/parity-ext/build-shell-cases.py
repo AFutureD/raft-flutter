@@ -103,6 +103,8 @@ PRESETS = {
     'sorted': {'sortModes': {'channels': 'az', 'dms': 'az', 'pinned': 'recent'}},
 }
 PRESETS = {name: {**BASE, **override} for name, override in PRESETS.items()}
+# phone home with custom sections and no conversation open (build-list-pages.py section dialogs)
+PRESETS['mobile-custom'] = {**PRESETS['custom'], 'selected': None}
 
 SERVERS = [
     {'id': SERVER, 'name': 'Visual Server', 'slug': 'visual'},

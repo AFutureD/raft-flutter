@@ -1,5 +1,19 @@
 {
  "name": "raft-flutter parity extension: list pages",
+ "notifications": [
+  {
+   "id": "visual-warning",
+   "kind": "warning",
+   "title": "Needs attention",
+   "body": "Review this notification."
+  },
+  {
+   "id": "visual-info",
+   "kind": "info",
+   "title": "All systems connected",
+   "body": "No action is required."
+  }
+ ],
  "routes": {
   "GET /messages/search": {
    "hasMore": false,
@@ -251,6 +265,51 @@
      "updatedAt": "2026-06-22T02:35:00.000Z"
     }
    ]
+  },
+  "GET /channels/channel-design/members": {
+   "agents": [
+    {
+     "id": "agent-cindy",
+     "serverId": "visual-server",
+     "name": "Cindy",
+     "displayName": "Cindy",
+     "avatarUrl": "pixel:robot",
+     "description": "Keeps visual testing release notes aligned.",
+     "status": "active",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {},
+     "machineId": "computer-mbp",
+     "sessionId": "session-cindy",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": null,
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "working",
+     "activityDetail": "Capturing visual testing baselines"
+    }
+   ],
+   "humans": [
+    {
+     "id": "visual-human-1",
+     "userId": "visual-human-1",
+     "serverId": "visual-server",
+     "name": "artin",
+     "displayName": "artin",
+     "description": "Owner",
+     "avatarUrl": null,
+     "gravatarHash": "",
+     "email": "artin@slock.ai",
+     "role": "owner",
+     "joinedAt": "2026-06-18T00:00:00.000Z"
+    }
+   ],
+   "externalMembers": []
   }
  },
  "routeSets": {
@@ -462,6 +521,32 @@
       "parentMessageId": null
      }
     ]
+   }
+  },
+  "create-archived": {
+   "POST /channels": {
+    "$status": 409,
+    "$body": {
+     "code": "archived_name_collision",
+     "error": "An archived channel already uses this name.",
+     "archivedChannelId": "channel-archived-design",
+     "archivedChannelName": "android-artifacts",
+     "archivedChannelType": "channel",
+     "canUnarchiveArchivedChannel": true
+    }
+   }
+  },
+  "create-failed": {
+   "POST /channels": {
+    "$status": 500,
+    "$body": {
+     "error": "Could not create the channel."
+    }
+   }
+  },
+  "create-pending": {
+   "POST /channels": {
+    "$pending": true
    }
   },
   "tasks-loading": {
