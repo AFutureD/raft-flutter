@@ -3824,11 +3824,12 @@ class _ResourceViewState extends State<ResourceView> {
         '${thread ? row['latestActivityPreview'] ?? '' : row['lastMessagePreview'] ?? row['messagePreview'] ?? ''}';
     return Builder(
       builder: (cardContext) => ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: pin && activityGestureKey == rowKey(row)
-              ? activityGestureHeight ?? 0
-              : 0,
-        ),
+        constraints:
+            pin &&
+                activityGestureKey == rowKey(row) &&
+                activityGestureHeight != null
+            ? BoxConstraints(minHeight: activityGestureHeight!)
+            : const BoxConstraints(),
         child: RaftConversationCard(
           key: thread
               ? ValueKey('activity-thread-${row['threadChannelId']}')
