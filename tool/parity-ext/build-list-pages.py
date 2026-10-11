@@ -405,7 +405,7 @@ def clone_phone_computers(manifest_cases):
         tall = src.startswith(('detail.panel', 'detail.state')) or src.startswith('detail.')
         dialog = src.startswith(('dialog.', 'add-dialog'))
         # Detail sections stack taller than a phone screen: capture them in a tall viewport like the desktop TALL.
-        height = 844 if dialog else 1800
+        height = 844 if dialog else 3400
         akey = c['capture'].get('androidKey')
         reveal = [{'type': 'reveal', 'key': akey}] if akey and akey.startswith('computer-section-') else []
         add(f'computers.phone-{dst}', 'Computer ' + dst.replace('.', ' ') + ' (phone)', kind, platform='mobile',
