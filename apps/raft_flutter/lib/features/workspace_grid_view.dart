@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_grid_sessions.dart';
 import 'conversation_panel.dart';
@@ -397,6 +398,8 @@ class _ConversationState extends State<_Conversation> {
                                 ),
                                 controller: w,
                                 threadChannelId: w.threadChannelId!,
+                                onOpenAgent: (id) =>
+                                    w.openProfile(RaftProfileKind.agent, id),
                               ),
                         followersVisible:
                             w.threadChannelId != null &&

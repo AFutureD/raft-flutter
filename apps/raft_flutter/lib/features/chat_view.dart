@@ -16,6 +16,7 @@ import 'message_timeline.dart';
 import 'row_extents.dart';
 
 import '../data/plan_history.dart';
+import '../data/raft_location.dart';
 import '../data/raft_permalink.dart';
 import '../data/thread_search.dart';
 import '../data/workspace_controller.dart';
@@ -2065,15 +2066,70 @@ class _RaftChatViewState extends State<RaftChatView>
             listenable: presentation.presenceOf(message.senderId),
             builder: (context, _) => avatar(),
           );
-    // Web SenderAvatar PreviewCard (profile / external identity on hover).
+    // Web SenderAvatar `<button>` + PreviewCard (profile / external identity
+    // on hover): a click opens the profile side panel.
     return compact
         ? sender
         : senderProfileHoverCard(
             controller: w,
             message: message,
             content: avatarContent,
-            child: sender,
+            child: RaftAvatarButton(
+              key: ValueKey('sender-avatar-${w.messageKey(message)}'),
+              semanticLabel: message.author,
+              onPressed: senderProfileTarget(message) == null
+                  ? null
+                  : () => openSenderProfile(message),
+              child: sender,
+            ),
+            onOpenActivity: senderIsAgent(message)
+                ? (id) => w.openProfile(
+                    RaftProfileKind.agent,
+                    id,
+                    agentTab: 'activity',
+                  )
+                : null,
           );
+  }
+
+  bool senderIsAgent(RaftMessage m) => m.string('senderType') == 'agent';
+
+  /// Web MessageItem `handleNavigateAgent` / `Human` / `External`: the kind a
+  /// sender avatar opens, or null (system rows, another server's sender).
+  RaftProfileKind? senderProfileTarget(RaftMessage m) {
+    if (m.json['sourceServerId'] != null &&
+        m.json['sourceServerId'] != w.server?.id) {
+      return null;
+    }
+    if (m.string('senderType') == 'external_projection' ||
+        m.json['externalAuthor'] is Map) {
+      return m.json['externalAuthor'] is Map ? RaftProfileKind.external : null;
+    }
+    if (m.string('senderId').isEmpty) return null;
+    return switch (m.string('senderType')) {
+      'agent' => RaftProfileKind.agent,
+      'user' => RaftProfileKind.human,
+      _ => null,
+    };
+  }
+
+  void openSenderProfile(RaftMessage m) {
+    if (selection.active) return;
+    switch (senderProfileTarget(m)) {
+      case RaftProfileKind.external:
+        w.openProfile(
+          RaftProfileKind.external,
+          m.id,
+          channelId: m.channelId,
+          externalAuthor: Map<String, dynamic>.from(
+            m.json['externalAuthor'] as Map,
+          ),
+        );
+      case final kind?:
+        w.openProfile(kind, m.string('senderId'));
+      case null:
+        break;
+    }
   }
 
   Widget? taskReference(RaftMessage message) {

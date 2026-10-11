@@ -33,6 +33,7 @@ import 'chat_agent_presentation.dart';
 import 'live_agent_activity_bar.dart';
 import 'chat_view.dart';
 import 'thread_actions.dart';
+import 'profile_side_panel.dart';
 import 'thread_agent_followers_view.dart';
 import 'computer_detail_view.dart';
 import 'conversation_panel.dart';
@@ -1511,6 +1512,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       RaftMobileRootHeader(title: 'Computers')
                     else if (!wide &&
                         location.route != RaftRoute.computer &&
+                        // A profile overlay brings its own header.
+                        location.profile == null &&
                         (thread ||
                             ![
                               'home',
@@ -1750,6 +1753,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 ),
                               )
                             : null,
+                        profile:
+                            (route == 'chat' || route == 'home') &&
+                                location.profile != null &&
+                                !gridActive
+                            ? profileSidePanel(location.profile!, page: !wide)
+                            : null,
                       ),
                     ),
                   ],
@@ -1791,6 +1800,36 @@ class _WorkspaceViewState extends State<WorkspaceView>
     },
   );
   final threadViewport = ChatViewportHandle();
+
+  /// A DM with the profiled member / agent (the panel's Message action).
+  Future<void> messageProfile(RaftProfileKind kind, String id) async {
+    final scope = desktopAuthority;
+    final revision = w.navigationRevision;
+    final value = await w.client.post(
+      '/channels/dm',
+      data: {kind == RaftProfileKind.agent ? 'agentId' : 'userId': id},
+    );
+    if (!mounted ||
+        scope != desktopAuthority ||
+        revision != w.navigationRevision) {
+      return;
+    }
+    if (value is Map && value['id'] is String) {
+      w.closeProfile();
+      await w.jumpToMessage(value['id'], null);
+    }
+  }
+
+  Widget profileSidePanel(RaftProfileLocation profile, {bool page = false}) =>
+      ProfileSidePanel(
+        controller: w,
+        profile: profile,
+        agentTab: w.location.agentTab,
+        onClose: w.closeProfile,
+        onBack: page ? dismissPanel : null,
+        onMessage: messageProfile,
+      );
+
   Widget sourceThreadHeader({bool mobile = false, VoidCallback? onClose}) {
     final unresolved =
         w.threadChannelId == null &&
@@ -1829,6 +1868,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 key: ValueKey('thread-followers-$threadId'),
                 controller: w,
                 threadChannelId: threadId,
+                onOpenAgent: (id) => w.openProfile(RaftProfileKind.agent, id),
               ),
         followersVisible:
             threadId != null &&

@@ -21,6 +21,7 @@ import 'package:raft_flutter/data/source_time_formatter.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_flutter/features/external_identity.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -313,6 +314,53 @@ ParityCase _threadSearchCase(String? query) => ParityCase(
   },
 );
 
+/// External identity detail panel (3.29): the panel in the bordered box of the
+/// React host (`view=external-detail`).
+final ParityCase _externalDetailCase = ParityCase(
+  widgets: const [
+    'raft_flutter:ExternalIdentityDetailPanel',
+    'raft_ui:RaftExternalIdentityBody',
+  ],
+  notes: 'Extension suite (not official). Real ExternalIdentityDetailPanel in a bordered box.',
+  settle: const Duration(milliseconds: 600),
+  build: (ctx) {
+    final w = _workspace(ctx);
+    final mobile = ctx.props['platform'] == 'mobile';
+    final brutal = ctx.family == RaftFamily.brutal;
+    final tokens = RaftTokens.theme(ctx.family, dark: ctx.dark);
+    return Align(
+      alignment: Alignment.topLeft,
+      child: ctx.target(
+        SizedBox(
+          width: (ctx.props['boxWidth'] as num).toDouble(),
+          height: (ctx.props['boxHeight'] as num).toDouble(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: tokens.panel,
+              border: Border.all(
+                color: brutal ? Colors.black : tokens.colors['line-muted']!,
+                width: brutal ? 2 : 1,
+              ),
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: ExternalIdentityDetailPanel(
+                controller: w,
+                profile: Map<String, dynamic>.from(
+                  _fx(ctx)['externalProfile'] as Map,
+                ),
+                onClose: () {},
+                // Below md the header leads with the back chevron.
+                onBack: mobile ? () {} : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  },
+);
+
 /// Thread agent followers (3.39): the header trigger, optionally opened.
 ParityCase _followersCase({required bool open}) => ParityCase(
   widgets: const [
@@ -436,7 +484,6 @@ final ParityCase _windowCase = ParityCase(
   settle: const Duration(milliseconds: 1200),
   build: _buildWindow,
 );
-
 
 // --------------------------------------------------------------------------
 // view=row: one message row on a panel-coloured box (Web MessageItem)
@@ -656,7 +703,8 @@ ParityCase _profileCaseFor() => ParityCase(
 /// optional [act] runs once the row is aligned (hover, click, ...).
 ParityCase _rowCase({
   List<String> widgets = const [],
-  Future<void> Function(WidgetTester t, ParityContext ctx, _RowStage stage)? act,
+  Future<void> Function(WidgetTester t, ParityContext ctx, _RowStage stage)?
+  act,
   Duration settle = const Duration(milliseconds: 300),
 }) => ParityCase(
   widgets: ['raft_flutter:RaftChatView', 'raft_ui:RaftMessageRow', ...widgets],
@@ -669,7 +717,10 @@ ParityCase _rowCase({
     // from; they must land before the row is measured (a longer name re-wraps).
     stage.w.entityDirectory.ensure({WorkspaceEntityKind.computers});
     // Translations land before the row is measured (a translated body re-wraps).
-    await _pumpFrames(t, (ctx.props['translate'] as String? ?? '').isEmpty ? 8 : 40);
+    await _pumpFrames(
+      t,
+      (ctx.props['translate'] as String? ?? '').isEmpty ? 8 : 40,
+    );
     await stage.alignRow(t);
     await act?.call(t, ctx, stage);
     await _pumpFrames(t);
@@ -703,6 +754,9 @@ final Map<String, ParityCase> extConversationCases = () {
     add('threadsearch', platform, 'open', _threadSearchCase(null));
     add('threadsearch', platform, 'matches', _threadSearchCase('parity'));
     add('threadsearch', platform, 'none', _threadSearchCase('zzzz'));
+  }
+  for (final platform in const ['desktop', 'mobile']) {
+    add('external', platform, 'detail', _externalDetailCase);
   }
   for (final platform in const ['desktop', 'mobile']) {
     add('followers', platform, 'header', _followersCase(open: false));
@@ -832,7 +886,12 @@ final Map<String, ParityCase> extConversationCases = () {
       'owner-recovery',
       'executed',
     ]) {
-      add('action', platform, state, _rowCase(widgets: const ['raft_flutter:MessageActionCard']));
+      add(
+        'action',
+        platform,
+        state,
+        _rowCase(widgets: const ['raft_flutter:MessageActionCard']),
+      );
     }
   }
   for (final platform in const ['desktop', 'mobile']) {
@@ -856,26 +915,5 @@ final Map<String, ParityCase> extConversationCases = () {
 /// they stay in the manifest as honest gaps instead of faked captures.
 final Map<String, ParityUncovered> extConversationUncovered = () {
   final gaps = <String, ParityUncovered>{};
-  void gap(String scene, List<String> states, String reason) {
-    for (final platform in const ['desktop', 'mobile']) {
-      for (final state in states) {
-        for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
-          gaps['components.conversation.$scene.$platform.$state.$theme'] =
-              ParityUncovered(ParityGap.noFlutterSurface, reason);
-        }
-      }
-    }
-  }
-
-  for (final platform in const ['desktop', 'mobile']) {
-    for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
-      gaps['components.conversation.external.$platform.detail.$theme'] =
-          const ParityUncovered(
-            ParityGap.noFlutterSurface,
-            'Flutter has no external identity detail panel: only the hover card '
-            '(ExternalIdentityHoverCard) exists; the avatar is not tappable.',
-          );
-    }
-  }
   return gaps;
 }();

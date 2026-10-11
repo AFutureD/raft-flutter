@@ -5155,6 +5155,70 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
+  // Web profileStore: the profile side panel is a URL slot (`profile=`); an
+  // external author's frozen attribution payload lives beside it.
+  final Map<String, Map<String, dynamic>> _externalProfiles = {};
+
+  /// The provider attribution frozen when an external author's panel opened.
+  Map<String, dynamic>? externalProfile(String messageId) =>
+      presentationSource?.externalProfile(messageId) ??
+      _externalProfiles[messageId];
+
+  /// Web `openProfile` / `openExternalProfile`: a human or agent (optionally
+  /// landing on an agent [agentTab]) or an external message author
+  /// ([id] = message id, [channelId] its channel, [externalAuthor] the
+  /// attribution). Adding a panel pushes history; retargeting replaces.
+  void openProfile(
+    RaftProfileKind kind,
+    String id, {
+    String? agentTab,
+    String? channelId,
+    Map<String, dynamic>? externalAuthor,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      source.openProfile(
+        kind,
+        id,
+        agentTab: agentTab,
+        channelId: channelId,
+        externalAuthor: externalAuthor,
+      );
+      return;
+    }
+    if (id.trim().isEmpty ||
+        kind == RaftProfileKind.external && (channelId?.isEmpty ?? true)) {
+      return;
+    }
+    if (externalAuthor != null) _externalProfiles[id] = externalAuthor;
+    final next = location.withQuery({
+      'profile': RaftProfileLocation(kind, id, channelId: channelId).toString(),
+      'agentTab': kind == RaftProfileKind.agent ? agentTab : null,
+    });
+    if (next.uri == location.uri) return;
+    navigation.navigateProfile(
+      next,
+      kind: location.panelNavigationKindTo(next),
+    );
+    notifyListeners();
+  }
+
+  /// Web `closeProfile`: removing a slot replaces the history entry.
+  void closeProfile() {
+    final source = presentationSource;
+    if (source != null) {
+      source.closeProfile();
+      return;
+    }
+    if (location.profile == null) return;
+    final next = location.withQuery({'profile': null, 'agentTab': null});
+    navigation.navigateProfile(
+      next,
+      kind: location.panelNavigationKindTo(next),
+    );
+    notifyListeners();
+  }
+
   void closeThread({bool navigate = true}) {
     final source = presentationSource;
     if (source != null) {
