@@ -13,7 +13,7 @@ Uri? workspaceBrowserOrigin(
   String frontend = const String.fromEnvironment('RAFT_FRONTEND_ORIGIN'),
   String api = const String.fromEnvironment(
     'RAFT_ORIGIN',
-    defaultValue: 'http://localhost:13041',
+    defaultValue: 'https://api.raft.build',
   ),
 }) {
   final candidate = Uri.tryParse(frontend);

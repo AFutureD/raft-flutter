@@ -423,6 +423,8 @@ void main() {
             await t.tap(find.byKey(const ValueKey('task-back')).hitTestable());
           }
           await frames(t);
+          // The task page stays live while the platform pop transition runs.
+          await t.pump(const Duration(milliseconds: 500));
           expect(find.byType(SourceTaskSurface), findsNothing);
           // Back returned to the exact origin entry, not a rewritten copy.
           expect(w.location, origin);
@@ -468,6 +470,8 @@ void main() {
           await frames(t);
           await t.tap(find.text('View in channel').hitTestable());
           await frames(t);
+          // The replaced thread page stays live for the platform transition.
+          await t.pump(const Duration(milliseconds: 500));
           final target = RaftLocation.at(
             serverSlug: 'demo',
             route: RaftRoute.channel,

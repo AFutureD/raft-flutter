@@ -504,6 +504,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
         title: 'Log out',
         message: 'Log out of this browser? Your account and data are kept; you can log back in any time.',
         confirmLabel: 'Log out',
+        surfaceKey: ValueKey('account-logout-dialog'),
         // confirmColor="bg-brutal-orange" -> warning tone.
         confirmVariant: RaftButtonRecipeVariant.warning,
         confirmKey: Key('account-logout-confirm-button'),

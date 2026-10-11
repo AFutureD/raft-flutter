@@ -399,7 +399,11 @@ class RaftPanelHeaderBar extends StatelessWidget {
                 .decoration(rt)
                 .copyWith(
                   border: Border(
-                    bottom: BorderSide(color: t.colors['line-muted']!),
+                    // Brutal `border-b-2 border-black` (pure black, not ink).
+                    bottom: BorderSide(
+                      color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                      width: t.brutal ? 2 : 1,
+                    ),
                   ),
                 )
           : s.header.decoration(rt),

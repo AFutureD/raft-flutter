@@ -127,11 +127,15 @@ class _OnboardingState extends State<AccountOnboardingView>
     events = client.events.listen((event) {
       if (event.name == 'account:updated' && mounted) setState(() {});
     });
-    final suggested = client.user?.string('profileSetupSuggestedHandle') ?? '';
-    if (suggested.isNotEmpty) {
-      username.text = suggested;
-      displayName.text = suggested;
-    }
+    // AccountIdentitySetupPage: the handle starts from the suggestion only for an OAuth provider account;
+    // the display name starts from the account's own (a pre-filled one counts as already edited).
+    final suggested =
+        (client.user?.string('profileSetupProvider') ?? '').isEmpty
+        ? ''
+        : client.user?.string('profileSetupSuggestedHandle') ?? '';
+    username.text = suggested;
+    displayName.text = client.user?.string('displayName') ?? '';
+    displayNameEdited = displayName.text.isNotEmpty;
     usernameFocus.addListener(() {
       if (!usernameFocus.hasFocus) unawaited(usernameBlur());
     });
@@ -335,6 +339,19 @@ class _OnboardingState extends State<AccountOnboardingView>
       key: form,
       child: RaftOnboardingPage(
         title: tr('Set up your account'),
+        preview: profile
+            ? RaftIdentityImpactPreview(
+                displayName: displayName.text,
+                handle: username.text,
+                avatar: avatarUrl.isEmpty
+                    ? null
+                    : (size) => RaftAvatar(
+                        name: user?.string('displayName') ?? '',
+                        size: size,
+                        imageUrl: avatarUrl,
+                      ),
+              )
+            : null,
         banner: error,
         notice: notice == null ? null : tr(notice!),
         footer: widget.showSessionFooter

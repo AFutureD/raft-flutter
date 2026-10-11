@@ -111,6 +111,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   String? selectorError;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
+  Object? workspaceRootInputs;
   String? publishedServerId;
   int? publishedWorkspaceIndex;
   late final SessionPersistence sessionPersistence;
@@ -126,7 +127,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   String? bootError;
   String origin = const String.fromEnvironment(
     'RAFT_ORIGIN',
-    defaultValue: 'http://localhost:13041',
+    defaultValue: 'https://api.raft.build',
   );
   @override
   void initState() {
@@ -139,7 +140,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         Uri(path: '/');
     appRouter = RaftAppRouter(
       home: (_) => restoring
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          ? const RaftServerResolutionBody(label: 'Restoring session…')
           : sessionHome(),
       onLocation: receiveAppLocation,
       onRootBack: returnFromSelector,
@@ -649,11 +650,28 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     scheduleShares();
     final w = workspace;
     if (!mounted || w == null) return;
+    final rootInputs = (
+      identityHashCode(w),
+      client?.generation,
+      client?.user?.id,
+      accountNeedsOnboarding(client?.user),
+      showServerSelector,
+      serverSwitchLocation,
+      w.server?.id,
+      directoryLoading,
+      showServerSelector
+          ? (identityHashCode(w.servers), w.servers.length)
+          : null,
+    );
+    final rootChanged = rootInputs != workspaceRootInputs;
+    workspaceRootInputs = rootInputs;
     if (serverSwitchLocation != null && w.server != null) {
       // The app-root URI already owns the accepted switch. Controller
       // hydration notifications cannot publish its temporary default channel.
-      setState(() {});
-      appRouter.refresh();
+      if (rootChanged) {
+        setState(() {});
+        appRouter.refresh();
+      }
       return;
     }
     if (w.server == null && !directoryLoading) {
@@ -670,6 +688,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       content.bindWorkspace(null);
       appRouter.publish(Uri(path: '/'));
     } else if (!showServerSelector && w.server != null) {
+      final remember = serverSurfaces[w.server!.id] != w.location.uri;
       serverSurfaces[w.server!.id] = w.location.uri;
       final path = appRouter.currentConfiguration.path;
       final replace =
@@ -686,20 +705,26 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           serverId = w.server!.id,
           uri = w.location.uri,
           memoryKey = serverMemoryKey;
-      unawaited(
-        SharedPreferences.getInstance().then((prefs) async {
-          if (!mounted ||
-              !identical(client, c) ||
-              client?.user?.id != principal ||
-              serverSurfaces[serverId] != uri) {
-            return;
-          }
-          await prefs.setString('$memoryKey.$serverId', uri.toString());
-        }),
-      );
+      if (remember) {
+        unawaited(
+          SharedPreferences.getInstance().then((prefs) async {
+            if (!mounted ||
+                !identical(client, c) ||
+                client?.user?.id != principal ||
+                serverSurfaces[serverId] != uri) {
+              return;
+            }
+            await prefs.setString('$memoryKey.$serverId', uri.toString());
+          }),
+        );
+      }
     }
-    setState(() {});
-    appRouter.refresh();
+    // WorkspaceView and the retained pages already subscribe to data. A
+    // message/read-state update is not an app-root route configuration change.
+    if (rootChanged) {
+      setState(() {});
+      appRouter.refresh();
+    }
   }
 
   void openServerSelector() {
@@ -982,6 +1007,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     scheduleShares();
     final active = client;
     if (active?.user == null) {
+      workspaceRootInputs = null;
       return AuthView(
         origin: origin,
         bootError: bootError,
@@ -998,7 +1024,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       );
     }
     if (workspace == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const RaftServerResolutionBody(label: 'Loading…');
     }
     if (showServerSelector) {
       return GlobalServerSelector(
@@ -1016,7 +1042,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (serverSwitchLocation != null) {
       return RaftServerResolutionBody(
         key: const Key('server-resolution-loading'),
-        label: selectorError ?? 'Loading...',
+        label: selectorError ?? 'Loading…',
       );
     }
     return WorkspaceView(

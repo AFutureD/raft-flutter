@@ -2,6 +2,20 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
+
+/// Platform Back progress can be driven without an animation ticker or
+/// Flutter pointer events. Quiet input alone does not make that route idle.
+bool messagePreparationRouteIsIdle(ModalRoute<dynamic>? route) {
+  if (route == null) return true;
+  bool moving(Animation<double>? animation) =>
+      animation?.status == AnimationStatus.forward ||
+      animation?.status == AnimationStatus.reverse;
+  return route.isCurrent &&
+      !route.navigator!.userGestureInProgress &&
+      !moving(route.animation) &&
+      !moving(route.secondaryAnimation);
+}
 
 /// Prepares bounded message batches between frames while input is idle.
 ///

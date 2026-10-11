@@ -1447,3 +1447,43 @@ blend vs Flutter's float blend, see the Computers result above), counted as "hai
 they sit on box edges; fractional-width controls (the survey Continue button, content-width
 rows) are painted unsnapped by Flutter, and the handoff body wraps one word differently from
 Chromium's `text-balance`.
+
+## Composed screens (extension suite, `components.screens-ext.*`)
+
+Top missing pages of the page inventory (3.01 channel screen, 3.02 DM screens, 3.20 composer
+`@mention` / `#channel` popovers, 5.05 populated Activity list). React composes the real
+`LeftRail` + `Sidebar` + `ChatPanel` in the AppShell slots (desktop) or mounts `ChatPanel` in the
+390x844 page (phone); Flutter mounts the real `WorkspaceView`. Sidebar / rail data = the shell
+fixture (`fixtures/shell.json`, preset default); messages and inbox rows = `fixtures/screens.json`
+(the Activity rows are the official `activityResultsFixture.json`). Builder
+`tool/parity-ext/build-screen-cases.py`, host `host/ScreenCases.tsx`, Flutter
+`test/parity/cases/ext_screens.dart`. The desktop channel / DM cases focus the composer on the
+Flutter side: Web autofocuses it on a hover-capable desktop (focused brutal shadow 4px), Flutter
+does not (`chat_timeline_composition_test`).
+
+Result, brutal-light (equal / non-text, before = first capture, after = this branch):
+
+| case | before | after |
+| --- | --- | --- |
+| channel.desktop.full | 91.81 / 95.99 | 95.72 / 99.27 |
+| channel.mobile.full | 89.48 / 94.78 | 96.54 / 99.31 |
+| dm.desktop.human | 96.59 / 98.79 | 97.28 / 99.53 |
+| dm.desktop.agent | 95.38 / 98.21 | 96.96 / 99.50 |
+| dm.mobile.agent | 95.30 / 98.20 | 97.59 / 99.39 |
+| composer.desktop.mention | 77.08 / 80.84 | 91.28 / 93.92 |
+| composer.desktop.channel | 98.01 / 99.56 | 98.18 / 99.70 |
+| activity.desktop.list | 96.92 / 98.87 | 97.53 / 99.48 |
+
+Flutter fixes found by these cases: same-sender message grouping (the app never passed
+`continuation` to `RaftMessageTile`), ordered-list marker (`1.92` glued, trailing space hangs in a
+right-aligned line) and list item gap (4px `blockSpacing` vs `li mb-0.5`), DM composer placeholder
+(`Message @Peer`), `@mention` popup (humans outside the channel have no description, the whole
+Not-in-channel row carries `opacity-60`, the group separator also opens the first group, Elegant
+group gap / label margin and no Elegant rule), non-sprite emoji reaction glyph (system fallback
+font, own advance), brutal rail / PanelHeader / Activity toolbar borders (pure black, not ink),
+brutal date divider half-pixel.
+
+Left: the `@mention` highlight is 1/255 lighter in Chromium over the content band (blend rounding,
+counted as fill, 5% of that crop); tab-strip and chip widths follow fractional text advances
+(hairline); phone composer shadow (Web headless phone autofocuses the composer, a real phone does not);
+Elegant themes (sampled) still carry 1-2px row-pitch and blend deltas in the popups.

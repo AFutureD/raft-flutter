@@ -6,6 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/raft_location.dart';
+import 'package:raft_flutter/features/mobile_workspace_pages.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
@@ -26,12 +28,12 @@ const computer = <String, dynamic>{
   'runtimes': ['codex'],
 };
 
-RootFixture fixture() =>
-    RootFixture()
-      ..overrides['GET /servers/a/machines'] = (_) => {
-        'machines': [computer],
-        'latestComputerVersion': '1.0.45',
-      };
+RootFixture fixture() => RootFixture()
+  ..overrides['GET /announcements/active'] = ((_) => {'announcements': []})
+  ..overrides['GET /servers/a/machines'] = (_) => {
+    'machines': [computer],
+    'latestComputerVersion': '1.0.45',
+  };
 
 // Android's production theme uses native generic families. The test engine
 // has no OS font manager, so register bundled Latin faces as explicit stand-ins.
@@ -106,6 +108,46 @@ Future<void> capturePage(WidgetTester t, String theme, String page) async {
 }
 
 void main() {
+  testWidgets('server chooser updates when a directory entry is revoked', (
+    t,
+  ) async {
+    final f = fixture();
+    await f.mount(t, 'brutal', 430, uri: Uri(path: '/s/alpha'));
+    final w = f.workspace(t);
+    t.widget<WorkspaceView>(find.byType(WorkspaceView).first).onChooseServer!();
+    await f.flush(t);
+    expect(find.byKey(const ValueKey('global-server-b')), findsOneWidget);
+    w.revokeServer('b');
+    await f.flush(t);
+    expect(find.byKey(const ValueKey('global-server-b')), findsNothing);
+    expect(find.byKey(const ValueKey('global-server-a')), findsOneWidget);
+    await f.close(t);
+  });
+
+  testWidgets('live page data does not replace the mobile Navigator pages', (
+    t,
+  ) async {
+    final f = fixture();
+    await f.mount(t, 'brutal', 390, uri: Uri.parse('/s/alpha'));
+    final w = f.workspace(t);
+    final pages = t.widget<MobileWorkspacePages>(
+      find.byType(MobileWorkspacePages),
+    );
+    w.error = 'Live connection error';
+    w.notifyListeners();
+    await t.pump();
+    expect(find.text('Live connection error'), findsOneWidget);
+    expect(
+      identical(
+        pages,
+        t.widget<MobileWorkspacePages>(find.byType(MobileWorkspacePages)),
+      ),
+      isTrue,
+      reason: 'Data updates still render without reconfiguring platform routes',
+    );
+    await f.close(t);
+  });
+
   for (final theme in ['brutal', 'elegant-light', 'elegant-dark']) {
     testWidgets(
       '$theme Settings → Computers → detail uses one URL-owned stack',
@@ -141,16 +183,27 @@ void main() {
         final reads = f.adapter.calls
             .where((o) => o.path == '/servers/a/machines')
             .length;
+        final announcementReads = f.adapter.calls
+            .where((o) => o.path == '/announcements/active')
+            .length;
+        expect(announcementReads, 1);
         final card = find.byKey(const ValueKey('fleet-computer-a'));
         await finishPageAnimation(t, card);
         await t.tap(card);
         await f.flush(t);
         expect(w.location.toString(), '/s/alpha/computer/computer-a');
-        expectDetailHeader(t);
+        // Both real routes are mounted during the platform animation. The
+        // covered list header cannot receive input; final header assertions
+        // apply after the route has settled and that list is offstage.
+        expect(
+          find.byKey(const Key('workspace-mobile-detail-header')).hitTestable(),
+          findsNothing,
+        );
         await finishPageAnimation(
           t,
           find.byKey(const Key('computer-mobile-back')),
         );
+        expectDetailHeader(t);
         await t.tap(find.byKey(const Key('computer-mobile-back')));
         await f.flush(t);
         expect(w.location.route, RaftRoute.computers);
@@ -164,6 +217,13 @@ void main() {
         await t.tap(card);
         await f.flush(t);
         expect(w.location.route, RaftRoute.computer);
+        expect(
+          f.adapter.calls
+              .where((o) => o.path == '/announcements/active')
+              .length,
+          announcementReads,
+          reason: 'A mobile detail is not a new workspace announcement entry',
+        );
         await finishPageAnimation(
           t,
           find.byKey(const Key('computer-mobile-back')),
