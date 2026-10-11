@@ -277,8 +277,13 @@ provider `source`"). `diff --pairs react__android` and `site` work unmodified.
 
 ### Coverage map
 
-`apps/raft_flutter/test/parity/case_map.dart` merges one map per group in
-`apps/raft_flutter/test/parity/cases/*.dart`: `case id → ParityCase(builder)`.
+`apps/raft_flutter/test/parity/case_map.dart` (committed, only re-exports the generated, git-ignored
+`case_map.g.dart`) merges one map per group in `apps/raft_flutter/test/parity/cases/**/*.dart`:
+`case id → ParityCase(builder)`. `tool/parity_case_map.py` discovers every public top-level
+`final Map<String, ParityCase> <name>` (and `Map<String, ParityUncovered>`) by that type, so a new case family only
+declares its own map; no shared registry is edited. The generator runs from `tool/flutter` (any
+subcommand), `tool/parity` and `tool/parity-ext/run`; a case id declared by two maps throws at startup.
+Run `python3 tool/parity_case_map.py --list` to see what is registered.
 A case without a builder is NOT COVERED. Reasons are explicit
 (`ParityUncovered`): `harnessTodo` (builder not written yet),
 `noFlutterSurface` (the Flutter app has no implementation of that surface),
@@ -563,7 +568,7 @@ parallel branch that added a family had to merge). Every `tool/parity-ext/run`
 invocation runs all `tool/parity-ext/build-*.py` into `<out>/cases.json`
 (`PARITY_EXT_MANIFEST`, `builders.py`). Builders are discovered automatically (no registry file): `build-cases.py`
 first, then by an optional top-level `ORDER = n` constant in the builder (default 1000), then by file name. The theme-sampled `cases.sampled.json` is derived from it; the Flutter
-capture reads it through `PARITY_MANIFEST` (`case_map.dart` never read the
+capture reads it through `PARITY_MANIFEST` (`case_map.g.dart` never read the
 file). Builders replace only their own `components.<area>.*` cases, so the
 result is order independent apart from case order. The generated
 `fixtures/*.json` stay committed: the Flutter capture (`PARITY_EXT_FIXTURES`),

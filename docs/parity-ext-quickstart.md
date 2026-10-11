@@ -16,8 +16,11 @@ One page for adding or fixing a surface in the extension suite
 3. **No registration**: every `build-*.py` is discovered automatically (`build-cases.py` first, then by an optional
    top-level `ORDER = n` constant in the builder, default 1000, then by file name). Add `ORDER = n` only if your
    builder must run before or after another one (it reads/amends the manifest); no shared file is edited.
-4. **Flutter**: `apps/raft_flutter/test/parity/cases/ext_<area>.dart` (a `Map<String, ParityCase>`
-   keyed like the case's `androidCaseHint`) and one `...ext<Area>Cases` line in `case_map.dart`.
+4. **Flutter**: `apps/raft_flutter/test/parity/cases/ext_<area>.dart` with a public top-level
+   `final Map<String, ParityCase> ext<Area>Cases = {...}` keyed like the case's `androidCaseHint`. That is the whole
+   registration: `tool/parity_case_map.py` (run by `tool/flutter`, `tool/parity`, `tool/parity-ext/run`) merges every such
+   map into the git-ignored `case_map.g.dart`; never edit `case_map.dart`. Use a unique map name and unique case ids
+   (a duplicate id throws at startup). Reasons for ids without a widget go in a `Map<String, ParityUncovered> ext<Area>Uncovered`.
    Crop with `capture.androidKey` (a `ValueKey` in the widget); interactions with `capture.androidInteractions`.
 
 ## Run only your cases
