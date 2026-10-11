@@ -80,4 +80,6 @@ Native flows: `tool/native-linux` (runs `integration_test/workspace_test.dart` o
 
 ## Branches and batches
 
-Work on one branch per task, ideally in its own `git worktree`. While iterating run only the tests, `analyze` and `ds-audit` relevant to the change. A batch of reviewed branches is merged into an integration branch, `tool/check-project` runs once for the batch, and only then does it go to the main line. Conventions for contributors and agents (UI rules, data lifecycle, performance bar) are in [AGENTS.md](../AGENTS.md).
+Work on one branch per task, ideally in its own `git worktree`, and keep to the files your task owns. While iterating run only the tests, `analyze` and `ds-audit` relevant to the change.
+
+Before handing a branch over, run `tool/prepare-handoff`. It merges the latest `origin/cindy/integration` into your branch (stopping on conflicts so you resolve them, not the integrator), runs `tool/check-project` under the shared gate lock, and prints one line with the branch, commit, base and gate result to paste into the handoff message. A handed-over branch therefore fast-forwards onto `cindy/integration`. Docs-only branches may use `--no-check`. Conventions for contributors and agents (UI rules, data lifecycle, performance bar) are in [AGENTS.md](../AGENTS.md).
