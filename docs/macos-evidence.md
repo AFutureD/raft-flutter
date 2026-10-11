@@ -44,7 +44,7 @@ Personal Team 的开发 profile 有效期通常为 7 天。后续本地构建须
 
 媒体增加 `media_kit_libs_macos_video` 原生依赖，随 macOS bundle 构建；Linux 的 media 下载准备步骤不适用于 macOS。
 
-## 当前覆盖
+## 初始覆盖（2026-10-08；后续状态见文末）
 
 | 功能 | macOS 实现 / 验收状态 |
 | --- | --- |
@@ -88,3 +88,24 @@ macOS AppIcon 已替换 Flutter 默认图标，使用 Android 前景与设计系
 ## ARM64 构建验证
 
 后续按用户要求将 macOS Debug / Profile / Release 与 CocoaPods targets 固定为 ARM64，并通过 FVM 重新构建 Release（64.5 MB）。逐一检查 bundle 中 25 个 Mach-O 文件，主程序、Dart AOT、Flutter 引擎、SQLite 和媒体运行库均仅含 `arm64`，没有 `x86_64` slice；`codesign --verify --deep --strict` 通过。上文 118.0 MB 为更早构建的历史记录。
+
+## Local-use checkpoint (2026-10-12)
+
+本机 macOS 客户端已用于真实工作区，状态不再是“只启动到登录页”。此前用户完成真实旧会话的 Data Protection Keychain 迁移，并确认再次启动不再重复弹出旧钥匙串授权。2026-10-11 用户试用了 Mac 性能优化版本，认可体验提升并批准合入；这不等于全平台功能或完整 120fps 验收。上面的初始覆盖表保留其历史范围，不能据此否定后续已有验证。
+
+2026-10-12 本轮只读检查确认：
+
+| 项目 | 实际结果 |
+| --- | --- |
+| 已安装原生 App | `~/Applications/Raft.app`，运行进程来自该包；与 Chrome PWA 区分 |
+| 应用身份 | `app.raft.raftFlutter`，0.1.0 (6047)，最低 macOS 12 |
+| 主程序架构 | `arm64` |
+| 包签名 | `codesign --verify --deep --strict` 通过；包内含 provisioning profile |
+| Release 权限 | App Sandbox、网络客户端/服务器、用户选择文件读写；无 JIT / get-task-allow |
+| 本地更新流程 | 忽略目录内的签名更新脚本存在；本轮未执行构建、替换、重启或 UI 操作 |
+
+版本号与当前进程用于辨认已安装的 App，不据此推断其源码等于仓库最新提交，也不据此证明 profile 当前仍具备续签条件。签名身份、team、profile、账号或凭据不进入公开文档。
+
+[Activity 原生 profile 对比](activity-preview-performance.md) 使用独立测试包及合成缓存：修正前 C 方案的热缓存首帧 raster 中位数从 233.105ms 降到 13.582ms；后续同条目双击修正没有重跑这组原生对比。它证明特定等待的移除，不认证正式 App 的网络延迟或稳定 120fps。[性能覆盖审计](mac-performance-coverage.md) 记录更广的检查范围与缺口。
+
+仍需原生验收：通知权限/横幅/点击，OAuth 与局域网权限，系统文件面板与上传下载，冷启/热启内容链接，真实媒体播放，中文/日文 IME、VoiceOver 和完整生命周期。已有源代码、模拟插件回归或其他平台的通过结果不能代替这些检查。正式退出登录与钥匙串清理也不由会话迁移/重开确认推导为通过。

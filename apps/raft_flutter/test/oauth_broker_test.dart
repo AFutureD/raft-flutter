@@ -32,6 +32,8 @@ class _OAuthAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  // These cases talk to a real loopback server; undo the test binding's mock client.
+  HttpOverrides.global = null;
   test('PKCE uses the RFC7636 S256 vector', () {
     expect(
       oauthCodeChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'),

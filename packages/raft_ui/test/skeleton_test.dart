@@ -5,13 +5,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-class _VisibleShadowsBinding extends AutomatedTestWidgetsFlutterBinding {
-  @override
-  bool get disableShadows => false;
-}
+import 'flutter_test_config.dart' show RaftTestBinding;
 
 void main() {
-  _VisibleShadowsBinding();
+  RaftTestBinding.showShadows();
   for (final family in RaftFamily.values) {
     testWidgets('circle skeleton paints the source avatar rim: $family', (
       tester,
