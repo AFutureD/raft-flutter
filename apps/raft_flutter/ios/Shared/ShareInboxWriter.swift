@@ -106,9 +106,12 @@ final class ShareInboxWriter {
       throw error
     }
     total += size
-    let safe = (filename as NSString).lastPathComponent
-      .replacingOccurrences(of: "\u{0000}", with: "")
-    files.append(["file": name, "filename": safe.isEmpty ? "attachment" : String(safe.prefix(200)),
+    let basename = (filename.replacingOccurrences(of: "\\", with: "/") as NSString).lastPathComponent
+    let safe = String(String.UnicodeScalarView(basename.unicodeScalars.map {
+      $0.value < 32 || $0.value == 127 ? UnicodeScalar(95)! : $0
+    }))
+    let displayName = safe.isEmpty || safe == "." || safe == ".." ? "attachment" : String(safe.prefix(200))
+    files.append(["file": name, "filename": displayName,
                   "mimeType": mimeType, "sizeBytes": size])
   }
 
@@ -125,6 +128,20 @@ final class ShareInboxWriter {
     try FileManager.default.moveItem(at: folder, to: root.appendingPathComponent(token))
     finished = true
     return token
+  }
+
+  /// Match path_provider's iOS temporary-directory policy (Library/Caches),
+  /// accepting the system /var alias without accepting links outside the lease.
+  static func exportFile(path: String, caches: URL) -> URL? {
+    let original = URL(fileURLWithPath: path).standardizedFileURL
+    let allowed = caches.appendingPathComponent("raft-share").resolvingSymlinksInPath().standardizedFileURL
+    let file = original.resolvingSymlinksInPath().standardizedFileURL
+    let parts = file.pathComponents
+    guard let values = try? original.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
+          values.isRegularFile == true, values.isSymbolicLink != true,
+          parts.starts(with: allowed.pathComponents), parts.count == allowed.pathComponents.count + 2,
+          file.deletingLastPathComponent().lastPathComponent.hasPrefix("share-") else { return nil }
+    return file
   }
 
   // Match the ordinary app's pre-staging credential-link rejection. These
@@ -147,7 +164,15 @@ final class ShareInboxWriter {
     cancelLock.lock(); cancellationRequested = true; cancelLock.unlock()
     // A running copy observes cancellation between chunks and cleans up.
     // The extension's Cancel button never waits for file I/O on the UI thread.
-    guard lock.try() else { return }
+    guard lock.try() else {
+      DispatchQueue.global(qos: .utility).async {
+        self.lock.lock(); defer { self.lock.unlock() }
+        guard !self.finished else { return }
+        self.finished = true
+        try? FileManager.default.removeItem(at: self.folder)
+      }
+      return
+    }
     defer { lock.unlock() }
     guard !finished else { return }
     finished = true

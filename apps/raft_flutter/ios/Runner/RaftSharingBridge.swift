@@ -32,12 +32,9 @@ final class RaftSharingBridge: NSObject, FlutterPlugin {
       var items: [Any] = []
       if let text = arguments["text"] as? String, !text.isEmpty { items.append(text) }
       if let path = arguments["path"] as? String {
-        let file = URL(fileURLWithPath: path).standardizedFileURL
-        let allowed = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("raft-share").standardizedFileURL
-        let parts = file.pathComponents
-        guard parts.starts(with: allowed.pathComponents), parts.count == allowed.pathComponents.count + 2,
-              (try? file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]))?.isRegularFile == true,
-              file.resolvingSymlinksInPath().path == file.path else {
+        // getTemporaryDirectory on iOS maps to Library/Caches, not /tmp.
+        guard let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+              let file = ShareInboxWriter.exportFile(path: path, caches: cache) else {
           result(FlutterError(code: "invalid", message: "Invalid shared file.", details: nil)); return
         }
         items.append(file)
