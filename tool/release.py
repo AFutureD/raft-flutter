@@ -176,11 +176,13 @@ def build(platform):
     config = json.loads((ROOT / 'tool/release-platforms.json').read_text())[platform]
     arch = config['arch']
     name = f'raft-flutter-{version}-{platform}-{arch}'
-    # No test entry points, Dart defines or private local fixtures in hosted CI.
+    # No test entry points, inherited Dart defines or private local fixtures in hosted CI.
+    # The only define supplied here is the public release version shown in About.
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else platform,
-               '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}']
+               '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
+               f'--dart-define=RAFT_APP_VERSION={version}']
     with tempfile.TemporaryDirectory(prefix='raft-release-') as temporary:
         work = Path(temporary)
         if platform == 'android':
