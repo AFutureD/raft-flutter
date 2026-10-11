@@ -1315,6 +1315,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       }
                     }
                   : null,
+              activitySelectedTarget:
+                  route == 'activity' &&
+                      wide &&
+                      activityFlag.masterDetail(
+                        MediaQuery.sizeOf(context).width,
+                      )
+                  ? desktopNavigation.target
+                  : null,
               onActivityCanonical:
                   wide &&
                       activityFlag.masterDetail(

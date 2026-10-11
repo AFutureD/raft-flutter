@@ -38,27 +38,10 @@ class _SourceTaskRowExtent extends RenderProxyBox {
 
 /// Page component tokens traced to SavedPanel SavedItem and ThreadsInbox
 /// InboxRow at Web 26f77ef. A panel card and an inbox card have different fills.
-/// How a selected [RaftConversationCard] is marked. All variants are quiet.
-enum RaftConversationSelectedStyle {
-  /// Leading accent bar only; fill and border unchanged.
-  edge,
-
-  /// Accent border only; no fill, no bar.
-  border,
-
-  /// Very light accent tint plus the leading bar.
-  tint,
-}
-
 class RaftConversationCardRecipe {
-  const RaftConversationCardRecipe(
-    this.tokens, {
-    this.saved = false,
-    this.selectedStyle = RaftConversationSelectedStyle.tint,
-  });
+  const RaftConversationCardRecipe(this.tokens, {this.saved = false});
   final RaftTokens tokens;
   final bool saved;
-  final RaftConversationSelectedStyle selectedStyle;
   static const inset = EdgeInsets.all(12);
   static const gap = 8.0;
   // ThreadsInbox timestamp and overlaid action both use transition-opacity.
@@ -68,43 +51,20 @@ class RaftConversationCardRecipe {
 
   /// Persistent selected row (the row whose preview is open in the detail
   /// pane). Deliberately quiet: the reader's eye belongs on the detail pane,
-  /// so the list only needs to answer "which one is open" at a glance.
-  /// The accent is `info` (elegant) / black (brutal), the same accent the
-  /// design system's selected list items use, at low strength:
-  /// - [RaftConversationSelectedStyle.edge]: leading bar only.
-  /// - [RaftConversationSelectedStyle.border]: accent border only.
-  /// - [RaftConversationSelectedStyle.tint]: faint tint + leading bar.
-  /// No shadow or text colour changes in any variant.
-  Color? get selectedTint => selectedStyle != RaftConversationSelectedStyle.tint
-      ? null
-      : tokens.brutal
+  /// so the list only needs to answer "which one is open" at a glance. A very
+  /// light tint of the accent plus a leading accent bar; no border, shadow or
+  /// text-colour change. The accent is `info` (elegant) / `brutal-cyan` tint
+  /// with a black bar (brutal).
+  Color get selectedTint => tokens.brutal
       ? tokens.colors['color-brutal-cyan']!.withValues(alpha: .08)
       : tokens.colors['info']!.withValues(alpha: tokens.dark ? .06 : .05);
 
   /// Fill of a selected row over [base] (the normal or hover fill).
-  Color selectedFill(Color base) {
-    final tint = selectedTint;
-    return tint == null ? base : Color.alphaBlend(tint, base);
-  }
+  Color selectedFill(Color base) => Color.alphaBlend(selectedTint, base);
 
-  BorderSide get selectedBorder =>
-      selectedStyle != RaftConversationSelectedStyle.border
-      ? border
-      : BorderSide(
-          color: tokens.brutal
-              ? tokens.colors['color-black']!
-              : tokens.colors['info']!,
-          width: tokens.border,
-        );
-
-  /// Accent bar on the leading edge of the selected row (absent for the
-  /// border-only variant). Brutal 4px black, elegant 3px info.
-  Color? get selectedEdge =>
-      selectedStyle == RaftConversationSelectedStyle.border
-      ? null
-      : tokens.brutal
-      ? tokens.colors['color-black']
-      : tokens.colors['info'];
+  /// Leading accent bar. Brutal 4px black, elegant 3px `info`.
+  Color get selectedEdge =>
+      tokens.brutal ? tokens.colors['color-black']! : tokens.colors['info']!;
   double get selectedEdgeWidth => tokens.brutal ? 4 : 3;
   BorderSide get border => BorderSide(
     // SavedItem Card: `theme-brutal:border-2 theme-brutal:border-black`.
@@ -186,7 +146,6 @@ class RaftConversationCard extends StatefulWidget {
     required this.onOpen,
     this.saved = false,
     this.selected = false,
-    this.selectedStyle = RaftConversationSelectedStyle.tint,
     this.onContextMenu,
     this.onActivate,
     this.onPointerActivate,
@@ -216,9 +175,6 @@ class RaftConversationCard extends StatefulWidget {
   /// master-detail preview. Stays painted while hovered, focused or unread;
   /// ignored for [saved] cards.
   final bool selected;
-
-  /// How [selected] is painted.
-  final RaftConversationSelectedStyle selectedStyle;
   final VoidCallback? onContextMenu;
   final String? semanticLabel;
   final Widget? actions;
@@ -268,11 +224,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final recipe = RaftConversationCardRecipe(
-      t,
-      saved: widget.saved,
-      selectedStyle: widget.selectedStyle,
-    );
+    final recipe = RaftConversationCardRecipe(t, saved: widget.saved);
     final showActions =
         hovered || focused || RaftDensityScope.of(context) == RaftDensity.touch;
     final rt = RaftRecipeTokens(t);
@@ -313,14 +265,12 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
         clip: true,
         decorationOverride: (base) => base.copyWith(
           color: background,
-          border: Border.fromBorderSide(
-            selected ? recipe.selectedBorder : recipe.border,
-          ),
+          border: Border.fromBorderSide(recipe.border),
           borderRadius: recipe.radius,
         ),
         child: Material(
           type: MaterialType.transparency,
-          child: selected && recipe.selectedEdge != null
+          child: selected
               ? Stack(
                   children: [
                     child,
@@ -330,7 +280,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
                       bottom: 0,
                       width: recipe.selectedEdgeWidth,
                       child: IgnorePointer(
-                        child: ColoredBox(color: recipe.selectedEdge!),
+                        child: ColoredBox(color: recipe.selectedEdge),
                       ),
                     ),
                   ],

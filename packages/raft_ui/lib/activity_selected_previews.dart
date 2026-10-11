@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'previews.dart';
 import 'raft_ui.dart';
 
-/// Design preview for the persistent selected Activity row (not wired into
-/// the app yet). The stack shows every row state next to each other so the
+/// Design preview for the persistent selected Activity row. The stack shows every row state next to each other so the
 /// selected treatment can be judged against read, unread and hover.
 @RaftPreviews('Activity selected row', size: Size(520, 640))
 Widget activitySelectedRowsPreview() => const ActivitySelectedRows();
@@ -12,10 +11,6 @@ Widget activitySelectedRowsPreview() => const ActivitySelectedRows();
 @RaftPreviews('Activity selected master-detail', size: Size(1180, 640))
 Widget activitySelectedMasterDetailPreview() =>
     const ActivitySelectedMasterDetail();
-
-@RaftPreviews('Activity selected variants', size: Size(1400, 640))
-Widget activitySelectedComparisonPreview() =>
-    const ActivitySelectedComparison();
 
 class _Sample {
   const _Sample(
@@ -76,11 +71,9 @@ class ActivitySampleRow extends StatelessWidget {
     super.key,
     required this.sample,
     this.selected = false,
-    this.selectedStyle = RaftConversationSelectedStyle.tint,
   });
   final _Sample sample;
   final bool selected;
-  final RaftConversationSelectedStyle selectedStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +82,6 @@ class ActivitySampleRow extends StatelessWidget {
     final unread = sample.unread > 0;
     return RaftConversationCard(
       selected: selected,
-      selectedStyle: selectedStyle,
       onOpen: () {},
       actions: RaftIconButton(
         glyph: RaftGlyph.check,
@@ -195,11 +187,7 @@ class ActivitySampleRow extends StatelessWidget {
 /// Rows top to bottom: read, unread, read (hover target in the screenshots),
 /// selected read, selected + unread, read.
 class ActivitySelectedRows extends StatelessWidget {
-  const ActivitySelectedRows({
-    super.key,
-    this.style = RaftConversationSelectedStyle.tint,
-  });
-  final RaftConversationSelectedStyle style;
+  const ActivitySelectedRows({super.key});
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -237,14 +225,10 @@ class ActivitySelectedRows extends StatelessWidget {
 class ActivitySelectedMasterDetail extends StatelessWidget {
   const ActivitySelectedMasterDetail({
     super.key,
-    this.style = RaftConversationSelectedStyle.tint,
     this.listWidth = 460,
     this.showDetail = true,
   });
-  final RaftConversationSelectedStyle style;
   final double listWidth;
-
-  /// False renders only the list column (used by the comparison sheet).
   final bool showDetail;
   @override
   Widget build(BuildContext context) {
@@ -263,11 +247,7 @@ class ActivitySelectedMasterDetail extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 children: [
                   for (final (i, s) in _samples.indexed) ...[
-                    ActivitySampleRow(
-                      sample: s,
-                      selected: i == 2,
-                      selectedStyle: style,
-                    ),
+                    ActivitySampleRow(sample: s, selected: i == 2),
                     const SizedBox(height: 8),
                   ],
                 ],
@@ -318,66 +298,6 @@ class ActivitySelectedMasterDetail extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A, B and C side by side (list column only) with captions.
-class ActivitySelectedComparison extends StatelessWidget {
-  const ActivitySelectedComparison({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final line = t.colors[t.brutal ? 'color-black' : 'line-muted']!;
-    final captions = {
-      RaftConversationSelectedStyle.edge: 'A  leading edge bar',
-      RaftConversationSelectedStyle.border: 'B  accent border',
-      RaftConversationSelectedStyle.tint: 'C  light tint + bar',
-    };
-    return ColoredBox(
-      color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
-      child: Column(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                for (final (i, style) in captions.keys.indexed) ...[
-                  if (i > 0) Container(width: t.border, color: line),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: RaftCssText(
-                              captions[style]!,
-                              style: RaftTypography.body(
-                                t,
-                                size: 14,
-                                line: 20,
-                                weight: FontWeight.w700,
-                                color: t.strong,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ActivitySelectedMasterDetail(
-                            style: style,
-                            listWidth: 440,
-                            showDetail: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
             ),
           ),
         ],
