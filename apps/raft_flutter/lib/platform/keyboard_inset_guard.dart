@@ -8,6 +8,10 @@ import 'package:flutter/widgets.dart';
 /// `null` means unknown; callers must then trust the engine value.
 typedef ImeVisibility = Future<bool?> Function();
 
+/// Quiet period after the last engine inset change before it is checked against
+/// the platform (a real keyboard animation changes it every frame).
+const keyboardInsetSettleDelay = Duration(milliseconds: 250);
+
 const _channel = MethodChannel('app.raft/ime');
 
 /// Android: asks the activity's root window insets whether the IME is shown.
@@ -21,16 +25,22 @@ Future<bool?> nativeImeVisible() async {
   }
 }
 
-/// Reconciles a stale keyboard inset on resume (flutter#118761).
+/// Reconciles a stale keyboard inset after resume (flutter#118761).
 ///
-/// With the keyboard open, backgrounding the app closes the IME, but the
-/// engine can keep reporting the old `viewInsets.bottom` after the app comes
-/// back. Every keyboard-aware surface then reserves a keyboard-sized blank
-/// gap. When the app resumes with a non-zero inset while the platform says the
-/// IME is hidden, this guard remembers that inset as stale and reports it as 0
-/// (and gives the system bar back to `padding`) until the engine reports a
-/// different value or focus changes, so a keyboard that really reopens, even at
-/// the same height, is never hidden.
+/// With the keyboard open, backgrounding the app closes the IME. Back in the
+/// foreground the engine first reports 0, then, when the system's no-op IME
+/// animation ends, Flutter's `ImeSyncDeferringInsetsCallback` re-dispatches the
+/// `WindowInsets` it cached at the last keyboard show and the engine reports the
+/// old `viewInsets.bottom` again (device log: 883 px, 0, 883 px with
+/// `ime.isVisible == false` throughout). Every keyboard-aware surface then
+/// reserves a keyboard-sized blank gap. `MainActivity` re-dispatches the real
+/// insets at the end of each IME animation; this guard is the Dart-side net.
+/// When the engine has reported a non-zero inset, with no further change for
+/// [keyboardInsetSettleDelay] or on resume, while the platform says the IME is hidden, the
+/// guard remembers that inset as stale and reports it as 0 (and gives the
+/// system bar back to `padding`) until the engine reports a different value or
+/// focus changes, so a keyboard that really reopens, even at the same height,
+/// is never hidden.
 ///
 /// Placed once above the app content (inside the `MaterialApp` builder) so all
 /// consumers, including overlays, see the reconciled metrics.
@@ -50,6 +60,7 @@ class _KeyboardInsetGuardState extends State<KeyboardInsetGuard>
   /// Raw engine `viewInsets.bottom` (physical px) known to be stale, or null.
   double? _staleInset;
   int _checks = 0;
+  Timer? _settle;
 
   double _rawInset() => View.of(context).viewInsets.bottom;
 
@@ -62,6 +73,7 @@ class _KeyboardInsetGuardState extends State<KeyboardInsetGuard>
 
   @override
   void dispose() {
+    _settle?.cancel();
     FocusManager.instance.removeListener(_focusChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -76,6 +88,10 @@ class _KeyboardInsetGuardState extends State<KeyboardInsetGuard>
   void didChangeMetrics() {
     // Any new engine value ends the stale episode.
     if (_staleInset != null && _rawInset() != _staleInset) _clear();
+    _settle?.cancel();
+    if (_staleInset == null && _rawInset() > 0 && widget.imeVisible != null) {
+      _settle = Timer(keyboardInsetSettleDelay, () => unawaited(_reconcile()));
+    }
   }
 
   void _focusChanged() {
