@@ -437,6 +437,7 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
     if (!widget.agent) {
       return RaftProfilePreviewCard(
         avatar: avatar(row),
+        avatarTopInset: 2,
         name: name,
         subtitle: '@${row['name'] ?? ''}',
         description: description,
@@ -472,6 +473,7 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
         : null;
     return RaftProfilePreviewCard(
       avatar: avatar(row),
+      avatarTopInset: 2,
       name: name,
       subtitle: '@${row['name'] ?? ''}',
       status: RaftProfilePreviewStatus(
