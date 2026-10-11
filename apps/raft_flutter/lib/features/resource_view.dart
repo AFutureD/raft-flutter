@@ -2514,6 +2514,13 @@ class _ResourceViewState extends State<ResourceView> {
             hasMore: hasMore,
             onMore: () => load(append: true),
           )
+        : widget.section == 'tasks' &&
+              widget.channelId != null &&
+              !loading &&
+              (taskLayout == 'board'
+                  ? lanes.values.every((lane) => lane.isEmpty)
+                  : rows.isEmpty)
+        ? channelTasksEmpty()
         : widget.section == 'tasks' && taskLayout == 'board'
         ? taskBoard()
         : widget.section == 'tasks' && rows.isNotEmpty
@@ -4993,6 +5000,35 @@ class _ResourceViewState extends State<ResourceView> {
           );
   }
 
+  /// TasksPanel channel mode with no task at all: the centred EmptyState
+  /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.
+  Widget channelTasksEmpty() {
+    final t = RaftTokens.of(context);
+    final filtered = !taskAdvanced.isEmpty;
+    return ColoredBox(
+      color: t.brutal ? t.panel : t.sidebar,
+      child: Padding(
+        padding: raftScrollPadding(context, const EdgeInsets.all(16)),
+        child: SizedBox.expand(
+          child: RaftProductEmptyState(
+            title: raftText(
+              context,
+              filtered ? 'No tasks match this filter' : 'No tasks yet',
+            ),
+            description: raftText(
+              context,
+              filtered
+                  ? 'Try a different combination or clear the current selection.'
+                  : 'Create one with the New Task button.',
+            ),
+            icon: (context, size, color) =>
+                RaftIcon(RaftGlyph.checkSquare, size: size, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget taskBoard() {
     final t = RaftTokens.of(context), scope = authority;
     return ColoredBox(
@@ -5117,7 +5153,8 @@ class _ResourceViewState extends State<ResourceView> {
         key: ValueKey('task-${row['id']}'),
         title: name,
         number: '${row['taskNumber'] ?? row['number'] ?? ''}',
-        channel: '${row['channelName'] ?? ''}',
+        // TaskCard shows the channel chip only on the server-wide page.
+        channel: widget.channelId != null ? '' : '${row['channelName'] ?? ''}',
         status: status,
         description: '${row['descriptionPreview'] ?? row['description'] ?? ''}',
         assignee: row['claimedByName'] as String?,
