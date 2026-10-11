@@ -1,6 +1,9 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 
 /// Controlled section paging. The owner supplies the accepted selection;
 /// neighboring pages do not mount their content until first selected.
@@ -125,29 +128,35 @@ class _RaftSectionPagerState<T extends Object>
           }
           return false;
         },
-        child: PageView.builder(
-          controller: controller,
-          physics: widget.swipeEnabled
-              ? const PageScrollPhysics()
-              : const NeverScrollableScrollPhysics(),
-          itemCount: widget.sections.length,
-          findChildIndexCallback: (key) {
-            if (key is! ValueKey<T>) return null;
-            final i = widget.sections.indexOf(key.value);
-            return i >= 0 ? i : null;
-          },
-          itemBuilder: (context, i) {
-            final id = widget.sections[i];
-            return _RetainedSection<T>(
-              key: ValueKey<T>(id),
-              section: id,
-              selection: selection,
-              child: visited.contains(id)
-                  ? widget.builder(context, id)
-                  : widget.unvisitedBuilder?.call(context) ??
-                        const SizedBox.expand(),
-            );
-          },
+        child: _SystemBackEdgeBoundary(
+          view: View.of(context),
+          insets: Theme.of(context).platform == TargetPlatform.android
+              ? MediaQuery.systemGestureInsetsOf(context)
+              : EdgeInsets.zero,
+          child: PageView.builder(
+            controller: controller,
+            physics: widget.swipeEnabled
+                ? const PageScrollPhysics()
+                : const NeverScrollableScrollPhysics(),
+            itemCount: widget.sections.length,
+            findChildIndexCallback: (key) {
+              if (key is! ValueKey<T>) return null;
+              final i = widget.sections.indexOf(key.value);
+              return i >= 0 ? i : null;
+            },
+            itemBuilder: (context, i) {
+              final id = widget.sections[i];
+              return _RetainedSection<T>(
+                key: ValueKey<T>(id),
+                section: id,
+                selection: selection,
+                child: visited.contains(id)
+                    ? widget.builder(context, id)
+                    : widget.unvisitedBuilder?.call(context) ??
+                          const SizedBox.expand(),
+              );
+            },
+          ),
         ),
       ),
     ),
@@ -194,5 +203,53 @@ class _RetainedSectionState<T extends Object> extends State<_RetainedSection<T>>
         );
       },
     );
+  }
+}
+
+// System back owns gestures which *start* in the display's side insets. Do
+// not let the PageView or its content enter their gesture arenas at all: a
+// late drag cancellation can already have scrolled a page or started a child
+// action. This changes hit testing only; content still paints edge to edge.
+class _SystemBackEdgeBoundary extends SingleChildRenderObjectWidget {
+  const _SystemBackEdgeBoundary({
+    required this.view,
+    required this.insets,
+    required super.child,
+  });
+
+  final ui.FlutterView view;
+  final EdgeInsets insets;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSystemBackEdgeBoundary(view, insets);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSystemBackEdgeBoundary renderObject,
+  ) {
+    renderObject
+      ..view = view
+      ..insets = insets;
+  }
+}
+
+class _RenderSystemBackEdgeBoundary extends RenderProxyBox {
+  _RenderSystemBackEdgeBoundary(this.view, this.insets);
+
+  ui.FlutterView view;
+  EdgeInsets insets;
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (size.contains(position) && (insets.left > 0 || insets.right > 0)) {
+      // Insets are physical display edges, not logical start/end or the local
+      // bounds of a panel. Flutter pointer coordinates are in logical pixels.
+      final x = localToGlobal(position).dx;
+      final displayWidth = view.physicalSize.width / view.devicePixelRatio;
+      if (x < insets.left || x >= displayWidth - insets.right) return true;
+    }
+    return super.hitTest(result, position: position);
   }
 }
