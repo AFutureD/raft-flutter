@@ -144,8 +144,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   @override
   void didUpdateWidget(RaftMessageTimeline oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Expanded layout is idle work. A foreground data/route update must not
-    // retain its enlarged layout window after a data or route update.
+    // Expanded layout is idle work; foreground updates restore the default margin.
     nearbyCache = 250;
     if (widget.canPrepareNearbyRows != null && widget.cacheExtent == null) {
       prepareNearbyRows();
@@ -369,8 +368,11 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     edges.olderPending = widget.controller.olderPending = widget.hasOlder;
     final messages = widget.messages;
     final center = widget.centerIndex.clamp(0, messages.length);
-    if (!identical(listsOwner, widget)) {
-      listsOwner = widget;
+    if (!identical(listsOwner, widget) &&
+        (listsOwner == null || TickerMode.valuesOf(context).enabled)) {
+      // Hidden panes keep their existing delegates. Their next visible build
+      // accepts the latest presentation before layout and paint.
+      final owner = listsOwner = widget;
       final estimate = widget.estimateRow;
       // Seed once for this presentation. Layout updates the measured entries;
       // scrolling queries sums without walking the unbuilt history again.
@@ -380,10 +382,10 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
       Widget row(BuildContext context, int index) {
         RaftMessageTimeline.debugRowBuilds++;
         final body = extents == null
-            ? widget.rowBuilder(context, index)
+            ? owner.rowBuilder(context, index)
             : _TimelineExtentRecorder(
                 onExtent: (height) => extents.update(index, height),
-                child: widget.rowBuilder(context, index),
+                child: owner.rowBuilder(context, index),
               );
         return KeyedSubtree(
           key: ValueKey<String>(messages[index].id),
@@ -401,7 +403,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
               : (first) => extents.sum(0, center - first),
           findChildIndexCallback: (key) {
             if (key is! ValueKey<String>) return null;
-            final index = widget.indexOfId(key.value);
+            final index = owner.indexOfId(key.value);
             return index == null || index >= center ? null : center - 1 - index;
           },
         ),
@@ -417,7 +419,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
               : (first) => extents.sum(center + first, messages.length),
           findChildIndexCallback: (key) {
             if (key is! ValueKey<String>) return null;
-            final index = widget.indexOfId(key.value);
+            final index = owner.indexOfId(key.value);
             return index == null || index < center ? null : index - center;
           },
         ),

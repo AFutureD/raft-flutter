@@ -14,13 +14,13 @@ void main() {
       final semantics = tester.ensureSemantics();
       final controller = RaftTimelineScrollController(bottomAnchored: true);
       addTearDown(controller.dispose);
-      final messages = [
+      var messages = [
         for (var i = 0; i < 1000; i++)
           chat.Message.text(id: '$i', authorId: 'fixture', text: '$i'),
       ];
       var idle = false;
       var estimates = 0;
-      Widget view(bool active) => MaterialApp(
+      Widget view(bool active, {bool revised = false}) => MaterialApp(
         home: TickerMode(
           enabled: active,
           child: Column(
@@ -37,8 +37,10 @@ void main() {
                     estimates++;
                     return 100;
                   },
-                  rowBuilder: (_, index) =>
-                      SizedBox(height: 100, child: Text('row-$index')),
+                  rowBuilder: (_, index) => SizedBox(
+                    height: 100,
+                    child: Text('row-$index${revised ? '-updated' : ''}'),
+                  ),
                   slivers: (history, forward) => [history, forward],
                 ),
               ),
@@ -143,12 +145,26 @@ void main() {
         lessThanOrEqualTo(24),
         reason: 'Foreground updates rebuild a bounded window before layout retires old cache rows.',
       );
+      final beforeHide = RaftMessageTimeline.debugRowBuilds;
       await tester.pumpWidget(view(false));
+      expect(RaftMessageTimeline.debugRowBuilds, beforeHide);
       final hidden = RaftMessageTimeline.debugRowBuilds;
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(RaftMessageTimeline.debugRowBuilds, hidden);
+      messages = [
+        ...messages,
+        chat.Message.text(id: '1000', authorId: 'fixture', text: 'arrival'),
+      ];
+      await tester.pumpWidget(view(false, revised: true));
+      expect(RaftMessageTimeline.debugRowBuilds, hidden);
+      expect(
+        find.textContaining('-updated', skipOffstage: false),
+        findsNothing,
+      );
+      await tester.pumpWidget(view(true, revised: true));
+      expect(find.textContaining('-updated'), findsWidgets);
       await tester.pumpWidget(const SizedBox());
       expect(tester.takeException(), isNull);
       semantics.dispose();
