@@ -880,6 +880,14 @@ Widget mobileServerSwitcherPreview() =>
 Widget serverResolutionPreview() =>
     const RaftServerResolutionBody(label: 'Loading...');
 
+@RaftPreviews('Root error fallback', size: Size(390, 700))
+Widget rootErrorFallbackPreview() => RaftRootErrorFallback(
+  message: "Cannot read properties of undefined (reading 'name')",
+  stack: "TypeError: Cannot read properties of undefined\n    at ChannelHeader",
+  componentStack: '\n    at ChannelHeader\n    at MainLayout\n    at App',
+  onReload: () {},
+);
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;

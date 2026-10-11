@@ -169,7 +169,7 @@ Web: App.tsx AppShell / ServerResolver, components/auth, components/onboarding, 
 | 1.30 | Mobile download chooser (/download) | `pages/MobileDownloadChooserPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 | 1.31 | Chinese community page | `pages/ChineseCommunityPage.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 | 1.32 | PWA install prompt (iOS Safari add-to-home steps) | `components/pwa/PwaInstallPrompt.tsx` | n/a | excluded |  |  | [excluded: browser-only] |
-| 1.33 | Root error fallback (app crashed, reload) | `components/errors/RootErrorFallback.tsx` | ok | ok |  | D: `components.auth-pages.desktop.root-error.*`<br>P: `components.auth-pages.mobile.root-error.*` | Flutter page missing: no root error fallback. |
+| 1.33 | Root error fallback (app crashed, reload) | `components/errors/RootErrorFallback.tsx` | ok | ok |  | D: `components.auth-pages.desktop.root-error.*`<br>P: `components.auth-pages.mobile.root-error.*` | Flutter: RaftRootErrorFallback under RootErrorBoundary (release builds; debug keeps the framework error screen). |
 | 1.34 | App update gate (stale build, refresh to continue) | `components/errors/AppUpdateGate.tsx` | excluded | excluded |  |  | [excluded: browser-only] |
 
 ## 2. Shell and navigation

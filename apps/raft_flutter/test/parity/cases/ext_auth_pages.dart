@@ -71,6 +71,17 @@ Widget _register(ParityContext ctx) => AuthView(
 /// label centred (main.dart shows the same widget while the session restores).
 Widget _splash(String label) => RaftServerResolutionBody(label: label);
 
+/// RootErrorFallback over fixtures `rootError` (message, stack, React component stack).
+Widget _rootError(ParityContext ctx) {
+  final error = _fx(ctx)['rootError'] as Map<String, dynamic>;
+  return RaftRootErrorFallback(
+    message: error['message'] as String,
+    stack: error['stack'] as String,
+    componentStack: error['componentStack'] as String,
+    onReload: () {},
+  );
+}
+
 Widget _serversLoading(ParityContext ctx) {
   final fx = _fx(ctx);
   return GlobalServerSelector(
@@ -180,6 +191,7 @@ final Map<String, ParityCase> _surfaces = {
   'bootstrap.restoring': _case((_) => _splash('Restoring session…')),
   'bootstrap.loading': _case((_) => _splash('Loading…')),
   'servers.loading': _case(_serversLoading),
+  'root-error.default': _case(_rootError),
 };
 
 /// Surfaces a platform does not run (see build-auth-pages.py `platforms`).
@@ -257,8 +269,6 @@ const _missing = <String, String>{
       'Flutter page missing: the dedicated native setup surface is a Web page for native WebView hosts; the app renders setup natively with no completion page.',
   'settings.archived-channels':
       'Flutter page missing: Server settings has no Archived channels section (no Unarchive list).',
-  'root-error.default':
-      'Flutter page missing: no root error fallback (no ErrorWidget.builder / zone handler renders a reload page).',
 };
 
 /// Cases without a Flutter widget (gap noFlutterSurface), merged into parityUncovered by case_map.dart.

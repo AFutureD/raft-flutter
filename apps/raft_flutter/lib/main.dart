@@ -26,6 +26,7 @@ import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
 import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
+import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
@@ -49,7 +50,13 @@ Future<void> main([List<String> args = const []]) async {
   AttachmentImageDiskCache.installed ??= AttachmentImageDiskCache(
     getApplicationCacheDirectory,
   );
-  runApp(ProviderScope(child: RaftApp(initialArguments: args)));
+  // Release builds show the root fallback instead of a grey/red screen.
+  RootErrors.instance.install();
+  runApp(
+    RootErrorBoundary(
+      child: ProviderScope(child: RaftApp(initialArguments: args)),
+    ),
+  );
 }
 
 /// The server stores only locales shipped by the UI. Translation language is separate.

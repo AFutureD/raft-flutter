@@ -130,7 +130,7 @@ SECTIONS = [
         R('1.31', 'Chinese community page', 'pages/ChineseCommunityPage.tsx', 'DP', prio=3),
         R('1.32', 'PWA install prompt (iOS Safari add-to-home steps)', 'components/pwa/PwaInstallPrompt.tsx', 'P', prio=3),
         R('1.33', 'Root error fallback (app crashed, reload)', 'components/errors/RootErrorFallback.tsx', 'DP', d=['components.auth-pages.desktop.root-error.*'], p=['components.auth-pages.mobile.root-error.*'], prio=2,
-          note='Flutter page missing: no root error fallback.'),
+          note='Flutter: RaftRootErrorFallback under RootErrorBoundary (release builds; debug keeps the framework error screen).'),
         R('1.34', 'App update gate (stale build, refresh to continue)', 'components/errors/AppUpdateGate.tsx', 'DP', prio=3),
     ]),
     ('2. Shell and navigation', 'components/layout (MainLayout, LeftRail, Sidebar, NotificationCenter, MobileBottomBarStack), components/ui', [
