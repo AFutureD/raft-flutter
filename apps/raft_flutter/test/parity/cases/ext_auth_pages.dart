@@ -19,6 +19,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/community_join.dart'
     show communityAgreementError;
 import 'package:raft_flutter/features/global_server_selector.dart';
+import 'package:raft_flutter/features/invite_accept_view.dart';
 import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -181,6 +182,43 @@ Future<void> _agree(WidgetTester t, ParityContext ctx) async {
   }
 }
 
+/// InviteAcceptPage over the case's invite-info route set (`$pending` never answers, `$status`
+/// fails); `props.user` 'verified' is the signed-in page.
+Widget _invite(ParityContext ctx) => InviteAcceptView(
+  token: 'parity-invite-token',
+  signedIn: ctx.props['user'] == 'verified',
+  loadInfo: () async {
+    final answer = _answer(ctx, 'GET', '/auth/invite-info');
+    if (identical(answer, ScreenFixtureClient.pending)) {
+      await Completer<void>().future;
+    }
+    return Map<String, dynamic>.from(answer as Map);
+  },
+  accept: (agreementId) async {
+    final answer = _answer(ctx, 'POST', '/auth/accept-invite');
+    return InviteJoined(
+      'srv-1',
+      '${(answer as Map)['serverName'] ?? 'Raft Design'}',
+    );
+  },
+  onEnter: (_) async => true,
+  onSignIn: () {},
+  onCreateAccount: () {},
+  onGoToRaft: () {},
+);
+
+Future<void> _inviteInteract(WidgetTester t, ParityContext ctx) async {
+  for (var i = 0; i < 6; i++) {
+    await t.pump(const Duration(milliseconds: 50));
+  }
+  if (ctx.id.contains('.invite.accept-error.')) {
+    await t.tap(find.text('Join Server'));
+    for (var i = 0; i < 6; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+  }
+}
+
 Widget _serversLoading(ParityContext ctx) {
   final fx = _fx(ctx);
   return GlobalServerSelector(
@@ -296,6 +334,16 @@ final Map<String, ParityCase> _surfaces = {
   'bootstrap.loading': _case((_) => _splash('Loading…')),
   'servers.loading': _case(_serversLoading),
   'root-error.default': _case(_rootError),
+  'invite.signed-out': _case(_invite, interact: _inviteInteract),
+  'invite.signed-in': _case(_invite, interact: _inviteInteract),
+  'invite.join-link': _case(_invite, interact: _inviteInteract),
+  'invite.agreement': _case(_invite, interact: _inviteInteract),
+  'invite.hidden-counts': _case(_invite, interact: _inviteInteract),
+  'invite.seat-limit': _case(_invite, interact: _inviteInteract),
+  'invite.expired': _case(_invite, interact: _inviteInteract),
+  'invite.throttled': _case(_invite, interact: _inviteInteract),
+  'invite.loading': _case(_invite, interact: _inviteInteract),
+  'invite.accept-error': _case(_invite, interact: _inviteInteract),
   'servers.joining-community': _case((_) => _splash('Joining community…')),
   'community-agreement.default': _case(_communityAgreement, interact: _agree),
   'community-agreement.error': _case(_communityAgreement, interact: _agree),
@@ -336,26 +384,6 @@ final Map<String, ParityCase> extAuthPagesCases = {
 
 /// Web pages the Flutter app has no widget for: surface name -> why.
 const _missing = <String, String>{
-  'invite.signed-out':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.signed-in':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.join-link':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.agreement':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.hidden-counts':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.seat-limit':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.expired':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.throttled':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.loading':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
-  'invite.accept-error':
-      'Flutter page missing: invites are accepted from the Join workspace dialog (server_views.dart), not a page.',
   'setup-gate.loading':
       'Flutter page missing: the dedicated native setup surface is a Web page for native WebView hosts; the app renders setup natively with no loading page.',
   'setup-gate.unavailable':

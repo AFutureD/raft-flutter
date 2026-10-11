@@ -22,6 +22,7 @@ import 'features/incoming_share_review.dart';
 import 'data/raft_navigation_history.dart';
 import 'features/app_root_router.dart';
 import 'features/community_join.dart';
+import 'features/invite_accept_view.dart';
 import 'features/global_server_selector.dart';
 import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
@@ -129,6 +130,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   /// over the not-found page (App.tsx ServerResolver + useJoinCommunityFlow).
   String? joiningCommunitySlug, communityAttempt;
   bool communityDialogOpen = false;
+
+  /// The invite link being answered (App.tsx `inviteToken`), the Raft server a
+  /// full link names, and the anonymous client that reads it while signed out.
+  InviteLink? invite;
+  String? inviteOrigin, authMode;
+  RaftClient? inviteClient;
   int rootRequest = 0;
   final Map<String, Uri> serverSurfaces = {};
   Object? workspaceRootInputs;
@@ -158,6 +165,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           WidgetsBinding.instance.platformDispatcher.defaultRouteName,
         ) ??
         Uri(path: '/');
+    invite = InviteLink.fromLocation(requestedLocation);
+    inviteOrigin = invite?.origin;
+    InviteRequests.instance.addListener(inviteRequested);
+    if (invite == null) inviteRequested();
     appRouter = RaftAppRouter(
       home: (_) => restoring
           ? const RaftServerResolutionBody(label: 'Restoring session…')
@@ -557,6 +568,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (!mounted || !identical(c, client) || accountNeedsOnboarding(c.user)) {
       return;
     }
+    unawaited(resumePendingInvite());
     if (workspace != null) {
       if (!showServerSelector && serverSwitchLocation == null) {
         content.bindWorkspace(workspace);
@@ -786,6 +798,116 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     }
   }
 
+  void inviteRequested() {
+    final link = InviteRequests.instance.take();
+    if (link == null || !mounted) return;
+    showInvite(link);
+  }
+
+  void showInvite(InviteLink link) {
+    setState(() {
+      invite = link;
+      inviteOrigin = link.origin;
+    });
+  }
+
+  void clearInvite() {
+    final client = inviteClient;
+    inviteClient = null;
+    unawaited(client?.dispose());
+    if (invite == null && inviteOrigin == null) return;
+    invite = null;
+    inviteOrigin = null;
+    if (mounted) setState(() {});
+  }
+
+  /// `takePendingInviteRedirectPath`: an invite left for sign-in resumes once
+  /// the account is ready (verified, identity set up).
+  Future<void> resumePendingInvite() async {
+    final token = await PendingInvite.take();
+    if (token != null && mounted && invite == null) {
+      showInvite(InviteLink(token));
+    }
+  }
+
+  /// The invite is read and accepted with this client: the signed-in account,
+  /// else an anonymous client of the server the link names.
+  RaftClient inviteApi() {
+    final c = client;
+    if (c?.user != null) return c!;
+    return inviteClient ??= makeClient(
+      inviteOrigin ?? origin,
+      MemorySessionStore(),
+    );
+  }
+
+  Future<bool> enterInvitedServer(String serverId) async {
+    final w = workspace, c = client;
+    if (c?.user == null) return false;
+    if (w == null) {
+      // Account setup is still pending: the server list loads after it.
+      clearInvite();
+      return true;
+    }
+    if (!await w.loadServerDirectory() || !mounted) return false;
+    final joined = w.servers.where((s) => s.id == serverId).firstOrNull;
+    if (joined == null) return false;
+    clearInvite();
+    await chooseServer(
+      joined,
+      location: Uri(path: '/s/${joined.string('slug')}'),
+    );
+    return true;
+  }
+
+  Widget inviteHome(bool signedIn) {
+    final link = invite!;
+    return InviteAcceptView(
+      key: ValueKey('invite-${link.token}-$signedIn'),
+      token: link.token,
+      signedIn: signedIn,
+      loadInfo: () async {
+        final api = inviteApi();
+        await const LocalNetworkAccess().ensure(api.origin, request: true);
+        return Map<String, dynamic>.from(
+          await api.request(
+            'GET',
+            '/auth/invite-info',
+            query: {'token': link.token},
+            authorized: false,
+          ),
+        );
+      },
+      accept: (agreementId) async {
+        final result = await inviteApi().post(
+          '/auth/accept-invite',
+          data: {'token': link.token, 'agreementId': ?agreementId},
+        );
+        return InviteJoined(
+          '${result['serverId']}',
+          '${result['serverName'] ?? ''}',
+        );
+      },
+      onEnter: enterInvitedServer,
+      onSignIn: () => leaveInviteFor('login'),
+      onCreateAccount: () => leaveInviteFor('register'),
+      onGoToRaft: clearInvite,
+    );
+  }
+
+  /// storePendingInvite + clearInviteUrl + switch to the auth form.
+  void leaveInviteFor(String mode) {
+    final token = invite?.token;
+    if (token != null) unawaited(PendingInvite.store(token));
+    final link = invite;
+    setState(() {
+      authMode = mode;
+      // The sign-in form targets the server the link named.
+      if (link?.origin != null) origin = link!.origin!;
+    });
+    clearInvite();
+  }
+
   Future<void> leaveAccessDenied() async {
     final fallback = deniedFallback;
     if (!mounted || deniedSlug == null) return;
@@ -909,6 +1031,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> receiveAppLocation(Uri location) async {
+    final link = InviteLink.fromLocation(location);
+    if (link != null) {
+      // An invite link opens the invite page; the URL itself is consumed.
+      requestedLocation = Uri(path: '/');
+      appRouter.publish(requestedLocation, replace: true);
+      showInvite(link);
+      return;
+    }
     requestedLocation = location;
     serverSwitchLocation = serverSwitchReturn = null;
     final w = workspace;
@@ -946,6 +1076,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<bool> returnFromSelector() async {
+    if (invite != null) {
+      // Back leaves the invite page (the Web "Go to Raft" action).
+      clearInvite();
+      return true;
+    }
     final w = workspace, uri = serverSwitchReturn ?? chooserReturn;
     if ((!showServerSelector && serverSwitchLocation == null) ||
         w == null ||
@@ -1179,7 +1314,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final active = client;
     if (active?.user == null) {
       workspaceRootInputs = null;
+      if (invite != null) return inviteHome(false);
       return AuthView(
+        key: ValueKey('auth-$authMode'),
+        initialMode: authMode ?? 'login',
         origin: origin,
         bootError: bootError,
         onLogin: login,
@@ -1187,6 +1325,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         onOAuth: completeOAuth,
       );
     }
+    if (invite != null) return inviteHome(true);
     if (accountNeedsOnboarding(active!.user)) {
       return AccountOnboardingView(
         client: active,
@@ -1322,6 +1461,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? Future<void>.value()
         : sessionPersistence.write(c.origin, null);
     workspace = null;
+    authMode = null;
     clearAccessDenied();
     oldWorkspace?.removeListener(workspaceChanged);
     serverSurfaces.clear();
@@ -1379,6 +1519,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    InviteRequests.instance.removeListener(inviteRequested);
+    unawaited(inviteClient?.dispose());
     clearAccessDenied();
     authAttempt++;
     rootRequest++;

@@ -11,6 +11,7 @@ import 'package:app_links/app_links.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
+import '../features/invite_accept_view.dart';
 import 'content_target.dart';
 import 'content_links.dart';
 import 'native_notifications.dart';
@@ -166,6 +167,14 @@ class NativeContentCoordinator with WidgetsBindingObserver {
 
   void receiveLink(Uri uri) {
     if (_closed || uri.scheme == 'raft' && uri.host == 'oauth') return;
+    // raft://v1/join/<token>: an invite opens the invite page, signed in or not.
+    if (uri.scheme == 'raft' && uri.host == 'v1') {
+      final invite = InviteLink.fromLocation(uri);
+      if (invite != null && uri.toString().length <= 2048) {
+        InviteRequests.instance.open(invite);
+        return;
+      }
+    }
     final w = _workspace;
     if (w == null || w.client.user == null) {
       // Only a bounded content URI can wait for normal account restoration.

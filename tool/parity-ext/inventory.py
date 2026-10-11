@@ -95,7 +95,7 @@ SECTIONS = [
         R('1.11', 'Social auth callback (loading / error)', 'components/auth/SocialAuthCallbackPage.tsx', 'DP', prio=3),
         R('1.12', 'Invite accept (email invite link; signed-out and signed-in variants, expired / invalid)', 'components/auth/InviteAcceptPage.tsx', 'DP',
           d=['components.auth-pages.desktop.invite.*'], p=['components.auth-pages.mobile.invite.*'], prio=2,
-          note='First screen every invited user sees. Flutter page missing: invites are accepted from the Join workspace dialog.'),
+          note='First screen every invited user sees. Flutter: InviteAcceptView / RaftInviteAcceptPage, opened by /join/<token>, ?invite=, raft://v1/join/<token> and the Join workspace dialog; Sign In / Create Account keep the token until the account is ready.'),
         R('1.13', 'Choose server', 'components/auth/ServerSelector.tsx', 'DP',
           off=['screens.auth.choose-server', 'screens.home.choose-server'],
           d=['components.auth-ext.desktop.server.choose'], p=['components.auth-ext.mobile.server.choose']),

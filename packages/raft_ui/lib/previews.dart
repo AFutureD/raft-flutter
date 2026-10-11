@@ -938,6 +938,32 @@ Widget communityAgreementPreview() => RaftCommunityAgreementDialog(
   errorMessage: (_, _) => 'Failed to join community server',
 );
 
+@RaftPreviews('Invite accept signed out', size: Size(390, 700))
+Widget inviteAcceptSignedOutPreview() => RaftInviteAcceptPage(
+  stage: RaftInviteStage.ready,
+  info: const RaftInviteInfo(
+    serverName: 'Raft Design',
+    inviterName: 'Wenyi',
+    memberCount: 12,
+    agentCount: 5,
+  ),
+  onSignIn: () {},
+  onCreateAccount: () {},
+);
+
+@RaftPreviews('Invite accept signed in', size: Size(390, 700))
+Widget inviteAcceptSignedInPreview() => RaftInviteAcceptPage(
+  stage: RaftInviteStage.ready,
+  signedIn: true,
+  info: const RaftInviteInfo(
+    serverName: 'Raft Design',
+    inviterName: 'Wenyi',
+    memberCount: 12,
+    agentCount: 5,
+  ),
+  onJoin: () {},
+);
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;
