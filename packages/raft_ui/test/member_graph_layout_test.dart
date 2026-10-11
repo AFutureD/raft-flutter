@@ -14,6 +14,8 @@ void main() {
     File.fromUri(Platform.script.resolve('member_graph_reference.json')),
     File('test/member_graph_reference.json'),
     File('packages/raft_ui/test/member_graph_reference.json'),
+    // The sharded runner: cwd is apps/raft_flutter.
+    File('../../packages/raft_ui/test/member_graph_reference.json'),
   ].firstWhere((f) => f.existsSync());
   final reference =
       jsonDecode(fixture.readAsStringSync()) as Map<String, dynamic>;
