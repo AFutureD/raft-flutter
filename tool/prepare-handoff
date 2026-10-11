@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Make a feature branch fast-forwardable onto cindy/integration before handoff.
+
+1. fetch origin and merge origin/cindy/integration into the current branch
+   (stops on conflicts so the branch owner resolves them, not the integrator);
+2. run tool/check-project under the shared gate lock;
+3. print one line to paste into the handoff message: branch, commit, base,
+   source hash and the gate result.
+
+Usage: tool/prepare-handoff [--base origin/cindy/integration] [--no-check]
+"""
+import argparse
+import errno
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import time
+
+root = pathlib.Path(__file__).resolve().parent.parent
+gate_lock = pathlib.Path('/tmp/raft-flutter-check.lock')
+
+
+def git(*args, check=True):
+    return subprocess.run(['git', *args], cwd=root, check=check, text=True,
+                          capture_output=True).stdout.strip()
+
+
+def run_gate():
+    command = [sys.executable, str(root / 'tool/check-project')]
+    gate_lock.parent.mkdir(parents=True, exist_ok=True)
+    with gate_lock.open('a+b') as lock:
+        if os.name == 'nt':
+            import msvcrt
+            if lock.seek(0, os.SEEK_END) == 0:
+                lock.write(b'0')
+                lock.flush()
+            while True:
+                lock.seek(0)
+                try:
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as error:
+                    if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                        raise
+                    time.sleep(0.2)
+            try:
+                return subprocess.run(command, cwd=root, text=True, capture_output=True)
+            finally:
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            # Same flock(2) lock on macOS/Linux, including Linux CLI callers.
+            import fcntl
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            return subprocess.run(command, cwd=root, text=True, capture_output=True)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--base', default='origin/cindy/integration')
+    parser.add_argument('--no-check', action='store_true',
+                        help='merge only (docs-only branches)')
+    args = parser.parse_args()
+    if git('status', '--porcelain'):
+        sys.exit('Working tree is not clean; commit first.')
+    git('fetch', '-q', 'origin')
+    merged = subprocess.run(['git', 'merge', '--no-edit', args.base], cwd=root,
+                            text=True, capture_output=True)
+    if merged.returncode != 0:
+        print(merged.stdout + merged.stderr)
+        sys.exit(f'Merge of {args.base} has conflicts: resolve them on this branch, '
+                 'commit, and run tool/prepare-handoff again.')
+    branch = git('branch', '--show-current')
+    head = git('rev-parse', '--short', 'HEAD')
+    base = git('rev-parse', '--short', args.base)
+    if args.no_check:
+        print(f'handoff: {branch} {head} (contains {args.base} {base}); gate skipped')
+        return
+    gate = run_gate()
+    result = gate.stdout.strip().splitlines()[-1] if gate.stdout.strip() else '{}'
+    try:
+        passed = json.loads(result).get('passed')
+    except json.JSONDecodeError:
+        passed = False
+    run = json.loads((root / '.local/engineering-run.json').read_text())
+    print(f'handoff: {branch} {head} (contains {args.base} {base}); '
+          f'check-project {"PASSED" if passed else "FAILED"}; sourceHash {run.get("sourceHash", "?")[:12]}')
+    sys.exit(0 if passed else 1)
+
+
+if __name__ == '__main__':
+    main()

@@ -268,10 +268,12 @@ class _RenderStatusBarStrip extends RenderBox {
     return false;
   }
 
-  /// Colour of the innermost visible source whose box is flush under the strip,
-  /// and whether one was found (otherwise the fallback).
-  ({Color color, bool fromSource}) resolution() {
-    _RenderStatusBarSource? best;
+  /// Visible sources whose box is flush under the strip (starts at or above
+  /// its bottom edge and extends below it), with their horizontal extent,
+  /// outermost first so inner headers paint over outer ones.
+  List<({_RenderStatusBarSource source, double left, double right})> _flush() {
+    final found =
+        <({_RenderStatusBarSource source, double left, double right})>[];
     for (final source in _registry?._sources ?? const {}) {
       if (!source.attached || !source.hasSize || _hidden(source)) continue;
       final Offset topLeft;
@@ -281,14 +283,28 @@ class _RenderStatusBarStrip extends RenderBox {
         continue;
       }
       final bottom = topLeft.dy + source.size.height;
-      final covers =
-          topLeft.dx <= size.width / 2 &&
-          topLeft.dx + source.size.width >= size.width / 2;
-      // Flush: starts at or above the strip's bottom edge and extends below it.
-      if (!covers || topLeft.dy > size.height + 1 || bottom <= size.height) {
+      final left = topLeft.dx, right = topLeft.dx + source.size.width;
+      if (topLeft.dy > size.height + 1 ||
+          bottom <= size.height ||
+          right <= 0 ||
+          left >= size.width) {
         continue;
       }
-      if (best == null || source.depth >= best.depth) best = source;
+      found.add((source: source, left: left, right: right));
+    }
+    found.sort((a, b) => a.source.depth.compareTo(b.source.depth));
+    return found;
+  }
+
+  /// Colour of the innermost flush source at the strip's centre (the pixel
+  /// the system samples for icon contrast), and whether one was found
+  /// (otherwise the fallback).
+  ({Color color, bool fromSource}) resolution() {
+    _RenderStatusBarSource? best;
+    for (final f in _flush()) {
+      if (f.left <= size.width / 2 && f.right >= size.width / 2) {
+        best = f.source;
+      }
     }
     return best == null
         ? (color: _fallback, fromSource: false)
@@ -298,11 +314,25 @@ class _RenderStatusBarStrip extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     if (size.isEmpty) return;
-    final color = resolution().color;
-    context.canvas.drawRect(offset & size, Paint()..color = color);
+    final canvas = context.canvas;
+    canvas.drawRect(offset & size, Paint()..color = _fallback);
+    // Side-by-side columns (a public server's sidebar and thread column) each
+    // draw their own header under the inset, so each paints its own extent.
+    for (final f in _flush()) {
+      final rect = Rect.fromLTRB(
+        offset.dx + f.left.clamp(0, size.width),
+        offset.dy,
+        offset.dx + f.right.clamp(0, size.width),
+        offset.dy + size.height,
+      );
+      canvas.drawRect(
+        rect,
+        Paint()..color = Color.alphaBlend(f.source.color, _fallback),
+      );
+    }
     context.pushLayer(
       AnnotatedRegionLayer<SystemUiOverlayStyle>(
-        _styleFor(color),
+        _styleFor(resolution().color),
         size: size,
         offset: offset,
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
 import 'recipes/empty_state.g.dart';
+import 'system_inset.dart' show raftScrollPadding;
 import 'theme.dart';
 
 /// Web `components/ui/EmptyState` (raft-ui `EmptyState` / `EmptyStateIcon` /
@@ -90,6 +91,43 @@ class RaftProductEmptyState extends StatelessWidget {
                   child: action,
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// [RaftProductEmptyState] filling a board surface (`bg-layer-sidebar`, brutal
+/// `bg-layer-panel`) with the `p-4` page inset plus the system inset, as the
+/// Tasks panel shows it for a channel with no task at all.
+class RaftProductEmptyPanel extends StatelessWidget {
+  const RaftProductEmptyPanel({
+    super.key,
+    required this.title,
+    required this.icon,
+    this.description,
+    this.action,
+  });
+
+  final String title;
+  final String? description;
+  final Widget? action;
+  final Widget Function(BuildContext context, double size, Color color) icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return ColoredBox(
+      color: t.brutal ? t.panel : t.sidebar,
+      child: Padding(
+        padding: raftScrollPadding(context, const EdgeInsets.all(16)),
+        child: SizedBox.expand(
+          child: RaftProductEmptyState(
+            title: title,
+            description: description,
+            action: action,
+            icon: icon,
           ),
         ),
       ),

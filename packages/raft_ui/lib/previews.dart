@@ -880,6 +880,90 @@ Widget mobileServerSwitcherPreview() =>
 Widget serverResolutionPreview() =>
     const RaftServerResolutionBody(label: 'Loading...');
 
+@RaftPreviews('Root error fallback', size: Size(390, 700))
+Widget rootErrorFallbackPreview() => RaftRootErrorFallback(
+  message: "Cannot read properties of undefined (reading 'name')",
+  stack: "TypeError: Cannot read properties of undefined\n    at ChannelHeader",
+  componentStack: '\n    at ChannelHeader\n    at MainLayout\n    at App',
+  onReload: () {},
+);
+
+@RaftPreviews('Server not found', size: Size(390, 420))
+Widget serverAccessDeniedPreview() =>
+    RaftServerAccessDeniedPage(serverName: 'Raft Design', onContinue: () {});
+
+@RaftPreviews('Archived channels', size: Size(640, 420))
+Widget archivedChannelsPreview() => Padding(
+  padding: const EdgeInsets.all(16),
+  child: RaftArchivedChannelsSection(
+    rows: const [
+      RaftArchivedChannelRow(
+        id: 'a',
+        name: 'launch-retro',
+        type: 'channel',
+        metadata: 'Public channel · Archived Jun 10, 2026, 17:00',
+      ),
+      RaftArchivedChannelRow(
+        id: 'b',
+        name: 'design-private',
+        type: 'private',
+        metadata: 'Private channel · Archived Jun 2, 2026, 23:30',
+      ),
+    ],
+    onOpen: (_) {},
+    onUnarchive: (_) {},
+  ),
+);
+
+@RaftPreviews('Setup resume bar', size: Size(390, 160))
+Widget setupResumeBarPreview() => Align(
+  alignment: Alignment.bottomCenter,
+  child: RaftSetupResumeBar(onResume: () {}),
+);
+
+@RaftPreviews('Setup resume bar opening', size: Size(390, 160))
+Widget setupResumeBarOpeningPreview() => Align(
+  alignment: Alignment.bottomCenter,
+  child: RaftSetupResumeBar(onResume: () {}, loading: true),
+);
+
+@RaftPreviews('Community agreement', size: Size(560, 640))
+Widget communityAgreementPreview() => RaftCommunityAgreementDialog(
+  title: 'Community agreement',
+  version: 3,
+  bodyMarkdown:
+      'Welcome to the Raft community.\n\n1. Be kind and assume good intent.\n2. No spam.\n\nModerators may remove content that breaks these rules.',
+  onClose: () {},
+  onAgree: () async {},
+  errorMessage: (_, _) => 'Failed to join community server',
+);
+
+@RaftPreviews('Invite accept signed out', size: Size(390, 700))
+Widget inviteAcceptSignedOutPreview() => RaftInviteAcceptPage(
+  stage: RaftInviteStage.ready,
+  info: const RaftInviteInfo(
+    serverName: 'Raft Design',
+    inviterName: 'Wenyi',
+    memberCount: 12,
+    agentCount: 5,
+  ),
+  onSignIn: () {},
+  onCreateAccount: () {},
+);
+
+@RaftPreviews('Invite accept signed in', size: Size(390, 700))
+Widget inviteAcceptSignedInPreview() => RaftInviteAcceptPage(
+  stage: RaftInviteStage.ready,
+  signedIn: true,
+  info: const RaftInviteInfo(
+    serverName: 'Raft Design',
+    inviterName: 'Wenyi',
+    memberCount: 12,
+    agentCount: 5,
+  ),
+  onJoin: () {},
+);
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;

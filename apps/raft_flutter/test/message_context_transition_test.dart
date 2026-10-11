@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/raft_location.dart';
+import 'package:raft_flutter/data/workspace_controller.dart'
+    show MessageContextLoadError;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture;
@@ -186,7 +188,7 @@ void main() {
       expect(w.highlightedMessageId, isNull);
       expect(w.channelLoading, false);
       expect(w.pendingMessageContextChannelId, isNull);
-      expect(w.error, isNotNull);
+      expect(w.contextLoadError, MessageContextLoadError.notFound);
     },
   );
 

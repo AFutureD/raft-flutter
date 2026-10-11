@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/features/incoming_share_picker.dart';
 import 'package:raft_flutter/features/page_layout.dart';
+import 'package:raft_flutter/features/public_server_view.dart';
 import 'package:raft_flutter/platform/system_bars.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -189,6 +190,44 @@ void _withDirectory(RootFixture f) {
   ];
 }
 
+/// Minimal public-server API for [PublicServerView].
+class _PublicClient extends RaftClient {
+  _PublicClient()
+    : super(
+        origin: 'https://example.invalid',
+        sessionStore: MemorySessionStore(),
+      );
+  @override
+  void connect() {}
+  @override
+  Future<dynamic> request(
+    String method,
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? query,
+    bool authorized = true,
+    bool retried = false,
+    UploadCancellation? cancellation,
+    void Function(int, int)? onSendProgress,
+    Map<String, dynamic>? headers,
+    bool acceptServerExit = false,
+    Duration? receiveTimeout,
+  }) async {
+    const base = '/public/servers/raft-design';
+    if (path == base) {
+      return {
+        'server': {'id': 's', 'name': 'Raft Design', 'slug': 'raft-design'},
+        'channels': [
+          {'id': 'c1', 'name': 'general', 'description': 'Announcements'},
+        ],
+        'canJoinAsGuest': true,
+      };
+    }
+    if (path == '$base/channels/c1/messages') return {'messages': <dynamic>[]};
+    throw RaftApiException('Not found', status: 404);
+  }
+}
+
 class Page {
   const Page(
     this.name,
@@ -248,7 +287,7 @@ const pages = <Page>[
     cropDp: 915,
   ),
   Page('21-server-selector', '/'),
-  Page('22-server-not-found', '/s/unknown'),
+  Page('22-server-not-found', '/s/unknown', headerless: true),
   Page('23-agent-detail', '/s/alpha/agent/missing'),
   Page('24-computer-detail', '/s/alpha/computer/computer-1'),
   Page('25-member-graph', '/s/alpha/member-graph'),
@@ -317,6 +356,17 @@ void main() {
         body: const SizedBox.expand(),
       ),
     ),
+    '44-public-server': () => PublicServerView(
+      client: _PublicClient(),
+      slug: 'raft-design',
+      onSignIn: () {},
+      onRegister: () {},
+      onUnavailable: () {},
+    ),
+    '45-server-access-denied': () =>
+        RaftServerAccessDeniedPage(serverName: 'Alpha', onContinue: () {}),
+    '51-root-error': () =>
+        RaftRootErrorFallback(message: 'Boom', onReload: () {}),
     '43-onboarding-shell': () =>
         const RaftOnboardingShell(child: Text('Create')),
   };
@@ -346,7 +396,16 @@ void main() {
             ),
           );
           await settle(t, 6);
-          await checkTop(t, theme, entry.key);
+          await checkTop(
+            t,
+            theme,
+            entry.key,
+            // Full-page cards: the page colour runs under the status bar.
+            headerless: const {
+              '45-server-access-denied',
+              '51-root-error',
+            }.contains(entry.key),
+          );
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }

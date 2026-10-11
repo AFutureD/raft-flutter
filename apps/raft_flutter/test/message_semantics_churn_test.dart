@@ -11,23 +11,21 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' as chat;
 import 'package:raft_flutter/features/message_timeline.dart';
 
+import 'flutter_test_config.dart' show RaftTestBinding;
 import 'message_presentation_test.dart' show fixture;
 
 /// Counts the semantics nodes each frame sends to the engine.
-class _CountingBinding extends AutomatedTestWidgetsFlutterBinding {
+class _Counts {
   int updated = 0;
   final edges = <int, List<int>>{};
   final orphans = <int>[];
   final labels = <int, String>{};
   final orphanOwners = <int, String>{};
-  @override
-  ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>
-      _CountingBuilder(this);
 }
 
 class _CountingBuilder implements ui.SemanticsUpdateBuilder {
   _CountingBuilder(this.binding);
-  final _CountingBinding binding;
+  final _Counts binding;
   final inner = ui.SemanticsUpdateBuilder();
   final updatedIds = <int>[];
   @override
@@ -64,7 +62,7 @@ class _CountingBuilder implements ui.SemanticsUpdateBuilder {
       }
 
       if (disconnected.isNotEmpty) {
-        for (final view in binding.renderViews) {
+        for (final view in TestWidgetsFlutterBinding.instance.renderViews) {
           inspect(view);
         }
       }
@@ -166,7 +164,8 @@ int rowNodeCount(Element row) {
 }
 
 void main() {
-  final binding = _CountingBinding();
+  final binding = _Counts();
+  RaftTestBinding.semanticsBuilderFactory = () => _CountingBuilder(binding);
   testWidgets(
     'tooltip portals remain reachable through list scrolling and dialog dismissal',
     (t) async {

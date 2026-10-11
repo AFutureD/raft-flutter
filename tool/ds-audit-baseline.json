@@ -4,31 +4,31 @@
  "about": "Ratchet for tool/ds-audit. Counts may only go down. Regenerate with `tool/ds-audit --update-baseline` after removing violations.",
  "totals": {
   "style.border_radius": 10,
-  "style.dimension": 40,
+  "style.dimension": 39,
   "style.duration": 2,
-  "style.edge_insets": 54,
+  "style.edge_insets": 52,
   "style.font_size": 1,
   "style.font_weight": 5,
   "style.material_colors": 27,
-  "style.material_icons": 18,
+  "style.material_icons": 16,
   "style.material_theme": 26,
-  "style.sized_box": 54,
+  "style.sized_box": 53,
   "style.text_metrics": 1,
   "style.text_style": 9,
-  "widget.button": 34,
-  "widget.chip": 4,
-  "widget.dialog": 41,
+  "widget.button": 32,
+  "widget.chip": 3,
+  "widget.dialog": 39,
   "widget.icon_button": 10,
   "widget.ink": 1,
-  "widget.list_tile": 25,
+  "widget.list_tile": 22,
   "widget.menu": 15,
-  "widget.other": 12,
-  "widget.progress": 13,
-  "widget.scaffold": 6,
+  "widget.other": 11,
+  "widget.progress": 12,
+  "widget.scaffold": 5,
   "widget.select": 3,
   "widget.snackbar": 26,
   "widget.surface": 4,
-  "widget.text_field": 16
+  "widget.text_field": 12
  },
  "files": {
   "apps/raft_flutter/lib/features/account_auth_previews.dart": {
@@ -144,19 +144,7 @@
    "widget.snackbar": 2
   },
   "apps/raft_flutter/lib/features/forward_messages_dialog.dart": {
-   "style.dimension": 1,
-   "style.material_icons": 2,
-   "style.sized_box": 1,
-   "widget.button": 2,
-   "widget.chip": 1,
-   "widget.dialog": 2,
-   "widget.list_tile": 3,
-   "widget.progress": 1,
-   "widget.text_field": 4
-  },
-  "apps/raft_flutter/lib/features/integrations_views.dart": {
-   "widget.other": 1,
-   "widget.scaffold": 1
+   "widget.dialog": 1
   },
   "apps/raft_flutter/lib/features/joint_channel_views.dart": {
    "style.material_theme": 1,
@@ -260,7 +248,7 @@
    "style.material_icons": 1,
    "style.material_theme": 1,
    "widget.button": 1,
-   "widget.dialog": 7,
+   "widget.dialog": 6,
    "widget.icon_button": 1,
    "widget.list_tile": 1,
    "widget.menu": 3,
@@ -327,7 +315,7 @@
   },
   "apps/raft_flutter/lib/features/workspace_view.dart": {
    "style.dimension": 3,
-   "style.edge_insets": 3,
+   "style.edge_insets": 1,
    "style.material_icons": 1,
    "style.sized_box": 1,
    "widget.button": 1,

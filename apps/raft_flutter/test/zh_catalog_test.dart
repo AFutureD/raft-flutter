@@ -199,7 +199,9 @@ List<_Use> _scan() {
   return uses;
 }
 
-bool _isText(String s) => RegExp(r'[A-Za-z]').hasMatch(s);
+/// English words outside `{placeholders}` (a bare `#{name}` has none).
+bool _isText(String s) =>
+    RegExp(r'[A-Za-z]').hasMatch(s.replaceAll(RegExp(r'\{\w+\}'), ''));
 
 void main() {
   test('every literal passed to raftText/raftFormat/tr has a zh entry', () {
