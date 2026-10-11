@@ -21,3 +21,4 @@ build-wp6-cases.py
 build-member-cases.py
 build-auth-cases.py
 build-desktop-dialogs.py
+build-list-pages.py
