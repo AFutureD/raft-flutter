@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Make a feature branch fast-forwardable onto cindy/integration before handoff.
+
+1. fetch origin and merge origin/cindy/integration into the current branch
+   (stops on conflicts so the branch owner resolves them, not the integrator);
+2. run tool/check-project under the shared gate lock;
+3. print one line to paste into the handoff message: branch, commit, base,
+   source hash and the gate result.
+
+Usage: tool/prepare-handoff [--base origin/cindy/integration] [--no-check]
+"""
+import argparse
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+root = pathlib.Path(__file__).resolve().parent.parent
+
+
+def git(*args, check=True):
+    return subprocess.run(['git', *args], cwd=root, check=check, text=True,
+                          capture_output=True).stdout.strip()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--base', default='origin/cindy/integration')
+    parser.add_argument('--no-check', action='store_true',
+                        help='merge only (docs-only branches)')
+    args = parser.parse_args()
+    if git('status', '--porcelain'):
+        sys.exit('Working tree is not clean; commit first.')
+    git('fetch', '-q', 'origin')
+    merged = subprocess.run(['git', 'merge', '--no-edit', args.base], cwd=root,
+                            text=True, capture_output=True)
+    if merged.returncode != 0:
+        print(merged.stdout + merged.stderr)
+        sys.exit(f'Merge of {args.base} has conflicts: resolve them on this branch, '
+                 'commit, and run tool/prepare-handoff again.')
+    branch = git('branch', '--show-current')
+    head = git('rev-parse', '--short', 'HEAD')
+    base = git('rev-parse', '--short', args.base)
+    if args.no_check:
+        print(f'handoff: {branch} {head} (contains {args.base} {base}); gate skipped')
+        return
+    lock = ['flock', '/tmp/raft-flutter-check.lock'] if os.name != 'nt' else []
+    gate = subprocess.run([*lock, sys.executable, str(root / 'tool/check-project')],
+                          cwd=root, text=True, capture_output=True)
+    result = gate.stdout.strip().splitlines()[-1] if gate.stdout.strip() else '{}'
+    try:
+        passed = json.loads(result).get('passed')
+    except json.JSONDecodeError:
+        passed = False
+    run = json.loads((root / '.local/engineering-run.json').read_text())
+    print(f'handoff: {branch} {head} (contains {args.base} {base}); '
+          f'check-project {"PASSED" if passed else "FAILED"}; sourceHash {run.get("sourceHash", "?")[:12]}')
+    sys.exit(0 if passed else 1)
+
+
+if __name__ == '__main__':
+    main()
