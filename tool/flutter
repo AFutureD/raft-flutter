@@ -7,11 +7,15 @@ import subprocess
 import sys
 
 from android_app import SafetyError, flutter_guard
+import parity_case_map
 
 try:
     flutter_guard(sys.argv[1:])
 except SafetyError as error:
     sys.exit(f'STOP: {error}')
+
+# test/parity/case_map.g.dart (git-ignored) is generated from the case files; analyze/test need it.
+parity_case_map.write()
 
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / '.fvmrc').read_text())['flutter']

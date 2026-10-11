@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:raft_flutter/platform/attachment_files.dart';
 
 void main() {
+  // These cases talk to a real loopback server; undo the test binding's mock client.
+  HttpOverrides.global = null;
   test('cancelled save picker fetches nothing and revoked scope never creates a temp file', () async {
     final base = await Directory.systemTemp.createTemp('raft-download-test-');
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

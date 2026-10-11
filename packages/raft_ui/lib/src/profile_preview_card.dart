@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'flex_shrink_row.dart';
 import 'hover_card.dart';
 import 'icons.dart';
 import 'indicators.dart';
@@ -64,7 +65,13 @@ class RaftProfilePreviewCard extends StatelessWidget {
     this.notes = const [],
     this.activity = const [],
     this.onOpenActivity,
+    this.avatarTopInset,
   });
+
+  /// `mt-0.5` on the avatar slot: 2 for a resolved profile (agent, member),
+  /// 0 for the unavailable / external bodies. Null keeps the facts rule
+  /// (agent cards with a facts grid).
+  final double? avatarTopInset;
 
   /// AvatarSlot `mention-card` (48px).
   final Widget avatar;
@@ -137,7 +144,9 @@ class RaftProfilePreviewCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.only(top: facts == null ? 0 : 2),
+            padding: EdgeInsets.only(
+              top: avatarTopInset ?? (facts == null ? 0 : 2),
+            ),
             child: avatar,
           ),
           const SizedBox(width: 12),
@@ -146,25 +155,25 @@ class RaftProfilePreviewCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: line(name, sans(14, 20, strong, FontWeight.w700)),
-                    ),
-                    if (status != null) ...[
-                      const SizedBox(width: 6),
+                // `flex items-center gap-1.5`: the truncating name and status
+                // text shrink in proportion to their width; the dot is fixed.
+                if (status == null)
+                  line(name, sans(14, 20, strong, FontWeight.w700))
+                else
+                  RaftFlexShrinkRow(
+                    gap: 6,
+                    truncating: true,
+                    fixed: const {1},
+                    children: [
+                      line(name, sans(14, 20, strong, FontWeight.w700)),
                       RaftStatusDot(
                         activity: status!.activity,
                         external: status!.external,
                         size: RaftStatusDotSize.sm,
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: line(status!.text, mono(12, 16, muted(.6))),
-                      ),
+                      line(status!.text, mono(12, 16, muted(.6))),
                     ],
-                  ],
-                ),
+                  ),
                 if (subtitle != null) line(subtitle!, mono(12, 16, muted(.6))),
                 for (final note in notes)
                   Padding(
@@ -206,17 +215,23 @@ class RaftProfilePreviewCard extends StatelessWidget {
                                   right: 8,
                                   top: i == 0 ? 0 : 4,
                                 ),
-                                child: Text(fact.label, style: factLabel),
+                                child: SizedBox(
+                                  height: 11 * 1.25,
+                                  child: Text(fact.label, style: factLabel),
+                                ),
                               ),
                               Padding(
                                 padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
-                                child: line(
-                                  fact.capitalize && fact.value.isNotEmpty
-                                      ? fact.value[0].toUpperCase() +
-                                            fact.value.substring(1)
-                                      : fact.value,
-                                  factStyle,
-                                  tooltip: true,
+                                child: SizedBox(
+                                  height: 11 * 1.25,
+                                  child: line(
+                                    fact.capitalize && fact.value.isNotEmpty
+                                        ? fact.value[0].toUpperCase() +
+                                              fact.value.substring(1)
+                                        : fact.value,
+                                    factStyle,
+                                    tooltip: true,
+                                  ),
                                 ),
                               ),
                             ],

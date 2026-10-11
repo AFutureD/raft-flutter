@@ -7,6 +7,9 @@
 // react > android > ios > ohos); metadata records `source: "flutter"`.
 import 'dart:convert';
 import 'dart:io';
+
+import '../../../../tool/testing/system_fonts.dart';
+
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
@@ -24,8 +27,10 @@ import 'geometry_dump.dart';
 typedef ParityBuilder = Widget Function(ParityContext ctx);
 
 /// Optional post-pump interaction (tap a trigger, open a menu, type text).
-typedef ParityInteraction =
-    Future<void> Function(WidgetTester t, ParityContext ctx);
+typedef ParityInteraction = Future<void> Function(
+  WidgetTester t,
+  ParityContext ctx,
+);
 
 /// One mapped case: the real widget path the Flutter app uses for the
 /// surface the React render host shows under the same case id.
@@ -173,6 +178,34 @@ class ParityContext {
   return (RaftFamily.brutal, false);
 }
 
+Map<String, List<String>> paritySystemFonts() => {
+  'Noto Sans CJK JP': [
+    systemTestFont('opentype/noto/NotoSansCJK-Regular.ttc').path,
+    systemTestFont('opentype/noto/NotoSansCJK-Bold.ttc').path,
+  ],
+  'Noto Sans CJK SC': [
+    systemTestFont('opentype/noto/NotoSansCJK-Regular.ttc').path,
+    systemTestFont('opentype/noto/NotoSansCJK-Bold.ttc').path,
+  ],
+  'Noto Color Emoji': [systemTestFont('truetype/noto/NotoColorEmoji.ttf').path],
+  // `ui-sans-serif, system-ui` (the hands-feedback Feedback workspace):
+  // Chromium resolves it through fontconfig, which is Noto Sans on the
+  // capture host; product code names `system-ui` (raftSystemUiFont), which
+  // a device resolves to its own UI face.
+  'system-ui': [
+    systemTestFont('truetype/noto/NotoSans-Regular.ttf').path,
+    systemTestFont('truetype/noto/NotoSans-Bold.ttf').path,
+  ],
+  // flutter_test has no OS fallback chain. On Android the system resolves
+  // emoji through its own fallback; here the theme's trailing `sans-serif`
+  // fallback family stands in for it so emoji do not render as tofu.
+  'sans-serif': [systemTestFont('truetype/noto/NotoColorEmoji.ttf').path],
+};
+
+String? missingParityFontReason() => missingTestFontReason(
+  paritySystemFonts().values.expand((paths) => paths).toSet().map(File.new),
+);
+
 bool _fontsLoaded = false;
 
 /// Loads every font the app bundles (FontManifest.json: raft_ui families and
@@ -204,29 +237,7 @@ Future<List<String>> loadParityFonts() async {
       await alias.load();
     }
   }
-  const systemFallbacks = {
-    'Noto Sans CJK JP': [
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
-    ],
-    'Noto Sans CJK SC': [
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-      '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
-    ],
-    'Noto Color Emoji': ['/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'],
-    // `ui-sans-serif, system-ui` (the hands-feedback Feedback workspace):
-    // Chromium resolves it through fontconfig, which is Noto Sans on the
-    // capture host; product code names `system-ui` (raftSystemUiFont), which
-    // a device resolves to its own UI face.
-    'system-ui': [
-      '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
-      '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
-    ],
-    // flutter_test has no OS fallback chain. On Android the system resolves
-    // emoji through its own fallback; here the theme's trailing `sans-serif`
-    // fallback family stands in for it so emoji do not render as tofu.
-    'sans-serif': ['/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'],
-  };
+  final systemFallbacks = paritySystemFonts();
   for (final MapEntry(key: family, value: paths) in systemFallbacks.entries) {
     final files = paths.map(File.new).where((f) => f.existsSync()).toList();
     if (files.isEmpty) continue;
@@ -443,13 +454,11 @@ Future<Map<String, dynamic>> captureParityCase(
   };
   await t.runAsync(() async {
     await imageFile.writeAsBytes(png!);
-    await File(
-      '${outputDir.path}/$id.metadata.json',
-    ).writeAsString(const JsonEncoder.withIndent('  ').convert(metadata));
+    await File('${outputDir.path}/$id.metadata.json')
+        .writeAsString(const JsonEncoder.withIndent('  ').convert(metadata));
     if (parityGeometryDumpEnabled) {
-      await File(
-        '${outputDir.path}/$id.geometry.txt',
-      ).writeAsString(parityGeometryDump(rootBox, rect, rootBox));
+      await File('${outputDir.path}/$id.geometry.txt')
+          .writeAsString(parityGeometryDump(rootBox, rect, rootBox));
     }
   });
   return metadata;

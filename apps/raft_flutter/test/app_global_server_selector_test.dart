@@ -197,7 +197,11 @@ class RootFixture {
     this.sharing,
     this.sessionOwner,
     this.onStartupReady,
+    this.contentOverride,
   }) : cache = cache ?? RootCache();
+
+  /// A real coordinator (notification/link handling) instead of [content].
+  final NativeContentCoordinator? contentOverride;
   final NativeSharing? sharing;
   final NativeSessionOwner? sessionOwner;
   final VoidCallback? onStartupReady;
@@ -228,6 +232,7 @@ class RootFixture {
     bool cachedSession = false,
     String principal = 'alice',
     Map<String, Object> preferences = const {},
+    bool settle = true,
   }) async {
     SharedPreferences.setMockInitialValues({
       'raft.origin': 'https://fixture.invalid',
@@ -338,7 +343,7 @@ class RootFixture {
       RaftApp(
         sessionStore: sessions,
         initialLocation: uri ?? Uri(path: '/'),
-        nativeContent: content,
+        nativeContent: contentOverride ?? content,
         nativeSharing: sharing ?? NativeSharing(supported: false),
         nativeSessionOwner: sessionOwner,
         onStartupReady: onStartupReady,
@@ -347,7 +352,7 @@ class RootFixture {
             client = RootClient(origin, store, kind, adapter),
       ),
     );
-    await flush(t);
+    if (settle) await flush(t);
   }
 
   /// The root surface painted by each [flush] frame, in order.
@@ -538,7 +543,13 @@ void main() {
         await f.pushUri(t, '/s/unauthorized/settings/account');
         await f.flush(t);
         expect(find.byType(WorkspaceView), findsNothing);
-        expect(f.router(t).currentConfiguration.toString(), '/');
+        // Web ServerResolver: a slug the account does not have shows
+        // "Server not found" at the same URL, then redirects.
+        expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
+        expect(
+          f.router(t).currentConfiguration.toString(),
+          '/s/unauthorized/settings/account',
+        );
         expect(w.server!.id, 'b');
         await f.close(t);
       },

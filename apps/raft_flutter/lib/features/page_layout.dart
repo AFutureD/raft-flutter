@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/recipes.dart' as recipes;
 
+import '../platform/system_bars.dart';
+
 /// The product panel header shared by the source's individual page columns.
 /// Platform safe-area insets are supplied by the host, outside this rectangle.
 double raftPageHeaderHeight(BuildContext context) =>
@@ -270,15 +272,18 @@ PreferredSizeWidget raftPageAppBar(
   final navigator = Navigator.of(context);
   return PreferredSize(
     preferredSize: Size.fromHeight(raftPageHeaderHeight(context)),
-    // ds-allow: Native Scaffold appBar ink host and safe-area background; raft_ui owns the header content.
-    child: Material(
-      color: RaftTokens.of(context).panel,
-      child: SafeArea(
-        bottom: false,
-        child: RaftPanelHeaderBar(
-          title: title,
-          onBack: navigator.canPop() ? () => navigator.maybePop() : null,
-          actions: actions,
+    child: RaftSystemBarSurface(
+      statusBarFallback: RaftTokens.of(context).panel,
+      // ds-allow: Native Scaffold appBar ink host and safe-area background; raft_ui owns the header content.
+      child: Material(
+        color: RaftTokens.of(context).panel,
+        child: SafeArea(
+          bottom: false,
+          child: RaftPanelHeaderBar(
+            title: title,
+            onBack: navigator.canPop() ? () => navigator.maybePop() : null,
+            actions: actions,
+          ),
         ),
       ),
     ),

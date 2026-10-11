@@ -5,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/incoming_share_targets.dart';
+import '../platform/incoming_share_staging.dart';
 
 class IncomingSharePicker extends StatefulWidget {
   const IncomingSharePicker({
@@ -14,12 +15,24 @@ class IncomingSharePicker extends StatefulWidget {
     required this.onContinue,
     required this.valid,
     this.initialServer,
+    this.staging,
+    this.cachedTargets,
   });
   final RaftClient client;
   final List<RaftRecord> servers;
   final String? initialServer;
   final bool Function() valid;
   final Future<void> Function(RaftRecord, IncomingShareTarget) onContinue;
+
+  /// Background copy of the shared files. The picker shows its per-item
+  /// progress and closes if the copy fails; null when nothing is copied.
+  final IncomingShareStaging? staging;
+
+  /// Device-cached destinations painted before the network answers. A seed is
+  /// only ever shown: it is replaced by the fresh directory, and hand-off
+  /// waits for that revalidation before it adds anything.
+  final FutureOr<List<IncomingShareTarget>?> Function(RaftRecord server)?
+  cachedTargets;
   @override
   State<IncomingSharePicker> createState() => _IncomingSharePickerState();
 }
@@ -32,12 +45,20 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
   List<IncomingShareTarget> targets = [];
   final search = TextEditingController();
   final searchFocus = FocusNode();
-  String? error;
+  String? error, notice;
+
+  /// [loading]: no row to show yet. Rows are a device seed (or stale after an
+  /// authority event) while a check is pending; [revalidating] is that state.
   bool loading = false, busy = false;
-  int request = 0;
+  int request = 0, _checks = 0;
+  bool get revalidating => _checks > 0;
+
+  /// Settles when every check started so far has finished. Never throws.
+  Future<void> validation = Future.value();
   @override
   void initState() {
     super.initState();
+    widget.staging?.addListener(stagingChanged);
     events = widget.client.events.listen((event) {
       if (!busy &&
           (event.name.startsWith('server:member') ||
@@ -48,80 +69,185 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
                 'channel:removed',
                 'dm:new',
               }.contains(event.name))) {
-        unawaited(refreshAuthority());
+        refreshAuthority();
       }
     });
     final initial =
         widget.servers.where((s) => s.id == widget.initialServer).firstOrNull ??
         widget.servers.firstOrNull;
-    if (initial != null) load(initial);
+    if (initial != null) {
+      load(initial);
+    } else {
+      loading = true;
+    }
+    // The server list shown first is the device's; membership is re-read now.
+    revalidateServers();
   }
 
-  Future<void> refreshAuthority() async {
-    final ticket = ++request;
-    setState(() {
-      selected = null;
-      targets = [];
-      loading = true;
-      error = null;
+  void stagingChanged() {
+    if (!mounted) return;
+    if (widget.staging?.failed == true && !busy) {
+      Navigator.of(context).maybePop(false);
+      return;
+    }
+    setState(() {});
+  }
+
+  /// Runs [body] as one pending check: hand-off waits for all of them.
+  Future<void> _check(Future<void> Function() body) {
+    _checks++;
+    final done = body().whenComplete(() {
+      _checks--;
+      if (mounted) setState(() {});
     });
+    final settled = done.then<void>((_) {}, onError: (Object _) {});
+    validation = Future.wait([validation, settled]).then<void>((_) {});
+    return settled;
+  }
+
+  /// Authority changed: keep what is on screen but re-read it. A row the fresh
+  /// directory no longer offers is dropped with a notice.
+  void refreshAuthority() {
+    revalidateServers();
+    final current = server;
+    if (current != null) load(current, keepSelection: true);
+  }
+
+  /// Membership: a server the account no longer belongs to leaves the picker
+  /// (with its destinations and selection); a changed role reloads them.
+  Future<void> revalidateServers() => _check(() async {
     try {
       final next = await widget.client.servers();
-      if (!mounted || ticket != request || !widget.valid()) {
+      if (!mounted || !widget.valid()) return;
+      final current = server;
+      final fresh = current == null
+          ? null
+          : next.where((s) => s.id == current.id).firstOrNull;
+      setState(() => servers = next);
+      if (current != null && fresh != null) {
+        if (fresh.string('role') != current.string('role')) {
+          load(fresh, keepSelection: true);
+        } else {
+          setState(() => server = fresh);
+        }
         return;
       }
-      setState(() => servers = next);
-      final selectedServer =
-          next.where((s) => s.id == server?.id).firstOrNull ?? next.firstOrNull;
-      if (selectedServer != null) {
-        await load(selectedServer);
+      final alternative = next.firstOrNull;
+      if (alternative != null) {
+        // The selected destination's server is gone.
+        final lost = current != null && selected != null;
+        load(alternative);
+        if (lost) {
+          setState(
+            () => notice = 'The selected destination is no longer available.',
+          );
+        }
       } else {
+        request++;
         setState(() {
+          if (selected != null) {
+            notice = 'The selected destination is no longer available.';
+          }
           server = null;
+          selected = null;
+          targets = [];
           loading = false;
         });
       }
     } catch (_) {
-      if (mounted && ticket == request && widget.valid()) {
+      // Offline: the device's list stays; hand-off re-reads membership.
+      if (mounted && server == null && targets.isEmpty) {
         setState(() {
           loading = false;
           error = 'Conversations could not be loaded.';
         });
       }
     }
-  }
+  });
 
-  Future<void> load(RaftRecord next) async {
+  Future<void> load(RaftRecord next, {bool keepSelection = false}) {
     final ticket = ++request;
+    final same = server?.id == next.id;
+    // Seed from the device synchronously when the source can: the first frame
+    // already lists the cached destinations.
+    final seed = same ? null : widget.cachedTargets?.call(next);
+    final seeded = seed is List<IncomingShareTarget> ? seed : null;
+    final keptNotice = notice;
     setState(() {
       server = next;
-      selected = null;
-      targets = [];
-      loading = true;
+      if (!(same && keepSelection)) selected = null;
+      if (!same) {
+        targets = seeded ?? [];
+        search.clear();
+      }
+      loading = targets.isEmpty;
       error = null;
-      search.clear();
+      notice = same && keepSelection ? keptNotice : null;
     });
-    try {
-      final rows = await incomingShareTargets(widget.client, next);
-      if (mounted && request == ticket && widget.valid()) {
+    bool current() => mounted && request == ticket && widget.valid();
+    return _check(() async {
+      if (seed is Future<List<IncomingShareTarget>?>) {
+        try {
+          final rows = await seed;
+          if (current() && rows != null && targets.isEmpty) {
+            setState(() {
+              targets = rows;
+              loading = false;
+            });
+          }
+        } catch (_) {
+          // A missing device copy only means a spinner until the read ends.
+        }
+      }
+      try {
+        final rows = await incomingShareTargets(widget.client, next);
+        if (!current()) return;
         setState(() {
           targets = rows;
           loading = false;
+          final held = selected;
+          if (held != null) {
+            final fresh = rows.where((t) => t.key == held.key).firstOrNull;
+            if (fresh == null) {
+              notice = 'The selected destination is no longer available.';
+            }
+            selected = fresh;
+          }
         });
-      }
-    } catch (_) {
-      if (mounted && request == ticket && widget.valid()) {
+      } catch (e) {
+        if (!current()) return;
         setState(() {
           loading = false;
-          error = 'Conversations could not be loaded.';
+          if (targets.isEmpty ||
+              e is RaftApiException && (e.status == 403 || e.status == 404)) {
+            // Refused or nothing to show: no destination of this server stays
+            // selectable on the strength of the device copy.
+            targets = [];
+            selected = null;
+            error = 'Conversations could not be loaded.';
+          } else {
+            notice = 'Conversations could not be loaded.';
+          }
         });
       }
-    }
+    });
   }
 
   Future<void> proceed() async {
+    if (selected == null || server == null || busy || !widget.valid()) return;
+    // A device-cached or authority-stale row authorizes nothing: wait for the
+    // fresh directory (it may drop the row) before joining or adding.
+    for (var wait = 0; revalidating && wait < 3; wait++) {
+      setState(() {
+        busy = true;
+        error = null;
+      });
+      await validation;
+      if (!mounted || !widget.valid()) return;
+      setState(() => busy = false);
+    }
     final destination = selected, scope = server;
-    if (destination == null || scope == null || busy || !widget.valid()) return;
+    if (destination == null || scope == null || revalidating) return;
     if (destination.requiresJoin) {
       final accepted = await RaftConfirmDialog.show(
         context,
@@ -161,6 +287,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
 
   @override
   void dispose() {
+    widget.staging?.removeListener(stagingChanged);
     request++;
     events?.cancel();
     search.dispose();
@@ -186,6 +313,21 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
               onBack: busy ? null : () => Navigator.of(context).pop(false),
               backTooltip: raftText(context, 'Back'),
             ),
+            if (widget.staging?.preparing == true && widget.staging!.total > 0)
+              RaftPanel(
+                key: const Key('incoming-share-preparing'),
+                child: RaftProgressBar(
+                  label: raftFormat(
+                    context,
+                    'Preparing {done} of {total} files',
+                    {
+                      'done': widget.staging!.copied,
+                      'total': widget.staging!.total,
+                    },
+                  ),
+                  value: 100 * widget.staging!.copied / widget.staging!.total,
+                ),
+              ),
             if (servers.isNotEmpty)
               RaftPanel(
                 child: SingleChildScrollView(
@@ -213,16 +355,26 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
                 ),
                 label:
                     selected?.label ?? raftText(context, 'Select destinations'),
-                itemCount: loading || error != null ? 1 : rows.length,
+                itemCount: loading || error != null
+                    ? 1
+                    : rows.length + (notice == null ? 0 : 1),
                 itemBuilder: (context, index) {
                   if (loading) {
                     return const RaftForwardSearchStatus(loading: true);
                   }
+                  if (notice != null && index == 0) {
+                    return RaftForwardSearchStatus(
+                      key: const Key('incoming-share-notice'),
+                      message: raftText(context, notice!),
+                    );
+                  }
+                  if (notice != null) index--;
                   if (error != null) {
                     return RaftForwardSearchStatus(
                       message: raftText(context, error!),
                       retryLabel: raftText(context, 'Retry'),
-                      onRetry: server == null ? null : () => load(server!),
+                      onRetry: () =>
+                          server == null ? refreshAuthority() : load(server!),
                     );
                   }
                   final target = rows[index];

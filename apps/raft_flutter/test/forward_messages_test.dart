@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/forward_composer_page.dart';
 import 'package:raft_flutter/features/forward_messages_dialog.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -182,7 +183,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Search channels or people'),
+        find.widgetWithText(TextField, 'Search targets'),
         'c',
       );
       await tester.pump(const Duration(milliseconds: 500));
@@ -191,87 +192,76 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('#c2'));
       await tester.pump();
-      await tester.tap(find.widgetWithText(RaftButton, 'Forward'));
+      expect(find.text('2 selected'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('forward-send')));
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.byType(ForwardMessagesDialog), findsOneWidget);
-      expect(find.text('Forwarded'), findsOneWidget);
-      expect(find.text('Unavailable'), findsOneWidget);
-      expect(
-        find.widgetWithText(TextField, 'Search channels or people'),
-        findsNothing,
-      );
-      await tester.tap(find.widgetWithText(RaftButton, 'Retry'));
+      // One destination failed: the dialog stays and reports the unconfirmed forward.
+      expect(find.byType(ForwardComposerPage), findsOneWidget);
+      expect(find.textContaining("couldn't confirm"), findsOneWidget);
+      await tester.tap(find.byKey(const Key('forward-send')));
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));
       expect(t.writes.length, 2);
       expect(t.writes[1], t.writes[0]);
-      expect(find.byType(ForwardMessagesDialog), findsNothing);
+      expect(find.byType(ForwardComposerPage), findsNothing);
       expect(find.text('Open'), findsOneWidget);
     },
   );
-  testWidgets(
-    'typing more keeps the current results until the new ones replace them',
-    (tester) async {
-      final t = _Transport()..heldSearch['ch'] = Completer<List<String>>();
-      final client = (await tester.runAsync(() async {
-        final c = RaftClient(
-          origin: 'https://example.invalid',
-          sessionStore: MemorySessionStore(),
-          transport: Dio()..httpClientAdapter = t,
-        );
-        await c.login('fixture', 'fixture');
-        return c;
-      }))!;
-      client.selectServer('s1');
-      final w = WorkspaceController(client)
-        ..server = RaftRecord({'id': 's1', 'role': 'owner'});
-      addTearDown(w.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(RaftFamily.elegant),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => forwardMessages(context, w, [
-                  RaftMessage({'id': 'm1', 'messageType': 'chat'}),
-                ]),
-                child: const Text('Open'),
-              ),
+  testWidgets('a newer search replaces the results of the previous one', (
+    tester,
+  ) async {
+    final t = _Transport()..heldSearch['ch'] = Completer<List<String>>();
+    final client = (await tester.runAsync(() async {
+      final c = RaftClient(
+        origin: 'https://example.invalid',
+        sessionStore: MemorySessionStore(),
+        transport: Dio()..httpClientAdapter = t,
+      );
+      await c.login('fixture', 'fixture');
+      return c;
+    }))!;
+    client.selectServer('s1');
+    final w = WorkspaceController(client)
+      ..server = RaftRecord({'id': 's1', 'role': 'owner'});
+    addTearDown(w.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => forwardMessages(context, w, [
+                RaftMessage({'id': 'm1', 'messageType': 'chat'}),
+              ]),
+              child: const Text('Open'),
             ),
           ),
         ),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      final field = find.widgetWithText(TextField, 'Search channels or people');
-      await tester.enterText(field, 'c');
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('#c1'), findsOneWidget);
-      final rect = tester.getRect(find.text('#c1'));
-      // Keystroke two: the held request keeps the first results on screen,
-      // frame after frame, at the same place.
-      await tester.enterText(field, 'ch');
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(find.text('#c1'), findsOneWidget);
-        expect(find.text('#c2'), findsOneWidget);
-        expect(tester.getRect(find.text('#c1')), rect);
-      }
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      t.heldSearch['ch']!.complete(['c2', 'c3']);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('#c1'), findsNothing);
-      expect(find.text('#c3'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-      // An emptied query returns to the idle, empty list.
-      await tester.enterText(field, '');
-      await tester.pump();
-      expect(find.text('#c2'), findsNothing);
-    },
-  );
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final field = find.widgetWithText(TextField, 'Search targets');
+    await tester.enterText(field, 'c');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('#c1'), findsOneWidget);
+    expect(find.text('#c2'), findsOneWidget);
+    // Keystroke two: the held request has not answered yet.
+    await tester.enterText(field, 'ch');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    t.heldSearch['ch']!.complete(['c2', 'c3']);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('#c1'), findsNothing);
+    expect(find.text('#c3'), findsOneWidget);
+    // An emptied query returns to the recent destinations.
+    await tester.enterText(field, '');
+    await tester.pump();
+    expect(find.text('#c3'), findsNothing);
+  });
   testWidgets(
     'same-generation role loss closes retained forward callback before mutation',
     (tester) async {
@@ -307,7 +297,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Search channels or people'),
+        find.widgetWithText(TextField, 'Search targets'),
         'c',
       );
       await tester.pump(const Duration(milliseconds: 500));
@@ -315,14 +305,14 @@ void main() {
       await tester.tap(find.text('#c1'));
       await tester.pump();
       final submit = tester
-          .widget<RaftButton>(find.widgetWithText(RaftButton, 'Forward'))
+          .widget<RaftRecipeButton>(find.byKey(const Key('forward-send')))
           .onPressed!;
       w.server = RaftRecord({'id': 's1', 'role': 'guest'});
       w.notifyListeners();
       submit();
       await tester.pumpAndSettle();
       expect(t.writes, isEmpty);
-      expect(find.byType(ForwardMessagesDialog), findsNothing);
+      expect(find.byType(ForwardComposerPage), findsNothing);
       expect(find.text('Open'), findsOneWidget);
     },
   );

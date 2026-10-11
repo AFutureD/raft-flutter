@@ -16,6 +16,7 @@ import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'system_inset.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -401,7 +402,9 @@ class RaftChannelMembersModal extends StatelessWidget {
                         vertical: 16,
                       ),
                       child: Text(
-                        raftText(context, 'No matches for "${query.trim()}"'),
+                        raftFormat(context, 'No matches for "{query}"', {
+                          'query': query.trim(),
+                        }),
                         textAlign: TextAlign.center,
                         style: mutedText,
                       ),
@@ -453,7 +456,9 @@ class RaftChannelMembersModal extends StatelessWidget {
         key: const ValueKey('add-member-confirm'),
         label: adding
             ? 'Adding…'
-            : '${raftText(context, 'Add selected')} (${chips.length})',
+            : raftFormat(context, 'Add selected ({count})', {
+                'count': chips.length,
+              }),
         glyph: RaftGlyph.plus,
         glyphSize: 14,
         variant: RaftButtonRecipeVariant.primary,
@@ -661,9 +666,10 @@ class _CreateAgentEntry extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    raftText(
+                    raftFormat(
                       context,
-                      'Joins #$channelName automatically after creation',
+                      'Joins {channel} automatically after creation',
+                      {'channel': '#$channelName'},
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -830,61 +836,65 @@ class _MembersPageState extends State<_MembersPage> {
         onPressed: m.addView ? m.onBack : m.onClose,
       ),
     );
-    return Container(
-      // `flex h-panel-header shrink-0 items-center gap-2 border-b
-      // border-line-muted bg-layer-inset px-4`, brutal `border-b-2
-      // border-black bg-soft-signal`. The drawer portals out of the AppShell,
-      // so `h-panel-header` is the 62px fallback.
-      height: RaftMetrics.brutalPanelHeader,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: t.brutal
-            ? t.colors['color-soft-signal']
-            : t.colors['layer-inset'],
-        border: Border(
-          bottom: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-            width: t.brutal ? 2 : 1,
+    final headerColor = (t.brutal
+        ? t.colors['color-soft-signal']
+        : t.colors['layer-inset'])!;
+    return RaftStatusBarSource(
+      color: headerColor,
+      child: Container(
+        // `flex h-panel-header shrink-0 items-center gap-2 border-b
+        // border-line-muted bg-layer-inset px-4`, brutal `border-b-2
+        // border-black bg-soft-signal`. The drawer portals out of the AppShell,
+        // so `h-panel-header` is the 62px fallback.
+        height: RaftMetrics.brutalPanelHeader,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: headerColor,
+          border: Border(
+            bottom: BorderSide(
+              color: t.brutal ? Colors.black : t.colors['line-muted']!,
+              width: t.brutal ? 2 : 1,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          back,
-          const SizedBox(width: 8),
-          Flexible(
-            child: Semantics(
-              header: true,
-              child: Text(
-                m.addView
-                    ? raftText(context, 'Add Member')
-                    : raftText(context, 'Members'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: raftCssTextStyle(
-                  family: t.bodyFont,
-                  step: RaftTextSteps.base,
-                  weight: FontWeight.w700,
-                  color: t.brutal ? Colors.black : t.strong,
+        child: Row(
+          children: [
+            back,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  m.addView
+                      ? raftText(context, 'Add Member')
+                      : raftText(context, 'Members'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: raftCssTextStyle(
+                    family: t.bodyFont,
+                    step: RaftTextSteps.base,
+                    weight: FontWeight.w700,
+                    color: t.brutal ? Colors.black : t.strong,
+                  ),
                 ),
               ),
             ),
-          ),
-          if (!m.addView && !m.loading) ...[
-            const SizedBox(width: 8),
-            RaftBadge(
-              key: const ValueKey('member-page-count'),
-              label: '$total',
-              appearance: RaftBadgeRecipeAppearance.soft,
-              variant: RaftBadgeRecipeVariant.muted,
-              fontFamily: t.monoFont,
-            ),
+            if (!m.addView && !m.loading) ...[
+              const SizedBox(width: 8),
+              RaftBadge(
+                key: const ValueKey('member-page-count'),
+                label: '$total',
+                appearance: RaftBadgeRecipeAppearance.soft,
+                variant: RaftBadgeRecipeVariant.muted,
+                fontFamily: t.monoFont,
+              ),
+            ],
+            if (!m.addView && m.loading) ...[
+              const SizedBox(width: 8),
+              const RaftSpinner(size: 14),
+            ],
           ],
-          if (!m.addView && m.loading) ...[
-            const SizedBox(width: 8),
-            const RaftSpinner(size: 14),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -1041,10 +1051,9 @@ class _MembersPageState extends State<_MembersPage> {
                       vertical: 16,
                     ),
                     child: Text(
-                      raftText(
-                        context,
-                        'No matches for "${rosterSearch.text.trim()}"',
-                      ),
+                      raftFormat(context, 'No matches for "{query}"', {
+                        'query': rosterSearch.text.trim(),
+                      }),
                       textAlign: TextAlign.center,
                       style: note(),
                     ),

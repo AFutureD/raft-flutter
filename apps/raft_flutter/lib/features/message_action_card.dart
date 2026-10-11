@@ -5,6 +5,8 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import 'integrations_views.dart'
+    show integrationScopeCopy, integrationVisibleScopes;
 import 'managed_agent_launcher.dart';
 import 'private_route_guard.dart';
 
@@ -68,7 +70,10 @@ class _MessageActionCardState extends State<MessageActionCard> {
   String? get blocked {
     if (metadata['sourceServerId'] != null &&
         metadata['sourceServerId'] != w.server?.id) {
-      return 'Switch to the target workspace to use this action.';
+      final server = metadata['targetServerName'];
+      return server is String
+          ? 'This action runs on $server. Switch to $server to run it.'
+          : 'This is a history copy. Only the source workspace can run this action.';
     }
     final c = carrier;
     if (c == null ||
@@ -76,15 +81,19 @@ class _MessageActionCardState extends State<MessageActionCard> {
             w.threadChannelId != widget.message.channelId)) {
       return 'The action channel is unavailable.';
     }
-    if (c.archived) return 'This channel is archived.';
-    if (w.server?.string('role') == 'guest') {
-      return 'Guests cannot confirm actions.';
+    if (c.archived) {
+      return 'This channel is archived, so its actions can no longer be run.';
     }
-    if (!c.joined && !['owner', 'admin'].contains(w.server?.string('role'))) {
-      return 'Join this channel before confirming an action.';
+    if (w.server?.string('role') == 'guest') {
+      return "Guests can't run channel actions.";
+    }
+    if (!c.joined &&
+        c.type != 'dm' &&
+        !['owner', 'admin'].contains(w.server?.string('role'))) {
+      return 'Join #${c.name} to run this.';
     }
     if (type == 'agent:create' && !w.can('createAgents')) {
-      return 'You do not have permission to create agents.';
+      return 'You need the Create Agents permission — ask a Server owner or admin to run this.';
     }
     if (type == 'channel:create' && !w.can('createChannels')) {
       return 'You do not have permission to create channels.';
@@ -122,6 +131,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
   void initState() {
     super.initState();
     w.addListener(changed);
+    // Names in the summary resolve through the server directories.
+    w.entityDirectory.addListener(changed);
   }
 
   @override
@@ -153,6 +164,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
   @override
   void dispose() {
     w.removeListener(changed);
+    w.entityDirectory.removeListener(changed);
     final stale = ownedDialog;
     if (stale != null && stale.isActive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -457,8 +469,319 @@ class _MessageActionCardState extends State<MessageActionCard> {
     }
   }
 
+
+  static const _known = {
+    'channel:create',
+    'agent:create',
+    'channel:add_member',
+    'integration:approve_agent_login',
+    'integration:install_marketplace_app',
+    'integration:register_app',
+    'integration:update_app_registration',
+    'integration:recover_app_owner',
+  };
+
+  String _short(String id) => id.length > 8 ? id.substring(0, 8) : id;
+
+  String _memberName(String id) {
+    final m = w.entityDirectory.member(id);
+    final name = m?['displayName'] ?? m?['name'];
+    return name is String && name.isNotEmpty ? name : _short(id);
+  }
+
+  String _agentName(String id) {
+    final a = w.entityDirectory.agent(id);
+    final name = a?['displayName'] ?? a?['name'];
+    return name is String && name.isNotEmpty ? name : _short(id);
+  }
+
+  List<String> _list(Object? value) =>
+      value is List ? value.whereType<String>().toList() : const [];
+
+  /// ActionTitleLine: the localized title split into its flex items (text
+  /// pieces and `<n>` chunks), each trimmed like a collapsed anonymous item.
+  List<String> _titleParts(BuildContext context) {
+    String f(String template, Map<String, Object?> values) =>
+        raftFormat(context, template, values);
+    final channel = w.channels
+        .where((c) => c.id == action['channel'])
+        .firstOrNull;
+    final raw = switch (type) {
+      'channel:create' => f(
+        action['visibility'] == 'private'
+            ? 'Create private channel <n>#{name}</n>'
+            : 'Create public channel <n>#{name}</n>',
+        {'name': action['name'] ?? ''},
+      ),
+      'agent:create' => f('Create Agent <n>@{name}</n>', {
+        'name': action['name'] ?? '',
+      }),
+      'channel:add_member' => () {
+        final count =
+            _list(action['humans']).length + _list(action['agents']).length;
+        return f(
+          count == 1
+              ? 'Add 1 member to <n>{target}</n>'
+              : 'Add {count} members to <n>{target}</n>',
+          {
+            'count': count,
+            'target': channel?.name != null
+                ? '#${channel!.name}'
+                : raftText(context, 'channel'),
+          },
+        );
+      }(),
+      'integration:approve_agent_login' => f(
+        'Approve <n>{client}</n> for <n>@{agent}</n>',
+        {'client': action['clientName'], 'agent': action['agentName']},
+      ),
+      'integration:install_marketplace_app' => f(
+        'Install <n>{client}</n> for <n>@{agent}</n>',
+        {'client': action['clientName'], 'agent': action['agentName']},
+      ),
+      'integration:register_app' => f('Register app <n>{name}</n>', {
+        'name': action['name'],
+      }),
+      'integration:update_app_registration' => f(
+        'Update app <n>{clientKey}</n>',
+        {'clientKey': action['clientKey']},
+      ),
+      _ => f('Recover <n>{clientKey}</n> for <n>@{agent}</n>', {
+        'clientKey': action['clientKey'],
+        'agent': _agentName('${action['targetAgent']}'),
+      }),
+    };
+    return [
+      for (final piece in raw.split(RegExp(r'</?n>')))
+        if (piece.trim().isNotEmpty) piece.trim(),
+    ];
+  }
+
+  Widget _scopes(BuildContext context, {String? agentName}) {
+    final scopes = _list(action['scopes']);
+    final visible = <String>[];
+    for (final scope in scopes) {
+      if (integrationVisibleScopes.contains(scope) && !visible.contains(scope)) {
+        visible.add(scope);
+      }
+    }
+    if (visible.isEmpty) {
+      return RaftActionField(
+        label: 'Scopes:',
+        value: scopes.isEmpty ? '-' : scopes.join(', '),
+      );
+    }
+    final inbound = visible.any(
+      (s) => const {'agent:event:write', 'agent:notification:write'}.contains(s),
+    );
+    return RaftActionField(
+      label: 'Scopes:',
+      child: RaftActionScopeList(
+        scopes: [
+          for (final s in visible)
+            (scope: s, copy: integrationScopeCopy[s] ?? ''),
+        ],
+        footer: [
+          if (agentName != null && inbound)
+            RaftActionNote(
+              raftFormat(context, 'Will send to: @{agent}', {
+                'agent': agentName,
+              }),
+              tone: RaftActionTone.strong,
+            ),
+          if (inbound)
+            const RaftActionWarningBox(
+              'Cannot send chat as you, speak as the agent, read messages, or take actions.',
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _body(BuildContext context) {
+    Widget field(String label, String? value) =>
+        RaftActionField(label: label, value: value);
+    Widget? maybe(String label, Object? value) =>
+        value is String && value.isNotEmpty ? field(label, value) : null;
+    final humans = _list(action['humans'] ?? action['initialHumans']);
+    final agents = _list(action['agents'] ?? action['initialAgents']);
+    return switch (type) {
+      'channel:create' => [
+        ?maybe('Description:', action['description']),
+        if (humans.isNotEmpty)
+          field('Humans:', humans.map(_memberName).join(', ')),
+        if (agents.isNotEmpty)
+          field('Agents:', agents.map(_agentName).join(', ')),
+      ],
+      'agent:create' => () {
+        final computer = action['requiredComputer'] ?? action['suggestedComputer'];
+        final machine = computer is String
+            ? w.entityDirectory.computer(computer)
+            : null;
+        final description = action['description'];
+        return [
+          if (description is String && description.isNotEmpty)
+            field('Description:', description)
+          else
+            const RaftActionNote(
+              'No description prefilled.',
+              tone: RaftActionTone.hint,
+            ),
+          if (computer is String)
+            field(
+              action['requiredComputer'] != null
+                  ? 'Required computer:'
+                  : 'Suggested computer:',
+              '${machine?['name'] ?? _short(computer)}',
+            ),
+        ];
+      }(),
+      'channel:add_member' => () {
+        final channel = w.channels
+            .where((c) => c.id == action['channel'])
+            .firstOrNull;
+        return [
+          if (channel != null) field('Channel:', '#${channel.name}'),
+          if (humans.isNotEmpty)
+            field('Humans:', humans.map(_memberName).join(', ')),
+          if (agents.isNotEmpty)
+            field('Agents:', agents.map(_agentName).join(', ')),
+        ];
+      }(),
+      'integration:approve_agent_login' => [
+        field('Service:', '${action['clientName']}'),
+        field('Agent:', '@${action['agentName']}'),
+        _scopes(context, agentName: '${action['agentName']}'),
+      ],
+      'integration:install_marketplace_app' => [
+        field('Service:', '${action['clientName']}'),
+        field('Agent:', '@${action['agentName']}'),
+        _scopes(context, agentName: '${action['agentName']}'),
+        const RaftActionNote(
+          'Only a Server owner or admin can install this Marketplace app. The Agent cannot install it automatically.',
+          tone: RaftActionTone.orange,
+        ),
+      ],
+      'integration:register_app' => [
+        field(
+          'Client key:',
+          action['clientKey'] is String
+              ? action['clientKey']
+              : raftText(context, 'Auto-generated on commit'),
+        ),
+        field('Redirect URL:', '${action['returnUrl']}'),
+        ?maybe('App URL:', action['homepageUrl']),
+        ?maybe('Agent manifest:', action['agentManifestUrl']),
+        _scopes(context),
+        const RaftActionNote(
+          "The requesting agent becomes this app's owner and can rotate, update, or transfer it after commit.",
+        ),
+        if (action['unsafeDemoUrlOverride'] == true)
+          const RaftActionNote(
+            'Unsafe demo URL override requested.',
+            tone: RaftActionTone.amber,
+          ),
+      ],
+      'integration:update_app_registration' => [
+        field('Client key:', '${action['clientKey']}'),
+        ?maybe('Name:', action['name']),
+        ?maybe('Redirect URL:', action['returnUrl']),
+        ?maybe('App URL:', action['homepageUrl']),
+        ?maybe('Agent manifest:', action['agentManifestUrl']),
+        if (action['scopes'] is List) _scopes(context),
+        if (action['unsafeDemoUrlOverride'] == true)
+          const RaftActionNote(
+            'Unsafe demo URL override requested.',
+            tone: RaftActionTone.amber,
+          ),
+      ],
+      _ => [
+        field('Client key:', '${action['clientKey']}'),
+        field('Recovery owner:', '@${_agentName('${action['targetAgent']}')}'),
+        const RaftActionNote(
+          'Admin recovery only. Execution is rejected while the app has an active owner.',
+          tone: RaftActionTone.amber,
+        ),
+      ],
+    };
+  }
+
+  /// ResultLink: `→ ...` for the resource the execute step produced.
+  String? _resultText(BuildContext context) {
+    final result = _map(metadata['result']);
+    if (result.isEmpty) return null;
+    String f(String template, Map<String, Object?> values) =>
+        raftFormat(context, template, values);
+    final body = switch (result['kind']) {
+      'channel' => '#${result['name']}',
+      'agent' => '@${result['name']}',
+      'channel-members' => f('{count} added to #{channel}', {
+        'count':
+            _list(result['addedHumanIds']).length +
+            _list(result['addedAgentIds']).length,
+        'channel': result['channelName'],
+      }),
+      'agent-integration-login' => f('{client} approved for @{agent}', {
+        'client': result['clientName'],
+        'agent': result['agentName'],
+      }),
+      'marketplace-app-installation' => f('{client} installed on this Server', {
+        'client': result['clientName'],
+      }),
+      'integration-app-registration' => f(
+        result['mode'] == 'register'
+            ? '{client} registered ({clientKey})'
+            : '{client} updated ({clientKey})',
+        {'client': result['clientName'], 'clientKey': result['clientKey']},
+      ),
+      'integration-app-owner-recovery' => f(
+        '{client} ownership recovered to @{owner}',
+        {'client': result['clientName'], 'owner': result['ownerAgentName']},
+      ),
+      _ => null,
+    };
+    return body == null ? null : '\u2192 $body';
+  }
+
+  Widget _knownCard(BuildContext context) {
+    const verbs = {
+      'channel:create': 'Create Channel',
+      'agent:create': 'Create Agent',
+      'channel:add_member': 'Add Members',
+      'integration:approve_agent_login': 'Approve Login',
+      'integration:install_marketplace_app': 'Install App',
+      'integration:register_app': 'Register App',
+      'integration:update_app_registration': 'Update App',
+      'integration:recover_app_owner': 'Recover Owner',
+    };
+    final server = metadata['targetServerName'];
+    return RaftActionCard(
+      title: '',
+      titleParts: _titleParts(context),
+      body: _body(context),
+      state: '${metadata['state']}',
+      hint: action['draftHint'],
+      targetServer: carrier?.type == 'joint' && server is String ? server : null,
+      completedBy: metadata['executedByUserName'],
+      completedResult: _resultText(context),
+      confirmLabel: verbs[type]!,
+      blockedReason: blocked,
+      error: error,
+      busy:
+          busy &&
+          (_inlineActions.contains(type) ||
+              metadata['state'] == 'reconfirm_required'),
+      onConfirm: busy
+          ? null
+          : widget.exportMode
+          ? () {}
+          : confirm,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_known.contains(type)) return _knownCard(context);
     final presentation = _map(metadata['presentation']);
     final labels = {
       'channel:create': 'Create channel',

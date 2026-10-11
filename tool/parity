@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+import parity_case_map
 from parity_reference_defects import admitted_defects, annotate_site
 from parity_baseline_repairs import (repair_definition,
                                     capture_is_current, preserve_capture, repair_annotations, prepare_cases)
@@ -461,6 +462,7 @@ def react_capture(cases, refresh, fonts='production', text_render='android'):
 
 
 def flutter_capture(cases, patterns, shards):
+    parity_case_map.write()  # test/parity/case_map.g.dart: every cases/**/*.dart case map
     android = RESULTS / 'android'
     android.mkdir(parents=True, exist_ok=True)
     for c in cases:  # stale captures must never survive a failed run
@@ -629,6 +631,7 @@ def cmd_probe(a):
     """Capture a few Flutter cases into a private dir and score them against
     the cached React captures with the official image-diff script. Does not
     touch build/parity results, the site or the summary."""
+    parity_case_map.write()
     out = pathlib.Path(a.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     results = out / 'visual-testing-results'

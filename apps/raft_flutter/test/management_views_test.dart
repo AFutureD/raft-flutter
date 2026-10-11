@@ -85,10 +85,10 @@ Future<void> register(WidgetTester tester) async {
   await tester.tap(find.text('Register app'));
   await tester.pumpAndSettle();
   await tester.enterText(
-    find.byKey(const ValueKey('field-name')),
+    find.byKey(const ValueKey('connected-app-name')),
     'Native fixture app',
   );
-  await tester.tap(find.text('Register'));
+  await tester.tap(find.byKey(const ValueKey('connected-app-editor-submit')));
   await tester.pumpAndSettle();
 }
 
@@ -157,7 +157,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Private owned app'), findsOneWidget);
       await register(tester);
-      expect(find.byType(RaftFormDialog), findsNothing);
+      expect(find.byKey(const ValueKey('connected-app-editor')), findsNothing);
       expect(find.text('Private owned app'), findsNothing);
       expect(find.textContaining('Permission changed'), findsOneWidget);
     },
@@ -921,7 +921,7 @@ void main() {
     );
   });
   testWidgets(
-    'app registration declares scopes and masks the one-time secret',
+    'app registration declares scopes and shows the one-time secret under the filters',
     (tester) async {
       final (w, a) = (await tester.runAsync(() => _fixture('owner')))!;
       addTearDown(w.dispose);
@@ -942,8 +942,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await register(tester);
-      expect(find.text('Credential hidden'), findsOneWidget);
-      expect(find.text('never-render-without-reveal'), findsNothing);
+      // The editor closed; the one-time secret strip sits under the filters.
+      expect(find.byKey(const ValueKey('connected-app-editor')), findsNothing);
+      expect(find.text('never-render-without-reveal'), findsOneWidget);
       expect(
         a.calls
             .singleWhere(
@@ -952,12 +953,10 @@ void main() {
             .data['allowedScopes'],
         ['openid', 'profile', 'identity'],
       );
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
       expect(find.text('Native fixture app'), findsOneWidget);
     },
   );
-  testWidgets('workspace change dismisses the private credential modal', (
+  testWidgets('workspace change drops the one-time client secret', (
     tester,
   ) async {
     final (w, a) = (await tester.runAsync(() => _fixture('owner')))!;
@@ -972,13 +971,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     await register(tester);
-    expect(find.byType(RaftSecretView), findsOneWidget);
+    expect(find.text('private-one-time'), findsOneWidget);
     w.client.selectServer('s2');
     w.server = RaftRecord({'id': 's2', 'role': 'owner'});
     w.setError(null);
     await tester.pumpAndSettle();
-    expect(find.byType(RaftSecretView), findsNothing);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('private-one-time'), findsNothing);
+    expect(find.byKey(const ValueKey('connected-app-editor')), findsNothing);
   });
   testWidgets(
     'role change dismisses private credentials without changing workspace generation',
@@ -996,12 +995,12 @@ void main() {
       await tester.pumpAndSettle();
       await register(tester);
       final generation = w.client.generation;
-      expect(find.byType(RaftSecretView), findsOneWidget);
+      expect(find.text('private-one-time'), findsOneWidget);
       w.server = RaftRecord({'id': 's1', 'role': 'member'});
       w.setError(null);
       await tester.pumpAndSettle();
       expect(w.client.generation, generation);
-      expect(find.byType(RaftSecretView), findsNothing);
+      expect(find.text('private-one-time'), findsNothing);
       expect(find.text('Register app'), findsNothing);
     },
   );

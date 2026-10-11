@@ -28,7 +28,56 @@ String raftFormat(
   );
 }
 
+/// Localized rich text: [source] is a catalog key carrying `<tag>inner</tag>`
+/// markup (the Web catalog's own rich-message form). [tags] builds the span for
+/// each tag; plain text and unknown tags become plain [TextSpan]s. `{name}`
+/// placeholders are filled from [values] first.
+List<InlineSpan> raftRichText(
+  BuildContext context,
+  String source,
+  Map<String, InlineSpan Function(String inner)> tags, {
+  Map<String, Object?> values = const {},
+}) {
+  final text = raftFormat(context, source, values);
+  final spans = <InlineSpan>[];
+  var cursor = 0;
+  for (final m in RegExp(r'<(\w+)>(.*?)</\1>').allMatches(text)) {
+    if (m.start > cursor) {
+      spans.add(TextSpan(text: text.substring(cursor, m.start)));
+    }
+    final build = tags[m[1]];
+    spans.add(build == null ? TextSpan(text: m[2]) : build(m[2]!));
+    cursor = m.end;
+  }
+  if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
+  return spans;
+}
+
 const raftChinese = <String, String>{
+  // Public server page (PublicServerPage.tsx).
+  "You will join {server} as a Guest. You can keep reading without joining by cancelling.": "你将以 Guest 身份加入 {server}。取消后仍可继续阅读，无需加入。",
+  "Join {server} as a Guest to be part of the discussion.": "以 Guest 身份加入 {server}，即可参与讨论。",
+  "{server} is view only. You can read its public channels, but can't send messages here.": "{server} 仅供浏览。你可以阅读公开频道，但不能在这里发消息。",
+  "Sign in to join {server} and be part of the discussion.": "登录后即可加入 {server}，参与讨论。",
+  "{server} is view only. Create a Raft account to build a server of your own.": "{server} 仅供浏览。注册 Raft，搭建你自己的 server。",
+  // Settings > Applications > app editor (SettingsPanel.tsx IntegrationsSection).
+  "Regenerate secret for {name}?": "确定要为 {name} 重新生成密钥吗？",
+  "Request offline review for {name}?": "确定要为 {name} 申请下架审核吗？",
+  "Delete {name}?": "删除 {name}？",
+  "{resource} · read": "{resource} · 只读",
+  "{count} permissions selected": "已选 {count} 项",
+  "Revision {revision} is pending App Review. Current approved permissions remain active until review completes.":
+      "修订版本 {revision} 正在等待 App Review。在审核完成前，当前已批准的权限仍然有效。",
+  "Enabled · revision {revision}": "已启用 · 修订版本 {revision}",
+  "{group} events": "{group} 事件",
+  "Active link expires {when}.": "有效链接于 {when} 过期。",
+  "The existing client secret for ": "",
+  " will stop working immediately. The new secret is shown once after regeneration.":
+      " 现有的客户端密钥将立即失效。新密钥只会在重新生成后显示一次。",
+  "App Admin must approve before this app is removed from the public marketplace. Until then ":
+      "需经应用管理员批准，此应用才会从公开市场移除。在此之前，",
+  " stays listed, installable, and usable by existing connections. If approved, every installed server will lose access and existing grants and tokens will be revoked.":
+      " 仍会保持在列表中、可安装，并可被现有连接使用。一旦批准，所有已安装的服务器都会失去访问权限，现有授权和令牌也会被撤销。",
   "{count} task update": "{count} 条任务更新",
   "{count} task updates": "{count} 条任务更新",
   "{count} reminder update": "{count} 条提醒更新",
@@ -39,6 +88,8 @@ const raftChinese = <String, String>{
   "There are {part}": "有 {part}",
   "There are {parts}": "有 {parts}",
   "There are {count} system updates: {parts}": "有 {count} 条系统更新：{parts}",
+  "This message is older than the {days}-day history available on the {plan} plan. Upgrade to view it.":
+      "这条消息早于 {plan} 套餐可查看的 {days} 天历史范围，升级后即可查看。",
   "Message history is limited to {days} days on the {plan} plan.":
       "消息历史在 {plan} 套餐下仅保留 {days} 天。",
   // Settings > Feedback (hands-feedback-react 0.4.1 locale.ts zh-CN).
@@ -2022,6 +2073,51 @@ const raftChinese = <String, String>{
   "Join Server": "加入服务器",
   "Join as Guest": "以 Guest 身份加入",
   "Join channel": "加入频道",
+  "Join #{channel}": "加入 #{channel}",
+  "This action runs on {server}. Switch to {server} to run it.":
+      "这个操作会在 {server} 上执行，请切换到 {server} 后再执行。",
+  "Runs on {server}":
+      "将在 {server} 上执行",
+  "Create private channel <n>#{name}</n>":
+      "创建私密频道 <n>#{name}</n>",
+  "Create public channel <n>#{name}</n>":
+      "创建公开频道 <n>#{name}</n>",
+  "Create Agent <n>@{name}</n>":
+      "创建 Agent <n>@{name}</n>",
+  "Approve <n>{client}</n> for <n>@{agent}</n>":
+      "批准 <n>{client}</n> 用于 <n>@{agent}</n>",
+  "Install <n>{client}</n> for <n>@{agent}</n>":
+      "为 <n>@{agent}</n> 安装 <n>{client}</n>",
+  "Register app <n>{name}</n>":
+      "注册应用 <n>{name}</n>",
+  "Update app <n>{clientKey}</n>":
+      "更新应用 <n>{clientKey}</n>",
+  "Recover <n>{clientKey}</n> for <n>@{agent}</n>":
+      "恢复 <n>{clientKey}</n> 给 <n>@{agent}</n>",
+  "@{agent}":
+      "@{agent}",
+  "{client} installed on this Server":
+      "已在此 Server 安装 {client}",
+  "Committed by <n>{user}</n>":
+      "由 <n>{user}</n> 提交",
+  "Join #{channel} to run this.":
+      "加入 #{channel} 后才能执行。",
+  "{count} added to #{channel}":
+      "已向 #{channel} 添加 {count} 位",
+  "{client} approved for @{agent}":
+      "已批准 {client} 用于 @{agent}",
+  "{client} registered ({clientKey})":
+      "{client} 已注册（{clientKey}）",
+  "{client} updated ({clientKey})":
+      "{client} 已更新（{clientKey}）",
+  "{client} ownership recovered to @{owner}":
+      "{client} 的所有权已恢复给 @{owner}",
+  "Will send to: @{agent}":
+      "将发送给：@{agent}",
+  "Add 1 member to <n>{target}</n>":
+      "向 <n>{target}</n> 添加 1 位成员",
+  "Add {count} members to <n>{target}</n>":
+      "向 <n>{target}</n> 添加 {count} 位成员",
   "Join channel to comment": "加入频道后才能评论",
   "Join channel to reply": "加入频道以回复",
   "Join selected channels first": "请先加入所选频道",
@@ -3147,6 +3243,8 @@ const raftChinese = <String, String>{
   "The shared content could not be added. Please try again.": "无法添加分享内容，请重试。",
   "Join {name} to add shared content?": "加入 {name} 以添加分享内容？",
   "Select destinations": "选择目标",
+  "Preparing {done} of {total} files": "正在准备文件（{done}/{total}）",
+  "The selected destination is no longer available.": "所选目标已不可用。",
   "Select messages from one conversation or thread.": "请选择同一会话或消息列中的消息。",
   "Select multiple": "多选",
   "Select one agent for member onboarding flows, or disable automatic onboarding.":
@@ -3828,6 +3926,9 @@ const raftChinese = <String, String>{
   "Unable to open thread. It may be unavailable or deleted.":
       "无法打开消息列，它可能不可用或已被删除。",
   "Unarchive": "取消归档",
+  "Unarchive {name}": "取消归档 {name}",
+  "Open {name}": "打开 {name}",
+  "{type} · Archived {date}": "{type} · 归档于 {date}",
   "Unarchive Channel": "取消归档频道",
   "Unarchive it to keep its history, or choose a different name.":
       "取消归档可保留其历史记录，或者改用其他名称。",
@@ -4390,4 +4491,149 @@ const raftChinese = <String, String>{
   "Keep at least one tab besides Settings.": "除设置外，至少保留一个标签页。",
   "Reorder {name}": "调整{name}的顺序",
   "Reset to default": "恢复默认",
+
+  // zh sweep (test/zh_catalog_test.dart): English literals that reached zh
+  // users. Wording is Web zh-cn.ts verbatim (placeholders renamed to the
+  // native call site) wherever Web has the string.
+  "Runtime Config": "运行时配置",
+  "Keep at least {min} seats to cover current server usage.": "至少保留 {min} 个席位以覆盖服务器当前用量。",
+  "Adds {seats}": "增加 {seats}",
+  "Removes {seats}": "减少 {seats}",
+  "{seats} selected": "已选择 {seats}",
+  "Enter at least {min} seats to cover current server usage.": "请输入至少 {min} 个席位以覆盖服务器当前用量。",
+  "Enter the total seats to keep. {capacity}.": "请输入要保留的席位总数。{capacity}。",
+  "{capacity}.": "{capacity}。",
+  "Full-featured free trial remains active through {date} in every time zone. Paid plans begin after this global cutoff. All features currently unlocked — enjoy unlimited computers, agents, channels, and message history while the trial lasts.": "全功能免费试用将在所有时区持续到 {date}。付费套餐将在这一全球截止时间后开始。试用期间所有功能均已解锁，包括无限电脑、Agent、频道和消息历史。",
+  "Save {percent}%": "节省 {percent}%",
+  "{interval} · cancellation scheduled": "{interval} · 已安排取消",
+  "Start {interval} Pro checkout for {seats} billable seats.": "开始 Pro {interval}结账，共 {seats} 个计费席位。",
+  "{name} will be removed from every channel on this server. Their past messages will remain in history.": "{name} 会从此服务器的所有频道中移除，但过往消息仍会保留在历史记录中。",
+  "You'll lose access to {serverName} and all of its channels. You can be re-invited later.": "你将失去对 {serverName} 及其所有频道的访问权限。之后可以重新被邀请。",
+  "Send to {targets}": "发送至 {targets}",
+  "{label} @{handle} is reserved. Choose another name.": "{label} @{handle} 为保留名，请换一个。",
+  "#{raftName} ↔ #{slackName}": "#{raftName} ↔ #{slackName}",
+  "{name} will stop receiving ordinary delivery from #{channel} and cannot send messages until they rejoin. Existing followed threads are not automatically unfollowed; followed public threads can still notify them until they unfollow or manage those threads. Private content remains gated by current access.": "{name} 将停止接收 #{channel} 的常规消息，并且在重新加入前无法发送消息。已有的关注消息列不会自动取消关注；关注过的公开消息列仍可通知他们，直到他们自行取消关注或管理这些消息列。私有内容仍受当前访问权限限制。",
+  "{name} is a server owner or admin, so they remain a Channel Admin in every channel. Change their server role in Server Administration first.": "{name} 是 Server Owner 或 Admin，因此在所有频道中都会保持频道管理员权限。请先在 Server Administration 中修改其 Server 角色。",
+  "Make {name} a channel admin": "将 {name} 设为频道管理员",
+  "Remove channel admin from {name}": "撤销 {name} 的频道管理员",
+  "Archive \"{name}\"? Members keep read access and history, but writes will be frozen and the channel will be hidden from sidebars. You can unarchive it later.": "归档“{name}”？成员仍可查看历史消息和读取内容，但将无法写入，频道也会从侧栏中隐藏。你之后可以取消归档。",
+  "Delete \"{name}\"? Its conversations will return to their default sections.": "删除“{name}”？其中的会话将返回默认分区。",
+  "{count} installs": "{count} 个有效安装",
+  "Uninstall {name}?": "卸载 {name}？",
+  "{category} · by {developer}": "{category} · 由 {developer} 提供",
+  "New data group: {group}": "新数据组：{group}",
+  "Are you sure you want to revoke the invite to {email}? They will no longer be able to join using this invite link.": "确定要撤销发送给 {email} 的邀请吗？他们将无法再使用此邀请链接加入。",
+  "{used}/{max} uses": "{used}/{max} 次使用",
+  "{used} uses": "{used} 次使用",
+  "expires {when}": "{when} 过期",
+  "Are you sure you want to delete \"{name}\"? This removes the Raft agent identity, credentials, and associated Raft data. It will not stop, uninstall, or clean up the external runtime, local profile, or harness.": "确定要删除“{name}”吗？这会移除 Raft Agent 身份、凭据以及相关 Raft 数据。它不会停止、卸载或清理外部运行时、本地 profile 或 harness。",
+  "Are you sure you want to delete \"{name}\"? This will remove all associated data and cannot be undone.": "确定要删除“{name}”吗？这会删除所有关联数据且无法撤销。",
+  "Are you sure you want to stop \"{name}\"? The agent will stop processing messages.": "确定要停止“{name}”吗？该 Agent 将停止处理消息。",
+  "Connected as {email}": "已连接为 {email}",
+  "Remove invitee {index}": "移除第 {index} 位受邀人",
+  "Restart {name}": "重新启动 {name}",
+  "Description must be {count} characters or fewer.": "描述不能超过 {count} 个字符。",
+  "I am getting {serverName} ready.": "正在为你准备 {serverName}。",
+  "Message #{channel}": "发消息到 #{channel}",
+  "morning — can <mention>@{handle}</mention> take a look at the Q3 draft?": "早上好 —— <mention>@{handle}</mention> 能看一下 Q3 的草稿吗？",
+  "Agreement body must be {max} characters or fewer": "协议正文不得超过 {max} 个字符",
+  "Activity Diagnostics": "活动诊断",
+  "Copy diagnostic info": "复制诊断信息",
+  "Preview truncated for performance. Showing the first {count} rows of this sheet.": "为保证性能，预览已截断，仅显示此工作表前 {count} 行。",
+  "Showing {shown} of {total} rows": "已显示 {shown} 行，共 {total} 行",
+  "Preview truncated for performance. Showing first {count} rows from the file prefix.": "为保证性能，预览已截断，仅显示文件开头的前 {count} 行。",
+  "Column {index}": "第 {index} 列",
+  "Committed by {name}": "由 <n>{user}</n> 提交",
+  "Create agent {name}": "创建 Agent「{name}」",
+  "Joins {channel} automatically after creation": "建好后自动加入 {channel}",
+  "Add selected ({count})": "添加所选（{count}）",
+  "Joining...": "正在加入…",
+  "Continue with {provider}": "使用 {provider} 继续",
+  "No matches for \"{query}\"": "没有匹配「{query}」的结果",
+  "The name <mono>#{name}</mono> is held by an archived channel.": "名称 <mono>#{name}</mono> 已被一个已归档的频道占用。",
+  "No account?": "还没有账号？",
+  "Create one": "创建一个",
+  "Already have an account?": "已有账号？",
+  "Terms of Service": "服务条款",
+  "Privacy Policy": "隐私政策",
+  "{limitLabel} reached ({usage}/{limit} on {planName} plan).": "{limitLabel}已达上限（{usage}/{limit}，{planName} 套餐）。",
+  "Create private channel #{name}": "创建私密频道 #{name}",
+  "Create public channel #{name}": "创建公开频道 #{name}",
+  "Open task #{number}: {title}": "打开任务 #{number}：{title}",
+  "**{days}** remaining in grace period. All resources are within free limits.": "**{days} 天**宽限期剩余。所有资源均在免费额度内。",
+  "**{days}** remaining in grace period. After the grace period, excess agents will be stopped automatically.": "**{days} 天**宽限期剩余。宽限期结束后，超出额度的 Agent 将自动停止。",
+  "up to 1 Human": "最多 1 位人类成员",
+  "up to {count} Humans": "最多 {count} 位人类成员",
+  "or 1 Agent": "或 1 个 Agent",
+  "or {count} Agents": "或 {count} 个 Agent",
+  "1 seat": "1 个席位",
+  "{count} seats": "{count} 个席位",
+  "1 day": "1 天",
+  "{n} days": "{n} 天",
+  "Search channels, DMs, messages…": "搜索频道、私信、消息…",
+  "saved item": "项",
+  "saved items": "项",
+  "replies": "条回复",
+  "new": "条新消息",
+  "unread": "未读",
+  "{count} new messages": "{count} 条新消息",
+  "{count} message": "{count} 条消息",
+  "{count} messages": "{count} 条消息",
+  "item": "项",
+  "items": "项",
+  "results": "条结果",
+  "Search...": "搜索…",
+  "1 human using {seats} seat": "{count} 位人类成员使用 {seats} 个席位",
+  "1 human using {seats} seats": "{count} 位人类成员使用 {seats} 个席位",
+  "{count} humans using {seats} seat": "{count} 位人类成员使用 {seats} 个席位",
+  "{count} humans using {seats} seats": "{count} 位人类成员使用 {seats} 个席位",
+  "1 agent using {seats} seat": "{count} 个 Agent 使用 {seats} 个席位",
+  "1 agent using {seats} seats": "{count} 个 Agent 使用 {seats} 个席位",
+  "{count} agents using {seats} seat": "{count} 个 Agent 使用 {seats} 个席位",
+  "{count} agents using {seats} seats": "{count} 个 Agent 使用 {seats} 个席位",
+  // Native-only copy with no Web counterpart (Web glossary terms).
+  "Close profile": "关闭资料",
+  "Profile could not be loaded.": "无法加载资料。",
+  "Create direct message": "创建私信",
+  "Mention action failed. Try again.": "提及操作失败，请重试。",
+  "Channel name is required.": "请填写频道名称。",
+  "Activity filters": "动态筛选",
+  "Conversion complete. Invite another workspace from Joint channels.": "转换完成。可在联合频道中邀请其他工作空间。",
+  "Conversion canceled. The original channel is available.": "转换已取消，原频道仍可使用。",
+  "Download original": "下载原文件",
+  "Preview unavailable. Download the original file.": "无法预览，请下载原文件。",
+  "Channel is no longer available": "该频道已不可用",
+  "Reconnecting": "正在重新连接",
+  "Jump to beginning": "跳转到开头",
+  "Thread options": "消息列选项",
+  "Following thread": "已关注消息列",
+  "Thread notifications off": "消息列通知已关闭",
+  "Loading thread settings…": "正在加载消息列设置…",
+  "Joint channel conversion": "联合频道转换",
+  "Show direct message": "显示私信",
+  "Hide direct message": "隐藏私信",
+  "Enter one unique KEY=value per line.": "每行输入一个唯一的 KEY=value。",
+  "Choices are unavailable. Retry after connecting the computer.": "无法获取可选项。请在连接 Computer 后重试。",
+  "Enter an HTTP or HTTPS URL.": "请输入 HTTP 或 HTTPS URL。",
+  "Select an available choice.": "请选择一个可用选项。",
+  "Update the client to edit this required field.": "请升级客户端后再编辑此必填项。",
+  "Pending requests": "待处理请求",
+  "Sign-in methods could not be verified. Refresh before changing them.": "无法验证登录方式。请刷新后再更改。",
+  "Password sign-in is configured.": "已配置密码登录。",
+  "Password sign-in is not configured.": "未配置密码登录。",
+  "Upload progress for {name}": "{name} 的上传进度",
+  "Invite method": "邀请方式",
+  "Describe what this agent does": "描述此 Agent 的用途",
+  "No reminders": "暂无提醒",
+  "Hidden files": "隐藏文件",
+  "Preview truncated. Download the full file.": "预览已截断，请下载完整文件。",
+  "First {count} rows": "前 {count} 行",
+  "Pause": "暂停",
+  "Play": "播放",
+  "Volume": "音量",
+  "Show": "显示",
+  "Hide": "隐藏",
+  "Share": "分享",
+  "Discard your changes?": "放弃更改？",
+  "Loading Activity": "正在加载动态…",
 };

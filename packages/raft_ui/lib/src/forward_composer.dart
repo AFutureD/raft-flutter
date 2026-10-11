@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'components.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
+import 'indicators.dart' show RaftCheckbox;
 import 'mounted_avatar_recipe.dart';
 import 'recipes/input.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'system_inset.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// `fixed inset-0 z-40 flex flex-col bg-layer-canvas text-foreground-strong`.
@@ -24,15 +26,22 @@ class RaftForwardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    return Material(
-      color: RaftTokens.of(context).colors['layer-canvas'],
-      child: DefaultTextHeightBehavior(
-        textHeightBehavior: raftCssTextHeightBehavior,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-          child: MediaQuery(
-            data: media.removeViewInsets(removeBottom: true),
-            child: SafeArea(bottom: false, child: child),
+    final canvas = RaftTokens.of(context).colors['layer-canvas']!;
+    // The status bar shows the page's own header colour (a RaftPanelHeaderBar
+    // child publishes it), else the canvas.
+    return RaftStatusBarHost(
+      fallback: canvas,
+      expand: true,
+      child: Material(
+        color: canvas,
+        child: DefaultTextHeightBehavior(
+          textHeightBehavior: raftCssTextHeightBehavior,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+            child: MediaQuery(
+              data: media.removeViewInsets(removeBottom: true),
+              child: SafeArea(bottom: false, child: child),
+            ),
           ),
         ),
       ),
@@ -524,13 +533,10 @@ class _RaftForwardTargetRowState extends State<RaftForwardTargetRow> {
               child: Row(
                 children: [
                   if (widget.checkbox) ...[
-                    SizedBox.square(
-                      dimension: 16,
-                      child: Checkbox(
-                        value: widget.selected,
-                        onChanged: null,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
+                    // raft-ui `Checkbox` (14px), pointer-events-none in the row.
+                    ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: RaftCheckbox(value: widget.selected),
                       ),
                     ),
                     const SizedBox(width: 8),
