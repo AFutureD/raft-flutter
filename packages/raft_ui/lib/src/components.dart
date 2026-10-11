@@ -871,6 +871,7 @@ class RaftNavItem extends StatelessWidget {
     this.joined = true,
     this.activityMuted = false,
     this.hasDraft = false,
+    this.mention = false,
     this.wrap = false,
     this.onContextMenu,
     this.menuOpen = false,
@@ -903,6 +904,10 @@ class RaftNavItem extends StatelessWidget {
   /// change emphasis and count appearance; they never disable navigation.
   final bool joined, activityMuted, hasDraft;
 
+  /// Sidebar.tsx ChannelRow `showMentionMarker`: the member is mentioned in
+  /// an unread message of this joined channel (an @ chip before the count).
+  final bool mention;
+
   /// Sidebar.tsx `allowWrap` (Pinned rows): `items-start whitespace-normal
   /// leading-tight`, the title wraps and the row grows from a 30 / 32 minimum
   /// (an 18px icon slot + padding, the 17.5px line is shorter than the slot).
@@ -916,6 +921,7 @@ class RaftNavItem extends StatelessWidget {
   final bool menuOpen;
   bool get _channel => conversationKind == RaftConversationNavKind.channel;
   bool get _mutedIcon => _channel && joined && activityMuted;
+  bool get _mention => mention && _channel && joined;
   bool get _loudUnread => unread > 0 && (!_channel || joined && !_mutedIcon);
   bool get _dimmed => _channel && !selected && !joined;
   Color? _titleColor(BuildContext context, RaftTokens t) => _dimmed
@@ -1178,10 +1184,21 @@ class RaftNavItem extends StatelessWidget {
             ),
             if (_mutedIcon && (unread > 0 || hasDraft))
               const SizedBox(width: 4),
+            if (_mention) ...[
+              // gap-1.5 (6) + `ml-1` (4) before the chip, gap-1.5 after it.
+              const SizedBox(width: 10),
+              RaftSidebarMentionMarker(
+                label: raftText(context, 'Mentioned you'),
+              ),
+              const SizedBox(width: 6),
+            ],
             if (trailing != null)
               trailing!
             else if (unread > 0 && _channel && !_loudUnread)
-              RaftSidebarQuietUnreadCount(count: unread)
+              Padding(
+                padding: EdgeInsets.only(left: _mention ? 4 : 0),
+                child: RaftSidebarQuietUnreadCount(count: unread),
+              )
             else if (unread > 0 && conversationKind != null)
               // DM rows keep `self-center` in a top-aligned wrap row.
               wrap && !_channel

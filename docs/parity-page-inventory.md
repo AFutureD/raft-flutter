@@ -137,7 +137,7 @@ Web: components/layout (MainLayout, LeftRail, Sidebar, NotificationCenter, Mobil
 | # | page / state | Web component | D | P | official (phone) ids | extension ids (brutal-light) | note |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2.01 | Desktop rail + sidebar, chat mode (default, empty, loading, custom sections, sorted, collapsed, row hover) | `components/layout/LeftRail.tsx, Sidebar.tsx` | ok | n/a |  | D: `components.shell.desktop.sidebar.*` |  |
-| 2.02 | Phone Home: sidebar as the home list (default, collapsed, loading) | `components/layout/Sidebar.tsx (mobileInline)` | n/a | ok | `screens.home.index`<br>`screens.home.loading` | P: `components.shell.mobile.sidebar.default`<br>`components.shell.mobile.sidebar.collapsed` |  |
+| 2.02 | Phone Home: sidebar as the home list (default, collapsed, loading) | `components/layout/Sidebar.tsx (mobileInline)` | n/a | ok | `screens.home.index`<br>`screens.home.loading` | P: `components.shell.mobile.sidebar.default`<br>`components.shell.mobile.sidebar.collapsed` | Activity count (server activityUnreadCount), @ mention marker, collapsed-section unread dot and other-server header dot match Web. |
 | 2.03 | Phone bottom tab bar | `components/layout/MobileBottomBarStack.tsx` | n/a | ok | `components.navigation.tabbar.states` |  |  |
 | 2.04 | Phone titlebar (server unread, notification trigger) | `components/layout/Sidebar.tsx, NotificationTrigger.tsx` | n/a | ok | `components.home.titlebar.states` |  |  |
 | 2.05 | Notification center (popover on desktop, sheet on phone) | `components/layout/NotificationCenter.tsx` | ok | ok | `components.home.notification-center.states` | D: `components.list-pages.notification.desktop-center` |  |

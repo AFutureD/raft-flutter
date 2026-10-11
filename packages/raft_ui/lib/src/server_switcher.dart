@@ -200,6 +200,11 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
                   leading: RaftMobileServerSelector(
                     key: const Key('mobile-server-selector'),
                     label: widget.workspaceName,
+                    attention: widget.attention,
+                    attentionLabel: raftText(
+                      context,
+                      'Other servers have unread messages',
+                    ),
                     focusNode: triggerFocus,
                     onPressed: () => widget.controller.isOpen
                         ? widget.controller.close()

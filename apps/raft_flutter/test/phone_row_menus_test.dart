@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
@@ -28,6 +29,8 @@ void main() {
     List<RaftChannel>? dms,
     bool patchOk = true,
     Future<void>? patchGate,
+    Set<String> mentions = const {},
+    List<Map<String, dynamic>>? serverSummary,
   }) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(390, 844);
@@ -70,6 +73,16 @@ void main() {
           }),
         ];
     w.unread = {...unread};
+    w.mentions = {...mentions};
+    if (serverSummary != null) {
+      // The cross-server summary (`GET /servers/unread-summary`) the Home
+      // Activity count and the other-server dot read.
+      w.servers = [
+        RaftRecord({'id': 's1', 'name': 'Visual', 'slug': 'visual'}),
+        RaftRecord({'id': 's2', 'name': 'Other', 'slug': 'other'}),
+      ];
+      api.routes['GET /servers/unread-summary'] = (_) => serverSummary;
+    }
     w.sidebarOrder = {'sectionsVersion': 3, 'pinnedVersion': 1, ...order};
     w.section = 'home';
     patches = [];
@@ -158,34 +171,36 @@ void main() {
     expect(menu.bottom, lessThanOrEqualTo(844 - 8));
   });
 
-  testWidgets('Pin moves the row to Pinned at once, PATCH has no section write',
-      (tester) async {
-    final gate = Completer<void>();
-    await setup(tester, patchGate: gate.future);
-    final channelsHeader = find.byKey(
-      const ValueKey('sidebar-section-system:channels'),
-    );
-    expect(top(tester, row('c1')), greaterThan(top(tester, channelsHeader)));
-    await longPress(tester, row('c1'));
-    await tester.tap(find.text('Pin'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    // The request is still pending; the row already sits in Pinned.
-    expect(gate.isCompleted, isFalse);
-    expect(patches, [
-      {
-        'pinned': [
-          {'kind': 'channel', 'id': 'c1'},
-        ],
-      },
-    ]);
-    expect(top(tester, row('c1')), lessThan(top(tester, channelsHeader)));
-    expect(find.text('Pin'), findsNothing, reason: 'the menu closed');
-    gate.complete();
-    await tester.pumpAndSettle();
-    expect(top(tester, row('c1')), lessThan(top(tester, channelsHeader)));
-    expect((w.sidebarOrder['sectionsVersion']), 4);
-  });
+  testWidgets(
+    'Pin moves the row to Pinned at once, PATCH has no section write',
+    (tester) async {
+      final gate = Completer<void>();
+      await setup(tester, patchGate: gate.future);
+      final channelsHeader = find.byKey(
+        const ValueKey('sidebar-section-system:channels'),
+      );
+      expect(top(tester, row('c1')), greaterThan(top(tester, channelsHeader)));
+      await longPress(tester, row('c1'));
+      await tester.tap(find.text('Pin'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      // The request is still pending; the row already sits in Pinned.
+      expect(gate.isCompleted, isFalse);
+      expect(patches, [
+        {
+          'pinned': [
+            {'kind': 'channel', 'id': 'c1'},
+          ],
+        },
+      ]);
+      expect(top(tester, row('c1')), lessThan(top(tester, channelsHeader)));
+      expect(find.text('Pin'), findsNothing, reason: 'the menu closed');
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(top(tester, row('c1')), lessThan(top(tester, channelsHeader)));
+      expect((w.sidebarOrder['sectionsVersion']), 4);
+    },
+  );
 
   testWidgets('a failed Pin puts the row back', (tester) async {
     await setup(tester, patchOk: false);
@@ -472,5 +487,266 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Archive Channel'), findsWidgets);
     expect(find.text('Unexpected endpoint'), findsOneWidget);
+  });
+
+  Future<void> secondaryTapAt(WidgetTester tester, Finder target) async {
+    await tester.tapAt(
+      tester.getCenter(target),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  group('Home list indicators (Sidebar.tsx)', () {
+    Finder activityBadge(String text) => find.descendant(
+      of: find.byKey(const Key('nav-activity')),
+      matching: find.text(text),
+    );
+
+    testWidgets('Activity shows the server activityUnreadCount, not the sum '
+        'of the row counts', (tester) async {
+      await setup(
+        tester,
+        unread: {'c1': 50, 'd1': 60},
+        serverSummary: [
+          {
+            'serverId': 's1',
+            'unreadCount': 110,
+            'activityUnreadCount': 3,
+            'serverPushMuted': false,
+          },
+        ],
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(activityBadge('3'), findsOneWidget);
+      expect(activityBadge('99+'), findsNothing);
+    });
+
+    testWidgets('Activity caps at 99+ and hides when the count is unknown', (
+      tester,
+    ) async {
+      await setup(
+        tester,
+        unread: {'c1': 5},
+        serverSummary: [
+          {
+            'serverId': 's1',
+            'unreadCount': 5,
+            'activityUnreadCount': 120,
+            'serverPushMuted': false,
+          },
+        ],
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(activityBadge('99+'), findsOneWidget);
+    });
+
+    testWidgets('Activity has no badge before the summary is known', (
+      tester,
+    ) async {
+      await setup(tester, unread: {'c1': 5, 'd1': 7});
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(activityBadge('12'), findsNothing);
+      expect(activityBadge('99+'), findsNothing);
+    });
+
+    testWidgets('the @ marker shows on a joined channel with an unread '
+        'mention, before the count', (tester) async {
+      await setup(tester, unread: {'c1': 2, 'c2': 1}, mentions: {'c1'});
+      final marker = find.byKey(const ValueKey('sidebar-mention-marker'));
+      expect(find.descendant(of: row('c1'), matching: marker), findsOneWidget);
+      expect(find.descendant(of: row('c2'), matching: marker), findsNothing);
+      expect(
+        tester.getTopRight(marker).dx,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.descendant(of: row('c1'), matching: find.text('2')),
+              )
+              .dx,
+        ),
+      );
+      expect(tester.getSize(marker), const Size(16, 16));
+    });
+
+    testWidgets('no @ marker once the channel is read or for a DM', (
+      tester,
+    ) async {
+      await setup(tester, unread: {'d1': 2}, mentions: {'c1', 'd1'});
+      expect(
+        find.byKey(const ValueKey('sidebar-mention-marker')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a mention flag follows the unread snapshot and is cleared '
+        'with the count', (tester) async {
+      await setup(tester, unread: {'c1': 2});
+      api.routes['GET /channels/unread'] = (_) => {
+        'channels': {
+          'c1': {'unreadCount': 2, 'hasMention': true},
+          'c2': {'unreadCount': 1},
+        },
+      };
+      await tester.runAsync(w.refreshUnread);
+      await tester.pumpAndSettle();
+      expect(w.mentions, {'c1'});
+      expect(
+        find.descendant(
+          of: row('c1'),
+          matching: find.byKey(const ValueKey('sidebar-mention-marker')),
+        ),
+        findsOneWidget,
+      );
+      // The server agrees once the read receipt lands.
+      api.routes['GET /channels/unread'] = (_) => {'channels': {}};
+      await longPress(tester, row('c1'));
+      await tester.tap(find.text('Mark as Read'));
+      await tester.pumpAndSettle();
+      expect(w.mentions, isEmpty);
+      expect(
+        find.byKey(const ValueKey('sidebar-mention-marker')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('a collapsed section shows an unread dot, an expanded or '
+        'muted one does not', (tester) async {
+      await setup(
+        tester,
+        unread: {'c1': 2},
+        channels: [
+          RaftChannel({'id': 'c1', 'name': 'general', 'joined': true}),
+          RaftChannel({
+            'id': 'c2',
+            'name': 'random',
+            'joined': true,
+            'activityMuted': true,
+          }),
+        ],
+      );
+      final dot = find.byKey(const ValueKey('sidebar-section-unread-dot'));
+      expect(dot, findsNothing, reason: 'expanded');
+      await tester.tap(
+        find.byKey(const ValueKey('sidebar-disclosure-system:channels')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('sidebar-section-system:channels')),
+          matching: dot,
+        ),
+        findsOneWidget,
+      );
+      w.unread = {'c2': 5};
+      w.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(dot, findsNothing, reason: 'only a muted channel is unread');
+      await tester.tap(
+        find.byKey(const ValueKey('sidebar-disclosure-system:dms')),
+      );
+      await tester.pumpAndSettle();
+      expect(dot, findsNothing, reason: 'collapsed DMs have no unread');
+    });
+
+    testWidgets('the Home header marks other servers with activity unread', (
+      tester,
+    ) async {
+      await setup(
+        tester,
+        serverSummary: [
+          {'serverId': 's1', 'unreadCount': 0, 'activityUnreadCount': 0},
+          {'serverId': 's2', 'unreadCount': 4, 'activityUnreadCount': 4},
+        ],
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(
+        find.bySemanticsLabel('Other servers have unread messages'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('no header dot when only this server has activity unread', (
+      tester,
+    ) async {
+      await setup(
+        tester,
+        serverSummary: [
+          {'serverId': 's1', 'unreadCount': 3, 'activityUnreadCount': 3},
+          {'serverId': 's2', 'unreadCount': 0, 'activityUnreadCount': 0},
+        ],
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(
+        find.bySemanticsLabel('Other servers have unread messages'),
+        findsNothing,
+      );
+    });
+  });
+
+  group('Close Chat on the phone', () {
+    // Sidebar.tsx closeDm navigates to the server home only when the URL is
+    // that DM. The phone mounts the list on the Home route alone, so the row
+    // menu cannot be up while the DM is the open page; a stale selection on
+    // the Home list must not send the user anywhere.
+    testWidgets('closing the last-opened DM from the Home list stays on Home', (
+      tester,
+    ) async {
+      await setup(tester);
+      w.channel = w.dms.first;
+      await longPress(tester, row('d1'));
+      await tester.tap(find.text('Close Chat'));
+      await tester.pumpAndSettle();
+      expect(w.section, 'home');
+      expect(find.byKey(const Key('workspace-mobile-home')), findsOneWidget);
+      expect(row('d1'), findsNothing);
+      expect(patches.single, {
+        'hiddenDmIds': ['d1'],
+      });
+    });
+  });
+
+  group('Section and surface menus (right click only, like Web)', () {
+    testWidgets('a long press on a section header does not open the menu, a '
+        'right click does', (tester) async {
+      await setup(tester);
+      final header = find.byKey(
+        const ValueKey('sidebar-section-system:channels'),
+      );
+      await tester.longPressAt(tester.getCenter(header));
+      await tester.pumpAndSettle();
+      expect(find.text('Hide empty sections'), findsNothing);
+      await secondaryTapAt(tester, header);
+      expect(find.text('Hide empty sections'), findsOneWidget);
+    });
+
+    testWidgets('a long press on the list surface does not open the menu, a '
+        'right click does', (tester) async {
+      await setup(tester);
+      final list = find.byKey(const Key('workspace-sidebar'));
+      final at = tester.getBottomLeft(list) + const Offset(120, -30);
+      await tester.longPressAt(at);
+      await tester.pumpAndSettle();
+      expect(find.text('New section…'), findsNothing);
+      await tester.tapAt(
+        at,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('New section…'), findsOneWidget);
+    });
+
+    testWidgets('a long press on a row still opens its menu', (tester) async {
+      await setup(tester);
+      await longPress(tester, row('c1'));
+      expect(find.text('Mark as Unread'), findsOneWidget);
+    });
   });
 }
