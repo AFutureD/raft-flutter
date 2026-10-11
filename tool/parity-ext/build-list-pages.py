@@ -316,14 +316,16 @@ shell('dialogs.phone-archive-channel', 'Archive channel confirm (phone)', 'dialo
 shell('dialogs.phone-emoji-picker', 'Section emoji picker open (phone)', 'dialog.new-section', preset='mobile',
       interactions=[rc(tid(SEC), 30, 12), ck('text=New section'),
                     ck('button[aria-label="Choose section emoji"]'), {'type': 'wait', 'ms': 1500}],
-      android=[fsec('sidebar-section-system:channels', 38, 24), ftap('sidebar-menu-new-section')],
+      android=[fsec('sidebar-section-system:channels', 38, 24), ftap('sidebar-menu-new-section'),
+               ftap('sidebar-section-emoji')],
       selector=CARD, android_key='sidebar-section-dialog', viewport_capture=True,
       hint=SH + 'SidebarSectionEmojiPicker.tsx')
 
 shell('dialogs.desktop-emoji-picker', 'Section emoji picker open (desktop)', 'dialog.new-section', preset='default',
       interactions=[rc(tid(SEC), 30, 12), ck('text=New section'),
                     ck('button[aria-label="Choose section emoji"]'), {'type': 'wait', 'ms': 1500}],
-      android=[fsec('sidebar-section-system:channels', 38, 24), ftap('sidebar-menu-new-section')],
+      android=[fsec('sidebar-section-system:channels', 38, 24), ftap('sidebar-menu-new-section'),
+               ftap('sidebar-section-emoji')],
       selector=CARD, android_key='sidebar-section-dialog', viewport_capture=True, platform='desktop',
       hint=SH + 'SidebarSectionEmojiPicker.tsx')
 

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 part 'glyphs.g.dart';
 part 'reaction_sprite.dart';
+part 'emoji_nav_icon.dart';
+part 'emoji_nav_icons.g.dart';
 
 /// A Lucide icon drawn like lucide-react's `<svg>`: 24-unit viewBox scaled to
 /// [size], `stroke="currentColor"`, round caps and joins, `fill="none"` unless

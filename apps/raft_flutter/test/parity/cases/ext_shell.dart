@@ -211,7 +211,16 @@ Widget _desktop(ParityContext ctx) {
         top: 0,
         right: 0,
         bottom: 0,
-        child: const ColoredBox(color: Color(0xFFFFFFFF)),
+        // Dialog cases capture the whole viewport: under the Web Modal scrim sits
+        // the document body (Brutal cream, Elegant `layer-canvas-muted`).
+        child: Builder(
+          builder: (context) {
+            final t = RaftTokens.of(context);
+            return ColoredBox(
+              color: t.brutal ? t.colors['color-brutal-cream']! : t.sidebar,
+            );
+          },
+        ),
       ),
       Positioned.fromRect(
         rect: region,
