@@ -1,0 +1,165 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/activity_selected_previews.dart';
+import 'package:raft_ui/raft_ui.dart';
+
+Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
+  for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
+    ByteData bytes;
+    try {
+      bytes = await rootBundle.load(
+        'packages/raft_ui/assets/fonts/$family.ttf',
+      );
+    } on FlutterError {
+      bytes = await rootBundle.load('assets/fonts/$family.ttf');
+    }
+    await (FontLoader(
+      'packages/raft_ui/$family',
+    )..addFont(Future.value(bytes))).load();
+  }
+  final icons = File(
+    '${Platform.environment['FLUTTER_ROOT'] ?? '/home/kevinzhow/flutter-sdks/versions/3.47.6'}'
+    '/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+  );
+  if (icons.existsSync()) {
+    await (FontLoader(
+          'MaterialIcons',
+        )..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync()))))
+        .load();
+  }
+  // The theme's CJK fallback: load the system font so zh renders.
+  const dir = '/usr/share/fonts/opentype/noto';
+  final loader = FontLoader('Noto Sans CJK JP');
+  // Badge text inherits the generic `sans-serif` fallback.
+  final generic = FontLoader('sans-serif');
+  var any = false;
+  for (final f in ['NotoSansCJK-Regular.ttc', 'NotoSansCJK-Bold.ttc']) {
+    final file = File('$dir/$f');
+    if (file.existsSync()) {
+      final data = ByteData.sublistView(file.readAsBytesSync());
+      loader.addFont(Future.value(data));
+      generic.addFont(Future.value(data));
+      any = true;
+    }
+  }
+  if (any) {
+    await loader.load();
+    await generic.load();
+  }
+});
+
+class _AnyLocale<T> extends LocalizationsDelegate<T> {
+  const _AnyLocale(this.load_);
+  final Future<T> Function(Locale) load_;
+  @override
+  bool isSupported(Locale locale) => true;
+  @override
+  Future<T> load(Locale locale) => load_(locale);
+  @override
+  bool shouldReload(covariant LocalizationsDelegate<T> old) => false;
+}
+
+final _delegates = <LocalizationsDelegate<dynamic>>[
+  _AnyLocale<MaterialLocalizations>(
+    (l) => DefaultMaterialLocalizations.delegate.load(const Locale('en')),
+  ),
+  _AnyLocale<WidgetsLocalizations>(
+    (l) => DefaultWidgetsLocalizations.delegate.load(const Locale('en')),
+  ),
+];
+
+Widget host(RaftFamily family, bool dark, GlobalKey capture, Widget child) =>
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: raftTheme(family, dark: dark),
+      home: Scaffold(
+        body: RepaintBoundary(
+          key: capture,
+          child: Builder(
+            builder: (context) => Localizations.override(
+              context: context,
+              locale: const Locale('zh'),
+              delegates: _delegates,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+
+Future<void> shot(WidgetTester t, GlobalKey capture, String name) =>
+    t.runAsync(() async {
+      final render =
+          capture.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await render.toImage(pixelRatio: 2);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      final dir = Platform.environment['ACTIVITY_SELECTED_OUT'];
+      final file = File('${dir ?? '../../.local/activity-selected'}/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(data!.buffer.asUint8List());
+    });
+
+final _themes = [
+  ('brutal-light', RaftFamily.brutal, false),
+  ('elegant-light', RaftFamily.elegant, false),
+  ('elegant-dark', RaftFamily.elegant, true),
+];
+
+void main() {
+  for (final (name, family, dark) in _themes) {
+    testWidgets('selected Activity row states $name', (t) async {
+      t.view.physicalSize = const Size(480 * 2, 640 * 2);
+      t.view.devicePixelRatio = 2;
+      addTearDown(t.view.reset);
+      await loadFonts(t);
+      final capture = GlobalKey();
+      await t.pumpWidget(
+        host(family, dark, capture, const ActivitySelectedRows()),
+      );
+      await t.pumpAndSettle();
+      Finder row(int i) => find.byKey(ValueKey('activity-selected-row-$i'));
+      expect(
+        t
+            .widgetList<RaftConversationCard>(find.byType(RaftConversationCard))
+            .map((c) => c.selected),
+        [false, false, false, true, true, false],
+      );
+      // Row 2 hovered: hover fill and the done check, no selection.
+      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(t.getCenter(row(2)));
+      await t.pumpAndSettle();
+      await shot(t, capture, '$name-1-states-hover-row');
+      // Hover on the selected row: keeps the selected paint, shows the check.
+      await mouse.moveTo(t.getCenter(row(3)));
+      await t.pumpAndSettle();
+      await shot(t, capture, '$name-2-states-hover-selected');
+      await mouse.moveTo(const Offset(0, 0));
+      await t.pumpAndSettle();
+      await shot(t, capture, '$name-3-states-rest');
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('selected Activity master-detail $name', (t) async {
+      t.view.physicalSize = const Size(1180 * 2, 640 * 2);
+      t.view.devicePixelRatio = 2;
+      addTearDown(t.view.reset);
+      await loadFonts(t);
+      final capture = GlobalKey();
+      await t.pumpWidget(
+        host(family, dark, capture, const ActivitySelectedMasterDetail()),
+      );
+      await t.pumpAndSettle();
+      await shot(t, capture, '$name-4-master-detail');
+      expect(t.takeException(), isNull);
+    });
+  }
+}
