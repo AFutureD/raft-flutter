@@ -1165,9 +1165,8 @@ class _RaftChatViewState extends State<RaftChatView>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1376,9 +1375,8 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1902,9 +1900,8 @@ class _RaftChatViewState extends State<RaftChatView>
       await store.setSaved(message.id, !store.isSaved(message.id));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -2349,7 +2346,12 @@ class _RaftChatViewState extends State<RaftChatView>
         message: raftFormat(
           context,
           "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.",
-          {'deadline': timeFormatter.mediumDateTime(ends, followPreference: false)},
+          {
+            'deadline': timeFormatter.mediumDateTime(
+              ends,
+              followPreference: false,
+            ),
+          },
         ),
       );
     }
@@ -2362,14 +2364,12 @@ class _RaftChatViewState extends State<RaftChatView>
         onLink: widget.onOpenChannelSettings,
       ),
       ChannelFooterKind.jointLocked => RaftChannelBannerFooter(
-        message:
-            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        message: "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
         linkLabel: 'View Billing',
         onLink: widget.onViewBilling,
       ),
       ChannelFooterKind.guestReadOnly => const RaftChannelBannerFooter(
-        message:
-            'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
+        message: 'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
       ),
       ChannelFooterKind.join => RaftChannelJoinFooter(
         channelName: channel.name,
@@ -2392,15 +2392,13 @@ class _RaftChatViewState extends State<RaftChatView>
     final guestJoinable = parent.json['guestJoinable'] == true;
     if (guest && (joined || !guestJoinable)) {
       return const RaftChannelBannerFooter(
-        message:
-            'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
+        message: 'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
       );
     }
     if (selection.active) return null;
     if (jointChannelReadOnly(parent.json, sourceTimeNow())) {
       return RaftChannelBannerFooter(
-        message:
-            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        message: "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
         linkLabel: 'View Billing',
         onLink: widget.onViewBilling,
       );
@@ -2535,7 +2533,9 @@ class _RaftChatViewState extends State<RaftChatView>
         id: key,
         child: Padding(
           key: ValueKey('message-wrapper-$key'),
-          padding: const RaftTimelineCompositionRecipe().messageInset,
+          padding: const RaftTimelineCompositionRecipe().messageInsetFor(
+            MediaQuery.sizeOf(context).width,
+          ),
           child: RaftSystemMessageGroup(
             toggleKey: const ValueKey('system-message-group-toggle'),
             summary: systemState.summary,
@@ -2588,7 +2588,9 @@ class _RaftChatViewState extends State<RaftChatView>
             ),
           Padding(
             key: ValueKey('message-wrapper-$key'),
-            padding: const RaftTimelineCompositionRecipe().messageInset,
+            padding: const RaftTimelineCompositionRecipe().messageInsetFor(
+              MediaQuery.sizeOf(context).width,
+            ),
             child: tile(
               message,
               captureFocus: captureFocus,
