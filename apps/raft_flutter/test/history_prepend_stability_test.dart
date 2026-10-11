@@ -119,6 +119,9 @@ void main() {
             ) {
               await tester.pump(const Duration(milliseconds: 16));
             }
+            // The fling may have stretched the top edge (the user's own
+            // overscroll); let it recede before reading positions.
+            await tester.pumpAndSettle();
             // A row currently on screen.
             String? reading;
             Rect? before;

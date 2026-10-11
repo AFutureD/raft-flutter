@@ -15,108 +15,122 @@ import '../integration_test/message_scroll_performance_test.dart'
 /// message again: the list repositions to it without ever leaving its
 /// scroll range (no overscroll spring / blank gap) on any frame.
 void main() {
-  for (final (family, dark) in [
-    (RaftFamily.brutal, false),
-    (RaftFamily.elegant, false),
+  for (final (family, dark, platform) in [
+    (RaftFamily.brutal, false, TargetPlatform.android),
+    (RaftFamily.elegant, false, TargetPlatform.android),
+    // Bouncing platforms: the app's own repositioning must not bounce.
+    (RaftFamily.brutal, false, TargetPlatform.iOS),
+    (RaftFamily.elegant, false, TargetPlatform.macOS),
   ]) {
-    testWidgets('$family/$dark refocusing the same message never overscrolls', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({});
-      tester.view.physicalSize = const Size(1280, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final (w, api) = (await tester.runAsync(() => fixture('member')))!;
-      addTearDown(w.dispose);
-      w.ledger.switchServer('s1');
-      final rows = [
-        for (final r in contextRows('t', count: 200))
-          {
-            ...r,
-            'content': int.parse((r['id'] as String).substring(2)) % 3 == 0
-                ? longMessage(int.parse((r['id'] as String).substring(2)))
-                : r['content'],
-          },
-      ];
-      // The context window is 50 rows around the target; scrolling back
-      // pages older rows in, so the second open replaces a larger window.
-      api.routes['GET /messages/context/t-150'] = (_) => {
-        'messages': rows.sublist(125, 176),
-        'hasOlder': true,
-        'hasNewer': true,
-      };
-      api.routes['GET /messages/channel/c1'] = (request) {
-        final before = int.tryParse('${request.queryParameters['before']}');
-        final end = before == null ? rows.length : before - 1;
-        final start = (end - 50).clamp(0, end);
-        return {'messages': rows.sublist(start, end), 'historyLimited': false};
-      };
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          home: Scaffold(body: RaftChatView(controller: w)),
-        ),
-      );
-      Future<void> open() async {
-        await tester.runAsync(() async {
-          unawaited(w.jumpToMessage('c1', 't-150'));
-          for (var i = 0; i < 60 && (w.channelLoading || i < 4); i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 5));
-          }
-        });
-      }
-
-      await open();
-      for (var i = 0; i < 30; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      expect(paintedMessage(tester, 't-150'), isNotNull);
-      final dynamic state = tester.state(find.byType(RaftChatView));
-      // Scroll far back with real drags; older pages load on the way.
-      for (var k = 0; k < 25; k++) {
-        await tester.timedDrag(
-          find.byType(RaftChatView),
-          const Offset(0, 700),
-          const Duration(milliseconds: 120),
+    testWidgets(
+      '$family/$dark/$platform refocusing the same message never overscrolls',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final (w, api) = (await tester.runAsync(() => fixture('member')))!;
+        addTearDown(w.dispose);
+        w.ledger.switchServer('s1');
+        final rows = [
+          for (final r in contextRows('t', count: 200))
+            {
+              ...r,
+              'content': int.parse((r['id'] as String).substring(2)) % 3 == 0
+                  ? longMessage(int.parse((r['id'] as String).substring(2)))
+                  : r['content'],
+            },
+        ];
+        // The context window is 50 rows around the target; scrolling back
+        // pages older rows in, so the second open replaces a larger window.
+        api.routes['GET /messages/context/t-150'] = (_) => {
+          'messages': rows.sublist(125, 176),
+          'hasOlder': true,
+          'hasNewer': true,
+        };
+        api.routes['GET /messages/channel/c1'] = (request) {
+          final before = int.tryParse('${request.queryParameters['before']}');
+          final end = before == null ? rows.length : before - 1;
+          final start = (end - 50).clamp(0, end);
+          return {
+            'messages': rows.sublist(start, end),
+            'historyLimited': false,
+          };
+        };
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark).copyWith(platform: platform),
+            home: Scaffold(body: RaftChatView(controller: w)),
+          ),
         );
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 10)),
-        );
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pumpAndSettle();
-      expect(w.messages.length, greaterThan(60));
-      expect(paintedMessage(tester, 't-150'), isNull);
-
-      await open();
-      final log = <String>[];
-      var bad = 0;
-      for (var i = 0; i < 60; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        final ScrollController now = state.viewport;
-        if (!now.hasClients) {
-          log.add('$i detached');
-          continue;
+        Future<void> open() async {
+          await tester.runAsync(() async {
+            unawaited(w.jumpToMessage('c1', 't-150'));
+            for (var i = 0; i < 60 && (w.channelLoading || i < 4); i++) {
+              await Future<void>.delayed(const Duration(milliseconds: 5));
+            }
+          });
         }
-        final q = now.position;
-        final rect = paintedMessage(tester, 't-150');
-        log.add(
-          '$i px=${q.pixels.toStringAsFixed(0)} '
-          'range=${q.minScrollExtent.toStringAsFixed(0)}..'
-          '${q.maxScrollExtent.toStringAsFixed(0)} '
-          'out=${q.outOfRange} target=${rect?.top.toStringAsFixed(0)}',
+
+        await open();
+        for (var i = 0; i < 30; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(paintedMessage(tester, 't-150'), isNotNull);
+        final dynamic state = tester.state(find.byType(RaftChatView));
+        // Scroll far back with real drags; older pages load on the way.
+        for (var k = 0; k < 25; k++) {
+          await tester.timedDrag(
+            find.byType(RaftChatView),
+            const Offset(0, 700),
+            const Duration(milliseconds: 120),
+          );
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+        expect(w.messages.length, greaterThan(60));
+        expect(paintedMessage(tester, 't-150'), isNull);
+
+        await open();
+        final log = <String>[];
+        var bad = 0;
+        for (var i = 0; i < 60; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final ScrollController now = state.viewport;
+          if (!now.hasClients) {
+            log.add('$i detached');
+            continue;
+          }
+          final q = now.position;
+          final rect = paintedMessage(tester, 't-150');
+          log.add(
+            '$i px=${q.pixels.toStringAsFixed(0)} '
+            'range=${q.minScrollExtent.toStringAsFixed(0)}..'
+            '${q.maxScrollExtent.toStringAsFixed(0)} '
+            'out=${q.outOfRange} target=${rect?.top.toStringAsFixed(0)}',
+          );
+          if (q.outOfRange) bad++;
+          // No Android stretch either: it is the user's gesture only.
+          final stretch = find.byType(StretchEffect);
+          if (stretch.evaluate().isNotEmpty &&
+              tester.widget<StretchEffect>(stretch.first).stretchStrength !=
+                  0) {
+            bad++;
+          }
+        }
+        expect(bad, 0, reason: log.join('\n'));
+        expect(
+          paintedMessage(tester, 't-150'),
+          isNotNull,
+          reason: log.join('\n'),
         );
-        if (q.outOfRange) bad++;
-      }
-      expect(bad, 0, reason: log.join('\n'));
-      expect(
-        paintedMessage(tester, 't-150'),
-        isNotNull,
-        reason: log.join('\n'),
-      );
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 3));
-    });
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
   }
 
   for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
