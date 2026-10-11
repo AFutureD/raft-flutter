@@ -24,10 +24,15 @@ class RaftMobileComputerList extends StatelessWidget {
     this.onAdd,
     required this.addLabel,
     required this.retryLabel,
+    this.refreshError,
   });
   final List<Widget> rows;
   final bool loading;
   final String? error;
+
+  /// A failed refresh that kept the accepted [rows]: Web's
+  /// `computers-refresh-error` banner (copy + Retry) above the list.
+  final String? refreshError;
   final String emptyTitle, emptyDetail, addLabel, retryLabel;
   final VoidCallback? onRetry, onAdd;
 
@@ -45,6 +50,51 @@ class RaftMobileComputerList extends StatelessWidget {
               if (onRetry != null)
                 RaftButton(label: retryLabel, onPressed: onRetry),
             ],
+          ),
+        ),
+      if (refreshError != null && !loading)
+        Semantics(
+          liveRegion: true,
+          child: Container(
+            key: const ValueKey('computers-refresh-error'),
+            // `flex items-center justify-between gap-3 p-3 text-sm`.
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: t.brutal
+                  ? t.colors['color-soft-signal']
+                  : t.colors['primary-soft'],
+              border: Border.all(
+                color: t.brutal ? Colors.black : t.colors['line-muted']!,
+                width: t.brutal ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: RaftCssText(
+                    refreshError!,
+                    style: RaftTypography.body(
+                      t,
+                      size: 14,
+                      line: 20,
+                      weight: FontWeight.w600,
+                      color: t.brutal ? Colors.black : t.strong,
+                    ),
+                  ),
+                ),
+                if (onRetry != null) ...[
+                  const SizedBox(width: 12),
+                  RaftTextButton(
+                    label: retryLabel,
+                    glyph: RaftGlyph.refreshCw,
+                    // The Web Button box is the layout box (no touch inflation).
+                    minimumTargetSize: RaftMetrics.buttonMd,
+                    onPressed: onRetry,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       if (loading && rows.isEmpty)

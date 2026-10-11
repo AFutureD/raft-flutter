@@ -299,10 +299,16 @@ WorkspaceController _cWorkspace(ParityContext ctx) {
   final routes = Map<String, dynamic>.from(fx['routes'] as Map);
   final loading = '${ctx.props['loading']}' == 'true';
   final failing = ctx.props['loadStatus'] == 'error';
+  // `loadError` over a loaded list: the first read succeeds, the refresh fails.
+  final refreshFails = ctx.props['loadError'] == 'true' && !failing;
+  var machineReads = 0;
   final client = ScreenFixtureClient(
     (method, path, query) {
       if (method == 'GET' && path == '/servers/$_serverId/machines') {
-        if (failing) throw const RaftApiException('fixture error', status: 500);
+        machineReads++;
+        if (failing || (refreshFails && machineReads > 1)) {
+          throw const RaftApiException('fixture error', status: 500);
+        }
         return loading
             ? ScreenFixtureClient.pending
             : {
@@ -618,6 +624,15 @@ Future<void> _interact(WidgetTester t, ParityContext ctx) async {
       await _tap(t, find.text('Add members'), 600, true);
     case final k when k.endsWith('-create-joint'):
       await _tap(t, find.text('Create joint channel'), 600);
+    case 'computers.phone-refresh-error':
+      final fleet = t.widget<FleetView>(find.byType(FleetView));
+      unawaited(
+        fleet.controller.entityDirectory.refresh(
+          WorkspaceEntityKind.computers,
+          force: true,
+        ),
+      );
+      await t.pump(const Duration(milliseconds: 100));
     case 'notification.desktop-center':
       await _tap(t, find.byType(RaftMobileNotificationButton), 500);
     case final k when k.startsWith('create-channel.'):

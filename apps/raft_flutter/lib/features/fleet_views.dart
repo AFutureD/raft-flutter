@@ -322,9 +322,17 @@ class _FleetViewState extends State<FleetView> {
       return RaftMobileComputerList(
         key: const PageStorageKey('fleet-computers'),
         loading: loading,
-        error: error == null
+        // Web MobileComputersPanel: a failed first load is the load-error
+        // state; a failed refresh that kept the saved list is a banner.
+        error: error == null || rows.isNotEmpty
             ? null
             : raftText(context, 'Directory could not be loaded.'),
+        refreshError: error != null && rows.isNotEmpty
+            ? raftText(
+                context,
+                "Couldn't refresh computers. Showing saved results.",
+              )
+            : null,
         emptyTitle: raftText(
           context,
           widget.attentionOnly
