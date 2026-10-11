@@ -2452,6 +2452,26 @@ class WorkspaceController extends ChangeNotifier {
     return true;
   }
 
+  /// Channel and DM rows saved on this device for [serverId], or null. A
+  /// display seed (for example the share picker) and never an authorization
+  /// grant: callers revalidate before acting on a row.
+  Future<List<RaftChannel>?> cachedChannelDirectory(String serverId) async {
+    if (_disposed || _revokedServers.contains(serverId)) return null;
+    final cached = await _cached('channels', '', server: serverId);
+    if (cached is! Map || _disposed || _revokedServers.contains(serverId)) {
+      return null;
+    }
+    try {
+      return [
+        for (final key in const ['channels', 'dms'])
+          for (final row in cached[key] as List)
+            RaftChannel(Map<String, dynamic>.from(row as Map)),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Background replacement of a cache-first directory once the restored
   /// session is validated. A server missing from the fresh directory is
   /// revoked (its on-device data is purged and, when selected, its workspace

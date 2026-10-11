@@ -4,7 +4,7 @@
 Run after build-cases.py (idempotent: every `components.list-pages.*` case is replaced, all other
 cases are kept). Also writes tool/parity-ext/fixtures/listpages.json, the data both providers read.
 
-Page-inventory rows covered (docs/parity-page-inventory.md): 2.05 2.10 2.11 2.12 4.02 4.03 4.06 4.07
+Page-inventory rows covered (page inventory, tool/parity-ext/inventory.py): 2.05 2.10 2.11 2.12 4.02 4.03 4.06 4.07
 5.02 5.03 5.04 5.06 5.07 5.08 5.09 5.10 5.11 6.04 6.05 6.06 6.10 8.02 8.03 8.04 8.05.
 
 Derivation (raft-source packages/web/src/components):

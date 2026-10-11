@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 
@@ -16,6 +17,36 @@ LAB_PACKAGE = PACKAGE + '.linkperf'
 
 class SafetyError(RuntimeError):
     pass
+
+
+def local_dev_version(root=ROOT):
+    """Identify the actual local source tree, including pre-existing dirty files."""
+    match = re.search(r'^version:\s*([^+\s]+)\+\d+\s*$',
+                      (root / 'apps/raft_flutter/pubspec.yaml').read_text(), re.M)
+    if not match:
+        raise SafetyError('App pubspec must contain a version and build number.')
+    commit = subprocess.check_output(['git', 'rev-parse', '--short=7', 'HEAD'],
+                                     cwd=root, text=True).strip()
+    dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=root, text=True).strip())
+    return f'{match[1]}-dev.{commit}' + ('.dirty' if dirty else '')
+
+
+def build_local_android(build_number, root=ROOT, run_build=None):
+    """Compile only; update/launch still require the separate guarded installer.
+
+    Use a sufficient build number: ARM64 split APKs add an ABI offset, and the
+    installer checks the actual APK version code before an update.
+    """
+    if not isinstance(build_number, int) or isinstance(build_number, bool) or build_number < 1:
+        raise SafetyError('Local Android builds require a positive build number.')
+    version = local_dev_version(root)
+    command = [sys.executable, str(root / 'tool/flutter'), 'build', 'apk',
+               '--release', '--target=lib/main.dart', '--split-per-abi',
+               '--target-platform=android-arm64', f'--build-number={build_number}',
+               f'--build-name={version}', f'--dart-define=RAFT_APP_VERSION={version}']
+    (run_build or subprocess.run)(command, cwd=root / 'apps/raft_flutter', check=True)
+    return {'versionName': version, 'buildNumber': build_number,
+            'apk': str(root / 'apps/raft_flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk')}
 
 
 @contextmanager
