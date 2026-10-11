@@ -49,7 +49,15 @@ Future<void> main([List<String> args = const []]) async {
   AttachmentImageDiskCache.installed ??= AttachmentImageDiskCache(
     getApplicationCacheDirectory,
   );
-  runApp(ProviderScope(child: RaftApp(initialArguments: args)));
+  WidgetsBinding.instance.deferFirstFrame();
+  runApp(
+    ProviderScope(
+      child: RaftApp(
+        initialArguments: args,
+        onStartupReady: WidgetsBinding.instance.allowFirstFrame,
+      ),
+    ),
+  );
 }
 
 /// The server stores only locales shipped by the UI. Translation language is separate.
@@ -80,6 +88,8 @@ class RaftApp extends StatefulWidget {
     this.openWorkspaceCache,
     this.nativeContent,
     this.nativeSharing,
+    this.nativeSessionOwner,
+    this.onStartupReady,
   });
   final List<String> initialArguments;
   final SessionStore? sessionStore;
@@ -89,6 +99,8 @@ class RaftApp extends StatefulWidget {
   final Future<WorkspaceCache?> Function()? openWorkspaceCache;
   final NativeContentCoordinator? nativeContent;
   final NativeSharing? nativeSharing;
+  final NativeSessionOwner? nativeSessionOwner;
+  final VoidCallback? onStartupReady;
   @override
   State<RaftApp> createState() => _RaftAppState();
 }
@@ -115,7 +127,16 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   String? publishedServerId;
   int? publishedWorkspaceIndex;
   late final SessionPersistence sessionPersistence;
-  late final sessionOwner = NativeSessionOwner(poll: content.pollBackground);
+  late final sessionOwner =
+      widget.nativeSessionOwner ??
+      NativeSessionOwner(poll: content.pollBackground);
+  bool startupReady = false;
+  void finishStartup() {
+    if (startupReady) return;
+    startupReady = true;
+    widget.onStartupReady?.call();
+  }
+
   int authAttempt = 0;
   final privateRoutes = PrivateRouteGuard();
   RaftClient? client;
@@ -377,11 +398,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   Future<void> restore() async {
     try {
-      await sessionOwner.acquire();
-      if (!mounted) {
-        sessionOwner.release();
-        return;
-      }
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
@@ -405,7 +421,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       // Cache-first: a stored account record paints the on-device workspace
       // at once; the session is revalidated in the background and a
       // rejected or replaced account ends through the session events below.
-      if (await c.restore(cachedFirst: cache != null)) {
+      if (await c.restore(
+        cachedFirst: true,
+        credentialsReady: sessionOwner.acquire(foreground: true),
+        onLocalSession: (cached) {
+          if (!cached) finishStartup();
+        },
+      )) {
         if (!mounted) {
           await c.dispose();
           return;
@@ -416,8 +438,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
     } catch (e) {
       bootError = 'Could not restore the session. Sign in to reconnect.';
+    } finally {
+      if (mounted) setState(() => restoring = false);
+      finishStartup();
     }
-    if (mounted) setState(() => restoring = false);
   }
 
   RaftClient authClient(String base, int attempt) {
@@ -448,7 +472,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     String base,
     Future<void> Function(RaftClient) action,
   ) async {
-    await sessionOwner.acquire();
+    await sessionOwner.acquire(foreground: true);
     if (!mounted) return;
     final attempt = ++authAttempt;
     final c = authClient(base, attempt);
@@ -601,7 +625,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       selectorError = null;
     });
     try {
-      if (!await w.loadServerDirectory(cachedFirst: true) || !current()) {
+      if (!await w.loadServerDirectory(
+            cachedFirst: true,
+            onCacheMiss: finishStartup,
+          ) ||
+          !current()) {
         return;
       }
       final servers = w.servers;
@@ -892,6 +920,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         final hydrated = Completer<void>();
         final selecting = w.selectServer(
           selected,
+          onCacheMiss: finishStartup,
           onHydrated: () {
             if (!hydrated.isCompleted) hydrated.complete();
           },
@@ -1132,8 +1161,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     pendingShares.clear();
 
     final clearSession = c == null
-        ? Future<void>.value()
-        : sessionPersistence.write(c.origin, null);
+        ? Future<Session?>.value()
+        : sessionPersistence.clearAfter(
+            c.origin,
+            sessionOwner.acquire(foreground: true),
+            principal: c.user?.id,
+          );
     workspace = null;
     oldWorkspace?.removeListener(workspaceChanged);
     serverSurfaces.clear();
@@ -1143,6 +1176,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     appRouter.publish(Uri(path: '/'));
     client = null;
     sessionEvents?.cancel();
+    // Retire requests and socket authentication synchronously, even while a
+    // background owner is still finishing the credential record to revoke.
+    final loggingOut = c?.logout(revocationSession: clearSession);
     if (mounted) setState(() {});
     // Late writes (debounced directory saves, socket-driven windows) must not
     // land after the account's device data is cleared.
@@ -1156,8 +1192,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         for (final s in oldWorkspace?.servers ?? const <RaftRecord>[]) s.id,
       ]);
     }
-    await c?.logout();
-    await clearSession;
+    await loggingOut;
     oldWorkspace?.dispose();
     if (oldWorkspace == null) await c?.dispose();
   }
@@ -1191,6 +1226,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    finishStartup();
     authAttempt++;
     rootRequest++;
     shareEpoch++;
@@ -1201,15 +1237,19 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     unawaited(content.dispose());
     sessionEvents?.cancel();
     final flushed = workspace?.flushCache() ?? Future<void>.value();
+    final retiredClient = client;
     if (workspace != null) {
       workspace!.removeListener(workspaceChanged);
       workspace!.dispose();
-    } else {
-      client?.dispose();
     }
+    final disposed = retiredClient?.dispose();
     flushed.whenComplete(() async {
-      await cache?.close();
-      sessionOwner.release();
+      try {
+        await disposed;
+        await cache?.close();
+      } finally {
+        sessionOwner.release();
+      }
     });
     routeInformation.dispose();
     appRouter.dispose();

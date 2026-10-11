@@ -78,6 +78,14 @@ UI、纯Dart协议/同步、平台适配在 P0 合同后可并行，feature任�
 - 管理页面使用现网挂载路径与能力校验：providers、MCP、Apps、Slack、analytics、billing、setup、agents 和 Computers。未配置的第三方 OAuth、计费和 Slack provisioning 不产生模拟成功状态。
 - go_router 尚未作为路由权威接线；本地 URI 与通知由 NativeContentCoordinator 校验服务器成员资格并获取真实消息上下文。Android 原生 share/通知 bridge 和 Linux 单实例 URI 使用平台 facade。Android 周期后台收件箱兜底已有独立冷进程、去重和系统点击证据；iOS 仅源码接入。FCM/APNs 注册、Linux 服务端消息推送及独立桌面多窗口不属于当前已验证能力。
 
+### 前台启动与后台会话交接
+
+前台先只读本机已确认的账号与工作区缓存，不等待后台通知 worker 或 `/auth/me`。原生启动画面只保留到本地页面就绪；没有账号记录、服务器目录或频道缓存时，立即交给相应的首次加载界面，不用网络等待延长启动画面。正常恢复的第一个应用帧直接是缓存页面，网络重验原地更新。
+
+旋转凭据仍由同一个 `NativeSessionOwner` 独占：前台请求后台 worker 主动交接，worker 关闭网络连接并等待已开始的凭据写入完成后自行释放，前台不能抢占活跃锁。HTTP、刷新和 Socket.IO 连接等待交接后重读最新完整凭据（包括刷新重试绑定）；本地缓存展示不参与这个等待。交接发现会话被删除或变成另一账号时，退休旧客户端与旧账号缓存，不覆盖另一账号的会话。退出登录立即使旧请求失效，将凭据清理排在后续登录写入之前，并用后台最后保存的凭据撤销旧会话。
+
+定向覆盖由 `cached_restore_test`、`session_test`、`session_persistence_test`、`background_inbox_test` 和 `restart_cache_first_frame_test` 提供：包含 Android 布局下阻塞后台 owner 与全部启动网络读取、缓存页面交互、凭据轮换/刷新重试、撤权、退出与重新登录并发、连接启动以及等待中的 owner 释放。这些组件和逻辑回归不替代 Android/iOS 真机冷启动、系统后台调度或启动耗时采集。
+
 ## 当前共享组件与领域边界
 
 共享侧栏规则区分 raft-ui 通用组件与实际产品覆写。产品分组标题、计数、折叠与排序使用共享 recipe；Search/Activity 与 Saved 使用各自实际挂载角色，Saved 的总数来自真实 GET 元数据，与未读数分离。48 像素触摸范围属于原生适配，不能计为原版 24 像素动作布局相同。

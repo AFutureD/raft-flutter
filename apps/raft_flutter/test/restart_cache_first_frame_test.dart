@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/features/global_server_selector.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_flutter/platform/background_notifications.dart';
+import 'package:raft_client/raft_client.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture, RootCache;
 
@@ -70,6 +72,171 @@ Future<void> _release(WidgetTester t, RootFixture f, [String? only]) async {
 }
 
 void main() {
+  testWidgets(
+    'logout during worker handoff revokes its rotation without erasing a concurrent new login',
+    (t) async {
+      final (cache, _) = await _firstProcess(t);
+      final worker = NativeSessionOwner(supported: true),
+          ui = NativeSessionOwner(supported: true);
+      addTearDown(worker.release);
+      addTearDown(ui.release);
+      await worker.acquire();
+      final f = RootFixture(cache: cache, sessionOwner: ui);
+      await f.mount(
+        t,
+        'elegant-light',
+        412,
+        cachedSession: true,
+        preferences: {'$_memory.last': 'alpha', '$_memory.a': '/s/alpha'},
+      );
+      final oldClient = f.client;
+      final logout = t
+          .widget<WorkspaceView>(find.byType(WorkspaceView))
+          .onLogout();
+      expect(oldClient.signedIn, false);
+      await f.flush(t);
+      expect(find.byType(AuthView), findsOneWidget);
+      f.adapter.routes['POST /auth/login'] = (_) => {
+        'accessToken': 'new-login-fixture',
+        'refreshToken': 'new-login-fixture',
+        'user': {
+          'id': 'bob',
+          'email': 'bob@example.invalid',
+          'emailVerified': true,
+        },
+      };
+      final login = t
+          .widget<AuthView>(find.byType(AuthView))
+          .onLogin(_origin, 'bob@example.invalid', 'fixture-only');
+      await f.sessions.write(
+        _origin,
+        Session(
+          accessToken: 'worker-fixture',
+          refreshToken: 'worker-fixture',
+          cachedUser: {'id': 'alice', 'emailVerified': true},
+        ),
+      );
+      worker.release();
+      await f.flush(t);
+      await logout;
+      await login;
+      expect(
+        f.adapter.calls
+            .singleWhere((r) => r.path == '/auth/logout')
+            .data['refreshToken'],
+        'worker-fixture',
+      );
+      final saved = await f.sessions.read(_origin);
+      expect(saved?.refreshToken, 'new-login-fixture');
+      expect(saved?.cachedUser?['id'], 'bob');
+      expect(await cache.read(_origin, 'alice', 'a', 'window', 'ca'), isNull);
+      expect(oldClient.disposalCount, 1);
+      await f.close(t);
+    },
+  );
+
+  testWidgets(
+    'Android cached startup releases its first frame before worker handoff or any network response',
+    (t) async {
+      final (cache, _) = await _firstProcess(t);
+      final asked = Completer<void>();
+      final worker = NativeSessionOwner(
+        supported: true,
+        onYield: () async {
+          asked.complete();
+        },
+      );
+      final ui = NativeSessionOwner(supported: true);
+      addTearDown(worker.release);
+      addTearDown(ui.release);
+      await worker.acquire();
+      var ready = 0;
+      final f = RootFixture(
+        cache: cache,
+        sessionOwner: ui,
+        onStartupReady: () => ready++,
+      );
+      for (final key in _startupReads) {
+        f.holds[key] = Completer<dynamic>();
+      }
+      await f.mount(
+        t,
+        'elegant-light',
+        412,
+        cachedSession: true,
+        preferences: {'$_memory.last': 'alpha', '$_memory.a': '/s/alpha'},
+      );
+      expect(asked.isCompleted, isTrue);
+      expect(ready, 1);
+      expect(find.byType(WorkspaceView), findsOneWidget);
+      expect(find.text('Restoring session…'), findsNothing);
+      expect(find.byType(GlobalServerSelector), findsNothing);
+      expect(f.surfaces, everyElement('workspace'));
+      expect(
+        f.adapter.calls,
+        isEmpty,
+        reason: 'only cached display may bypass the credential owner',
+      );
+      final w = f.workspace(t);
+      expect(w.channels.single.name, 'general-a');
+      await t.tap(find.text('general-a').first);
+      await f.flush(t);
+      expect(find.text('Accepted a'), findsOneWidget);
+      expect(f.adapter.calls, isEmpty);
+      // Credentials may change while local pages are already interactive.
+      await f.sessions.write(
+        _origin,
+        Session(
+          accessToken: 'rotated-fixture',
+          refreshToken: 'rotated-fixture',
+          cachedUser: {'id': 'alice', 'emailVerified': true},
+        ),
+      );
+      worker.release();
+      await f.flush(t);
+      await _release(t, f);
+      expect(
+        f.adapter.calls.where(
+          (r) => r.headers['Authorization'] == 'Bearer fixture-only',
+        ),
+        isEmpty,
+      );
+      expect(find.text('Accepted a'), findsOneWidget);
+      await f.close(t);
+      expect(ready, 1);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets(
+    'a first login without a cached account releases the launch screen while validation waits',
+    (t) async {
+      var ready = 0;
+      final f = RootFixture(onStartupReady: () => ready++);
+      f.holds['GET /auth/me'] = Completer<dynamic>();
+      await f.mount(t, 'elegant-light', 412);
+      expect(ready, 1);
+      expect(find.text('Restoring session…'), findsOneWidget);
+      await _release(t, f);
+      await f.close(t);
+      expect(ready, 1);
+    },
+  );
+
+  testWidgets(
+    'an account with no workspace cache releases the launch screen before the directory read',
+    (t) async {
+      var ready = 0;
+      final f = RootFixture(onStartupReady: () => ready++);
+      f.holds['GET /servers'] = Completer<dynamic>();
+      await f.mount(t, 'elegant-light', 412, cachedSession: true);
+      expect(ready, 1);
+      expect(find.byType(GlobalServerSelector), findsOneWidget);
+      await _release(t, f);
+      await f.close(t);
+    },
+  );
+
   testWidgets(
     'restart paints cached sidebar and window at the first frame, then revalidates in place',
     (t) async {

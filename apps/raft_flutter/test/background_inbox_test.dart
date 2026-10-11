@@ -260,4 +260,60 @@ void main() {
     port.close();
     ui.release();
   });
+
+  test('foreground requests one cooperative handoff without stealing a pending write', () async {
+    final asked = Completer<void>(), persisted = Completer<void>();
+    var yields = 0;
+    late NativeSessionOwner worker;
+    worker = NativeSessionOwner(
+      supported: true,
+      onYield: () async {
+        yields++;
+        asked.complete();
+        await persisted.future;
+        worker.release();
+      },
+    );
+    final ui = NativeSessionOwner(supported: true);
+    addTearDown(worker.release);
+    addTearDown(ui.release);
+    await worker.acquire();
+    final workerPort = IsolateNameServer.lookupPortByName(
+      'raft.native.session-owner.v1',
+    );
+    var acquired = false;
+    final waiting = ui.acquire(foreground: true).then((_) => acquired = true);
+    await asked.future;
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    expect(yields, 1);
+    expect(acquired, false);
+    expect(
+      IsolateNameServer.lookupPortByName('raft.native.session-owner.v1'),
+      workerPort,
+    );
+    persisted.complete();
+    await waiting;
+    expect(acquired, true);
+    expect(
+      IsolateNameServer.lookupPortByName('raft.native.session-owner.v1'),
+      isNot(workerPort),
+    );
+  });
+
+  test('disposing a waiting UI releases its eventual lease', () async {
+    final worker = NativeSessionOwner(supported: true);
+    final ui = NativeSessionOwner(supported: true);
+    addTearDown(worker.release);
+    addTearDown(ui.release);
+    await worker.acquire();
+    final waiting = ui.acquire(foreground: true);
+    ui.release();
+    worker.release();
+    await waiting;
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      IsolateNameServer.lookupPortByName('raft.native.session-owner.v1'),
+      isNull,
+    );
+  });
 }

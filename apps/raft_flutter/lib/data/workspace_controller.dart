@@ -2395,7 +2395,10 @@ class WorkspaceController extends ChangeNotifier {
   /// adopted at once, so the remembered server and its cached channels paint
   /// without waiting for the network; [revalidateServerDirectory] then
   /// replaces it in the background.
-  Future<bool> loadServerDirectory({bool cachedFirst = false}) async {
+  Future<bool> loadServerDirectory({
+    bool cachedFirst = false,
+    void Function()? onCacheMiss,
+  }) async {
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot load the server directory.');
     }
@@ -2423,6 +2426,7 @@ class WorkspaceController extends ChangeNotifier {
         return true;
       }
     }
+    onCacheMiss?.call();
     final accepted = await client.servers();
     if (!current()) return false;
     _revokedServers.removeAll(accepted.map((server) => server.id));
@@ -2555,11 +2559,16 @@ class WorkspaceController extends ChangeNotifier {
   Future<void> selectServer(
     RaftRecord next, {
     void Function()? onHydrated,
+    void Function()? onCacheMiss,
   }) async {
     // A live mobile page presents the source's session; the source selects.
     final source = presentationSource;
     if (source != null) {
-      return source.selectServer(next, onHydrated: onHydrated);
+      return source.selectServer(
+        next,
+        onHydrated: onHydrated,
+        onCacheMiss: onCacheMiss,
+      );
     }
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot select a server.');
@@ -2696,7 +2705,11 @@ class WorkspaceController extends ChangeNotifier {
       };
     }
     notifyListeners();
-    if (cached is Map) onHydrated?.call();
+    if (cached is Map) {
+      onHydrated?.call();
+    } else {
+      onCacheMiss?.call();
+    }
     final readGeneration = readState.generation;
     List<List<RaftChannel>> values;
     try {
