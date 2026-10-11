@@ -1107,7 +1107,7 @@ class _RaftChatViewState extends State<RaftChatView>
   /// Web MessageInput rows above the composer card: the error banner, then
   /// the pending-mention strip.
   Widget? composerAccessory() =>
-      raftComposerAccessory(w, thread: widget.thread);
+      raftComposerAccessory(context, w, thread: widget.thread);
 
   /// Web `openDraftImagePreview`: the local picture of a ready image in the
   /// lightbox.
@@ -2881,11 +2881,6 @@ class _RaftChatViewState extends State<RaftChatView>
               },
               child: Focus(autofocus: true, child: selectionToolbar()),
             )
-          else if (w.conversationPaused)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(raftText(context, 'Channel conversion in progress')),
-            )
           else
             RaftComposer(
               // Web MessageInput drag-and-drop, paste and keyboard images.
@@ -2967,17 +2962,23 @@ class _RaftChatViewState extends State<RaftChatView>
                         d.checking ||
                         (d.error == null && d.id == null && !d.queued),
                   ),
-              submitTooltip: composerSendBlockTitle(
-                context,
-                w.uploads(thread: widget.thread),
-              ),
-              onSendBlocked: () => w.setComposerError(
-                composerSendBlockNotice(
-                  context,
-                  w.uploads(thread: widget.thread),
-                ),
-                thread: widget.thread,
-              ),
+              // Web MessageInput `conversionBlocked`: the composer stays and
+              // Send is disabled with the conversion notice as its title.
+              submitTooltip: w.conversationPaused
+                  ? raftText(context, 'Channel conversion in progress')
+                  : composerSendBlockTitle(
+                      context,
+                      w.uploads(thread: widget.thread),
+                    ),
+              onSendBlocked: w.conversationPaused
+                  ? null
+                  : () => w.setComposerError(
+                      composerSendBlockNotice(
+                        context,
+                        w.uploads(thread: widget.thread),
+                      ),
+                      thread: widget.thread,
+                    ),
               hint: widget.thread
                   ? raftText(context, 'Message thread')
                   : w.channel?.type == 'dm'
@@ -2993,13 +2994,14 @@ class _RaftChatViewState extends State<RaftChatView>
                     }),
               enabled:
                   presentationActive &&
-                  !w.conversationPaused &&
                   (widget.thread
                       ? w.threadParentMessageId != null &&
                             w.threadSourceChannel?.archived != true &&
                             w.threadSourceChannel?.joined == true
                       : w.channel?.archived != true),
-              canSend: w.uploadsReady(thread: widget.thread),
+              canSend:
+                  !w.conversationPaused &&
+                  w.uploadsReady(thread: widget.thread),
               suggestions: composerDirectory.suggestions,
               onSuggestionsRequested: (prefix) {
                 if (presentationActive && currentComposer()) {

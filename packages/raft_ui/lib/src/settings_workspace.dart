@@ -1063,8 +1063,10 @@ class _McpUsageGrid extends StatelessWidget {
       line: 16,
       color: t.brutal ? Colors.black.withValues(alpha: .65) : t.muted,
     );
-    Widget cell(String label, String text, {bool mono = false}) => Expanded(
-      child: Column(
+    // `grid gap-2 sm:grid-cols-3`: one column below the 640px `sm` viewport.
+    final wide = MediaQuery.sizeOf(context).width >= 640;
+    Widget cell(String label, String text, {bool mono = false}) {
+      final column = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(raftText(context, label), style: strong),
@@ -1075,17 +1077,26 @@ class _McpUsageGrid extends StatelessWidget {
                 : value,
           ),
         ],
-      ),
-    );
+      );
+      return wide ? Expanded(child: column) : column;
+    }
+
+    final cells = [
+      cell('Calls', server.usageCalls ?? ''),
+      cell('Last used', server.usageLastUsed ?? ''),
+      cell('Last tool', server.usageLastTool ?? '', mono: true),
+    ];
+    if (!wide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 8,
+        children: cells,
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        cell('Calls', server.usageCalls ?? ''),
-        const SizedBox(width: 8),
-        cell('Last used', server.usageLastUsed ?? ''),
-        const SizedBox(width: 8),
-        cell('Last tool', server.usageLastTool ?? '', mono: true),
-      ],
+      spacing: 8,
+      children: cells,
     );
   }
 }

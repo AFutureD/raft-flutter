@@ -78,7 +78,16 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
   final _linkController = TextEditingController();
 
   TextEditingController controllerFor(RaftInvitee i) =>
-      controllers.putIfAbsent(i.id, () => TextEditingController(text: i.email));
+      controllers.putIfAbsent(i.id, () {
+        final c = TextEditingController(text: i.email);
+        // The seat-limit banner follows the typed rows, so a change rebuilds.
+        c.addListener(() {
+          if (i.email == c.text) return;
+          i.email = c.text;
+          if (mounted) setState(() {});
+        });
+        return c;
+      });
 
   @override
   void dispose() {
@@ -122,8 +131,14 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final seatReached = widget.seatLimitMessage != null && tab == 'email';
-    return Center(
+    // Guest invitations consume no paid seat: only a filled row asking for a
+    // seat-consuming role trips the email path (`emailInviteSeatLimitReached`).
+    final seatReached =
+        widget.seatLimitMessage != null &&
+        tab == 'email' &&
+        invitees.any((i) => i.email.trim().isNotEmpty && i.role != 'guest');
+    // Web `Modal`: full-window backdrop, `p-4` frame, centred column.
+    return RaftModalBackdrop(
       child: Material(
         type: MaterialType.transparency,
         child: RaftDialogCard(
@@ -146,6 +161,12 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                 RaftBanner(
                   description: widget.seatLimitMessage!,
                   descriptionWeight: FontWeight.w700,
+                  descriptionTail: widget.onViewBilling == null
+                      ? null
+                      : (
+                          label: raftText(context, 'View Billing'),
+                          onPressed: widget.onViewBilling!,
+                        ),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -236,10 +257,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                 Expanded(
                   child: RaftDialogTextInput(
                     fieldKey: ValueKey('invite-email-$index'),
-                    controller: controllerFor(invitee)
-                      ..addListener(
-                        () => invitee.email = controllerFor(invitee).text,
-                      ),
+                    controller: controllerFor(invitee),
                     placeholder: 'name@company.com',
                   ),
                 ),
@@ -417,7 +435,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
                     height: 16 / 12,
                     fontWeight: FontWeight.w700,
                     color: t.brutal
-                        ? t.colors['brutal-pink']
+                        ? t.product.brutalPink
                         : t.colors['accent-strong'],
                   ),
                 ),

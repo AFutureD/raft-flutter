@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:raft_client/raft_client.dart';
@@ -186,8 +188,34 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
 
     return [
       for (final r in const ['owner', 'admin', 'member', 'guest'])
-        if (can(r)) r,
+        if (can(r) && (r != 'guest' || guestEnabled)) r,
     ];
+  }
+
+  /// `useServerFeatureFlag(server_guest_v0)`: Guest is only assignable while
+  /// guest invites are on (`getEditableHumanServerRoles` `serverGuestEnabled`).
+  bool guestEnabled = false, guestFlagRequested = false;
+
+  Future<void> loadGuestFlag() async {
+    final server = w.server?.id;
+    if (server == null) return;
+    try {
+      final result = await w.command(
+        'POST',
+        '/feature-flags/evaluate',
+        data: {
+          'keys': ['server_guest_v0'],
+          'serverId': server,
+          'platform': 'web',
+        },
+      );
+      final on =
+          result is Map &&
+          (result['evaluations'] as List? ?? []).whereType<Map>().any(
+            (f) => f['key'] == 'server_guest_v0' && f['enabled'] == true,
+          );
+      if (mounted && on != guestEnabled) setState(() => guestEnabled = on);
+    } catch (_) {}
   }
 
   bool editingRole = false, rolePickerOpen = false, roleSaving = false;
@@ -408,13 +436,23 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
                 foreground: roleInk(t, role),
               ),
               editKey: const ValueKey('member-edit-role'),
+              helpKey: const ValueKey('member-role-help'),
+              onHelp: () => showRaftRolePermissionHelp(context, agent: false),
               onEdit: canRole
-                  ? () => setState(() {
-                      roleValue = role;
-                      rolePickerOpen = true;
-                      roleError = null;
-                      editingRole = true;
-                    })
+                  ? () {
+                      // `useServerFeatureFlag(server_guest_v0)`: read when the
+                      // role editor is first needed.
+                      if (!guestFlagRequested) {
+                        guestFlagRequested = true;
+                        unawaited(loadGuestFlag());
+                      }
+                      setState(() {
+                        roleValue = role;
+                        rolePickerOpen = true;
+                        roleError = null;
+                        editingRole = true;
+                      });
+                    }
                   : null,
               editor: canRole && editingRole
                   ? _roleEditor(context, t, roles)

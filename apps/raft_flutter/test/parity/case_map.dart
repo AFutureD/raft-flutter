@@ -9,10 +9,13 @@ import 'cases/ext_auth_pages.dart';
 import 'cases/ext_channel_header.dart';
 import 'cases/ext_composer_attachments.dart';
 import 'cases/ext_channel_settings.dart';
+import 'cases/ext_composer_states.dart';
 import 'cases/ext_computers.dart';
 import 'cases/ext_dialogs.dart';
+import 'cases/ext_list_pages.dart';
 import 'cases/ext_live_activity.dart';
 import 'cases/ext_members.dart';
+import 'cases/ext_members_pages.dart';
 import 'cases/ext_settings.dart';
 import 'cases/ext_screens.dart';
 import 'cases/ext_search_overlay.dart';
@@ -55,10 +58,14 @@ final Map<String, ParityCase> parityCases = {
   ...extShellCases,
   ...extWp6Cases,
   ...extMemberCases,
+  ...extMembersPagesCases,
+  ...extMembersPagesChannelCases,
   ...extAuthCases,
   ...extAuthPagesCases,
   ...extDialogCases,
   ...extScreenCases,
+  ...extComposerStateCases,
+  ...extListPageCases,
 };
 
 final Map<String, ParityUncovered> parityUncovered = {

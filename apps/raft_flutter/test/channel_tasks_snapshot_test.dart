@@ -74,7 +74,10 @@ void main() {
     theme: raftTheme(RaftFamily.elegant),
     home: const Scaffold(body: SizedBox.expand()),
   );
-  final spinner = find.byType(CircularProgressIndicator);
+  // TasksPanel loading is Web's SkeletonRow cards (no spinner).
+  final spinner = find.byWidgetPredicate(
+    (w) => w is CircularProgressIndicator || w is RaftSkeletonRow,
+  );
 
   testWidgets(
     'a channel Tasks tab revisit shows its cached board at the first frame and revalidates silently',

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'localization.dart';
+import 'overlays/dialog.dart' show showRaftDialog;
 import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
@@ -624,7 +625,11 @@ class RaftConfirmDialog extends StatefulWidget {
     this.onConfirm,
     this.loadingLabel,
     this.confirmGlyph,
+    this.actionSize = RaftButtonRecipeSize.sm,
   });
+
+  /// ConfirmDialog `actionSize` (`xs` for confirmations in dense surfaces).
+  final RaftButtonRecipeSize actionSize;
 
   /// ConfirmDialog `confirmIcon` (`<RotateCcw size={14} />`).
   final RaftGlyph? confirmGlyph;
@@ -659,10 +664,9 @@ class RaftConfirmDialog extends StatefulWidget {
   final double maxWidth;
 
   static Future<bool?> show(BuildContext context, RaftConfirmDialog dialog) =>
-      showDialog<bool>(
+      showRaftDialog<bool>(
         context: context,
         barrierDismissible: false,
-        barrierColor: RaftTokens.of(context).colors['layer-backdrop'],
         builder: (_) => dialog,
       );
 
@@ -738,7 +742,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         if (widget.showCancel)
           RaftSettingsRecipeButton(
             label: widget.cancelLabel,
-            size: RaftButtonRecipeSize.sm,
+            size: widget.actionSize,
             disabledOpacity: .3,
             onPressed: loading ? null : cancel,
           ),
@@ -752,7 +756,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
                 : widget.confirmLabel,
             glyph: loading ? null : widget.confirmGlyph,
             variant: widget.confirmVariant,
-            size: RaftButtonRecipeSize.sm,
+            size: widget.actionSize,
             disabledOpacity: .8,
             onPressed: enabled && !loading ? confirm : null,
           ),

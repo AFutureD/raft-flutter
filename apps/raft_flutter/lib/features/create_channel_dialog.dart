@@ -112,8 +112,9 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
   late final Set<String> agentIds = {...widget.prefilledAgentIds};
   late final Set<String> humanIds = {...widget.prefilledHumanIds};
   List<ChannelMemberCandidate> candidates = const [];
-  bool submitting = false;
+  bool submitting = false, unarchiving = false;
   String? error;
+  Map<String, dynamic>? archivedCollision;
 
   @override
   void initState() {
@@ -134,16 +135,51 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
 
   void close() => Navigator.of(context).maybePop();
 
+  Future<void> unarchiveCollision() async {
+    final held = archivedCollision;
+    if (held == null || unarchiving) return;
+    setState(() => unarchiving = true);
+    try {
+      final result = await w.command(
+        'POST',
+        '/channels/${held['archivedChannelId']}/unarchive',
+      );
+      await w.refreshChannels();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      await widget.onCreated?.call(
+        RaftChannel(Map<String, dynamic>.from(result as Map)),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          archivedCollision = null;
+          error = e is RaftApiException
+              ? e.message
+              : raftText(context, 'Failed to unarchive channel');
+        });
+      }
+    } finally {
+      if (mounted) setState(() => unarchiving = false);
+    }
+  }
+
   Future<void> submit() async {
     if (submitting) return;
     final trimmed = name.text.trim();
-    if (trimmed.isEmpty) {
-      setState(() => error = raftText(context, 'Channel name is required.'));
+    // `validateNameReason` + `formatNameValidationError`.
+    final invalid = channelNameError(context, trimmed);
+    if (invalid != null) {
+      setState(() {
+        error = invalid;
+        archivedCollision = null;
+      });
       return;
     }
     setState(() {
       submitting = true;
       error = null;
+      archivedCollision = null;
     });
     try {
       final result = await w.command(
@@ -167,11 +203,17 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
       );
     } catch (e) {
       if (mounted) {
-        setState(
-          () => error = e is RaftApiException
-              ? e.message
-              : raftText(context, 'Failed to create channel'),
-        );
+        final details = e is RaftApiException ? e.details : const {};
+        setState(() {
+          if (details['code'] == 'archived_name_collision' &&
+              details['archivedChannelId'] != null) {
+            archivedCollision = Map<String, dynamic>.from(details);
+          } else {
+            error = e is RaftApiException
+                ? e.message
+                : raftText(context, 'Failed to create channel');
+          }
+        });
       }
     } finally {
       if (mounted) setState(() => submitting = false);
@@ -216,7 +258,44 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
       onClose: close,
       onSubmit: submit,
       error: error,
+      notice: archivedCollision == null
+          ? null
+          : RaftArchivedNameBanner(
+              name: '${archivedCollision!['archivedChannelName']}',
+              canUnarchive:
+                  archivedCollision!['canUnarchiveArchivedChannel'] == true,
+              busy: unarchiving,
+              onUnarchive: unarchiveCollision,
+              onChangeName: () => setState(() {
+                archivedCollision = null;
+                name.clear();
+              }),
+            ),
       submitting: submitting,
     );
   }
+}
+
+final _channelNameRegex = RegExp(r'^\p{L}[\p{L}\p{N}_-]*$', unicode: true);
+
+/// `validateNameReason` + `formatNameValidationError` for a channel name.
+String? channelNameError(BuildContext context, String value) {
+  final label = raftText(context, 'Channel name');
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return raftFormat(context, '{label} is required', {'label': label});
+  }
+  if (trimmed.runes.length > 32) {
+    return raftFormat(context, '{label} must be at most {max} characters', {
+      'label': label,
+      'max': 32,
+    });
+  }
+  if (!_channelNameRegex.hasMatch(trimmed)) {
+    return raftText(
+      context,
+      'Start with a letter, then letters, numbers, - or _',
+    );
+  }
+  return null;
 }

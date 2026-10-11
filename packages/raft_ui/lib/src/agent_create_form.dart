@@ -78,7 +78,11 @@ class RaftAgentDialogCard extends StatelessWidget {
     required this.children,
     this.onClose,
     this.maxWidth = 448, // max-w-md = 28rem
+    this.surfaceKey,
   });
+
+  /// Key of the card surface itself (`dialog-content`).
+  final Key? surfaceKey;
   final String title;
   final List<Widget> children;
   final VoidCallback? onClose;
@@ -128,6 +132,7 @@ class RaftAgentDialogCard extends StatelessWidget {
               child: Material(
                 type: MaterialType.transparency,
                 child: RaftRecipeBox(
+                  key: surfaceKey,
                   style: card.root.withCssUsedBorderWidths(),
                   tokens: tokens,
                   applyText: false,

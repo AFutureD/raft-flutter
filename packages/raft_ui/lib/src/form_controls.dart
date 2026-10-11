@@ -670,10 +670,16 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
                       decoration: _bare(
                         hintText: widget.hintText,
                         hintStyle: control.copyWith(
-                          color: g.control
-                              .target('::placeholder')
-                              ?.color
-                              ?.resolve(rt),
+                          // InputGroupInput `placeholder:text-foreground-placeholder`
+                          // (brutal black/40) when the recipe names none.
+                          color:
+                              g.control
+                                  .target('::placeholder')
+                                  ?.color
+                                  ?.resolve(rt) ??
+                              (t.brutal
+                                  ? Colors.black.withValues(alpha: .4)
+                                  : t.semantic.foregroundPlaceholder),
                         ),
                       ),
                     ),
