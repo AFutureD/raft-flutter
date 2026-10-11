@@ -1,8 +1,12 @@
 """Design-system drift ratchet (tool/ds-audit) and scanner semantics."""
+import contextlib
 import importlib.machinery
 import importlib.util
+import io
 import pathlib
+import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 _loader = importlib.machinery.SourceFileLoader('ds_audit_cli', str(ROOT / 'tool/ds-audit'))
@@ -30,8 +34,26 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(regressions, [])
         self.assertEqual(improvements, [('a.dart', 'widget.list_tile', 2, 1),
                                         ('gone.dart', 'widget.dialog', 4, 0)])
-        self.assertIn('tool/ds-audit --update-baseline',
-                      ds_audit.format_comparison(regressions, improvements))
+        message = ds_audit.format_comparison(regressions, improvements)
+        self.assertIn('baseline can lower', message)
+        self.assertIn('tool/ds-audit --update-baseline', message)
+        self.assertIn('do NOT edit', message)  # feature branches leave the baseline to the integration owner
+
+    def test_check_passes_when_counts_went_down_and_fails_when_they_grew(self):
+        baseline = {'files': {'a.dart': {'widget.list_tile': 2}, 'b.dart': {'widget.dialog': 1}}}
+        report = lambda files: {'scannedFiles': 1, 'scope': ds_audit.SCOPE, 'totals': {}, 'allowedTotals': {},
+                                'files': files, 'malformedAllows': []}
+        tmp = pathlib.Path(tempfile.mkdtemp())
+        for files, expected in (({'a.dart': {'widget.list_tile': 1}}, 0),  # decreases only
+                                ({'a.dart': {'widget.list_tile': 2}, 'b.dart': {'widget.dialog': 1}}, 0),
+                                ({'a.dart': {'widget.list_tile': 3}}, 1)):
+            with mock.patch.object(ds_audit, 'run_scanner', return_value={}), \
+                    mock.patch.object(ds_audit, 'aggregate', return_value=report(files)), \
+                    mock.patch.object(ds_audit, 'load_baseline', return_value=baseline), \
+                    mock.patch.object(ds_audit, 'ROOT', tmp), \
+                    mock.patch.object(ds_audit, 'REPORT', tmp / '.local/ds-audit.json'), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(ds_audit.main(['--check']), expected, files)
 
     def test_moving_a_violation_between_categories_still_fails(self):
         regressions, _ = ds_audit.compare({'a.dart': {'widget.button': 1}},

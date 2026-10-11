@@ -319,7 +319,10 @@ ParityCase _channelCase(String key) {
 /// Channel members page cases, keyed `{platform}.channel-members.{state}`
 /// (3 themes each).
 final Map<String, ParityCase> extMembersPagesChannelCases = {
-  for (final key in extMembersPagesChannelKeys)
-    for (final theme in const ['brutal', 'elegant', 'elegant-dark'])
-      'components.members-pages.$key.$theme': _channelCase(key),
+  // Empty without an extension manifest (extChannelSettingsCases is), e.g. in
+  // the official tool/parity run.
+  if (extChannelSettingsCases.isNotEmpty)
+    for (final key in extMembersPagesChannelKeys)
+      for (final theme in const ['brutal', 'elegant', 'elegant-dark'])
+        'components.members-pages.$key.$theme': _channelCase(key),
 };

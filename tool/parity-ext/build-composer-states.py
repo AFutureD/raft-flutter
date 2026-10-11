@@ -6,7 +6,7 @@ Run after build-screen-cases.py (the channel / DM scenes and the shared shell wo
 from fixtures/screens.json); idempotent: every `components.composer-states.*` case is replaced,
 all other cases are kept in place.
 
-Page-inventory rows (docs/parity-page-inventory.md, Area 3):
+Page-inventory rows (page inventory, tool/parity-ext/inventory.py, Area 3):
   3.21  Composer "As task" mode            surface `as-task`
   3.22  Pending-mention action strip       surface `pending-mention`
   3.24  Composer warnings                  surface `warning` (agent stopped delivery, unresolved
