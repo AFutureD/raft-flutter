@@ -140,7 +140,8 @@ void main() {
               body: SizedBox(
                 width: 260,
                 child: RaftChannelHeader(
-                  name: 'A very long channel title within a constrained desktop panel',
+                  name:
+                      'A very long channel title within a constrained desktop panel',
                   description: 'Accepted channel description',
                   onSearch: () => searches++,
                   onSettings: () {},

@@ -13,6 +13,10 @@ Widget activitySelectedRowsPreview() => const ActivitySelectedRows();
 Widget activitySelectedMasterDetailPreview() =>
     const ActivitySelectedMasterDetail();
 
+@RaftPreviews('Activity selected variants', size: Size(1400, 640))
+Widget activitySelectedComparisonPreview() =>
+    const ActivitySelectedComparison();
+
 class _Sample {
   const _Sample(
     this.channel,
@@ -72,9 +76,11 @@ class ActivitySampleRow extends StatelessWidget {
     super.key,
     required this.sample,
     this.selected = false,
+    this.selectedStyle = RaftConversationSelectedStyle.tint,
   });
   final _Sample sample;
   final bool selected;
+  final RaftConversationSelectedStyle selectedStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +89,7 @@ class ActivitySampleRow extends StatelessWidget {
     final unread = sample.unread > 0;
     return RaftConversationCard(
       selected: selected,
+      selectedStyle: selectedStyle,
       onOpen: () {},
       actions: RaftIconButton(
         glyph: RaftGlyph.check,
@@ -131,7 +138,7 @@ class ActivitySampleRow extends StatelessWidget {
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: recipe.titleStyle(unread, selected: selected),
+                  style: recipe.titleStyle(unread),
                 ),
               ),
               const SizedBox(width: 8),
@@ -156,9 +163,7 @@ class ActivitySampleRow extends StatelessWidget {
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: recipe.body.copyWith(
-              color: recipe.titleColor(unread, selected: selected),
-            ),
+            style: recipe.body.copyWith(color: recipe.titleColor(unread)),
           ),
           const SizedBox(height: 4),
           ConstrainedBox(
@@ -190,7 +195,11 @@ class ActivitySampleRow extends StatelessWidget {
 /// Rows top to bottom: read, unread, read (hover target in the screenshots),
 /// selected read, selected + unread, read.
 class ActivitySelectedRows extends StatelessWidget {
-  const ActivitySelectedRows({super.key});
+  const ActivitySelectedRows({
+    super.key,
+    this.style = RaftConversationSelectedStyle.tint,
+  });
+  final RaftConversationSelectedStyle style;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -226,7 +235,17 @@ class ActivitySelectedRows extends StatelessWidget {
 /// Desktop master-detail: the list splits on first click and the selected row
 /// stays marked while the preview is open.
 class ActivitySelectedMasterDetail extends StatelessWidget {
-  const ActivitySelectedMasterDetail({super.key});
+  const ActivitySelectedMasterDetail({
+    super.key,
+    this.style = RaftConversationSelectedStyle.tint,
+    this.listWidth = 460,
+    this.showDetail = true,
+  });
+  final RaftConversationSelectedStyle style;
+  final double listWidth;
+
+  /// False renders only the list column (used by the comparison sheet).
+  final bool showDetail;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -237,14 +256,18 @@ class ActivitySelectedMasterDetail extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 460,
+            width: listWidth,
             child: ColoredBox(
               color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
               child: ListView(
                 padding: const EdgeInsets.all(12),
                 children: [
                   for (final (i, s) in _samples.indexed) ...[
-                    ActivitySampleRow(sample: s, selected: i == 2),
+                    ActivitySampleRow(
+                      sample: s,
+                      selected: i == 2,
+                      selectedStyle: style,
+                    ),
                     const SizedBox(height: 8),
                   ],
                 ],
@@ -295,6 +318,66 @@ class ActivitySelectedMasterDetail extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A, B and C side by side (list column only) with captions.
+class ActivitySelectedComparison extends StatelessWidget {
+  const ActivitySelectedComparison({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final line = t.colors[t.brutal ? 'color-black' : 'line-muted']!;
+    final captions = {
+      RaftConversationSelectedStyle.edge: 'A  leading edge bar',
+      RaftConversationSelectedStyle.border: 'B  accent border',
+      RaftConversationSelectedStyle.tint: 'C  light tint + bar',
+    };
+    return ColoredBox(
+      color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                for (final (i, style) in captions.keys.indexed) ...[
+                  if (i > 0) Container(width: t.border, color: line),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: RaftCssText(
+                              captions[style]!,
+                              style: RaftTypography.body(
+                                t,
+                                size: 14,
+                                line: 20,
+                                weight: FontWeight.w700,
+                                color: t.strong,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ActivitySelectedMasterDetail(
+                            style: style,
+                            listWidth: 440,
+                            showDetail: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ],

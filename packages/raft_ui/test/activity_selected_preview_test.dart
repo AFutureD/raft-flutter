@@ -112,6 +112,12 @@ final _themes = [
   ('elegant-dark', RaftFamily.elegant, true),
 ];
 
+const _variants = [
+  ('A-edge', RaftConversationSelectedStyle.edge),
+  ('B-border', RaftConversationSelectedStyle.border),
+  ('C-tint', RaftConversationSelectedStyle.tint),
+];
+
 void main() {
   for (final (name, family, dark) in _themes) {
     testWidgets('selected Activity row states $name', (t) async {
@@ -119,46 +125,68 @@ void main() {
       t.view.devicePixelRatio = 2;
       addTearDown(t.view.reset);
       await loadFonts(t);
-      final capture = GlobalKey();
-      await t.pumpWidget(
-        host(family, dark, capture, const ActivitySelectedRows()),
-      );
-      await t.pumpAndSettle();
-      Finder row(int i) => find.byKey(ValueKey('activity-selected-row-$i'));
-      expect(
-        t
-            .widgetList<RaftConversationCard>(find.byType(RaftConversationCard))
-            .map((c) => c.selected),
-        [false, false, false, true, true, false],
-      );
-      // Row 2 hovered: hover fill and the done check, no selection.
-      final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(t.getCenter(row(2)));
-      await t.pumpAndSettle();
-      await shot(t, capture, '$name-1-states-hover-row');
-      // Hover on the selected row: keeps the selected paint, shows the check.
-      await mouse.moveTo(t.getCenter(row(3)));
-      await t.pumpAndSettle();
-      await shot(t, capture, '$name-2-states-hover-selected');
-      await mouse.moveTo(const Offset(0, 0));
-      await t.pumpAndSettle();
-      await shot(t, capture, '$name-3-states-rest');
-      expect(t.takeException(), isNull);
+      for (final (vname, style) in _variants) {
+        final capture = GlobalKey();
+        await t.pumpWidget(
+          host(family, dark, capture, ActivitySelectedRows(style: style)),
+        );
+        await t.pumpAndSettle();
+        Finder row(int i) => find.byKey(ValueKey('activity-selected-row-$i'));
+        expect(
+          t
+              .widgetList<RaftConversationCard>(
+                find.byType(RaftConversationCard),
+              )
+              .map((c) => c.selected),
+          [false, false, false, true, true, false],
+        );
+        final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(t.getCenter(row(2)));
+        await t.pumpAndSettle();
+        await shot(t, capture, 'states/$name-$vname-1-hover-row');
+        await mouse.moveTo(t.getCenter(row(3)));
+        await t.pumpAndSettle();
+        await shot(t, capture, 'states/$name-$vname-2-hover-selected');
+        await mouse.removePointer();
+        await t.pumpAndSettle();
+        await shot(t, capture, 'states/$name-$vname-3-rest');
+        expect(t.takeException(), isNull);
+      }
     });
 
-    testWidgets('selected Activity master-detail $name', (t) async {
+    testWidgets('selected Activity master-detail variants $name', (t) async {
       t.view.physicalSize = const Size(1180 * 2, 640 * 2);
+      t.view.devicePixelRatio = 2;
+      addTearDown(t.view.reset);
+      await loadFonts(t);
+      for (final (vname, style) in _variants) {
+        final capture = GlobalKey();
+        await t.pumpWidget(
+          host(
+            family,
+            dark,
+            capture,
+            ActivitySelectedMasterDetail(style: style),
+          ),
+        );
+        await t.pumpAndSettle();
+        await shot(t, capture, '$name-$vname-master-detail');
+        expect(t.takeException(), isNull);
+      }
+    });
+
+    testWidgets('selected Activity comparison sheet $name', (t) async {
+      t.view.physicalSize = const Size(1400 * 2, 640 * 2);
       t.view.devicePixelRatio = 2;
       addTearDown(t.view.reset);
       await loadFonts(t);
       final capture = GlobalKey();
       await t.pumpWidget(
-        host(family, dark, capture, const ActivitySelectedMasterDetail()),
+        host(family, dark, capture, const ActivitySelectedComparison()),
       );
       await t.pumpAndSettle();
-      await shot(t, capture, '$name-4-master-detail');
+      await shot(t, capture, '$name-compare-ABC');
       expect(t.takeException(), isNull);
     });
   }

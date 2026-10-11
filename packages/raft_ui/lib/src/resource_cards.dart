@@ -7,7 +7,6 @@ import '../recipes.dart' hide RaftPanelHeaderRecipe;
 import 'design_primitives.dart';
 import 'recipe_surface.dart';
 import 'theme.dart';
-import 'tokens/shadows.g.dart';
 
 /// VirtualizedTaskStack's tanstack measurement rounds each observed row to
 /// whole CSS pixels. Keep the card's fractional box, but use that same row
@@ -39,10 +38,27 @@ class _SourceTaskRowExtent extends RenderProxyBox {
 
 /// Page component tokens traced to SavedPanel SavedItem and ThreadsInbox
 /// InboxRow at Web 26f77ef. A panel card and an inbox card have different fills.
+/// How a selected [RaftConversationCard] is marked. All variants are quiet.
+enum RaftConversationSelectedStyle {
+  /// Leading accent bar only; fill and border unchanged.
+  edge,
+
+  /// Accent border only; no fill, no bar.
+  border,
+
+  /// Very light accent tint plus the leading bar.
+  tint,
+}
+
 class RaftConversationCardRecipe {
-  const RaftConversationCardRecipe(this.tokens, {this.saved = false});
+  const RaftConversationCardRecipe(
+    this.tokens, {
+    this.saved = false,
+    this.selectedStyle = RaftConversationSelectedStyle.tint,
+  });
   final RaftTokens tokens;
   final bool saved;
+  final RaftConversationSelectedStyle selectedStyle;
   static const inset = EdgeInsets.all(12);
   static const gap = 8.0;
   // ThreadsInbox timestamp and overlaid action both use transition-opacity.
@@ -51,29 +67,45 @@ class RaftConversationCardRecipe {
   Color get hoverBackground => tokens.colors['fill-muted']!;
 
   /// Persistent selected row (the row whose preview is open in the detail
-  /// pane). Reuses the design system's selected list-item language
-  /// (`SurfaceListItem selected`, the ThreadsInbox `focused` row): the `info`
-  /// accent as border, a tint of it as fill and a raised shadow.
-  /// Brutal: `border-2 border-black bg-brutal-cyan/25 shadow-brutal-sm`.
-  /// Elegant: `border-info shadow-raft-sm`, fill = `info` at a low alpha over
-  /// the card (the raw `info-muted` token is a saturated cyan on light), plus
-  /// a [selectedEdge] accent bar so the row stays findable while the list moves.
-  Color get selectedBackground => Color.alphaBlend(
-    tokens.brutal
-        ? tokens.colors['color-brutal-cyan']!.withValues(alpha: .25)
-        : tokens.colors['info']!.withValues(alpha: tokens.dark ? .16 : .1),
-    background,
-  );
-  BorderSide get selectedBorder => BorderSide(
-    color: tokens.brutal
-        ? tokens.colors['color-black']!
-        : tokens.colors['info']!,
-    width: tokens.border,
-  );
+  /// pane). Deliberately quiet: the reader's eye belongs on the detail pane,
+  /// so the list only needs to answer "which one is open" at a glance.
+  /// The accent is `info` (elegant) / black (brutal), the same accent the
+  /// design system's selected list items use, at low strength:
+  /// - [RaftConversationSelectedStyle.edge]: leading bar only.
+  /// - [RaftConversationSelectedStyle.border]: accent border only.
+  /// - [RaftConversationSelectedStyle.tint]: faint tint + leading bar.
+  /// No shadow or text colour changes in any variant.
+  Color? get selectedTint => selectedStyle != RaftConversationSelectedStyle.tint
+      ? null
+      : tokens.brutal
+      ? tokens.colors['color-brutal-cyan']!.withValues(alpha: .08)
+      : tokens.colors['info']!.withValues(alpha: tokens.dark ? .06 : .05);
 
-  /// Elegant-only accent bar on the leading edge of the selected row.
-  Color? get selectedEdge => tokens.brutal ? null : tokens.colors['info'];
-  static const selectedEdgeWidth = 3.0;
+  /// Fill of a selected row over [base] (the normal or hover fill).
+  Color selectedFill(Color base) {
+    final tint = selectedTint;
+    return tint == null ? base : Color.alphaBlend(tint, base);
+  }
+
+  BorderSide get selectedBorder =>
+      selectedStyle != RaftConversationSelectedStyle.border
+      ? border
+      : BorderSide(
+          color: tokens.brutal
+              ? tokens.colors['color-black']!
+              : tokens.colors['info']!,
+          width: tokens.border,
+        );
+
+  /// Accent bar on the leading edge of the selected row (absent for the
+  /// border-only variant). Brutal 4px black, elegant 3px info.
+  Color? get selectedEdge =>
+      selectedStyle == RaftConversationSelectedStyle.border
+      ? null
+      : tokens.brutal
+      ? tokens.colors['color-black']
+      : tokens.colors['info'];
+  double get selectedEdgeWidth => tokens.brutal ? 4 : 3;
   BorderSide get border => BorderSide(
     // SavedItem Card: `theme-brutal:border-2 theme-brutal:border-black`.
     color: saved && tokens.brutal
@@ -115,10 +147,10 @@ class RaftConversationCardRecipe {
             : tokens.headingFont,
         fontWeight: FontWeight.w700,
       );
-  TextStyle titleStyle(bool unread, {bool selected = false}) => body.copyWith(
+  TextStyle titleStyle(bool unread) => body.copyWith(
     fontSize: 14,
     height: 20 / 14,
-    color: titleColor(unread, selected: selected),
+    color: titleColor(unread),
     fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
   );
   TextStyle get timestamp => RaftTypography.mono(
@@ -134,17 +166,11 @@ class RaftConversationCardRecipe {
   Color get titleIconColor => tokens.brutal
       ? tokens.colors['color-black']!.withValues(alpha: .45)
       : tokens.colors['foreground-placeholder']!;
-
-  /// A selected row reads at full contrast (the tint is a background), but
-  /// keeps the read weight so it never looks unread.
-  Color titleColor(bool unread, {bool selected = false}) {
-    final strong = unread || selected;
-    return tokens.brutal
-        ? tokens.colors['color-black']!.withValues(alpha: strong ? 1 : .55)
-        : strong
-        ? tokens.strong
-        : tokens.muted;
-  }
+  Color titleColor(bool unread) => tokens.brutal
+      ? tokens.colors['color-black']!.withValues(alpha: unread ? 1 : .55)
+      : unread
+      ? tokens.strong
+      : tokens.muted;
 
   Color get senderColor => tokens.brutal
       ? tokens.colors['color-black']!.withValues(alpha: .7)
@@ -160,6 +186,7 @@ class RaftConversationCard extends StatefulWidget {
     required this.onOpen,
     this.saved = false,
     this.selected = false,
+    this.selectedStyle = RaftConversationSelectedStyle.tint,
     this.onContextMenu,
     this.onActivate,
     this.onPointerActivate,
@@ -189,6 +216,9 @@ class RaftConversationCard extends StatefulWidget {
   /// master-detail preview. Stays painted while hovered, focused or unread;
   /// ignored for [saved] cards.
   final bool selected;
+
+  /// How [selected] is painted.
+  final RaftConversationSelectedStyle selectedStyle;
   final VoidCallback? onContextMenu;
   final String? semanticLabel;
   final Widget? actions;
@@ -238,40 +268,26 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final recipe = RaftConversationCardRecipe(t, saved: widget.saved);
+    final recipe = RaftConversationCardRecipe(
+      t,
+      saved: widget.saved,
+      selectedStyle: widget.selectedStyle,
+    );
     final showActions =
         hovered || focused || RaftDensityScope.of(context) == RaftDensity.touch;
     final rt = RaftRecipeTokens(t);
     // raft-ui Card root shadow (brutal themeShadowMd, elegant themeShadowXs);
     // SavedItem opts out with `shadow-none`.
     final selected = widget.selected && !widget.saved;
-    var cardStyle = RaftCardRecipe.resolve(
+    final cardStyle = RaftCardRecipe.resolve(
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       states: RaftRecipeStates({if (t.dark) RaftRecipeStates.dark}),
       tokens: rt,
     ).root;
-    if (selected && !t.brutal) {
-      // `border-info bg-info-muted shadow-raft-sm`: re-resolve the complete
-      // shadow so the selected card does not keep the default Card inset.
-      cardStyle = raftRecipeEngine.resolveSlot(
-        [
-          for (final name in [
-            ...cardStyle.classes.where(
-              (name) => name != 'shadow-raft-xs' && name != 'shadow-raft-sm',
-            ),
-            'shadow-raft-sm',
-          ])
-            raftRecipeUtilities.indexWhere((utility) => utility.name == name),
-        ],
-        t.recipeStates(),
-        rt,
-      );
-    }
-    final background = selected
-        ? recipe.selectedBackground
-        : hovered || focused
+    final base = hovered || focused
         ? recipe.hoverBackground
         : recipe.background;
+    final background = selected ? recipe.selectedFill(base) : base;
     Widget surface(Widget child) {
       if (widget.saved) {
         return Material(
@@ -301,9 +317,6 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
             selected ? recipe.selectedBorder : recipe.border,
           ),
           borderRadius: recipe.radius,
-          boxShadow: selected && t.brutal
-              ? RaftProductShadows.shadowBrutalSm.outer
-              : null,
         ),
         child: Material(
           type: MaterialType.transparency,
@@ -315,7 +328,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
                       left: 0,
                       top: 0,
                       bottom: 0,
-                      width: RaftConversationCardRecipe.selectedEdgeWidth,
+                      width: recipe.selectedEdgeWidth,
                       child: IgnorePointer(
                         child: ColoredBox(color: recipe.selectedEdge!),
                       ),
@@ -393,7 +406,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
                                     : RaftConversationCardRecipe.actionFade,
                                 child: Material(
                                   color: selected
-                                      ? recipe.selectedBackground
+                                      ? recipe.selectedFill(recipe.background)
                                       : recipe.background,
                                   child: widget.actions!,
                                 ),
