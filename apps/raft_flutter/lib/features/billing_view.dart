@@ -843,26 +843,43 @@ class _BillingState extends ManagementState<BillingView> {
     RaftBillingSeatUsage? seatUsage;
     final seatStats = <RaftBillingStat>[];
     if (isPro && usesUniversal) {
-      String usingSeats(num people, String one, String other, num seats) =>
-          '${tr(_plural(people, one, other), {'count': people})} ${tr('using')} ${billingSeatNumber(seats)} ${tr(_plural(seats, 'seat', 'seats'))}';
+      // Web `billing.humansUsingSeats` / `agentsUsingSeats`: one catalog string
+      // per singular/plural combination so each has a Chinese entry.
+      String usingSeats(num people, bool human, num seats) {
+        final values = {'count': people, 'seats': billingSeatNumber(seats)};
+        final seat = seats == 1;
+        return switch ((human, people == 1, seat)) {
+          (true, true, true) => tr('1 human using {seats} seat', values),
+          (true, true, false) => tr('1 human using {seats} seats', values),
+          (true, false, true) => tr(
+            '{count} humans using {seats} seat',
+            values,
+          ),
+          (true, false, false) => tr(
+            '{count} humans using {seats} seats',
+            values,
+          ),
+          (false, true, true) => tr('1 agent using {seats} seat', values),
+          (false, true, false) => tr('1 agent using {seats} seats', values),
+          (false, false, true) => tr(
+            '{count} agents using {seats} seat',
+            values,
+          ),
+          (false, false, false) => tr(
+            '{count} agents using {seats} seats',
+            values,
+          ),
+        };
+      }
+
       seatUsage = RaftBillingSeatUsage(
         label: tr('Seat'),
         value:
             '${billingSeatNumber(usedUniversal)} / ${formatLimit(universalLimit)} ${tr('used')}',
         humanPercent: pct(usedHuman),
         agentPercent: pct(usedAgent),
-        humanTooltip: usingSeats(
-          humanCount ?? 0,
-          '1 human',
-          '{count} humans',
-          usedHuman,
-        ),
-        agentTooltip: usingSeats(
-          agentCount,
-          '1 agent',
-          '{count} agents',
-          usedAgent,
-        ),
+        humanTooltip: usingSeats(humanCount ?? 0, true, usedHuman),
+        agentTooltip: usingSeats(agentCount, false, usedAgent),
         humansLabel: tr('Humans'),
         agentsLabel: tr('Agents'),
       );
