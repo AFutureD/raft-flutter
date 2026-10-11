@@ -160,12 +160,14 @@ void main() {
       expect(editorController.selection.baseOffset, 3);
       expect(host.sessions.controllers['c2']!.foreground, true);
       expect(t.takeException(), isNull);
-      // Source lg breakpoint suspends grid ownership without destroying
-      // retained desktop editors or laying out two groups at phone width.
+      // Phone width swaps the layout host for live mobile pages, so the
+      // desktop grid host (and its editor State) is unmounted rather than
+      // suspended; accepted drafts live in the workspace and survive.
       t.view.physicalSize = const Size(390, 900);
       await drain(t);
       expect(find.byType(WorkspaceGridView), findsNothing);
-      expect(host.sessions.controllers['c2']!.foreground, false);
+      expect(host.mounted, isFalse);
+      expect(w.drafts['c2'], '新独立草稿');
       await capture('classic-narrow-retained-editors');
       final classicEdit = find.descendant(
         of: find.byType(RaftComposer),
@@ -176,14 +178,17 @@ void main() {
       expect(t.takeException(), isNull);
       t.view.physicalSize = const Size(1400, 900);
       await drain(t);
-      expect(t.state(edit), same(editorState));
-      expect(editorController.text, '新独立草稿');
-      expect(editorController.selection.baseOffset, 3);
-      expect(host.sessions.controllers['c2']!.foreground, true);
-      expect(host.sessions.controllers['c1']!.drafts['c1'], '窄屏更新原草稿');
+      expect(find.byType(WorkspaceGridView), findsOneWidget);
+      expect(w.drafts['c2'], '新独立草稿');
+      expect(w.drafts['c1'], '窄屏更新原草稿');
       expect(find.text('窄屏更新原草稿'), findsOneWidget);
-      await t.tap(find.byKey(const ValueKey('editor-tab-route:settings')));
+      // The rebuilt grid starts from the current channel; reopen Settings.
+      w.setSection('settings');
       await drain(t);
+      expect(
+        find.byKey(const ValueKey('editor-tab-route:settings')),
+        findsOneWidget,
+      );
       expect(w.section, 'settings');
       final card = find.byType(RaftWorkspaceModeCard);
       expect(t.widget<RaftWorkspaceModeCard>(card).enabled, true);

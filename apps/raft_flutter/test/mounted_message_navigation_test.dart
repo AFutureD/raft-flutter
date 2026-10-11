@@ -273,11 +273,17 @@ void main() {
             expect(find.text('Message parent'), findsNothing);
           });
           expect(paintedMessage(tester, 'reply'), isNotNull);
+          // Phone pushes/pops keep the other page live for the platform
+          // transition: settle the push before Back, and the pop before
+          // asserting what the destination shows.
+          await tester.pump(const Duration(milliseconds: 500));
           if (back) {
             await tester.tap(find.byKey(const Key('mobile-detail-back')));
           } else {
             await tester.tap(find.byTooltip('Activity').first);
           }
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
           await pageFrames(tester, () {
             expect(find.byType(RaftThreadHeader), findsNothing);
             expect(paintedMessage(tester, 'reply'), isNull);

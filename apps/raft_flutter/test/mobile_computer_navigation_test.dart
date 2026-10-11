@@ -146,6 +146,11 @@ void main() {
         await t.tap(card);
         await f.flush(t);
         expect(w.location.toString(), '/s/alpha/computer/computer-a');
+        // The covered Computers list is a live page until the push completes.
+        await finishPageAnimation(
+          t,
+          find.byKey(const Key('computer-mobile-back')),
+        );
         expectDetailHeader(t);
         await finishPageAnimation(
           t,
