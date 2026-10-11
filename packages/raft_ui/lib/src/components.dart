@@ -1,3 +1,4 @@
+import 'composer_composing_text.dart';
 import 'message_semantics.dart';
 import 'message_row_recipe.dart';
 import 'message_content_tokens.dart';
@@ -2142,7 +2143,7 @@ class _RaftComposerState extends State<RaftComposer> {
   @override
   void initState() {
     super.initState();
-    controller = TextEditingController(text: widget.initialDraft);
+    controller = RaftComposerEditingController(text: widget.initialDraft);
     controller.addListener(changed);
     widget.handle?._bind(this, insertSender);
     updateSuggestionPortal(defer: true);
@@ -2596,60 +2597,67 @@ class _RaftComposerState extends State<RaftComposer> {
                                       textScaler: MediaQuery.textScalerOf(
                                         context,
                                       ),
-                                      child: TextField(
-                                        autofillHints: null,
+                                      child: RaftComposerComposingText(
                                         controller: controller,
                                         focusNode: focus,
-                                        onChanged: (_) {
-                                          // A typed collapsed caret replaces the
-                                          // previous insertion handle. Merely
-                                          // fading it leaves its overlay hit box
-                                          // above the Source composer toolbar.
-                                          if (controller
-                                              .selection
-                                              .isCollapsed) {
-                                            focus.context
-                                                ?.findAncestorStateOfType<
-                                                  EditableTextState
-                                                >()
-                                                ?.hideToolbar();
-                                          }
-                                        },
+                                        color: recipe.editorText.color!,
                                         enabled: widget.enabled,
-                                        minLines: 1,
-                                        maxLines: 6,
-                                        style: recipe.editorText,
-                                        decoration: InputDecoration(
-                                          hintText: widget.hint,
-                                          hintStyle: recipe.placeholder,
-                                          filled: false,
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          border: InputBorder.none,
-                                          enabledBorder: InputBorder.none,
-                                          focusedBorder: InputBorder.none,
-                                          disabledBorder: InputBorder.none,
-                                          errorBorder: InputBorder.none,
-                                          focusedErrorBorder: InputBorder.none,
+                                        child: TextField(
+                                          autofillHints: null,
+                                          controller: controller,
+                                          focusNode: focus,
+                                          onChanged: (_) {
+                                            // A typed collapsed caret replaces the
+                                            // previous insertion handle. Merely
+                                            // fading it leaves its overlay hit box
+                                            // above the Source composer toolbar.
+                                            if (controller
+                                                .selection
+                                                .isCollapsed) {
+                                              focus.context
+                                                  ?.findAncestorStateOfType<
+                                                    EditableTextState
+                                                  >()
+                                                  ?.hideToolbar();
+                                            }
+                                          },
+                                          enabled: widget.enabled,
+                                          minLines: 1,
+                                          maxLines: 6,
+                                          style: recipe.editorText,
+                                          decoration: InputDecoration(
+                                            hintText: widget.hint,
+                                            hintStyle: recipe.placeholder,
+                                            filled: false,
+                                            isDense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                            border: InputBorder.none,
+                                            enabledBorder: InputBorder.none,
+                                            focusedBorder: InputBorder.none,
+                                            disabledBorder: InputBorder.none,
+                                            errorBorder: InputBorder.none,
+                                            focusedErrorBorder:
+                                                InputBorder.none,
+                                          ),
+                                          textCapitalization:
+                                              TextCapitalization.sentences,
+                                          contextMenuBuilder:
+                                              widget.onPasteAttachments == null
+                                              ? _defaultEditorMenu
+                                              : pasteAwareMenu,
+                                          contentInsertionConfiguration:
+                                              widget.onContentInserted == null
+                                              ? null
+                                              : ContentInsertionConfiguration(
+                                                  onContentInserted: (content) {
+                                                    if (presentationActive &&
+                                                        widget.enabled) {
+                                                      widget.onContentInserted
+                                                          ?.call(content);
+                                                    }
+                                                  },
+                                                ),
                                         ),
-                                        textCapitalization:
-                                            TextCapitalization.sentences,
-                                        contextMenuBuilder:
-                                            widget.onPasteAttachments == null
-                                            ? _defaultEditorMenu
-                                            : pasteAwareMenu,
-                                        contentInsertionConfiguration:
-                                            widget.onContentInserted == null
-                                            ? null
-                                            : ContentInsertionConfiguration(
-                                                onContentInserted: (content) {
-                                                  if (presentationActive &&
-                                                      widget.enabled) {
-                                                    widget.onContentInserted
-                                                        ?.call(content);
-                                                  }
-                                                },
-                                              ),
                                       ),
                                     ),
                                   ),
