@@ -19,7 +19,7 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
-    for (final mode in ['other-row', 'late', 'detail']) {
+    for (final mode in ['other-row', 'other-row-double', 'late', 'detail']) {
       testWidgets('Activity C reflow $family/$dark $mode', (t) async {
         SharedPreferences.setMockInitialValues({});
         t.view.physicalSize = const Size(1440, 900);
@@ -84,17 +84,28 @@ void main() {
         expect(find.byKey(const Key('desktop-content-detail')), findsOneWidget);
         expect(t.getSize(master).width, lessThan(initialWidth));
         await t.pump(const Duration(milliseconds: 350));
-        if (mode == 'other-row') {
+        if (mode == 'other-row' || mode == 'other-row-double') {
           final point = t.getCenter(second);
           expect(t.getRect(first).contains(point), false);
           expect(t.getRect(master).contains(point), true);
           await t.tapAt(point);
-          expect(w.location.route, RaftRoute.channel);
-          expect(w.location.entityId, 'c1');
-          expect(w.location.messageId, 'first-channel');
-          expect(w.navigation.entries.length, entries + 1);
+          expect(w.location.route, RaftRoute.activity);
+          expect(w.location.content?.id, 'c2');
+          expect(w.location.messageId, 'second');
+          expect(w.navigation.entries.length, entries);
           await t.pump();
-          expect(find.byType(ResourceView), findsNothing);
+          expect(find.byType(ResourceView), findsOneWidget);
+          if (mode == 'other-row-double') {
+            // Past A's window, but within B's new window: B owns the double.
+            await t.pump(const Duration(milliseconds: 350));
+            await t.tap(second);
+            expect(w.location.route, RaftRoute.channel);
+            expect(w.location.entityId, 'c2');
+            expect(w.location.messageId, 'second');
+            expect(w.navigation.entries.length, entries + 1);
+            await t.pump();
+            expect(find.byType(ResourceView), findsNothing);
+          }
         } else {
           if (mode == 'late') {
             await t.pump(const Duration(milliseconds: 151));
@@ -124,11 +135,13 @@ void main() {
         await t.pumpAndSettle();
         expect(
           w.location.route,
-          mode == 'other-row' ? RaftRoute.channel : RaftRoute.activity,
+          mode == 'other-row-double' ? RaftRoute.channel : RaftRoute.activity,
         );
         expect(
-          mode == 'other-row' ? w.location.entityId : w.location.content?.id,
-          mode == 'other-row' ? 'c1' : 'c2',
+          mode == 'other-row-double'
+              ? w.location.entityId
+              : w.location.content?.id,
+          'c2',
         );
         await t.pumpWidget(const SizedBox());
         expect(t.takeException(), isNull);

@@ -15,6 +15,7 @@ void main() {
     'filter',
     'authority',
     'different',
+    'different-double',
     'late',
     'keyboard',
     'blank',
@@ -111,12 +112,21 @@ void main() {
           await tester.pump();
           expect(card, findsNothing);
           expect(next, findsNothing);
-        } else if (mode == 'different') {
+        } else if (mode == 'different' || mode == 'different-double') {
           await tester.tap(next);
-          expect(preview, hasLength(1));
-          expect(canonical.single['threadChannelId'], 'thread-1');
-          expect(canonical.single['firstUnreadMessageId'], 'first');
-          expect(canonical.single['firstMentionMessageId'], 'mention');
+          expect(preview, hasLength(2));
+          expect(preview.last['threadChannelId'], 'thread-2');
+          expect(canonical, isEmpty);
+          await tester.pump();
+          expect(tester.getRect(next), nextRect);
+          if (mode == 'different-double') {
+            await tester.pump(const Duration(milliseconds: 350));
+            await tester.tapAt(nextRect.bottomLeft + const Offset(35, -10));
+            expect(preview, hasLength(2));
+            expect(canonical.single['threadChannelId'], 'thread-2');
+            expect(canonical.single['firstUnreadMessageId'], 'first');
+            expect(canonical.single['firstMentionMessageId'], 'mention');
+          }
         } else if (mode == 'late') {
           await tester.pump(const Duration(milliseconds: 151));
           await tester.tap(next);
@@ -139,7 +149,9 @@ void main() {
         } else {
           await tester.tapAt(nextRect.bottomLeft + const Offset(35, 35));
           expect(preview, hasLength(1));
-          expect(canonical.single['threadChannelId'], 'thread-1');
+          expect(canonical, isEmpty);
+          final dynamic state = tester.state(find.byType(ResourceView));
+          expect(state.activityGestureCurrent, false);
         }
         await tester.pumpAndSettle();
         await tester.pumpWidget(const SizedBox());

@@ -97,10 +97,11 @@ class ResourceView extends StatefulWidget {
   final ValueChanged<String>? onSearchQueryCommitted;
   final Future<void> Function(Map<String, dynamic>)? onActivityItem;
 
-  /// Canonical navigation for a second pointer click in the Activity list.
+  /// Canonical navigation for a second pointer click on the same Activity item.
   ///
   /// The first click opens the preview immediately. A second list click within
-  /// the system double-click window upgrades that original conversation.
+  /// the system double-click window upgrades that original conversation only
+  /// when both clicks identify the same item. A different item opens at once.
   /// Custom embedded consumers without this callback keep immediate onOpen.
   final Future<void> Function(Map<String, dynamic>)? onActivityCanonical;
   final bool activitySidebarEnabled, compactActivitySidebar;
@@ -128,7 +129,7 @@ class _ResourceViewState extends State<ResourceView> {
   int? activityGestureRevision;
   Map<String, dynamic>? activityGestureRow;
   List<Map<String, dynamic>>? activityGestureRows;
-  double? activityGestureHeight;
+  Map<String, double> activityGestureHeights = {};
 
   bool get activityGestureCurrent =>
       activityGestureRows != null && activityGestureMatches(authority);
@@ -150,7 +151,7 @@ class _ResourceViewState extends State<ResourceView> {
     activityGestureScope = null;
     activityGestureView = null;
     activityGestureRevision = null;
-    activityGestureHeight = null;
+    activityGestureHeights = {};
     activityGestureInterval = null;
   }
 
@@ -2467,10 +2468,10 @@ class _ResourceViewState extends State<ResourceView> {
           accepts(scope) && filter == view ? load(keep: true) : Future.value(),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        // Blank list space can continue the pointer gesture too. Nested card
-        // actions win their own tap arena; filters and details are outside.
+        // A blank tap has no item identity and ends double-click recognition.
+        // Nested card actions win their tap arena; filters/details are outside.
         onTap: widget.section == 'activity' && activityGestureCurrent
-            ? upgradeActivityGesture
+            ? () => setState(clearActivityGesture)
             : null,
         child: resourceResultsBody(context),
       ),
@@ -3434,22 +3435,33 @@ class _ResourceViewState extends State<ResourceView> {
       unawaited(openConversation(row, scope));
       return;
     }
-    if (pointer && activityGestureCurrent) {
-      upgradeActivityGesture();
+    final key = rowKey(row);
+    if (pointer &&
+        activityGestureCurrent &&
+        key != null &&
+        key == activityGestureKey) {
+      upgradeActivityGesture(key);
       return;
     }
+    // Restart from what is displayed, so read rows above the new item do not
+    // collapse and move its second-click target during the new time window.
+    final shown = List<Map<String, dynamic>>.of(visibleRows);
+    final heights = activityGestureCurrent
+        ? Map<String, double>.of(activityGestureHeights)
+        : <String, double>{};
     clearActivityGesture();
     if (!pointer) {
       // Keyboard and semantic activation never continue a mouse gesture.
       unawaited(openConversation(row, scope));
       return;
     }
-    activityGestureRows = List.of(rows);
+    activityGestureRows = shown;
     activityGestureRow = Map<String, dynamic>.from(row);
-    activityGestureKey = rowKey(row);
+    activityGestureKey = key;
     activityGestureScope = scope;
     activityGestureView = listView;
-    activityGestureHeight = height;
+    activityGestureHeights = heights;
+    if (key != null && height != null) activityGestureHeights[key] = height;
     activityGestureInterval = doubleClickInterval;
     // Preview selects its detail synchronously. Only list retention expires;
     // neither cache restoration nor a request waits for this timer.
@@ -3462,12 +3474,12 @@ class _ResourceViewState extends State<ResourceView> {
     setState(() {});
   }
 
-  void upgradeActivityGesture() {
-    if (!activityGestureCurrent) return;
+  void upgradeActivityGesture(String key) {
+    if (!activityGestureCurrent || activityGestureKey != key) return;
     final canonical = widget.onActivityCanonical;
     if (canonical == null) return;
-    // The list narrows after the first click, so a second primary list tap
-    // upgrades that first DTO even if a different card is now underneath it.
+    // The item identity owns the double click, independent of changed bounds.
+    // Keep the original unread/mention focus even after its read badge clears.
     final original = activityGestureRow!;
     setState(clearActivityGesture);
     unawaited(canonical(Map<String, dynamic>.from(original)));
@@ -3845,11 +3857,8 @@ class _ResourceViewState extends State<ResourceView> {
         '${thread ? row['latestActivityPreview'] ?? '' : row['lastMessagePreview'] ?? row['messagePreview'] ?? ''}';
     return Builder(
       builder: (cardContext) => ConstrainedBox(
-        constraints:
-            pin &&
-                activityGestureKey == rowKey(row) &&
-                activityGestureHeight != null
-            ? BoxConstraints(minHeight: activityGestureHeight!)
+        constraints: pin && activityGestureHeights[rowKey(row)] != null
+            ? BoxConstraints(minHeight: activityGestureHeights[rowKey(row)]!)
             : const BoxConstraints(),
         child: RaftConversationCard(
           key: thread
