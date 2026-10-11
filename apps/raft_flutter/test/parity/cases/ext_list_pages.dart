@@ -264,7 +264,9 @@ Widget _shell(ParityContext ctx) {
 
 Widget _createChannel(ParityContext ctx) {
   final w = _workspace(ctx, 'chat');
+  // The React host paints a white page under the Modal scrim in every theme.
   return Scaffold(
+    backgroundColor: Colors.white,
     body: CreateChannelDialog(
       controller: w,
       prefilledName: ctx.props['name'] as String?,
