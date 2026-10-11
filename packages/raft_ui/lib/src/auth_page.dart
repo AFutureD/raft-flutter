@@ -1,15 +1,19 @@
 // Web auth/onboarding page pieces (packages/web/src/components/brand/
 // AuthBrandShell.tsx, components/auth/*). Presentation only: the app owns
 // state, validation and requests and passes fields/callbacks in.
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'banner.dart';
 import 'brand.dart';
 import 'components.dart';
+import 'css_pixel_snap.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'onboarding_previews.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/checkbox.g.dart';
 import 'recipes/field.g.dart' as field_recipe;
@@ -1403,8 +1407,108 @@ class RaftOnboardingHeading extends StatelessWidget {
   }
 }
 
-/// OnboardingCreateShell (narrow layout): brand bar, form panel `px-6 py-10`
-/// with a `max-w-md flex-col gap-4` column, optional session footer.
+/// OnboardingCreateShell: below the `lg` breakpoint (1024) the narrow layout (brand bar, form panel
+/// `px-6 py-10` in [RaftAuthShell]); from `lg` up a `[minmax(320px,2fr) 3fr]` grid with the form panel
+/// (brand mark top-left, `border-r-2` in Brutal, content `max-w-md` centred) beside the dot pane holding
+/// [preview]. Without a [preview] it is always the narrow layout.
+class RaftOnboardingShell extends StatelessWidget {
+  const RaftOnboardingShell({
+    super.key,
+    required this.child,
+    this.preview,
+    this.narrowPadding,
+  });
+  final Widget child;
+  final Widget? preview;
+
+  /// Padding of the narrow form panel (null: [RaftAuthShell]'s `formPanel` default).
+  final EdgeInsets? narrowPadding;
+
+  /// Tailwind `lg`.
+  static const breakpoint = 1024.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= breakpoint;
+    if (preview == null || !wide) {
+      return RaftAuthShell(
+        padding: narrowPadding,
+        formPanel: narrowPadding == null,
+        child: child,
+      );
+    }
+    final t = RaftTokens.of(context);
+    final safe = MediaQuery.paddingOf(context);
+    const brutalBorder = BorderSide(color: Color(0xFF000000), width: 2);
+    final divider = t.brutal
+        ? brutalBorder
+        : BorderSide(color: t.semantic.lineHairline);
+    return Material(
+      color: t.canvas,
+      child: DefaultTextStyle.merge(
+        style: TextStyle(
+          fontFamily: t.headingFont,
+          color: t.semantic.foreground,
+        ),
+        child: Padding(
+          // `safe-top`; `safe-bottom` = inset + 1rem.
+          padding: EdgeInsets.only(top: safe.top, bottom: safe.bottom + 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 2,
+                // Container (not DecoratedBox): the border-box `border-r` narrows the content box.
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.canvas,
+                    border: Border(right: divider),
+                  ),
+                  child: Stack(
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, box) => SingleChildScrollView(
+                          padding: const EdgeInsets.all(40),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: math.max(0, box.maxHeight - 80),
+                            ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 448,
+                                ),
+                                // The centred column lands on a half pixel (`justify-center`); Blink
+                                // snaps its box edges when painting.
+                                child: RaftCssPixelSnap(child: child),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Positioned(
+                        left: 40,
+                        top: 32,
+                        child: RaftBrandMark(
+                          RaftBrandMarkKind.logo,
+                          height: 20,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(flex: 3, child: RaftOnboardingDotPane(child: preview!)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// OnboardingCreateShell form column: `AuthPageIntro`, banners and the form rows in a `max-w-md flex-col
+/// gap-4` column, optional session footer (see [RaftOnboardingShell] for the layouts).
 class RaftOnboardingPage extends StatelessWidget {
   const RaftOnboardingPage({
     super.key,
@@ -1413,15 +1517,20 @@ class RaftOnboardingPage extends StatelessWidget {
     this.banner,
     this.notice,
     this.footer,
+    this.preview,
   });
   final String title;
   final String? banner, notice;
   final List<Widget> children;
   final Widget? footer;
 
+  /// The desktop dot-pane preview (null: narrow layout at every width).
+  final Widget? preview;
+
   @override
-  Widget build(BuildContext context) => RaftAuthShell(
-    padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+  Widget build(BuildContext context) => RaftOnboardingShell(
+    preview: preview,
+    narrowPadding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: _gap16([

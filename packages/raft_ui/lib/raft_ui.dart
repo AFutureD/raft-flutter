@@ -53,6 +53,7 @@ export 'src/icons.dart';
 export 'src/recipes/toast_styles.g.dart' show RaftToastRecipeTone;
 export 'src/brand.dart';
 export 'src/auth_page.dart';
+export 'src/onboarding_previews.dart';
 
 export 'src/primitive_tokens.dart';
 export 'src/tokens/tokens.dart';

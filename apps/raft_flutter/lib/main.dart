@@ -139,7 +139,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         Uri(path: '/');
     appRouter = RaftAppRouter(
       home: (_) => restoring
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          ? const RaftServerResolutionBody(label: 'Restoring session…')
           : sessionHome(),
       onLocation: receiveAppLocation,
       onRootBack: returnFromSelector,
@@ -998,7 +998,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       );
     }
     if (workspace == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const RaftServerResolutionBody(label: 'Loading…');
     }
     if (showServerSelector) {
       return GlobalServerSelector(
@@ -1016,7 +1016,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (serverSwitchLocation != null) {
       return RaftServerResolutionBody(
         key: const Key('server-resolution-loading'),
-        label: selectorError ?? 'Loading...',
+        label: selectorError ?? 'Loading…',
       );
     }
     return WorkspaceView(
