@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ renders its own launch window; windowBackground alone
+         cannot configure it. Keep the branding identical to the fallback. -->
+    <style name="RaftSystemSplash" parent="RaftLaunchWindow">
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+    <style name="LaunchTheme" parent="RaftSystemSplash" />
+</resources>
