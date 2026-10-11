@@ -3539,6 +3539,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           controller: w,
                           channel: channel,
                           page: true,
+                          startInAdd:
+                              w.location.query('channelPageAdd') == '1',
                           onClose: dismissPanel,
                         ),
                       ),
