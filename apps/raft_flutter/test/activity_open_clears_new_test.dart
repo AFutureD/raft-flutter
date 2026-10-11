@@ -69,7 +69,7 @@ void main() {
     for (final kind in ['channel', 'thread', 'dm']) {
       for (final canonical in [true, false]) {
         testWidgets(
-          '[Activity open clears new] $family/$dark $kind ${canonical ? 'master-detail waits 220 ms like Source handleOpen' : 'single route opens at once'}',
+          '[Activity open clears new] $family/$dark $kind ${canonical ? 'master-detail opens at once' : 'single route opens at once'}',
           (tester) async {
             final (w, api) = (await tester.runAsync(() => fixture('owner')))!;
             addTearDown(w.dispose);
@@ -138,15 +138,8 @@ void main() {
             expect(badge('2 new'), findsOneWidget);
 
             await tester.tap(find.byKey(key));
-            if (canonical) {
-              // Source handleOpen runs after the 220 ms single-click wait.
-              await tester.pump(const Duration(milliseconds: 219));
-              expect(badge('2 new'), findsOneWidget);
-              expect(opened, isEmpty);
-              await tester.pump(const Duration(milliseconds: 1));
-            } else {
-              await tester.pump();
-            }
+            expect(opened, hasLength(1));
+            await tester.pump();
             // Every frame from the open moment on: no indicator.
             for (var frame = 0; frame < 6; frame++) {
               expect(badge('2 new'), findsNothing, reason: 'frame $frame');

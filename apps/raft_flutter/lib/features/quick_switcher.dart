@@ -310,7 +310,7 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
       }
       return;
     }
-    debounceTimer = Timer(QuickSwitcher.debounce, () async {
+    Future<void> request() async {
       if (!mounted || mine != ticket) return;
       setState(() {
         loading = true;
@@ -334,8 +334,14 @@ class _QuickSwitcherState extends State<QuickSwitcher> {
           loading = false;
         });
       }
-    });
-    // The request waits out the debounce; the old results stay meanwhile.
+    }
+
+    if (retry) {
+      unawaited(request());
+    } else {
+      debounceTimer = Timer(QuickSwitcher.debounce, request);
+    }
+    // Typing waits out the debounce; explicit retries start immediately.
   }
 
   /// Source retrySearch: drop the failed set and ask again.

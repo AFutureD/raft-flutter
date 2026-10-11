@@ -1279,7 +1279,17 @@ class _WorkspaceViewState extends State<WorkspaceView>
       if (DesktopNavigationPolicy.forSection(route).contentMasterDetail) {
         content = DesktopMasterDetail(
           master: content,
-          detail: desktopContentDetail(),
+          // Reserve Activity's preview column from its first frame. Opening
+          // a preview must not resize the row underneath a double click.
+          detail:
+              desktopContentDetail() ??
+              (route == 'activity' &&
+                      wide &&
+                      activityFlag.masterDetail(
+                        MediaQuery.sizeOf(context).width,
+                      )
+                  ? const SizedBox.expand()
+                  : null),
           compact: thread,
           wideWidth: masterWideWidth,
           compactWidth: masterCompactWidth,
@@ -1893,8 +1903,17 @@ class _WorkspaceViewState extends State<WorkspaceView>
       mobile: single,
     );
     if (target == null) return;
-    // Source ThreadsInbox1036–1075 gives the destination URI the complete
-    // identity. One PUSH leaves Activity; no intermediate content-slot write.
+    // Upgrade the temporary preview, retaining Activity as the Back entry.
+    // Both URI changes precede notification, so no empty intermediate frame
+    // is painted and unrelated query slots remain owned by their consumers.
+    if (!single &&
+        w.location.route == RaftRoute.activity &&
+        w.location.content != null) {
+      w.navigation.navigate(
+        w.location.withQuery({'open': null, 'msg': null, 'thread': null}),
+        kind: RaftNavigationKind.replace,
+      );
+    }
     w.navigation.navigate(target.canonicalLocation(w.location.serverSlug));
     pendingDesktopSelection = false;
     w.closeThread(navigate: false);

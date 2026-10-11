@@ -128,6 +128,7 @@ class RaftConversationCard extends StatefulWidget {
     this.saved = false,
     this.onContextMenu,
     this.onActivate,
+    this.doubleClickInterval = kDoubleTapTimeout,
     this.semanticLabel,
     this.actions,
   });
@@ -138,6 +139,9 @@ class RaftConversationCard extends StatefulWidget {
   /// keyboard/semantic activation reports 1. The consumer owns any delay and
   /// navigation policy. The first click is delivered immediately.
   final ValueChanged<int>? onActivate;
+
+  /// Host platform recognition window; it never delays the first activation.
+  final Duration doubleClickInterval;
   final bool saved;
   final VoidCallback? onContextMenu;
   final String? semanticLabel;
@@ -171,7 +175,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
     final repeat =
         interval != null &&
         interval >= Duration.zero &&
-        interval <= kDoubleTapTimeout &&
+        interval <= widget.doubleClickInterval &&
         position != null &&
         lastTapPosition != null &&
         (position - lastTapPosition!).distance <= kDoubleTapSlop;
@@ -251,7 +255,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
                 hoverColor: Colors.transparent,
                 focusColor: Colors.transparent,
                 // InkWell.onDoubleTap would delay the first onTap before the
-                // app's Source 220 ms arbitration. Count successful primary
+                // consumer sees it. Count successful primary
                 // taps without installing a double-tap recognizer instead.
                 onTapDown: widget.onActivate == null
                     ? null

@@ -117,6 +117,44 @@ Future<void> key(WidgetTester t, LogicalKeyboardKey k) async {
 }
 
 void main() {
+  testWidgets(
+    'explicit search retry bypasses input debounce and stale results',
+    (t) async {
+      t.view.physicalSize = const Size(1280, 800);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      final calls = <String>[];
+      final retry = Completer<List<Map<String, dynamic>>>();
+      await t.pumpWidget(
+        host(
+          () => data(),
+          Opened(),
+          messages: (query) async {
+            calls.add(query);
+            if (calls.length == 1) throw StateError('fixture failure');
+            return retry.future;
+          },
+        ),
+      );
+      await t.enterText(find.byType(TextField).first, 'needle');
+      await t.pump(const Duration(milliseconds: 199));
+      expect(calls, isEmpty);
+      await t.pump(const Duration(milliseconds: 1));
+      await t.pump();
+      expect(calls, ['needle']);
+      await t.tap(find.text('Retry'));
+      await t.pump();
+      expect(calls, ['needle', 'needle']);
+      await t.enterText(find.byType(TextField).first, 'different');
+      retry.complete([
+        {'id': 'stale', 'content': 'Old retry answer'},
+      ]);
+      await t.pump();
+      expect(find.text('Old retry answer'), findsNothing);
+      await t.pumpWidget(const SizedBox());
+      await t.pump();
+    },
+  );
   void size(WidgetTester t) {
     t.view.physicalSize = const Size(1280, 800);
     t.view.devicePixelRatio = 1;

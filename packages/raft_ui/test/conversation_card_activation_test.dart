@@ -10,7 +10,7 @@ void main() {
     (RaftFamily.elegant, true),
   ]) {
     testWidgets(
-      'N24 220ms signal $family/$dark first click is immediate; keyboard and nested actions stay distinct',
+      'N24 activation $family/$dark first click is immediate; keyboard and nested actions stay distinct',
       (tester) async {
         final activation = <int>[];
         var legacy = 0, nested = 0;
@@ -96,6 +96,30 @@ void main() {
       );
       await tester.tap(find.text('Saved item'));
       expect(opened, 1);
+    },
+  );
+  testWidgets(
+    'host system interval changes recognition, never first-click latency',
+    (tester) async {
+      final details = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RaftConversationCard(
+            onOpen: () {},
+            onActivate: details.add,
+            doubleClickInterval: const Duration(milliseconds: 500),
+            child: const SizedBox(height: 64, child: Text('System interval')),
+          ),
+        ),
+      );
+      await tester.tap(find.text('System interval'));
+      expect(details, [1]);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('System interval'));
+      expect(details, [1, 2]);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.tap(find.text('System interval'));
+      expect(details, [1, 2, 1]);
     },
   );
   testWidgets('adaptive reparent does not dispatch a conversation activation', (

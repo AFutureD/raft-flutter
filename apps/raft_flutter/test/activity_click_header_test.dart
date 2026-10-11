@@ -102,7 +102,7 @@ void main() {
           final activityTop = tester.getTopLeft(entry).dy;
 
           await tester.tap(entry);
-          // Pending context request, the 220 ms wait and every frame after it.
+          // Pending context request and every frame from immediate activation.
           var opened = false;
           for (var frame = 0; frame < 40; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
