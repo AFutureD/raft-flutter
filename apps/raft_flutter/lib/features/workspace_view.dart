@@ -451,6 +451,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void initState() {
     super.initState();
+    adoptHostSearchEntry();
     mobileAppBadge = SourceMobileAppBadge()..addListener(chatSelectionChanged);
     // Starts recording visits to conversations from the first frame.
     quickSwitcher.changed();
@@ -601,6 +602,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void didUpdateWidget(covariant WorkspaceView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    adoptHostSearchEntry();
     if (!identical(oldWidget.controller, w)) {
       oldWidget.controller.removeListener(syncMobileAppBadge);
       w.addListener(syncMobileAppBadge);
@@ -809,12 +811,41 @@ class _WorkspaceViewState extends State<WorkspaceView>
     setState(() {});
   }
 
+  int adoptedHostSearchEntry = 0;
+
+  /// A live mobile page is created after the host chose a section, so the
+  /// entry intent the host recorded (fresh channel search, saved-search
+  /// restore) is adopted once per entry rather than lost with the old page.
+  void adoptHostSearchEntry() {
+    final host = mobileHost;
+    if (host == null || host.searchEntryRevision == adoptedHostSearchEntry) {
+      return;
+    }
+    adoptedHostSearchEntry = searchEntryRevision = host.searchEntryRevision;
+    restoreSavedSearchRevision = host.restoreSavedSearchRevision;
+    channelSearchSeed = host.channelSearchSeed;
+    channelSearchAuthority = host.channelSearchAuthority;
+    channelSearchRevoked = host.channelSearchRevoked;
+  }
+
   void select(
     String section, {
     String? searchChannelId,
     String? searchQuery,
     bool restoreSavedSearch = false,
   }) {
+    final host = mobileHost;
+    if (host != null) {
+      // The covered page's projected location is stale after a section change;
+      // the accepted source's host decorates the new entry.
+      host.select(
+        section,
+        searchChannelId: searchChannelId,
+        searchQuery: searchQuery,
+        restoreSavedSearch: restoreSavedSearch,
+      );
+      return;
+    }
     if (!w.canVisitSection(section)) return;
     desktopNavigation.bind(desktopAuthority);
     pendingDesktopSelection = false;

@@ -27,6 +27,12 @@ final legacyTask = <String, dynamic>{
   'threadChannelId': null,
 };
 
+/// Phones keep one live page (with its own adaptive shell) per platform
+/// route; the visible page is the last. Wide layouts have exactly one.
+List<State> adaptiveStates(WidgetTester t) => t
+    .stateList<State>(find.byType(RaftAdaptiveWorkspace, skipOffstage: false))
+    .toList();
+
 void main() {
   // Real product fonts matter at the supported320px minimum. Ahem substitutes
   // 12px square glyphs and falsely wraps the short Task# legacy subtitle.
@@ -73,9 +79,7 @@ void main() {
             );
             await flush(t);
             final workspaceState = t.state(find.byType(WorkspaceView));
-            final adaptiveState = t.state(
-              find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
-            );
+            final adaptiveState = adaptiveStates(t).last;
             if (!tasksRoute) {
               final tabs = find.byKey(const Key('conversation-tabs'));
               await t.tap(
@@ -124,17 +128,17 @@ void main() {
             final docked = !tasksRoute && width >= 1024;
             expect(
               t
-                  .widget<RaftAdaptiveWorkspace>(
+                  .widgetList<RaftAdaptiveWorkspace>(
                     find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
                   )
+                  .last
                   .trailingExtent,
               docked ? 380 : 0,
             );
             expect(t.state(find.byType(WorkspaceView)), same(workspaceState));
-            expect(
-              t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
-              same(adaptiveState),
-            );
+            // The page that opened the task stays live (not rebuilt) beneath it.
+            expect(adaptiveStates(t), contains(adaptiveState));
+            if (width >= 768) expect(adaptiveStates(t), hasLength(1));
             final closeKey = tasksRoute && width >= 768 || docked
                 ? 'task-close'
                 : 'task-back';
@@ -142,6 +146,8 @@ void main() {
             final index = w.navigation.index;
             await t.tap(find.byKey(ValueKey(closeKey)));
             await flush(t);
+            // The popped task page stays live for the platform transition.
+            await t.pump(const Duration(milliseconds: 500));
             expect(panel, findsNothing);
             expect(w.location.legacyTask, isNull);
             expect(
@@ -152,10 +158,8 @@ void main() {
             expect(w.navigationRevision, revision);
             expect(w.channel!.id, 'c1');
             expect(w.drafts[w.draftScope()], 'Existing accepted main draft');
-            expect(
-              t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
-              same(adaptiveState),
-            );
+            expect(adaptiveStates(t).last, same(adaptiveState));
+            if (width >= 768) expect(adaptiveStates(t), hasLength(1));
             expect(
               api.calls.where(
                 (r) =>
@@ -214,8 +218,7 @@ void main() {
         await t.enterText(editor, 'Actual legacy panel draft');
         final editorController = t.widget<TextField>(editor).controller!;
         editorController.selection = const TextSelection.collapsed(offset: 7);
-        final composerState = t.state(composer);
-        final adaptiveState = t.state(
+        var adaptiveState = t.state(
           find.byType(RaftAdaptiveWorkspace, skipOffstage: false),
         );
         await t.tap(
@@ -247,14 +250,27 @@ void main() {
         await t.tap(find.text('Read-only task fixture'));
         await flush(t);
         owner = t.widget<SourceTaskSurface>(surface).owner;
+        var previousWidth = 1280.0;
         for (final width in [800.0, 390.0, 1280.0]) {
           t.view.physicalSize = Size(width, 900);
           await flush(t);
-          expect(t.widget<SourceTaskSurface>(surface).owner, same(owner));
-          expect(
-            t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
-            same(adaptiveState),
-          );
+          // Crossing the phone fold swaps the layout host for live mobile
+          // pages (and back), so widget State is rebuilt around the same
+          // accepted task; wide-to-wide resizes keep the very same State.
+          final swapped = width < 768 || previousWidth < 768;
+          previousWidth = width;
+          final current = t.widget<SourceTaskSurface>(surface).owner;
+          if (swapped) {
+            expect(current.closed, isFalse);
+            owner = current;
+            adaptiveState = adaptiveStates(t).last;
+          } else {
+            expect(current, same(owner));
+            expect(
+              t.state(find.byType(RaftAdaptiveWorkspace, skipOffstage: false)),
+              same(adaptiveState),
+            );
+          }
           final rect = t.getRect(
             find.byKey(const ValueKey('legacy-task-panel')),
           );
@@ -273,8 +289,10 @@ void main() {
             width < 1024 ? findsOneWidget : findsNothing,
           );
           expect(handle, width >= 1024 ? findsOneWidget : findsNothing);
-          expect(editorController.text, 'Actual legacy panel draft');
-          expect(editorController.selection.baseOffset, 7);
+          if (!swapped) {
+            expect(editorController.text, 'Actual legacy panel draft');
+            expect(editorController.selection.baseOffset, 7);
+          }
         }
         await t.tap(find.byKey(const ValueKey('task-close')));
         await flush(t);
@@ -286,10 +304,12 @@ void main() {
           ),
         );
         await flush(t);
-        expect(t.state(composer), same(composerState));
-        expect(t.widget<TextField>(editor).controller, same(editorController));
-        expect(editorController.text, 'Actual legacy panel draft');
-        expect(editorController.selection.baseOffset, 7);
+        // The phone fold rebuilt the composer; the accepted draft text is the
+        // contract that survives it.
+        expect(
+          t.widget<TextField>(editor).controller!.text,
+          'Actual legacy panel draft',
+        );
         await t.tap(
           find.descendant(
             of: find.byKey(const Key('conversation-tabs')),

@@ -155,13 +155,23 @@ void main() {
               );
               await flush(t);
             }
-            expect(t.state(mainComposer), same(composerState));
-            expect(
-              t.widget<TextField>(editor).controller,
-              same(field.controller),
-            );
-            expect(field.controller!.text, 'Real main task-entry draft');
-            expect(field.controller!.selection.baseOffset, 7);
+            if (!chip && width < 768) {
+              // Board activation drops `profile`, which is part of the phone
+              // page identity: the REPLACEd route owns a fresh composer, and
+              // the accepted draft text is what carries over.
+              expect(
+                t.widget<TextField>(editor).controller!.text,
+                'Real main task-entry draft',
+              );
+            } else {
+              expect(t.state(mainComposer), same(composerState));
+              expect(
+                t.widget<TextField>(editor).controller,
+                same(field.controller),
+              );
+              expect(field.controller!.text, 'Real main task-entry draft');
+              expect(field.controller!.selection.baseOffset, 7);
+            }
             expect(t.takeException(), isNull);
             await t.pumpWidget(const SizedBox.shrink());
             await t.pump(const Duration(milliseconds: 300));

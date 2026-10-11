@@ -2530,6 +2530,11 @@ class WorkspaceController extends ChangeNotifier {
     RaftRecord next, {
     void Function()? onHydrated,
   }) async {
+    // A live mobile page presents the source's session; the source selects.
+    final source = presentationSource;
+    if (source != null) {
+      return source.selectServer(next, onHydrated: onHydrated);
+    }
     if (!ownsClient) {
       throw StateError('A borrowed editor cannot select a server.');
     }
