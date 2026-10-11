@@ -116,6 +116,27 @@ class EventTests(unittest.TestCase):
         self.assertFalse(any(s['name'].startswith('loading') for s in slow))
 
 
+class PassGateTests(unittest.TestCase):
+    def test_marker_is_required(self):
+        self.assertTrue(check.has_pass_marker('00:01 +3: foo\n00:02 +4 ~1: All tests passed!\n'))
+        self.assertFalse(check.has_pass_marker('00:01 +652: slow test\n'))
+        self.assertFalse(check.has_pass_marker('00:01 +4 -1: Some tests failed.\n'))
+        self.assertFalse(check.has_pass_marker(''))
+
+    def test_marker_must_be_at_the_end_not_in_test_output(self):
+        log = 'All tests passed!\n' + '\n'.join(f'00:0{i} +{i}: next' for i in range(9))
+        self.assertFalse(check.has_pass_marker(log))
+
+    def test_files_that_never_ran_are_found(self):
+        results = [{'file': 'apps/raft_flutter/test/a_test.dart'}, {'file': ''}]
+        self.assertEqual(check.unfinished_files(['apps/raft_flutter/test/a_test.dart', 'apps/raft_flutter/test/b_test.dart'], results),
+                         ['apps/raft_flutter/test/b_test.dart'])
+
+    def test_repo_path_maps_app_relative_package_paths(self):
+        self.assertEqual(check.repo_path('test/a_test.dart'), 'apps/raft_flutter/test/a_test.dart')
+        self.assertEqual(check.repo_path('../../packages/raft_ui/test/c_test.dart'), 'packages/raft_ui/test/c_test.dart')
+
+
 class SummaryTests(unittest.TestCase):
     def test_lists_failed_test_names_and_slowest(self):
         shards = [{'index': 0, 'passed': False, 'seconds': 61.2, 'files': ['a'], 'log': 'test-shard-0.txt'}]
