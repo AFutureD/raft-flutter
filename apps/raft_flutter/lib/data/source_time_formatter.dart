@@ -199,6 +199,21 @@ class SourceTimeFormatter {
     return '$day${_chinese ? ' ' : ', '} ${_clock(date)}'.replaceAll('  ', ' ');
   }
 
+  /// formatMediumDateTime: `toLocaleString({dateStyle: 'medium', timeStyle:
+  /// 'short'})` in the preferred zone and hour cycle ("Jun 10, 2026, 9:00 AM",
+  /// zh "2026年6月10日 09:00"); the short style does not pad the 12-hour hour.
+  String mediumDateTime(Object? value) {
+    final date = _date(value);
+    if (date == null) return value?.toString() ?? '';
+    final wall = wallTime(date);
+    final day = DateFormat.yMMMd(locale).format(wall);
+    final twelve = effectiveTimeFormat == SourceTimeFormat.twelveHour;
+    final clock = twelve
+        ? DateFormat(_chinese ? 'ah:mm' : 'h:mm a', locale).format(wall)
+        : DateFormat('HH:mm', locale).format(wall);
+    return '$day${_chinese ? ' ' : ', '}$clock';
+  }
+
   /// react-intl `formatDate(value, {month: 'short', day: 'numeric'})`.
   String shortDate(Object? value) {
     final date = _date(value);

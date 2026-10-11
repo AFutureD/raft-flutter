@@ -373,7 +373,7 @@ SECTIONS = [
         R('9.09', 'Server danger zone and its confirm modals (delete / leave server)', 'components/settings/SettingsPanel.tsx DangerZoneSection', 'DP',
           off=['screens.settings.server-danger-modal'], d=['components.auth-pages.desktop.settings.server-danger-*'], prio=2),
         R('9.10', 'Archived channels list (Unarchive)', 'components/settings/ArchivedChannelsSection.tsx', 'DP', d=['components.auth-pages.desktop.settings.archived-channels'], p=['components.auth-pages.mobile.settings.archived-channels'], prio=3,
-          note='Flutter page missing: no Archived channels section.'),
+          note='Flutter: ArchivedChannelsSection in Server settings (RaftArchivedChannelsSection); the React host patch now appends the channels once.'),
         R('9.11', 'Plan & Billing (free / trial, Pro, seats, checkout summary, confirm dialog, admin read-only, loading)', 'components/settings/SettingsPanel.tsx PlanSection', 'DP',
           off=['screens.settings.billing-portal'], d=['components.ext-settings.billing.*', '!*.mobile*'], p=['components.ext-settings.billing.mobile*']),
         R('9.12', 'Billing: downgrade warning card', 'components/settings/SettingsPanel.tsx DowngradeWarningCard', 'DP',

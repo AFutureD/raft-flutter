@@ -55,6 +55,7 @@ export 'src/brand.dart';
 export 'src/auth_page.dart';
 export 'src/root_error_fallback.dart';
 export 'src/server_access_denied.dart';
+export 'src/archived_channels_section.dart';
 export 'src/onboarding_previews.dart';
 
 export 'src/primitive_tokens.dart';

@@ -244,13 +244,11 @@ class _RootErrorApp extends StatelessWidget {
       theme: raftTheme(light),
       darkTheme: raftTheme(RaftFamily.elegant, dark: true),
       themeMode: mode,
-      home: Scaffold(
-        body: RaftRootErrorFallback(
-          message: report.message,
-          stack: report.stack,
-          componentStack: report.componentStack,
-          onReload: onReload,
-        ),
+      home: RaftRootErrorFallback(
+        message: report.message,
+        stack: report.stack,
+        componentStack: report.componentStack,
+        onReload: onReload,
       ),
     );
   }

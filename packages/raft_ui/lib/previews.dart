@@ -892,6 +892,29 @@ Widget rootErrorFallbackPreview() => RaftRootErrorFallback(
 Widget serverAccessDeniedPreview() =>
     RaftServerAccessDeniedPage(serverName: 'Raft Design', onContinue: () {});
 
+@RaftPreviews('Archived channels', size: Size(640, 420))
+Widget archivedChannelsPreview() => Padding(
+  padding: const EdgeInsets.all(16),
+  child: RaftArchivedChannelsSection(
+    rows: const [
+      RaftArchivedChannelRow(
+        id: 'a',
+        name: 'launch-retro',
+        type: 'channel',
+        metadata: 'Public channel · Archived Jun 10, 2026, 17:00',
+      ),
+      RaftArchivedChannelRow(
+        id: 'b',
+        name: 'design-private',
+        type: 'private',
+        metadata: 'Private channel · Archived Jun 2, 2026, 23:30',
+      ),
+    ],
+    onOpen: (_) {},
+    onUnarchive: (_) {},
+  ),
+);
+
 class _ServerSwitcherPreview extends StatefulWidget {
   const _ServerSwitcherPreview({this.mobile = false});
   final bool mobile;

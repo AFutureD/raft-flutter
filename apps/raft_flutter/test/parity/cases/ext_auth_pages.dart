@@ -181,6 +181,7 @@ final Map<String, ParityCase> _surfaces = {
     'settings.server-danger-delete-typed',
     'settings.server-danger-member',
     'settings.server-danger-leave',
+    'settings.archived-channels',
     'settings.downgrade-active',
     'settings.downgrade-expired',
     'settings.app-editor',
@@ -275,8 +276,6 @@ const _missing = <String, String>{
       'Flutter page missing: the dedicated native setup surface is a Web page for native WebView hosts; the app renders setup natively with no load-failed page.',
   'setup-gate.complete':
       'Flutter page missing: the dedicated native setup surface is a Web page for native WebView hosts; the app renders setup natively with no completion page.',
-  'settings.archived-channels':
-      'Flutter page missing: Server settings has no Archived channels section (no Unarchive list).',
 };
 
 /// Cases without a Flutter widget (gap noFlutterSurface), merged into parityUncovered by case_map.dart.

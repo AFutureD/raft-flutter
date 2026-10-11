@@ -6,6 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
+import 'archived_channels_section.dart';
 import 'public_visibility_view.dart';
 
 class WorkspaceActions {
@@ -163,9 +164,9 @@ class WorkspaceActions {
 }
 
 /// SettingsPanel.tsx ServerTabContent for the fixture capabilities:
-/// ProfileSection + DangerZoneSection. (PublicVisibilitySection and
-/// ArchivedChannelsSection render nothing without public visibility /
-/// archived channels.) Invitations live under Administration and the
+/// ProfileSection + PublicVisibilitySection + ArchivedChannelsSection +
+/// DangerZoneSection (the middle two render nothing without public
+/// visibility / archived channels). Invitations live under Administration and the
 /// workspace push mode under Notifications.
 class ServerSettingsView extends StatefulWidget {
   const ServerSettingsView({super.key, required this.controller});
@@ -377,6 +378,8 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
           controller: w,
           webOrigin: ContentLinks.originFor(w.client.origin).origin,
         ),
+        // ArchivedChannelsSection (may archive channels, any archived).
+        ArchivedChannelsSection(controller: w),
         const RaftSettingsSectionHeader(
           label: 'Danger Zone',
           glyph: RaftGlyph.triangleAlert,
