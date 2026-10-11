@@ -31,8 +31,9 @@ void main() {
                 dark: dark,
               ).copyWith(platform: TargetPlatform.android),
               builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.linear(scale)),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
                 child: child!,
               ),
               home: Scaffold(
@@ -136,8 +137,7 @@ Future<void> loadImeFonts(WidgetTester t) async {
     // Optional local-only device font control. Proprietary system fonts are
     // never bundled in production or redistributed with the regression test.
     final path =
-        Platform.environment['RAFT_IME_FONT_PATH'] ??
-        'test/fixtures/ime/RaftImeCjkFixture.ttf';
+        Platform.environment['RAFT_IME_FONT_PATH'] ?? _imeFixturePath();
     final bytes = await File(path).readAsBytes();
     // Match the first product fallback. Unknown families in Flutter tests can
     // resolve to the test font before a later fallback is considered.
@@ -145,4 +145,19 @@ Future<void> loadImeFonts(WidgetTester t) async {
       'Noto Sans CJK JP',
     )..addFont(Future.value(ByteData.sublistView(bytes)))).load();
   });
+}
+
+/// The committed CJK fixture, found from the test's working directory
+/// (packages/raft_ui, or the repository root under tool/check-project).
+String _imeFixturePath() {
+  const rel = 'test/fixtures/ime/RaftImeCjkFixture.ttf';
+  for (var d = Directory.current.absolute; ; d = d.parent) {
+    for (final candidate in [
+      '${d.path}/$rel',
+      '${d.path}/packages/raft_ui/$rel',
+    ]) {
+      if (File(candidate).existsSync()) return candidate;
+    }
+    if (d.parent.path == d.path) return rel;
+  }
 }
