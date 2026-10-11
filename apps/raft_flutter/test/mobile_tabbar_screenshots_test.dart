@@ -5,6 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../tool/testing/system_fonts.dart';
+
 import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 
 import '../../../packages/raft_ui/test/task_typography_test.dart'
@@ -98,15 +101,19 @@ Future<void> capture(WidgetTester t, String name) async {
 void main() {
   for (final theme in ['brutal', 'elegant-light']) {
     testWidgets('$theme tab bar evidence', (t) async {
+      final missingFonts = missingTestFontReason(cjkTestFonts());
+      if (missingFonts != null) {
+        markTestSkipped(missingFonts);
+        return;
+      }
+
       await loadTaskFonts(t);
       await t.runAsync(() async {
         // Android's production theme uses the native generic family
         // ('sans-serif'); the test engine has no OS font manager, so register
         // the system Noto Sans CJK faces (Latin + Han) as that family.
         for (final face in ['Regular', 'Bold']) {
-          final file = File(
-            '/usr/share/fonts/opentype/noto/NotoSansCJK-$face.ttc',
-          );
+          final file = systemTestFont('opentype/noto/NotoSansCJK-$face.ttc');
           await (FontLoader('sans-serif')..addFont(
                 Future.value(ByteData.sublistView(file.readAsBytesSync())),
               ))

@@ -12,13 +12,13 @@ change as work lands.
 | Command | Effect |
 |---|---|
 | `tool/ds-audit` | Prints totals per category, the top 15 files and the comparison with the baseline. Writes `.local/ds-audit.json`, which holds every finding with file, line, column, category, name and argument shape. |
-| `tool/ds-audit --check` | Exits 1 if any file/category count is above the baseline (new files and new categories count from 0), or if a `ds-allow` comment has no reason. |
-| `tool/ds-audit --update-baseline` | Writes the current counts after you remove violations. It refuses to raise any count unless you also pass `--accept-increase`, and a raised count must be reviewed. |
+| `tool/ds-audit --check` | Exits 1 if any file/category count is above the baseline (new files and new categories count from 0), or if a `ds-allow` comment has no reason. Counts below the baseline pass ("baseline can lower"). |
+| `tool/ds-audit --update-baseline` | Integration owner only, after merges: writes the current counts as a separate small commit. It refuses to raise any count unless you also pass `--accept-increase`, and a raised count must be reviewed. |
 | `tool/ds-audit --json <path>…` | Prints the aggregated report for arbitrary paths. The tests use this. |
 
 - **Ratchet test:** `tool/tests/test_ds_audit.py` runs in `tool/check-project`. It runs the
   scanner over `apps/raft_flutter/lib` and fails on any per-file, per-category increase. When
-  counts go down, it prints the `--update-baseline` hint. The same file also pins the scanner
+  counts go down, it passes and prints a "baseline can lower" note (a decrease never fails). The same file also pins the scanner
   semantics with exact counts on `apps/raft_flutter/test/fixtures/ds_audit_sample.dart`, which
   includes negative cases.
 - **Scanner:** `tool/ds_audit/` is a Dart program that uses the analyzer's **resolved** AST.
@@ -324,7 +324,7 @@ WP1–WP7 plus the C5 app files cover all 65 files and all 1118 violations.
 3. App packages then pick up the rest as each C package lands.
 
 **After every package:**
-1. Run `tool/ds-audit --update-baseline` and commit the lowered baseline in the same commit as the migration.
+1. Run `tool/ds-audit --check` (a lower count passes). Do not edit `tool/ds-audit-baseline.json` on the package branch: parallel branches would conflict on it. After a batch is merged, the integration owner runs `tool/ds-audit --update-baseline` and commits the lowered baseline separately.
 2. Run `tool/check-project`.
 3. Compare against Web with the existing parity evidence flow. The audit proves only that the
    raw Material/style usage is gone; it does not prove visual parity.

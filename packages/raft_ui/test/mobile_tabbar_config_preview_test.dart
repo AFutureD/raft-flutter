@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../../tool/testing/system_fonts.dart';
+
 import 'package:raft_ui/mobile_tabbar_config_previews.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -35,11 +38,9 @@ Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
   }
   // The CJK fallback the theme names ('Noto Sans CJK JP'): load the system
   // font so Chinese renders in screenshots instead of tofu.
-  const dir = '/usr/share/fonts/opentype/noto';
   final loader = FontLoader('Noto Sans CJK JP');
   var any = false;
-  for (final f in ['NotoSansCJK-Regular.ttc', 'NotoSansCJK-Bold.ttc']) {
-    final file = File('$dir/$f');
+  for (final file in cjkTestFonts()) {
     if (file.existsSync()) {
       final bytes = await file.readAsBytes();
       loader.addFont(Future.value(ByteData.sublistView(bytes)));
@@ -142,6 +143,12 @@ void main() {
         ('config-minimum', mobileTabbarConfigMinimumPreview),
       ]) {
         testWidgets('$page $name $loc', (t) async {
+          final missingFonts = missingTestFontReason(cjkTestFonts());
+          if (missingFonts != null) {
+            markTestSkipped(missingFonts);
+            return;
+          }
+
           t.view.physicalSize = const Size(390 * 3, 844 * 3);
           t.view.devicePixelRatio = 3;
           addTearDown(t.view.reset);
@@ -156,6 +163,12 @@ void main() {
       }
 
       testWidgets('five items fit 360dp $name $loc', (t) async {
+        final missingFonts = missingTestFontReason(cjkTestFonts());
+        if (missingFonts != null) {
+          markTestSkipped(missingFonts);
+          return;
+        }
+
         t.view.physicalSize = const Size(360 * 3, 120 * 3);
         t.view.devicePixelRatio = 3;
         addTearDown(t.view.reset);
