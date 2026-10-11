@@ -349,7 +349,7 @@ SECTIONS = [
         R('7.22', 'Agent connections (provider sign-in for the agent)', 'components/agent/AgentConnections.tsx', 'DP', prio=3),
         R('7.23', 'External agent setup (token, setup tabs)', 'components/agent/ExternalAgentToken.tsx, ExternalSetupTabSegmentedControl.tsx', 'DP',
           d=['components.members-pages.desktop.agent.external'], p=['components.members-pages.phone.agent.external'], prio=3,
-          note='Flutter page missing: the External setup block (token manager, Hermes / Claude Code / Other steps).'),
+          note='Hosted-runtime variants (HostedRuntimeStatus, AgentConnections) stay flag-off (antiproton_hosted_runtime), see 7.22.'),
         R('7.24', 'Create agent dialog (Codex, Claude, custom provider, built-in / Pi provider, onboarding, no computer, empty, name error)', 'components/agent/CreateAgentDialog.tsx', 'DP',
           off=['components.members.create-agent.*'], d=['components.dialogs.desktop.create-agent*'], prio=1),
         R('7.25', 'Member graph (/members/graph)', 'components/settings/MemberGraphSection.tsx', 'DP',

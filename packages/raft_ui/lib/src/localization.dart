@@ -30,6 +30,14 @@ String raftFormat(
 
 const raftChinese = <String, String>{
   // Added with the members new-pages port (Web catalog).
+  "External · Last active {time}": "外部 · 上次活跃 {time}",
+  // Added with the members new-pages port (Web catalog).
+  "Step {step}": "第 {step} 步",
+  "Select Raft, enter profile slug {slug}, and keep RAFT_EXPECTED_AGENT_ID={agentId} in the gateway environment when you restart or reload it. The bridge sends nothing if the profile resolves to another Agent.": "选择 Raft，输入 profile slug {slug}，并在重启或重新加载 gateway 时保留 RAFT_EXPECTED_AGENT_ID={agentId}。如果 profile 解析到其他 Agent，bridge 不会发送任何请求。",
+  "Run RAFT_PROFILE={slug} raft manual get raft-cli-overview to review the operating guide after setup.": "运行 RAFT_PROFILE={slug} raft manual get raft-cli-overview 以在设置后查看操作指南。",
+  "Last used {time}": "上次使用 {time}",
+  "Created {date}": "创建于 {date}",
+  // Added with the members new-pages port (Web catalog).
   "Issue report for {name}": "针对 {name} 的问题报告",
   "HTTP {status}: {detail}": "HTTP {status}：{detail}",
   "{count} task update": "{count} 条任务更新",
