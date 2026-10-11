@@ -343,6 +343,28 @@ class RaftActionNote extends StatelessWidget {
   }
 }
 
+/// The inbound-scope caveat box in the scope list footer: `border
+/// border-line-hairline bg-warning-soft p-[7px]` around a [RaftActionNote].
+class RaftActionWarningBox extends StatelessWidget {
+  const RaftActionWarningBox(this.text, {super.key});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: t.colors['warning-soft'],
+        border: Border.all(color: t.colors['line-hairline']!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(7),
+        child: RaftActionNote(text),
+      ),
+    );
+  }
+}
+
 /// `hint` is the regular-weight `text-foreground-hint` line.
 enum RaftActionTone { orange, amber, strong, hint }
 

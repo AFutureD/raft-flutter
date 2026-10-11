@@ -5,7 +5,6 @@
 // Source: packages/web/src/components/message/ForwardComposerMobile.tsx,
 // ForwardComposerTargetList.tsx, forwardComposerModel.tsx.
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
@@ -369,321 +368,57 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
     };
   }
 
-  /// ForwardComposerDesktop.tsx: `Card h-[min(clamp(30rem,72dvh,46rem),100dvh-2rem)]
-  /// w-[min(clamp(48rem,60vw,60rem),100vw-2rem)]` with the header, the
-  /// `clamp(19rem,24vw,22rem)` destination column and the preview / note column.
+  /// ForwardComposerDesktop.tsx: the two-pane dialog card.
   Widget desktopDialog() {
-    final t = RaftTokens.of(context);
-    final size = MediaQuery.sizeOf(context);
-    final width = math.min(size.width - 32, (size.width * .6).clamp(768.0, 960.0));
-    final height = math.min(
-      size.height - 32,
-      (size.height * .72).clamp(480.0, 736.0),
-    );
-    final side = (size.width * .24).clamp(304.0, 352.0);
-    final rule = t.brutal ? Colors.black : t.colors['line-muted']!;
-    final panel = t.brutal ? Colors.white : t.colors['layer-panel']!;
     final query = search.text.trim();
-    final label = TextStyle(
-      fontFamily: t.headingFont,
-      fontSize: 12,
-      height: 16 / 12,
-      fontWeight: FontWeight.w700,
-      color: t.strong,
-      leadingDistribution: TextLeadingDistribution.even,
-    );
-    return Center(
-      child: Material(
-        type: MaterialType.transparency,
-        child: Container(
-          key: const ValueKey('forward-dialog'),
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: panel,
-            border: Border.all(color: rule, width: t.brutal ? 2 : 1),
-            borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: rule, width: 2)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            raftText(context, 'Forward'),
-                            style: RaftTypography.heading(t, size: 16, line: 24),
-                          ),
-                          Text(
-                            raftFormat(context, '{count} selected from {source}', {
-                              'count': widget.messages.length,
-                              'source': sourceLabel,
-                            }),
-                            style: RaftTypography.mono(
-                              t,
-                              size: 12,
-                              line: 16,
-                              color: t.brutal
-                                  ? Colors.black.withValues(alpha: .55)
-                                  : t.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    RaftCloseButton(
-                      tooltip: 'Close forward composer',
-                      onPressed: busy ? null : () => Navigator.of(context).pop(false),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      width: side,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border(right: BorderSide(color: rule, width: 2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          desktopSearch(t, rule, panel),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 24,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  raftFormat(context, '{count} selected', {
-                                    'count': selected.length,
-                                  }),
-                                  key: const ValueKey('forward-selected-count'),
-                                  style: label,
-                                ),
-                                if (selected.isNotEmpty)
-                                  GestureDetector(
-                                    onTap: busy
-                                        ? null
-                                        : () => setState(selected.clear),
-                                    child: Text(
-                                      raftText(context, 'Clear'),
-                                      style: label.copyWith(
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: ListView(
-                              padding: EdgeInsets.zero,
-                              children: [
-                                for (final (i, row) in (query.isEmpty
-                                        ? [
-                                            for (final c in forwardRecentTargets(
-                                              w.channels,
-                                              w.dms,
-                                            ))
-                                              localRow(c),
-                                          ]
-                                        : searchRows())
-                                    .indexed) ...[
-                                  if (i > 0) const SizedBox(height: 6),
-                                  row,
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (error != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Text(error!, style: label),
-                                    ),
-                                  RaftForwardedBundle(
-                                    metadata: previewMetadata,
-                                    formatTimestamp: forwardStamp(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          desktopNote(t, rule, panel, label),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+    return RaftForwardDesktopDialog(
+      title: raftText(context, 'Forward'),
+      subtitle: raftFormat(context, '{count} selected from {source}', {
+        'count': widget.messages.length,
+        'source': sourceLabel,
+      }),
+      close: RaftCloseButton(
+        tooltip: 'Close forward composer',
+        onPressed: busy ? null : () => Navigator.of(context).pop(false),
+      ),
+      search: RaftForwardDesktopSearch(
+        controller: search,
+        focusNode: searchFocus,
+        placeholder: raftText(context, 'Search targets'),
+        onChanged: changedSearch,
+      ),
+      selectedLabel: raftFormat(context, '{count} selected', {
+        'count': selected.length,
+      }),
+      showClear: selected.isNotEmpty,
+      clearLabel: raftText(context, 'Clear'),
+      onClear: busy ? null : () => setState(selected.clear),
+      rows: query.isEmpty
+          ? [for (final c in forwardRecentTargets(w.channels, w.dms)) localRow(c)]
+          : searchRows(),
+      error: error,
+      preview: RaftForwardedBundle(
+        metadata: previewMetadata,
+        formatTimestamp: forwardStamp(),
+      ),
+      noteLabel: raftText(context, 'Optional note'),
+      note: RaftForwardDesktopNoteField(
+        key: const Key('forward-desktop-note'),
+        controller: note,
+        enabled: !busy && attempt == null,
+        hint: raftText(context, 'Add a note'),
+      ),
+      send: RaftRecipeButton(
+        key: const Key('forward-send'),
+        variant: RaftButtonRecipeVariant.accent,
+        size: RaftButtonRecipeSize.iconSm,
+        glyph: RaftGlyph.send,
+        tooltip: raftText(context, 'Send forward'),
+        disabled: selected.isEmpty,
+        onPressed: busy || selected.isEmpty ? null : send,
       ),
     );
   }
-
-  /// `label.flex items-center gap-2 border-2 bg-layer-panel px-2 py-2 shadow-brutal-sm`
-  /// around the 14px Search icon and the bold 14px input.
-  Widget desktopSearch(RaftTokens t, Color rule, Color panel) {
-    final text = TextStyle(
-      fontFamily: t.headingFont,
-      fontSize: 14,
-      height: 20 / 14,
-      fontWeight: FontWeight.w700,
-      color: t.strong,
-      leadingDistribution: TextLeadingDistribution.even,
-    );
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: panel,
-        border: Border.all(color: rule, width: 2),
-        borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-        boxShadow: t.brutal ? RaftShadowSet.brutalSm : null,
-      ),
-      child: Row(
-        children: [
-          RaftIcon(
-            RaftGlyph.search,
-            size: 14,
-            color: t.brutal ? Colors.black.withValues(alpha: .5) : t.muted,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              autofillHints: null,
-              controller: search,
-              focusNode: searchFocus,
-              autofocus: true,
-              onChanged: changedSearch,
-              style: text,
-              cursorColor: t.strong,
-              decoration: InputDecoration(
-                isCollapsed: true,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                hintText: raftText(context, 'Search targets'),
-                hintStyle: text.copyWith(
-                  color: Colors.black.withValues(alpha: .35),
-                ),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// `border-t-2 bg-layer-panel p-3`: "Optional note" + the compact composer
-  /// (`border-2 p-2`, 40px editor, 28px accent send button).
-  Widget desktopNote(RaftTokens t, Color rule, Color panel, TextStyle label) =>
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: panel,
-          border: Border(top: BorderSide(color: rule, width: 2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 4,
-          children: [
-            Text(
-              raftText(context, 'Optional note'),
-              style: label.copyWith(
-                color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: panel,
-                border: Border.all(color: rule, width: 2),
-                borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: 8,
-                children: [
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      key: const Key('forward-desktop-note'),
-                      autofillHints: null,
-                      controller: note,
-                      enabled: !busy && attempt == null,
-                      maxLength: 4000,
-                      maxLines: null,
-                      expands: true,
-                      style: RaftTypography.body(t, size: 14, line: 20, color: Colors.black),
-                      decoration: InputDecoration(
-                        isCollapsed: true,
-                        filled: false,
-                        counterText: '',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        hintText: raftText(context, 'Add a note'),
-                        hintStyle: RaftTypography.body(
-                          t,
-                          size: 14,
-                          line: 20,
-                          color: Colors.black.withValues(alpha: .35),
-                        ),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: RaftRecipeButton(
-                      key: const Key('forward-send'),
-                      variant: RaftButtonRecipeVariant.accent,
-                      size: RaftButtonRecipeSize.iconSm,
-                      glyph: RaftGlyph.send,
-                      tooltip: raftText(context, 'Send forward'),
-                      disabled: selected.isEmpty,
-                      onPressed: busy || selected.isEmpty ? null : send,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
 
   Widget targetsStep() {
     final selectedFrom = raftFormat(context, '{count} selected from {source}', {
