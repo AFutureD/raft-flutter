@@ -8,9 +8,15 @@ import 'package:raft_ui/src/member_graph_layout.dart';
 /// own `buildMemberLinks` / `computeMemberNetworkLayout`
 /// (`MemberGraphSection.tsx` at the pinned reference, run under node).
 void main() {
-  final reference = jsonDecode(
-    File('test/member_graph_reference.json').readAsStringSync(),
-  ) as Map<String, dynamic>;
+  // The sharded runner starts tests from another directory than `flutter test`
+  // inside the package: find the fixture relative to this file first.
+  final fixture = [
+    File.fromUri(Platform.script.resolve('member_graph_reference.json')),
+    File('test/member_graph_reference.json'),
+    File('packages/raft_ui/test/member_graph_reference.json'),
+  ].firstWhere((f) => f.existsSync());
+  final reference =
+      jsonDecode(fixture.readAsStringSync()) as Map<String, dynamic>;
 
   for (final entry in reference.entries) {
     test('layout of "${entry.key}" matches the Web layout', () {
