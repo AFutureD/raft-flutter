@@ -65,7 +65,7 @@ tool/ds-audit --check                                                           
 
 Native flows: `tool/native-linux` (runs `integration_test/workspace_test.dart` on Linux) and `tool/native-test emulator-5580` (Android). Both need an isolated local server and a private fixture identity in the ignored `.local/test-user.json`; never put login data in source, assets or build arguments.
 
-`tool/ds-audit` is an AST-based scan of `apps/raft_flutter/lib` for Material widgets, literal dimensions, fonts, radii and colors. It compares per-file and per-category counts with the checked-in `tool/ds-audit-baseline.json`; `--check` fails if any count grew, `--update-baseline` lowers the baseline, and `// ds-allow: <reason>` marks reviewed platform-only code. Rules: [design-system migration](ds-migration.md).
+`tool/ds-audit` is an AST-based scan of `apps/raft_flutter/lib` for Material widgets, literal dimensions, fonts, radii and colors. It compares per-file and per-category counts with the checked-in `tool/ds-audit-baseline.json`; `--check` fails if any count grew and passes (with a "baseline can lower" note) when counts went down, so feature branches never edit the baseline; the integration owner runs `--update-baseline` after merges and commits it separately; and `// ds-allow: <reason>` marks reviewed platform-only code. Rules: [design-system migration](ds-migration.md).
 
 ## Merge gate: `tool/check-project`
 
@@ -83,3 +83,9 @@ Native flows: `tool/native-linux` (runs `integration_test/workspace_test.dart` o
 Work on one branch per task, ideally in its own `git worktree`, and keep to the files your task owns. While iterating run only the tests, `analyze` and `ds-audit` relevant to the change.
 
 Before handing a branch over, run `tool/prepare-handoff`. It merges the latest `origin/cindy/integration` into your branch (stopping on conflicts so you resolve them, not the integrator), runs `tool/check-project` under the shared gate lock, and prints one line with the branch, commit, base and gate result to paste into the handoff message. A handed-over branch therefore fast-forwards onto `cindy/integration`. Docs-only branches may use `--no-check`. Conventions for contributors and agents (UI rules, data lifecycle, performance bar) are in [AGENTS.md](../AGENTS.md).
+
+### System fonts in screenshot tests
+
+The shared test helper `tool/testing/system_fonts.dart` resolves system fonts under `/usr/share/fonts` by default. To use the same font files on another host, set `RAFT_TEST_FONT_DIR` to a directory with the same tree: `opentype/noto/NotoSansCJK-{Regular,Bold}.ttc` and, for parity captures, `truetype/noto/NotoColorEmoji.ttf` and `truetype/noto/NotoSans-{Regular,Bold}.ttf`. The override changes only file locations; font families, load order and capture settings stay the same.
+
+A screenshot test without all its required system fonts is reported as skipped with the missing paths and configuration hint. It emits no capture. The mobile tab bar configuration interaction test still runs without these screenshot fonts. A passing engineering gate with skipped screenshot tests does not certify those screenshots or parity coverage.

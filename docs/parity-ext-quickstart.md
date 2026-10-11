@@ -13,11 +13,14 @@ One page for adding or fixing a surface in the extension suite
    cases in the manifest at `manifest_path()` (`from builders import manifest_path`; copy
    `build-notification-card.py`). It may also write `fixtures/<name>.json`. The manifest
    (`build/parity-ext/cases.json`) is generated every run and never committed.
-3. **Register** the builder with one line in `tool/parity-ext/builders.txt` (order = run order;
-   `build-cases.py` first). An unlisted `build-*.py` still runs last, alphabetically, with a warning.
-   On a merge conflict in that file keep both lines.
-4. **Flutter**: `apps/raft_flutter/test/parity/cases/ext_<area>.dart` (a `Map<String, ParityCase>`
-   keyed like the case's `androidCaseHint`) and one `...ext<Area>Cases` line in `case_map.dart`.
+3. **No registration**: every `build-*.py` is discovered automatically (`build-cases.py` first, then by an optional
+   top-level `ORDER = n` constant in the builder, default 1000, then by file name). Add `ORDER = n` only if your
+   builder must run before or after another one (it reads/amends the manifest); no shared file is edited.
+4. **Flutter**: `apps/raft_flutter/test/parity/cases/ext_<area>.dart` with a public top-level
+   `final Map<String, ParityCase> ext<Area>Cases = {...}` keyed like the case's `androidCaseHint`. That is the whole
+   registration: `tool/parity_case_map.py` (run by `tool/flutter`, `tool/parity`, `tool/parity-ext/run`) merges every such
+   map into the git-ignored `case_map.g.dart`; never edit `case_map.dart`. Use a unique map name and unique case ids
+   (a duplicate id throws at startup). Reasons for ids without a widget go in a `Map<String, ParityUncovered> ext<Area>Uncovered`.
    Crop with `capture.androidKey` (a `ValueKey` in the widget); interactions with `capture.androidInteractions`.
 
 ## Run only your cases
@@ -57,9 +60,20 @@ sampling dropped (`PARITY_EXT_ALL_DARK=1` keeps every elegant-dark case; elegant
 
 ## Page inventory
 
-`docs/parity-page-inventory.md` lists every Web page / modal / state and which have a brutal-light case (official id or
-extension id) or none. After adding cases update the matching row in `tool/parity-ext/inventory.py` (the `d=` / `p=`
-ids) and run `python3 tool/parity-ext/inventory.py`; the unit tests fail on a stale document or an unknown id.
+The page inventory lists every Web page / modal / state and which have a brutal-light case (official id or extension id)
+or none. It is **generated on demand and not committed**:
+
+```bash
+python3 tool/parity-ext/inventory.py --write build/parity-ext/page-inventory.md   # or --stdout
+python3 tool/parity-ext/inventory.py --check                                      # validate rows / id globs only
+```
+
+Rows in `tool/parity-ext/inventory.py` hold Web page metadata, the *expected* case-id globs per platform (`d=`, `p=`,
+official `off=`) and the excluded / verify marks. ok / partial / MISSING / web-only is **computed** from the case ids that
+exist in the built manifests and the Flutter `noFlutterSurface` flags (read from a parity-ext run's
+`visual-testing-results/android-case-map.json`), so adding cases for a listed page edits nothing. Only a **new Web page**
+needs a new row (or a MISSING row gets the glob of the ids you now built); never write a status. `--check` fails on
+malformed globs and on globs matching the other platform's cases, not on documents.
 
 ## Rules
 

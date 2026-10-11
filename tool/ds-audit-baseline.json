@@ -1,7 +1,7 @@
 {
  "version": 1,
  "scope": "apps/raft_flutter/lib",
- "about": "Ratchet for tool/ds-audit. Counts may only go down. Regenerate with `tool/ds-audit --update-baseline` after removing violations.",
+ "about": "Ratchet for tool/ds-audit. Counts may only go down. Feature branches never edit this file; the integration owner runs `tool/ds-audit --update-baseline` after merges (separate small commit).",
  "totals": {
   "style.border_radius": 10,
   "style.dimension": 39,

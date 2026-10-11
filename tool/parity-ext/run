@@ -11,8 +11,8 @@ as generated copies, Flutter provider test/parity/parity_capture_test.dart,
 official `cli.mjs diff` + `site`), pointed at the extension manifest
 (sharedCases.json schema, ids components.<area>.*) instead of the official case
 set, which stays untouched. The manifest is NOT committed: every invocation
-builds <out>/cases.json by running tool/parity-ext/build-*.py in the order of
-tool/parity-ext/builders.txt (builders.py), then derives cases.sampled.json
+builds <out>/cases.json by running the discovered tool/parity-ext/build-*.py
+(builders.py: build-cases.py first, then optional `ORDER = n`, then file name), then derives cases.sampled.json
 (theme sampling: brutal-light complete, elegant themes 1-2 per surface,
 tool/parity-ext/sampling.py) from it. Differences from tool/parity, all generated,
 never edits to the Source checkout:

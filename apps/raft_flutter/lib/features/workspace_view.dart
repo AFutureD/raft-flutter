@@ -142,6 +142,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
     if (mounted && menuOpenRow != row) setState(() => menuOpenRow = row);
   }
 
+  /// Sidebar row-menu feedback (Source `toast.error` of the mute action).
+  final rowToast = RaftToastController();
+
   void toggleJoinedChannelsOnly() =>
       setState(() => joinedChannelsOnly = !joinedChannelsOnly);
   final serverMenu = RaftMenuController();
@@ -741,6 +744,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);
     serverMenu.dispose();
+    rowToast.dispose();
     serverUnread.removeListener(serverUnreadChanged);
     if (mobileHost == null) {
       serverUnread.dispose();
@@ -1488,6 +1492,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                             ].contains(route)))
                       if (thread || !unresolvedChannelRoute)
                         mobilePageHeader(title, thread),
+                    RaftToastPortal(controller: rowToast),
                     if (w.error != null)
                       MaterialBanner(
                         content: Text(w.error!),
@@ -3382,15 +3387,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     sortingGroups.add(group.id);
     setState(() {});
     try {
-      await w.command(
-        'PATCH',
-        '/servers/${w.server!.id}/sidebar-order',
-        data: {key: mode},
-      );
-      if (!mounted || scope != mobileAuthority) return;
-      await w.loadSidebar();
-    } catch (error) {
-      if (mounted && scope == mobileAuthority) w.setError('$error');
+      await w.updateSidebarOrder({key: mode});
     } finally {
       sortingGroups.remove(group.id);
       if (mounted && scope == mobileAuthority) setState(() {});

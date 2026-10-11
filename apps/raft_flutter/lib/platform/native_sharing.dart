@@ -183,14 +183,20 @@ class NativeSharing {
       onError: (Object _) {},
     );
     try {
-      try {
-        for (final share in await inbox.pending()) {
-          receive(share);
+      // The launching intent is admitted first: recovering shares left by an
+      // earlier process scans the inbox folder and must not delay the share the
+      // user just sent. Recovered shares arrive (as pending ones) alongside it.
+      final recovery = () async {
+        try {
+          for (final share in await inbox.pending()) {
+            receive(share);
+          }
+        } catch (_) {
+          // A failed recovery must not prevent admission of a new intent.
         }
-      } catch (_) {
-        // A failed recovery must not prevent admission of a new intent.
-      }
+      }();
       await _queueIntent(await intents.ReceiveIntent.getInitialIntent());
+      await recovery;
       if (!_closed) await channel.invokeMethod<void>('sharingReady');
     } on PlatformException {
       // A platform without a receiving Activity still supports outgoing shares.

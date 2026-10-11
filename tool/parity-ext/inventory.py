@@ -1,40 +1,51 @@
 #!/usr/bin/env python3
-"""Web PAGE INVENTORY vs Flutter parity coverage -> docs/parity-page-inventory.md.
+"""Web PAGE INVENTORY vs Flutter parity coverage (generated on demand, never committed).
 
-The inventory is data (ROWS below, one row per user-facing Web page / panel /
-modal / drawer / sheet / popover / empty-or-error state worth a screen); the
-document is generated from it so the counts never drift from the rows:
+The inventory is data (SECTIONS below, one row per user-facing Web page / panel /
+modal / drawer / sheet / popover / empty-or-error state worth a screen): Web page
+metadata, the case ids EXPECTED per platform (`d=` / `p=` extension globs, `off=`
+official globs) and the marks (`excl=`, `verify=`, `*_state='partial'`). The
+coverage STATUS is never written by hand: it is computed from the case ids that
+exist in the built manifests (the official sharedCases.json and the extension
+manifest the builders generate) and from the Flutter `noFlutterSurface` flags.
+A branch that adds cases for an already listed page therefore edits nothing here;
+only a new Web page needs a new row (or a missing page gets its expected ids).
 
-  python3 tool/parity-ext/inventory.py            # rewrite docs/parity-page-inventory.md
-  python3 tool/parity-ext/inventory.py --check    # fail when the doc is stale or an id is unknown
+  python3 tool/parity-ext/inventory.py --write build/parity-ext/page-inventory.md   # generate the document
+  python3 tool/parity-ext/inventory.py --stdout                                     # print it
+  python3 tool/parity-ext/inventory.py --check    # validate the rows and id globs (not a document)
 
-Coverage vocabulary per applicable platform (D = desktop 1280, P = phone 390):
-  ok       a case exists (official id, or extension id on the default theme brutal-light)
-  partial  the surface only appears inside other cases / only some of its states have a case
-  wip      a case is being added on another branch (named in the row note)
-  MISSING  no case
-  n/a      the surface does not exist on that platform
-  excluded the page is dead, obsolete or not shown to normal users (`excl=(reason, evidence)`): it drops out of the
-           missing counts and the ranking. Reasons: obsolete | flag-off | host-only | dev-only | duplicate | superseded.
-           Reachability evidence is from the pinned Web source only (no git history exists there: one release commit).
-  verify   (`verify=` text, not a state) reachability is unclear or the page may not apply to a native client; the page
-           stays in the counts and is listed in the "Verify" section.
+Status per applicable platform (D = desktop 1280, P = phone 390):
+  ok        every expected id glob of the row matches a case (official id, or extension id on the default theme brutal-light)
+  partial   only some of the row's globs match a case, or the row carries a `partial` mark (known fewer states than the page has)
+  web-only  cases exist but every one is flagged `noFlutterSurface` (the Web page renders, the Flutter app has no surface)
+  MISSING   the row lists no id glob for the platform, or none matches a case
+  n/a       the surface does not exist on that platform
+  excluded  the page is dead, obsolete or not shown to normal users (`excl=(reason, evidence)`): it drops out of the
+            missing counts and the ranking. Reasons: obsolete | flag-off | host-only | browser-only | dev-only | duplicate | superseded.
+            Reachability evidence is from the pinned Web source only (no git history exists there: one release commit).
+  verify    (`verify=` text, not a state) reachability is unclear or the page may not apply to a native client; the page
+            stays in the counts and is listed in the "Verify" section.
 
-Extension ids are written without the theme suffix and may be globs; they are
-validated against the manifest the builders generate (tests/test_parity_ext.py).
-Official ids (phone only, react__android) are validated against
-packages/visual-testing/shared/sharedCases.json when the raft-source checkout is present.
+The `noFlutterSurface` flags come from the Flutter case map written by a parity-ext run
+(build/parity-ext/visual-testing-results/android-case-map.json, or --case-map FILE); without it no case is
+treated as web-only. Official ids are matched against packages/visual-testing/shared/sharedCases.json when the
+raft-source checkout is present, otherwise they count as existing.
+Extension ids are written without the theme suffix and may be globs.
 """
+import argparse
 import fnmatch
 import json
 import os
 import pathlib
+import re
 import sys
 import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-DOC = ROOT / 'docs/parity-page-inventory.md'
+DEFAULT_DOC = ROOT / 'build/parity-ext/page-inventory.md'
+CASE_MAP = ROOT / 'build/parity-ext/visual-testing-results/android-case-map.json'
 RAFT_SOURCE = pathlib.Path(os.environ.get(
     'PARITY_RAFT_SOURCE', '/home/kevinzhow/.slock/agents/9a92b742-8942-488c-8635-67d224ec54ab/work/raft-source'))
 W = 'packages/web/src/'
@@ -49,19 +60,20 @@ class Row:
         self.excl, self.verify = excl, verify  # excl = (reason, evidence)
         self.off, self.d, self.p = tuple(off), tuple(d), tuple(p)
         self.prio, self.note = prio, note
-        self.d_state, self.p_state = d_state, p_state  # explicit override: 'partial' | 'wip'
+        self.d_state, self.p_state = d_state, p_state  # mark: 'partial' (known fewer states than the page has); statuses are computed
 
-    def state(self, platform):
-        """-> ok | partial | wip | MISSING | n/a | excluded for 'D' or 'P'."""
-        if platform not in self.ap:
-            return 'n/a'
-        if self.excl:
-            return 'excluded'
-        override = self.d_state if platform == 'D' else self.p_state
-        has = bool(self.d) if platform == 'D' else bool(self.off or self.p)
-        if override and (has or override == 'wip'):
-            return override
-        return 'ok' if has else 'MISSING'
+    def groups(self, platform):
+        """Expected id globs of the row on 'D' or 'P' -> [(kind, glob, negations)]; kind 'ext' | 'official'."""
+        if platform == 'D':
+            ext, off = self.d, ()
+        else:
+            ext, off = self.p, self.off
+        negations = [g[1:] for g in ext if g.startswith('!')]
+        return [('official', g, []) for g in off] + [('ext', g, negations) for g in ext if not g.startswith('!')]
+
+    def state(self, platform, ctx=None):
+        """-> ok | partial | web-only | MISSING | n/a | excluded for 'D' or 'P' (computed, see Context.state)."""
+        return (ctx or default_context()).state(self, platform)
 
 
 def R(*args, **kwargs):
@@ -149,7 +161,8 @@ SECTIONS = [
           off=['components.home.server-switcher.open'], d=['components.shell.desktop.server.menu']),
         R('2.07', 'Rail help menu (docs, mobile app, community)', 'components/layout/LeftRail.tsx', 'D', d=['components.shell.desktop.rail.help-menu']),
         R('2.08', 'Row context menus (channel, muted channel, DM, agent DM, section, custom section, surface, Move to section)', 'components/layout/Sidebar.tsx', 'DP',
-          d=['components.shell.desktop.menu.*'], p=['components.shell.mobile.menu.*'], note='Phone: channel row menu only.', p_state='partial'),
+          d=['components.shell.desktop.menu.*', 'components.row-menus.desktop.menu.*'],
+          p=['components.shell.mobile.menu.*', 'components.row-menus.mobile.menu.*']),
         R('2.09', 'Section sort menu', 'components/layout/Sidebar.tsx', 'DP', d=['components.shell.desktop.sidebar.sort-menu'], p=['components.shell.mobile.sidebar.sort-menu']),
         R('2.10', 'Section dialogs (new, rename, delete)', 'components/layout/SidebarSectionDialog.tsx', 'DP',
           d=['components.shell.desktop.dialog.*-section'], p=['components.list-pages.dialogs.phone-*-section'], prio=3),
@@ -382,7 +395,7 @@ SECTIONS = [
         R('7.09', 'Agent detail: Activity tab (log, empty, loading, error)', 'components/agent/AgentActivityLog.tsx', 'DP',
           off=['screens.members.agent-detail.activity'], d=['components.members-ext.agent.activity*']),
         R('7.10', 'Agent detail: Chat tab (channels and DMs of the agent)', 'components/agent/AgentDetailPanel.tsx (AgentChatTab)', 'DP', prio=2,
-          note='Desktop: in progress on cindy/alignment-audit. Phone: no case.', d_state='wip'),
+          note='Desktop: in progress on cindy/alignment-audit. Phone: no case.'),
         R('7.11', 'Agent detail: Reminders tab', 'components/agent/AgentRemindersSection.tsx', 'DP',
           off=['screens.members.agent-detail.reminders'], d=['components.members-ext.agent.reminders']),
         R('7.12', 'Agent detail: Workspace tab (files)', 'components/agent/AgentWorkspace.tsx', 'DP',
@@ -571,6 +584,60 @@ def matching(patterns, cases):
             if any(fnmatch.fnmatchcase(i, g) for g in pos) and not any(fnmatch.fnmatchcase(i, g) for g in neg)]
 
 
+class Context:
+    """The case ids that exist: default-theme extension cases [(suffix-free id, viewport width)], the official ids
+    (None = unknown, official globs then count as existing) and the suffix-free ids flagged noFlutterSurface."""
+
+    def __init__(self, cases, official=None, web_only=()):
+        self.cases = list(cases)
+        self.official = official
+        self.web_only = frozenset(web_only)
+
+    def hits(self, kind, glob, negations):
+        """Existing case ids matched by one expected glob."""
+        if kind == 'official':
+            return ['?'] if self.official is None else fnmatch.filter(self.official, glob)
+        return [i for i, _ in matching([glob, *['!' + n for n in negations]], self.cases)]
+
+    def state(self, row, platform):
+        if platform not in row.ap:
+            return 'n/a'
+        if row.excl:
+            return 'excluded'
+        groups = row.groups(platform)
+        found = [self.hits(*g) for g in groups]
+        live = [h for h in found if h]
+        if not live:
+            return 'MISSING'
+        if len(live) < len(groups):
+            return 'partial'
+        ids = {i for h in live for i in h}
+        if ids and ids <= self.web_only:
+            return 'web-only'
+        mark = row.d_state if platform == 'D' else row.p_state
+        return 'partial' if mark == 'partial' else 'ok'
+
+
+_DEFAULT = None
+
+
+def default_context():
+    """Context of the current tree: builds the extension manifest once, reads the official ids and the Flutter case map."""
+    global _DEFAULT
+    if _DEFAULT is None:
+        _DEFAULT = Context(build_cases(), official_ids(), flutter_web_only())
+    return _DEFAULT
+
+
+def flutter_web_only(case_map=None):
+    """Suffix-free default-theme ids the Flutter case map flags noFlutterSurface (empty without a map)."""
+    path = pathlib.Path(case_map) if case_map else CASE_MAP
+    if not path.is_file():
+        return set()
+    data = json.loads(path.read_text())
+    return {suffix_free(i) for i, v in data.items() if v.get('status') == 'noFlutterSurface' and i.endswith('.brutal')}
+
+
 def ext_globs():
     return sorted({g for r in all_rows() for g in (*r.d, *r.p)})
 
@@ -579,11 +646,12 @@ def official_globs():
     return sorted({g for r in all_rows() for g in r.off})
 
 
-def counts():
+def counts(ctx=None):
+    ctx = ctx or default_context()
     out = {'rows': 0, 'all_rows': 0, 'excluded': {}, 'verify': 0}
     for plat in 'DP':
-        out[plat] = {'applicable': 0, 'ok': 0, 'partial': 0, 'wip': 0, 'MISSING': 0}
-    out['rows_missing'] = out['rows_partial_or_wip'] = out['rows_full'] = 0
+        out[plat] = {'applicable': 0, 'ok': 0, 'partial': 0, 'web-only': 0, 'MISSING': 0}
+    out['rows_missing'] = out['rows_partial'] = out['rows_full'] = 0
     for r in all_rows():
         out['all_rows'] += 1
         if r.excl:
@@ -591,16 +659,16 @@ def counts():
             continue
         out['rows'] += 1
         out['verify'] += bool(r.verify)
-        states = [r.state(p) for p in 'DP' if p in r.ap]
+        states = [r.state(p, ctx) for p in 'DP' if p in r.ap]
         for plat in 'DP':
-            s = r.state(plat)
+            s = r.state(plat, ctx)
             if s != 'n/a':
                 out[plat]['applicable'] += 1
                 out[plat][s] += 1
         if 'MISSING' in states:
             out['rows_missing'] += 1
-        elif any(s in ('partial', 'wip') for s in states):
-            out['rows_partial_or_wip'] += 1
+        elif any(s in ('partial', 'web-only') for s in states):
+            out['rows_partial'] += 1
         else:
             out['rows_full'] += 1
     return out
@@ -614,11 +682,12 @@ def verify_rows():
     return [r for r in all_rows() if r.verify and not r.excl]
 
 
-def missing_rows():
+def missing_rows(ctx=None):
     """Rows with a MISSING platform, most visible first (priority, then rows not flagged verify, then both platforms,
     then document order). Excluded rows are not ranked."""
-    rows = [(i, r) for i, r in enumerate(all_rows()) if not r.excl and 'MISSING' in [r.state(p) for p in 'DP']]
-    rows.sort(key=lambda ir: (ir[1].prio, bool(ir[1].verify), -sum(ir[1].state(p) == 'MISSING' for p in 'DP'), ir[0]))
+    ctx = ctx or default_context()
+    rows = [(i, r) for i, r in enumerate(all_rows()) if not r.excl and 'MISSING' in [r.state(p, ctx) for p in 'DP']]
+    rows.sort(key=lambda ir: (ir[1].prio, bool(ir[1].verify), -sum(ir[1].state(p, ctx) == 'MISSING' for p in 'DP'), ir[0]))
     return [r for _, r in rows]
 
 
@@ -626,16 +695,18 @@ def code(items):
     return '<br>'.join(f'`{i}`' for i in items)
 
 
-def render():
-    c = counts()
-    miss = missing_rows()
+def render(ctx=None):
+    ctx = ctx or default_context()
+    c = counts(ctx)
+    miss = missing_rows(ctx)
     L = []
     a = L.append
     a('# Web page inventory vs Flutter parity coverage')
     a('')
-    a('Generated by `tool/parity-ext/inventory.py` from the rows in that file; edit the rows, not this document,')
-    a('then run `python3 tool/parity-ext/inventory.py`. `tool/tests/test_parity_ext.py` fails when this file is stale or')
-    a('when an extension id named here no longer exists. Web source: the pinned raft-source checkout,')
+    a('Generated on demand by `tool/parity-ext/inventory.py --write <path>` (not committed). The rows are the data in that')
+    a('file (Web page metadata, expected case ids per platform, excluded / verify marks); every status below is computed from')
+    a('the case ids that exist in the built manifests and from the Flutter `noFlutterSurface` flags, so adding cases for a')
+    a('listed page changes nothing in the source. Web source: the pinned raft-source checkout,')
     a('`packages/web/src` (routes in `App.tsx` and `components/layout/MainLayout.tsx`, tabs in')
     a('`components/settings/settingsNavigation.ts`, agent tabs in `components/agent/AgentDetailPanel.tsx`).')
     a('')
@@ -652,8 +723,10 @@ def render():
     a('  Dev-only routes are excluded (end of the document); pages the Web source shows to nobody are marked `excluded`.')
     a('- **D** = desktop (extension suite, 1280 wide, brutal-light). **P** = phone (390 wide): the official suite')
     a('  (`tool/parity`, 99 cases, phone only) or an extension case with a `.mobile` / 390 viewport.')
-    a('- Cell values: `ok` a case exists; `partial` only some states or only inside other cases; `wip` being added on another')
-    a('  branch; `MISSING` no case; `n/a` the surface does not exist on that platform; `excluded` dead / obsolete / not shown to')
+    a('- Cell values (computed): `ok` every expected id of the row has a case; `partial` only some of the expected ids have')
+    a('  a case, or the row is marked as covering fewer states than the page has; `web-only` cases exist but all are flagged')
+    a('  `noFlutterSurface` (the Flutter app has no surface to capture); `MISSING` no expected id has a case; `n/a` the surface')
+    a('  does not exist on that platform; `excluded` dead / obsolete / not shown to')
     a('  normal users (reason and evidence in "Excluded pages"): it drops out of the counts and the ranking.')
     a('- Extension ids are shown without the theme suffix (`.brutal` = brutal-light; the other two themes only exist for')
     a('  the sampled surfaces) and may be globs. "Coverage" means a case exists, not that Flutter passes it.')
@@ -669,13 +742,13 @@ def render():
     a(f"- Pages (rows) in the inventory: **{c['all_rows']}** in {len(SECTIONS)} areas, of which **{sum(ex.values())}** are excluded as dead,")
     a(f"  obsolete or not shown to normal users (below), leaving **{c['rows']}** pages that count. {len(EXCLUDED)} dev-only / entry-less")
     a(f"  routes are excluded on top (end of the document). {c['verify']} counted pages are flagged \"verify\" (reachability unclear).")
-    a(f"- Fully covered on every platform they exist on: **{c['rows_full']}**; partly covered (partial / wip): **{c['rows_partial_or_wip']}**;"
+    a(f"- Fully covered on every platform they exist on: **{c['rows_full']}**; partly covered (partial / web-only): **{c['rows_partial']}**;"
       f" with at least one MISSING platform: **{c['rows_missing']}**.")
     a('')
-    a('| platform | pages that exist there | ok | partial | wip | MISSING |')
+    a('| platform | pages that exist there | ok | partial | web-only | MISSING |')
     a('| --- | --- | --- | --- | --- | --- |')
-    a(f"| Desktop (D) | {c['D']['applicable']} | {c['D']['ok']} | {c['D']['partial']} | {c['D']['wip']} | {c['D']['MISSING']} |")
-    a(f"| Phone (P) | {c['P']['applicable']} | {c['P']['ok']} | {c['P']['partial']} | {c['P']['wip']} | {c['P']['MISSING']} |")
+    a(f"| Desktop (D) | {c['D']['applicable']} | {c['D']['ok']} | {c['D']['partial']} | {c['D']['web-only']} | {c['D']['MISSING']} |")
+    a(f"| Phone (P) | {c['P']['applicable']} | {c['P']['ok']} | {c['P']['partial']} | {c['P']['web-only']} | {c['P']['MISSING']} |")
     a('')
     a('Excluded pages by reason (rows / extra routes):')
     a('')
@@ -698,10 +771,6 @@ def render():
     a('- The official suite covers phone only, so every desktop page depends on the extension suite; the extension')
     a('  suite is concentrated on Settings, Auth, Thread and Shell components and has almost no composed desktop screens.')
     a(f"- {c['D']['MISSING']} desktop and {c['P']['MISSING']} phone page-platforms have no case.")
-    a('- Agent detail: `AgentDetailPanel` has seven tabs (profile, activity, chat, reminders, workspace, apps, MCP). The')
-    a('  base branch already has desktop cases for six of them (`components.members-ext.agent.*`, including `mcp*`). Chat has')
-    a('  no case on either platform and MCP has none on phone. Desktop agent-detail work is in progress on')
-    a('  `cindy/alignment-audit`; this inventory does not add cases for it.')
     a('')
     a('## Prioritized missing pages')
     a('')
@@ -710,7 +779,7 @@ def render():
     a('| rank | # | page | where | priority |')
     a('| --- | --- | --- | --- | --- |')
     for n, r in enumerate(miss, 1):
-        where = '+'.join(p for p in 'DP' if r.state(p) == 'MISSING')
+        where = '+'.join(p for p in 'DP' if r.state(p, ctx) == 'MISSING')
         a(f"| {n} | {r.num} | {r.name}{' (verify)' if r.verify else ''} | {where} | {PRIO_LABEL[r.prio]} |")
     a('')
     for title, intro, rows in SECTIONS:
@@ -731,9 +800,9 @@ def render():
                 note = (note + ' ' if note else '') + f'[excluded: {r.excl[0]}]'
             if r.verify and not r.excl:
                 note = (note + ' ' if note else '') + '[verify]'
-            if r.state('D') == 'MISSING' or r.state('P') == 'MISSING':
+            if 'MISSING' in (r.state('D', ctx), r.state('P', ctx)):
                 note = (note + ' ' if note else '') + f'[{PRIO_LABEL[r.prio].split()[0]}]'
-            a(f"| {r.num} | {r.name} | `{r.web}` | {r.state('D')} | {r.state('P')} | {code(r.off) or ''} | {'<br>'.join(ext)} | {note} |")
+            a(f"| {r.num} | {r.name} | `{r.web}` | {r.state('D', ctx)} | {r.state('P', ctx)} | {code(r.off) or ''} | {'<br>'.join(ext)} | {note} |")
         a('')
     a('## Excluded pages')
     a('')
@@ -771,13 +840,27 @@ def render():
     for r in verify_rows():
         a(f"| {r.num} | {r.name} | {r.verify} |")
     a('')
-    a('## Maintaining this document')
+    a('## Cases no row claims')
     a('')
-    a('1. Add or change cases through the builder pattern (docs/parity-ext-quickstart.md).')
-    a('2. Update the matching row(s) in `tool/parity-ext/inventory.py` (`d=` / `p=` extension ids, `off=` official ids,')
-    a('   `*_state=` for partial / wip) and run `python3 tool/parity-ext/inventory.py`.')
-    a('3. `python3 tool/parity-ext/inventory.py --check` (also run by the unit tests) fails on stale output and on ids that')
-    a('   match no case.')
+    a('Default-theme extension cases whose id matches no row glob, by area (`components.<area>`). A new Web page needs a')
+    a('row in `tool/parity-ext/inventory.py`; cases of an already listed page are claimed through that row\'s globs.')
+    a('')
+    orphans = unclaimed(ctx)
+    if orphans:
+        a('| area | cases | example |')
+        a('| --- | --- | --- |')
+        for area, ids in sorted(orphans.items()):
+            a(f'| `{area}` | {len(ids)} | `{ids[0]}` |')
+    else:
+        a('None.')
+    a('')
+    a('## Maintaining the rows')
+    a('')
+    a('1. Add or change cases through the builder pattern (docs/parity-ext-quickstart.md). Nothing here changes.')
+    a('2. A new Web page (or a MISSING page whose case ids you now know) gets / completes one row in')
+    a('   `tool/parity-ext/inventory.py`: `d=` / `p=` extension id globs, `off=` official id globs, `*_state=\'partial\'` only')
+    a('   when the cases cover fewer states than the page has. Never write a status.')
+    a('3. `python3 tool/parity-ext/inventory.py --check` (also run by the unit tests) validates the rows and globs.')
     a('')
     return '\n'.join(L).replace('\n\n\n', '\n\n')
 
@@ -797,48 +880,95 @@ def build_cases():
     return brutal_cases(manifest)
 
 
-def problems(cases=None, official=None):
-    """-> list of human readable problems (empty = consistent)."""
-    cases = build_cases() if cases is None else cases
-    out = []
+def unclaimed(ctx=None):
+    """Default-theme extension cases no row glob matches -> {components.<area>: [ids]}."""
+    ctx = ctx or default_context()
+    claimed = set()
     for r in all_rows():
-        for platform, patterns in (('D', r.d), ('P', r.p)):
-            if patterns and platform not in r.ap:
-                out.append(f'{r.num}: extension ids given for {platform} but the row is {r.ap}')
-            for g in patterns:
-                if g.startswith('!'):
-                    continue
-                hit = matching([g, *[x for x in patterns if x.startswith('!')]], cases)
-                if not hit:
-                    out.append(f'{r.num}: extension id matches no brutal-light case: {g}')
-                elif platform == 'D' and any(w == 390 for _, w in hit):
-                    out.append(f'{r.num}: desktop glob {g} matches a 390 wide (phone) case')
-                elif platform == 'P' and any(w != 390 for _, w in hit):
-                    out.append(f'{r.num}: phone glob {g} matches a non-390 case')
-    if official is not None:
-        for r in all_rows():
-            for g in r.off:
-                if not fnmatch.filter(official, g):
-                    out.append(f'{r.num}: official id matches no sharedCases.json case: {g}')
+        for platform in 'DP':
+            for kind, glob, negations in r.groups(platform):
+                if kind == 'ext':
+                    claimed.update(ctx.hits(kind, glob, negations))
+    out = {}
+    for case_id, _ in ctx.cases:
+        if case_id not in claimed:
+            out.setdefault('.'.join(case_id.split('.')[:2]), []).append(case_id)
     return out
 
 
-def main():
-    check = '--check' in sys.argv
-    text = render()
-    bad = problems(official=official_ids())
-    if check:
-        if not DOC.is_file() or DOC.read_text() != text:
-            bad.append(f'{DOC.relative_to(ROOT)} is stale: run python3 tool/parity-ext/inventory.py')
-        if bad:
-            sys.exit('\n'.join(bad))
-        print('inventory consistent')
-        return
+_GLOB = re.compile(r'^(components|screens)\.[A-Za-z0-9_.*?\[\]-]+$')
+_NEGATION = re.compile(r'^![A-Za-z0-9_.*?\[\]-]+$')
+
+
+def problems(ctx=None):
+    """-> list of human readable problems with the rows and globs (empty = consistent).
+
+    A glob that matches no case is NOT a problem: it is an expected id that is not built yet (the status is MISSING /
+    partial). Problems are malformed globs, globs on a platform the row does not have, and globs that match a case of
+    the other platform (a 390 wide case for D, anything else for P)."""
+    ctx = ctx or default_context()
+    out, seen = [], set()
+    for r in all_rows():
+        if r.num in seen:
+            out.append(f'{r.num}: duplicate row number')
+        seen.add(r.num)
+        if r.excl and r.excl[0] not in REASONS:
+            out.append(f'{r.num}: unknown excluded reason {r.excl[0]}')
+        for platform, patterns in (('D', r.d), ('P', r.p)):
+            if patterns and platform not in r.ap:
+                out.append(f'{r.num}: extension ids given for {platform} but the row is {r.ap}')
+            if patterns and not any(not g.startswith('!') for g in patterns):
+                out.append(f'{r.num}: only negations for {platform}: {list(patterns)}')
+            for g in patterns:
+                if g.startswith('!'):
+                    if not _NEGATION.match(g):
+                        out.append(f'{r.num}: malformed negation: {g}')
+                    continue
+                if not _GLOB.match(g) or not g.startswith('components.'):
+                    out.append(f'{r.num}: malformed or unknown extension id prefix: {g}')
+                    continue
+                hit = matching([g, *[x for x in patterns if x.startswith('!')]], ctx.cases)
+                if platform == 'D' and any(w == 390 for _, w in hit):
+                    out.append(f'{r.num}: desktop glob {g} matches a 390 wide (phone) case')
+                elif platform == 'P' and any(w != 390 for _, w in hit):
+                    out.append(f'{r.num}: phone glob {g} matches a non-390 case')
+        for g in r.off:
+            if not _GLOB.match(g):
+                out.append(f'{r.num}: malformed or unknown official id prefix: {g}')
+        if r.off and 'P' not in r.ap:
+            out.append(f'{r.num}: official ids given but the row has no phone platform')
+        for platform, mark in (('D', r.d_state), ('P', r.p_state)):
+            if mark not in (None, 'partial'):
+                out.append(f'{r.num}: unknown {platform} state mark {mark!r} (only "partial" is a mark; statuses are computed)')
+    return out
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap.add_argument('--write', metavar='PATH', help=f'write the generated document ("-" = stdout; e.g. {DEFAULT_DOC.relative_to(ROOT)})')
+    ap.add_argument('--stdout', action='store_true', help='print the generated document')
+    ap.add_argument('--check', action='store_true', help='validate the rows and id globs; writes nothing')
+    ap.add_argument('--case-map', metavar='FILE', help='Flutter android-case-map.json (noFlutterSurface flags)')
+    args = ap.parse_args(argv)
+    ctx = Context(build_cases(), official_ids(), flutter_web_only(args.case_map))
+    bad = problems(ctx)
     if bad:
         sys.exit('\n'.join(bad))
-    DOC.write_text(text)
-    c = counts()
-    print(f"wrote {DOC.relative_to(ROOT)}: {c['rows']} pages, desktop {c['D']}, phone {c['P']}")
+    if args.check:
+        pending = sorted({r.num for r in all_rows() if not r.excl and any(
+            g for p in 'DP' for g in r.groups(p) if not ctx.hits(*g))})
+        print(f'inventory rows consistent; {len(pending)} rows list ids that have no case yet' if pending
+              else 'inventory rows consistent')
+        return
+    text = render(ctx)
+    if args.write and args.write != '-':
+        out = pathlib.Path(args.write)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text)
+        c = counts(ctx)
+        print(f"wrote {out}: {c['rows']} pages, desktop {c['D']}, phone {c['P']}")
+    else:
+        sys.stdout.write(text)
 
 
 if __name__ == '__main__':
