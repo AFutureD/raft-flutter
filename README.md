@@ -19,6 +19,14 @@ Linux 和 Android 优先、已加入 macOS 和 iOS 宿主的 Raft Flutter 客户
 
 开发检查：`tool/flutter analyze --no-pub`，`tool/flutter test packages/raft_client/test packages/raft_sync/test packages/raft_ui/test --no-pub`。原生缓存测试及集成测试在 `apps/raft_flutter` 目录运行 `../../tool/flutter`。
 
+新检出或工作目录先在仓库根目录运行 `tool/flutter pub get --enforce-lockfile`。Android 原生绑定生成工具是独立包，全工程静态分析前还需初始化其依赖：
+
+```sh
+(cd apps/raft_flutter/tool/bindings_generator && ../../../../tool/flutter pub get --enforce-lockfile)
+```
+
+`tool/check-project` 会自动执行这一步并记录结果；初始化依赖不需要 Android NDK。重新生成绑定时的 NDK 配置见 [Android Performance Hint 接入](docs/android-performance-hint.md)。
+
 附件、分享和通知的独立 OS 证据见 [附件](docs/attachment-evidence.md)、[分享](docs/sharing-evidence.md)、[通知与内容链接](docs/notification-content-evidence.md)。它们不替代主应用完整链路。历史功能基线覆盖线程、文档/PDF/音频/视频、操作卡、资源控制、管理/联合频道、侧栏、中文 Locale、主题与安全退出；后续源码需重跑。Android 后台兜底的独立原生证据见 [后台通知](docs/background-inbox.md)。Linux 服务端 desktop 消息 push 和 FCM/APNs 注册不由这些结果证明。
 
 Linux 首次构建先运行 `tool/prepare-media-linux`，它只下载并展开固定 media 运行库到被忽略的本地目录，不修改主机或 Pub 缓存。PDF 应用内预览需要系统提供 `poppler-utils`；缺少时显示下载回退。具体版本、打包及兼容边界见 [Linux media 运行时](docs/linux-media-runtime.md)。
