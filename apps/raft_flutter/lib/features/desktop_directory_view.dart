@@ -335,10 +335,8 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     );
   }
 
-  /// Machine groups in first-seen order. The label's `mt-1.5` collapses with
-  /// the section header's `mb-1` (first group: 2 more) or the previous row's
-  /// `mb-0.5` / label's `mb-0.5` (4 more).
-  List<Widget> agentMachineGroups(
+  /// Builds machine headers and agent rows in first-seen order.
+  List<({String id, WidgetBuilder build})> agentMachineRows(
     List<Map<String, dynamic>> rows,
     List<Map<String, dynamic>> computers,
   ) {
@@ -348,25 +346,36 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
       final id = machine is String ? machine : '__no_machine__';
       groups.putIfAbsent(id, () => []).add(value);
     }
+    final names = {
+      for (final computer in computers) computer['id']: computer['name'],
+    };
     return [
-      for (final (index, entry) in groups.entries.indexed)
-        RaftSidebarMachineGroup(
-          key: ValueKey('directory-machine-group-${entry.key}'),
-          topPadding: index == 0
-              ? 2
-              : 6 - (RaftTokens.of(context).brutal ? 4 : 2),
-          disclosureKey: ValueKey('directory-machine-disclosure-${entry.key}'),
-          name:
-              '${computers.where((m) => m['id'] == entry.key).firstOrNull?['name'] ?? raftText(context, 'No computer')}',
-          count: entry.value.length,
-          expanded: collapsedMachineGroups[entry.key] != true,
-          onExpandedChanged: (expanded) =>
-              setState(() => collapsedMachineGroups[entry.key] = !expanded),
-          children: [
-            for (final value in entry.value)
-              row(value, DesktopContentKind.agent),
-          ],
+      for (final (index, entry) in groups.entries.indexed) ...[
+        (
+          id: 'directory-machine-group-${entry.key}',
+          build: (_) => RaftSidebarMachineGroup(
+            key: ValueKey('directory-machine-group-${entry.key}'),
+            topPadding: index == 0
+                ? 2
+                : 6 - (RaftTokens.of(context).brutal ? 4 : 2),
+            disclosureKey: ValueKey(
+              'directory-machine-disclosure-${entry.key}',
+            ),
+            name: '${names[entry.key] ?? raftText(context, 'No computer')}',
+            count: entry.value.length,
+            expanded: collapsedMachineGroups[entry.key] != true,
+            onExpandedChanged: (expanded) =>
+                setState(() => collapsedMachineGroups[entry.key] = !expanded),
+            children: const [],
+          ),
         ),
+        if (collapsedMachineGroups[entry.key] != true)
+          for (final value in entry.value)
+            (
+              id: 'desktop-directory-agent-${value['id']}',
+              build: (_) => row(value, DesktopContentKind.agent),
+            ),
+      ],
     ];
   }
 
@@ -384,7 +393,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     final humans = !widget.computers && showHumans
         ? rows(WorkspaceEntityKind.members)
         : const <Map<String, dynamic>>[];
-    Widget section(
+    List<({String id, WidgetBuilder build})> section(
       String label,
       List<Map<String, dynamic>> rows,
       DesktopContentKind kind, {
@@ -392,10 +401,11 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
       bool loading = false,
       bool hideRows = false,
       bool failed = false,
-    }) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        RaftSidebarSectionHeader(
+    }) => [
+      (
+        id: 'directory-section-${kind.name}',
+        build: (_) => RaftSidebarSectionHeader(
+          key: ValueKey('directory-section-${kind.name}'),
           label: label,
           disclosureKey: ValueKey('desktop-directory-toggle-${kind.name}'),
           topInset: topInset,
@@ -436,18 +446,21 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
                 ]
               : const [],
         ),
-        if (widget.computers ||
-            (kind == DesktopContentKind.agent
-                ? agentsExpanded
-                : humansExpanded))
-          if (failed)
-            // Sidebar.tsx: `px-2 text-xs text-red-700 font-mono`.
-            RaftSidebarSectionDescription(
+      ),
+      if (widget.computers ||
+          (kind == DesktopContentKind.agent ? agentsExpanded : humansExpanded))
+        if (failed)
+          (
+            id: 'directory-${kind.name}-error',
+            build: (_) => RaftSidebarSectionDescription(
               raftText(context, 'Humans failed to load'),
               error: raftSidebarErrorInk,
-            )
-          else if (hideRows || rows.isEmpty)
-            loading
+            ),
+          )
+        else if (hideRows || rows.isEmpty)
+          (
+            id: 'directory-${kind.name}-hint',
+            build: (_) => loading
                 ? const RaftSidebarRowsSkeleton()
                 : RaftSidebarSectionDescription(
                     raftText(
@@ -456,13 +469,42 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
                           ? 'No agents yet'
                           : 'No humans',
                     ),
-                  )
-          else if (kind == DesktopContentKind.agent)
-            ...agentMachineGroups(rows, computers)
-          else
-            for (final value in rows) row(value, kind),
-      ],
-    );
+                  ),
+          )
+        else if (kind == DesktopContentKind.agent)
+          ...agentMachineRows(rows, computers)
+        else
+          for (final value in rows)
+            (
+              id: 'desktop-directory-${kind.name}-${value['id']}',
+              build: (_) => row(value, kind),
+            ),
+    ];
+    final items = <({String id, WidgetBuilder build})>[
+      if (w.can('viewAgents'))
+        ...section(
+          'Agents',
+          agents,
+          DesktopContentKind.agent,
+          loading: loading,
+          hideRows: loading,
+        ),
+      if (showHumans)
+        ...section(
+          'Humans',
+          humans,
+          DesktopContentKind.human,
+          topInset: !w.can('viewAgents')
+              ? null
+              : !agentsExpanded
+              ? 8
+              : agents.isEmpty || loading
+              ? 12
+              : 12 - (t.brutal ? 4 : 2),
+          failed: directory.state(WorkspaceEntityKind.members).error != null,
+        ),
+    ];
+    final indices = {for (var i = 0; i < items.length; i++) items[i].id: i};
     final size = MediaQuery.sizeOf(context);
     final recipe = RaftSidebarRecipe(
       t,
@@ -482,40 +524,16 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
             ),
       body: widget.computers
           ? computersList(t, computers)
-          : ListView(
+          : ListView.builder(
               key: const Key('desktop-directory-list'),
               padding: recipe.contentInset(headerInFlow: true),
-              children: [
-                if (w.can('viewAgents'))
-                  section(
-                    'Agents',
-                    agents,
-                    DesktopContentKind.agent,
-                    // The first read (rows and the computer names that label
-                    // the groups) decides the first frame.
-                    loading: loading,
-                    hideRows: loading,
-                  ),
-                if (showHumans)
-                  section(
-                    'Humans',
-                    humans,
-                    DesktopContentKind.human,
-                    // `mt-3` collapses with the previous box's margin: a row
-                    // or group label carries `mb-0.5`/`mb-1` (10 / 8 more), a collapsed
-                    // or hint-only section ends at its header's `mb-1` (8) or
-                    // a margin-less hint / skeleton (12).
-                    topInset: !w.can('viewAgents')
-                        ? null
-                        : !agentsExpanded
-                        ? 8
-                        : agents.isEmpty || loading
-                        ? 12
-                        : 12 - (t.brutal ? 4 : 2),
-                    failed: directory.state(WorkspaceEntityKind.members).error !=
-                        null,
-                  ),
-              ],
+              itemCount: items.length,
+              findChildIndexCallback: (key) =>
+                  key is ValueKey<String> ? indices[key.value] : null,
+              itemBuilder: (context, index) => KeyedSubtree(
+                key: ValueKey(items[index].id),
+                child: items[index].build(context),
+              ),
             ),
     );
     return KeyedSubtree(

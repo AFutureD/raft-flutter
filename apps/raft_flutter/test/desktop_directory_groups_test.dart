@@ -18,13 +18,19 @@ class _GroupingClient extends RaftClient {
   }
   final stream = StreamController<RaftEvent>.broadcast(sync: true);
   final requests = <String>[];
-  var deniedMachines = false;
+  var deniedMachines = false, large = false;
   @override
   Stream<RaftEvent> get events => stream.stream;
   @override
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
     requests.add(path);
     if (path == '/agents') {
+      if (large) {
+        return [
+          for (var i = 0; i < 1000; i++)
+            {'id': 'long-$i', 'name': 'Agent $i', 'machineId': 'first'},
+        ];
+      }
       return [
         {
           'id': 'a',
@@ -64,6 +70,43 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ]) {
+    testWidgets('long directory builds only visible members $family/$dark', (
+      t,
+    ) async {
+      final client = _GroupingClient()..large = true;
+      final w = WorkspaceController(client)
+        ..server = RaftRecord({'id': 's', 'role': 'owner'});
+      addTearDown(() async {
+        w.dispose();
+        await client.stream.close();
+        await client.dispose();
+      });
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(family, dark: dark),
+          home: Scaffold(
+            body: SizedBox(
+              width: 240,
+              child: DesktopDirectoryView(controller: w, onSelected: (_) {}),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.byType(RaftNavItem).evaluate().length, lessThan(30));
+      final scrollable = find.descendant(
+        of: find.byKey(const Key('desktop-directory-list')),
+        matching: find.byType(Scrollable),
+      );
+      await t.scrollUntilVisible(
+        find.byKey(const ValueKey('desktop-directory-agent-long-999')),
+        2000,
+        scrollable: scrollable,
+        maxScrolls: 40,
+      );
+      expect(find.text('Agent 999'), findsOneWidget);
+      expect(t.takeException(), isNull);
+    });
     testWidgets(
       'authorized grouped directory $family/$dark preserves order and collapse',
       (t) async {

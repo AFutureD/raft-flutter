@@ -103,7 +103,8 @@ void main() {
     await tester.pumpAndSettle();
     final dynamic state = tester.state(find.byType(ResourceView));
     expect(state.taskLayout, 'board');
-    expect(find.text('Load more Todo'), findsOneWidget);
+    // The offscreen load-more control is mounted only when the lane reaches it.
+    expect(state.laneCursors['todo'], '30');
     await state.moreLane('todo');
     await tester.pumpAndSettle();
     expect(lane(state, 'todo'), hasLength(60));

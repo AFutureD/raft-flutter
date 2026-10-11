@@ -370,138 +370,131 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
   /// Settings > MCP Servers (AgentMcpTab scope="server").
   Widget serverCatalog(BuildContext context) {
     final manage = w.can('manageIntegrations');
-    return ListView(
-      primary: false,
-      padding: RaftSettingsPanelFrame.contentInset,
-      children: [
-        RaftMcpServersSection(
-          loading: loading && servers.isEmpty,
-          error: error == null
-              ? null
-              : raftText(context, 'Managed MCP request failed'),
-          onAddServer: manage ? () => run(() => edit()) : null,
-          servers: [
-            for (final server in servers)
-              () {
-                final oauth = server['authMode'] == 'oauth';
-                final connected = server['oauthStatus'] == 'connected';
-                final ready = !oauth || connected;
-                final name = '${server['name']}';
-                return RaftMcpServerRow(
-                  id: '${server['id']}',
-                  name: name,
-                  provider: '${server['provider'] ?? 'custom'}',
-                  endpointUrl: '${server['endpointUrl'] ?? ''}',
-                  enabled: server['enabled'] != false,
-                  authMode: '${server['authMode'] ?? 'none'}',
-                  oauthStatus: server['oauthStatus'] as String?,
-                  hasCredentials: server['hasCredentials'] == true,
-                  description: server['description'] as String?,
-                  lastCheckError: server['lastCheckError'] as String?,
-                  tools: [
-                    for (final tool in managementRows(server['toolCatalog']))
-                      RaftMcpTool(
-                        '${tool['title'] ?? tool['name']}',
-                        tool['description'] as String?,
+    return RaftMcpServersSection(
+      scrollable: true,
+      loading: loading && servers.isEmpty,
+      error: error == null
+          ? null
+          : raftText(context, 'Managed MCP request failed'),
+      onAddServer: manage ? () => run(() => edit()) : null,
+      servers: [
+        for (final server in servers)
+          () {
+            final oauth = server['authMode'] == 'oauth';
+            final connected = server['oauthStatus'] == 'connected';
+            final ready = !oauth || connected;
+            final name = '${server['name']}';
+            return RaftMcpServerRow(
+              id: '${server['id']}',
+              name: name,
+              provider: '${server['provider'] ?? 'custom'}',
+              endpointUrl: '${server['endpointUrl'] ?? ''}',
+              enabled: server['enabled'] != false,
+              authMode: '${server['authMode'] ?? 'none'}',
+              oauthStatus: server['oauthStatus'] as String?,
+              hasCredentials: server['hasCredentials'] == true,
+              description: server['description'] as String?,
+              lastCheckError: server['lastCheckError'] as String?,
+              tools: [
+                for (final tool in managementRows(server['toolCatalog']))
+                  RaftMcpTool(
+                    '${tool['title'] ?? tool['name']}',
+                    tool['description'] as String?,
+                  ),
+              ],
+              actions: !manage
+                  ? const []
+                  : [
+                      if (oauth && !connected)
+                        RaftMcpAction(
+                          glyph: RaftGlyph.link2,
+                          tooltip: 'Connect $name',
+                          variant: RaftButtonRecipeVariant.success,
+                          onPressed: busy
+                              ? null
+                              : () => run(() async {
+                                  final result = await w.client.post(
+                                    '/mcp/servers/${server['id']}/oauth/start',
+                                  );
+                                  await launchManaged(
+                                    result['authorizationUrl'],
+                                  );
+                                }, refresh: false),
+                        ),
+                      if (oauth && connected)
+                        RaftMcpAction(
+                          glyph: RaftGlyph.unplug,
+                          tooltip: 'Disconnect $name',
+                          onPressed: busy
+                              ? null
+                              : () => run(() async {
+                                  await confirm(
+                                    'Disconnect account?',
+                                    'This connection will no longer be authorized to access the provider account.',
+                                    () async {
+                                      await w.client.delete(
+                                        '/mcp/servers/${server['id']}/oauth',
+                                      );
+                                    },
+                                    submit: 'Disconnect',
+                                    destructive: true,
+                                  );
+                                }),
+                        ),
+                      RaftMcpAction(
+                        glyph: RaftGlyph.flaskConical,
+                        tooltip: 'Test and refresh tools',
+                        onPressed: busy || !ready
+                            ? null
+                            : () => run(() async {
+                                await w.client.post(
+                                  '/mcp/servers/${server['id']}/test',
+                                );
+                              }),
                       ),
-                  ],
-                  actions: !manage
-                      ? const []
-                      : [
-                          if (oauth && !connected)
-                            RaftMcpAction(
-                              glyph: RaftGlyph.link2,
-                              tooltip: 'Connect $name',
-                              variant: RaftButtonRecipeVariant.success,
-                              onPressed: busy
-                                  ? null
-                                  : () => run(() async {
-                                      final result = await w.client.post(
-                                        '/mcp/servers/${server['id']}/oauth/start',
-                                      );
-                                      await launchManaged(
-                                        result['authorizationUrl'],
-                                      );
-                                    }, refresh: false),
-                            ),
-                          if (oauth && connected)
-                            RaftMcpAction(
-                              glyph: RaftGlyph.unplug,
-                              tooltip: 'Disconnect $name',
-                              onPressed: busy
-                                  ? null
-                                  : () => run(() async {
-                                      await confirm(
-                                        'Disconnect account?',
-                                        'This connection will no longer be authorized to access the provider account.',
-                                        () async {
-                                          await w.client.delete(
-                                            '/mcp/servers/${server['id']}/oauth',
-                                          );
-                                        },
-                                        submit: 'Disconnect',
-                                        destructive: true,
-                                      );
-                                    }),
-                            ),
-                          RaftMcpAction(
-                            glyph: RaftGlyph.flaskConical,
-                            tooltip: 'Test and refresh tools',
-                            onPressed: busy || !ready
-                                ? null
-                                : () => run(() async {
-                                    await w.client.post(
-                                      '/mcp/servers/${server['id']}/test',
+                      RaftMcpAction(
+                        glyph: RaftGlyph.pencil,
+                        tooltip: 'Edit server',
+                        onPressed: busy ? null : () => run(() => edit(server)),
+                      ),
+                      RaftMcpAction(
+                        glyph: RaftGlyph.trash2,
+                        tooltip: 'Delete server',
+                        variant: RaftButtonRecipeVariant.danger,
+                        onPressed: busy
+                            ? null
+                            : () => run(() async {
+                                await confirm(
+                                  'Delete $name?',
+                                  'Remove this connection and its agent tool assignments.',
+                                  () async {
+                                    await w.client.delete(
+                                      '/mcp/servers/${server['id']}',
                                     );
-                                  }),
-                          ),
-                          RaftMcpAction(
-                            glyph: RaftGlyph.pencil,
-                            tooltip: 'Edit server',
-                            onPressed: busy
-                                ? null
-                                : () => run(() => edit(server)),
-                          ),
-                          RaftMcpAction(
-                            glyph: RaftGlyph.trash2,
-                            tooltip: 'Delete server',
-                            variant: RaftButtonRecipeVariant.danger,
-                            onPressed: busy
-                                ? null
-                                : () => run(() async {
-                                    await confirm(
-                                      'Delete $name?',
-                                      'Remove this connection and its agent tool assignments.',
-                                      () async {
-                                        await w.client.delete(
-                                          '/mcp/servers/${server['id']}',
-                                        );
-                                      },
-                                      submit: 'Delete',
-                                      destructive: true,
-                                    );
-                                  }),
-                          ),
-                        ],
-                );
-              }(),
-          ],
-          recommendations: !manage
-              ? const []
-              : [
-                  for (final r in recommendations)
-                    RaftMcpRecommendation(
-                      id: '${r['id']}',
-                      name: '${r['name']}',
-                      description: '${r['description'] ?? ''}',
-                      added: servers.any((s) => s['provider'] == r['provider']),
-                      onAdd: busy
-                          ? null
-                          : () => run(() => edit({...r, 'id': null})),
-                    ),
-                ],
-        ),
+                                  },
+                                  submit: 'Delete',
+                                  destructive: true,
+                                );
+                              }),
+                      ),
+                    ],
+            );
+          }(),
       ],
+      recommendations: !manage
+          ? const []
+          : [
+              for (final r in recommendations)
+                RaftMcpRecommendation(
+                  id: '${r['id']}',
+                  name: '${r['name']}',
+                  description: '${r['description'] ?? ''}',
+                  added: servers.any((s) => s['provider'] == r['provider']),
+                  onAdd: busy
+                      ? null
+                      : () => run(() => edit({...r, 'id': null})),
+                ),
+            ],
     );
   }
 

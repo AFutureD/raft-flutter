@@ -198,13 +198,23 @@ class RaftOverflowSheet extends StatelessWidget {
                 children: [
                   header,
                   Expanded(
-                    child: SingleChildScrollView(
+                    child: CustomScrollView(
                       key: bodyKey,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: children,
-                      ),
+                      slivers: [
+                        for (final (i, child) in children.indexed)
+                          SliverPadding(
+                            padding: EdgeInsets.only(
+                              top: i == 0 ? 8 : 0,
+                              bottom: i == children.length - 1 ? 8 : 0,
+                            ),
+                            sliver: child is RaftOverflowPanelBody
+                                ? RaftOverflowPanelBody.sliver(
+                                    key: child.key,
+                                    children: child.children,
+                                  )
+                                : SliverToBoxAdapter(child: child),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -220,11 +230,41 @@ class RaftOverflowSheet extends StatelessWidget {
 /// `<div className="safe-bottom border-t border-line-muted px-4 pt-3
 /// theme-brutal:border-black/10">` around the settings panel sections.
 class RaftOverflowPanelBody extends StatelessWidget {
-  const RaftOverflowPanelBody({super.key, required this.children});
+  const RaftOverflowPanelBody({super.key, required this.children})
+    : _sliver = false;
+
+  /// Same panel border and inset, with individual children laid out on demand.
+  const RaftOverflowPanelBody.sliver({super.key, required this.children})
+    : _sliver = true;
   final List<Widget> children;
+  final bool _sliver;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    if (_sliver) {
+      final decoration = BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: t.brutal
+                ? Colors.black.withValues(alpha: .1)
+                : t.colors['line-muted']!,
+          ),
+        ),
+      );
+      return DecoratedSliver(
+        key: const ValueKey('channel-settings-panel'),
+        decoration: decoration,
+        sliver: SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ).add(decoration.padding),
+          sliver: SliverList.list(children: children),
+        ),
+      );
+    }
     return Container(
       key: const ValueKey('channel-settings-panel'),
       // `safe-bottom` = 1rem + the bottom inset.

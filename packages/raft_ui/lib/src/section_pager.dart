@@ -24,7 +24,10 @@ class RaftSectionPager<T extends Object> extends StatefulWidget {
 
   final List<T> sections;
   final T value;
-  final ValueChanged<T> onChanged;
+
+  /// Null when navigation is owned by controls outside the pager.
+  /// Such a pager exposes no section keyboard or accessibility actions.
+  final ValueChanged<T>? onChanged;
   final Widget Function(BuildContext, T) builder;
   final WidgetBuilder? unvisitedBuilder;
   final bool swipeEnabled;
@@ -79,7 +82,7 @@ class _RaftSectionPagerState<T extends Object>
   void select(int next) {
     if (next < 0 || next >= widget.sections.length) return;
     final value = widget.sections[next];
-    if (value != widget.value) widget.onChanged(value);
+    if (value != widget.value) widget.onChanged?.call(value);
   }
 
   @override
@@ -93,16 +96,20 @@ class _RaftSectionPagerState<T extends Object>
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
     bindings: {
-      const SingleActivator(LogicalKeyboardKey.pageDown, control: true): () =>
-          select(index + 1),
-      const SingleActivator(LogicalKeyboardKey.pageUp, control: true): () =>
-          select(index - 1),
+      if (widget.onChanged != null)
+        const SingleActivator(LogicalKeyboardKey.pageDown, control: true): () =>
+            select(index + 1),
+      if (widget.onChanged != null)
+        const SingleActivator(LogicalKeyboardKey.pageUp, control: true): () =>
+            select(index - 1),
     },
     child: Semantics(
-      onIncrease: index + 1 < widget.sections.length
+      onIncrease: widget.onChanged != null && index + 1 < widget.sections.length
           ? () => select(index + 1)
           : null,
-      onDecrease: index > 0 ? () => select(index - 1) : null,
+      onDecrease: widget.onChanged != null && index > 0
+          ? () => select(index - 1)
+          : null,
       child: NotificationListener<ScrollEndNotification>(
         onNotification: (notification) {
           if (notification.depth != 0 ||

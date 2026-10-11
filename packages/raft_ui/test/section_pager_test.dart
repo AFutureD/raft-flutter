@@ -310,6 +310,52 @@ void main() {
       semantics.dispose();
     },
   );
+  testWidgets('externally controlled paging has no navigation actions', (
+    t,
+  ) async {
+    final semantics = t.ensureSemantics();
+    var value = 'a';
+    late StateSetter update;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (_, setState) {
+              update = setState;
+              return RaftSectionPager<String>(
+                sections: const ['a', 'b'],
+                value: value,
+                onChanged: null,
+                swipeEnabled: false,
+                builder: (_, id) =>
+                    Focus(autofocus: true, child: Text('external-$id')),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            (w.properties.onIncrease != null ||
+                w.properties.onDecrease != null),
+      ),
+      findsNothing,
+    );
+    await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await t.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(value, 'a');
+    update(() => value = 'b');
+    await t.pumpAndSettle();
+    expect(find.bySemanticsLabel('external-a'), findsNothing);
+    expect(find.bySemanticsLabel('external-b'), findsOneWidget);
+    expect(t.takeException(), isNull);
+    semantics.dispose();
+  });
 }
 
 class _Lifetime extends StatefulWidget {

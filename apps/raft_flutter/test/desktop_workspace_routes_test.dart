@@ -140,6 +140,85 @@ void main() {
     (name: 'Elegant dark', family: RaftFamily.elegant, dark: true),
   ]) {
     testWidgets(
+      '${theme.name} settings retains one conversation and retires hidden authority',
+      (t) async {
+        SharedPreferences.setMockInitialValues({});
+        t.view.physicalSize = const Size(1280, 900);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.resetPhysicalSize);
+        addTearDown(t.view.resetDevicePixelRatio);
+        final semantics = t.ensureSemantics();
+        final client = _Client()..selectServer('s');
+        final w = WorkspaceController(client)
+          ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'})
+          ..channels = client.channelRows;
+        w.ledger.switchServer('s');
+        await w.selectChannel(client.channelRows.single);
+        addTearDown(() async {
+          w.dispose();
+          await client.stream.close();
+        });
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(theme.family, dark: theme.dark),
+            home: WorkspaceView(
+              controller: w,
+              appearance: const RaftAppearance(),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        final composer = t.state(find.byType(RaftComposer));
+        final chat = t.state(find.byType(RaftChatView));
+        final editor = t.widget<TextField>(
+          find
+              .descendant(
+                of: find.byType(RaftComposer),
+                matching: find.byType(TextField),
+              )
+              .first,
+        );
+        await t.enterText(find.byWidget(editor), 'retained draft');
+        editor.controller!.selection = const TextSelection.collapsed(offset: 4);
+        await t.pump();
+        w.setSection('settings');
+        await t.pumpAndSettle();
+        expect(find.byType(RaftChatView), findsNothing);
+        expect(find.bySemanticsLabel('Public fixture'), findsNothing);
+        expect(editor.focusNode!.hasFocus, isFalse);
+        final reads = client.calls
+            .where((call) => call == 'POST:/channels/c/read')
+            .length;
+        await w.markRead('c');
+        expect(
+          client.calls.where((call) => call == 'POST:/channels/c/read').length,
+          reads,
+        );
+        expect(
+          t.state(find.byType(RaftChatView, skipOffstage: false)),
+          same(chat),
+        );
+        w.setSection('chat');
+        await t.pumpAndSettle();
+        expect(t.state(find.byType(RaftComposer)), same(composer));
+        expect(t.state(find.byType(RaftChatView)), same(chat));
+        expect(editor.controller!.text, 'retained draft');
+        expect(editor.controller!.selection.baseOffset, 4);
+        w.setSection('settings');
+        await t.pumpAndSettle();
+        w.server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'guest'});
+        w.notifyListeners();
+        await t.pumpAndSettle();
+        expect(find.byType(RaftChatView, skipOffstage: false), findsNothing);
+        expect(chat.mounted, isFalse);
+        expect(t.takeException(), isNull);
+        await t.pumpWidget(const SizedBox());
+        semantics.dispose();
+      },
+    );
+    testWidgets(
       '[N22b][L08a][K06a] ${theme.name} known cold channel keeps header/tabs/composer in first frame and across resize',
       (t) async {
         SharedPreferences.setMockInitialValues({});

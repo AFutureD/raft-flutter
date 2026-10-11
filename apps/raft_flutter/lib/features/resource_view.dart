@@ -3092,8 +3092,7 @@ class _ResourceViewState extends State<ResourceView> {
     'done' => 'Items you mark done appear here and can be restored.',
     _ when advanced.channelId != null =>
       'Try another channel or clear the channel filter.',
-    'mentions' =>
-      'Channels, DMs, and threads where someone @mentions you will appear here.',
+    'mentions' => 'Channels, DMs, and threads where someone @mentions you will appear here.',
     _ => 'Channels, DMs, and followed threads stay here until they are done.',
   };
 
@@ -3408,9 +3407,8 @@ class _ResourceViewState extends State<ResourceView> {
     final controller = w;
     final identity = SourceReadAllIdentity.capture(controller.client);
     try {
-      final receipt = await SourceReadAllTransport.of(
-        controller.client,
-      ).readAll(scopeId, identity: identity);
+      final receipt = await SourceReadAllTransport.of(controller.client)
+          .readAll(scopeId, identity: identity);
       if (identity.current(controller.client)) {
         controller.acceptReadAllAck(
           scopeId,
@@ -4834,51 +4832,57 @@ class _ResourceViewState extends State<ResourceView> {
                         });
                       }
                     },
-                    body: SingleChildScrollView(
-                      key: PageStorageKey((
-                        'task-lane',
-                        snapshotSection,
-                        status,
-                      )),
-                      primary: false,
-                      child: Column(
-                        spacing:
-                            RaftResourceMetrics.gap2_5, // taskBoardColumn items
-                        children: [
-                          for (final row in sortedLane(
-                            (lanes[status] ?? []).where(matchesTask).toList(),
-                          ))
-                            KeyedSubtree(
-                              // The drag source follows its task
-                              // when rows land above it.
-                              key: ValueKey('task-drag-${row['id']}'),
-                              child: draggableTask(row, scope),
-                            ),
-                          if (!(lanes[status] ?? []).any(matchesTask))
-                            // TaskBoardColumnEmpty: `border border-dashed
-                            // px-3 py-5 text-sm theme-brutal:border-2`.
-                            RaftTaskLaneEmpty(
-                              board: true,
-                              label: _emptyLaneLabel(context, status),
-                            ),
-                          if (laneCursors[status] != null)
-                            RaftTextButton(
-                              label: laneBusy.contains(status)
-                                  ? 'Loading…'
-                                  : 'Load more ${raftTaskStatusLabel(status)}',
-                              onPressed: laneBusy.contains(status)
-                                  ? null
-                                  : () => moreLane(status),
-                            ),
-                        ],
-                      ),
-                    ),
+                    body: taskBoardLane(status, scope),
                   ),
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget taskBoardLane(String status, String scope) {
+    final tasks = sortedLane((lanes[status] ?? []).where(matchesTask).toList());
+    final indices = {
+      for (final (index, row) in tasks.indexed) 'task-drag-${row['id']}': index,
+    };
+    final more = laneCursors[status] != null;
+    final empty = tasks.isEmpty;
+    return ListView.separated(
+      key: PageStorageKey(('task-lane', snapshotSection, status)),
+      primary: false,
+      // The column supplies a finite maximum height. Shrinking preserves the
+      // short-lane geometry while the sliver still mounts only visible cards.
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      itemCount: (empty ? 1 : tasks.length) + (more ? 1 : 0),
+      separatorBuilder: (_, _) =>
+          const SizedBox(height: RaftResourceMetrics.gap2_5),
+      findItemIndexCallback: (key) =>
+          key is ValueKey<String> ? indices[key.value] : null,
+      itemBuilder: (context, index) {
+        if (more && index == (empty ? 1 : tasks.length)) {
+          return RaftTextButton(
+            label: laneBusy.contains(status)
+                ? 'Loading…'
+                : 'Load more ${raftTaskStatusLabel(status)}',
+            onPressed: laneBusy.contains(status)
+                ? null
+                : () => moreLane(status),
+          );
+        }
+        if (empty) {
+          return RaftTaskLaneEmpty(
+            board: true,
+            label: _emptyLaneLabel(context, status),
+          );
+        }
+        return KeyedSubtree(
+          key: ValueKey('task-drag-${tasks[index]['id']}'),
+          child: draggableTask(tasks[index], scope),
+        );
+      },
     );
   }
 

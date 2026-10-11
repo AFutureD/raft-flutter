@@ -972,6 +972,17 @@ class _WorkspaceViewState extends State<WorkspaceView> {
               'joint-channels' => 'Joint channels',
               _ => route[0].toUpperCase() + route.substring(1),
             });
+      Widget conversation() => ServerSetupGate(
+        controller: w,
+        onSwitchServer: showWorkspaceSwitcher,
+        child: ConversationPanel(
+          controller: w,
+          selectionHandle: mainSelection,
+          onTask: openTaskSurface,
+          onMessageTask: openMessageTaskSurface,
+          onViewBilling: () => select('billing'),
+        ),
+      );
       // Mobile home keeps the sidebar mounted while the lists load and shows
       // SidebarRowsSkeleton rows (Sidebar.tsx channelsLoading), not a spinner.
       Widget content = w.loading && w.server == null
@@ -1115,17 +1126,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                   )
                 : RaftChannelResolutionBody(label: tr('Loading channel'))
           : route == 'chat' || route == 'home'
-          ? ServerSetupGate(
-              controller: w,
-              onSwitchServer: showWorkspaceSwitcher,
-              child: ConversationPanel(
-                controller: w,
-                selectionHandle: mainSelection,
-                onTask: openTaskSurface,
-                onMessageTask: openMessageTaskSurface,
-                onViewBilling: () => select('billing'),
-              ),
-            )
+          ? conversation()
           : route == 'search' && channelSearchRevoked
           ? Center(child: Text(tr('Channel is no longer available')))
           : ResourceView(
@@ -1236,6 +1237,29 @@ class _WorkspaceViewState extends State<WorkspaceView> {
           wideWidth: masterWideWidth,
           compactWidth: masterCompactWidth,
           onWidthChanged: saveMasterPanel,
+        );
+      }
+      final showingConversation =
+          (route == 'chat' || route == 'home' && wide) &&
+          !unresolvedChannelRoute;
+      if (w.server != null) {
+        final currentContent = content;
+        // Keep one admitted conversation, not an unbounded cache of routes.
+        // The pager removes hidden content from layout, focus and semantics;
+        // authority changes discard its retained elements together.
+        content = RaftSectionPager<String>(
+          key: ValueKey('workspace-content-$authority:$unresolvedChannelRoute'),
+          sections: const ['conversation', 'other'],
+          value: showingConversation ? 'conversation' : 'other',
+          onChanged: null,
+          swipeEnabled: false,
+          builder: (context, id) => id == 'conversation'
+              ? showingConversation
+                    ? currentContent
+                    : conversation()
+              : showingConversation
+              ? const SizedBox.expand()
+              : currentContent,
         );
       }
       Widget workspace(
@@ -2821,52 +2845,78 @@ class _WorkspaceViewState extends State<WorkspaceView> {
         ]
       : group.entries;
 
-  List<Widget> conversationSections() => [
+  List<Widget> conversationSlivers() => [
     for (final group in sidebarGroups)
       if (group.custom) ...[
-        if (group.entries.isNotEmpty ||
-            !presentation.value.hideEmptySections) ...[
-          sectionLabel(group.label, group: group),
-          if (sidebarDisclosure.collapsed[group.id] != true)
-            ...group.entries.map((e) => sidebarEntry(e, custom: true)),
-          if (sidebarDisclosure.collapsed[group.id] != true &&
-              group.entries.isEmpty)
-            RaftSidebarSectionEmptyHint(tr('No conversations')),
-        ],
-      ] else
-        RaftChatSidebarGroup(
-          key: ValueKey('sidebar-group-${group.id}'),
-          headerKey: ValueKey('sidebar-section-${group.id}'),
-          disclosureKey: ValueKey('sidebar-disclosure-${group.id}'),
-          kind: switch (group.id) {
-            'system:pinned' => RaftChatSidebarGroupKind.pinned,
-            'system:joint' => RaftChatSidebarGroupKind.joint,
-            'system:dms' => RaftChatSidebarGroupKind.directMessages,
-            _ => RaftChatSidebarGroupKind.channels,
-          },
-          label: tr(group.label),
-          count: _shownEntries(group).length,
-          expanded: sidebarDisclosure.collapsed[group.id] != true,
-          hideEmpty: presentation.value.hideEmptySections,
-          loading: w.loading,
-          emptyLabel: switch (group.id) {
-            'system:pinned' => tr('Drag channels or DMs here to pin'),
-            'system:joint' => tr('No joint channels yet'),
-            _ => '',
-          },
-          onExpandedChanged: (expanded) => sidebarDisclosure.setExpanded(
-            mobileAuthority,
-            group.id,
-            expanded,
+        if (group.entries.isNotEmpty || !presentation.value.hideEmptySections)
+          SliverMainAxisGroup(
+            key: ValueKey('sidebar-group-${group.id}'),
+            slivers: [
+              SliverToBoxAdapter(
+                child: sectionLabel(group.label, group: group),
+              ),
+              if (sidebarDisclosure.collapsed[group.id] != true)
+                SliverList.builder(
+                  itemCount: group.entries.length,
+                  itemBuilder: (context, index) =>
+                      sidebarEntry(group.entries[index], custom: true),
+                  findChildIndexCallback: (key) =>
+                      sidebarEntryIndex(group.entries, key),
+                ),
+              if (sidebarDisclosure.collapsed[group.id] != true &&
+                  group.entries.isEmpty)
+                SliverToBoxAdapter(
+                  child: RaftSidebarSectionEmptyHint(tr('No conversations')),
+                ),
+            ],
           ),
-          actions: sidebarGroupActions(group),
-          onContextMenu: (at) => openSectionMenu(at, group),
-          children: [
-            for (final e in _shownEntries(group))
-              sidebarEntry(e, pinned: group.id == 'system:pinned'),
-          ],
-        ),
+      ] else
+        sidebarGroupSliver(group),
   ];
+
+  int? sidebarEntryIndex(List<SidebarEntry> entries, Key key) {
+    if (key is! ValueKey<String>) return null;
+    final index = entries.indexWhere(
+      (entry) =>
+          (entry.agent == null
+              ? 'sidebar-channel-${entry.channel!.id}'
+              : 'sidebar-${entry.key}') ==
+          key.value,
+    );
+    return index < 0 ? null : index;
+  }
+
+  Widget sidebarGroupSliver(SidebarGroup group) {
+    final entries = _shownEntries(group);
+    return RaftChatSidebarGroup.sliver(
+      key: ValueKey('sidebar-group-${group.id}'),
+      headerKey: ValueKey('sidebar-section-${group.id}'),
+      disclosureKey: ValueKey('sidebar-disclosure-${group.id}'),
+      kind: switch (group.id) {
+        'system:pinned' => RaftChatSidebarGroupKind.pinned,
+        'system:joint' => RaftChatSidebarGroupKind.joint,
+        'system:dms' => RaftChatSidebarGroupKind.directMessages,
+        _ => RaftChatSidebarGroupKind.channels,
+      },
+      label: tr(group.label),
+      count: entries.length,
+      expanded: sidebarDisclosure.collapsed[group.id] != true,
+      hideEmpty: presentation.value.hideEmptySections,
+      loading: w.loading,
+      emptyLabel: switch (group.id) {
+        'system:pinned' => tr('Drag channels or DMs here to pin'),
+        'system:joint' => tr('No joint channels yet'),
+        _ => '',
+      },
+      onExpandedChanged: (expanded) =>
+          sidebarDisclosure.setExpanded(mobileAuthority, group.id, expanded),
+      actions: sidebarGroupActions(group),
+      onContextMenu: (at) => openSectionMenu(at, group),
+      itemBuilder: (context, index) =>
+          sidebarEntry(entries[index], pinned: group.id == 'system:pinned'),
+      findChildIndexCallback: (key) => sidebarEntryIndex(entries, key),
+    );
+  }
 
   /// A DM's peer as the sidebar row and the DM header show it: the accepted
   /// agent directory row when present, else the DM record's own peer fields
@@ -3029,43 +3079,60 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                     ? null
                     : (d) => openSurfaceMenu(d.globalPosition),
                 onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
-                child: ListView(
+                child: CustomScrollView(
                   key: const Key('workspace-sidebar'),
-                  padding: recipe.contentInset(
-                    headerInFlow: true,
-                    liveActivity: mobileHome && liveActivityVisible,
-                    bottomInset: edgeToEdgeHome
-                        ? MediaQuery.viewPaddingOf(context).bottom
-                        : 0,
-                  ),
-                  children: [
-                    if (mobileHome)
-                      RaftNavItem(
-                        key: const Key('nav-search'),
-                        role: RaftNavItemRole.search,
-                        viewportHeight: MediaQuery.sizeOf(context).height,
-                        label: tr('Search'),
-                        glyph: RaftGlyph.search,
-                        selected: w.section == 'search',
-                        onTap: () => select('search'),
+                  slivers: [
+                    SliverPadding(
+                      padding: recipe.contentInset(
+                        headerInFlow: true,
+                        liveActivity: mobileHome && liveActivityVisible,
+                        bottomInset: edgeToEdgeHome
+                            ? MediaQuery.viewPaddingOf(context).bottom
+                            : 0,
                       ),
-                    if (mobileHome)
-                      RaftNavItem(
-                        key: const Key('nav-activity'),
-                        role: RaftNavItemRole.activity,
-                        viewportHeight: MediaQuery.sizeOf(context).height,
-                        label: tr('Activity'),
-                        glyph: RaftGlyph.activity,
-                        selected: w.section == 'activity',
-                        unread: w.unread.values.fold(0, (a, b) => a + b),
-                        onTap: () => select('activity'),
+                      sliver: SliverMainAxisGroup(
+                        slivers: [
+                          if (mobileHome)
+                            SliverToBoxAdapter(
+                              child: RaftNavItem(
+                                key: const Key('nav-search'),
+                                role: RaftNavItemRole.search,
+                                viewportHeight: MediaQuery.sizeOf(context)
+                                    .height,
+                                label: tr('Search'),
+                                glyph: RaftGlyph.search,
+                                selected: w.section == 'search',
+                                onTap: () => select('search'),
+                              ),
+                            ),
+                          if (mobileHome)
+                            SliverToBoxAdapter(
+                              child: RaftNavItem(
+                                key: const Key('nav-activity'),
+                                role: RaftNavItemRole.activity,
+                                viewportHeight: MediaQuery.sizeOf(context)
+                                    .height,
+                                label: tr('Activity'),
+                                glyph: RaftGlyph.activity,
+                                selected: w.section == 'activity',
+                                unread: w.unread.values.fold(
+                                  0,
+                                  (a, b) => a + b,
+                                ),
+                                onTap: () => select('activity'),
+                              ),
+                            ),
+                          SliverToBoxAdapter(
+                            child: SavedSidebarEntry(
+                              key: const Key('nav-saved'),
+                              controller: w,
+                              onTap: () => select('saved'),
+                            ),
+                          ),
+                          ...conversationSlivers(),
+                        ],
                       ),
-                    SavedSidebarEntry(
-                      key: const Key('nav-saved'),
-                      controller: w,
-                      onTap: () => select('saved'),
                     ),
-                    ...conversationSections(),
                   ],
                 ),
               ),

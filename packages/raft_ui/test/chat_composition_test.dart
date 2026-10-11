@@ -38,6 +38,59 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
     }
 
+    testWidgets(
+      '$family/$dark long sliver group mounts only visible rows and preserves collapse',
+      (tester) async {
+        var builds = 0, expanded = true;
+        await mount(
+          tester,
+          StatefulBuilder(
+            builder: (context, update) => CustomScrollView(
+              slivers: [
+                RaftChatSidebarGroup.sliver(
+                  kind: RaftChatSidebarGroupKind.channels,
+                  label: 'Channels',
+                  count: 1000,
+                  expanded: expanded,
+                  hideEmpty: true,
+                  disclosureKey: const ValueKey('lazy-disclosure'),
+                  onExpandedChanged: (value) => update(() => expanded = value),
+                  itemBuilder: (context, index) {
+                    builds++;
+                    return SizedBox(
+                      height: 40,
+                      child: Text(
+                        'channel-$index',
+                        key: ValueKey('channel-$index'),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+        expect(builds, lessThan(30));
+        expect(find.text('channel-999'), findsNothing);
+        await tester.scrollUntilVisible(
+          find.text('channel-100'),
+          400,
+          scrollable: find.byType(Scrollable),
+        );
+        expect(find.text('channel-100'), findsOneWidget);
+        expect(builds, lessThan(160));
+        final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+        scroll.position.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('lazy-disclosure')));
+        await tester.pumpAndSettle();
+        expect(expanded, false);
+        expect(find.text('channel-0'), findsNothing);
+        expect(find.text('CHANNELS'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('$family/$dark empty groups follow actual mounted predicates', (
       tester,
     ) async {

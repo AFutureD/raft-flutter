@@ -344,25 +344,45 @@ class ResourceSearchResults extends StatelessWidget {
       );
     }
 
-    Widget section(String title, List<Widget> children) => Container(
-      margin: slots.section.margin,
-      padding: slots.section.padding,
-      decoration: slots.section.decoration(rt),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: slots.sectionHeading.padding,
-            child: slotText(raftText(context, title), slots.sectionHeading),
+    Widget section(
+      String title,
+      List<WidgetBuilder> children, {
+      bool gaps = true,
+    }) {
+      final decoration = slots.section.decoration(rt);
+      return SliverPadding(
+        padding: slots.section.margin,
+        sliver: DecoratedSliver(
+          decoration: decoration,
+          sliver: SliverPadding(
+            padding: slots.section.padding.add(decoration.padding),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: slots.sectionHeading.padding,
+                    child: slotText(
+                      raftText(context, title),
+                      slots.sectionHeading,
+                    ),
+                  ),
+                ),
+                SliverList.separated(
+                  itemCount: children.length,
+                  itemBuilder: (context, index) => children[index](context),
+                  separatorBuilder: (_, _) => gaps
+                      ? SizedBox(
+                          height: slots.list.rowGap ?? RaftResourceMetrics.gap2,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: slots.list.rowGap ?? RaftResourceMetrics.gap2,
-            children: children,
-          ),
-        ],
-      ),
-    );
+        ),
+      );
+    }
+
     Widget surface(
       String key,
       Widget child,
@@ -385,6 +405,7 @@ class ResourceSearchResults extends StatelessWidget {
       final key = parent is String ? 'thread:$parent' : 'message:${row['id']}';
       (grouped[key] ??= []).add(row);
     }
+    final messageGroups = grouped.values.toList(growable: false);
     Widget message(Map<String, dynamic> row) {
       final thread = row['channelType'] == 'thread';
       final name = thread ? row['parentChannelName'] : row['channelName'];
@@ -496,133 +517,147 @@ class ResourceSearchResults extends StatelessWidget {
       );
     }
 
-    return ListView(
+    return CustomScrollView(
       // SearchViewport padding plus the results `<div class="p-4">`.
-      padding: slots.viewport.padding.add(
-        RaftResourceMetrics.searchResultsInset,
-      ),
-      children: [
-        // `<div class="mb-3 px-1"><SearchResultsSummary>`; the summary's own
-        // mb-3 collapses into the wrapper's.
-        Padding(
-          padding: RaftResourceMetrics.searchSummaryInset,
-          child: Padding(
-            padding: slots.summary.padding.add(
-              EdgeInsets.only(bottom: slots.summary.margin.bottom),
-            ),
-            child: slotText(
-              '${entities.length + rows.length} ${raftText(context, 'results')}',
-              slots.summary,
-            ),
+      slivers: [
+        SliverPadding(
+          padding: slots.viewport.padding.add(
+            RaftResourceMetrics.searchResultsInset,
           ),
-        ),
-        if (entities.isNotEmpty) ...[
-          section('Server entities', [
-            for (final entity in entities)
-              surface(
-                entity.key,
-                Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      // SearchEntityResultIcon (searchEntity entityIcon).
-                      decoration: rui.RaftSearchEntityRecipe.resolve(
-                        theme: t.brutal
-                            ? rui.RaftRecipeTheme.brutal
-                            : rui.RaftRecipeTheme.elegant,
-                        tokens: rt,
-                      ).entityIcon.decoration(rt),
-                      child: RaftIcon(
-                        entity.kind == 'channel'
-                            ? RaftGlyph.hash
-                            : entity.kind == 'computer'
-                            ? RaftGlyph.monitor
-                            : entity.kind == 'agent'
-                            ? RaftGlyph.bot
-                            : RaftGlyph.user,
-                        size: 16,
-                      ),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              // `<div class="mb-3 px-1"><SearchResultsSummary>`; the summary's own
+              // mb-3 collapses into the wrapper's.
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: RaftResourceMetrics.searchSummaryInset,
+                  child: Padding(
+                    padding: slots.summary.padding.add(
+                      EdgeInsets.only(bottom: slots.summary.margin.bottom),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    child: slotText(
+                      '${entities.length + rows.length} ${raftText(context, 'results')}',
+                      slots.summary,
+                    ),
+                  ),
+                ),
+              ),
+              if (entities.isNotEmpty) ...[
+                section('Server entities', [
+                  for (final entity in entities)
+                    (_) => surface(
+                      entity.key,
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  entity.title,
+                          Container(
+                            width: 32,
+                            height: 32,
+                            alignment: Alignment.center,
+                            // SearchEntityResultIcon (searchEntity entityIcon).
+                            decoration: rui.RaftSearchEntityRecipe.resolve(
+                              theme: t.brutal
+                                  ? rui.RaftRecipeTheme.brutal
+                                  : rui.RaftRecipeTheme.elegant,
+                              tokens: rt,
+                            ).entityIcon.decoration(rt),
+                            child: RaftIcon(
+                              entity.kind == 'channel'
+                                  ? RaftGlyph.hash
+                                  : entity.kind == 'computer'
+                                  ? RaftGlyph.monitor
+                                  : entity.kind == 'agent'
+                                  ? RaftGlyph.bot
+                                  : RaftGlyph.user,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        entity.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: recipe.entityTitle.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _entityBadge(context, entity.kind),
+                                    if (entity.row['archivedAt'] != null) ...[
+                                      const SizedBox(width: 4),
+                                      _badge(context, 'Archived'),
+                                    ],
+                                  ],
+                                ),
+                                Text(
+                                  raftText(context, entity.subtitle),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: recipe.entityTitle.copyWith(
-                                    fontWeight: FontWeight.w700,
+                                  style: recipe.metadata.copyWith(
+                                    fontWeight: FontWeight.w400,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              _entityBadge(context, entity.kind),
-                              if (entity.row['archivedAt'] != null) ...[
-                                const SizedBox(width: 4),
-                                _badge(context, 'Archived'),
                               ],
-                            ],
-                          ),
-                          Text(
-                            raftText(context, entity.subtitle),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: recipe.metadata.copyWith(
-                              fontWeight: FontWeight.w400,
                             ),
                           ),
                         ],
                       ),
+                      () => onEntity(entity),
+                      entity: true,
                     ),
-                  ],
-                ),
-                () => onEntity(entity),
-                entity: true,
-              ),
-          ]),
-        ],
-        if (rows.isNotEmpty)
-          section('Messages', [
-            for (final group in grouped.values)
-              if (group.length < 2)
-                message(group.first)
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: SearchHighlight(
-                        text: '${group.first['parentMessageContent'] ?? ''}',
-                        query: query,
-                        style: RaftTypography.body(
-                          t,
-                          size: 14,
-                          line: 20,
-                          weight: FontWeight.w500,
+                ]),
+              ],
+              if (rows.isNotEmpty)
+                section('Messages', [
+                  for (var i = 0; i < messageGroups.length; i++) ...[
+                    if (i > 0)
+                      (_) => SizedBox(
+                        height: slots.list.rowGap ?? RaftResourceMetrics.gap2,
+                      ),
+                    if (messageGroups[i].length > 1)
+                      (_) => Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: SearchHighlight(
+                          text:
+                              '${messageGroups[i].first['parentMessageContent'] ?? ''}',
+                          query: query,
+                          style: RaftTypography.body(
+                            t,
+                            size: 14,
+                            line: 20,
+                            weight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                    ...group.map(message),
+                    for (final row in messageGroups[i]) (_) => message(row),
                   ],
+                ], gaps: false),
+              if (rows.isEmpty && entities.isEmpty)
+                SliverToBoxAdapter(
+                  child: RaftEmptyState(
+                    title: query.isEmpty
+                        ? 'Search your workspace'
+                        : 'No results',
+                    detail: query.isEmpty
+                        ? 'Enter words to find messages.'
+                        : 'Try different keywords or filters.',
+                    glyph: RaftGlyph.search,
+                  ),
                 ),
-          ]),
-        if (rows.isEmpty && entities.isEmpty)
-          RaftEmptyState(
-            title: query.isEmpty ? 'Search your workspace' : 'No results',
-            detail: query.isEmpty
-                ? 'Enter words to find messages.'
-                : 'Try different keywords or filters.',
-            glyph: RaftGlyph.search,
+              if (hasMore)
+                SliverToBoxAdapter(
+                  child: RaftTextButton(label: 'Load more', onPressed: onMore),
+                ),
+            ],
           ),
-        if (hasMore) RaftTextButton(label: 'Load more', onPressed: onMore),
+        ),
       ],
     );
   }

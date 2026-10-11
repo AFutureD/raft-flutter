@@ -165,6 +165,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
     required this.onLayout,
     this.adminNote,
     this.loading = false,
+    this.scrollable = false,
     this.onRegister,
     this.onSearch,
     this.error,
@@ -177,6 +178,9 @@ class RaftConnectedAppsSection extends StatelessWidget {
   final String description;
   final String? adminNote;
   final bool loading;
+
+  /// Own a bounded settings viewport and mount only visible app rows.
+  final bool scrollable;
 
   /// Register app (managers).
   final VoidCallback? onRegister;
@@ -444,6 +448,76 @@ class RaftConnectedAppsSection extends StatelessWidget {
       if (error != null && error!.isNotEmpty) RaftConnectedAppsError(error!),
       body,
     ];
+    if (scrollable) {
+      final cards = <Widget>[
+        if (tab == RaftConnectedAppsTab.marketplace)
+          for (final app in marketplace)
+            _MarketplaceCard(app: app, layout: layout)
+        else
+          for (final row in rows) _AppRowCard(row: row, layout: layout),
+      ];
+      Widget gap(double height) =>
+          SliverToBoxAdapter(child: SizedBox(height: height));
+      return RaftInheritedFont(
+        child: CustomScrollView(
+          primary: false,
+          slivers: [
+            SliverPadding(
+              padding: RaftSettingsPanelFrame.contentInset.add(
+                const EdgeInsets.only(bottom: 24),
+              ),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  for (final (i, child)
+                      in children.take(children.length - 1).indexed)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: i == 0 ? 0 : 16),
+                        child: child,
+                      ),
+                    ),
+                  gap(16),
+                  if (tab == RaftConnectedAppsTab.myApps) ...[
+                    if (myAppsIntro != null)
+                      SliverToBoxAdapter(
+                        child: Text(
+                          myAppsIntro!,
+                          style: _relaxed(t, text.muted),
+                        ),
+                      ),
+                    gap(12),
+                  ],
+                  _SliverCollection(layout: layout, children: cards),
+                  if (empty != null) ...[
+                    if (tab != RaftConnectedAppsTab.myApps)
+                      gap(tab == RaftConnectedAppsTab.marketplace ? 12 : 8),
+                    SliverToBoxAdapter(child: empty),
+                  ],
+                  if (tab == RaftConnectedAppsTab.marketplace &&
+                      reviewNote != null) ...[
+                    gap(12),
+                    SliverToBoxAdapter(
+                      child: Text(
+                        reviewNote!,
+                        textAlign: TextAlign.center,
+                        style: RaftTypography.inherited(
+                          t,
+                          size: 12,
+                          line: 16,
+                          color: t.brutal
+                              ? Colors.black.withValues(alpha: .55)
+                              : t.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return RaftInheritedFont(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 24),
@@ -541,6 +615,48 @@ class _Collection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: rows,
+    );
+  }
+}
+
+/// Variable-height app cards retain the source's equal-height grid pairs.
+/// Only visible pairs perform the intrinsic measurement.
+class _SliverCollection extends StatelessWidget {
+  const _SliverCollection({required this.layout, required this.children});
+  final RaftConnectedAppsLayout layout;
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) {
+    final columns =
+        layout == RaftConnectedAppsLayout.grid &&
+            raftBreakpointWidth(context) >= 768
+        ? 2
+        : 1;
+    final gap = layout == RaftConnectedAppsLayout.grid ? 12.0 : 8.0;
+    return SliverList.builder(
+      itemCount: (children.length / columns).ceil(),
+      itemBuilder: (context, index) {
+        final first = index * columns;
+        return Padding(
+          padding: EdgeInsets.only(top: index == 0 ? 0 : gap),
+          child: columns == 1
+              ? children[first]
+              : IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: children[first]),
+                      SizedBox(width: gap),
+                      Expanded(
+                        child: first + 1 < children.length
+                            ? children[first + 1]
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      },
     );
   }
 }

@@ -105,6 +105,7 @@ Future<void> tapSheetAction(WidgetTester t, String label) async {
     matching: find.text(label),
   );
   await t.ensureVisible(action);
+  await t.pump(); // Apply the sliver viewport offset before hit testing.
   await t.tap(action);
   await t.pumpAndSettle();
   expect(find.byType(RaftConfirmDialog), findsOneWidget);

@@ -764,12 +764,11 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
 
   @override
   Widget build(BuildContext context) {
-    Widget page(BuildContext context, RaftConnectedAppsTab value) => ListView(
-      key: PageStorageKey(('connected-apps', authority, value)),
-      primary: false,
-      padding: RaftSettingsPanelFrame.contentInset,
-      children: [section(context, value)],
-    );
+    Widget page(BuildContext context, RaftConnectedAppsTab value) =>
+        KeyedSubtree(
+          key: PageStorageKey(('connected-apps', authority, value)),
+          child: section(context, value, scrollable: true),
+        );
     return LayoutBuilder(
       builder: (context, constraints) {
         if (!constraints.hasBoundedHeight) return section(context, tab);
@@ -787,7 +786,11 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     );
   }
 
-  Widget section(BuildContext context, RaftConnectedAppsTab shownTab) {
+  Widget section(
+    BuildContext context,
+    RaftConnectedAppsTab shownTab, {
+    bool scrollable = false,
+  }) {
     String tr(String s) => raftText(context, s);
     final p = projection;
     final query = search.text.trim().toLowerCase();
@@ -918,6 +921,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     return Semantics(
       liveRegion: error != null,
       child: RaftConnectedAppsSection(
+        scrollable: scrollable,
         description: tr(
           canManage
               ? 'Browse reviewed marketplace apps, see apps installed on this server, and manage apps registered by this server.'

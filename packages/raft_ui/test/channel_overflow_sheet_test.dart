@@ -11,6 +11,40 @@ Widget _host(Widget child, {RaftFamily family = RaftFamily.elegant}) =>
     );
 
 void main() {
+  testWidgets('settings drawer lays out only visible panel rows', (t) async {
+    var built = 0;
+    await t.pumpWidget(
+      _host(
+        RaftOverflowSheet(
+          title: '#fixture',
+          onClose: () {},
+          children: [
+            RaftOverflowPanelBody(
+              children: [
+                for (var i = 0; i < 1000; i++)
+                  Builder(
+                    builder: (_) {
+                      built++;
+                      return SizedBox(height: 60, child: Text('Preference $i'));
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(built, lessThan(30));
+    await t.scrollUntilVisible(
+      find.text('Preference 999'),
+      3000,
+      scrollable: find.byType(Scrollable),
+      maxScrolls: 30,
+    );
+    expect(find.text('Preference 999'), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
   group(
     'members strip layout (getVisibleMemberLimit / getStripColumnCount)',
     () {

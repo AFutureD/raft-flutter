@@ -82,7 +82,34 @@ class RaftChatSidebarGroup extends StatelessWidget {
     this.disclosureKey,
     this.headerKey,
     this.onContextMenu,
-  });
+  }) : itemBuilder = null,
+       findChildIndexCallback = null;
+
+  /// A group in a scroll viewport whose offscreen rows are built on demand.
+  const RaftChatSidebarGroup.sliver({
+    super.key,
+    required this.kind,
+    required this.label,
+    required this.count,
+    required this.expanded,
+    required this.hideEmpty,
+    required this.onExpandedChanged,
+    required IndexedWidgetBuilder this.itemBuilder,
+    this.findChildIndexCallback,
+    this.loading = false,
+    this.dragActive = false,
+    this.dragSource = false,
+    this.emptyLabel = '',
+    this.loadingRegion,
+    this.attention,
+    this.actions = const [],
+    this.disclosureKey,
+    this.headerKey,
+    this.onContextMenu,
+  }) : children = const [];
+
+  final IndexedWidgetBuilder? itemBuilder;
+  final ChildIndexGetter? findChildIndexCallback;
   final ValueChanged<Offset>? onContextMenu;
   final RaftChatSidebarGroupKind kind;
   final String label, emptyLabel;
@@ -103,7 +130,9 @@ class RaftChatSidebarGroup extends StatelessWidget {
       dragActive: dragActive,
       dragSource: dragSource,
     ))
-      return const SizedBox.shrink();
+      return itemBuilder == null
+          ? const SizedBox.shrink()
+          : const SliverToBoxAdapter();
     Widget? empty;
     if (count == 0) {
       if (loading && recipe.loadingRows > 0) {
@@ -126,30 +155,47 @@ class RaftChatSidebarGroup extends StatelessWidget {
         );
       }
     }
+    final header = RaftSidebarSectionHeader(
+      key: headerKey,
+      label: label,
+      count: count,
+      expanded: expanded,
+      onExpandedChanged: onExpandedChanged,
+      disclosureKey: disclosureKey,
+      actions: actions,
+      attention: attention,
+      onContextMenu: onContextMenu,
+    );
+    final emptyRegion = empty == null
+        ? null
+        : ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 28),
+            child: empty,
+          );
+    final builder = itemBuilder;
+    if (builder != null) {
+      return SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(child: header),
+          if (expanded) ...[
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                builder,
+                childCount: count,
+                findChildIndexCallback: findChildIndexCallback,
+              ),
+            ),
+            if (emptyRegion != null) SliverToBoxAdapter(child: emptyRegion),
+          ],
+        ],
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        RaftSidebarSectionHeader(
-          key: headerKey,
-          label: label,
-          count: count,
-          expanded: expanded,
-          onExpandedChanged: onExpandedChanged,
-          disclosureKey: disclosureKey,
-          actions: actions,
-          attention: attention,
-          onContextMenu: onContextMenu,
-        ),
-        if (expanded) ...[
-          ...children,
-          if (empty != null)
-            // SidebarDndContainer: an empty drop target still owns min-h-7.
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 28),
-              child: empty,
-            ),
-        ],
+        header,
+        if (expanded) ...[...children, if (emptyRegion != null) emptyRegion],
       ],
     );
   }

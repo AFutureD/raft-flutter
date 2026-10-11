@@ -220,3 +220,37 @@ Widget composerDropOverlayPreview() => Align(
     ],
   ),
 );
+
+@RaftPreviews('Long mounted chat sidebar', size: Size(320, 560))
+Widget longMountedChatSidebarPreview() => const _LongGroupPreview();
+
+class _LongGroupPreview extends StatefulWidget {
+  const _LongGroupPreview();
+  @override
+  State<_LongGroupPreview> createState() => _LongGroupPreviewState();
+}
+
+class _LongGroupPreviewState extends State<_LongGroupPreview> {
+  bool expanded = true;
+  int selected = 0;
+  @override
+  Widget build(BuildContext context) => CustomScrollView(
+    slivers: [
+      RaftChatSidebarGroup.sliver(
+        kind: RaftChatSidebarGroupKind.channels,
+        label: 'Channels',
+        count: 1000,
+        expanded: expanded,
+        hideEmpty: true,
+        onExpandedChanged: (value) => setState(() => expanded = value),
+        itemBuilder: (context, index) => RaftNavItem(
+          key: ValueKey('channel-$index'),
+          label: 'Channel $index',
+          glyph: RaftGlyph.hash,
+          selected: selected == index,
+          onTap: () => setState(() => selected = index),
+        ),
+      ),
+    ],
+  );
+}

@@ -573,6 +573,7 @@ class RaftMcpServersSection extends StatefulWidget {
     required this.servers,
     this.recommendations = const [],
     this.loading = false,
+    this.scrollable = false,
     this.error,
     this.onAddServer,
     this.usage = false,
@@ -584,6 +585,9 @@ class RaftMcpServersSection extends StatefulWidget {
   final List<RaftMcpServerRow> servers;
   final List<RaftMcpRecommendation> recommendations;
   final bool loading;
+
+  /// Own a bounded settings viewport and build catalog cards on demand.
+  final bool scrollable;
   final String? error;
 
   /// Null hides Add server (no manageIntegrations).
@@ -632,126 +636,132 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
       size: primary ? RaftButtonRecipeSize.md : RaftButtonRecipeSize.sm,
       onPressed: widget.onAddServer,
     );
-    final children = <Widget>[
+    final items = <WidgetBuilder>[
       if (widget.error != null)
-        RaftBanner(
+        (_) => RaftBanner(
           status: RaftBannerRecipeStatus.warning,
           size: RaftBannerRecipeSize.sm,
           description: widget.error!,
           descriptionWeight: FontWeight.w700,
         ),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          header(
-            widget.usage ? 'MCP usage' : 'MCP servers',
-            widget.servers.length,
-            action: widget.usage
-                ? (widget.loading
-                      ? Text(
-                          raftText(context, 'Loading…'),
-                          style: RaftTypography.body(
-                            t,
-                            size: 12,
-                            line: 16,
-                            weight: FontWeight.w700,
-                            color: t.brutal
-                                ? Colors.black.withValues(alpha: .5)
-                                : t.muted,
-                          ),
-                        )
-                      : null)
-                : widget.onAddServer == null
-                ? null
-                : addButton(),
-            detail: widget.usage
-                ? 'MCP servers this Agent has used. Enabled Server tools are available automatically.'
-                : 'Configure the MCP catalog, credentials, and provider connections for this Raft Server.',
-          ),
-          const SizedBox(height: 12),
-          if (widget.loading)
-            Text(
-              raftText(context, 'Loading MCP servers…'),
-              style: RaftTypography.mono(
-                t,
-                size: 12,
-                line: 16,
-                color: t.brutal
-                    ? Colors.black.withValues(alpha: .4)
-                    : t.colors['foreground-placeholder'],
-              ),
-            )
-          else if (widget.servers.isEmpty)
-            _McpEmptyState(
-              usage: widget.usage,
-              action: widget.onAddServer == null || widget.usage
-                  ? null
-                  : addButton(primary: true),
-            )
-          else
-            for (final (i, server) in widget.servers.indexed) ...[
-              if (i > 0) const SizedBox(height: 12),
-              _McpServerCard(
-                key: ValueKey('mcp-server-${server.id}'),
-                server: server,
-                toolsOpen: expanded.contains(server.id),
-                onToggleTools: () => setState(() {
-                  if (!expanded.remove(server.id)) expanded.add(server.id);
-                }),
-              ),
-            ],
-        ],
-      ),
-      if (widget.recommendations.isNotEmpty)
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            header(
-              'Recommended',
-              widget.recommendations.length,
-              detail: 'Common MCP servers with connection details prefilled.',
-            ),
-            const SizedBox(height: 12),
-            for (final (i, r) in widget.recommendations.indexed) ...[
-              if (i > 0) const SizedBox(height: 12),
-              RaftSurfaceListItem(
-                key: ValueKey('mcp-recommendation-${r.id}'),
-                interactive: false,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(r.name, style: text.title),
-                          const SizedBox(height: 4),
-                          Text(r.description, style: text.bodyMuted),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    RaftButton(
-                      label: r.added ? 'Added' : 'Add',
-                      glyph: r.added ? RaftGlyph.check : RaftGlyph.plus,
-                      tone: RaftButtonRecipeVariant.outline,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: r.added ? null : r.onAdd,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
+      (_) => Padding(
+        padding: EdgeInsets.only(top: widget.error == null ? 0 : 24),
+        child: header(
+          widget.usage ? 'MCP usage' : 'MCP servers',
+          widget.servers.length,
+          action: widget.usage
+              ? (widget.loading
+                    ? Text(
+                        raftText(context, 'Loading…'),
+                        style: RaftTypography.body(
+                          t,
+                          size: 12,
+                          line: 16,
+                          weight: FontWeight.w700,
+                          color: t.brutal
+                              ? Colors.black.withValues(alpha: .5)
+                              : t.muted,
+                        ),
+                      )
+                    : null)
+              : widget.onAddServer == null
+              ? null
+              : addButton(),
+          detail: widget.usage
+              ? 'MCP servers this Agent has used. Enabled Server tools are available automatically.'
+              : 'Configure the MCP catalog, credentials, and provider connections for this Raft Server.',
         ),
+      ),
+      if (widget.loading)
+        (_) => Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text(
+            raftText(context, 'Loading MCP servers…'),
+            style: RaftTypography.mono(
+              t,
+              size: 12,
+              line: 16,
+              color: t.brutal
+                  ? Colors.black.withValues(alpha: .4)
+                  : t.colors['foreground-placeholder'],
+            ),
+          ),
+        )
+      else if (widget.servers.isEmpty)
+        (_) => Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: _McpEmptyState(
+            usage: widget.usage,
+            action: widget.onAddServer == null || widget.usage
+                ? null
+                : addButton(primary: true),
+          ),
+        )
+      else
+        for (final server in widget.servers)
+          (_) => Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _McpServerCard(
+              key: ValueKey('mcp-server-${server.id}'),
+              server: server,
+              toolsOpen: expanded.contains(server.id),
+              onToggleTools: () => setState(() {
+                if (!expanded.remove(server.id)) expanded.add(server.id);
+              }),
+            ),
+          ),
+      if (widget.recommendations.isNotEmpty) ...[
+        (_) => Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: header(
+            'Recommended',
+            widget.recommendations.length,
+            detail: 'Common MCP servers with connection details prefilled.',
+          ),
+        ),
+        for (final r in widget.recommendations)
+          (_) => Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: RaftSurfaceListItem(
+              key: ValueKey('mcp-recommendation-${r.id}'),
+              interactive: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(r.name, style: text.title),
+                        const SizedBox(height: 4),
+                        Text(r.description, style: text.bodyMuted),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  RaftButton(
+                    label: r.added ? 'Added' : 'Add',
+                    glyph: r.added ? RaftGlyph.check : RaftGlyph.plus,
+                    tone: RaftButtonRecipeVariant.outline,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: r.added ? null : r.onAdd,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     ];
+    if (widget.scrollable) {
+      return ListView.builder(
+        primary: false,
+        padding: RaftSettingsPanelFrame.contentInset,
+        itemCount: items.length,
+        itemBuilder: (context, index) => items[index](context),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final (i, child) in children.indexed) ...[
-          if (i > 0) const SizedBox(height: 24),
-          child,
-        ],
-      ],
+      children: [for (final build in items) build(context)],
     );
   }
 }
@@ -1055,12 +1065,7 @@ class _McpUsageGrid extends StatelessWidget {
           Text(
             text,
             style: mono
-                ? RaftTypography.mono(
-                    t,
-                    size: 12,
-                    line: 16,
-                    color: value.color,
-                  )
+                ? RaftTypography.mono(t, size: 12, line: 16, color: value.color)
                 : value,
           ),
         ],

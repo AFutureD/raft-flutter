@@ -43,13 +43,66 @@ void main() {
       final sorted = [taskRow(9, 'todo'), taskRow(5, 'todo')];
       expect(identical(sortedLane(sorted), sorted), isTrue);
       expect(
-        sortedLane([
-          taskRow(3, 'todo'),
-          taskRow(9, 'todo'),
-          taskRow(5, 'todo'),
-        ]).map((t) => t['taskNumber']),
+        sortedLane([taskRow(3, 'todo'), taskRow(9, 'todo'), taskRow(5, 'todo')])
+            .map((t) => t['taskNumber']),
         [9, 5, 3],
       );
+    },
+  );
+
+  testWidgets(
+    'a long bounded board lane builds only visible cards and scrolls to the tail',
+    (tester) async {
+      final client = ActivityClient()..user = RaftRecord({'id': 'alice'});
+      client.selectServer('s1');
+      final w = _Tasks(client)
+        ..server = RaftRecord({'id': 's1', 'role': 'owner'})
+        ..channels = [
+          RaftChannel({'id': 'c1', 'name': 'General', 'joined': true}),
+        ];
+      w.tasks
+        ..clear()
+        ..addAll([for (var i = 0; i < 1000; i++) taskRow(i, 'todo')]);
+      addTearDown(() async {
+        w.dispose();
+        await client.dispose();
+      });
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1400, 900);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(
+            body: ResourceView(
+              controller: w,
+              section: 'tasks',
+              onMessage: (_, _) async {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final cards = find.byWidgetPredicate(
+        (widget) =>
+            widget is KeyedSubtree &&
+            widget.key is ValueKey<String> &&
+            (widget.key as ValueKey<String>).value.startsWith('task-drag-'),
+      );
+      expect(cards.evaluate().length, lessThan(30));
+      expect(find.text('Task 0'), findsNothing);
+      final laneScroll = find.descendant(
+        of: find.byKey(const PageStorageKey(('task-lane', 'tasks', 'todo'))),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Task 900'),
+        800,
+        scrollable: laneScroll,
+      );
+      expect(find.text('Task 900'), findsOneWidget);
+      expect(cards.evaluate().length, lessThan(30));
+      expect(tester.takeException(), isNull);
     },
   );
 
