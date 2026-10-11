@@ -59,6 +59,29 @@ class WorkspaceNavigation {
       from.withQuery({'task': null, 'legacyTask': null}).uri ==
           to.withQuery({'task': null, 'legacyTask': null}).uri;
 
+  /// The profile side panel owns its own slot (`profile=` and its agent tab):
+  /// opening, retargeting or closing it never retires an independently
+  /// pending window.
+  static bool profileOnlyTransition(RaftLocation from, RaftLocation to) =>
+      from.uri != to.uri &&
+      from.withQuery(_profileQuery).uri == to.withQuery(_profileQuery).uri;
+
+  static const _profileQuery = <String, String?>{
+    'profile': null,
+    'agentTab': null,
+  };
+
+  /// Navigate the profile slot without bumping the window revision.
+  void navigateProfile(
+    RaftLocation next, {
+    RaftNavigationKind kind = RaftNavigationKind.push,
+  }) {
+    final keep = profileOnlyTransition(location, next);
+    final before = _revision;
+    navigate(next, kind: kind);
+    if (keep) _revision = before;
+  }
+
   /// Source rightPanelUrlSync331–389/475–535: task slots own history without
   /// retiring an independently pending main window or ordinary side thread.
   void navigateTask(
@@ -161,7 +184,10 @@ class WorkspaceNavigation {
         )) {
       final previous = _location;
       _location = _entries[--_index];
-      if (!taskOnlyTransition(previous, _location)) ++_revision;
+      if (!taskOnlyTransition(previous, _location) &&
+          !profileOnlyTransition(previous, _location)) {
+        ++_revision;
+      }
       ++_taskRevision;
     } else {
       // A task modal, profile and thread own independent slots. Closing one
@@ -197,7 +223,10 @@ class WorkspaceNavigation {
     if (_index + 1 >= _entries.length) return false;
     final previous = _location;
     _location = _entries[++_index];
-    if (!taskOnlyTransition(previous, _location)) ++_revision;
+    if (!taskOnlyTransition(previous, _location) &&
+        !profileOnlyTransition(previous, _location)) {
+      ++_revision;
+    }
     ++_taskRevision;
     return true;
   }
