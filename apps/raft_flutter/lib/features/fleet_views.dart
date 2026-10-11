@@ -652,10 +652,23 @@ class _FleetDetailState extends State<FleetDetail> {
         closeProfile();
         return;
       }
-      setState(() => error = '$e');
+      _readFailed('$e');
     } catch (e) {
-      if (current && ticket == request) setState(() => error = '$e');
+      if (current && ticket == request) _readFailed('$e');
     }
+  }
+
+  bool get _renderable => widget.computers
+      ? canRenderWorkspaceComputer(row)
+      : canRenderWorkspaceAgent(row, serverId);
+
+  /// A secondary read (GET /agents/:id detail-only fields, the shared list
+  /// refresh) failed. Web falls back silently once the profile is on screen,
+  /// so the page-level error slot is only for a profile that cannot render
+  /// yet (it carries the Retry); mutation failures use `action` instead.
+  void _readFailed(String message) {
+    if (_renderable) return;
+    setState(() => error = message);
   }
 
   /// After the user's own mutation (or an explicit retry): re-read the shared
@@ -675,7 +688,7 @@ class _FleetDetailState extends State<FleetDetail> {
     }
     setState(() {
       row = compose();
-      error = failure == null ? error : '$failure';
+      if (failure != null && !_renderable) error = '$failure';
     });
   }
 
@@ -1044,9 +1057,7 @@ class _FleetDetailState extends State<FleetDetail> {
   @override
   Widget build(BuildContext context) => !current
       ? const SizedBox.shrink()
-      : !(widget.computers
-            ? canRenderWorkspaceComputer(row)
-            : canRenderWorkspaceAgent(row, serverId))
+      : !_renderable
       ? SourceProfileLoadingPanel(
           onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),
           error: error,
