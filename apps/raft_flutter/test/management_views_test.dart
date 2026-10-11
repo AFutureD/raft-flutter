@@ -103,18 +103,21 @@ void main() {
           {'key': 'slack_bridge_v0', 'enabled': true},
         ],
       };
-      a.routes['GET /slack-bridge/provisioning'] = (_) => bridgeFixture();
+      a.routes['GET /slack-bridge/provisioning'] = (_) =>
+          bridgeFixture()..['snapshot']['stage'] = 'enable';
       a.routes['POST /slack-bridge/provisioning/preflight'] = (_) => {
         'error': 'Permission changed',
       };
       a.statuses['POST /slack-bridge/provisioning/preflight'] = 403;
       await tester.pumpWidget(host(IMBridgesView(controller: w)));
       await tester.pumpAndSettle();
-      expect(find.text('Fixture Slack'), findsOneWidget);
-      await tester.tap(find.text('Verify and enable'));
+      expect(find.text('Verify and finish setup'), findsOneWidget);
+      await tester.ensureVisible(find.text('Verify and finish setup'));
       await tester.pumpAndSettle();
-      expect(find.text('Fixture Slack'), findsNothing);
-      expect(find.text('Disconnect Slack'), findsNothing);
+      await tester.tap(find.text('Verify and finish setup'));
+      await tester.pumpAndSettle();
+      expect(find.text('Verify and finish setup'), findsNothing);
+      expect(find.text('Disconnect Slack workspace'), findsNothing);
       // SlackBridgeSetupWizard: a failed load with no view shows the
       // generic Raft for Slack failure (never the stale projection).
       expect(
@@ -161,7 +164,7 @@ void main() {
   );
 
   testWidgets(
-    'Slack pair save preserves concurrent mappings and enables only after closed preflight',
+    'Slack pair save sends the chosen pairs and enables only after closed preflight',
     (tester) async {
       final (w, a) = (await tester.runAsync(() => _fixture('owner')))!;
       addTearDown(w.dispose);
@@ -177,8 +180,6 @@ void main() {
         expect(o.data, {
           'pairs': [
             {'raftChannelId': 'r1', 'slackChannelId': 's1'},
-            {'raftChannelId': 'r3', 'slackChannelId': 's3'},
-            {'raftChannelId': 'r2', 'slackChannelId': 's2'},
           ],
         });
         value['snapshot']['channelPairs'] = (o.data['pairs'] as List)
@@ -207,20 +208,9 @@ void main() {
       };
       await tester.pumpWidget(host(IMBridgesView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add channel pair'));
+      await tester.ensureVisible(find.text('Save mappings and enable'));
       await tester.pumpAndSettle();
-      value['snapshot']['raftChannels'].add({'id': 'r3', 'name': 'concurrent'});
-      value['snapshot']['slackChannels'].add({
-        'id': 's3',
-        'name': 'concurrent',
-        'isMember': true,
-      });
-      value['snapshot']['channelPairs'].add({
-        'raftChannelId': 'r3',
-        'slackChannelId': 's3',
-        'bindingEpoch': 9,
-      });
-      await tester.tap(find.widgetWithText(RaftButton, 'Save'));
+      await tester.tap(find.text('Save mappings and enable'));
       await tester.pumpAndSettle();
       expect(a.calls.where((c) => c.path.endsWith('/enable')), hasLength(1));
     },
@@ -236,6 +226,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Edit profile'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Edit profile'));
       await tester.pumpAndSettle();
       expect(find.byType(RaftFormDialog), findsOneWidget);
@@ -348,9 +339,10 @@ void main() {
         {'key': 'slack_bridge_v0', 'enabled': true},
       ],
     };
-    a.routes['GET /slack-bridge/provisioning'] = (_) => bridgeFixture();
+    a.routes['GET /slack-bridge/provisioning'] = (_) =>
+        bridgeFixture()..['snapshot']['stage'] = 'preflight';
     a.routes['POST /slack-bridge/provisioning/preflight'] = (_) {
-      final v = bridgeFixture();
+      final v = bridgeFixture()..['snapshot']['stage'] = 'preflight';
       v['snapshot']['preflight'] = {
         'state': 'failed',
         'checks': [
@@ -361,9 +353,13 @@ void main() {
     };
     await tester.pumpWidget(host(IMBridgesView(controller: w)));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Verify and enable'));
+    await tester.tap(find.text('Verify and finish setup'));
     await tester.pumpAndSettle();
-    expect(find.text('OAuth scope: Failed'), findsOneWidget);
+    expect(find.text('FAILED'), findsOneWidget);
+    expect(
+      find.text('Preflight has not passed. The bridge cannot be enabled.'),
+      findsOneWidget,
+    );
     expect(a.calls.where((c) => c.path.endsWith('/enable')), isEmpty);
   });
   testWidgets(
@@ -376,7 +372,7 @@ void main() {
           {'key': 'slack_bridge_v0', 'enabled': true},
         ],
       };
-      final value = bridgeFixture();
+      final value = bridgeFixture()..['snapshot']['stage'] = 'health';
       a.routes['GET /slack-bridge/provisioning'] = (_) => value;
       a.routes['DELETE /slack-bridge/provisioning/channel-pairs'] = (o) {
         expect(o.data, {
@@ -397,14 +393,26 @@ void main() {
       };
       await tester.pumpWidget(host(IMBridgesView(controller: w)));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Remove'));
+      await tester.ensureVisible(find.text('Manage channel mappings'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(RaftButton, 'Remove'));
+      await tester.tap(find.text('Manage channel mappings'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('slack-bridge-remove-pair-0')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('slack-bridge-remove-pair-0')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Apply mapping changes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply mapping changes'));
       await tester.pumpAndSettle();
       expect(a.calls.where((c) => c.method == 'DELETE'), hasLength(1));
-      await tester.tap(find.text('Disconnect Slack'));
+      await tester.ensureVisible(find.text('Disconnect Slack workspace'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(RaftButton, 'Disconnect'));
+      await tester.tap(find.text('Disconnect Slack workspace'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Confirm disconnect'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm disconnect'));
       await tester.pumpAndSettle();
       expect(
         a.calls.where((c) => c.path.endsWith('/disconnect')),
@@ -417,8 +425,8 @@ void main() {
       });
       w.notifyListeners();
       await tester.pumpAndSettle();
-      expect(find.text('Verify and enable'), findsNothing);
-      expect(find.text('Disconnect Slack'), findsNothing);
+      expect(find.text('Verify and finish setup'), findsNothing);
+      expect(find.text('Disconnect Slack workspace'), findsNothing);
     },
   );
 
@@ -547,6 +555,7 @@ void main() {
       await tester.pumpWidget(host(ProviderConnectionsView(controller: w)));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Verify on computer'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Verify on computer'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Verify'));
@@ -603,6 +612,7 @@ void main() {
       await tester.pumpWidget(host(ProviderConnectionsView(controller: w)));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Verification history'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Verification history'));
       await tester.pump();
       w.server = RaftRecord({'id': 's1', 'role': 'member'});

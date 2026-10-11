@@ -1266,3 +1266,57 @@ replies, history; `routes` + `routeSets` answer the API on both providers).
 * Web facts the cases pin: done/closed lanes start collapsed, mobile defaults to the list
   view, and on mobile the floating tab bar stays above the task modal composer.
 * Mobile `expanded` is not covered (lazy Flutter list vs Playwright scroll offsets).
+
+### WP6 task and settings leftovers (153 = 51 surfaces x 3 themes)
+
+`tool/parity-ext/build-wp6-cases.py` (registered last in
+`tool/parity-ext/builders.txt`, run by `tool/parity-ext/run`) appends `components.wp6.<surface>.<state>.<theme>` and writes
+`tool/parity-ext/fixtures/wp6.json` (every route in a `routeSets` entry, so no
+other family sees it). React host: `host/Wp6Cases.tsx` (tasks surfaces mount the
+real `CreateTaskDialog` / `TaskFilterSegmentedControl` / `MainLayout`; the
+settings surfaces reuse `SettingsCases.tsx`' shell and a `prefs` store patch);
+Flutter: `cases/ext_wp6.dart` (reuses `extSettingsPage` / `extTaskPageBuild`).
+`capture.androidInteractions` gained `reveal` (scroll a keyed target into view,
+like Playwright's element screenshot).
+
+| group | cases | before (brutal / elegant / dark) | after |
+| --- | --- | --- | --- |
+| Create task dialog (single, filled, batch, error; desktop + mobile) | 24 | 0.91 / 0.89 / 0.84 | 0.96-0.99 / 0.91-0.94 / 0.86-0.93 |
+| Task filter segmented control (desktop + mobile) | 12 | 0.54 / 0.59 / 0.37 | 0.85-0.97 / 0.85-0.93 / 0.74-0.80 |
+| Empty lanes "No {status} tasks." (board, expanded, mobile list) | 9 | 0.975 / 0.885 / 0.827 | 0.975 / 0.90 / 0.85 |
+| Language & Region (default, off, manual, provider missing, server off; mobile) | 21 | 0.91 / 0.85 / 0.73 | 0.97-0.98 / 0.95 / 0.93-0.95 |
+| Workspace mode card / usage data card (desktop + mobile) | 12 | no usage card in Flutter | 0.95-0.97 / 0.93-0.95 / 0.90-0.93 |
+| AI provider edit modal (gateway, preset, error; mobile) | 15 | generic form dialog | 0.95-0.97 / 0.87-0.89 / 0.86-0.89 |
+| Slack bridge wizard (9 stages, mobile, view only, manage, disconnect, load failed) | 51 | plain management list | 0.90-0.98 / 0.84-0.97 / 0.70-0.97 |
+| About feedback panel at phone width (inbox, new, ticket) | 9 | n/a | 0.93-0.97 / 0.93-0.97 / 0.91-0.96 |
+
+Facts the cases pin (all measured on the Web host):
+
+* `CreateTaskDialog` rows: the last row's `mb-1` collapses into the `flex mt-3`
+  Add Another button (block-level flex), so the gap is 12px, not 16.
+* Elegant focus is a ring OUTSIDE the field border (1px primary-400; dark 2px at
+  60%), not a border colour swap (`RaftFieldSurface`).
+* `CardTitle` has no `truncate` and the `CardHeader` has `gap-4`: a long dialog
+  title wraps.
+* `TaskSectionEmpty` / `TaskBoardColumnEmpty` are dashed (`RaftTaskLaneEmpty`);
+  Elegant tasks panel mobile viewport is `max-md:pl-5 max-md:pr-3.5`.
+* Language & Region: a `Select` inside a `space-y-3` block keeps a 12px bottom
+  margin (its hidden sibling `<input>`), forms Save explicitly and the official
+  visual user translates manually.
+* Slack wizard: `rounded` boxes are pixel-snapped (`RaftSnappedDecoratedBox`);
+  translucent brutal fills composite as `round(c*a/255) + round(b*(255-a)/255)`
+  with the alpha quantised half-down (0.3 -> 76); Elegant fills match Flutter's
+  blend, except the measured `unverified` tone constants.
+* The unread notice phone mute row copy now reads "Stops notifications from
+  {serverName} for your account. Other servers are unchanged." / zh "停止接收来自
+  {serverName} 的通知，其他服务器不受影响。".
+
+Not covered / not matched: the About feedback attachment lightbox (the case
+host cannot serve a binary image body), the Web mobile feedback inbox whose
+ticket cards overflow the viewport (a library layout quirk, not replicated),
+`TaskFilterSegmentedControl` has no mounted Web caller (the case mounts the
+component itself; Flutter has `RaftTaskFilterControl` but no product surface),
+and the Provider connections list rows are still the management-page rows
+(only the edit modal is Web-shaped). Remaining deltas are text rasterisation,
+Blink border snapping on fractional boxes and one-level translucent fills in
+`RaftBanner` (dark).

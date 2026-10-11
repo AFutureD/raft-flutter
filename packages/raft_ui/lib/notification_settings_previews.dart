@@ -37,7 +37,7 @@ class _State extends State<_Preview> {
             onAction: () => setState(() => enabled = true),
             muted: muted,
             onMutedChanged: (v) => setState(() => muted = v),
-            muteDescription: 'Stops web push notifications from Preview for your account. Other servers are unchanged.',
+            muteDescription: 'Stops notifications from Preview for your account. Other servers are unchanged.',
             onSave: muted == saved ? null : () => setState(() => saved = muted),
           )
         : RaftNotificationSettingsCard(

@@ -8,6 +8,7 @@ import 'account_onboarding.dart';
 import 'account_connections_view.dart';
 import 'management_support.dart';
 import 'public_avatar_url.dart';
+import 'usage_data_card.dart';
 
 class AccountSettings extends StatefulWidget {
   const AccountSettings({
@@ -490,6 +491,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
                 : () => confirmLogout(context),
           ),
         ),
+        UsageDataSettingsCard(controller: controller),
         const SizedBox(height: RaftSpace.x6),
       ],
     );

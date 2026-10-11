@@ -5,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
+import 'provider_edit_dialog.dart';
 
 class ProviderConnectionsView extends StatefulWidget {
   const ProviderConnectionsView({super.key, required this.controller});
@@ -135,51 +136,16 @@ class _ProviderConnectionsState
   }
 
   Future<void> edit(Map<String, dynamic> connection) async {
-    await form(
-      'Edit provider connection',
-      [
-        RaftFormField(
-          'name',
-          'Connection name',
-          initial: connection['name'] ?? '',
-          required: true,
-        ),
-        RaftFormField(
-          'enabled',
-          'Enabled',
-          initial: connection['enabled'] == true ? 'true' : 'false',
-          choices: const {'true': 'Enabled', 'false': 'Disabled'},
-        ),
-        if (connection['endpointUrl'] != null) ...[
-          RaftFormField(
-            'endpointUrl',
-            'Gateway endpoint',
-            initial: connection['endpointUrl'] ?? '',
-            required: true,
-            validator: managementHttpUrl,
-          ),
-          RaftFormField(
-            'supportsImageInput',
-            'Image input',
-            initial: connection['supportsImageInput'] == true
-                ? 'true'
-                : 'false',
-            choices: const {'false': 'Text only', 'true': 'Text and images'},
-          ),
-        ],
-      ],
-      (v) async {
-        await w.client.patch(
-          '/provider-connections/${connection['id']}',
-          data: {
-            'name': v['name'],
-            'enabled': v['enabled'] == 'true',
-            if (v.containsKey('endpointUrl')) 'endpointUrl': v['endpointUrl'],
-            if (v.containsKey('supportsImageInput'))
-              'supportsImageInput': v['supportsImageInput'] == 'true',
-          },
-        );
-      },
+    final gateway = options.any(
+      (p) => p['id'] == connection['providerId'] && p['providerKind'] == 'gateway',
+    );
+    await scopedRaftModal<bool>(
+      (dialogContext) => EditProviderConnectionDialog(
+        controller: w,
+        connection: connection,
+        gateway: gateway,
+        onCompleted: reload,
+      ),
     );
   }
 
@@ -490,9 +456,12 @@ class _ProviderConnectionsState
                           ),
                         Wrap(
                           children: [
-                            action(
-                              'Edit connection',
-                              () => run(() => edit(connection)),
+                            KeyedSubtree(
+                              key: ValueKey('provider-edit-${connection['id']}'),
+                              child: action(
+                                'Edit connection',
+                                () => run(() => edit(connection)),
+                              ),
                             ),
                             action(
                               'Assigned agents',

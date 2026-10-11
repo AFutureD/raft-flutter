@@ -35,6 +35,13 @@ MsRoutes _routes(ParityContext ctx) {
     ...Map<String, dynamic>.from(
       ((fx['routeSets'] as Map?)?[ctx.props['routeSet']] as Map?) ?? const {},
     ),
+    // WP6 route sets (fixtures/wp6.json) apply to the same cases by name.
+    ...Map<String, dynamic>.from(
+      ((((ctx.fixtures['ext:wp6'] as Map?)?['routeSets']) as Map?)?[ctx
+                  .props['routeSet']]
+              as Map?) ??
+          const {},
+    ),
   };
   return {
     for (final MapEntry(:key, :value) in merged.entries)
@@ -76,7 +83,7 @@ Widget _page(ParityContext ctx) {
     'role': role,
     if (routeSet == 'admin-hide-humans') 'hideHumansFromMembers': true,
   };
-  final (w, _) = fixture.workspace({
+  final (w, fixtureClient) = fixture.workspace({
     'GET /servers/visual-server': (_) => serverJson,
     // The official spec's /api/agents rows (fxAgentDetailAgents).
     'GET /agents': (_) => fixture.agents,
@@ -88,6 +95,26 @@ Widget _page(ParityContext ctx) {
     },
     ..._routes(ctx),
   }, fallback: (method, path, data) => _fx(ctx)['fallback']);
+  // WP6 per-case signed-in user preferences (host/Wp6Cases.tsx
+  // PARITY_EXT_WP6_USER_PREFS).
+  // The official visual user (VisualTestingCases.tsx) translates manually.
+  final prefs = ctx.props['extKind'] != 'wp6'
+      ? null
+      : {
+          'preferredTranslationMode': 'manual',
+          'preferredTranslationDisplay': 'translated',
+          'preferredTimeFormat': '24h',
+          ...?switch (ctx.props['prefs']) {
+            'translation-off' => {'preferredTranslationMode': 'off'},
+            'translation-manual' => {
+              'preferredTranslationDisplay': 'bilingual',
+            },
+            _ => null,
+          },
+        };
+  if (prefs != null) {
+    fixtureClient.user = RaftRecord({...?fixtureClient.user?.json, ...prefs});
+  }
   if (routeSet == 'admin-all-visible') {
     w.channels = [
       RaftChannel({
@@ -141,6 +168,9 @@ Widget _page(ParityContext ctx) {
     ),
   );
 }
+
+/// The Settings page of one extension case (shared with the WP6 cases).
+Widget extSettingsPage(ParityContext ctx) => _page(ctx);
 
 final _case = ParityCase(
   widgets: const [

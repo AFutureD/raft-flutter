@@ -18,6 +18,7 @@ import '../data/source_read_all_transport.dart';
 import '../data/resource_row_reconcile.dart';
 import '../data/resource_snapshot_cache.dart';
 import '../data/task_board_reconcile.dart';
+import 'create_task_dialog.dart';
 import 'search_home.dart';
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
@@ -3814,6 +3815,13 @@ class _ResourceViewState extends State<ResourceView> {
     );
   }
 
+  /// `task.status.emptyGroup`: "No {status} tasks."
+  String _emptyLaneLabel(BuildContext context, String status) => raftFormat(
+    context,
+    'No {status} tasks.',
+    {'status': raftText(context, raftTaskStatusLabel(status))},
+  );
+
   Widget groupedTasks() {
     final t = RaftTokens.of(context), scope = authority;
     final groups = {
@@ -3831,7 +3839,11 @@ class _ResourceViewState extends State<ResourceView> {
         controller: taskListScroll,
         slivers: [
           SliverPadding(
-            padding: RaftTaskSectionRecipe(t).viewportInset,
+            // Elegant tasksPanel viewport `max-md:pl-5 max-md:pr-3.5` on top
+            // of `p-4` (Brutal resets it).
+            padding: !t.brutal && MediaQuery.sizeOf(context).width < 768
+                ? const EdgeInsets.fromLTRB(20, 16, 14, 16)
+                : RaftTaskSectionRecipe(t).viewportInset,
             sliver: SliverMainAxisGroup(
               slivers: [
                 for (final status in raftTaskStatuses.where(
@@ -3869,8 +3881,7 @@ class _ResourceViewState extends State<ResourceView> {
       count: tasks.length,
       collapsed: collapsedTaskStatuses.contains(status),
       triggerKey: ValueKey('task-group-$status'),
-      emptyLabel:
-          '${raftText(context, 'No tasks')} · ${raftTaskStatusLabel(status)}',
+      emptyLabel: _emptyLaneLabel(context, status),
       onToggle: () {
         if (accepts(scope)) {
           setState(() {
@@ -4805,12 +4816,11 @@ class _ResourceViewState extends State<ResourceView> {
                               child: draggableTask(row, scope),
                             ),
                           if (!(lanes[status] ?? []).any(matchesTask))
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 20),
-                              child: Text(
-                                '${raftText(context, 'No tasks')} · ${raftTaskStatusLabel(status)}',
-                                style: TextStyle(color: t.muted),
-                              ),
+                            // TaskBoardColumnEmpty: `border border-dashed
+                            // px-3 py-5 text-sm theme-brutal:border-2`.
+                            RaftTaskLaneEmpty(
+                              board: true,
+                              label: _emptyLaneLabel(context, status),
                             ),
                           if (laneCursors[status] != null)
                             RaftTextButton(
@@ -4884,6 +4894,26 @@ class _ResourceViewState extends State<ResourceView> {
   Future<void> createTask({String? sourceScope}) async {
     final scope = sourceScope ?? authority;
     if (!accepts(scope) || w.server?.string('role') == 'guest') return;
+    final channelId = widget.channelId;
+    if (channelId != null &&
+        w.channels.any((c) => c.id == channelId && c.joined && !c.archived)) {
+      // TasksPanel channel mode: CreateTaskDialog (title rows, no channel
+      // picker or description).
+      await scopedDialog<void>(
+        scope,
+        (dialogContext) => CreateTaskDialog(
+          controller: w,
+          channelId: channelId,
+          onCreated: () async {
+            if (!accepts(scope)) return;
+            await w.refreshUnread();
+            if (accepts(scope)) await load(keep: rows.isNotEmpty);
+          },
+        ),
+        sourceModal: true,
+      );
+      return;
+    }
     final available = w.channels.where((c) => c.joined && !c.archived).toList();
     if (available.isEmpty) {
       setState(() => error = 'Join a channel before creating a task.');

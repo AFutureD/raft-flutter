@@ -516,6 +516,12 @@ Future<void> _androidInteractions(
           kind: PointerDeviceKind.mouse,
           buttons: kSecondaryMouseButton,
         );
+      case 'reveal':
+        // Playwright's element screenshot scrolls the element into view
+        // first: do the same for a keyed target below the fold.
+        await t.pump(const Duration(milliseconds: 300));
+        await t.ensureVisible(target!.first);
+        await t.pump();
       case 'hover':
         mouse ??= await t.createGesture(kind: PointerDeviceKind.mouse);
         try {

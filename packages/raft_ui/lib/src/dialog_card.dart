@@ -11,10 +11,12 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
@@ -273,7 +275,7 @@ class RaftModalBackdrop extends StatelessWidget {
             : t.colors['layer-backdrop']!,
         child: LayoutBuilder(
           builder: (context, box) {
-            Widget content = Center(child: child);
+            Widget content = _PixelCenter(child: child);
             if (onBackdrop != null) {
               // Presses inside [child] never reach the backdrop handler.
               content = GestureDetector(
@@ -281,7 +283,7 @@ class RaftModalBackdrop extends StatelessWidget {
                 onTap: onBackdrop,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Center(
+                  child: _PixelCenter(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () {},
@@ -307,6 +309,49 @@ class RaftModalBackdrop extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// `m-auto` centring as Chromium paints it: layout keeps the half-pixel
+/// (a 463px dialog in 800px sits at y = 168.5, which is also its screenshot
+/// origin) while painting rounds the half up (169), so edges and text land on
+/// whole pixels like Blink's snapped boxes.
+class _PixelCenter extends SingleChildRenderObjectWidget {
+  const _PixelCenter({required Widget child}) : super(child: child);
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderPixelCenter();
+}
+
+class _RenderPixelCenter extends RenderShiftedBox {
+  _RenderPixelCenter() : super(null);
+  Offset _snap = Offset.zero;
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    size = constraints.constrain(
+      Size(
+        constraints.hasBoundedWidth ? constraints.maxWidth : child.size.width,
+        constraints.hasBoundedHeight ? constraints.maxHeight : child.size.height,
+      ),
+    );
+    final at = Offset(
+      (size.width - child.size.width) / 2,
+      (size.height - child.size.height) / 2,
+    );
+    (child.parentData! as BoxParentData).offset = at;
+    // Half a pixel (only) rounds up.
+    double up(double v) => v - v.floorToDouble() == .5 ? .5 : 0;
+    _snap = Offset(up(at.dx), up(at.dy));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    final at = (child.parentData! as BoxParentData).offset;
+    context.paintChild(child, offset + at + _snap);
   }
 }
 
@@ -408,14 +453,15 @@ class RaftDialogCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Row(
+              // CardHeader `gap-4` between the title and the close button.
+              spacing: 16,
               children: [
                 Expanded(
                   child: Semantics(
                     header: true,
                     child: Text(
+                      // CardTitle has no `truncate`: a long title wraps.
                       raftText(context, title).toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: raftCssTextStyle(
                         family: titleSlot.fontFamily ?? t.headingFont,
                         step: RaftTextSteps.lg,
@@ -521,7 +567,7 @@ class RaftProductFormField extends StatelessWidget {
         if (error != null || hint != null)
           Padding(
             padding: EdgeInsets.only(top: 4 + gap),
-            child: Text(
+            child: RaftCssText(
               error ?? hint!,
               style: (error != null ? field.error : field.description)
                   .textStyle(tokens)
@@ -586,11 +632,15 @@ class RaftRecipeSegmentedControl<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     this.label,
+    this.counts = const {},
   });
   final T value;
   final List<(T, RaftGlyph?, String)> items;
   final ValueChanged<T>? onChanged;
   final String? label;
+
+  /// `SegmentedControlCount` per item value (omitted values render none).
+  final Map<T, String> counts;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -601,19 +651,46 @@ class RaftRecipeSegmentedControl<T> extends StatelessWidget {
     return Semantics(
       label: label,
       container: true,
-      child: Wrap(
-        spacing: root.columnGap ?? 0,
-        runSpacing: root.rowGap ?? 0,
-        children: [
-          for (final (v, glyph, text) in items)
-            _RecipeSegment(
-              checked: v == value,
-              glyph: glyph,
-              label: raftText(context, text),
-              onTap: onChanged == null ? null : () => onChanged!(v),
-            ),
-        ],
+      child: _FillWhenWrapped(
+        child: Wrap(
+          spacing: root.columnGap ?? 0,
+          runSpacing: root.rowGap ?? 0,
+          children: [
+            for (final (v, glyph, text) in items)
+              _RecipeSegment(
+                checked: v == value,
+                glyph: glyph,
+                label: raftText(context, text),
+                count: counts[v],
+                onTap: onChanged == null ? null : () => onChanged!(v),
+              ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// The `inline-flex flex-wrap max-w-full` root of the Web SegmentedControl:
+/// content width while the items fit on one line, the full available width
+/// once they wrap (Flutter's `Wrap` would shrink to its widest run).
+class _FillWhenWrapped extends SingleChildRenderObjectWidget {
+  const _FillWhenWrapped({required Widget child}) : super(child: child);
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFillWhenWrapped();
+}
+
+class _RenderFillWhenWrapped extends RenderProxyBox {
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.loosen(), parentUsesSize: true);
+    final wrapped =
+        constraints.hasBoundedWidth &&
+        child.getMaxIntrinsicWidth(double.infinity) > constraints.maxWidth;
+    size = constraints.constrain(
+      Size(wrapped ? constraints.maxWidth : child.size.width, child.size.height),
     );
   }
 }
@@ -624,10 +701,12 @@ class _RecipeSegment extends StatefulWidget {
     required this.glyph,
     required this.label,
     required this.onTap,
+    this.count,
   });
   final bool checked;
   final RaftGlyph? glyph;
   final String label;
+  final String? count;
   final VoidCallback? onTap;
   @override
   State<_RecipeSegment> createState() => _RecipeSegmentState();
@@ -639,16 +718,19 @@ class _RecipeSegmentState extends State<_RecipeSegment> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final tokens = RaftRecipeTokens(t);
-    final item = RaftSegmentedControlRecipe.resolve(
+    final recipe = RaftSegmentedControlRecipe.resolve(
       theme: raftRecipeThemeOf(t),
       disabled: widget.onTap == null,
       states: RaftRecipeStates({
         if (t.dark) RaftRecipeStates.dark,
         if (hovered && widget.onTap != null) RaftRecipeStates.hover,
         widget.checked ? 'data-checked' : 'data-unchecked',
+        if (widget.checked) 'group/segmented-control-item:data-checked',
+        if (widget.count != null) 'has:data-slot=segmented-control-count',
       }),
       tokens: tokens,
-    ).item;
+    );
+    final item = recipe.item;
     // Inherited `font-display` (main.font-display) supplies the family.
     final text = item
         .textStyle(tokens)
@@ -699,6 +781,17 @@ class _RecipeSegmentState extends State<_RecipeSegment> {
                     overflow: TextOverflow.ellipsis,
                     style: text.copyWith(color: color),
                   ),
+                  if (widget.count != null) ...[
+                    SizedBox(width: item.columnGap ?? 0),
+                    Text(
+                      widget.count!,
+                      maxLines: 1,
+                      style: recipe.count.text(
+                        tokens,
+                        base: text.copyWith(color: color),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -722,10 +815,11 @@ class RaftDialogTextInput extends StatelessWidget {
     this.leadingGlyph,
     this.onSubmitted,
     this.fieldKey,
+    this.obscure = false,
   });
   final TextEditingController controller;
   final String? placeholder;
-  final bool multiline, autofocus, enabled;
+  final bool multiline, autofocus, enabled, obscure;
   final RaftGlyph? leadingGlyph;
   final ValueChanged<String>? onSubmitted;
   final Key? fieldKey;
@@ -740,6 +834,7 @@ class RaftDialogTextInput extends StatelessWidget {
       controller: controller,
       enabled: enabled,
       autofocus: autofocus,
+      obscureText: obscure,
       // `disabled:` text: elegant foreground-disabled; brutal dims the whole
       // Textarea (`disabled:opacity-60`, below), not the Input.
       style: enabled || t.brutal

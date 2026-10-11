@@ -330,7 +330,18 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     return true;
   }
 
-  Future<V?> scopedDialog<V>(Widget Function(BuildContext) builder) async {
+  Future<V?> scopedDialog<V>(Widget Function(BuildContext) builder) =>
+      _scopedRoute<V>(builder, raft: false);
+
+  /// [scopedDialog] on the Web `Modal` layer ([showRaftModal]) for product
+  /// dialogs that paint their own backdrop.
+  Future<V?> scopedRaftModal<V>(Widget Function(BuildContext) builder) =>
+      _scopedRoute<V>(builder, raft: true);
+
+  Future<V?> _scopedRoute<V>(
+    Widget Function(BuildContext) builder, {
+    required bool raft,
+  }) async {
     final sourceAuthority = _operationAuthority ?? authority;
     if (!mounted || sourceAuthority != authority) return null;
     BuildContext? routeContext;
@@ -347,19 +358,20 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
 
     w.addListener(dismissOnScopeChange);
     try {
-      return await showDialog<V>(
-        context: context,
-        builder: (context) {
-          routeContext = context;
-          if (sourceAuthority != authority) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              dismissOnScopeChange();
-            });
-            return const SizedBox.shrink();
-          }
-          return builder(context);
-        },
-      );
+      Widget scoped(BuildContext context) {
+        routeContext = context;
+        if (sourceAuthority != authority) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            dismissOnScopeChange();
+          });
+          return const SizedBox.shrink();
+        }
+        return builder(context);
+      }
+
+      return await (raft
+          ? showRaftModal<V>(context, builder: scoped)
+          : showDialog<V>(context: context, builder: scoped));
     } finally {
       w.removeListener(dismissOnScopeChange);
     }

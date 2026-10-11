@@ -30,6 +30,7 @@ class RaftBanner extends StatelessWidget {
     this.action,
     this.descriptionTail,
     this.textAlign,
+    this.footer,
   });
 
   /// An inline underlined link after the description copy, 4px (`ml-1`) from
@@ -42,6 +43,9 @@ class RaftBanner extends StatelessWidget {
   /// ui/Banner.tsx `withIcon` / `icon`: the leading `svg` grid cell
   /// (`[&>svg]` size and intent colour from the recipe).
   final RaftGlyph? glyph;
+
+  /// Extra body content after the description (a button row).
+  final Widget? footer;
 
   /// `actions` -> `BannerAction` (trailing grid cell, `gap-x` from the
   /// recipe).
@@ -142,6 +146,7 @@ class RaftBanner extends StatelessWidget {
                       .text(tokens, base: base)
                       .copyWith(fontWeight: descriptionWeight),
                 ),
+              ?footer,
             ],
           ),
         ),

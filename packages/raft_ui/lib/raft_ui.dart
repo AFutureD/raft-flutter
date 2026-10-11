@@ -79,6 +79,7 @@ export 'src/settings_workspace.dart';
 export 'src/settings_billing.dart';
 export 'src/settings_applications.dart';
 export 'src/settings_controls.dart';
+export 'src/settings_language.dart';
 export 'src/settings_administration.dart';
 export 'src/appearance_picker.dart';
 
@@ -138,6 +139,10 @@ export 'src/add_computer_dialog.dart';
 export 'src/channel_settings_sheet.dart';
 export 'src/channel_overflow_sheet.dart';
 export 'src/create_channel_view.dart';
+export 'src/create_task_view.dart';
+export 'src/provider_edit_view.dart';
+export 'src/slack_bridge_wizard.dart';
+export 'src/task_filter_control.dart';
 export 'src/channel_members_view.dart';
 
 export 'src/channel_header.dart';

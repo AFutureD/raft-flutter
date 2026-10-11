@@ -1,5 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../data/message_translation_store.dart';
 import '../data/workspace_controller.dart';
@@ -19,11 +25,11 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
   WorkspaceController get w => widget.controller;
   @override
   String get authority => '${w.client.generation}|${w.client.user?.id}';
-  String? pendingField, preferenceError;
   late MessageTranslationStore translations = w.translations;
   @override
   void initState() {
     super.initState();
+    _initializeTimezones();
     startManagement();
     translations.addListener(translationChanged);
     // Web LanguageRegionSection `loadSettings` on mount (retries a failure).
@@ -46,207 +52,312 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
 
   @override
   void dispose() {
+    for (final timer in savedTimers.values) {
+      timer.cancel();
+    }
     translations.removeListener(translationChanged);
     super.dispose();
   }
 
   @override
   void clearData() {
-    pendingField = null;
-    preferenceError = null;
+    draftDisplayLanguage = draftMode = draftTarget = draftDisplay = null;
+    draftTimezone = draftTimeFormat = null;
+    languageError = dateTimeError = null;
+    savingLanguage = savingDateTime = false;
   }
 
   @override
   Future<void> loadData(int request, int generation) async {}
 
-  /// `auto` (and the translation target's `browser`) clear the preference.
-  Future<void> setPreference(String key, String value) async {
-    if (pendingField != null) return;
+  // Drafts of the two forms; null follows the saved value (Web re-syncs the
+  // form state whenever the saved value changes).
+  String? draftDisplayLanguage,
+      draftMode,
+      draftTarget,
+      draftDisplay,
+      draftTimezone,
+      draftTimeFormat;
+  final savedTimers = <bool, Timer>{};
+  String? languageError, dateTimeError;
+  bool savingLanguage = false, savingDateTime = false;
+  bool languageSaved = false, dateTimeSaved = false;
+
+  String get savedMode => translations.settings.mode.name;
+  String get savedTarget => translations.settings.preferredLanguage ?? 'browser';
+  String get savedDisplay => translations.settings.display.name;
+  String get savedTimezone =>
+      w.client.user?.string('preferredTimezone').trim() ?? '';
+  String get savedTimeFormat =>
+      w.client.user?.string('preferredTimeFormat') == '24h' ? '24h' : '12h';
+
+  /// The live UI locale in Web's `Locale` ids.
+  String liveLocale(BuildContext context) =>
+      Localizations.localeOf(context).languageCode == 'zh' ? 'zh-cn' : 'en';
+
+  bool languageDirty(BuildContext context) =>
+      (draftDisplayLanguage ?? liveLocale(context)) != liveLocale(context) ||
+      (draftTarget ?? savedTarget) != savedTarget ||
+      (draftMode ?? savedMode) != savedMode ||
+      (draftDisplay ?? savedDisplay) != savedDisplay;
+  bool get dateTimeDirty =>
+      (draftTimezone ?? savedTimezone) != savedTimezone ||
+      (draftTimeFormat ?? savedTimeFormat) != savedTimeFormat;
+
+  void edit(void Function() change, {bool language = true}) => setState(() {
+    change();
+    if (language) {
+      languageSaved = false;
+      languageError = null;
+    } else {
+      dateTimeSaved = false;
+      dateTimeError = null;
+    }
+  });
+
+  Future<void> patch(
+    Map<String, Object?> fields, {
+    required bool language,
+    required String failure,
+  }) async {
+    if (fields.isEmpty) return;
     final scope = authority;
     setState(() {
-      pendingField = key;
-      preferenceError = null;
+      if (language) {
+        savingLanguage = true;
+      } else {
+        savingDateTime = true;
+      }
     });
     try {
-      if (!mounted || scope != authority) return;
-      await w.client.patch(
-        '/auth/me',
-        data: {
-          key: switch ((key, value)) {
-            ('preferredTranslationMode', _) => value,
-            (_, 'auto' || 'browser') => null,
-            _ => value,
-          },
-        },
-      );
+      await w.client.patch('/auth/me', data: fields);
       if (!mounted || scope != authority) return;
       await w.client.reloadUser();
+      if (!mounted || scope != authority) return;
+      setState(() {
+        if (language) {
+          draftDisplayLanguage = draftMode = draftTarget = draftDisplay = null;
+          languageSaved = true;
+        } else {
+          draftTimezone = draftTimeFormat = null;
+          dateTimeSaved = true;
+        }
+      });
+      savedTimers[language]?.cancel();
+      savedTimers[language] = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            if (language) {
+              languageSaved = false;
+            } else {
+              dateTimeSaved = false;
+            }
+          });
+        }
+      });
     } catch (e) {
-      if (mounted && scope == authority) setState(() => preferenceError = '$e');
+      if (mounted && scope == authority) {
+        setState(() {
+          final message = e is RaftApiException && e.message.isNotEmpty
+              ? e.message
+              : raftText(context, failure);
+          if (language) {
+            languageError = message;
+          } else {
+            dateTimeError = message;
+          }
+        });
+      }
     } finally {
-      if (mounted && scope == authority) setState(() => pendingField = null);
+      if (mounted && scope == authority) {
+        setState(() {
+          if (language) {
+            savingLanguage = false;
+          } else {
+            savingDateTime = false;
+          }
+        });
+      }
     }
   }
 
-  /// Web LanguageRegionSection translation mode, target and default view.
-  List<Widget> translationControls(
-    BuildContext context,
-    Widget Function(
-      String key,
-      String title,
-      Map<String, String> options, {
-      String fallback,
-      double gapBefore,
-    })
-    selector,
-  ) {
-    final settings = translations.settings;
-    final busy = pendingField != null || translations.settingsLoading;
-    final off = settings.mode == MessageTranslationMode.off;
-    return [
-      RaftSettingsPreference(
-        key: const ValueKey('setting-preferredTranslationMode'),
-        gapBefore: 16,
-        title: 'Translation mode',
-        description: 'Auto translates visible messages. Manual adds Translate to each message menu. Off keeps originals only.',
-        // The menu action needs the server gate and a configured provider.
-        notice: !settings.loaded || settings.available
-            ? null
-            : !settings.serverEnabled
-            ? settings.canManage
-                  ? 'Translation is not enabled on this server yet. Turn it on under Administration → Translation.'
-                  : 'Translation is not enabled on this server yet.'
-            : 'This deployment has no translation provider configured, so translations cannot run yet.',
-        error: translations.settingsError,
-        child: RaftSegmentedControl<MessageTranslationMode>(
-          style: RaftSegmentedStyle.tabs,
-          value: settings.mode,
-          label: raftText(context, 'Message translation mode'),
-          items: [
-            for (final (mode, label) in const [
-              (MessageTranslationMode.auto, 'Auto'),
-              (MessageTranslationMode.manual, 'Manual'),
-              (MessageTranslationMode.off, 'Off'),
-            ])
-              RaftSegmentedOption(value: mode, label: raftText(context, label)),
-          ],
-          onChanged: busy
-              ? null
-              : (mode) => setPreference('preferredTranslationMode', mode.name),
-        ),
-      ),
-      if (!off) ...[
-        selector(
-          'preferredLanguage',
-          'Translation target',
-          {'browser': 'Device default', ...messageTranslationLanguages},
-          fallback: 'browser',
-          gapBefore: 16,
-        ),
-        RaftSettingsPreference(
-          key: const ValueKey('setting-preferredTranslationDisplay'),
-          gapBefore: 16,
-          title: 'Default view',
-          description:
-              'Choose whether messages show translation, original, or both.',
-          child: RaftSegmentedControl<MessageTranslationDisplay>(
-            style: RaftSegmentedStyle.tabs,
-            value: settings.display,
-            label: raftText(context, 'Message translation display'),
-            items: [
-              for (final (display, label) in const [
-                (MessageTranslationDisplay.translated, 'Translated'),
-                (MessageTranslationDisplay.original, 'Original'),
-                (MessageTranslationDisplay.bilingual, 'Bilingual'),
-              ])
-                RaftSegmentedOption(
-                  value: display,
-                  label: raftText(context, label),
-                ),
-            ],
-            onChanged: busy
-                ? null
-                : (display) => setPreference(
-                    'preferredTranslationDisplay',
-                    display.name,
-                  ),
-          ),
-        ),
-      ],
-    ];
-  }
+  Future<void> saveLanguage(BuildContext context) => patch(
+    {
+      if ((draftDisplayLanguage ?? liveLocale(context)) != liveLocale(context))
+        'displayLanguage': draftDisplayLanguage,
+      if ((draftTarget ?? savedTarget) != savedTarget)
+        'preferredLanguage': draftTarget == 'browser' ? null : draftTarget,
+      if ((draftMode ?? savedMode) != savedMode)
+        'preferredTranslationMode': draftMode,
+      if ((draftDisplay ?? savedDisplay) != savedDisplay)
+        'preferredTranslationDisplay': draftDisplay,
+    },
+    language: true,
+    failure: 'Failed to update language preferences',
+  );
+
+  Future<void> saveDateTime() => patch(
+    {
+      if ((draftTimezone ?? savedTimezone) != savedTimezone)
+        'preferredTimezone': draftTimezone!.isEmpty ? null : draftTimezone,
+      if ((draftTimeFormat ?? savedTimeFormat) != savedTimeFormat)
+        'preferredTimeFormat': draftTimeFormat,
+    },
+    language: false,
+    failure: 'Failed to update date and time preferences',
+  );
 
   @override
   Widget build(BuildContext context) {
-    final user = w.client.user,
-        recipe = RaftSettingsLayoutRecipe(RaftTokens.of(context));
-    Widget selector(
-      String key,
-      String title,
-      Map<String, String> options, {
-      String fallback = 'auto',
-      double gapBefore = 0,
-    }) {
-      final accepted = user?.string(key) ?? '',
-          value = options.containsKey(accepted) ? accepted : fallback;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (gapBefore > 0) SizedBox(height: gapBefore),
-          Text(raftText(context, title), style: recipe.sectionTitle),
-          const SizedBox(height: 8),
-          RaftSelectField<String>(
-            key: ValueKey('setting-$key'),
-            label: title,
-            value: value,
-            items: [
-              for (final option in options.entries)
-                DropdownMenuItem(
-                  value: option.key,
-                  child: Text(raftText(context, option.value)),
-                ),
-            ],
-            onChanged: pendingField != null
-                ? null
-                : (v) {
-                    if (v != null) setPreference(key, v);
-                  },
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        selector('displayLanguage', 'Display language', const {
-          'auto': 'Device default',
-          'en': 'English',
-          'zh-cn': '简体中文',
-        }),
-        ...translationControls(context, selector),
-        selector('preferredTimeFormat', 'Time format', gapBefore: 16, const {
-          'auto': 'Device default',
-          '12h': '12-hour',
-          '24h': '24-hour',
-        }),
-        if (pendingField != null)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: LinearProgressIndicator(),
-          ),
-        if (preferenceError != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Semantics(
-              liveRegion: true,
-              child: Text(
-                preferenceError!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          ),
+    final settings = translations.settings;
+    final busy = translations.settingsLoading;
+    final mode = draftMode ?? savedMode;
+    final effective = settings.effectiveLanguage.toUpperCase();
+    final zones = _timezoneOptions(savedTimezone);
+    return RaftLanguageRegionView(
+      displayLanguage: draftDisplayLanguage ?? liveLocale(context),
+      displayLanguageOptions: const [('en', 'English'), ('zh-cn', '简体中文')],
+      showChineseCoverageNotice: liveLocale(context) == 'zh-cn',
+      translationMode: mode,
+      translationNotice: !settings.loaded || settings.available
+          ? null
+          : !settings.serverEnabled
+          ? settings.canManage
+                ? 'Translation is not enabled on this server yet. Turn it on under Administration → Translation.'
+                : 'Translation is not enabled on this server yet.'
+          : 'This deployment has no translation provider configured, so translations cannot run yet.',
+      translationTarget: draftTarget ?? savedTarget,
+      translationTargetOptions: [
+        ('browser', 'Browser language'),
+        for (final e in messageTranslationLanguages.entries) (e.key, e.value),
       ],
+      translationTargetDescription: raftFormat(
+        context,
+        'Browser language resolves to {language} for this browser.',
+        {'language': effective},
+      ),
+      translationDisplay: draftDisplay ?? savedDisplay,
+      languageError: languageError ?? translations.settingsError,
+      languageDirty: languageDirty(context),
+      languageSave: savingLanguage
+          ? RaftLanguageSaveState.saving
+          : languageSaved
+          ? RaftLanguageSaveState.saved
+          : RaftLanguageSaveState.idle,
+      timezone: draftTimezone ?? savedTimezone,
+      timezoneOptions: zones,
+      timeFormat: draftTimeFormat ?? savedTimeFormat,
+      dateTimeError: dateTimeError ?? translations.settingsError,
+      dateTimeDirty: dateTimeDirty,
+      dateTimeSave: savingDateTime
+          ? RaftLanguageSaveState.saving
+          : dateTimeSaved
+          ? RaftLanguageSaveState.saved
+          : RaftLanguageSaveState.idle,
+      disabled: busy || savingLanguage || savingDateTime,
+      onDisplayLanguage: (v) => edit(() => draftDisplayLanguage = v),
+      onTranslationMode: (v) => edit(() => draftMode = v),
+      onTranslationTarget: (v) => edit(() => draftTarget = v),
+      onTranslationDisplay: (v) => edit(() => draftDisplay = v),
+      onSaveLanguage: () => saveLanguage(context),
+      onTimezone: (v) => edit(() => draftTimezone = v, language: false),
+      onTimeFormat: (v) => edit(() => draftTimeFormat = v, language: false),
+      onSaveDateTime: saveDateTime,
     );
   }
+}
+
+// ------------------------------------------------------------- timezones
+
+/// Web `COMMON_TIMEZONE_IDS` (translationStore.ts).
+const _commonTimezones = [
+  'UTC',
+  'America/Anchorage',
+  'America/Los_Angeles',
+  'America/Denver',
+  'America/Phoenix',
+  'America/Chicago',
+  'America/New_York',
+  'America/Toronto',
+  'America/Mexico_City',
+  'America/Bogota',
+  'America/Lima',
+  'America/Sao_Paulo',
+  'America/Argentina/Buenos_Aires',
+  'Europe/London',
+  'Europe/Dublin',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Amsterdam',
+  'Europe/Zurich',
+  'Europe/Stockholm',
+  'Europe/Warsaw',
+  'Europe/Istanbul',
+  'Europe/Moscow',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Bangkok',
+  'Asia/Singapore',
+  'Asia/Shanghai',
+  'Asia/Hong_Kong',
+  'Asia/Taipei',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+];
+
+int _offsetMinutes(String zone, DateTime now) {
+  if (zone == 'UTC') return 0;
+  return tz.TZDateTime.from(now, tz.getLocation(zone)).timeZoneOffset.inMinutes;
+}
+
+/// `formatTimezoneLabel`: `UTC+08:00 Asia/Shanghai`.
+String _timezoneLabel(String zone, DateTime now) {
+  final minutes = _offsetMinutes(zone, now);
+  final abs = minutes.abs();
+  final sign = minutes < 0 ? '-' : '+';
+  return 'UTC$sign${(abs ~/ 60).toString().padLeft(2, '0')}:${(abs % 60).toString().padLeft(2, '0')} $zone';
+}
+
+/// The browser's IANA zone: `TZ` when it names one (Linux hosts, tests), else
+/// the first common zone sharing the device's current UTC offset.
+String _detectTimezone(DateTime now) {
+  final env = Platform.environment['TZ'];
+  if (env != null && env.isNotEmpty) {
+    try {
+      tz.getLocation(env);
+      return env;
+    } catch (_) {}
+  }
+  final offset = now.timeZoneOffset.inMinutes;
+  for (final zone in _commonTimezones) {
+    if (_offsetMinutes(zone, now) == offset) return zone;
+  }
+  return 'UTC';
+}
+
+bool _timezonesReady = false;
+void _initializeTimezones() {
+  if (_timezonesReady) return;
+  tzdata.initializeTimeZones();
+  _timezonesReady = true;
+}
+
+List<RaftLanguageOption> _timezoneOptions(String preferred) {
+  final now = DateTime.now();
+  final effective = preferred.isEmpty ? _detectTimezone(now) : preferred;
+  final ids = {..._commonTimezones, effective}.toList()
+    ..sort((a, b) {
+      final byOffset = _offsetMinutes(a, now).compareTo(_offsetMinutes(b, now));
+      return byOffset != 0 ? byOffset : a.compareTo(b);
+    });
+  return [
+    ('', _timezoneLabel(effective, now)),
+    for (final id in ids) (id, _timezoneLabel(id, now)),
+  ];
 }

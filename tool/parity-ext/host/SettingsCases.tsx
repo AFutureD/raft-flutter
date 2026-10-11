@@ -86,7 +86,11 @@ function parityExtPrimeSettingsStores(props: ParityExtSettingsProps) {
 }
 
 function ParityExtSettingsCaseView({ props }: { props: ParityExtSettingsProps }) {
-  useMemo(() => parityExtPrimeSettingsStores(props), [props]);
+  useMemo(() => {
+    parityExtPrimeSettingsStores(props);
+    // Per-case store states of the WP6 surfaces (host/Wp6Cases.tsx).
+    parityExtWp6AfterSettingsPrime();
+  }, [props]);
   void parityExtSettingsFixture;
   if (props.mobile) {
     // Mobile settings sub-page: SettingsPanel fills the 390px viewport (its
