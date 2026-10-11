@@ -58,6 +58,22 @@ void main() {
         for (final element in headers.evaluate()) {
           expect(tester.getSize(find.byWidget(element.widget)).height, 56);
         }
+        // Every header draws Web's panel edge: brutal 2px black, elegant 1px.
+        final tokens = theme.extension<RaftTokens>()!;
+        for (final element in headers.evaluate()) {
+          final box = tester.widget<Container>(
+            find
+                .descendant(
+                  of: find.byWidget(element.widget),
+                  matching: find.byType(Container),
+                )
+                .first,
+          );
+          final edge = ((box.decoration! as BoxDecoration).border! as Border)
+              .bottom;
+          expect(edge.width, tokens.brutal ? 2 : 1);
+          if (tokens.brutal) expect(edge.color, Colors.black);
+        }
         final buttons = find.byType(BackButtonIcon);
         expect(buttons, findsNWidgets(3));
         for (var index = 0; index < 3; index++) {
