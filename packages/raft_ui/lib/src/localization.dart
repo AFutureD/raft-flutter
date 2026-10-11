@@ -327,6 +327,7 @@ const raftChinese = <String, String>{
   "The message image could not be exported.": "无法导出消息图片。",
   "{count} attachment(s)": "{count} 个附件",
   "Message #{name}": "向 #{name} 发送消息",
+  "Message @{name}": "向 @{name} 发送消息",
   "Open shared message": "打开分享的消息",
   "Add shared content": "添加分享内容",
   "Select a joined conversation before adding shared content.":

@@ -3287,7 +3287,10 @@ class _ResourceViewState extends State<ResourceView> {
       decoration: BoxDecoration(
         color: t.panel,
         border: Border(
-          bottom: BorderSide(color: t.line, width: t.border),
+          bottom: BorderSide(
+            color: t.brutal ? t.colors['color-black']! : t.line,
+            width: t.border,
+          ),
         ),
       ),
       child: Row(

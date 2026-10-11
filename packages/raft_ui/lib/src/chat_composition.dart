@@ -808,7 +808,7 @@ class RaftConversationDateHeader extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Transform.translate(
-                      offset: Offset(0, t.brutal ? 1 : 0),
+                      offset: Offset(0, t.brutal ? 1.5 : 0),
                       child: line,
                     ),
                   ),
@@ -826,7 +826,7 @@ class RaftConversationDateHeader extends StatelessWidget {
                   ),
                   Expanded(
                     child: Transform.translate(
-                      offset: Offset(0, t.brutal ? 1 : 0),
+                      offset: Offset(0, t.brutal ? 1.5 : 0),
                       child: line,
                     ),
                   ),

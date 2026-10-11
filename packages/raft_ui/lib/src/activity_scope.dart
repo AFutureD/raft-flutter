@@ -74,7 +74,10 @@ class RaftActivityScopeToolbar extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.panel,
         border: Border(
-          bottom: BorderSide(color: t.line, width: t.border),
+          bottom: BorderSide(
+            color: t.brutal ? Colors.black : t.line,
+            width: t.border,
+          ),
         ),
       ),
       child: compact

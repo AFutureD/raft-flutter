@@ -592,6 +592,68 @@ class RaftMessageBody extends StatelessWidget {
   }
 }
 
+/// Web `li` carries `mb-0.5` (2px) while MarkdownBuilder separates every block
+/// child, list items included, by `blockSpacing`. Rewrites the spacer between
+/// two list-item rows (a Column of `[li, spacer, li, ...]`, li = Row whose
+/// first child is the bullet slot) to [listItemGap], through nested lists.
+const _listItemGap = 2.0;
+
+Widget _tightenListItemGaps(Widget widget, double blockSpacing) {
+  bool isSpacer(Widget w) => w is SizedBox && w.height == blockSpacing;
+  bool isItem(Widget w) =>
+      w is Row && w.children.length == 2 && w.children.first is SizedBox;
+  if (widget is Column) {
+    final kids = widget.children;
+    final list =
+        kids.length >= 3 &&
+        kids.length.isOdd &&
+        [
+          for (var i = 0; i < kids.length; i++)
+            i.isEven ? isItem(kids[i]) : isSpacer(kids[i]),
+        ].every((ok) => ok);
+    return Column(
+      key: widget.key,
+      mainAxisAlignment: widget.mainAxisAlignment,
+      mainAxisSize: widget.mainAxisSize,
+      crossAxisAlignment: widget.crossAxisAlignment,
+      textDirection: widget.textDirection,
+      verticalDirection: widget.verticalDirection,
+      textBaseline: widget.textBaseline,
+      children: [
+        for (var i = 0; i < kids.length; i++)
+          if (list && i.isOdd)
+            const SizedBox(height: _listItemGap)
+          else
+            _tightenListItemGaps(kids[i], blockSpacing),
+      ],
+    );
+  }
+  if (widget is Row && isItem(widget)) {
+    final content = widget.children.last;
+    return Row(
+      key: widget.key,
+      mainAxisAlignment: widget.mainAxisAlignment,
+      mainAxisSize: widget.mainAxisSize,
+      crossAxisAlignment: widget.crossAxisAlignment,
+      textDirection: widget.textDirection,
+      verticalDirection: widget.verticalDirection,
+      textBaseline: widget.textBaseline,
+      children: [
+        widget.children.first,
+        content is Flexible
+            ? Flexible(
+                key: content.key,
+                flex: content.flex,
+                fit: content.fit,
+                child: _tightenListItemGaps(content.child, blockSpacing),
+              )
+            : content,
+      ],
+    );
+  }
+  return widget;
+}
+
 /// MarkdownBody with the parse step memoised: same builder, style sheet,
 /// defaults and widget output; only [md.Document.parseLines] is shared.
 class _RaftMarkdown extends MarkdownBody {
@@ -654,7 +716,7 @@ class _RaftMarkdownState extends State<MarkdownWidget>
 
   void rebuildChildren() {
     disposeRecognizers();
-    children = MarkdownBuilder(
+    final built = MarkdownBuilder(
       delegate: this,
       selectable: false,
       styleSheet: markdown.resolvedStyleSheet,
@@ -677,6 +739,8 @@ class _RaftMarkdownState extends State<MarkdownWidget>
       onTapText: null,
       softLineBreak: true,
     ).build(_parseMarkdown(widget.data));
+    final gap = markdown.resolvedStyleSheet.blockSpacing ?? 0;
+    children = [for (final child in built) _tightenListItemGaps(child, gap)];
   }
 
   @override
