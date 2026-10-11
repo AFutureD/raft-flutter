@@ -178,6 +178,8 @@ class RaftClient {
   Future<void>? _refreshing;
   Timer? _authRetry;
   Future<void> _persistence = Future<void>.value();
+  Future<void>? _credentialsReady;
+  Future<void>? _disposing;
   bool _closed = false;
   final _events = StreamController<RaftEvent>.broadcast();
   Stream<RaftEvent> get events => _events.stream;
@@ -190,7 +192,10 @@ class RaftClient {
 
   Future<void> _persist(Session? expected) {
     final pending = _persistence.catchError((Object _) {}).then((_) async {
-      if (_session == expected) await sessionStore.write(origin, expected);
+      if (_credentialsReady != null) await _credentialsReady;
+      if (!_closed && _session == expected) {
+        await sessionStore.write(origin, expected);
+      }
     });
     _persistence = pending;
     return pending;
@@ -208,17 +213,36 @@ class RaftClient {
   /// `account:updated` (the app fences a different principal), a rejected
   /// session ends with `session:ended`, and an unreachable server leaves the
   /// session in [restoredOffline].
-  Future<bool> restore({bool cachedFirst = false}) async {
+  ///
+  /// [credentialsReady] transfers ownership from another engine. Local display
+  /// can precede it, but requests wait and reload its final credential record.
+  /// [onLocalSession] reports whether an accepted local account is available,
+  /// before waiting for ownership or the network.
+  Future<bool> restore({
+    bool cachedFirst = false,
+    Future<void>? credentialsReady,
+    void Function(bool cached)? onLocalSession,
+  }) async {
     final authentication = ++_authenticationGeneration;
     _generation++;
     final stored = await sessionStore.read(origin);
     if (authentication != _authenticationGeneration || _closed) return false;
     _session = stored;
-    if (_session == null) return false;
-    if (cachedFirst && _session!.cachedUser != null) {
+    _credentialsReady = credentialsReady == null
+        ? null
+        : _reloadOwnedCredentials(credentialsReady, authentication, stored);
+    final cached = cachedFirst && _session?.cachedUser != null;
+    onLocalSession?.call(cached);
+    if (cached) {
       user = RaftRecord(Map<String, dynamic>.from(_session!.cachedUser!));
       _sessionValidated = _validateRestoredSession(authentication);
       return true;
+    }
+    if (_credentialsReady != null) await _credentialsReady;
+    if (authentication != _authenticationGeneration ||
+        _closed ||
+        _session == null) {
+      return false;
     }
     try {
       user = RaftRecord(Map<String, dynamic>.from(await get('/auth/me')));
@@ -240,9 +264,44 @@ class RaftClient {
     return true;
   }
 
+  // A headless owner may rotate or reject the stored session while the UI
+  // paints its cache. Never send a request or write the initial snapshot until
+  // ownership transfers and the latest complete credential record is read.
+  Future<void> _reloadOwnedCredentials(
+    Future<void> ready,
+    int authentication,
+    Session? snapshot,
+  ) async {
+    await ready;
+    if (_closed || authentication != _authenticationGeneration) return;
+    final latest = await sessionStore.read(origin);
+    if (_closed || authentication != _authenticationGeneration) return;
+    final principal = snapshot?.cachedUser?['id'];
+    if (latest == null && snapshot != null ||
+        principal != null &&
+            latest != null &&
+            latest.cachedUser != null &&
+            latest.cachedUser!['id'] != principal) {
+      _session = null;
+      user = null;
+      serverId = null;
+      _authenticationGeneration++;
+      _generation++;
+      _socket?.dispose();
+      _socket = null;
+      // Do not overwrite a different principal's newly stored session.
+      _emit(const RaftEvent('session:ended', null));
+      return;
+    }
+    _session = latest;
+    _credentialsReady = null;
+  }
+
   Future<void> _validateRestoredSession(int authentication) async {
     bool current() => !_closed && authentication == _authenticationGeneration;
     try {
+      if (_credentialsReady != null) await _credentialsReady;
+      if (!current() || _session == null) return;
       final next = RaftRecord(
         Map<String, dynamic>.from(await _accountRequest('GET', '/auth/me')),
       );
@@ -359,7 +418,7 @@ class RaftClient {
     await _persist(_session);
   }
 
-  Future<void> logout() async {
+  Future<void> logout({Future<Session?>? revocationSession}) async {
     final old = _session;
     _authenticationGeneration++;
     _session = null;
@@ -368,13 +427,23 @@ class RaftClient {
     _generation++;
     _socket?.dispose();
     _socket = null;
-    await _persist(null);
+    Session? revoked = old;
+    if (revocationSession == null) {
+      await _persist(null);
+    } else {
+      // Attach both waits immediately: a failed handoff must not leave an
+      // unobserved persistence or revocation-record failure.
+      revoked = (await Future.wait<Session?>([
+        revocationSession,
+        _persist(null).then((_) => null),
+      ])).first;
+    }
     Future<dynamic>? revocation;
-    if (old != null) {
+    if (revoked != null) {
       revocation = request(
         'POST',
         '/auth/logout',
-        data: {'refreshToken': old.refreshToken},
+        data: {'refreshToken': revoked.refreshToken},
         authorized: false,
       );
     }
@@ -495,6 +564,14 @@ class RaftClient {
         serverId != null &&
         (method == 'DELETE' && path == '/servers/$serverId' ||
             method == 'POST' && path == '/servers/$serverId/leave');
+    if (authorized) {
+      if (_credentialsReady != null) await _credentialsReady;
+      if (_closed ||
+          authentication != _authenticationGeneration ||
+          requestGeneration != generation()) {
+        throw const RaftApiException('The account or workspace changed.');
+      }
+    }
     try {
       final response = await http.request<dynamic>(
         path,
@@ -569,8 +646,15 @@ class RaftClient {
     }
   }
 
-  Future<void> refresh() =>
-      _refreshing ??= _rotate().whenComplete(() => _refreshing = null);
+  Future<void> refresh() async {
+    final authentication = _authenticationGeneration;
+    if (_credentialsReady != null) await _credentialsReady;
+    if (_closed || authentication != _authenticationGeneration) {
+      throw const RaftApiException('The account changed.');
+    }
+    await (_refreshing ??= _rotate().whenComplete(() => _refreshing = null));
+  }
+
   Future<void> _rotate() async {
     var old = _session;
     if (old == null)
@@ -643,7 +727,21 @@ class RaftClient {
   }
 
   void connect() {
-    if (_session == null || serverId == null) return;
+    final ready = _credentialsReady;
+    if (ready != null) {
+      final epoch = _generation;
+      unawaited(
+        ready.then<void>((_) {
+          if (!_closed && epoch == _generation) _connectOwned();
+        }, onError: (Object _, StackTrace _) {}),
+      );
+      return;
+    }
+    _connectOwned();
+  }
+
+  void _connectOwned() {
+    if (_closed || _session == null || serverId == null) return;
     _socket?.dispose();
     final epoch = _generation;
     final socket = io.io(
@@ -848,8 +946,9 @@ class RaftClient {
     );
   }
 
-  Future<void> dispose() async {
-    if (_closed) return;
+  Future<void> dispose() => _disposing ??= _dispose();
+
+  Future<void> _dispose() async {
     _closed = true;
     _generation++;
     _authenticationGeneration++;
@@ -857,7 +956,8 @@ class RaftClient {
     user = null;
     _authRetry?.cancel();
     _socket?.dispose();
+    http.close(force: true);
+    await _persistence.catchError((Object _) {});
     await _events.close();
-    http.close();
   }
 }
