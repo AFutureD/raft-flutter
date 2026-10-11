@@ -59,5 +59,6 @@ Use `--dart-define=RAFT_ORIGIN=http://localhost:13041` to point a build at a loc
 | Page coverage and alignment with the Web client (parity suites, page inventory, alignment audit) | [docs/parity-and-alignment.md](docs/parity-and-alignment.md) |
 | Performance tuning and debugging (perf lab, Android transitions, diagnostics switches) | [docs/performance.md](docs/performance.md) |
 | Self-deploy (server origin, release builds, signing and packaging) | [docs/deployment.md](docs/deployment.md) |
+| GitHub CI builds and version-tag releases (Windows first, expandable platform matrix) | [docs/release-ci.md](docs/release-ci.md) |
 | Architecture | [docs/architecture.md](docs/architecture.md) |
 | Windows build, notification setup and verified limits | [docs/windows-notifications.md](docs/windows-notifications.md) |
