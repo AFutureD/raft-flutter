@@ -325,7 +325,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Community agreement'), findsOneWidget);
       expect(find.text('Version 3'), findsOneWidget);
-      await t.tap(find.byKey(const ValueKey('public-agreement-agree')));
+      await t.tap(find.byKey(const ValueKey('community-agreement-agree')));
       await t.pumpAndSettle();
       expect(sent, {'agreementId': 'ag1'});
       expect(joined, 1);

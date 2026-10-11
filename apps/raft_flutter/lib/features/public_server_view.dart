@@ -13,6 +13,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/source_time_formatter.dart';
 import '../platform/content_links.dart';
+import 'community_join.dart' show communityAgreementError;
 import 'management_support.dart';
 import 'sender_avatar_projection.dart';
 
@@ -442,46 +443,28 @@ class _PublicServerViewState extends State<PublicServerView> {
     if (asked != null && mounted) await showAgreement(asked!);
   }
 
+  /// The shared community agreement dialog (CommunityAgreementDialog.tsx).
+  /// Agreeing joins with the agreement id; a changed agreement
+  /// (`agreement_changed`) replaces the one shown, any other failure keeps the
+  /// dialog open with its error line.
   Future<void> showAgreement(Map<String, dynamic> first) async {
     var current = first;
-    var submitting = false;
-    String? failure;
     await showRaftModal<void>(
       context,
       builder: (modal) => StatefulBuilder(
-        builder: (modal, update) => RaftPublicAgreementDialog(
+        builder: (modal, update) => RaftCommunityAgreementDialog(
           title: '${current['title']}',
-          version: raftFormat(modal, 'Version {version}', {
-            'version': current['version'],
-          }),
-          body: RaftAgreementBody(source: '${current['bodyMarkdown'] ?? ''}'),
-          error: failure,
-          submitting: submitting,
+          version: (current['version'] as num?)?.toInt() ?? 1,
+          bodyMarkdown: '${current['bodyMarkdown'] ?? ''}',
+          errorMessage: communityAgreementError,
           onClose: () => Navigator.of(modal).pop(),
           onAgree: () async {
-            update(() {
-              submitting = true;
-              failure = null;
-            });
-            try {
-              final next = await joinAsGuest('${current['id']}');
-              if (next == null) {
-                if (modal.mounted) Navigator.of(modal).pop();
-                return;
-              }
-              if (modal.mounted) {
-                update(() {
-                  current = next;
-                  submitting = false;
-                });
-              }
-            } catch (_) {
-              if (modal.mounted) {
-                update(() {
-                  submitting = false;
-                  failure = raftText(modal, 'Failed to join community server');
-                });
-              }
+            final next = await joinAsGuest('${current['id']}');
+            if (!modal.mounted) return;
+            if (next == null) {
+              Navigator.of(modal).pop();
+            } else {
+              update(() => current = next);
             }
           },
         ),

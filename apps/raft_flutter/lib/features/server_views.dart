@@ -6,6 +6,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
+import 'archived_channels_section.dart';
+import 'invite_accept_view.dart';
 import 'public_visibility_view.dart';
 
 class WorkspaceActions {
@@ -42,6 +44,8 @@ class WorkspaceActions {
     );
   }
 
+  /// Join workspace: paste an invite link or code; the invite page (the Web
+  /// InviteAcceptPage) then shows the invitation and joins.
   static Future<void> join(BuildContext context, WorkspaceController w) async {
     await showDialog(
       context: context,
@@ -57,60 +61,13 @@ class WorkspaceActions {
           ),
         ],
         onSubmit: (values) async {
-          final input = values['token']!, uri = Uri.tryParse(values['token']!);
-          final token = uri != null && uri.hasScheme
-              ? (uri.queryParameters['invite'] ??
-                    uri.queryParameters['token'] ??
-                    (uri.pathSegments.length >= 2 &&
-                            uri.pathSegments.first == 'join'
-                        ? uri.pathSegments.last
-                        : ''))
-              : input;
-          if (token.isEmpty) {
+          final link = InviteLink.fromInput(values['token']!);
+          if (link == null) {
             throw const RaftApiException(
               'Enter a valid invitation link or code.',
             );
           }
-          final info = await w.client.get(
-            '/auth/invite-info',
-            query: {'token': token},
-          );
-          if (!dialogContext.mounted) return;
-          final agreement = info['agreement'];
-          String? joinedId;
-          final accepted = await showDialog<bool>(
-            context: dialogContext,
-            builder: (_) => RaftFormDialog(
-              title: raftFormat(context, 'Join {workspace}?', {
-                'workspace': info['serverName'],
-              }),
-              description: agreement is Map
-                  ? '${agreement['title']} · Version ${agreement['version']}\n\n${agreement['bodyMarkdown']}'
-                  : 'You have been invited to this workspace${info['inviterName'] == null ? '' : ' by ${info['inviterName']}'}.',
-              fields: [],
-              submitLabel: agreement == null
-                  ? 'Join workspace'
-                  : 'Agree and join',
-              onSubmit: (_) async {
-                final result = await w.client.post(
-                  '/auth/accept-invite',
-                  data: {
-                    'token': token,
-                    if (agreement is Map) 'agreementId': agreement['id'],
-                  },
-                );
-                joinedId = result['serverId'];
-              },
-            ),
-          );
-          if (accepted != true) {
-            throw const RaftApiException(
-              'The invitation has not been accepted.',
-            );
-          }
-          await w.recoverMembership();
-          final next = w.servers.where((s) => s.id == joinedId).firstOrNull;
-          if (next != null) await w.selectServer(next);
+          InviteRequests.instance.open(link);
         },
       ),
     );
@@ -163,9 +120,9 @@ class WorkspaceActions {
 }
 
 /// SettingsPanel.tsx ServerTabContent for the fixture capabilities:
-/// ProfileSection + DangerZoneSection. (PublicVisibilitySection and
-/// ArchivedChannelsSection render nothing without public visibility /
-/// archived channels.) Invitations live under Administration and the
+/// ProfileSection + PublicVisibilitySection + ArchivedChannelsSection +
+/// DangerZoneSection (the middle two render nothing without public
+/// visibility / archived channels). Invitations live under Administration and the
 /// workspace push mode under Notifications.
 class ServerSettingsView extends StatefulWidget {
   const ServerSettingsView({super.key, required this.controller});
@@ -377,6 +334,8 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
           controller: w,
           webOrigin: ContentLinks.originFor(w.client.origin).origin,
         ),
+        // ArchivedChannelsSection (may archive channels, any archived).
+        ArchivedChannelsSection(controller: w),
         const RaftSettingsSectionHeader(
           label: 'Danger Zone',
           glyph: RaftGlyph.triangleAlert,
@@ -384,7 +343,8 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
         if (canLeave) ...[
           RaftSettingsActionCard(
             title: 'Leave Server',
-            description: "You will lose access to this server's channels and DMs. You can rejoin if invited again.",
+            description:
+                "You will lose access to this server's channels and DMs. You can rejoin if invited again.",
             action: RaftSettingsRecipeButton(
               key: const Key('server-danger-leave-button'),
               label: 'Leave Server',
@@ -399,7 +359,8 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
             key: const Key('server-danger-delete-card'),
             stacked: true,
             title: 'Delete Server',
-            description: 'Permanently remove this server and all its data. This cannot be undone.',
+            description:
+                'Permanently remove this server and all its data. This cannot be undone.',
             action: RaftSettingsRecipeButton(
               key: const Key('server-danger-delete-button'),
               label: 'Delete Server',

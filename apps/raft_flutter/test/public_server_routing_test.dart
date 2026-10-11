@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftServerAccessDeniedPage;
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_flutter/features/global_server_selector.dart';
 import 'package:raft_flutter/features/public_server_view.dart';
@@ -156,10 +157,12 @@ void main() {
     expect(f.workspace(t).server?.string('slug'), 'gamma');
   });
 
-  testWidgets('signed in nonmember: a server that is not public shows the selector', (t) async {
+  testWidgets('signed in nonmember: a server that is not public shows the server-not-found page', (t) async {
     final f = RootFixture();
     await f.mount(t, 'elegant', 1280, uri: Uri(path: '/s/private-one'));
     expect(find.byType(PublicServerView), findsNothing);
-    expect(find.byType(GlobalServerSelector), findsOneWidget);
+    expect(find.byType(GlobalServerSelector), findsNothing);
+    expect(find.byType(RaftServerAccessDeniedPage), findsOneWidget);
+    await f.close(t);
   });
 }

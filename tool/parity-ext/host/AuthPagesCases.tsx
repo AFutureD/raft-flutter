@@ -72,8 +72,11 @@ function ParityExtApSettings({ p }: { p: ParityExtApP }) {
     }
     if (p.patch === "archived") {
       const channels = parityExtApChannelStore.getState().channels;
+      // Idempotent: the layout effect runs twice under StrictMode, and a second append would
+      // list every archived channel twice (duplicate React keys).
+      const known = new Set(channels.map((c: any) => c.id));
       parityExtApChannelStore.setState({
-        channels: [...channels, ...fx.archivedChannels.map((c: any) => ({
+        channels: [...channels, ...fx.archivedChannels.filter((c: any) => !known.has(c.id)).map((c: any) => ({
           ...channels[0], ...c, joined: true, serverId: channels[0]?.serverId,
         }))],
       } as never);

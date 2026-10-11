@@ -51,8 +51,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
     'archivedChannelName',
     'archivedChannelType',
     'canUnarchiveArchivedChannel',
-    // Public guest join: 409 agreement_required / agreement_changed carries
-    // the community agreement to show (public text, not a credential).
+    // agreement_required / agreement_changed: the community agreement the
+    // caller must accept before joining (a public guest join, a community
+    // server or an invite); public text, not a credential.
     'agreement',
   };
   dynamic freeze(dynamic value) {

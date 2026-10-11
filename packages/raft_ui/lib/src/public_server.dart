@@ -2,7 +2,7 @@
 // packages/web/src/pages/PublicServerPage.tsx): the anonymous `/s/<slug>`
 // preview (and the signed-in nonmember variant) with the public channel
 // sidebar, the bottom sign-in / join banner, the floating notices and the
-// community agreement dialog. The rail, header and message rows reuse the
+// shared community agreement dialog (community_agreement_dialog.dart). The rail, header and message rows reuse the
 // shared raft_ui components; the app owns the data and the join flow.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -10,7 +10,6 @@ import 'package:flutter/rendering.dart';
 import 'banner.dart';
 import 'channel_header.dart' show raftCollapseWhitespace;
 import 'computer_surfaces.dart' show RaftPanelHeaderIconTile;
-import 'dialog_card.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
@@ -387,135 +386,6 @@ class RaftPublicFloatingBanner extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// Community agreement shown when guest join answers `agreement_required`
-/// (CommunityAgreementDialog.tsx): title and version, the scrolling markdown
-/// body and Cancel / Agree & Continue.
-class RaftPublicAgreementDialog extends StatelessWidget {
-  const RaftPublicAgreementDialog({
-    super.key,
-    required this.title,
-    required this.version,
-    required this.body,
-    required this.onClose,
-    required this.onAgree,
-    this.submitting = false,
-    this.error,
-  });
-  final String title, version;
-  final Widget body;
-  final String? error;
-  final bool submitting;
-  final VoidCallback onClose, onAgree;
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final text = RaftSettingsText(t);
-    return RaftModalBackdrop(
-      child: RaftRecipeCard(
-        maxWidth: 512,
-        padding: const EdgeInsets.all(RaftSpace.x5),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Semantics(
-                        header: true,
-                        child: Text(
-                          title,
-                          style: RaftTypography.body(
-                            t,
-                            size: 18,
-                            line: 28,
-                            weight: FontWeight.w700,
-                            color: text.strong,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: RaftSpace.half),
-                      Text(
-                        version,
-                        style: RaftTypography.body(
-                          t,
-                          size: 12,
-                          line: 16,
-                          color: t.brutal
-                              ? Colors.black.withValues(alpha: .5)
-                              : t.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: RaftSpace.x3),
-                RaftCloseButton(onPressed: onClose),
-              ],
-            ),
-            const SizedBox(height: RaftSpace.x4),
-            Flexible(
-              child: Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * .5,
-                ),
-                padding: const EdgeInsets.all(RaftSpace.x4),
-                decoration: BoxDecoration(
-                  color: t.brutal ? Colors.white : t.panel,
-                  border: Border.all(color: text.edge, width: 2),
-                ),
-                child: SingleChildScrollView(
-                  child: DefaultTextStyle.merge(
-                    style: RaftTypography.body(
-                      t,
-                      size: 14,
-                      line: 20,
-                      color: text.strong,
-                    ),
-                    child: body,
-                  ),
-                ),
-              ),
-            ),
-            if (error != null) ...[
-              const SizedBox(height: RaftSpace.x4),
-              RaftBanner(
-                status: RaftBannerRecipeStatus.warning,
-                size: RaftBannerRecipeSize.sm,
-                description: error!,
-                descriptionWeight: FontWeight.w700,
-              ),
-            ],
-            const SizedBox(height: RaftSpace.x5),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              spacing: RaftSpace.x3,
-              children: [
-                RaftSettingsRecipeButton(
-                  label: 'Cancel',
-                  size: RaftButtonRecipeSize.sm,
-                  onPressed: submitting ? null : onClose,
-                ),
-                RaftSettingsRecipeButton(
-                  key: const ValueKey('public-agreement-agree'),
-                  label: submitting ? 'Joining…' : 'Agree & Continue',
-                  variant: RaftButtonRecipeVariant.accent,
-                  size: RaftButtonRecipeSize.sm,
-                  onPressed: submitting ? null : onAgree,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// A one-line `text-sm text-foreground-muted` centred message (empty channel

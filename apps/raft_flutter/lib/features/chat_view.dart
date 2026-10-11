@@ -2349,7 +2349,7 @@ class _RaftChatViewState extends State<RaftChatView>
         message: raftFormat(
           context,
           "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.",
-          {'deadline': timeFormatter.mediumDateTime(ends)},
+          {'deadline': timeFormatter.mediumDateTime(ends, followPreference: false)},
         ),
       );
     }

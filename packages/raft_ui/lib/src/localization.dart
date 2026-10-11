@@ -3899,6 +3899,9 @@ const raftChinese = <String, String>{
   "Unable to open thread. It may be unavailable or deleted.":
       "无法打开消息列，它可能不可用或已被删除。",
   "Unarchive": "取消归档",
+  "Unarchive {name}": "取消归档 {name}",
+  "Open {name}": "打开 {name}",
+  "{type} · Archived {date}": "{type} · 归档于 {date}",
   "Unarchive Channel": "取消归档频道",
   "Unarchive it to keep its history, or choose a different name.":
       "取消归档可保留其历史记录，或者改用其他名称。",

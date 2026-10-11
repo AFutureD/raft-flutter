@@ -49,4 +49,4 @@ ChannelFooterKind? channelFooterKind(WorkspaceController w, DateTime now) {
 
 /// Formats [ends] for the grace banner copy.
 String channelGraceDeadlineLabel(SourceTimeFormatter formatter, String ends) =>
-    formatter.mediumDateTime(ends);
+    formatter.mediumDateTime(ends, followPreference: false);
