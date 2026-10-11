@@ -119,6 +119,8 @@ const raftChinese = <String, String>{
   "Notification settings could not be loaded.": "无法加载通知设置。",
   "Stops notifications from {serverName} for your account. Other servers are unchanged.":
       "停止接收来自 {serverName} 的通知，其他服务器不受影响。",
+  "Not notified: {handles}. Select a person or agent from the mention picker and try again if needed.":
+      "未通知：{handles}。如需通知，请从提及选择器中选择具体的人类成员或 Agent 后重试。",
   "Notifications from {serverName} are muted.": "已静音来自 {serverName} 的通知。",
   "Notifications from {serverName} are unmuted.": "已恢复来自 {serverName} 的通知。",
   "Comments · {filename}": "评论 · {filename}",

@@ -190,7 +190,7 @@ class _HostState extends State<_Host> {
               const Positioned.fill(child: RaftComposerDropOverlay()),
           ],
         ),
-        accessoryRow: raftComposerAccessory(w),
+        accessoryRow: raftComposerAccessory(context, w),
         taskAction: thread
             ? null
             : RaftComposerTaskToggle(

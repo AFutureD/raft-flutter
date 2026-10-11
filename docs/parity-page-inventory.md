@@ -32,12 +32,12 @@ list of pages that default-theme coverage must reach.
 - Pages (rows) in the inventory: **180** in 9 areas, of which **20** are excluded as dead,
   obsolete or not shown to normal users (below), leaving **160** pages that count. 7 dev-only / entry-less
   routes are excluded on top (end of the document). 10 counted pages are flagged "verify" (reachability unclear).
-- Fully covered on every platform they exist on: **107**; partly covered (partial / wip): **5**; with at least one MISSING platform: **48**.
+- Fully covered on every platform they exist on: **110**; partly covered (partial / wip): **5**; with at least one MISSING platform: **45**.
 
 | platform | pages that exist there | ok | partial | wip | MISSING |
 | --- | --- | --- | --- | --- | --- |
-| Desktop (D) | 155 | 114 | 2 | 1 | 38 |
-| Phone (P) | 150 | 113 | 4 | 0 | 33 |
+| Desktop (D) | 155 | 117 | 2 | 1 | 35 |
+| Phone (P) | 150 | 114 | 4 | 0 | 32 |
 
 Excluded pages by reason (rows / extra routes):
 
@@ -55,7 +55,7 @@ Findings:
 
 - The official suite covers phone only, so every desktop page depends on the extension suite; the extension
   suite is concentrated on Settings, Auth, Thread and Shell components and has almost no composed desktop screens.
-- 38 desktop and 33 phone page-platforms have no case.
+- 35 desktop and 32 phone page-platforms have no case.
 - Agent detail: `AgentDetailPanel` has seven tabs (profile, activity, chat, reminders, workspace, apps, MCP). The
   base branch already has desktop cases for six of them (`components.members-ext.agent.*`, including `mcp*`). Chat has
   no case on either platform and MCP has none on phone. Desktop agent-detail work is in progress on
@@ -78,43 +78,40 @@ Ordered by priority, then pages not flagged "verify" first, then missing on both
 | 9 | 3.07 | Channel Files tab (list; empty, loading, error, load more) | D | P2 common |
 | 10 | 3.11 | Message context menu (default message, task message) | D | P2 common |
 | 11 | 3.14 | Forward composer (destinations, note, send) | D | P2 common |
-| 12 | 3.21 | Composer "As task" mode | D | P2 common |
-| 13 | 3.30 | Profile side panel (open from a sender) | D | P2 common |
-| 14 | 5.02 | Search results page (phone Search tab; desktop "view all results") | D | P2 common |
-| 15 | 5.09 | Saved messages list | D | P2 common |
-| 16 | 7.10 | Agent detail: Chat tab (channels and DMs of the agent) | P | P2 common |
-| 17 | 8.02 | Phone Computers page (list, needs-attention filter, empty, load error, refresh error) | P | P2 common |
-| 18 | 8.03 | Computer detail (header, identity, name / description edit, info, agents + bulk select, workspaces, service, recovery guide, offline, upgrading, disk low, legacy, delete) | P | P2 common |
-| 19 | 5.12 | Activity Done and Saved views, channel filter, sort, in-list search (verify) | D+P | P2 common |
-| 20 | 2.11 | Section emoji picker | D+P | P3 rare / admin / edge |
-| 21 | 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | D+P | P3 rare / admin / edge |
-| 22 | 3.12 | Reaction chips row and reactors tooltip | D+P | P3 rare / admin / edge |
-| 23 | 3.16 | Quoted message permalink preview and linked-message fallbacks | D+P | P3 rare / admin / edge |
-| 24 | 3.18 | Mermaid full-screen viewer | D+P | P3 rare / admin / edge |
-| 25 | 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | D+P | P3 rare / admin / edge |
-| 26 | 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | D+P | P3 rare / admin / edge |
-| 27 | 3.37 | Thread load failed (retry), guest read-only, joint locked | D+P | P3 rare / admin / edge |
-| 28 | 3.38 | In-thread search (search bar, next / previous match) | D+P | P3 rare / admin / edge |
-| 29 | 3.39 | Thread agent followers (list, remove, undo) | D+P | P3 rare / admin / edge |
-| 30 | 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | D+P | P3 rare / admin / edge |
-| 31 | 4.03 | Create shared (joint) channel dialog | D+P | P3 rare / admin / edge |
-| 32 | 5.08 | Activity item context menu (mark read / unread, follow, done) | D+P | P3 rare / admin / edge |
-| 33 | 5.11 | Saved item actions (copy link, copy Markdown, remove) | D+P | P3 rare / admin / edge |
-| 34 | 6.10 | Tasks loading and load-more states | D+P | P3 rare / admin / edge |
-| 35 | 2.10 | Section dialogs (new, rename, delete) | P | P3 rare / admin / edge |
-| 36 | 2.12 | Archive channel confirm (from the sidebar menu) | P | P3 rare / admin / edge |
-| 37 | 3.13 | Message selection mode (toolbar, share-as-image lightbox) | D | P3 rare / admin / edge |
-| 38 | 3.22 | Composer pending-mention action strip (agent outside the channel) | D | P3 rare / admin / edge |
-| 39 | 3.26 | Audio, video, PDF and diff / patch previews | P | P3 rare / admin / edge |
-| 40 | 3.28 | Mention hover activity preview | D | P3 rare / admin / edge |
-| 41 | 5.03 | Search channel filter dropdown | D | P3 rare / admin / edge |
-| 42 | 5.06 | Activity empty / loading / error | P | P3 rare / admin / edge |
-| 43 | 5.10 | Saved empty / loading / error | P | P3 rare / admin / edge |
-| 44 | 6.05 | Tasks list / board view toggle (the non-default view) | D | P3 rare / admin / edge |
-| 45 | 6.06 | Task status menu | D | P3 rare / admin / edge |
-| 46 | 8.04 | Add computer dialog (type step, connect step) | P | P3 rare / admin / edge |
-| 47 | 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | P | P3 rare / admin / edge |
-| 48 | 3.29 | External identity preview card and detail panel (verify) | D+P | P3 rare / admin / edge |
+| 12 | 3.30 | Profile side panel (open from a sender) | D | P2 common |
+| 13 | 5.02 | Search results page (phone Search tab; desktop "view all results") | D | P2 common |
+| 14 | 5.09 | Saved messages list | D | P2 common |
+| 15 | 7.10 | Agent detail: Chat tab (channels and DMs of the agent) | P | P2 common |
+| 16 | 8.02 | Phone Computers page (list, needs-attention filter, empty, load error, refresh error) | P | P2 common |
+| 17 | 8.03 | Computer detail (header, identity, name / description edit, info, agents + bulk select, workspaces, service, recovery guide, offline, upgrading, disk low, legacy, delete) | P | P2 common |
+| 18 | 5.12 | Activity Done and Saved views, channel filter, sort, in-list search (verify) | D+P | P2 common |
+| 19 | 2.11 | Section emoji picker | D+P | P3 rare / admin / edge |
+| 20 | 3.08 | Channel Tasks tab (TasksPanel scoped to the channel) | D+P | P3 rare / admin / edge |
+| 21 | 3.12 | Reaction chips row and reactors tooltip | D+P | P3 rare / admin / edge |
+| 22 | 3.16 | Quoted message permalink preview and linked-message fallbacks | D+P | P3 rare / admin / edge |
+| 23 | 3.18 | Mermaid full-screen viewer | D+P | P3 rare / admin / edge |
+| 24 | 3.34 | Translation in message rows (translating, original / bilingual, unavailable) | D+P | P3 rare / admin / edge |
+| 25 | 3.37 | Thread load failed (retry), guest read-only, joint locked | D+P | P3 rare / admin / edge |
+| 26 | 3.38 | In-thread search (search bar, next / previous match) | D+P | P3 rare / admin / edge |
+| 27 | 3.39 | Thread agent followers (list, remove, undo) | D+P | P3 rare / admin / edge |
+| 28 | 4.02 | Create channel states (name error, archived name held + Unarchive, plan limit, creating) | D+P | P3 rare / admin / edge |
+| 29 | 4.03 | Create shared (joint) channel dialog | D+P | P3 rare / admin / edge |
+| 30 | 5.08 | Activity item context menu (mark read / unread, follow, done) | D+P | P3 rare / admin / edge |
+| 31 | 5.11 | Saved item actions (copy link, copy Markdown, remove) | D+P | P3 rare / admin / edge |
+| 32 | 6.10 | Tasks loading and load-more states | D+P | P3 rare / admin / edge |
+| 33 | 2.10 | Section dialogs (new, rename, delete) | P | P3 rare / admin / edge |
+| 34 | 2.12 | Archive channel confirm (from the sidebar menu) | P | P3 rare / admin / edge |
+| 35 | 3.13 | Message selection mode (toolbar, share-as-image lightbox) | D | P3 rare / admin / edge |
+| 36 | 3.26 | Audio, video, PDF and diff / patch previews | P | P3 rare / admin / edge |
+| 37 | 3.28 | Mention hover activity preview | D | P3 rare / admin / edge |
+| 38 | 5.03 | Search channel filter dropdown | D | P3 rare / admin / edge |
+| 39 | 5.06 | Activity empty / loading / error | P | P3 rare / admin / edge |
+| 40 | 5.10 | Saved empty / loading / error | P | P3 rare / admin / edge |
+| 41 | 6.05 | Tasks list / board view toggle (the non-default view) | D | P3 rare / admin / edge |
+| 42 | 6.06 | Task status menu | D | P3 rare / admin / edge |
+| 43 | 8.04 | Add computer dialog (type step, connect step) | P | P3 rare / admin / edge |
+| 44 | 8.05 | Computer dialogs (restart / reset agents, stop agents, delete workspace, delete blocked, delete) | P | P3 rare / admin / edge |
+| 45 | 3.29 | External identity preview card and detail panel (verify) | D+P | P3 rare / admin / edge |
 
 ## 1. Auth, onboarding and public entry
 
@@ -211,10 +208,10 @@ Web: components/message (ChatPanel, MessageItem, MessageTimeline, MessageInput, 
 | 3.18 | Mermaid full-screen viewer | `components/mermaid/MermaidDiagramViewer.tsx` | MISSING | MISSING |  |  | [P3] |
 | 3.19 | Composer (empty, draft with send enabled) | `components/message/MessageInput.tsx` | ok | ok | `components.thread.composer.empty`<br>`components.thread.composer.states` | D: `components.thread-ext.thread.desktop.composer`<br>P: `components.thread-ext.thread.mobile.composer` |  |
 | 3.20 | Composer @mention and #channel suggestion popovers | `components/message/MessageInput.tsx, mentionCandidates.ts` | ok | ok | `components.thread.composer.member-suggestions`<br>`components.thread.composer.channel-suggestions` | D: `components.screens-ext.composer.desktop.*` | Desktop: @mention (not-in-channel group) and #channel popovers over the composed channel screen. |
-| 3.21 | Composer "As task" mode | `components/message/MessageInput.tsx` | MISSING | ok | `components.thread.composer.as-task-selected` |  | Desktop: no case. [P2] |
-| 3.22 | Composer pending-mention action strip (agent outside the channel) | `components/message/PendingMentionActionStrip.tsx` | MISSING | ok | `components.thread.composer.pending-mention-actions` |  | Desktop: no case. [P3] |
+| 3.21 | Composer "As task" mode | `components/message/MessageInput.tsx` | ok | ok | `components.thread.composer.as-task-selected` | D: `components.composer-states.as-task.desktop.*`<br>P: `components.composer-states.as-task.mobile.*` | Checkbox on, draft typed, over the composed channel screen (bottom window). |
+| 3.22 | Composer pending-mention action strip (agent outside the channel) | `components/message/PendingMentionActionStrip.tsx` | ok | ok | `components.thread.composer.pending-mention-actions` | D: `components.composer-states.pending-mention.desktop.*`<br>P: `components.composer-states.pending-mention.mobile.*` | Send receipt with one row, then two rows (Add all footer); Add / Notify / Ignore result states (Added / Queued chips, fade) have no case. |
 | 3.23 | Composer attachments (image, file, mixed, checking, uploading, failed, over size / count, drag over) | `components/message/MessageInput.tsx, AttachmentChip.tsx` | ok | ok | `components.thread.composer.image-preview`<br>`components.thread.composer.file-previews` | D: `components.composerattachments.desktop.*`<br>P: `components.composerattachments.mobile.*` |  |
-| 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | `components/message/MessageInput.tsx` | MISSING | MISSING |  |  | [P3] |
+| 3.24 | Composer warnings (agent stopped delivery, unresolved mentions, conversion in progress, archived badge) | `components/message/MessageInput.tsx` | ok | ok |  | D: `components.composer-states.warning.desktop.*`<br>`components.composer-states.suggestions.desktop.*`<br>P: `components.composer-states.warning.mobile.*`<br>`components.composer-states.suggestions.mobile.*` | Agent-stopped (DM) and unresolved-mention banners come from the send receipt; conversion in progress disables Send; archived badge in the #channel popover. Mention-action failure notice and the generic error banner have no case here. |
 | 3.25 | Attachment viewers (image lightbox + gallery, text / csv / xlsx / markdown, html sandbox, comments panel) | `components/message/attachmentPreviewSurfaces.tsx, ImageLightbox.tsx` | ok | ok | `components.thread.comment-anchor` | D: `components.thread-ext.attachment.*`<br>`!*.mobile`<br>P: `components.thread-ext.attachment.*.mobile` |  |
 | 3.26 | Audio, video, PDF and diff / patch previews | `components/message/MessageItem.tsx, ui/CrossOriginPdfFrame.tsx` | partial | MISSING |  | D: `components.thread-ext.attachment.doc.header-pdf` | Only the PDF header has a case. [P3] |
 | 3.27 | Profile preview card (hover / tap on an avatar: agent runtime, model, computer; human) | `components/message/ProfilePreviewCardContent.tsx` | MISSING | MISSING |  |  | [P2] |

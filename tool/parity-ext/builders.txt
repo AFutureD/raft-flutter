@@ -24,3 +24,4 @@ build-desktop-dialogs.py
 build-members-pages.py
 build-auth-pages.py
 build-screen-cases.py
+build-composer-states.py

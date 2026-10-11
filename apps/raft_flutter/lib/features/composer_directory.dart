@@ -232,11 +232,14 @@ class ComposerDirectory extends ChangeNotifier {
   List<RaftComposerSuggestion> get suggestions => [
     ...people,
     for (final c in w.channels)
-      if (!c.archived && ['channel', 'private', 'joint'].contains(c.type))
+      // Web `channelAutocompleteCandidates`: archived channels stay listed
+      // (`GET /channels?archived=include`) with an `archived` Badge.
+      if (['channel', 'private', 'joint'].contains(c.type))
         RaftComposerSuggestion(
           type: 'channel',
           id: c.id,
           name: c.name,
+          archived: c.archived,
           detail: c.description.isEmpty ? null : c.description,
         ),
   ];

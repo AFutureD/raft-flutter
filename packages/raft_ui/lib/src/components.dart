@@ -2795,6 +2795,9 @@ class _RaftComposerState extends State<RaftComposer> {
                                           SizedBox(width: recipe.metaGap),
                                         ],
                                         RaftComposerAction(
+                                          key: const ValueKey(
+                                            'composer-submit',
+                                          ),
                                           glyph: RaftGlyph.send,
                                           tooltip:
                                               widget.submitTooltip ?? 'Send',
@@ -2939,6 +2942,7 @@ class _RaftComposerSuggestionRowState
                                   ? s.name
                                   : (s.title ?? s.name),
                               detail: s.detail,
+                              archived: s.archived,
                               title: title,
                               meta: recipe.suggestionMetaFor(
                                 highlighted: widget.highlighted,
@@ -2964,10 +2968,14 @@ class _ChannelSuggestionBody extends StatelessWidget {
     required this.detail,
     required this.title,
     required this.meta,
+    this.archived = false,
   });
   final String name;
   final String? detail;
   final TextStyle title, meta;
+
+  /// Web `isArchived`: the `ComposerSuggestionAside` carries the archived Badge.
+  final bool archived;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, bounds) {
@@ -3007,6 +3015,11 @@ class _ChannelSuggestionBody extends StatelessWidget {
                 style: meta,
               ),
             ),
+          ] else if (archived)
+            const Spacer(),
+          if (archived) ...[
+            const SizedBox(width: 6),
+            RaftArchivedBadge(label: raftText(context, 'archived')),
           ],
         ],
       );
@@ -3202,6 +3215,41 @@ class RaftActorTypeBadge extends StatelessWidget {
       decoration: style.decoration,
       alignment: Alignment.center,
       child: Text(style.label, style: style.text),
+    );
+  }
+}
+
+/// raft-ui `Badge appearance="soft" variant="muted" uppercase` at its default
+/// size (the channel option's `archived` aside; the mention rows use the
+/// smaller [RaftActorTypeBadge]).
+class RaftArchivedBadge extends StatelessWidget {
+  const RaftArchivedBadge({super.key, required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final resolver = RaftRecipeTokens(t);
+    final s = RaftBadgeRecipe.resolve(
+      theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
+      appearance: RaftBadgeRecipeAppearance.soft,
+      variant: RaftBadgeRecipeVariant.muted,
+      uppercase: true,
+      tokens: resolver,
+    ).root;
+    return Container(
+      height: s.height,
+      padding: s.padding,
+      decoration: s.decoration(resolver),
+      alignment: Alignment.center,
+      child: Text(
+        s.textTransform == 'uppercase' ? label.toUpperCase() : label,
+        style: s
+            .textStyle(resolver)
+            .copyWith(
+              fontFamily: t.headingFont,
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+      ),
     );
   }
 }
