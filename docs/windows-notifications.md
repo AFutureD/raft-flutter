@@ -122,3 +122,9 @@ SDK 自行创建身份 `{1BA5D2F6-13E1-48EB-9E70-2895401BE904}`、COM GUID `{54E
 Windows 实现提交 `be2921e` 后拉取 `origin/cindy/integration` 的 `a418fa1`，合并为 `cdaca77`。保留最新 README 的简介结构，Windows 构建、运行库与登记步骤补充至开发和部署指南。合并未改变 Windows 通知宿主、通知服务和内容协调器；用户的实际图标／暖点击确认发生在拉取前，不计作新版完整功能验收。
 
 合并后 65 项通知相关测试重新通过，全工程 `tool/flutter analyze --no-pub` 无问题，Windows x64 Release 重编译通过（97 秒）。设计系统审计为 483 项（widget 221、style 262），13 个 baseline 增长对仍导致 `--check` 失败，增长对均不在此次通知修改的文件中，未修改审计基线。另以全新 CMake 配置确认 bootstrap DLL 安装至对应 runner bundle，避免首次配置时误用系统默认安装目录；SDK 许可与第三方说明随 bundle 保留。
+
+### Windows 工程检查补充（2026-10-12）
+
+更新主线前的整批检查发现，上述 13 个增长对实际来自 Windows CRLF 换行使 `ds-allow` 注释未被识别。审计改用 LineSplitter 后，原有注释 fixture 与 baseline 门槛测试均通过；未放宽规则或修改基线。工程检查入口现支持 Windows 的 Python 脚本启动，要求 Python 3.11+，并向子进程传递 UTF-8 环境。Android 安装器的跨进程锁仍仅支持 macOS/Linux，对应原生锁测试在 Windows 明确跳过；性能保护用例使用假设备及模拟负载，不接触真实设备。
+
+Python 3.12 复验运行 122 项 host 测试，仍有 3 项错误、1 项跳过：上游 CSS 文件的本地换行导致来源散列不一致，以及两项 parity builder 缺少本机 raft-source 参照 fixture。Dart 全量检查另有附件缓存、桌面拖放、截图与原生分享用例失败。整批检查不记为通过，原始日志保留在忽略的 `.local/`；本次主线更新不扩大 Windows 实际验收范围。

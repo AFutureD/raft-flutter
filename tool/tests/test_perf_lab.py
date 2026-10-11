@@ -128,6 +128,7 @@ class AndroidRunSafetyTest(unittest.TestCase):
             with patch.object(lab, 'flutter_guard') as guard, \
                  patch.object(lab, 'protected_state', side_effect=[before, after]), \
                  patch.object(lab, 'environment', return_value={'loadavg': [0, 0, 0]}), \
+                 patch.object(lab.os, 'getloadavg', return_value=(0, 0, 0), create=True), \
                  patch.object(lab, 'wait_for_display'), patch.object(lab, 'wait_for_quiet_host'), \
                  patch.object(lab.subprocess, 'run', side_effect=harness), \
                  patch.object(lab, 'summarize', side_effect=summary), \

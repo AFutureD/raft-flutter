@@ -32,7 +32,13 @@ Debug / Profile 与 Release 均启用 App Sandbox，权限位于 `macos/Runner/D
 
 `Info.plist` 注册 `raft` URL scheme，并提供局域网连接用途说明。没有声明麦克风、摄像头、照片库或全盘访问权限。签名附件与登录凭据仍不得写入源码或构建参数。
 
-会话使用 `flutter_secure_storage` 的 macOS Keychain 后端，设置 `MacOsOptions(usesDataProtectionKeychain: false)`，使用当前应用的传统 Keychain 存储；没有启用跨应用 Keychain sharing。本地构建不要求为此配置共享组或 provisioning profile。
+会话使用 `flutter_secure_storage`。未配置 provisioning profile 的构建默认保留传统 Keychain 后端。使用 Apple Development / Distribution 身份和有效 macOS profile 签名的构建可通过 `--dart-define=RAFT_MACOS_DATA_PROTECTION_KEYCHAIN=true` 启用 Data Protection Keychain；主应用签名的 `com.apple.application-identifier`、team identifier 必须由嵌入的 profile 授权。使用应用自己的默认 access group，不启用跨应用共享或生物识别。账户、证书选择、team 和 profile 配置只存于本机被忽略的 `.local/macos-signing/`，不得提交。
+
+启用后优先读取现代 Keychain，仅当该 origin 的条目不存在时迁移传统条目；解析、写入及精确读回验证全部成功后才移除旧副本。权限错误继续上报，不能当成没有登录资料。迁移与退出登录串行执行，退出会清除两套后端对应 origin 的条目。已有 ad-hoc 签名创建的传统条目可能需要一次系统授权；新建现代条目及同一 team / app identifier 的后续更新不需要这个旧 ACL 授权。
+
+Personal Team 的开发 profile 有效期通常为 7 天。后续本地构建须用 Xcode 自动续签并核验实际嵌入 profile、签名身份、ARM64 架构及 Release entitlement；不能仅添加 Dart 开关或在签名失败后退回 ad-hoc 安装。Release 继续禁用 `CODE_SIGN_INJECT_BASE_ENTITLEMENTS`，不能额外启用 `get-task-allow` / JIT。当前本机验证包括：用合成数据创建钥匙串条目、重新编译签名后读回、清理；查询显式禁止认证 UI，四步均返回成功。本机用户随后完成真实旧会话迁移，并确认再次启动不再弹出钥匙串授权。
+
+已配置签名的本机更新使用 `python3 .local/macos-signing/build.py --install`：FVM 生成 Release 配置，Xcode 自动续签，核验后备份并替换关闭的 App；App 仍运行时停止安装。脚本不启动窗口，安装后的启动继续使用 Computer Use 后台操作。不得用普通 ad-hoc 构建覆盖已经迁移到现代 Keychain 的签名版，否则该构建无法读取迁移后的会话。
 
 通知初始化不弹出系统授权请求；用户在应用通知设置点击“发一条测试通知”后才请求 alert / sound 权限。macOS 是否投递由系统通知权限控制，不使用移动端本地 opt-in。Darwin 插件 initialize 的 false 表示授权结果，不代表原生通知不支持。当前服务端 Socket 只投递 mobile，macOS 在应用仍运行、窗口在后台且授权时复用现有长连接驱动的已接受 unread inbox 数据，不能视为服务端 desktop push 或退出后推送。
 

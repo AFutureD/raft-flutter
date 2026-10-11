@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Flutter **3.47.6** / Dart 3.13.5, pinned in `.fvmrc`. Always call Flutter through `tool/flutter`: it looks for `.fvm/flutter_sdk` or `~/flutter-sdks/versions/3.47.6`, honours `RAFT_FLUTTER_BIN`, and refuses any other SDK version. Install with `fvm install && fvm use 3.47.6`.
-- Python 3 for the `tool/` scripts. Node 24 / pnpm only for the parity and generator tools that read a raft-source checkout.
+- Python 3.11+ for the full engineering checks (some tooling uses `hashlib.file_digest`); use UTF-8 mode on Windows (`PYTHONUTF8=1`). Node 24 / pnpm only for the parity and generator tools that read a raft-source checkout.
 - Per platform: Android SDK (+ NDK only to regenerate ADPF bindings), the Flutter Linux desktop toolchain, Xcode and CocoaPods for macOS and iOS, or Visual Studio C++ desktop build tools and the Windows SDK for Windows x64.
 
 ## Set up
