@@ -4,7 +4,7 @@
 
 - Flutter **3.47.6** / Dart 3.13.5, pinned in `.fvmrc`. Always call Flutter through `tool/flutter`: it looks for `.fvm/flutter_sdk` or `~/flutter-sdks/versions/3.47.6`, honours `RAFT_FLUTTER_BIN`, and refuses any other SDK version. Install with `fvm install && fvm use 3.47.6`.
 - Python 3 for the `tool/` scripts. Node 24 / pnpm only for the parity and generator tools that read a raft-source checkout.
-- Per platform: Android SDK (+ NDK only to regenerate ADPF bindings), the Flutter Linux desktop toolchain, Xcode and CocoaPods for macOS and iOS.
+- Per platform: Android SDK (+ NDK only to regenerate ADPF bindings), the Flutter Linux desktop toolchain, Xcode and CocoaPods for macOS and iOS, or Visual Studio C++ desktop build tools and the Windows SDK for Windows x64.
 
 ## Set up
 
@@ -29,6 +29,29 @@ The app talks to the official API `https://api.raft.build` by default; pass `--d
 Never use `flutter run/drive/test/install` on a device that holds the real (formal) app; Flutter may uninstall and reinstall it. Use `tool/android-install` (see [AGENTS.md](../AGENTS.md) and [Android installation](android-installation.md)).
 
 `packages/raft_ui` components each ship an SDK Widget Preview for reviewing themes and states (`brutal-light`, `elegant-light`, `elegant-dark`).
+
+### Windows
+
+Use PowerShell and Python 3. The wrapper also finds FVM's pinned SDK under `%USERPROFILE%\fvm\versions\3.47.6`; `RAFT_FLUTTER_BIN` may point to its `flutter.bat`.
+
+```powershell
+python tool/flutter pub get --enforce-lockfile
+Set-Location apps/raft_flutter
+python ../../tool/flutter build windows --release --no-pub
+Start-Process -FilePath "$PWD/build/windows/x64/runner/Release/raft_flutter.exe"
+```
+
+CMake downloads Microsoft.WindowsAppSDK 1.7.250310001 from official NuGet and verifies its pinned SHA-256. The bundle includes the bootstrap DLL and Raft notification icons; it still requires Windows App Runtime 1.7 x64, including its notification singleton dependencies. This machine already had that runtime; fresh-machine installation has not been verified. See [Microsoft's deployment guide](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/tutorial-unpackaged-deployment).
+
+If notification clicks offer to find an app for `raft-notification`, the explicit registration step below was verified on this machine. Run it from an **administrator PowerShell**, at the repository root, after building and verifying the complete bundle:
+
+```powershell
+$raftExe = (Resolve-Path 'apps/raft_flutter/build/windows/x64/runner/Release/raft_flutter.exe').Path
+$raftSha = (Get-FileHash -LiteralPath $raftExe -Algorithm SHA256).Hash
+./tool/windows-notification-register.ps1 -ExecutablePath $raftExe -ExpectedSha256 $raftSha
+```
+
+The script registers only Raft's machine protocol, validates the bundle/hash and refuses an existing key owned by another application. Repeat after moving the bundle. The app never triggers this administrator step automatically. Use Settings → Notifications → send a test notification to check display and return behavior; cold-click and full Windows acceptance remain pending ([evidence](windows-notifications.md)).
 
 ## Test and analyze
 

@@ -109,10 +109,16 @@ SDK 自行创建身份 `{1BA5D2F6-13E1-48EB-9E70-2895401BE904}`、COM GUID `{54E
 
 构建通过 CMake 获取上文固定 NuGet 包并校验 SHA-256，生成的 C++/WinRT 投影留在 build 目录。当前验证目标为 x64；制品为 framework-dependent，运行需要 Windows App Runtime 1.7 x64（本机已经安装，包括通知 singleton 依赖）。bootstrap DLL 随 bundle 分发，不等同于携带完整 runtime；本次没有安装或升级系统 runtime，也未验收全新机器部署。
 
-主应用可使用 `raft_flutter.exe --windows-notification-test` 发送与设置按钮相同的合成测试通知；不发送工作区消息。启动阶段恢复账户可能清除此诊断通知，实际显示验收应优先使用设置中的测试按钮。隔离 lab 可用 `--send-test` 发送，`raft-notification-lab://open?payload=raft-notification-test` 复验协议暖／冷传递。旧 `tool/windows-notification-activate.ps1` 是历史 COM 探针，不是新协议方案的验收工具。设计系统审计仍报告既有 497 项／14 个 baseline 增长对，不宣称全量通过。
+主应用可使用 `raft_flutter.exe --windows-notification-test` 发送与设置按钮相同的合成测试通知；不发送工作区消息。启动阶段恢复账户可能清除此诊断通知，实际显示验收应优先使用设置中的测试按钮。隔离 lab 可用 `--send-test` 发送，`raft-notification-lab://open?payload=raft-notification-test` 复验协议暖／冷传递。旧 `tool/windows-notification-activate.ps1` 是历史 COM 探针，不是新协议方案的验收工具。拉取前设计系统审计报告既有 497 项／14 个 baseline 增长对；合并后的结果见下文，不宣称全量通过。
 
 ### 本机协议点击对照
 
 用户确认主应用通知已显示，但点击提示获取打开 raft-notification 的应用。ShellExecute 能解析当前用户协议；Windows.System.Launcher.QueryUriSupportAsync 返回 NotSupported（3），对照 ms-settings 返回 Available（0）。单独 SHChangeNotify、当前用户 RegisteredApplications／Capabilities 登记，以及官方 ActivationRegistrationManager.RegisterForProtocolActivation 均未改变该结果；不能以 shell 能启动推断通知点击能启动。
 
 `tool/windows-notification-register.ps1` 为独立管理员安装步骤，仅登记 HKLM 的 raft-notification 协议，核对完整 Release bundle 的 exe 名称、预期 SHA-256 与现有键的 RaftOwner 后才写入。不会自动从应用启动、不改通知偏好、UserChoice 或 COM，不覆盖其他程序拥有的同名键。用户单独授权后登记成功，退出码为 0；同一 Windows.System.Launcher 查询由 NotSupported（3）变为 Available（0），LaunchUriAsync 返回 true，继续复用既有 Raft 进程。随后重发带图标的产品身份通知，用户明确确认图标和点击返回均正常。此结果是本机对照，不表示所有 Windows 都必须进行机器级登记；移动 bundle 后需重新核对并登记。
+
+### 提交与拉取后的验证
+
+Windows 实现提交 `be2921e` 后拉取 `origin/cindy/integration` 的 `a418fa1`，合并为 `cdaca77`。保留最新 README 的简介结构，Windows 构建、运行库与登记步骤补充至开发和部署指南。合并未改变 Windows 通知宿主、通知服务和内容协调器；用户的实际图标／暖点击确认发生在拉取前，不计作新版完整功能验收。
+
+合并后 65 项通知相关测试重新通过，全工程 `tool/flutter analyze --no-pub` 无问题，Windows x64 Release 重编译通过（97 秒）。设计系统审计为 483 项（widget 221、style 262），13 个 baseline 增长对仍导致 `--check` 失败，增长对均不在此次通知修改的文件中，未修改审计基线。另以全新 CMake 配置确认 bootstrap DLL 安装至对应 runner bundle，避免首次配置时误用系统默认安装目录；SDK 许可与第三方说明随 bundle 保留。
