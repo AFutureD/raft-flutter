@@ -83,14 +83,6 @@ function parityExtMpShellVars(): ParityExtMpCSSProperties {
   return { ["--shell-header-height" as string]: theme === "brutal-light" ? "62px" : "56px" } as ParityExtMpCSSProperties;
 }
 
-// Members-rail entries with no Flutter counterpart in the compared region.
-function parityExtMpHideGraphRow(root: HTMLElement | null) {
-  if (!root) return;
-  for (const el of Array.from(root.querySelectorAll('button, a, [data-slot="sidebar-item"]'))) {
-    if ((el.textContent ?? "").trim() === "Graph") (el as HTMLElement).style.display = "none";
-  }
-}
-
 function ParityExtMpDialogBox({ props, caseId, children }: { props: ParityExtMpProps; caseId: string; children: ParityExtMpReactNode }) {
   const width = Number(props.params.get("boxW") ?? 1280);
   const height = Number(props.params.get("boxH") ?? 800);
@@ -167,9 +159,6 @@ function ParityExtMpView({ props }: { props: ParityExtMpProps }) {
   if (props.extKind === "invite") return <ParityExtMpInvite props={props} caseId={caseId} />;
   if (props.extKind === "report") return <ParityExtMpReport props={props} caseId={caseId} />;
   useMemo(() => parityExtMpPrimeStores(props), [props]);
-  parityExtMpUseLayoutEffect(() => {
-    parityExtMpHideGraphRow(document.querySelector("[data-visual-case]"));
-  });
   // The real shell (desktop: rail + Sidebar + panel frame; phone: the mobile page) on the case route.
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">

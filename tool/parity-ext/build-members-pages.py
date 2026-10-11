@@ -255,8 +255,7 @@ for platform in ('desktop', 'phone'):
     # ---- 7.25 member graph
     add(platform, 'graph', 'Member graph (/members/graph)', 'main', selector=MAIN if not phone else VIEW,
         android_key='desktop-content-detail' if not phone else None, hint=SRC + 'settings/MemberGraphSection.tsx',
-        props={'route': '/members/graph'}, android_interactions=[tap('desktop-directory-graph')], flutter=False,
-        note='Flutter page missing: RaftRoute.memberGraph maps to the members tab but no graph view exists.')
+        props={'route': '/members/graph'}, android_interactions=[tap('desktop-directory-graph')] if not phone else [])
 
 # ---- 7.06 invite dialog states (both platforms; the dialog is mounted alone like the official host)
 INVITE_HINT = SRC + 'member/InviteHumanDialog.tsx'

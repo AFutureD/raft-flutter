@@ -336,9 +336,14 @@ class RaftPanelHeaderBar extends StatelessWidget {
     this.profileBody = false,
     this.leftPadding,
     this.bottomRule = false,
+    this.titleSuffix,
   });
   final String title;
   final String? subtitle;
+
+  /// AppPanelHeader `titleSuffix`: a node inline after the title (outside the
+  /// truncating title), e.g. `Badge.Experimental`.
+  final Widget? titleSuffix;
 
   /// AppPanelHeader `titleSlot`: replaces the title/meta stack (the search
   /// field of MessageSearchPage).
@@ -433,15 +438,37 @@ class RaftPanelHeaderBar extends StatelessWidget {
                 titleSlot ??
                 RaftPanelHeaderContent(
                   style: s.headerContent,
-                  heading: Semantics(
-                    header: true,
-                    child: RaftCssText(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text(s.title),
-                    ),
-                  ),
+                  heading: titleSuffix == null
+                      ? Semantics(
+                          header: true,
+                          child: RaftCssText(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text(s.title),
+                          ),
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing:
+                              s.heading.columnGap ??
+                              s.heading.length('gap') ??
+                              8,
+                          children: [
+                            Flexible(
+                              child: Semantics(
+                                header: true,
+                                child: RaftCssText(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: text(s.title),
+                                ),
+                              ),
+                            ),
+                            titleSuffix!,
+                          ],
+                        ),
                   meta: subtitle == null
                       ? null
                       : RaftCssText(

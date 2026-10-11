@@ -354,7 +354,7 @@ SECTIONS = [
           off=['components.members.create-agent.*'], d=['components.dialogs.desktop.create-agent*'], prio=1),
         R('7.25', 'Member graph (/members/graph)', 'components/settings/MemberGraphSection.tsx', 'DP',
           d=['components.members-pages.desktop.graph'], p=['components.members-pages.phone.graph'], prio=3,
-          note='React case only: Flutter page missing (RaftRoute.memberGraph maps to the members tab, no graph view).'),
+          note='Entry: the Graph row on top of the members list (classic sidebar, workspace grid off). Guests are sent home like the Web route.'),
         R('7.26', 'Handoff dialog (hand a local coding session to a new agent)', 'components/handoff/HandoffDialog.tsx, HandoffCreateFlow.tsx', 'D', prio=3, note='Desktop only (handoff.desktopOnly).'),
     ]),
     ('8. Computers', 'components/machine', [

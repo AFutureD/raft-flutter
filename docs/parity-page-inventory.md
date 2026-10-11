@@ -312,7 +312,7 @@ Web: components/member, components/agent, components/agentMigration, components/
 | 7.22 | Agent connections (provider sign-in for the agent) | `components/agent/AgentConnections.tsx` | excluded | excluded |  |  | [excluded: flag-off] |
 | 7.23 | External agent setup (token, setup tabs) | `components/agent/ExternalAgentToken.tsx, ExternalSetupTabSegmentedControl.tsx` | ok | ok |  | D: `components.members-pages.desktop.agent.external`<br>P: `components.members-pages.phone.agent.external` | Hosted-runtime variants (HostedRuntimeStatus, AgentConnections) stay flag-off (antiproton_hosted_runtime), see 7.22. |
 | 7.24 | Create agent dialog (Codex, Claude, custom provider, built-in / Pi provider, onboarding, no computer, empty, name error) | `components/agent/CreateAgentDialog.tsx` | ok | ok | `components.members.create-agent.*` | D: `components.dialogs.desktop.create-agent*` |  |
-| 7.25 | Member graph (/members/graph) | `components/settings/MemberGraphSection.tsx` | ok | ok |  | D: `components.members-pages.desktop.graph`<br>P: `components.members-pages.phone.graph` | React case only: Flutter page missing (RaftRoute.memberGraph maps to the members tab, no graph view). |
+| 7.25 | Member graph (/members/graph) | `components/settings/MemberGraphSection.tsx` | ok | ok |  | D: `components.members-pages.desktop.graph`<br>P: `components.members-pages.phone.graph` | Entry: the Graph row on top of the members list (classic sidebar, workspace grid off). Guests are sent home like the Web route. |
 | 7.26 | Handoff dialog (hand a local coding session to a new agent) | `components/handoff/HandoffDialog.tsx, HandoffCreateFlow.tsx` | excluded | n/a |  |  | Desktop only (handoff.desktopOnly). [excluded: host-only] |
 
 ## 8. Computers

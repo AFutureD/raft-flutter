@@ -30,6 +30,11 @@ String raftFormat(
 
 const raftChinese = <String, String>{
   // Added with the members new-pages port (Web catalog).
+  // settings.memberGraph.nodeLinks (ICU plural: one / other).
+  "{count} link": "{count} 个连接",
+  "{count} links": "{count} 个连接",
+  "{count, plural, one {# link} other {# links}}": "{count, plural, other {# 个连接}}",
+  // Added with the members new-pages port (Web catalog).
   "External · Last active {time}": "外部 · 上次活跃 {time}",
   // Added with the members new-pages port (Web catalog).
   "Step {step}": "第 {step} 步",
