@@ -2406,6 +2406,10 @@ class _RaftComposerState extends State<RaftComposer> {
                         controller: suggestionScroll,
                         primary: false,
                         shrinkWrap: true,
+                        // A null padding would add the screen's safe-area
+                        // insets (the status bar on edge-to-edge phones) as
+                        // blank space above the first row.
+                        padding: EdgeInsets.zero,
                         itemCount: options.length,
                         itemBuilder: (context, index) {
                           final s = options[index];
