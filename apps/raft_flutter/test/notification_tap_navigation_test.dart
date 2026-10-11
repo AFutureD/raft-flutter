@@ -21,7 +21,7 @@ import 'workspace_source_location_contract_test.dart'
 // /s/<slug>/channel/<id>?msg=<id> or ?thread=<parent>:<msg>&msg=<reply>.
 // Drives main.dart's real NativeContentCoordinator tap handler, its
 // membership/context authorization and the mounted WorkspaceView.
-void _routes(WorkspaceController w, MessageAdapter api) {
+void notificationRoutes(WorkspaceController w, MessageAdapter api) {
   final other = RaftChannel({
     'id': 'c2',
     'serverId': 's1',
@@ -101,7 +101,7 @@ void main() {
       t,
     ) async {
       final (w, api) = await pageFixture(t, section: 'chat');
-      _routes(w, api);
+      notificationRoutes(w, api);
       final n = LocalNotifications();
       final coordinator = NativeContentCoordinator(
         notifications: n,
@@ -143,14 +143,12 @@ void main() {
       expect(t.takeException(), isNull);
     });
 
-    // The thread link currently records two entries (channel PUSH, then
-    // thread PUSH); that case is tracked as an N28 defect, not asserted here.
-    for (final thread in [false]) {
+    for (final thread in [false, true]) {
       testWidgets(
         '$family/$dark valid ${thread ? 'thread' : 'channel'} notification opens its original link with one history entry',
         (t) async {
           final (w, api) = await pageFixture(t, section: 'chat');
-          _routes(w, api);
+          notificationRoutes(w, api);
           final n = LocalNotifications();
           final coordinator = NativeContentCoordinator(
             notifications: n,
@@ -230,7 +228,7 @@ void main() {
           );
           await t.runAsync(coordinator.init);
           final (w, api) = await pageFixture(t, section: 'home');
-          _routes(w, api);
+          notificationRoutes(w, api);
           // Tapped while no workspace is bound yet: held, not dropped.
           n.onTap!(_payload(w, thread ? _threadUri : _channelUri));
           await mountPage(t, w, family, dark, width: 390);
