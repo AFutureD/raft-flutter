@@ -32,13 +32,15 @@ class RaftAnchoredPopup extends StatefulWidget {
   State<RaftAnchoredPopup> createState() => _RaftAnchoredPopupState();
 }
 
-class _RaftAnchoredPopupState extends State<RaftAnchoredPopup> {
+class _RaftAnchoredPopupState extends State<RaftAnchoredPopup>
+    with WidgetsBindingObserver {
   Rect? anchor;
   bool queued = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.movement?.addListener(refreshAfterLayout);
     refreshAfterLayout();
   }
@@ -55,8 +57,17 @@ class _RaftAnchoredPopupState extends State<RaftAnchoredPopup> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.movement?.removeListener(refreshAfterLayout);
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // SafeArea can consume an inset change before it reaches this portal's
+    // inherited metrics. Re-measure the anchor in the committed new layout.
+    refreshAfterLayout();
+    setState(() {});
   }
 
   Rect? readAnchor() {
@@ -90,6 +101,12 @@ class _RaftAnchoredPopupState extends State<RaftAnchoredPopup> {
   Widget build(BuildContext context) {
     final rect = anchor ?? readAnchor();
     if (rect == null) return const SizedBox.shrink();
+    // OverlayPortal inherits the trigger's already-consumed SafeArea/IME
+    // metrics. Placement belongs to the overlay viewport, not the trigger.
+    final metrics = MediaQuery.of(Overlay.of(context).context);
+    final insets = metrics.padding.copyWith(
+      bottom: math.max(metrics.padding.bottom, metrics.viewInsets.bottom),
+    );
     return CustomSingleChildLayout(
       delegate: _PopupLayout(
         rect,
@@ -99,6 +116,7 @@ class _RaftAnchoredPopupState extends State<RaftAnchoredPopup> {
         gap: widget.gap,
         gutter: widget.collisionPadding,
         snap: widget.snapToPixel,
+        insets: insets,
       ),
       child: SingleChildScrollView(child: widget.child),
     );
@@ -114,58 +132,68 @@ class _PopupLayout extends SingleChildLayoutDelegate {
     required this.gap,
     required this.gutter,
     this.snap = false,
+    required this.insets,
   });
   final bool snap;
   final Rect anchor;
   final bool above, alignRight, toRight;
   final double gap;
   final double gutter;
+  final EdgeInsets insets;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
       BoxConstraints(
-        maxWidth: math.max(0, constraints.maxWidth - gutter * 2),
-        maxHeight: math.max(0, constraints.maxHeight - gutter * 2),
+        maxWidth: math.max(
+          0,
+          constraints.maxWidth - insets.horizontal - gutter * 2,
+        ),
+        maxHeight: math.max(
+          0,
+          constraints.maxHeight - insets.vertical - gutter * 2,
+        ),
       );
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
+    final minX = insets.left + gutter;
+    final minY = insets.top + gutter;
+    final rightEdge = size.width - insets.right - gutter;
+    final bottomEdge = size.height - insets.bottom - gutter;
+    final maxX = math.max(minX, rightEdge - childSize.width);
+    final maxY = math.max(minY, bottomEdge - childSize.height);
     if (toRight) {
       // LeftRail HelpMenu: PopoverContent side=right, align=end, offset8.
       final proposedLeft = anchor.right + gap;
-      final left = proposedLeft + childSize.width <= size.width - gutter
+      final left = proposedLeft + childSize.width <= rightEdge
           ? proposedLeft
           : anchor.left - gap - childSize.width;
       return Offset(
-        left.clamp(
-          gutter,
-          math.max(gutter, size.width - gutter - childSize.width),
-        ),
+        left.clamp(minX, maxX),
         (alignRight ? anchor.bottom - childSize.height : anchor.top).clamp(
-          gutter,
-          math.max(gutter, size.height - gutter - childSize.height),
+          minY,
+          maxY,
         ),
       );
     }
-    final right = math.max(gutter, size.width - gutter - childSize.width);
     final double left =
         (alignRight ? anchor.right - childSize.width : anchor.left).clamp(
-          gutter,
-          right,
+          minX,
+          maxX,
         );
     final below = anchor.bottom + gap;
     final upper = anchor.top - gap - childSize.height;
-    final bottomFits = below + childSize.height <= size.height - gutter;
-    final upperFits = upper >= gutter;
+    final bottomFits = below + childSize.height <= bottomEdge;
+    final upperFits = upper >= minY;
     final top = above
         ? (upperFits || !bottomFits ? upper : below)
         : (bottomFits ? below : upper);
-    final double y = top.clamp(
-      gutter,
-      math.max(gutter, size.height - gutter - childSize.height),
-    );
+    final double y = top.clamp(minY, maxY);
     return snap
-        ? Offset(left.roundToDouble(), y.roundToDouble())
+        ? Offset(
+            left.roundToDouble().clamp(minX, maxX),
+            y.roundToDouble().clamp(minY, maxY),
+          )
         : Offset(left, y);
   }
 
@@ -177,5 +205,6 @@ class _PopupLayout extends SingleChildLayoutDelegate {
       toRight != old.toRight ||
       gap != old.gap ||
       gutter != old.gutter ||
+      insets != old.insets ||
       snap != old.snap;
 }

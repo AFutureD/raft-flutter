@@ -63,8 +63,9 @@ void main() {
     WorkspaceController w, {
     VoidCallback? billing,
     Locale? locale,
+    Size viewport = const Size(390, 844),
   }) async {
-    await t.binding.setSurfaceSize(const Size(390, 844));
+    await t.binding.setSurfaceSize(viewport);
     await t.pumpWidget(
       MaterialApp(
         locale: locale,
@@ -246,6 +247,33 @@ void main() {
     await client.dispose();
     await t.binding.setSurfaceSize(null);
   });
+
+  for (final keyboard in [0.0, 180.0]) {
+    testWidgets('system popup clears window bars and IME $keyboard', (t) async {
+      final client = _Client();
+      final w = WorkspaceController(client)
+        ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
+      t.view.physicalSize = const Size(390, 400);
+      t.view.devicePixelRatio = 1;
+      t.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+      t.view.padding = FakeViewPadding(top: 24, bottom: keyboard == 0 ? 48 : 0);
+      t.view.viewInsets = FakeViewPadding(bottom: keyboard);
+      addTearDown(t.view.reset);
+      await frame(t, w, viewport: const Size(390, 400));
+      await t.tap(find.byType(RaftMobileNotificationButton));
+      await t.pump();
+      final rect = t.getRect(find.byType(RaftNotificationCenter));
+      expect(rect.top, greaterThanOrEqualTo(24 + 8));
+      expect(
+        rect.bottom,
+        lessThanOrEqualTo(400 - (keyboard == 0 ? 48 : keyboard) - 8),
+      );
+      await t.pumpWidget(const SizedBox.shrink());
+      w.dispose();
+      await client.dispose();
+      await t.binding.setSurfaceSize(null);
+    });
+  }
   testWidgets(
     'keyboard opening immediately activates the first authorized action',
     (t) async {

@@ -256,6 +256,17 @@ RootFixture richFixture() {
     {'userId': 'alice', 'name': 'Alice', 'role': 'owner'},
     {'userId': 'bob', 'name': 'Bob', 'role': 'member'},
   ];
+  f.overrides['GET /servers/a/machines'] = (_) => {
+    'machines': [
+      for (var i = 1; i <= 16; i++)
+        {
+          'id': 'computer-$i',
+          'name': 'Audit computer $i',
+          'status': 'online',
+          'isComputer': true,
+        },
+    ],
+  };
   f.overrides['GET /tasks/server'] = (_) => {
     'tasks': [for (var i = 1; i <= 14; i++) _task(i)],
     'next_cursor': null,
@@ -298,6 +309,7 @@ class Scenario {
     this.root = false,
     this.bottomControl = false,
     this.dark = false,
+    this.tabBarSurface = false,
   });
   final String name, path;
   final Nav nav;
@@ -312,6 +324,10 @@ class Scenario {
 
   /// Also captured in the dark elegant theme.
   final bool dark;
+
+  /// The Bottom bar settings preview keeps the same Brutal bottom border as
+  /// the real tab bar. That intentional line is not an opaque system-bar strip.
+  final bool tabBarSurface;
 }
 
 Future<void> settle(WidgetTester t, [int frames = 12]) async {
@@ -409,6 +425,21 @@ final scenarios = <Scenario>[
     dark: true,
   ),
   const Scenario('17-computers', '/s/alpha/computers'),
+  const Scenario('17-computers', '/s/alpha/computers', nav: Nav.buttons),
+  const Scenario(
+    '19-bottom-bar-settings',
+    '/s/alpha/settings/bottom-bar',
+    bottomControl: true,
+    dark: true,
+    tabBarSurface: true,
+  ),
+  const Scenario(
+    '19-bottom-bar-settings',
+    '/s/alpha/settings/bottom-bar',
+    nav: Nav.buttons,
+    bottomControl: true,
+    tabBarSurface: true,
+  ),
   const Scenario('18-member-detail', '/s/alpha/human/bob'),
   const Scenario(
     '20-channel-settings-page',
@@ -564,7 +595,7 @@ Future<void> assertEdgeToEdge(
   Map<String, Object?> m,
 ) async {
   final label = '${s.name} $theme ${s.nav.id}';
-  final brutalRoot = s.root && theme == 'brutal';
+  final brutalRoot = (s.root || s.tabBarSurface) && theme == 'brutal';
   if (brutalRoot) {
     // The in-flow brutal tab bar owns the bar band and paints it panel-coloured.
     expect(m['bandUniform'], isTrue, reason: '$label: band not uniform');
@@ -583,6 +614,16 @@ Future<void> assertEdgeToEdge(
       bottomControlReachesEdge(t),
       isTrue,
       reason: '$label: bottom control does not reach the screen bottom',
+    );
+  }
+  if (s.tabBarSurface) {
+    final nav = find.descendant(
+      of: find.byKey(const Key('mobile-tabbar-preview')),
+      matching: find.byType(RaftMobileNav),
+    );
+    expect(
+      t.getRect(nav).bottom,
+      closeTo(_size.height / _dpr - s.nav.px / _dpr, .5),
     );
   }
   // Last item scrolls clear of the bar (and of the floating capsule).
@@ -628,7 +669,10 @@ Future<void> composerKeyboardScenario(
   // Resting: the host background reaches the bottom and pads by the inset.
   expect(rectOf(t, host).bottom, closeTo(screenH, .5), reason: '$name rest');
   final restPad = padBelowShell();
-  await t.tap(find.byType(EditableText).last);
+  // The composer's visual editor can cover its read-only EditableText (e.g.
+  // an unresolved thread). Target the actual composition surface for this
+  // synthetic-IME layout probe; interactive IME acceptance is separate.
+  await t.tap(find.byKey(const ValueKey('composer-editor-slot')).last);
   await settle(t, 3);
   const kb = 300 * _dpr;
   setInsets(t, Nav.gesture, keyboardPx: kb);
