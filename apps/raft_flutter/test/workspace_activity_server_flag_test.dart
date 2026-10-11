@@ -83,7 +83,7 @@ void main() {
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(RaftMenuItem, 'Unfollow'));
+        await tester.tap(find.widgetWithText(RaftMenuButtonItem, 'Unfollow'));
         await tester.pumpAndSettle();
         final dynamic state = tester.state(find.byType(ResourceView));
         expect((state.rows.single as Map)['isFollowing'], false);

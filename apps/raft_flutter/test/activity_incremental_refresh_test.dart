@@ -371,7 +371,7 @@ void main() {
         });
         await tester.pump();
         expect(state.rows.first['lastMessagePreview'], 'Newer');
-        await tester.tap(find.widgetWithText(RaftMenuItem, 'Done'));
+        await tester.tap(find.widgetWithText(RaftMenuButtonItem, 'Done'));
         await tester.pumpAndSettle();
         final done = client.posts.indexOf('POST /channels/inbox/done');
         expect(done, isNot(-1));

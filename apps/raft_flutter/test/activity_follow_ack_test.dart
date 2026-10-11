@@ -126,7 +126,7 @@ void main() {
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(RaftMenuItem, label));
+      await tester.tap(find.widgetWithText(RaftMenuButtonItem, label));
       await tester.pumpAndSettle();
     }
 
@@ -191,7 +191,7 @@ void main() {
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
-        expect(find.widgetWithText(RaftMenuItem, 'Unfollow'), findsOneWidget);
+        expect(find.widgetWithText(RaftMenuButtonItem, 'Unfollow'), findsOneWidget);
       },
     );
     testWidgets(
@@ -218,9 +218,9 @@ void main() {
         );
         await tester.pumpAndSettle();
         final oldHandler = tester
-            .widget<RaftMenuItem>(find.widgetWithText(RaftMenuItem, 'Unfollow'))
+            .widget<RaftMenuButtonItem>(find.widgetWithText(RaftMenuButtonItem, 'Unfollow'))
             .onPressed;
-        await tester.tap(find.widgetWithText(RaftMenuItem, 'Unfollow'));
+        await tester.tap(find.widgetWithText(RaftMenuButtonItem, 'Unfollow'));
         await tester.pumpAndSettle();
         client.user = RaftRecord({'id': 'bob'});
         workspace.notifyListeners();
@@ -280,8 +280,8 @@ void main() {
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
-        expect(find.widgetWithText(RaftMenuItem, 'Follow'), findsOneWidget);
-        expect(find.widgetWithText(RaftMenuItem, 'Unfollow'), findsNothing);
+        expect(find.widgetWithText(RaftMenuButtonItem, 'Follow'), findsOneWidget);
+        expect(find.widgetWithText(RaftMenuButtonItem, 'Unfollow'), findsNothing);
       },
     );
   }

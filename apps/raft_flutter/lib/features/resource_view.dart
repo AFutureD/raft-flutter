@@ -10,6 +10,13 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/recipes.dart' hide RaftPanelHeaderRecipe;
+import 'package:raft_ui/recipes.dart' as rui
+    show
+        RaftRecipeStates,
+        RaftRecipeTheme,
+        RaftRecipeTokens,
+        RaftSearchRecipe,
+        RaftSearchRecipeStyle;
 
 import '../data/source_activity_unread_store.dart';
 import '../data/workspace_controller.dart';
@@ -756,6 +763,11 @@ class _ResourceViewState extends State<ResourceView> {
   StreamSubscription<RaftEvent>? events;
   Timer? refreshTimer, catalogTimer;
   WorkspaceController get w => widget.controller;
+  /// Source serverTaskPages: the server-wide Tasks page (board and list alike)
+  /// walks one cursor per status lane; only a channel's tasks load whole.
+  bool get lanePaged =>
+      widget.section == 'tasks' &&
+      (taskLayout == 'board' || widget.channelId == null);
   String get taskPath => widget.channelId == null
       ? '/tasks/server'
       : '/tasks/channel/${widget.channelId}';
@@ -770,6 +782,7 @@ class _ResourceViewState extends State<ResourceView> {
   String? acceptedAuthority;
   int authorityRevision = 0;
   final Set<ModalRoute<dynamic>> dialogs = {};
+  String? menuRowKey;
   final Set<MenuController> filterMenus = {};
   final dragFeedbackRevision = ValueNotifier<int>(0);
   static const channelAccessKeys = [
@@ -1109,6 +1122,42 @@ class _ResourceViewState extends State<ResourceView> {
     }
   }
 
+  /// The Web `ContextMenuPopup` / base-ui ContextMenu: a transparent dismiss
+  /// backdrop and a popup placed at the pointer, never a centred modal.
+  /// [rowKey] keeps that row in its popup-open state while the menu is up.
+  Future<V?> scopedMenu<V>(
+    String scope,
+    Offset at,
+    Widget Function(BuildContext) builder, {
+    String? rowKey,
+  }) async {
+    if (!accepts(scope)) return null;
+    ModalRoute<dynamic>? owned;
+    Widget buildOwned(BuildContext context) {
+      owned = ModalRoute.of(context);
+      if (owned != null) dialogs.add(owned!);
+      if (!accepts(scope)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (owned?.isActive == true) owned?.navigator?.removeRoute(owned!);
+        });
+        return const SizedBox.shrink();
+      }
+      return builder(context);
+    }
+
+    setState(() => menuRowKey = rowKey);
+    try {
+      return await showRaftMessageContextMenu<V>(
+        context: context,
+        anchor: at,
+        builder: buildOwned,
+      );
+    } finally {
+      dialogs.remove(owned);
+      if (mounted && menuRowKey == rowKey) setState(() => menuRowKey = null);
+    }
+  }
+
   void closeOwnedDialog(BuildContext context, String scope, [Object? result]) {
     if (!context.mounted || !accepts(scope)) return;
     final route = ModalRoute.of(context);
@@ -1287,7 +1336,7 @@ class _ResourceViewState extends State<ResourceView> {
   /// Whether [task] belongs to this page and its current view.
   bool taskBelongs(Map<String, dynamic> task) {
     if (!raftTaskStatuses.contains(task['status'])) return false;
-    if (taskLayout != 'board' && filter != 'all' && task['status'] != filter) {
+    if (!lanePaged && filter != 'all' && task['status'] != filter) {
       return false;
     }
     if (widget.channelId != null) return task['channelId'] == widget.channelId;
@@ -1312,7 +1361,7 @@ class _ResourceViewState extends State<ResourceView> {
   /// when something changed. Callers rebuild.
   void applyTaskPatches(Map<String, Map<String, dynamic>?> patches) {
     if (patches.isEmpty) return;
-    final board = taskLayout == 'board';
+    final board = lanePaged;
     var changed = false;
     for (final MapEntry(key: id, value: incoming) in patches.entries) {
       String? from;
@@ -1823,7 +1872,7 @@ class _ResourceViewState extends State<ResourceView> {
       unawaited(loadActivityFacets(scope));
     }
     try {
-      if (widget.section == 'tasks' && taskLayout == 'board') {
+      if (lanePaged) {
         final boardView = jsonEncode([taskPath, 'board']);
         // Source loadServerTaskStatusPage: a background revalidation spans
         // each lane's loaded window instead of resetting it to one page.
@@ -2227,6 +2276,10 @@ class _ResourceViewState extends State<ResourceView> {
           // SavedPanel: `bg-layer-canvas-muted theme-brutal:bg-white`.
           : widget.section == 'saved'
           ? BoxDecoration(color: t.brutal ? t.panel : t.sidebar)
+          : widget.section == 'search'
+          ? searchSlots(context).frame.decoration(
+              rui.RaftRecipeTokens(t),
+            )
           : null,
       child: widget.section == 'tasks'
           ? DefaultTextStyle.merge(
@@ -2470,6 +2523,16 @@ class _ResourceViewState extends State<ResourceView> {
       : const ['all', 'unread', 'mentions'];
 
   Widget resourceResults(BuildContext context) {
+    final results = resourceResultsPager(context);
+    if (widget.section != 'search') return results;
+    // SearchShellViewport: `bg-layer-panel` (transparent in dark, Brutal white).
+    final fill = searchSlots(context).viewport.decoration(
+      rui.RaftRecipeTokens(RaftTokens.of(context)),
+    );
+    return DecoratedBox(decoration: fill, child: results);
+  }
+
+  Widget resourceResultsPager(BuildContext context) {
     final scope = authority, view = filter;
     // Inside each pager page: a wrapper outside PageView would receive the
     // horizontal pager's notifications instead of this vertical list's.
@@ -2910,19 +2973,28 @@ class _ResourceViewState extends State<ResourceView> {
           );
   }
 
+  /// raft-ui `search` recipe slots (SearchShellRoot / Filters / Viewport).
+  rui.RaftSearchRecipeStyle searchSlots(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return rui.RaftSearchRecipe.resolve(
+      theme: t.brutal ? rui.RaftRecipeTheme.brutal : rui.RaftRecipeTheme.elegant,
+      states: rui.RaftRecipeStates({
+        if (t.dark) rui.RaftRecipeStates.dark,
+      }, MediaQuery.sizeOf(context).width),
+      tokens: rui.RaftRecipeTokens(t),
+    );
+  }
+
   Widget searchFilters() {
     final scope = authority;
-    // MessageSearchPage filters row: `px-4 py-3 border-b theme-brutal:border-b-2`.
+    // SearchShellFilters (raft-ui search `filtersRow`): brutal `px-4 py-3
+    // border-b-2 border-black bg-white`, elegant `border-b bg-layer-panel px-3
+    // py-2 max-md:pl-5 max-md:pr-3.5` (transparent in dark).
+    final row = searchSlots(context).filtersRow;
+    final rowDecoration = row.decoration(rui.RaftRecipeTokens(RaftTokens.of(context)));
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: RaftTokens.of(context).line,
-            width: RaftTokens.of(context).border,
-          ),
-        ),
-      ),
+      padding: row.padding,
+      decoration: rowDecoration,
       child: SizedBox(
         width: double.infinity,
         child: SearchFilterBar(
@@ -3696,7 +3768,8 @@ class _ResourceViewState extends State<ResourceView> {
       key: ValueKey('saved-${row['messageId']}'),
       saved: true,
       onOpen: () => openConversation(row, scope),
-      onContextMenu: () => savedMenu(row, scope),
+      onContextMenu: (at) => savedMenu(row, scope, at),
+      popupOpen: menuRowKey == '${row['messageId']}',
       child: Row(
         children: [
           Expanded(
@@ -3768,103 +3841,159 @@ class _ResourceViewState extends State<ResourceView> {
     return RaftInfiniteScrollSentinel(loading: loading);
   }
 
-  Future<void> savedMenu(Map<String, dynamic> row, String scope) async {
-    await scopedDialog<void>(
+  /// SavedPanel `ContextMenuContent`: Copy link, Copy Markdown, a separator,
+  /// Remove from Saved.
+  Future<void> savedMenu(
+    Map<String, dynamic> row,
+    String scope,
+    Offset at,
+  ) async {
+    await scopedMenu<void>(
       scope,
-      (context) => rowMenu(context, scope, [
-        RaftMenuItem(
-          label: raftText(context, 'Copy link'),
-          glyph: RaftGlyph.link,
-          onPressed: w.server?.string('slug').isEmpty != false
-              ? null
-              : () async {
-                  if (!accepts(scope)) return;
-                  final thread = row['channelType'] == 'thread';
-                  final text = ContentLinks.messageUrl(
-                    origin: ContentLinks.originFor(w.client.origin),
-                    slug: w.server!.string('slug'),
-                    channelId: '${row['parentChannelId'] ?? row['channelId']}',
-                    messageId: '${row['messageId']}',
-                    kind:
-                        '${thread ? row['parentChannelType'] : row['channelType']}',
-                    parentMessageId: thread
-                        ? row['parentMessageId'] as String?
-                        : null,
-                  ).toString();
-                  closeOwnedDialog(context, scope);
-                  if (accepts(scope)) {
-                    await Clipboard.setData(ClipboardData(text: text));
-                  }
-                },
-        ),
-        RaftMenuItem(
-          label: raftText(context, 'Copy Markdown'),
-          glyph: RaftGlyph.copy,
-          onPressed: () async {
-            if (!accepts(scope)) return;
-            closeOwnedDialog(context, scope);
-            if (accepts(scope)) {
-              await Clipboard.setData(
-                ClipboardData(text: '${row['content'] ?? ''}'),
-              );
-            }
-          },
-        ),
-        RaftMenuItem(
-          label: raftText(context, 'Remove saved message'),
-          glyph: RaftGlyph.bookmark,
-          onPressed: () {
-            if (!accepts(scope)) return;
-            closeOwnedDialog(context, scope);
-            removeSaved(row, scope);
-          },
-        ),
-      ]),
-    );
-  }
-
-  /// ThreadsInbox context menu: Done (Check 14) and, for threads,
-  /// Unfollow (BellOff 14) / Follow (Bell 14).
-  Future<void> activityMenu(Map<String, dynamic> row, String scope) async {
-    final thread = row['kind'] == 'thread';
-    final following = row['isFollowing'] != false;
-    await scopedDialog<void>(
-      scope,
-      (context) => rowMenu(context, scope, [
-        RaftMenuItem(
-          label: raftText(context, 'Done'),
-          glyph: RaftGlyph.check,
-          onPressed: () {
-            if (!accepts(scope)) return;
-            closeOwnedDialog(context, scope);
-            activityAction(row, 'done', scope);
-          },
-        ),
-        if (thread)
-          RaftMenuItem(
-            label: raftText(context, following ? 'Unfollow' : 'Follow'),
-            // BellOff is not in the glyph set yet.
-            glyph: RaftGlyph.bell,
+      at,
+      (context) => RaftContextMenuContent(
+        onDismiss: () => closeOwnedDialog(context, scope),
+        entries: [
+          RaftContextMenuContentItem(
+            label: raftText(context, 'Copy link'),
+            glyph: RaftGlyph.link,
+            onPressed: w.server?.string('slug').isEmpty != false
+                ? null
+                : () async {
+                    if (!accepts(scope)) return;
+                    final thread = row['channelType'] == 'thread';
+                    final text = ContentLinks.messageUrl(
+                      origin: ContentLinks.originFor(w.client.origin),
+                      slug: w.server!.string('slug'),
+                      channelId:
+                          '${row['parentChannelId'] ?? row['channelId']}',
+                      messageId: '${row['messageId']}',
+                      kind:
+                          '${thread ? row['parentChannelType'] : row['channelType']}',
+                      parentMessageId: thread
+                          ? row['parentMessageId'] as String?
+                          : null,
+                    ).toString();
+                    closeOwnedDialog(context, scope);
+                    if (accepts(scope)) {
+                      await Clipboard.setData(ClipboardData(text: text));
+                    }
+                  },
+          ),
+          RaftContextMenuContentItem(
+            label: raftText(context, 'Copy Markdown'),
+            glyph: RaftGlyph.copy,
+            onPressed: () async {
+              if (!accepts(scope)) return;
+              closeOwnedDialog(context, scope);
+              if (accepts(scope)) {
+                await Clipboard.setData(
+                  ClipboardData(text: '${row['content'] ?? ''}'),
+                );
+              }
+            },
+          ),
+          const RaftContextMenuContentSeparator(),
+          RaftContextMenuContentItem(
+            label: raftText(context, 'Remove from Saved'),
+            glyph: RaftGlyph.bookmark,
             onPressed: () {
               if (!accepts(scope)) return;
               closeOwnedDialog(context, scope);
-              activityAction(row, following ? 'unfollow' : 'follow', scope);
+              removeSaved(row, scope);
             },
           ),
-      ]),
+        ],
+      ),
+      rowKey: '${row['messageId']}',
     );
   }
 
-  /// Context-menu dialog shared by the Saved and Activity rows.
-  Widget rowMenu(BuildContext context, String scope, List<Widget> children) =>
-      Dialog(
-        backgroundColor: Colors.transparent,
-        child: RaftMenuPanel(
-          width: 240,
-          onDismiss: () => closeOwnedDialog(context, scope),
-          children: children,
-        ),
-      );
+  /// ThreadsInbox `activity-context-menu` (`ContextMenuPopup`, w-184): Mark as
+  /// Read / Mark as Unread (not for an unfollowed thread), Done and, for
+  /// threads, Unfollow (BellOff 14) / Follow (Bell 14).
+  Future<void> activityMenu(
+    Map<String, dynamic> row,
+    String scope,
+    Offset at,
+  ) async {
+    final thread = row['kind'] == 'thread';
+    final following = row['isFollowing'] != false;
+    final unread = (row['unreadCount'] as num? ?? 0) > 0;
+    await scopedMenu<void>(
+      scope,
+      at,
+      (context) {
+        void close() => closeOwnedDialog(context, scope);
+        return RaftSidebarContextMenu(
+          width: 184,
+          onDismiss: close,
+          entries: [
+            if (!thread || following)
+              RaftSidebarMenuItem(
+                label: raftText(
+                  context,
+                  unread ? 'Mark as Read' : 'Mark as Unread',
+                ),
+                glyph: unread
+                    ? RaftGlyph.messageSquareCheck
+                    : RaftGlyph.messageSquareDot,
+                itemKey: const ValueKey('activity-menu-toggle-read'),
+                onPressed: () {
+                  if (!accepts(scope)) return;
+                  close();
+                  unawaited(toggleActivityRead(row, scope, unread));
+                },
+              ),
+            RaftSidebarMenuItem(
+              label: raftText(context, 'Done'),
+              glyph: RaftGlyph.check,
+              onPressed: () {
+                if (!accepts(scope)) return;
+                close();
+                activityAction(row, 'done', scope);
+              },
+            ),
+            if (thread)
+              RaftSidebarMenuItem(
+                label: raftText(context, following ? 'Unfollow' : 'Follow'),
+                glyph: following ? RaftGlyph.bellOff : RaftGlyph.bell,
+                onPressed: () {
+                  if (!accepts(scope)) return;
+                  close();
+                  activityAction(row, following ? 'unfollow' : 'follow', scope);
+                },
+              ),
+          ],
+        );
+      },
+      rowKey: rowKey(row),
+    );
+  }
+
+  /// Menu "Mark as Read" reads the row's scope; "Mark as Unread" POSTs
+  /// `/channels/:id/unread` (errors ignored) and both refresh the inbox.
+  Future<void> toggleActivityRead(
+    Map<String, dynamic> row,
+    String scope,
+    bool unread,
+  ) async {
+    if (unread) {
+      markActivityRead(row, scope);
+      return;
+    }
+    final id = row['kind'] == 'thread'
+        ? row['threadChannelId']
+        : row['channelId'];
+    if (id is! String) return;
+    final controller = w;
+    try {
+      await controller.command('POST', '/channels/$id/unread');
+    } catch (_) {}
+    if (!mounted || !accepts(scope)) return;
+    await controller.refreshUnread();
+    if (mounted && accepts(scope)) await load(keep: true, quietErrors: true);
+  }
 
   Widget activityCard(
     Map<String, dynamic> row,
@@ -3923,7 +4052,8 @@ class _ResourceViewState extends State<ResourceView> {
               : doubleClickInterval,
           onContextMenu: row['kind'] == 'mention_action'
               ? null
-              : () => activityMenu(row, scope),
+              : (at) => activityMenu(row, scope, at),
+          popupOpen: menuRowKey != null && menuRowKey == rowKey(row),
           actions: enabledActivity && filter == 'saved'
               ? null
               : row['kind'] == 'mention_action'
@@ -4099,7 +4229,7 @@ class _ResourceViewState extends State<ResourceView> {
     // otherwise rebuilds and lays out hundreds of offscreen cards when the
     // pager changes its accepted selection/TickerMode.
     return ColoredBox(
-      color: t.colors[t.brutal ? 'color-white' : 'layer-canvas-muted']!,
+      color: taskViewportFill(t),
       child: CustomScrollView(
         controller: taskListScroll,
         slivers: [
@@ -4120,7 +4250,7 @@ class _ResourceViewState extends State<ResourceView> {
                   taskSection(status, groups[status]!, scope),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 ],
-                if (hasMore)
+                if (hasMore && !lanePaged)
                   SliverToBoxAdapter(
                     child: TextButton(
                       onPressed: () => load(append: true),
@@ -4161,6 +4291,13 @@ class _ResourceViewState extends State<ResourceView> {
       },
       findChildIndexCallback: (key) =>
           key is ValueKey<String> ? indices[key.value] : null,
+      footer: laneCursors[status] == null
+          ? null
+          : RaftTaskLoadMoreButton(
+              key: ValueKey('task-load-more-$status'),
+              loading: laneBusy.contains(status),
+              onPressed: () => moreLane(status),
+            ),
       itemBuilder: (_, i) => SourceTaskRowExtent(
         key: ValueKey('task-${tasks[i]['id']}'),
         child: item(tasks[i], sourceScope: scope),
@@ -5034,10 +5171,15 @@ class _ResourceViewState extends State<ResourceView> {
           );
   }
 
+  /// TasksPanelViewport `bg-layer-canvas-muted theme-brutal:bg-white
+  /// dark:bg-transparent`: dark shows the shell canvas.
+  Color taskViewportFill(RaftTokens t) =>
+      t.brutal ? t.panel : (t.dark ? t.canvas : t.sidebar);
+
   Widget taskBoard() {
     final t = RaftTokens.of(context), scope = authority;
     return ColoredBox(
-      color: t.brutal ? t.panel : t.sidebar,
+      color: taskViewportFill(t),
       child: SingleChildScrollView(
         controller: taskBoardScroll,
         primary: false,
@@ -5069,7 +5211,7 @@ class _ResourceViewState extends State<ResourceView> {
                   builder: (context, candidates, rejected) => RaftTaskBoardColumn(
                     status: status,
                     count:
-                        '${(lanes[status] ?? []).where(matchesTask).length}${laneCursors[status] != null ? '+' : ''}',
+                        '${(lanes[status] ?? []).where(matchesTask).length}',
                     collapsed: collapsedTaskStatuses.contains(status),
                     dropActive: candidates.isNotEmpty,
                     triggerKey: ValueKey('task-group-$status'),
@@ -5113,13 +5255,9 @@ class _ResourceViewState extends State<ResourceView> {
           key is ValueKey<String> ? indices[key.value] : null,
       itemBuilder: (context, index) {
         if (more && index == (empty ? 1 : tasks.length)) {
-          return RaftTextButton(
-            label: laneBusy.contains(status)
-                ? 'Loading…'
-                : 'Load more ${raftTaskStatusLabel(status)}',
-            onPressed: laneBusy.contains(status)
-                ? null
-                : () => moreLane(status),
+          return RaftTaskLoadMoreButton(
+            loading: laneBusy.contains(status),
+            onPressed: () => moreLane(status),
           );
         }
         if (empty) {

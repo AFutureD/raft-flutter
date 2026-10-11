@@ -127,6 +127,7 @@ class RaftConversationCard extends StatefulWidget {
     required this.onOpen,
     this.saved = false,
     this.onContextMenu,
+    this.popupOpen = false,
     this.onActivate,
     this.onPointerActivate,
     this.doubleClickInterval = kDoubleTapTimeout,
@@ -150,7 +151,13 @@ class RaftConversationCard extends StatefulWidget {
   /// Host platform recognition window; it never delays the first activation.
   final Duration doubleClickInterval;
   final bool saved;
-  final VoidCallback? onContextMenu;
+
+  /// Right click / long press, with the pointer position (global) the Web
+  /// `onContextMenu` / base-ui ContextMenu opens its popup at.
+  final ValueChanged<Offset>? onContextMenu;
+
+  /// The row's context menu is open: Saved's `data-popup-open:bg-fill-muted`.
+  final bool popupOpen;
   final String? semanticLabel;
   final Widget? actions;
 
@@ -165,9 +172,25 @@ class RaftConversationCard extends StatefulWidget {
 
 class _RaftConversationCardState extends State<RaftConversationCard> {
   bool hovered = false, focused = false;
+  final focusNode = FocusNode(debugLabel: 'conversation-card');
+  Offset? lastPointer;
   Duration? pendingTapTime, lastTapTime;
   Offset? pendingTapPosition, lastTapPosition;
   int clickCount = 0;
+
+  @override
+  void dispose() {
+    focusNode.dispose();
+    super.dispose();
+  }
+
+  void openContextMenu(Offset at) {
+    // A DOM `role=button tabIndex=0` row takes focus on the mousedown that
+    // precedes `contextmenu`, so its group-focus-within chrome stays visible
+    // while the menu is open. Saved rows style popup-open instead.
+    if (!widget.saved) focusNode.requestFocus();
+    widget.onContextMenu?.call(at);
+  }
 
   void deliverActivation() {
     final callback = pendingTapPosition != null
@@ -201,7 +224,10 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
     final t = RaftTokens.of(context);
     final recipe = RaftConversationCardRecipe(t, saved: widget.saved);
     final showActions =
-        hovered || focused || RaftDensityScope.of(context) == RaftDensity.touch;
+        hovered ||
+        focused ||
+        widget.popupOpen ||
+        RaftDensityScope.of(context) == RaftDensity.touch;
     final rt = RaftRecipeTokens(t);
     // raft-ui Card root shadow (brutal themeShadowMd, elegant themeShadowXs);
     // SavedItem opts out with `shadow-none`.
@@ -213,7 +239,7 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
     Widget surface(Widget child) {
       if (widget.saved) {
         return Material(
-          color: hovered || focused
+          color: hovered || focused || widget.popupOpen
               ? recipe.hoverBackground
               : recipe.background,
           shape: RoundedRectangleBorder(
@@ -234,7 +260,9 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
         applyText: false,
         clip: true,
         decorationOverride: (base) => base.copyWith(
-          color: hovered || focused
+          // InboxRow: only `hover:bg-fill-muted` changes the fill; focus-within
+          // just reveals the row action.
+          color: hovered
               ? recipe.hoverBackground
               : recipe.background,
           border: Border.fromBorderSide(recipe.border),
@@ -254,68 +282,77 @@ class _RaftConversationCardState extends State<RaftConversationCard> {
         child: MouseRegion(
           onEnter: (_) => setState(() => hovered = true),
           onExit: (_) => setState(() => hovered = false),
-          child: Semantics(
-            button: true,
-            label: widget.semanticLabel,
-            child: surface(
-              InkWell(
-                splashFactory: NoSplash.splashFactory,
-                highlightColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                // InkWell.onDoubleTap would delay the first onTap before the
-                // consumer sees it. Count successful primary
-                // taps without installing a double-tap recognizer instead.
-                onTapDown:
-                    widget.onActivate == null &&
-                        widget.onPointerActivate == null
-                    ? null
-                    : (details) {
-                        pendingTapTime = SchedulerBinding
-                            .instance
-                            .currentSystemFrameTimeStamp;
-                        pendingTapPosition = details.globalPosition;
-                      },
-                onTapCancel: () {
-                  pendingTapTime = null;
-                  pendingTapPosition = null;
-                },
-                onTap: deliverActivation,
-                onLongPress: widget.onContextMenu,
-                onSecondaryTap: widget.onContextMenu,
-                borderRadius: recipe.radius,
-                child: Padding(
-                  // RecipeBox includes its CSS border in Container padding;
-                  // the Saved Material shape only paints the border.
-                  padding: RaftConversationCardRecipe.inset.add(
-                    EdgeInsets.all(widget.saved ? recipe.border.width : 0),
-                  ),
-                  child: Stack(
-                    children: [
-                      widget.child,
-                      if (widget.actions != null)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: ExcludeSemantics(
-                            excluding: !showActions,
-                            child: IgnorePointer(
-                              ignoring: !showActions,
-                              child: AnimatedOpacity(
-                                opacity: showActions ? 1 : 0,
-                                duration:
-                                    MediaQuery.disableAnimationsOf(context)
-                                    ? Duration.zero
-                                    : RaftConversationCardRecipe.actionFade,
-                                child: Material(
-                                  color: recipe.background,
-                                  child: widget.actions!,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (e) => lastPointer = e.position,
+            child: Semantics(
+              button: true,
+              label: widget.semanticLabel,
+              child: surface(
+                InkWell(
+                  splashFactory: NoSplash.splashFactory,
+                  highlightColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  focusColor: Colors.transparent,
+                  // InkWell.onDoubleTap would delay the first onTap before the
+                  // consumer sees it. Count successful primary
+                  // taps without installing a double-tap recognizer instead.
+                  onTapDown:
+                      widget.onActivate == null &&
+                          widget.onPointerActivate == null
+                      ? null
+                      : (details) {
+                          pendingTapTime = SchedulerBinding
+                              .instance
+                              .currentSystemFrameTimeStamp;
+                          pendingTapPosition = details.globalPosition;
+                        },
+                  onTapCancel: () {
+                    pendingTapTime = null;
+                    pendingTapPosition = null;
+                  },
+                  onTap: deliverActivation,
+                  focusNode: focusNode,
+                  onLongPress: widget.onContextMenu == null
+                      ? null
+                      : () => openContextMenu(lastPointer ?? Offset.zero),
+                  onSecondaryTapDown: widget.onContextMenu == null
+                      ? null
+                      : (details) => openContextMenu(details.globalPosition),
+                  borderRadius: recipe.radius,
+                  child: Padding(
+                    // RecipeBox includes its CSS border in Container padding;
+                    // the Saved Material shape only paints the border.
+                    padding: RaftConversationCardRecipe.inset.add(
+                      EdgeInsets.all(widget.saved ? recipe.border.width : 0),
+                    ),
+                    child: Stack(
+                      children: [
+                        widget.child,
+                        if (widget.actions != null)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: ExcludeSemantics(
+                              excluding: !showActions,
+                              child: IgnorePointer(
+                                ignoring: !showActions,
+                                child: AnimatedOpacity(
+                                  opacity: showActions ? 1 : 0,
+                                  duration:
+                                      MediaQuery.disableAnimationsOf(context)
+                                      ? Duration.zero
+                                      : RaftConversationCardRecipe.actionFade,
+                                  child: Material(
+                                    color: recipe.background,
+                                    child: widget.actions!,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

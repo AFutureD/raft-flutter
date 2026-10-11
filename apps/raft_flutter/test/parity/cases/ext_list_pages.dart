@@ -503,6 +503,11 @@ Widget _panel(ParityContext ctx) {
   final width = (ctx.props['w'] as num? ?? 342).toDouble();
   final height = (ctx.props['h'] as num? ?? 620).toDouble();
   final now = parityNow(ctx);
+  // Menus open at the pointer outside the panel: the React case screenshots
+  // the whole viewport, so the Flutter side captures it too.
+  final key = ctx.props['extCase'] as String;
+  final viewportCapture =
+      key.endsWith('-context-menu') || key.endsWith('-actions');
   final view = Scaffold(
     body: ResourceView(
       controller: w,
@@ -519,12 +524,19 @@ Widget _panel(ParityContext ctx) {
     density: ctx.props['platform'] == 'desktop' || panel == 'activity'
         ? RaftDensity.desktop
         : RaftDensity.touch,
-    child: ctx.frame(
-      width: width,
-      height: height,
-      padding: EdgeInsets.zero,
-      child: view,
-    ),
+    child: viewportCapture
+        ? Align(
+            alignment: Alignment.topLeft,
+            child: ClipRect(
+              child: SizedBox(width: width, height: height, child: view),
+            ),
+          )
+        : ctx.frame(
+            width: width,
+            height: height,
+            padding: EdgeInsets.zero,
+            child: view,
+          ),
   );
 }
 
