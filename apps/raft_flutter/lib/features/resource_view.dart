@@ -5077,29 +5077,20 @@ class _ResourceViewState extends State<ResourceView> {
   /// TasksPanel channel mode with no task at all: the centred EmptyState
   /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.
   Widget channelTasksEmpty() {
-    final t = RaftTokens.of(context);
     final filtered = !taskAdvanced.isEmpty;
-    return ColoredBox(
-      color: t.brutal ? t.panel : t.sidebar,
-      child: Padding(
-        padding: raftScrollPadding(context, const EdgeInsets.all(16)),
-        child: SizedBox.expand(
-          child: RaftProductEmptyState(
-            title: raftText(
-              context,
-              filtered ? 'No tasks match this filter' : 'No tasks yet',
-            ),
-            description: raftText(
-              context,
-              filtered
-                  ? 'Try a different combination or clear the current selection.'
-                  : 'Create one with the New Task button.',
-            ),
-            icon: (context, size, color) =>
-                RaftIcon(RaftGlyph.checkSquare, size: size, color: color),
-          ),
-        ),
+    return RaftProductEmptyPanel(
+      title: raftText(
+        context,
+        filtered ? 'No tasks match this filter' : 'No tasks yet',
       ),
+      description: raftText(
+        context,
+        filtered
+            ? 'Try a different combination or clear the current selection.'
+            : 'Create one with the New Task button.',
+      ),
+      icon: (context, size, color) =>
+          RaftIcon(RaftGlyph.checkSquare, size: size, color: color),
     );
   }
 

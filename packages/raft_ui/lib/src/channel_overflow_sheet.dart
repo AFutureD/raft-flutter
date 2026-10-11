@@ -236,9 +236,12 @@ class _OverflowDrawerFrame extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Container(
             decoration: BoxDecoration(
-              // Web keeps `theme-brutal:border-l-2` on the phone's full-width
-              // drawer too (the content column starts 2px in).
-              border: t.brutal
+              // Owner decision 2026-10-12: the phone's full-width page draws
+              // no left edge line (intended difference from Web).
+              border:
+                  t.brutal &&
+                      !page &&
+                      size.width >= RaftLayoutMetrics.desktopBreakpoint
                   ? Border(
                       left: BorderSide(
                         color: t.colors['line-strong']!,

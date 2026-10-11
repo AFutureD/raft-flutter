@@ -270,13 +270,12 @@ void main() {
         await t.tap(find.text('Register app'));
         await t.pumpAndSettle();
         await t.enterText(
-          find.byKey(const ValueKey('field-name')),
+          find.byKey(const ValueKey('connected-app-name')),
           'Created app',
         );
-        await t.tap(find.text('Register'));
+        await t.tap(find.byKey(const ValueKey('connected-app-editor-submit')));
         await t.pumpAndSettle();
-        await t.tap(find.text('Close'));
-        await t.pumpAndSettle();
+        expect(find.text('one-time-secret'), findsOneWidget);
         await _leave(t);
         final snapshot = w.resourceSnapshots.read<FieldSnapshot>(
           'management:integrations',

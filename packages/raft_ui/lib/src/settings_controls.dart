@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'banner.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'localization.dart';
@@ -248,7 +249,11 @@ class RaftRecipeInput extends StatefulWidget {
     this.maxLength,
     this.recipeText = false,
     this.obscure = false,
+    this.readOnly = false,
   });
+
+  /// `readOnly`.
+  final bool readOnly;
 
   /// `type="password"`.
   final bool obscure;
@@ -349,6 +354,7 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
         focusNode: focus,
         autofocus: widget.autofocus,
         enabled: widget.enabled,
+        readOnly: widget.readOnly,
         obscureText: widget.obscure,
         enableSuggestions: !widget.obscure,
         autocorrect: !widget.obscure,
@@ -724,10 +730,11 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           body,
-          const SizedBox(height: 12),
-          Semantics(
-            liveRegion: true,
-            child: Text(error, style: RaftSettingsText(t).alert),
+          // ConfirmDialog: `<Banner intent="warning" className="mt-4">`.
+          const SizedBox(height: 16),
+          RaftBanner(
+            status: RaftBannerRecipeStatus.warning,
+            description: error,
           ),
         ],
       );

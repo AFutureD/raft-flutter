@@ -1053,10 +1053,16 @@ class _RaftControlState extends State<RaftControl> {
                 ? (details) {
                     setState(() => pressed = false);
                     final box = context.findRenderObject();
+                    // A finger may land in the enlarged touch target around
+                    // the control (RaftTapSlopAnchor / RaftTouchTarget), so
+                    // touch taps accept the target's reach, not just the box.
+                    final reach = details.kind == PointerDeviceKind.touch
+                        ? RaftMetrics.touchTarget / 2
+                        : 0.0;
                     if (box is RenderBox &&
-                        (Offset.zero & box.size).contains(
-                          details.localPosition,
-                        ))
+                        (Offset.zero & box.size)
+                            .inflate(reach)
+                            .contains(details.localPosition))
                       widget.onPressed?.call();
                   }
                 : null,

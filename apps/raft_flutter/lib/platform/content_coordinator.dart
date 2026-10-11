@@ -11,6 +11,9 @@ import 'package:app_links/app_links.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/raft_location.dart';
+import '../data/raft_navigation_history.dart';
+import '../features/invite_accept_view.dart';
 import 'content_target.dart';
 import 'content_links.dart';
 import 'native_notifications.dart';
@@ -39,6 +42,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   bool _workspaceBindingResolved = false;
   Uri? _pendingLink;
   String? _pendingTap;
+  bool _pendingTapInitial = false;
   final Set<String> _delivered = {};
   final Set<String> _inFlight = {};
 
@@ -86,11 +90,13 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _events = workspace?.client.events.listen(_event);
     _changed();
     final link = _pendingLink, tap = _pendingTap;
+    final replaceInitial = _pendingTapInitial;
     _pendingLink = null;
     _pendingTap = null;
+    _pendingTapInitial = false;
     if (workspace != null) {
       if (link != null) receiveLink(link);
-      if (tap != null) _tap(tap);
+      if (tap != null) _tap(tap, replaceInitial: replaceInitial);
     }
   }
 
@@ -172,6 +178,14 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   void receiveLink(Uri uri) {
     if (_closed || uri.scheme == 'raft' && uri.host == 'oauth') return;
     if (notifications.receiveWindowsActivation(uri)) return;
+    // raft://v1/join/<token>: an invite opens the invite page, signed in or not.
+    if (uri.scheme == 'raft' && uri.host == 'v1') {
+      final invite = InviteLink.fromLocation(uri);
+      if (invite != null && uri.toString().length <= 2048) {
+        InviteRequests.instance.open(invite);
+        return;
+      }
+    }
     final w = _workspace;
     if (w == null || w.client.user == null) {
       // Only a bounded content URI can wait for normal account restoration.
@@ -189,7 +203,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     if (target != null) unawaited(navigate(target));
   }
 
-  void _tap(String payload) {
+  void _tap(String payload, {bool replaceInitial = false}) {
     if (_closed) return;
     unawaited(notifications.presentWindow().catchError((Object _) {}));
     if (Platform.isLinux) {
@@ -201,7 +215,11 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     }
     if (payload == 'raft-notification-test') return;
     if (_workspace == null) {
-      if (payload.length <= 4096) _pendingTap = payload;
+      if (payload.length <= 4096) {
+        _pendingTap = payload;
+        // The first restored surface is startup state, not a visited Back entry.
+        _pendingTapInitial = !_workspaceBindingResolved;
+      }
       return;
     }
     try {
@@ -219,7 +237,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         origin: ContentLinks.originFor(c.origin),
       );
       if (target != null && target.serverId == c.serverId) {
-        unawaited(navigate(target));
+        unawaited(navigate(target, replaceEntry: replaceInitial));
       }
     } catch (_) {
       /* Untrusted platform payloads cannot navigate. */
@@ -307,7 +325,10 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     }
   }
 
-  Future<void> navigate(ContentTarget target) async {
+  Future<void> navigate(
+    ContentTarget target, {
+    bool replaceEntry = false,
+  }) async {
     final w = _workspace,
         scope = _scope,
         epoch = _epoch,
@@ -320,7 +341,11 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         _epoch == epoch &&
         _navigation == navigation;
     try {
-      final server = await authorize(w, target, valid);
+      final (server, channel) = await _authorizeContent(
+        w.client,
+        target,
+        valid,
+      );
       if (!valid()) return;
       // Content links never switch the signed-in account or coordinator origin.
       // Cross-server links require an explicit server selection in the app first.
@@ -328,15 +353,45 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         w.setError('Select the linked workspace before opening this message.');
         return;
       }
-      if (target.parentMessageId != null && target.messageId == null) {
-        await w.jumpToMessage(target.channelId, target.parentMessageId);
-        if (!valid()) return;
-        final parent = w.messages
-            .where((m) => m.id == target.parentMessageId)
-            .firstOrNull;
-        if (parent != null) await w.openThread(parent);
+      if (target.parentMessageId != null) {
+        if (!w.can('viewChannel', resource: channel)) {
+          throw const RaftApiException('Unavailable channel.');
+        }
+        final destination =
+            RaftLocation.at(
+              serverSlug: w.location.serverSlug,
+              route: channel.type == 'dm' ? RaftRoute.dm : RaftRoute.channel,
+              entityId: channel.id,
+            ).withQuery({
+              'thread': '${channel.id}:${target.parentMessageId}',
+              'msg': target.messageId,
+            });
+        // Publish the complete destination once. The parent channel tail and
+        // reply window then load independently, without an intermediate page.
+        w.navigation.navigate(
+          destination,
+          kind: replaceEntry
+              ? RaftNavigationKind.replace
+              : RaftNavigationKind.push,
+        );
+        w.channel = channel;
+        final opening = w.openThreadIdentity(
+          parentChannelId: channel.id,
+          parentMessageId: target.parentMessageId!,
+          focusedMessageId: target.messageId,
+          initialThreadChannelId: target.threadId,
+          navigate: false,
+        );
+        await Future.wait([
+          opening,
+          w.selectChannel(channel, navigate: false, preserveThread: true),
+        ]);
       } else {
-        await w.jumpToMessage(target.channelId, target.messageId);
+        await w.jumpToMessage(
+          target.channelId,
+          target.messageId,
+          replaceEntry: replaceEntry,
+        );
       }
     } catch (_) {
       if (valid()) {
@@ -354,6 +409,12 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   ) => authorizeClient(w.client, target, valid);
 
   static Future<RaftRecord> authorizeClient(
+    RaftClient client,
+    ContentTarget target,
+    bool Function() valid,
+  ) async => (await _authorizeContent(client, target, valid)).$1;
+
+  static Future<(RaftRecord, RaftChannel)> _authorizeContent(
     RaftClient client,
     ContentTarget target,
     bool Function() valid,
@@ -403,7 +464,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         throw const RaftApiException('Unavailable thread.');
       }
     }
-    return server;
+    return (server, RaftChannel(Map<String, dynamic>.from(channel)));
   }
 
   @override

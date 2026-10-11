@@ -574,7 +574,6 @@ class _MessageActionCardState extends State<MessageActionCard> {
     final inbound = visible.any(
       (s) => const {'agent:event:write', 'agent:notification:write'}.contains(s),
     );
-    final t = RaftTokens.of(context);
     return RaftActionField(
       label: 'Scopes:',
       child: RaftActionScopeList(
@@ -591,17 +590,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
               tone: RaftActionTone.strong,
             ),
           if (inbound)
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: t.colors['warning-soft'],
-                border: Border.all(color: t.colors['line-hairline']!),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(7),
-                child: RaftActionNote(
-                  'Cannot send chat as you, speak as the agent, read messages, or take actions.',
-                ),
-              ),
+            const RaftActionWarningBox(
+              'Cannot send chat as you, speak as the agent, read messages, or take actions.',
             ),
         ],
       ),

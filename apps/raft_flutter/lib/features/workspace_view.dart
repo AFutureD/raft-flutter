@@ -36,6 +36,7 @@ import 'thread_actions.dart';
 import 'profile_side_panel.dart';
 import 'thread_agent_followers_view.dart';
 import 'computer_detail_view.dart';
+import 'community_join.dart';
 import 'conversation_panel.dart';
 import 'message_selection.dart';
 
@@ -2681,11 +2682,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
           .where((s) => s.string('slug') == 'community')
           .firstOrNull;
       if (joined == null) {
-        await w.client.post(
-          '/servers/join-community',
-          data: {'slug': 'community'},
+        // useJoinCommunityFlow: an agreement to accept opens the dialog.
+        final accepted = await joinCommunity(
+          () => context,
+          w.client,
+          communityServerSlug,
         );
-        if (!mounted || scope != mobileAuthority) return;
+        if (!accepted || !mounted || scope != mobileAuthority) return;
         await w.recoverMembership();
         if (!mounted || scope != mobileAuthority) return;
         joined = w.servers
