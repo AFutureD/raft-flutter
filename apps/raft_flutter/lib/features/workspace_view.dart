@@ -1828,7 +1828,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
             controller: w,
             parentMessageId: parentId,
             menuMode: true,
-            onSearch: () => select('search'),
+            // Web ThreadPanel openThreadSearch: the in-thread search bar.
+            onSearch: w.threadSearch.open,
             onViewChannel: () {
               w.closeThread(navigate: false);
               // Web openThreadParentMessageRoute: desktop pushes, phone

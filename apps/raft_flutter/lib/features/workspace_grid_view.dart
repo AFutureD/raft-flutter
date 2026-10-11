@@ -398,6 +398,7 @@ class _ConversationState extends State<_Conversation> {
                           controller: w,
                           parentMessageId: w.threadParentMessageId!,
                           menuMode: true,
+                          onSearch: w.threadSearch.open,
                         ),
                       ],
                     ),

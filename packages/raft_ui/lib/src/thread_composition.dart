@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'design_primitives.dart';
 import 'conversation_surface.dart';
 import 'icons.dart';
+import 'localization.dart';
 import 'panel_layout.dart';
 import 'theme.dart';
 
@@ -60,9 +62,9 @@ class RaftThreadCompositionRecipe {
       ? const BorderSide(color: Colors.black, width: 2)
       // Mounted ThreadPanelRoot gives its AppPanelHeader a bottom rule.
       : BorderSide(color: tokens.colors['line-muted']!);
-  Color get parentBackground => RaftConversationSurfaceRecipe(
-    tokens,
-  ).background(RaftConversationSurfaceRole.threadParent);
+  Color get parentBackground =>
+      RaftConversationSurfaceRecipe(tokens)
+          .background(RaftConversationSurfaceRole.threadParent);
   EdgeInsets get parentInset => const EdgeInsets.all(12);
   BorderSide get parentBorder => BorderSide(
     color: tokens.brutal ? Colors.black : tokens.colors['line-muted']!,
@@ -273,6 +275,180 @@ class RaftThreadOverflowAction extends StatelessWidget {
     tooltip: label,
     onPressed: onPressed,
   );
+}
+
+/// Web ThreadPanel `thread-search-bar`: a search icon, the query field, the
+/// "n/m" count, previous / next match steppers and a close control. The app
+/// owns the query, the matches and the scrolling; this is chrome only.
+class RaftThreadSearchBar extends StatelessWidget {
+  const RaftThreadSearchBar({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+    required this.countLabel,
+    required this.canStep,
+    required this.onChanged,
+    required this.onStep,
+    required this.onClose,
+  });
+  final TextEditingController controller;
+  final FocusNode focusNode;
+
+  /// "1/2", "0/0", the loading label or empty (no query yet).
+  final String countLabel;
+  final bool canStep;
+  final ValueChanged<String> onChanged;
+
+  /// `1` next, `-1` previous (Enter / Shift+Enter, the chevron buttons).
+  final ValueChanged<int> onStep;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final muted = t.brutal ? Colors.black.withValues(alpha: .5) : t.muted;
+    final hint = raftText(context, 'Search this thread');
+    final fieldText = RaftTypography.inherited(
+      t,
+      size: 14,
+      line: 20,
+      weight: FontWeight.w500,
+      color: t.brutal ? Colors.black : t.ink,
+    );
+    return Container(
+      key: const Key('thread-search-bar'),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: t.brutal
+            ? Colors.white
+            : t.dark
+            ? t.card
+            : t.panel,
+        border: Border(
+          bottom: BorderSide(
+            color: t.brutal ? Colors.black : t.colors['line-muted']!,
+            width: t.brutal ? 2 : 1,
+          ),
+        ),
+      ),
+      child: Row(
+        spacing: 6,
+        children: [
+          RaftIcon(RaftGlyph.search, size: 14, color: muted),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: focusNode,
+              builder: (context, _) {
+                final focused = focusNode.hasFocus;
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: t.brutal ? Colors.white : t.panel,
+                    border: Border.all(
+                      color: t.brutal
+                          ? Colors.black
+                          : t.colors[focused ? 'line-strong' : 'line-muted']!,
+                      width: t.brutal ? 2 : 1,
+                    ),
+                    boxShadow: focused ? t.themeShadows.sm.outer : const [],
+                  ),
+                  child: Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onKeyEvent: (_, event) {
+                      if (event is! KeyDownEvent) {
+                        return KeyEventResult.ignored;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.escape) {
+                        onClose();
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+                        onStep(
+                          HardwareKeyboard.instance.isShiftPressed ? -1 : 1,
+                        );
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: TextField(
+                      key: const Key('thread-search-input'),
+                      controller: controller,
+                      focusNode: focusNode,
+                      onChanged: onChanged,
+                      style: fieldText,
+                      strutStyle: StrutStyle.fromTextStyle(
+                        fieldText,
+                        forceStrutHeight: true,
+                      ),
+                      cursorColor: fieldText.color,
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        isDense: true,
+                        filled: false,
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        hintText: hint,
+                        hintStyle: fieldText.copyWith(
+                          color: t.brutal
+                              ? Colors.black.withValues(alpha: .4)
+                              : t.semantic.foregroundPlaceholder,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          SizedBox(
+            key: const Key('thread-search-count'),
+            width: 80,
+            child: Text(
+              countLabel,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: RaftTypography.mono(t, color: muted),
+            ),
+          ),
+          RaftIconButton(
+            key: const Key('thread-search-previous'),
+            glyph: RaftGlyph.chevronUp,
+            tooltip: 'Previous match',
+            visualSize: 28,
+            minimumTargetSize: 28,
+            onPressed: canStep ? () => onStep(-1) : null,
+          ),
+          RaftIconButton(
+            key: const Key('thread-search-next'),
+            glyph: RaftGlyph.chevronDown,
+            tooltip: 'Next match',
+            visualSize: 28,
+            minimumTargetSize: 28,
+            onPressed: canStep ? () => onStep(1) : null,
+          ),
+          RaftControl(
+            key: const Key('thread-search-close'),
+            recipe: _ThreadCloseRecipe(t),
+            tooltip: raftText(context, 'Close thread search'),
+            semanticLabel: raftText(context, 'Close thread search'),
+            onPressed: onClose,
+            visualWidth: 28,
+            visualHeight: 28,
+            minimumTargetSize: 28,
+            padding: EdgeInsets.zero,
+            child: const RaftIcon(RaftGlyph.x, size: 14),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ThreadTitleRecipe extends RaftControlRecipe {

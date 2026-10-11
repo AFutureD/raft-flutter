@@ -397,7 +397,13 @@ class RaftMessageBody extends StatelessWidget {
     this.lineHeight,
     this.enableProseSelection = true,
     this.compactSemantics = false,
+    this.searchHighlight,
   });
+
+  /// Web `threadSearchHighlightQuery`: prose and inline-code occurrences of this
+  /// (trimmed, case-insensitive) query get the `<mark>` treatment; links,
+  /// mentions and fenced code stay as they are.
+  final String? searchHighlight;
 
   /// Prepares immutable Markdown and code caches without mounting widgets.
   ///
@@ -482,6 +488,7 @@ class RaftMessageBody extends StatelessWidget {
         ),
       ),
     );
+    final highlight = raftNormalizeSearchHighlight(searchHighlight);
     final recipe = MessageContentRecipe(
       t,
       fontSize: fontSize,
@@ -516,7 +523,8 @@ class RaftMessageBody extends StatelessWidget {
     final builders = <String, MarkdownElementBuilder>{
       'a': _MessageLinkBuilder(onLink, referenceAppearance),
       'raftref': _MessageLinkBuilder(onLink, referenceAppearance),
-      'code': _MessageInlineCodeBuilder(),
+      'code': _MessageInlineCodeBuilder(highlight: highlight),
+      if (highlight.isNotEmpty) 'mark': _SearchMarkBuilder(t),
     };
     final bulletStyle = recipe.body;
     final indent = documentMode
@@ -543,6 +551,7 @@ class RaftMessageBody extends StatelessWidget {
               data: chunk.text,
               styleSheet: resolveStyleSheets().$1,
               resolvedStyleSheet: resolveStyleSheets().$2,
+              searchHighlight: highlight,
               builders: builders,
               paddingBuilderFactory: () => recipe.headingPadding(chunk.text),
               onTapLink: (_, href, _) {
@@ -661,6 +670,7 @@ class _RaftMarkdown extends MarkdownBody {
     required super.data,
     required MarkdownStyleSheet super.styleSheet,
     required this.resolvedStyleSheet,
+    required this.searchHighlight,
     required Map<String, MarkdownElementBuilder> super.builders,
     required this.paddingBuilderFactory,
     required MarkdownTapLinkCallback super.onTapLink,
@@ -670,6 +680,9 @@ class _RaftMarkdown extends MarkdownBody {
   /// MarkdownBody's effective sheet: Material fallback merged with
   /// [styleSheet].
   final MarkdownStyleSheet resolvedStyleSheet;
+
+  /// Normalized thread-search query ('' when none).
+  final String searchHighlight;
 
   /// Heading padding builders carry per-build state, so each build gets
   /// fresh ones.
@@ -695,7 +708,9 @@ class _RaftMarkdownState extends State<MarkdownWidget>
   void didUpdateWidget(MarkdownWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.data != oldWidget.data ||
-        widget.styleSheet != oldWidget.styleSheet) {
+        widget.styleSheet != oldWidget.styleSheet ||
+        markdown.searchHighlight !=
+            (oldWidget as _RaftMarkdown).searchHighlight) {
       rebuildChildren();
     }
   }
@@ -716,29 +731,38 @@ class _RaftMarkdownState extends State<MarkdownWidget>
 
   void rebuildChildren() {
     disposeRecognizers();
-    final built = MarkdownBuilder(
-      delegate: this,
-      selectable: false,
-      styleSheet: markdown.resolvedStyleSheet,
-      imageDirectory: null,
-      imageBuilder: null,
-      checkboxBuilder: null,
-      bulletBuilder: widget.bulletBuilder,
-      builders: {
-        for (final entry in widget.builders.entries)
-          entry.key: entry.value is _MessageLinkBuilder
-              ? (entry.value as _MessageLinkBuilder).withRecognizers(
-                  recognizers,
-                )
-              : entry.value,
-      },
-      paddingBuilders: markdown.paddingBuilderFactory(),
-      fitContent: true,
-      listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
-      onSelectionChanged: null,
-      onTapText: null,
-      softLineBreak: true,
-    ).build(_parseMarkdown(widget.data));
+    final built =
+        MarkdownBuilder(
+          delegate: this,
+          selectable: false,
+          styleSheet: markdown.resolvedStyleSheet,
+          imageDirectory: null,
+          imageBuilder: null,
+          checkboxBuilder: null,
+          bulletBuilder: widget.bulletBuilder,
+          builders: {
+            for (final entry in widget.builders.entries)
+              entry.key: entry.value is _MessageLinkBuilder
+                  ? (entry.value as _MessageLinkBuilder).withRecognizers(
+                      recognizers,
+                    )
+                  : entry.value,
+          },
+          paddingBuilders: markdown.paddingBuilderFactory(),
+          fitContent: true,
+          listItemCrossAxisAlignment:
+              MarkdownListItemCrossAxisAlignment.baseline,
+          onSelectionChanged: null,
+          onTapText: null,
+          softLineBreak: true,
+        ).build(
+          markdown.searchHighlight.isEmpty
+              ? _parseMarkdown(widget.data)
+              : _highlightSearchNodes(
+                  _parseMarkdown(widget.data),
+                  markdown.searchHighlight,
+                ),
+        );
     final gap = markdown.resolvedStyleSheet.blockSpacing ?? 0;
     children = [for (final child in built) _tightenListItemGaps(child, gap)];
   }
@@ -1302,6 +1326,10 @@ class _ReferenceSentinelSyntax extends md.InlineSyntax {
 /// an indivisible chip. Empty placeholders add layout space without changing
 /// authored code or the text returned by selection and accessibility.
 class _MessageInlineCodeBuilder extends MarkdownElementBuilder {
+  _MessageInlineCodeBuilder({this.highlight = ''});
+
+  /// Normalized thread-search query: matches in the code text get the mark.
+  final String highlight;
   @override
   Widget? visitElementAfterWithContext(
     BuildContext context,
@@ -1338,7 +1366,16 @@ class _MessageInlineCodeBuilder extends MarkdownElementBuilder {
       TextSpan(
         children: [
           padding(),
-          TextSpan(text: element.textContent as String, style: style),
+          highlight.isEmpty
+              ? TextSpan(text: element.textContent as String, style: style)
+              : TextSpan(
+                  children: _searchSpans(
+                    context,
+                    element.textContent as String,
+                    highlight,
+                    style,
+                  ),
+                ),
           padding(),
         ],
       ),
@@ -1837,3 +1874,117 @@ final _inlineCodeMetricsCache =
   painter.dispose();
   return result;
 });
+
+/// Web `normalizeThreadSearchQuery`: trimmed, lower-cased.
+String raftNormalizeSearchHighlight(String? query) =>
+    (query ?? '').trim().toLowerCase();
+
+/// Splits [text] around the case-insensitive occurrences of [query]
+/// (already normalized); `null` when it never occurs.
+List<(String, bool)>? _searchFragments(String text, String query) {
+  if (query.isEmpty) return null;
+  final lower = text.toLowerCase();
+  // A lower-casing that changes the length (rare scripts) cannot map back.
+  if (lower.length != text.length) return null;
+  var at = lower.indexOf(query);
+  if (at < 0) return null;
+  final out = <(String, bool)>[];
+  var cursor = 0;
+  while (at >= 0) {
+    if (at > cursor) out.add((text.substring(cursor, at), false));
+    out.add((text.substring(at, at + query.length), true));
+    cursor = at + query.length;
+    at = lower.indexOf(query, cursor);
+  }
+  if (cursor < text.length) out.add((text.substring(cursor), false));
+  return out;
+}
+
+/// Web `ThreadSearchFragmentHighlight`: `bg-primary-soft text-foreground-strong`,
+/// Brutal `bg-soft-signal/70 text-inherit`.
+TextStyle _searchMarkStyle(BuildContext context, TextStyle base) {
+  final t = RaftTokens.of(context);
+  return base.copyWith(
+    backgroundColor: t.brutal
+        ? t.product.softSignal.withValues(alpha: .7)
+        : t.colors['primary-soft'],
+    color: t.brutal ? base.color : t.strong,
+  );
+}
+
+List<InlineSpan> _searchSpans(
+  BuildContext context,
+  String text,
+  String query,
+  TextStyle style,
+) {
+  final parts = _searchFragments(text, query);
+  if (parts == null) return [TextSpan(text: text, style: style)];
+  return [
+    for (final (part, marked) in parts)
+      TextSpan(
+        text: part,
+        style: marked ? _searchMarkStyle(context, style) : style,
+      ),
+  ];
+}
+
+/// Copies [nodes] with every text occurrence of [query] wrapped in a `mark`
+/// element. Links, mentions and block code keep their text (Web leaves the
+/// controlled `<a>` / `<span>` HTML and fenced code untouched); inline code is
+/// marked by its own builder.
+List<md.Node> _highlightSearchNodes(
+  List<md.Node> nodes,
+  String query, {
+  bool plain = false,
+}) => [
+  for (final node in nodes)
+    if (node is md.Text && !plain)
+      ..._markText(node.text, query)
+    else if (node is md.Element)
+      md.Element(
+        node.tag,
+        node.children == null
+            ? null
+            : _highlightSearchNodes(
+                node.children!,
+                query,
+                plain: plain || _plainTags.contains(node.tag),
+              ),
+      )..attributes.addAll(node.attributes)
+    else
+      node,
+];
+
+const _plainTags = {'a', 'raftref', 'pre', 'code'};
+
+List<md.Node> _markText(String text, String query) {
+  final parts = _searchFragments(text, query);
+  if (parts == null) return [md.Text(text)];
+  return [
+    for (final (part, marked) in parts)
+      if (marked) md.Element('mark', [md.Text(part)]) else md.Text(part),
+  ];
+}
+
+class _SearchMarkBuilder extends MarkdownElementBuilder {
+  _SearchMarkBuilder(this.tokens);
+  final RaftTokens tokens;
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final style = (parentStyle ?? DefaultTextStyle.of(context).style).merge(
+      preferredStyle,
+    );
+    return Text.rich(
+      TextSpan(
+        text: element.textContent,
+        style: _searchMarkStyle(context, style),
+      ),
+    );
+  }
+}

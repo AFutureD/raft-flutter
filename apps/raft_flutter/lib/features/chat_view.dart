@@ -16,6 +16,7 @@ import 'message_timeline.dart';
 import 'row_extents.dart';
 
 import '../data/plan_history.dart';
+import '../data/thread_search.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
@@ -279,8 +280,15 @@ class _RaftChatViewState extends State<RaftChatView>
   RaftTimelineAlignment alignOn(String target, {double? leading}) =>
       RaftTimelineAlignment.row(
         find: () {
-          final box = focusAnchors[target]?.currentContext?.findRenderObject();
-          return box is RenderBox ? box : null;
+          final context = focusAnchors[target]?.currentContext;
+          if (context == null) return null;
+          try {
+            final box = context.findRenderObject();
+            return box is RenderBox && box.attached ? box : null;
+          } on FlutterError {
+            // The row's element went inactive while the timeline rebuilt.
+            return null;
+          }
         },
         leading: leading,
       );
@@ -305,6 +313,75 @@ class _RaftChatViewState extends State<RaftChatView>
       }
       if (active) sync();
     }
+  }
+
+  // Web ThreadPanel in-thread search (thread view only): the bar's field and
+  // focus, bound to the controller's [ThreadSearch].
+  final searchInput = TextEditingController();
+  final searchFocus = FocusNode();
+  ThreadSearch? boundSearch;
+  String? searchActive;
+  int seenSearchFocus = 0;
+
+  void bindThreadSearch() {
+    boundSearch?.removeListener(threadSearchChanged);
+    boundSearch = widget.thread ? w.threadSearch : null;
+    boundSearch?.addListener(threadSearchChanged);
+    searchActive = boundSearch?.activeMessageId;
+    seenSearchFocus = boundSearch?.focusRequest ?? 0;
+  }
+
+  void threadSearchChanged() {
+    final search = boundSearch;
+    if (!mounted || search == null) return;
+    if (searchInput.text != search.query) {
+      searchInput.value = TextEditingValue(
+        text: search.query,
+        selection: TextSelection.collapsed(offset: search.query.length),
+      );
+    }
+    if (search.focusRequest != seenSearchFocus) {
+      seenSearchFocus = search.focusRequest;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !search.isOpen) return;
+        searchFocus.requestFocus();
+        searchInput.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: searchInput.text.length,
+        );
+      });
+    }
+    final active = search.activeMessageId;
+    final changed = active != searchActive;
+    searchActive = active;
+    if (presentationActive) setState(() {});
+    if (changed && active != null) revealSearchMatch(active);
+  }
+
+  /// Web `ensureThreadSearchMatchVisible` then `scrollToMessage(center)`: a
+  /// match outside the loaded window reloads the thread around it (the
+  /// timeline's focus reveal centers it); a loaded one is centered here.
+  Future<void> revealSearchMatch(String id) async {
+    final search = boundSearch;
+    if (search == null) return;
+    final loaded = await search.ensureVisible(id);
+    if (!loaded || !mounted || searchActive != id || !presentationActive) {
+      return;
+    }
+    if (w.presentedThreadParent?.id == id) {
+      jumpToBeginning();
+      return;
+    }
+    final target = adapter.messages
+        .where((m) => m.metadata?['id'] == id)
+        .firstOrNull;
+    if (target == null) return;
+    // Mount the row's anchor, then center it.
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || searchActive != id) return;
+      recenter(first: target.id, alignment: alignOn(id));
+    });
   }
 
   final focusAnchors = <String, GlobalKey>{};
@@ -349,6 +426,7 @@ class _RaftChatViewState extends State<RaftChatView>
     selection = MessageSelection(w, thread: widget.thread)
       ..addListener(selectionChanged);
     w.translations.addListener(referencesChanged);
+    bindThreadSearch();
     w.addListener(sync);
     sync();
   }
@@ -393,6 +471,7 @@ class _RaftChatViewState extends State<RaftChatView>
       }
       selection = MessageSelection(w, thread: widget.thread)
         ..addListener(selectionChanged);
+      bindThreadSearch();
       selectionError = null;
       copiedSelectionTimer?.cancel();
       copiedSelectionMarkdown = false;
@@ -686,6 +765,9 @@ class _RaftChatViewState extends State<RaftChatView>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
+    boundSearch?.removeListener(threadSearchChanged);
+    searchInput.dispose();
+    searchFocus.dispose();
     copiedSelectionTimer?.cancel();
     bodyPreparation.dispose();
     highlightTimer?.cancel();
@@ -1165,9 +1247,8 @@ class _RaftChatViewState extends State<RaftChatView>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1376,9 +1457,8 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1902,9 +1982,8 @@ class _RaftChatViewState extends State<RaftChatView>
       await store.setSaved(message.id, !store.isSaved(message.id));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -2094,6 +2173,7 @@ class _RaftChatViewState extends State<RaftChatView>
       onExternalLink: link,
       directoryReferences: referenceDirectory.references,
       fontSize: fontSize,
+      searchHighlight: searchActive == m.id ? boundSearch?.query : null,
     );
     if (!translation.bilingual) return body;
     return Column(
@@ -2260,7 +2340,7 @@ class _RaftChatViewState extends State<RaftChatView>
       ),
       coarsePointer: RaftDensityScope.of(context) == RaftDensity.touch,
       popupOpen: pickerMessageId == m.id || menuMessageId == m.id,
-      highlighted: w.highlightedMessageId == m.id,
+      highlighted: w.highlightedMessageId == m.id || searchActive == m.id,
       collapseLongMessages:
           (m.json['actionMetadata'] is! Map ||
               m.json['actionMetadata']['kind'] != 'action-card') &&
@@ -2362,14 +2442,12 @@ class _RaftChatViewState extends State<RaftChatView>
         onLink: widget.onOpenChannelSettings,
       ),
       ChannelFooterKind.jointLocked => ChannelBannerFooter(
-        message:
-            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        message: "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
         linkLabel: 'View Billing',
         onLink: widget.onViewBilling,
       ),
       ChannelFooterKind.guestReadOnly => const ChannelBannerFooter(
-        message:
-            'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
+        message: 'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
       ),
       ChannelFooterKind.join => ChannelJoinFooter(
         channelName: channel.name,
@@ -2392,15 +2470,13 @@ class _RaftChatViewState extends State<RaftChatView>
     final guestJoinable = parent.json['guestJoinable'] == true;
     if (guest && (joined || !guestJoinable)) {
       return const ChannelBannerFooter(
-        message:
-            'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
+        message: 'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
       );
     }
     if (selection.active) return null;
     if (jointChannelReadOnly(parent.json, sourceTimeNow())) {
       return ChannelBannerFooter(
-        message:
-            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        message: "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
         linkLabel: 'View Billing',
         onLink: widget.onViewBilling,
       );
@@ -2700,7 +2776,9 @@ class _RaftChatViewState extends State<RaftChatView>
     final child =
         captureFocus &&
             !parent &&
-            (m.id == w.highlightedMessageId || m.id == scrolledHighlight)
+            (m.id == w.highlightedMessageId ||
+                m.id == scrolledHighlight ||
+                m.id == searchActive)
         ? KeyedSubtree(
             key: focusAnchors.putIfAbsent(m.id, GlobalKey.new),
             child: body,
@@ -2868,6 +2946,23 @@ class _RaftChatViewState extends State<RaftChatView>
 
   @override
   Widget build(BuildContext context) {
+    final search = boundSearch;
+    if (!widget.thread || search == null) return buildView(context);
+    final apple =
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    return CallbackShortcuts(
+      // Web ThreadPanel: Cmd/Ctrl+F opens the thread search while the thread
+      // surface has focus.
+      bindings: {
+        SingleActivator(LogicalKeyboardKey.keyF, control: !apple, meta: apple):
+            search.open,
+      },
+      child: buildView(context),
+    );
+  }
+
+  Widget buildView(BuildContext context) {
     scheduleBodyPreparation(context);
     if (widget.thread &&
         w.threadChannelId == null &&
@@ -2969,10 +3064,21 @@ class _RaftChatViewState extends State<RaftChatView>
         : channelFooterWidgets();
     // Rows read breakpoint bands, not the raw window width, so a resize
     // within a band does not rebuild every mounted message.
+    final search = boundSearch;
     return RaftViewportBreakpointScope(
       child: Column(
         children: [
           RaftToastPortal(controller: selectionToast),
+          if (widget.thread && search != null && search.isOpen)
+            RaftThreadSearchBar(
+              controller: searchInput,
+              focusNode: searchFocus,
+              countLabel: search.countLabel(raftText(context, 'Loading')),
+              canStep: search.matches.isNotEmpty,
+              onChanged: search.setQuery,
+              onStep: search.step,
+              onClose: search.close,
+            ),
           Expanded(
             child: Stack(
               fit: StackFit.expand,

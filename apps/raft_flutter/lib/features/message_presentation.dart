@@ -156,7 +156,12 @@ class MessagePresentation extends StatelessWidget {
     this.knownTaskNumber,
     this.content,
     this.foregroundColor,
+    this.searchHighlight,
   });
+
+  /// Web `threadSearchHighlightQuery`: the in-thread search query marked in
+  /// the active match's text.
+  final String? searchHighlight;
 
   /// Markdown shown instead of the message's own content (a translation, or
   /// the bilingual view's original under it).
@@ -674,6 +679,7 @@ class MessagePresentation extends StatelessWidget {
       compactSemantics: RaftMessageSemanticsScope.maybeOf(context) != null,
       content: text,
       foregroundColor: foregroundColor,
+      searchHighlight: searchHighlight,
       exportMode: exportMode,
       fontSize: fontSize,
       onExportDiagram: exportMode

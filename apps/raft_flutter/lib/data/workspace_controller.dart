@@ -8,6 +8,7 @@ import 'package:raft_sync/raft_sync.dart';
 import 'announcement_store.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
+import 'thread_search.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
@@ -296,6 +297,13 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.translations ??
       (_translations ??= MessageTranslationStore(this));
   MessageTranslationStore? _translations;
+
+  /// Web ThreadPanel in-thread search state (bar, query, matches), created on
+  /// first use; a presentation mirror shares its source's.
+  ThreadSearch get threadSearch =>
+      presentationSource?.threadSearch ??
+      (_threadSearch ??= ThreadSearch(this));
+  ThreadSearch? _threadSearch;
 
   /// Web `useAnnouncementStore`: the account-level announcement queue,
   /// living as long as this account session.
@@ -5098,7 +5106,7 @@ class WorkspaceController extends ChangeNotifier {
             channel?.id == channelId &&
             generation == ledger.generation &&
             authority == _windowAuthority()) {
-              contextLoadError = historyLimited
+          contextLoadError = historyLimited
               ? MessageContextLoadError.beyondHistory
               : MessageContextLoadError.notFound;
           notifyListeners();
@@ -5675,6 +5683,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_ownsFollowedThreads) followedThreads.dispose();
     _translations?.dispose();
+    _threadSearch?.dispose();
     _announcements?.dispose();
     _announcementGate?.dispose();
     _imageAuthorities.clear();

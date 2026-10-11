@@ -282,6 +282,37 @@ final ParityCase _tabCase = ParityCase(
   },
 );
 
+/// In-thread search (3.38): overflow menu -> "Search in thread" -> optional query.
+ParityCase _threadSearchCase(String? query) => ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:RaftChatView',
+    'raft_ui:RaftThreadSearchBar',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView thread panel, in-thread search bar.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+  interact: (t, ctx) async {
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    await t.tap(find.byKey(const Key('thread-options')).first);
+    for (var i = 0; i < 8; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    await t.tap(find.text('Search in thread'));
+    for (var i = 0; i < 8; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    if (query != null) {
+      await t.enterText(find.byKey(const Key('thread-search-input')), query);
+      for (var i = 0; i < 20; i++) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+  },
+);
+
 final ParityCase _threadCase = ParityCase(
   widgets: const [
     'raft_flutter:WorkspaceView',
@@ -641,6 +672,11 @@ final Map<String, ParityCase> extConversationCases = () {
     }
   }
   for (final platform in const ['desktop', 'mobile']) {
+    add('threadsearch', platform, 'open', _threadSearchCase(null));
+    add('threadsearch', platform, 'matches', _threadSearchCase('parity'));
+    add('threadsearch', platform, 'none', _threadSearchCase('zzzz'));
+  }
+  for (final platform in const ['desktop', 'mobile']) {
     for (final state in const ['list', 'more', 'empty', 'loading', 'error']) {
       add('files', platform, state, _tabCase);
     }
@@ -758,12 +794,6 @@ final Map<String, ParityUncovered> extConversationUncovered = () {
     }
   }
 
-  gap(
-    'threadsearch',
-    const ['open', 'matches', 'none'],
-    'Flutter has no in-thread search: ThreadActions.onSearch is never wired, so '
-        'the thread overflow menu has no "Search this thread" item and no search bar.',
-  );
   for (final platform in const ['desktop', 'mobile']) {
     for (final theme in const ['brutal', 'elegant', 'elegant-dark']) {
       gaps['components.conversation.external.$platform.detail.$theme'] =

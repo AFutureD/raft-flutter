@@ -281,7 +281,7 @@ SECTIONS = [
                'the role matrix denies guests, so the guest case cannot open the thread on desktop.'),
         R('3.38', 'In-thread search (search bar, next / previous match)', 'components/message/ThreadPanel.tsx', 'DP',
           d=['components.conversation.threadsearch.desktop.*'], p=['components.conversation.threadsearch.mobile.*'], prio=3,
-          note='Flutter page missing: ThreadActions.onSearch is never wired (no "Search this thread" item, no search bar).'),
+          note='Thread overflow menu "Search in thread" opens the search bar (Cmd/Ctrl+F too): query, n/m count, prev / next, marked matches.'),
         R('3.39', 'Thread agent followers (list, remove, undo)', 'components/thread/ThreadAgentFollowers.tsx', 'DP',
           d=['components.conversation.followers.desktop.*'], p=['components.conversation.followers.mobile.*'], prio=3,
           note='Flutter page missing: RaftThreadHeader has a `followers` slot the app never fills. Remove / undo have no case.'),
