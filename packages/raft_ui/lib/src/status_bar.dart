@@ -108,18 +108,33 @@ class RaftStatusBarHost extends StatelessWidget {
 /// Publishes [color] as the status bar colour while this widget is a visible
 /// top header (flush with the host's strip). Wrap the widget that actually
 /// paints the header background; it adds no layout or paint of its own.
+///
+/// Wide layouts publish whole columns (rail, sidebar, thread panel) the same
+/// way, so each column's background continues up under the status bar. A
+/// column's vertical divider is passed as [border] (only its left and right
+/// sides are read) so the strip continues it to the top edge too.
 class RaftStatusBarSource extends SingleChildRenderObjectWidget {
   const RaftStatusBarSource({
     super.key,
     required this.color,
+    this.border,
     required Widget super.child,
   });
 
   final Color color;
 
+  /// Vertical dividers drawn inside this widget's box (left / right sides),
+  /// composited over [color]; pass an opaque colour for a divider whose
+  /// backdrop is not [color].
+  final Border? border;
+
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderStatusBarSource(color, RaftStatusBarScope.maybeOf(context));
+      _RenderStatusBarSource(
+        color,
+        border,
+        RaftStatusBarScope.maybeOf(context),
+      );
 
   @override
   void updateRenderObject(
@@ -127,19 +142,28 @@ class RaftStatusBarSource extends SingleChildRenderObjectWidget {
     _RenderStatusBarSource renderObject,
   ) => renderObject
     ..color = color
+    ..border = border
     ..registry = RaftStatusBarScope.maybeOf(context);
 }
 
 class _RenderStatusBarSource extends RenderProxyBox {
-  _RenderStatusBarSource(this._color, this._registry);
+  _RenderStatusBarSource(this._color, this._border, this._registry);
 
   Color _color;
+  Border? _border;
   RaftStatusBarRegistry? _registry;
 
   Color get color => _color;
   set color(Color value) {
     if (value == _color) return;
     _color = value;
+    _registry?._changed();
+  }
+
+  Border? get border => _border;
+  set border(Border? value) {
+    if (value == _border) return;
+    _border = value;
     _registry?._changed();
   }
 
@@ -296,19 +320,19 @@ class _RenderStatusBarStrip extends RenderBox {
     return found;
   }
 
-  /// Colour of the innermost flush source at the strip's centre (the pixel
-  /// the system samples for icon contrast), and whether one was found
-  /// (otherwise the fallback).
+  /// Colour at the strip's centre (the pixel the system samples for icon
+  /// contrast): the fallback with every flush source that contains the centre
+  /// composited over it, outermost first, and whether one was found.
   ({Color color, bool fromSource}) resolution() {
-    _RenderStatusBarSource? best;
+    var color = _fallback;
+    var found = false;
     for (final f in _flush()) {
       if (f.left <= size.width / 2 && f.right >= size.width / 2) {
-        best = f.source;
+        color = Color.alphaBlend(f.source.color, color);
+        found = true;
       }
     }
-    return best == null
-        ? (color: _fallback, fromSource: false)
-        : (color: Color.alphaBlend(best.color, _fallback), fromSource: true);
+    return (color: color, fromSource: found);
   }
 
   @override
@@ -325,10 +349,31 @@ class _RenderStatusBarStrip extends RenderBox {
         offset.dx + f.right.clamp(0, size.width),
         offset.dy + size.height,
       );
-      canvas.drawRect(
-        rect,
-        Paint()..color = Color.alphaBlend(f.source.color, _fallback),
-      );
+      // Composited over what the outer columns / the fallback already drew, so
+      // a transparent header (its column paints the surface) keeps the column
+      // colour instead of resetting it to the fallback.
+      canvas.drawRect(rect, Paint()..color = f.source.color);
+      // The column's vertical dividers continue up under the status bar.
+      final border = f.source.border;
+      if (border != null) {
+        if (border.left.width > 0) {
+          canvas.drawRect(
+            Rect.fromLTWH(rect.left, rect.top, border.left.width, rect.height),
+            Paint()..color = border.left.color,
+          );
+        }
+        if (border.right.width > 0) {
+          canvas.drawRect(
+            Rect.fromLTRB(
+              rect.right - border.right.width,
+              rect.top,
+              rect.right,
+              rect.bottom,
+            ),
+            Paint()..color = border.right.color,
+          );
+        }
+      }
     }
     context.pushLayer(
       AnnotatedRegionLayer<SystemUiOverlayStyle>(
