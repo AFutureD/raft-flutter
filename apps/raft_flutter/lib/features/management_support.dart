@@ -371,7 +371,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
 
       return await (raft
           ? showRaftModal<V>(context, builder: scoped)
-          : showDialog<V>(context: context, builder: scoped));
+          : showRaftDialog<V>(context: context, builder: scoped));
     } finally {
       w.removeListener(dismissOnScopeChange);
     }
