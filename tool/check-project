@@ -19,7 +19,7 @@ with (root / '.local/host-collector-tests.txt').open('w') as log:
         [sys.executable, '-m', 'unittest', 'discover', '-s', str(root / 'tool/tests'), '-p', 'test_*.py', '-v'],
         cwd=root, env=check_env, stdout=log, stderr=subprocess.STDOUT).returncode == 0
 checks = [('bindings-generator-pub-get.txt', ['pub', 'get', '--enforce-lockfile'], root / 'apps/raft_flutter/tool/bindings_generator'),
-          ('all-project-tests.txt', ['test', 'test', '../../packages/raft_client/test', '../../packages/raft_sync/test', '../../packages/raft_ui/test', '--no-pub', '--reporter', 'expanded'], root / 'apps/raft_flutter'),
+          ('all-project-tests.txt', ['test', 'test', '../../packages/raft_client/test', '../../packages/raft_sync/test', '../../packages/raft_ui/test', '../../packages/flutter_dynamic_icon_plus/test', '--no-pub', '--reporter', 'expanded'], root / 'apps/raft_flutter'),
           ('analyze-all.txt', ['analyze', '--no-pub'], root)]
 for filename, args, cwd in checks:
     with (root / '.local' / filename).open('w') as log:
