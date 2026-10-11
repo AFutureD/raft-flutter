@@ -409,6 +409,8 @@ const raftChinese = <String, String>{
   "Linux → your desktop environment's notification settings":
       "Linux → 桌面环境的通知设置",
   "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
+  "Manage notifications for Raft in {path}. Do Not Disturb may send notifications directly to the notification center without showing a banner.":
+      "在 {path} 中管理 Raft 的通知。开启请勿打扰时，通知可能直接进入通知中心，而不显示横幅。",
   "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
       "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
   "System Settings → Notifications": "系统设置 → 通知",

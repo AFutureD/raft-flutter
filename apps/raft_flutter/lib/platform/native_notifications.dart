@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'background_inbox.dart';
 import 'background_notifications.dart'
     show notificationInitialization, notificationDetails;
+import 'windows_notifications.dart';
 
 class NotificationPreferenceStore {
   Future<bool?> read(String key) async {
@@ -27,9 +28,12 @@ class NativeNotificationService extends ChangeNotifier {
     FlutterLocalNotificationsPlugin? plugin,
     NotificationPreferenceStore? preferences,
     TargetPlatform? platform,
+    WindowsNotifications? windows,
   }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _platform = platform ?? defaultTargetPlatform,
-       _preferences = preferences ?? NotificationPreferenceStore();
+       _preferences = preferences ?? NotificationPreferenceStore(),
+       _windows = windows ?? WindowsNotifications();
+  final WindowsNotifications _windows;
   final TargetPlatform _platform;
   final FlutterLocalNotificationsPlugin _plugin;
   final NotificationPreferenceStore _preferences;
@@ -69,18 +73,22 @@ class NativeNotificationService extends ChangeNotifier {
   bool get canOpenSettings =>
       _platform == TargetPlatform.android ||
       _platform == TargetPlatform.iOS ||
-      _platform == TargetPlatform.macOS;
+      _platform == TargetPlatform.macOS ||
+      _platform == TargetPlatform.windows;
+
+  bool get systemManaged =>
+      _platform == TargetPlatform.macOS || _platform == TargetPlatform.windows;
 
   // Desktop has no app-owned opt-in; the system notification switch owns it.
   void _updateEnabled() {
     enabled =
-        _scope != null &&
-        available &&
-        permitted &&
-        (_platform == TargetPlatform.macOS || _wanted);
+        _scope != null && available && permitted && (systemManaged || _wanted);
   }
 
   Future<bool> _permission({bool request = false}) async {
+    // Windows has no app-owned permission prompt. Read the notifier's actual
+    // setting on every delivery, including OS/user/group-policy restrictions.
+    if (_platform == TargetPlatform.windows) return _windows.permitted();
     if (_platform == TargetPlatform.iOS) {
       final ios = _plugin
           .resolvePlatformSpecificImplementation<
@@ -119,28 +127,35 @@ class NativeNotificationService extends ChangeNotifier {
   Future<void> initialize() => _initializing ??= _initialize();
   Future<void> _initialize() async {
     try {
-      final result = await _plugin.initialize(
-        settings: notificationInitialization,
-        onDidReceiveNotificationResponse: (response) {
-          if (response.payload != null) onTap?.call(response.payload!);
-        },
-      );
-      // Darwin returns the authorization result, including false when all
-      // permission requests are deferred. It still initialized successfully.
-      available =
-          _platform == TargetPlatform.macOS || _platform == TargetPlatform.iOS
-          ? result != null
-          : result == true;
-      if (canOpenSettings) {
+      if (_platform == TargetPlatform.windows) {
+        _windows.onTap = (payload) => onTap?.call(payload);
+        await _windows.initialize();
+        available = true;
         permitted = await _permission();
-        final launch = await _plugin.getNotificationAppLaunchDetails();
-        final payload = launch?.notificationResponse?.payload;
-        if (launch?.didNotificationLaunchApp == true && payload != null) {
-          onTap?.call(payload);
-        }
       } else {
-        // Desktop policy is owned by the freedesktop notification daemon.
-        permitted = available;
+        final result = await _plugin.initialize(
+          settings: notificationInitialization,
+          onDidReceiveNotificationResponse: (response) {
+            if (response.payload != null) onTap?.call(response.payload!);
+          },
+        );
+        // Darwin returns the authorization result, including false when all
+        // permission requests are deferred. It still initialized successfully.
+        available =
+            _platform == TargetPlatform.macOS || _platform == TargetPlatform.iOS
+            ? result != null
+            : result == true;
+        if (canOpenSettings) {
+          permitted = await _permission();
+          final launch = await _plugin.getNotificationAppLaunchDetails();
+          final payload = launch?.notificationResponse?.payload;
+          if (launch?.didNotificationLaunchApp == true && payload != null) {
+            onTap?.call(payload);
+          }
+        } else {
+          // Desktop policy is owned by the freedesktop notification daemon.
+          permitted = available;
+        }
       }
     } catch (_) {
       error = 'System notifications are unavailable on this device.';
@@ -150,7 +165,7 @@ class NativeNotificationService extends ChangeNotifier {
     // launch target above has already been captured in memory for fresh checks.
     if (available) {
       try {
-        await _plugin.cancelAll();
+        await _cancelAll();
       } catch (_) {}
     }
     notifyListeners();
@@ -167,14 +182,14 @@ class NativeNotificationService extends ChangeNotifier {
       await initialize();
       if (available) {
         try {
-          await _plugin.cancelAll();
+          await _cancelAll();
         } catch (_) {
           /* Daemon may be offline. */
         }
       }
     });
     await _tail;
-    if (scope != null && _platform != TargetPlatform.macOS) {
+    if (scope != null && !systemManaged) {
       try {
         await _preferenceTail;
         final wanted = await _preferences.read(_key(scope)) ?? false;
@@ -224,7 +239,7 @@ class NativeNotificationService extends ChangeNotifier {
       }
     }
     if (!current()) return;
-    if (_platform == TargetPlatform.macOS) {
+    if (systemManaged) {
       _updateEnabled();
       error = value && !permitted
           ? 'Allow notifications in system settings to receive alerts.'
@@ -258,7 +273,7 @@ class NativeNotificationService extends ChangeNotifier {
       _tail = _tail.then((_) async {
         if (available) {
           try {
-            await _plugin.cancelAll();
+            await _cancelAll();
           } catch (_) {
             /* Keep the delivery queue usable while the OS is offline. */
           }
@@ -282,7 +297,7 @@ class NativeNotificationService extends ChangeNotifier {
       if (epoch != _epoch || revision != _preferenceRevision) return;
       permitted = permission;
       _updateEnabled();
-      if ((_wanted || _platform == TargetPlatform.macOS) && !permitted) {
+      if ((_wanted || systemManaged) && !permitted) {
         error = 'Allow notifications in system settings to receive alerts.';
       } else if (permitted) {
         error = null;
@@ -314,12 +329,11 @@ class NativeNotificationService extends ChangeNotifier {
       }
       try {
         error = null;
-        await _plugin.show(
+        await _show(
           id: _notificationId(payload),
           title: title,
           body: body,
           payload: payload,
-          notificationDetails: notificationDetails,
         );
       } catch (_) {
         error = 'The system notification could not be delivered.';
@@ -354,7 +368,7 @@ class NativeNotificationService extends ChangeNotifier {
         // macOS asks the first time; phones re-check what the person changed
         // in system settings.
         permitted = await _permission() || await _permission(request: true);
-        if (_platform == TargetPlatform.macOS) {
+        if (systemManaged) {
           _updateEnabled();
           notifyListeners();
         }
@@ -364,12 +378,11 @@ class NativeNotificationService extends ChangeNotifier {
           return false;
         }
       }
-      await _plugin.show(
+      await _show(
         id: ++_id,
         title: title,
         body: body,
         payload: 'raft-notification-test',
-        notificationDetails: notificationDetails,
       );
       return true;
     } catch (_) {
@@ -378,6 +391,12 @@ class NativeNotificationService extends ChangeNotifier {
   }
 
   Future<void> openSettings() async {
+    if (_platform == TargetPlatform.windows) {
+      if (!await launchUrl(Uri.parse('ms-settings:notifications'))) {
+        throw StateError('Windows notification settings could not be opened.');
+      }
+      return;
+    }
     if (_platform == TargetPlatform.iOS) {
       await launchUrl(Uri.parse('app-settings:'));
       return;
@@ -396,4 +415,30 @@ class NativeNotificationService extends ChangeNotifier {
           ?.openAppNotificationSettings();
     }
   }
+
+  Future<void> presentWindow() async {
+    if (_platform == TargetPlatform.windows) await _windows.present();
+  }
+
+  Future<void> _cancelAll() => _platform == TargetPlatform.windows
+      ? _windows.cancelAll()
+      : _plugin.cancelAll();
+
+  Future<void> _show({
+    required int id,
+    required String title,
+    required String body,
+    required String payload,
+  }) => _platform == TargetPlatform.windows
+      ? _windows.show(id: id, title: title, body: body, payload: payload)
+      : _plugin.show(
+          id: id,
+          title: title,
+          body: body,
+          payload: payload,
+          notificationDetails: notificationDetails,
+        );
+
+  bool receiveWindowsActivation(Uri uri) =>
+      _platform == TargetPlatform.windows && _windows.receiveLink(uri);
 }

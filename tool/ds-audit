@@ -18,6 +18,7 @@ Escape hatch for genuinely platform-only code (reviewed, counted separately):
 import argparse
 import collections
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -34,7 +35,8 @@ class AuditError(RuntimeError):
 
 
 def dart_executable():
-    out = subprocess.run([str(ROOT / 'tool/flutter'), '--version', '--machine'],
+    command = ([sys.executable] if os.name == 'nt' else []) + [str(ROOT / 'tool/flutter')]
+    out = subprocess.run([*command, '--version', '--machine'],
                          capture_output=True, text=True)
     if out.returncode != 0:
         raise AuditError(out.stderr.strip() or out.stdout.strip() or 'tool/flutter failed')
@@ -42,7 +44,7 @@ def dart_executable():
         flutter_root = json.loads(out.stdout)['flutterRoot']
     except (ValueError, KeyError) as error:
         raise AuditError(f'cannot read flutterRoot from tool/flutter: {error}')
-    return pathlib.Path(flutter_root) / 'bin/dart'
+    return pathlib.Path(flutter_root) / 'bin' / ('dart.bat' if os.name == 'nt' else 'dart')
 
 
 def run_scanner(paths):

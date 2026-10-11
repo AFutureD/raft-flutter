@@ -15,6 +15,17 @@ Linux 和 Android 优先、已加入 macOS 和 iOS 宿主的 Raft Flutter 客户
 
 工具链固定 Flutter 3.47.6 / Dart 3.13.5，通过 `tool/flutter` 调用。登录会话使用系统安全存储，工作区缓存使用 Drift SQLite；私有验收资料放于忽略的 `.local/`。
 
+Windows 在安装 Visual Studio C++ 桌面构建工具及 Windows SDK 的本机运行以下 PowerShell 命令。`tool/flutter` 自动查找 FVM 的固定版本，也可通过 `RAFT_FLUTTER_BIN` 指定 Flutter 3.47.6 的 `flutter.bat`。
+
+```powershell
+python tool/flutter pub get --enforce-lockfile
+Set-Location apps/raft_flutter
+python ../../tool/flutter build windows --release --no-pub
+Start-Process -FilePath "$PWD/build/windows/x64/runner/Release/raft_flutter.exe"
+```
+
+Windows 运行制品是整个 `apps/raft_flutter/build/windows/x64/runner/Release` 目录，包含插件、SQLite、音视频运行库与 Flutter 资源；分发时须完整保留。已接入 Windows 系统通知及系统设置入口，实际覆盖和冷启动失败记录见 [Windows 通知](docs/windows-notifications.md)。Windows 完整功能与无障碍验收尚未覆盖。
+
 已在 Linux 和 Android 验证：登录和安全会话恢复、持久化草稿、刷新丢响应重试、幂等发送、中日文编辑、线程、断线消息回放、跨客户端未读状态、反应、任务创建/认领/状态/历史、搜索与收藏跳转、三种主题及退出。`packages/raft_ui` 提供独立 SDK Widget Preview；平台测试不由浏览器预览替代。
 
 开发检查：`tool/flutter analyze --no-pub`，`tool/flutter test packages/raft_client/test packages/raft_sync/test packages/raft_ui/test --no-pub`。原生缓存测试及集成测试在 `apps/raft_flutter` 目录运行 `../../tool/flutter`。
