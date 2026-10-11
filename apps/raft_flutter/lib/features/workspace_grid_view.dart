@@ -7,6 +7,7 @@ import 'conversation_panel.dart';
 import 'chat_view.dart';
 import 'server_setup_gate.dart';
 import 'thread_actions.dart';
+import 'thread_agent_followers_view.dart';
 
 /// First actual editor-group consumer: channels/DMs each have an independent
 /// accepted window and draft, with selected/retained tabs and draggable splits.
@@ -384,23 +385,38 @@ class _ConversationState extends State<_Conversation> {
                 role: RaftConversationSurfaceRole.threadTimeline,
                 child: Column(
                   children: [
-                    RaftThreadHeader(
-                      presentation: RaftThreadPresentation.side,
-                      backLabel: raftText(context, 'Close thread'),
-                      closeLabel: raftText(context, 'Close thread'),
-                      jumpLabel: raftText(context, 'Jump to beginning'),
-                      threadLabel: raftText(context, 'Thread'),
-                      onClose: w.closeThread,
-                      onBack: w.closeThread,
-                      onJumpToStart: threadViewport.jumpToBeginning,
-                      actions: [
-                        ThreadActions(
-                          controller: w,
-                          parentMessageId: w.threadParentMessageId!,
-                          menuMode: true,
-                          onSearch: w.threadSearch.open,
-                        ),
-                      ],
+                    ListenableBuilder(
+                      listenable: w.threadFollowers,
+                      builder: (context, _) => RaftThreadHeader(
+                        presentation: RaftThreadPresentation.side,
+                        followers: w.threadChannelId == null
+                            ? null
+                            : ThreadAgentFollowersView(
+                                key: ValueKey(
+                                  'thread-followers-${w.threadChannelId}',
+                                ),
+                                controller: w,
+                                threadChannelId: w.threadChannelId!,
+                              ),
+                        followersVisible:
+                            w.threadChannelId != null &&
+                            w.threadFollowers.visible(w.threadChannelId!),
+                        backLabel: raftText(context, 'Close thread'),
+                        closeLabel: raftText(context, 'Close thread'),
+                        jumpLabel: raftText(context, 'Jump to beginning'),
+                        threadLabel: raftText(context, 'Thread'),
+                        onClose: w.closeThread,
+                        onBack: w.closeThread,
+                        onJumpToStart: threadViewport.jumpToBeginning,
+                        actions: [
+                          ThreadActions(
+                            controller: w,
+                            parentMessageId: w.threadParentMessageId!,
+                            menuMode: true,
+                            onSearch: w.threadSearch.open,
+                          ),
+                        ],
+                      ),
                     ),
                     Expanded(
                       child: ServerSetupGate(
@@ -432,10 +448,13 @@ class _ConversationState extends State<_Conversation> {
                     ),
                   ),
                 ),
-                if (split) ConstrainedBox(
-                  constraints: const BoxConstraints.tightFor(width: RaftEditorGroupMetrics.threadPaneWidth),
-                  child: threadBody,
-                ),
+                if (split)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints.tightFor(
+                      width: RaftEditorGroupMetrics.threadPaneWidth,
+                    ),
+                    child: threadBody,
+                  ),
               ],
             ),
             if (thread && !split) Positioned.fill(child: threadBody!),

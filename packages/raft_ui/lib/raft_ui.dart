@@ -123,6 +123,7 @@ export 'src/chat_composition.dart';
 export 'src/quick_reaction_picker.dart';
 
 export 'src/thread_composition.dart';
+export 'src/thread_followers.dart';
 
 export 'src/attachment_tokens.dart';
 

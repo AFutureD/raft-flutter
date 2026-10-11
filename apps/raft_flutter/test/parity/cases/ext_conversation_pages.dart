@@ -313,6 +313,29 @@ ParityCase _threadSearchCase(String? query) => ParityCase(
   },
 );
 
+/// Thread agent followers (3.39): the header trigger, optionally opened.
+ParityCase _followersCase({required bool open}) => ParityCase(
+  widgets: const [
+    'raft_flutter:WorkspaceView',
+    'raft_flutter:ThreadAgentFollowersView',
+    'raft_ui:RaftThreadFollowers',
+  ],
+  notes: 'Extension suite (not official). Real WorkspaceView thread header, followers trigger / popover.',
+  settle: const Duration(milliseconds: 1200),
+  build: _buildWindow,
+  interact: (t, ctx) async {
+    for (var i = 0; i < 30; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    if (open) {
+      await t.tap(find.byKey(const Key('thread-followers-header-trigger')));
+      for (var i = 0; i < 20; i++) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+  },
+);
+
 final ParityCase _threadCase = ParityCase(
   widgets: const [
     'raft_flutter:WorkspaceView',
@@ -677,6 +700,11 @@ final Map<String, ParityCase> extConversationCases = () {
     add('threadsearch', platform, 'none', _threadSearchCase('zzzz'));
   }
   for (final platform in const ['desktop', 'mobile']) {
+    add('followers', platform, 'header', _followersCase(open: false));
+    add('followers', platform, 'popover', _followersCase(open: true));
+    add('followers', platform, 'error', _followersCase(open: true));
+  }
+  for (final platform in const ['desktop', 'mobile']) {
     for (final state in const ['list', 'more', 'empty', 'loading', 'error']) {
       add('files', platform, state, _tabCase);
     }
@@ -815,12 +843,6 @@ final Map<String, ParityUncovered> extConversationUncovered = () {
     const ['text', 'attachment', 'archived', 'loading', 'unavailable'],
     'Flutter has no quoted-message permalink preview: a Raft message link in a '
         'message body renders as a plain link, without the QuotedMessageCard.',
-  );
-  gap(
-    'followers',
-    const ['header', 'popover', 'error'],
-    'Flutter has no thread agent followers control: RaftThreadHeader accepts a '
-        '`followers` slot that the app never fills.',
   );
   return gaps;
 }();

@@ -121,6 +121,7 @@ class RaftThreadHeader extends StatelessWidget {
     this.onBack,
     this.onClose,
     this.followers,
+    this.followersVisible = true,
     this.actions = const [],
     this.viewportWidth,
     this.viewportHeight,
@@ -134,6 +135,10 @@ class RaftThreadHeader extends StatelessWidget {
   final String? parentLabel;
   final VoidCallback? onJumpToStart, onBack, onClose;
   final Widget? followers;
+
+  /// False while the [followers] slot renders nothing (no followers yet): the
+  /// slot stays mounted so it can load, but takes no header gap.
+  final bool followersVisible;
   final List<Widget> actions;
   final double? viewportWidth, viewportHeight;
   final Key? backKey, closeKey, jumpKey;
@@ -165,6 +170,7 @@ class RaftThreadHeader extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
+    final hasFollowers = followers != null && followersVisible;
     // CSS border-box: the bottom rule is inside the header height and the
     // row is centred in the remaining content box.
     return Container(
@@ -218,7 +224,7 @@ class RaftThreadHeader extends StatelessWidget {
                         ),
                       ),
               ),
-              if (followers != null ||
+              if (hasFollowers ||
                   actions.isNotEmpty ||
                   recipe.showClose && onClose != null)
                 SizedBox(width: recipe.headerGap),
@@ -227,12 +233,12 @@ class RaftThreadHeader extends StatelessWidget {
                 children: [
                   if (followers != null) followers!,
                   for (var index = 0; index < actions.length; index++) ...[
-                    if (followers != null || index > 0)
+                    if (hasFollowers || index > 0)
                       SizedBox(width: recipe.actionGap),
                     actions[index],
                   ],
                   if (recipe.showClose && onClose != null) ...[
-                    if (followers != null || actions.isNotEmpty)
+                    if (hasFollowers || actions.isNotEmpty)
                       SizedBox(width: recipe.actionGap),
                     RaftControl(
                       key: closeKey,

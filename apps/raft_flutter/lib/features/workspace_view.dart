@@ -33,6 +33,7 @@ import 'chat_agent_presentation.dart';
 import 'live_agent_activity_bar.dart';
 import 'chat_view.dart';
 import 'thread_actions.dart';
+import 'thread_agent_followers_view.dart';
 import 'computer_detail_view.dart';
 import 'conversation_panel.dart';
 import 'message_selection.dart';
@@ -1551,9 +1552,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         threadResizeLabel: tr('Resize thread'),
                         sidebarVisible:
                             gridActive ||
-                            DesktopNavigationPolicy.forSection(
-                              route,
-                            ).usesConversationSidebar,
+                            DesktopNavigationPolicy.forSection(route)
+                                .usesConversationSidebar,
                         // Phones mount neither; only desktop widths consume them.
                         sidebar: wide ? sidebar() : const SizedBox.shrink(),
                         rail: wide ? workspaceRail() : const SizedBox.shrink(),
@@ -1769,9 +1769,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                     t,
                     MediaQuery.sizeOf(context).height,
                   ) +
-                  (DesktopNavigationPolicy.forSection(
-                        route,
-                      ).usesConversationSidebar
+                  (DesktopNavigationPolicy.forSection(route)
+                          .usesConversationSidebar
                       ? sidebarWidth
                       : 0)
             : 0,
@@ -1801,43 +1800,58 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final parentId = w.threadParentMessageId,
         parentChannelId = w.threadParentChannelId;
     final sourceChannel = w.threadSourceChannel;
-    return RaftThreadHeader(
-      key: Key(
-        mobile ? 'workspace-mobile-detail-header' : 'workspace-thread-header',
+    final threadId = w.threadChannelId;
+    return ListenableBuilder(
+      listenable: w.threadFollowers,
+      builder: (context, _) => RaftThreadHeader(
+        key: Key(
+          mobile ? 'workspace-mobile-detail-header' : 'workspace-thread-header',
+        ),
+        presentation: RaftThreadPresentation.side,
+        threadLabel: tr('Thread'),
+        jumpLabel: tr('Jump to beginning'),
+        backLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
+        closeLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
+        backKey: mobile
+            ? const Key('mobile-detail-back')
+            : const Key('thread-back'),
+        closeKey: const Key('thread-close'),
+        parentLabel: unresolved || sourceChannel == null
+            ? null
+            : '${sourceChannel.type == 'dm' ? '@' : '#'}${sourceChannel.name}',
+        interactiveTitle: !unresolved,
+        onBack: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
+        onClose: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
+        onJumpToStart: unresolved ? null : threadViewport.jumpToBeginning,
+        followers: threadId == null || unresolved
+            ? null
+            : ThreadAgentFollowersView(
+                key: ValueKey('thread-followers-$threadId'),
+                controller: w,
+                threadChannelId: threadId,
+              ),
+        followersVisible:
+            threadId != null &&
+            !unresolved &&
+            w.threadFollowers.visible(threadId),
+        actions: [
+          if (!unresolved && parentId != null && parentChannelId != null)
+            ThreadActions(
+              key: ValueKey('thread-menu-$parentId'),
+              controller: w,
+              parentMessageId: parentId,
+              menuMode: true,
+              // Web ThreadPanel openThreadSearch: the in-thread search bar.
+              onSearch: w.threadSearch.open,
+              onViewChannel: () {
+                w.closeThread(navigate: false);
+                // Web openThreadParentMessageRoute: desktop pushes, phone
+                // replaces the thread entry.
+                w.jumpToMessage(parentChannelId, parentId, replaceEntry: !wide);
+              },
+            ),
+        ],
       ),
-      presentation: RaftThreadPresentation.side,
-      threadLabel: tr('Thread'),
-      jumpLabel: tr('Jump to beginning'),
-      backLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
-      closeLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
-      backKey: mobile
-          ? const Key('mobile-detail-back')
-          : const Key('thread-back'),
-      closeKey: const Key('thread-close'),
-      parentLabel: unresolved || sourceChannel == null
-          ? null
-          : '${sourceChannel.type == 'dm' ? '@' : '#'}${sourceChannel.name}',
-      interactiveTitle: !unresolved,
-      onBack: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
-      onClose: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
-      onJumpToStart: unresolved ? null : threadViewport.jumpToBeginning,
-      actions: [
-        if (!unresolved && parentId != null && parentChannelId != null)
-          ThreadActions(
-            key: ValueKey('thread-menu-$parentId'),
-            controller: w,
-            parentMessageId: parentId,
-            menuMode: true,
-            // Web ThreadPanel openThreadSearch: the in-thread search bar.
-            onSearch: w.threadSearch.open,
-            onViewChannel: () {
-              w.closeThread(navigate: false);
-              // Web openThreadParentMessageRoute: desktop pushes, phone
-              // replaces the thread entry.
-              w.jumpToMessage(parentChannelId, parentId, replaceEntry: !wide);
-            },
-          ),
-      ],
     );
   }
 
@@ -3341,9 +3355,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 child: RaftNavItem(
                                   key: const Key('nav-search'),
                                   role: RaftNavItemRole.search,
-                                  viewportHeight: MediaQuery.sizeOf(
-                                    context,
-                                  ).height,
+                                  viewportHeight: MediaQuery.sizeOf(context)
+                                      .height,
                                   label: tr('Search'),
                                   glyph: RaftGlyph.search,
                                   selected: w.section == 'search',
@@ -3357,9 +3370,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 child: RaftNavItem(
                                   key: const Key('nav-activity'),
                                   role: RaftNavItemRole.activity,
-                                  viewportHeight: MediaQuery.sizeOf(
-                                    context,
-                                  ).height,
+                                  viewportHeight: MediaQuery.sizeOf(context)
+                                      .height,
                                   label: tr('Activity'),
                                   glyph: RaftGlyph.activity,
                                   selected: w.section == 'activity',
@@ -3581,8 +3593,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                           controller: w,
                           channel: channel,
                           page: true,
-                          startInAdd:
-                              w.location.query('channelPageAdd') == '1',
+                          startInAdd: w.location.query('channelPageAdd') == '1',
                           onClose: dismissPanel,
                         ),
                       ),

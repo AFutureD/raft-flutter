@@ -8,6 +8,7 @@ import 'package:raft_sync/raft_sync.dart';
 import 'announcement_store.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
+import 'thread_agent_followers.dart';
 import 'thread_search.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
@@ -304,6 +305,12 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.threadSearch ??
       (_threadSearch ??= ThreadSearch(this));
   ThreadSearch? _threadSearch;
+
+  /// Web `useThreadAgentFollowerStore`: the agents following each thread.
+  ThreadAgentFollowers get threadFollowers =>
+      presentationSource?.threadFollowers ??
+      (_threadFollowers ??= ThreadAgentFollowers(this));
+  ThreadAgentFollowers? _threadFollowers;
 
   /// Web `useAnnouncementStore`: the account-level announcement queue,
   /// living as long as this account session.
@@ -5684,6 +5691,7 @@ class WorkspaceController extends ChangeNotifier {
     if (_ownsFollowedThreads) followedThreads.dispose();
     _translations?.dispose();
     _threadSearch?.dispose();
+    _threadFollowers?.dispose();
     _announcements?.dispose();
     _announcementGate?.dispose();
     _imageAuthorities.clear();

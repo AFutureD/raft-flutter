@@ -284,7 +284,7 @@ SECTIONS = [
           note='Thread overflow menu "Search in thread" opens the search bar (Cmd/Ctrl+F too): query, n/m count, prev / next, marked matches.'),
         R('3.39', 'Thread agent followers (list, remove, undo)', 'components/thread/ThreadAgentFollowers.tsx', 'DP',
           d=['components.conversation.followers.desktop.*'], p=['components.conversation.followers.mobile.*'], prio=3,
-          note='Flutter page missing: RaftThreadHeader has a `followers` slot the app never fills. Remove / undo have no case.'),
+          note='Thread header trigger (N Agents following) and popover: rows with activity, remove + Undo toast, peer-server rows, loading / error / retry. Remove / undo have widget tests, no parity case.'),
         R('3.40', 'Channel overflow menu (members summary, inline edit, stop all agents confirm)', 'components/channel/ChannelOverflowMenu.tsx', 'DP', prio=3),
     ]),
     ('4. Channel management dialogs', 'components/channel, components/agent/ChannelMembers.tsx', [
