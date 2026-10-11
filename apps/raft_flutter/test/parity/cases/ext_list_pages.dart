@@ -21,12 +21,12 @@ import 'package:raft_flutter/data/system_notification_store.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/add_computer_dialog.dart';
+import 'package:raft_flutter/features/add_members_dialog.dart';
+import 'package:raft_flutter/features/create_joint_channel_dialog.dart';
 import 'package:raft_flutter/features/computer_detail_view.dart';
 import 'package:raft_flutter/features/create_channel_dialog.dart';
 import 'package:raft_flutter/features/channel_members.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
-import 'package:raft_flutter/features/joint_channel_views.dart';
-import 'package:raft_flutter/features/message_action_card.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/system_notification_center.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -458,49 +458,78 @@ Widget _removeMember(ParityContext ctx) {
   );
 }
 
-/// The action card of a `channel:add_member` message; tapping its confirm
-/// button opens the Add members form (the Web AddMembersDialog).
+/// The Web AddMembersDialog on a blank page: the React host renders the
+/// dialog alone, so the Flutter side shows the dialog over the same blank page.
 Widget _addMembers(ParityContext ctx) {
   final w = _workspace(ctx, 'chat');
   final fx = ctx.fixtureData;
-  final message = RaftMessage({
-    'id': 'msg-action-add-members',
-    'channelId': w.channels.first.id,
-    'senderType': 'agent',
-    'senderId': fx['agents']['cindy']['id'],
-    'senderName': 'Cindy',
-    'content': 'I can add these people to the channel.',
-    'createdAt': fx['times']['entityCreatedAtIso'],
-    'messageType': 'action',
-    'actionMetadata': {
-      'state': 'prepared',
-      'confirmationVersion': 1,
-      'action': {
-        'type': 'channel:add_member',
-        'channel': w.channels.first.id,
-        'humans': [fx['humans']['designer']['id']],
-        'agents': [fx['agents']['productUx']['id']],
-      },
-    },
-  });
   return Scaffold(
     backgroundColor: Colors.white,
-    body: Align(
-      alignment: Alignment.topLeft,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: MessageActionCard(controller: w, message: message),
-      ),
+    body: AddMembersDialog(
+      controller: w,
+      channelId: w.channels.first.id,
+      prefilledHumanIds: [fx['humans']['designer']['id'] as String],
+      prefilledAgentIds: [fx['agents']['productUx']['id'] as String],
     ),
   );
 }
 
+/// The Web CreateJointChannelDialog on a blank page, over the same agent and
+/// member lists the Joint channels page loads.
 Widget _createJoint(ParityContext ctx) {
   final w = _workspace(ctx, 'chat');
   return Scaffold(
     backgroundColor: Colors.white,
-    body: JointChannelsView(controller: w),
+    body: _JointDialogHost(controller: w),
   );
+}
+
+class _JointDialogHost extends StatefulWidget {
+  const _JointDialogHost({required this.controller});
+  final WorkspaceController controller;
+  @override
+  State<_JointDialogHost> createState() => _JointDialogHostState();
+}
+
+class _JointDialogHostState extends State<_JointDialogHost> {
+  List<Map<String, dynamic>>? agents, users;
+  @override
+  void initState() {
+    super.initState();
+    final w = widget.controller;
+    Future.wait([
+      w.query('/agents'),
+      w.query('/servers/${w.server!.id}/members'),
+    ]).then((values) {
+      if (!mounted) return;
+      List<Map<String, dynamic>> rows(dynamic v) => [
+        for (final row in (v as List? ?? const []).whereType<Map>())
+          Map<String, dynamic>.from(row),
+      ];
+      setState(() {
+        agents = [
+          for (final a in rows(values[0]))
+            if (a['deletedAt'] == null) a,
+        ];
+        users = [
+          for (final u in rows(values[1]))
+            if ((u['userId'] ?? u['id']) != w.client.user?.id) u,
+        ];
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => agents == null
+      ? const SizedBox.shrink()
+      : CreateJointChannelDialog(
+          agents: agents!,
+          users: users!,
+          freePlan: true,
+          origin: widget.controller.client.origin,
+          onCreate: (_) async => <String, dynamic>{},
+          onUnarchive: (_) async => <String, dynamic>{},
+        );
 }
 
 Widget _panel(ParityContext ctx) {
@@ -620,10 +649,6 @@ Future<void> _interact(WidgetTester t, ParityContext ctx) async {
         ),
         400,
       );
-    case final k when k.startsWith('members.') && k.endsWith('-add-dialog'):
-      await _tap(t, find.text('Add members'), 600, true);
-    case final k when k.endsWith('-create-joint'):
-      await _tap(t, find.text('Create joint channel'), 600);
     case 'computers.phone-refresh-error':
       final fleet = t.widget<FleetView>(find.byType(FleetView));
       unawaited(

@@ -60,7 +60,6 @@ class RaftCreateChannelDialogView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
     // space-y-4 between the form's direct children.
     const gap = SizedBox(height: 16);
     return RaftModalBackdrop(
@@ -113,34 +112,14 @@ class RaftCreateChannelDialogView extends StatelessWidget {
             RaftProductFormField(
               label: 'Members',
               optional: true,
-              child: !hasCandidates
-                  ? Text(
-                      raftText(context, 'No members available'),
-                      style: raftCssTextStyle(
-                        family: t.monoFont,
-                        step: RaftTextSteps.sm,
-                        color: t.colors['foreground-muted'],
-                      ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        RaftDialogTextInput(
-                          controller: search,
-                          placeholder: 'Search members by name',
-                          leadingGlyph: RaftGlyph.search,
-                        ),
-                        const SizedBox(height: 8), // space-y-2
-                        _MemberPicker(
-                          agents: agents,
-                          humans: humans,
-                          selected: isSelected,
-                          query: search.text,
-                          onToggle: submitting ? null : onToggle,
-                        ),
-                      ],
-                    ),
+              child: RaftMemberPickerContent(
+                search: search,
+                agents: agents,
+                humans: humans,
+                hasCandidates: hasCandidates,
+                isSelected: isSelected,
+                onToggle: submitting ? null : onToggle,
+              ),
             ),
             gap,
             Row(
@@ -177,6 +156,60 @@ class RaftCreateChannelDialogView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The member picker body shared by the create dialogs: `No members
+/// available`, or the search `Input` (`pl-9` + Search glyph) over the
+/// `Card max-h-48` AGENTS / HUMANS list.
+class RaftMemberPickerContent extends StatelessWidget {
+  const RaftMemberPickerContent({
+    super.key,
+    required this.search,
+    required this.agents,
+    required this.humans,
+    required this.hasCandidates,
+    required this.isSelected,
+    required this.onToggle,
+  });
+  final TextEditingController search;
+  final List<RaftPickerItem> agents, humans;
+  final bool hasCandidates;
+  final bool Function(String key) isSelected;
+  final ValueChanged<String>? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    if (!hasCandidates) {
+      return Text(
+        raftText(context, 'No members available'),
+        style: raftCssTextStyle(
+          family: t.monoFont,
+          step: RaftTextSteps.sm,
+          color: t.colors['foreground-muted'],
+        ),
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        RaftDialogTextInput(
+          controller: search,
+          placeholder: 'Search members by name',
+          leadingGlyph: RaftGlyph.search,
+        ),
+        const SizedBox(height: 8), // space-y-2
+        _MemberPicker(
+          agents: agents,
+          humans: humans,
+          selected: isSelected,
+          query: search.text,
+          onToggle: onToggle,
+        ),
+      ],
     );
   }
 }
@@ -239,7 +272,9 @@ class _MemberPicker extends StatelessWidget {
                     vertical: 16,
                   ),
                   child: Text(
-                    raftText(context, 'No matches for "${query.trim()}"'),
+                    raftFormat(context, 'No matches for "{query}"', {
+                      'query': query.trim(),
+                    }),
                     textAlign: TextAlign.center,
                     style: raftCssTextStyle(
                       family: t.monoFont,
@@ -337,9 +372,13 @@ class RaftArchivedNameBanner extends StatelessWidget {
     required this.onChangeName,
     this.onUnarchive,
     this.busy = false,
+    this.showHint = true,
   });
   final String name;
   final bool canUnarchive, busy;
+
+  /// CreateChannelDialog's second line; the joint dialog's banner has none.
+  final bool showHint;
   final VoidCallback onChangeName;
   final VoidCallback? onUnarchive;
 
@@ -383,21 +422,22 @@ class RaftArchivedNameBanner extends StatelessWidget {
             ),
             // Banner children carry no `space-y-2` gap (the Web wrapper sits
             // between the banner and its `<p>`s).
-            Text(
-              raftText(
-                context,
-                canUnarchive
-                    ? 'Unarchive it to keep its history, or choose a different name.'
-                    : 'Pick a different name, or ask an admin to unarchive it.',
+            if (showHint)
+              Text(
+                raftText(
+                  context,
+                  canUnarchive
+                      ? 'Unarchive it to keep its history, or choose a different name.'
+                      : 'Pick a different name, or ask an admin to unarchive it.',
+                ),
+                style: raftCssTextStyle(
+                  family: t.headingFont,
+                  step: RaftTextSteps.xs,
+                  color: t.brutal
+                      ? Colors.black.withValues(alpha: .7)
+                      : t.colors['foreground-muted'],
+                ),
               ),
-              style: raftCssTextStyle(
-                family: t.headingFont,
-                step: RaftTextSteps.xs,
-                color: t.brutal
-                    ? Colors.black.withValues(alpha: .7)
-                    : t.colors['foreground-muted'],
-              ),
-            ),
             Wrap(
               spacing: 8,
               runSpacing: 8,

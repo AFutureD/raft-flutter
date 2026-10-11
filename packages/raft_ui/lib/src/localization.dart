@@ -29,6 +29,16 @@ String raftFormat(
 }
 
 const raftChinese = <String, String>{
+  "Joint channels support a maximum of {max} servers, including this server.":
+      "联合频道最多支持 {max} 个服务器，含本服务器。",
+  "Server invite {n}": "第 {n} 个服务器邀请",
+  "Remove server invite {n}": "移除第 {n} 个服务器邀请",
+  "No matches for \"{query}\"": "没有匹配「{query}」的结果",
+  "Joint Channels are limited to {max} servers. To request a higher limit, send feedback from Settings.":
+      "联合频道最多 {max} 个服务器。如需提高上限，请在设置里提交反馈。",
+  "Remove {name} from add list": "将 {name} 从待添加列表中移除",
+  "Add {count} members": "添加 {count} 位成员",
+  "Add 1 member": "添加 1 位成员",
   "{count} task update": "{count} 条任务更新",
   "{count} task updates": "{count} 条任务更新",
   "{count} reminder update": "{count} 条提醒更新",

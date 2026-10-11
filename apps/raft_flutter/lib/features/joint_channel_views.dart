@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import 'create_joint_channel_dialog.dart';
 import 'management_support.dart';
 
 String? jointNameError(String value) {
@@ -146,6 +147,19 @@ abstract class _JointState<T extends StatefulWidget>
     }
   }
 
+  /// Product dialogs on the Web `Modal` layer track their route the same way.
+  @override
+  Future<V?> scopedRaftModal<V>(Widget Function(BuildContext) builder) async {
+    try {
+      return await super.scopedRaftModal<V>((context) {
+        _dialog = context;
+        return builder(context);
+      });
+    } finally {
+      _dialog = null;
+    }
+  }
+
   bool current(String scope) => mounted && scope == authority && manager;
   VoidCallback guarded(Future<void> Function() callback) {
     final scope = authority;
@@ -243,9 +257,9 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
     ]);
     if (!accepts(generation, request)) return;
     invites = managementRows(managementMap(values[0])['invites']);
-    channels = managementRows(values[1])
-        .where((c) => c['type'] == 'joint')
-        .toList();
+    channels = managementRows(
+      values[1],
+    ).where((c) => c['type'] == 'joint').toList();
   }
 
   Future<void> create() async {
@@ -255,24 +269,25 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
       w.client.get('/servers/${w.server!.id}/members'),
     ]);
     if (!current(scope)) return;
-    final agents = managementRows(values[0])
-        .where((a) => a['deletedAt'] == null)
-        .toList();
-    final users = managementRows(values[1])
-        .where((u) => (u['userId'] ?? u['id']) != w.client.user?.id)
-        .toList();
-    Map<String, dynamic>? created;
-    await scopedDialog<bool>(
-      (context) => _JointCreateDialog(
+    final agents = managementRows(
+      values[0],
+    ).where((a) => a['deletedAt'] == null).toList();
+    final users = managementRows(
+      values[1],
+    ).where((u) => (u['userId'] ?? u['id']) != w.client.user?.id).toList();
+    final created = await scopedRaftModal<Map<String, dynamic>>(
+      (context) => CreateJointChannelDialog(
         agents: agents,
         users: users,
-        onCreate: (payload) async {
-          created = await mutate('/channels', payload, scope);
-        },
+        freePlan: (w.server?.string('plan') ?? 'free') == 'free',
+        origin: w.client.origin,
+        onCreate: (payload) => mutate('/channels', payload, scope),
+        onUnarchive: (id) => mutate('/channels/$id/unarchive', null, scope),
+        onViewBilling: () => w.setSection('billing'),
       ),
     );
-    if (!current(scope) || created == null || created!['id'] == null) return;
-    await w.selectChannel(RaftChannel(created!));
+    if (!current(scope) || created == null || created['id'] == null) return;
+    await w.selectChannel(RaftChannel(created));
     if (!mounted) return;
     await w.refreshChannels();
     await reload();
@@ -456,7 +471,8 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
           'People to invite',
           required: true,
           multiline: true,
-          help: 'Enter names, @handles or email addresses, separated by commas or new lines.',
+          help:
+              'Enter names, @handles or email addresses, separated by commas or new lines.',
           validator: (v) => jointPeople(v).isEmpty
               ? 'Invite at least one person.'
               : jointPeople(v).length > 20
@@ -477,9 +493,14 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
 
   Future<void> resend() async {
     final scope = authority;
-    final saved = await confirm('Resend invitations', 'Send fresh invitations issued by this workspace and extend their expiry.', () async {
-      await mutate('$base/joint-invite/resend', null, scope);
-    }, submit: 'Resend invitations');
+    final saved = await confirm(
+      'Resend invitations',
+      'Send fresh invitations issued by this workspace and extend their expiry.',
+      () async {
+        await mutate('$base/joint-invite/resend', null, scope);
+      },
+      submit: 'Resend invitations',
+    );
     if (saved && current(scope)) await reload();
   }
 
@@ -557,210 +578,4 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
       ],
     );
   }
-}
-
-class _InviteDraft {
-  final slug = TextEditingController(), people = TextEditingController();
-  void dispose() {
-    slug.dispose();
-    people.dispose();
-  }
-}
-
-class _JointCreateDialog extends StatefulWidget {
-  const _JointCreateDialog({
-    required this.agents,
-    required this.users,
-    required this.onCreate,
-  });
-  final List<Map<String, dynamic>> agents, users;
-  final Future<void> Function(Map<String, dynamic>) onCreate;
-  @override
-  State<_JointCreateDialog> createState() => _JointCreateDialogState();
-}
-
-class _JointCreateDialogState extends State<_JointCreateDialog> {
-  final _form = GlobalKey<FormState>();
-  final name = TextEditingController(), description = TextEditingController();
-  final targets = [_InviteDraft()];
-  final agents = <String>{}, users = <String>{};
-  bool busy = false;
-  String? error;
-  @override
-  void dispose() {
-    name.dispose();
-    description.dispose();
-    for (final target in targets) {
-      target.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> submit() async {
-    if (!_form.currentState!.validate()) return;
-    setState(() {
-      busy = true;
-      error = null;
-    });
-    try {
-      await widget.onCreate({
-        'name': name.text.trim(),
-        if (description.text.trim().isNotEmpty)
-          'description': description.text.trim(),
-        'visibility': 'joint',
-        'agentIds': agents.toList(),
-        'userIds': users.toList(),
-        'jointInvites': [
-          for (final target in targets)
-            {
-              'targetServerSlug': target.slug.text.trim(),
-              'invitedPeople': jointPeople(target.people.text),
-            },
-        ],
-      });
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = '$e';
-          busy = false;
-        });
-      }
-    }
-  }
-
-  Widget field(
-    String key,
-    String label,
-    TextEditingController controller,
-    String? Function(String) validator, {
-    int lines = 1,
-  }) => TextFormField(
-    autofillHints: null,
-    key: ValueKey(key),
-    controller: controller,
-    enabled: !busy,
-    maxLines: lines,
-    decoration: InputDecoration(labelText: raftText(context, label)),
-    validator: (v) => validator(v ?? ''),
-  );
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(raftText(context, 'Create joint channel')),
-    content: SizedBox(
-      width: 560,
-      child: Form(
-        key: _form,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              field('joint-name', 'Channel name', name, jointNameError),
-              field(
-                'joint-description',
-                'Description',
-                description,
-                (v) => v.length > 500 ? 'Use at most 500 characters.' : null,
-                lines: 3,
-              ),
-              for (var i = 0; i < targets.length; i++) ...[
-                const SizedBox(height: 16),
-                Text('${raftText(context, 'Workspace')} ${i + 1}'),
-                field(
-                  'joint-slug-$i',
-                  'Workspace slug',
-                  targets[i].slug,
-                  jointTargetError,
-                ),
-                field(
-                  'joint-people-$i',
-                  'People to invite',
-                  targets[i].people,
-                  (v) => jointPeople(v).isEmpty
-                      ? 'Invite at least one person.'
-                      : jointPeople(v).length > 20
-                      ? 'Invite at most 20 people per workspace.'
-                      : null,
-                  lines: 3,
-                ),
-                if (targets.length > 1)
-                  TextButton(
-                    onPressed: busy
-                        ? null
-                        : () => setState(() => targets.removeAt(i).dispose()),
-                    child: Text(raftText(context, 'Remove workspace')),
-                  ),
-              ],
-              Text(
-                raftText(
-                  context,
-                  'Use existing workspace slugs and names, @handles or email addresses. Invitations expire and must be accepted by an owner or admin.',
-                ),
-              ),
-              if (targets.length < 29)
-                TextButton(
-                  onPressed: busy
-                      ? null
-                      : () => setState(() => targets.add(_InviteDraft())),
-                  child: Text(raftText(context, 'Add workspace')),
-                ),
-              Text(raftText(context, 'Local members (optional)')),
-              for (final agent in widget.agents)
-                CheckboxListTile(
-                  value: agents.contains(agent['id']),
-                  onChanged: busy
-                      ? null
-                      : (checked) => setState(() {
-                          if (checked == true) {
-                            agents.add('${agent['id']}');
-                          } else {
-                            agents.remove(agent['id']);
-                          }
-                        }),
-                  title: Text('${agent['displayName'] ?? agent['name']}'),
-                  subtitle: Text(raftText(context, 'Agent')),
-                ),
-              for (final user in widget.users)
-                CheckboxListTile(
-                  value: users.contains(user['userId'] ?? user['id']),
-                  onChanged: busy
-                      ? null
-                      : (checked) => setState(() {
-                          final id = '${user['userId'] ?? user['id']}';
-                          if (checked == true) {
-                            users.add(id);
-                          } else {
-                            users.remove(id);
-                          }
-                        }),
-                  title: Text(
-                    '${user['displayName'] ?? user['name'] ?? user['userName']}',
-                  ),
-                ),
-              if (error != null)
-                Text(
-                  error!,
-                  key: const ValueKey('joint-create-error'),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-            ],
-          ),
-        ),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: busy ? null : () => Navigator.pop(context),
-        child: Text(raftText(context, 'Cancel')),
-      ),
-      FilledButton(
-        key: const ValueKey('joint-create-submit'),
-        onPressed: busy ? null : submit,
-        child: Text(
-          raftText(context, busy ? 'Creating…' : 'Create joint channel'),
-        ),
-      ),
-    ],
-  );
 }
