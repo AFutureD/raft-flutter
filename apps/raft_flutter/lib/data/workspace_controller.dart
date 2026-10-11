@@ -1648,6 +1648,32 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Send-receipt warnings of the latest send per draft scope (Web MessageInput
+  /// `unresolvedMentionHandles` / `deliveryWarnings`): handles the server could
+  /// not resolve to a member, and whether a DM's agent is stopped.
+  final Map<String, ({List<String> unresolved, bool agentStopped})>
+  sendWarnings = {};
+
+  ({List<String> unresolved, bool agentStopped}) sendWarningsFor({
+    bool thread = false,
+  }) =>
+      (presentationSource?.sendWarnings ?? sendWarnings)[draftScope(
+        thread: thread,
+      )] ??
+      (unresolved: const [], agentStopped: false);
+
+  /// The banner's X (Web `dismissUnresolvedMentionWarning` /
+  /// `dismissDeliveryWarning`).
+  void dismissSendWarnings({bool thread = false}) {
+    if (presentationSource != null) {
+      presentationSource!.dismissSendWarnings(thread: thread);
+      return;
+    }
+    final scope = draftScope(thread: thread);
+    if (scope == null || sendWarnings.remove(scope) == null) return;
+    notifyListeners();
+  }
+
   /// `POST /messages/mention-actions/execute`; returns ids whose result
   /// status matches the action (`queued` for notify, `delivered` for add).
   Future<Set<String>> executeMentionActions(
@@ -4367,6 +4393,24 @@ class WorkspaceController extends ChangeNotifier {
       // Web MessageInput replaces the strip with each send's receipt.
       pendingMentionActions[scope] = normalizePendingMentionActions(
         sent.receipt['pendingMentionActions'],
+      );
+      sendWarnings[scope] = (
+        unresolved: [
+          for (final handle
+              in (sent.receipt['unresolvedMentionHandles'] as List? ??
+                  const []))
+            if (handle is String) handle,
+        ],
+        // Web `normalizeDeliveryWarnings`: agent targets stopped only.
+        agentStopped: (sent.receipt['deliveryWarnings'] as List? ?? const [])
+            .any(
+              (w) =>
+                  w is Map &&
+                  w['targetType'] == 'agent' &&
+                  w['reason'] == 'agent_stopped' &&
+                  w['targetId'] is String &&
+                  (w['targetId'] as String).isNotEmpty,
+            ),
       );
       ledger.ingest([
         {...message.json, 'randomId': message.json['randomId'] ?? sentId},
