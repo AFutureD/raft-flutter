@@ -11,6 +11,8 @@ import 'tooltip.dart';
 enum RaftMountedAvatarContext {
   panelHeader,
   compactList,
+  // AvatarSlot context="members-row": RAFT_AVATAR_SPEC `!size-7 !border`.
+  membersRow,
   sidebarList,
   previewMini,
 }
@@ -58,10 +60,13 @@ class RaftMountedAvatarRecipe {
   bool get panelHeader => avatarContext == RaftMountedAvatarContext.panelHeader;
   bool get sidebarList => avatarContext == RaftMountedAvatarContext.sidebarList;
   bool get previewMini => avatarContext == RaftMountedAvatarContext.previewMini;
+  bool get membersRow => avatarContext == RaftMountedAvatarContext.membersRow;
   // RAFT_AVATAR_SPEC: panel-header !size-9, compact-list !size-5,
   // sidebar-list !size-[18px], preview-mini !size-[14px]; SPEC icon sizes.
   double get extent => panelHeader
       ? 36
+      : membersRow
+      ? 28
       : sidebarList
       ? 18
       : previewMini
@@ -71,13 +76,20 @@ class RaftMountedAvatarRecipe {
   double get contentExtent => extent - borderWidth * 2;
   double get placeholderExtent => panelHeader
       ? 18
+      : membersRow
+      ? 14
       : sidebarList || previewMini
       ? 10
       : 12;
   // One glyph size for the humanPlaceholder and the Gravatar User fallback:
   // a gravatar hash that arrives after first paint never resizes the glyph.
   double get gravatarFallbackExtent => placeholderExtent;
-  double get badgeExtent => panelHeader ? 10 : 6;
+  // raft-ui avatar badge: size-2.5 md, size-2 sm (members-row), size-1.5 xs.
+  double get badgeExtent => panelHeader
+      ? 10
+      : membersRow
+      ? 8
+      : 6;
   double get radius => tokens.brutal ? 0 : extent / 2;
   Color get border => tokens.brutal ? Colors.black : Colors.transparent;
   Color get fallbackFill => tokens.brutal

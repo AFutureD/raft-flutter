@@ -3538,12 +3538,17 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         onMembers: () =>
                             openChannelPage(RaftChannelPage.members, channel),
                       )
-                    : ChannelMembers(
-                        key: ValueKey('channel-members-${page.channelId}'),
-                        controller: w,
-                        channel: channel,
+                    // Web mounts the members page `bare` in the phone's
+                    // full-width OverflowSheet (drawer border-l-2 included).
+                    : RaftOverflowBareSheet(
                         page: true,
-                        onClose: dismissPanel,
+                        child: ChannelMembers(
+                          key: ValueKey('channel-members-${page.channelId}'),
+                          controller: w,
+                          channel: channel,
+                          page: true,
+                          onClose: dismissPanel,
+                        ),
                       ),
               ),
             ),

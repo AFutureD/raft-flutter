@@ -1390,7 +1390,81 @@
     }
    ],
    "recommendations": []
-  }
+  },
+  "GET /agents/agent-product-ux/channels": [
+   {
+    "id": "chat-ch-design",
+    "name": "design",
+    "description": "Product design reviews and UX specs for the next release.",
+    "type": "channel",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "archivedAt": null,
+    "activityMuted": false,
+    "muteFromSeq": null
+   },
+   {
+    "id": "chat-ch-release",
+    "name": "release-gates",
+    "description": null,
+    "type": "channel",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "archivedAt": null,
+    "activityMuted": false,
+    "muteFromSeq": null
+   },
+   {
+    "id": "chat-ch-private",
+    "name": "design-private",
+    "description": "Private design notes.",
+    "type": "private",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "archivedAt": null,
+    "activityMuted": false,
+    "muteFromSeq": null
+   },
+   {
+    "id": "chat-ch-joint",
+    "name": "partner-sync",
+    "description": "Shared with the partner workspace.",
+    "type": "joint",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "archivedAt": null,
+    "activityMuted": true,
+    "muteFromSeq": null
+   },
+   {
+    "id": "chat-ch-archived",
+    "name": "old-archive",
+    "description": null,
+    "type": "channel",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "archivedAt": "2026-06-19T00:00:00.000Z",
+    "activityMuted": false,
+    "muteFromSeq": null
+   }
+  ],
+  "GET /agents/agent-product-ux/agent-dms": [
+   {
+    "id": "chat-dm-cindy",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "peerId": "agent-cindy",
+    "peerName": "Cindy",
+    "peerDisplayName": "Cindy",
+    "peerAvatarUrl": "pixel:robot",
+    "lastMessageAt": "2026-06-17T12:00:00.000Z",
+    "lastMessagePreview": "Handed over the release checklist. I did not change the Colvalley source and there is nothing left to hand over for this project, so this is only the status confirmation."
+   },
+   {
+    "id": "chat-dm-builder",
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "peerId": "agent-builder",
+    "peerName": "Builder",
+    "peerDisplayName": "Builder",
+    "peerAvatarUrl": "pixel:robot",
+    "lastMessageAt": null,
+    "lastMessagePreview": null
+   }
+  ]
  },
  "routeSets": {
   "invite-guest": {
@@ -1485,6 +1559,109 @@
    "GET /channels/saved": {
     "$status": 500
    }
+  },
+  "chat-many": {
+   "GET /agents/agent-product-ux/channels": [
+    {
+     "id": "chat-ch-design",
+     "name": "design",
+     "description": "Product design reviews and UX specs for the next release.",
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-release",
+     "name": "release-gates",
+     "description": null,
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-private",
+     "name": "design-private",
+     "description": "Private design notes.",
+     "type": "private",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-joint",
+     "name": "partner-sync",
+     "description": "Shared with the partner workspace.",
+     "type": "joint",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": true,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-archived",
+     "name": "old-archive",
+     "description": null,
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": "2026-06-19T00:00:00.000Z",
+     "activityMuted": false,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-extra-1",
+     "name": "extra-1",
+     "description": null,
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-extra-2",
+     "name": "extra-2",
+     "description": null,
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    },
+    {
+     "id": "chat-ch-extra-3",
+     "name": "extra-3",
+     "description": null,
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    }
+   ]
+  },
+  "chat-empty": {
+   "GET /agents/agent-product-ux/channels": [],
+   "GET /agents/agent-product-ux/agent-dms": []
+  },
+  "chat-sections-empty": {
+   "GET /agents/agent-product-ux/channels": [
+    {
+     "id": "chat-ch-design",
+     "name": "design",
+     "description": "Product design reviews and UX specs for the next release.",
+     "type": "channel",
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "archivedAt": null,
+     "activityMuted": false,
+     "muteFromSeq": null
+    }
+   ],
+   "GET /agents/agent-product-ux/agent-dms": []
   },
   "agent-log-empty": {
    "GET /agents/agent-product-ux/activity-log": []

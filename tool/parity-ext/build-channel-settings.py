@@ -305,6 +305,18 @@ add('mobile', 'archived-full', 'archived channel, tall window', C['archived'], h
 add('mobile', 'dirty-full', 'edited draft, tall window', C['owner'], height=1110,
     extra=[*FILL, *BLUR], extra_android=[*FILL_A, *BLUR_A])
 
+# The drawer-internal members page (ChannelMembers presentation="page" mounted `bare` in the OverflowSheet):
+# opened from the MembersStrip heading row, or straight into the add view from the dashed + tile.
+members_page, members_page_a = action('channel-overflow-members-entry')
+members_add, members_add_a = action('channel-overflow-members-add-tile')
+PAGE = ('[data-testid="member-page"]', 'member-page')
+add('desktop', 'members-page', 'members page (roster)', C['owner'], extra=members_page, extra_android=members_page_a)
+add('desktop', 'members-page-add', 'members page, add view', C['owner'], extra=members_add, extra_android=members_add_a)
+add('desktop', 'members-page-many', 'members page, 35 members (scrolling roster)', C['many'], extra=members_page,
+    extra_android=members_page_a)
+add('mobile', 'members-page', 'members page (roster)', C['owner'], target=PAGE, extra=members_page,
+    extra_android=members_page_a)
+
 leave, leave_a = action('channel-overflow-leave')
 add('desktop', 'confirm-leave', 'leave confirmation', C['member'], role='member', target=CONFIRM,
     extra=leave, extra_android=leave_a)

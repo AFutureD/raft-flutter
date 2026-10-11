@@ -74,11 +74,12 @@ void main() {
           expect(find.byType(RaftChannelSettingsSheet), findsNothing);
           expect(find.byType(RaftChannelInfoForm), findsOneWidget);
           expect(t.testTextInput.isVisible, isFalse);
-          // Web's Drawer header below md: 62px, px-4, 28px Back.
+          // Web's Drawer header below md: 62px, px-4, 28px Back, inside the
+          // Brutal drawer's `border-l-2` (kept on the phone).
           expect(find.byType(RaftMobilePageHeader), findsNothing);
           expect(
             t.getCenter(find.byKey(const ValueKey('channel-overflow-back'))).dx,
-            16 + 14,
+            16 + 14 + (family == RaftFamily.brutal ? 2 : 0),
           );
           expect(
             t.getSemantics(find.text('#test')).flagsCollection.isHeader,
