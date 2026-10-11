@@ -19,6 +19,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/features/source_channel_files_view.dart';
+import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -713,6 +714,201 @@ void main() {
           }
           return {'rowKind': kind, 'steps': steps};
         }, kind: 'mount');
+      }
+
+
+      // Opt-in mobile navigation scenarios (`nav-*`): the real WorkspaceView on
+      // a phone-sized view with populated Agents/Members/channels. Each scenario
+      // repeats forward/back transitions; every transition is an `opens` entry
+      // so the summary reports the worst UI/raster frame inside it.
+      if (only.any((o) => o.startsWith('nav-'))) {
+        final (nw, napi, _) = await labWorkspace(channels, images, mobile: true);
+        final navAgents = [
+          for (final (i, a) in const [
+            ('Cindy', 'Engineering operator: turns your ideas into working software'),
+            ('Codex', '全栈开发者，帮我搞定产品的端到端交付'),
+            ('Grok', '全栈开发者'),
+            ('CodexGame', '全栈开发者兼金牌游戏制作人'),
+            ('CodexMac', '全栈开发者'),
+          ].indexed)
+            {
+              'id': 'agent-$i', 'name': a.$1.toLowerCase(), 'displayName': a.$1, 'description': a.$2,
+              'status': 'active', 'runtime': 'codex', 'model': 'gpt-6', 'machineId': i < 4 ? 'k8s-plus' : 'macbook-pro',
+              'avatarUrl': images.url(i % 4, 'agent-avatar-$i'), 'activity': 'online', 'createdAt': '2026-10-01T00:00:00Z',
+            },
+        ];
+        napi.routes['GET /agents'] = (_) => navAgents;
+        napi.routes['GET /servers/s1/machines'] = (_) => {'machines': [
+          {'id': 'k8s-plus', 'name': 'k8s-plus', 'status': 'online'},
+          {'id': 'macbook-pro', 'name': 'macbook-pro', 'status': 'online'},
+        ]};
+        napi.routes['GET /servers/s1/members'] = (_) => [
+          {'userId': 'alice', 'id': 'alice', 'name': 'Alice Zhang', 'displayName': 'Alice Zhang', 'role': 'owner'},
+        ];
+        napi.patterns.add((
+          (o) => o.method == 'GET' && RegExp(r'^/agents/agent-\d+$').hasMatch(o.path),
+          (o) => navAgents.firstWhere((a) => a['id'] == o.path.split('/').last),
+        ));
+        await t.pumpWidget(MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: raftTheme(family, dark: dark),
+          home: WorkspaceView(
+            controller: nw,
+            appearance: RaftAppearance(mode: dark ? ThemeMode.dark : ThemeMode.light, light: family),
+            onAppearance: (_) async {},
+            onLogout: () async {},
+          ),
+        ));
+        await lab.settle(t, time: const Duration(seconds: 2));
+        if (const bool.fromEnvironment('RAFT_LAB_DEBUG_HOLD')) await idle(const Duration(seconds: 25));
+        // A root tab has nothing to pop; popping it would exit the activity.
+        Future<void> back() async {
+          if (nw.navigation.mobileRootTab != null) return;
+          await binding.handlePopRoute();
+        }
+        String screenText() => [
+          for (final e in find.byType(RichText).evaluate()) (e.widget as RichText).text.toPlainText(),
+        ].where((x) => x.isNotEmpty).take(30).join(' | ');
+
+        /// One measured transition: [act], wait for [arrived], then dwell so
+        /// the route animation and follow-up work finish inside the interval.
+        Future<void> step(List<Map<String, Object?>> opens, String label, Future<void> Function() act, bool Function() arrived) async {
+          final t0 = developer.Timeline.now;
+          await act();
+          final ms = await waitUntil(arrived, limit: const Duration(seconds: 6));
+          await idle(const Duration(milliseconds: 900));
+          opens.add({'channel': label, 'visibleMs': ms, 't0': t0, 't1': developer.Timeline.now});
+          if (ms < 0) failures.add('$name: nav step $label never arrived');
+        }
+
+        Future<void> tabTo(String id) async {
+          final tab = find.byKey(Key('mobile-tab-${id == 'chat' ? 'home' : id}'));
+          if (await waitUntil(() => tab.evaluate().isNotEmpty, limit: const Duration(seconds: 10)) < 0) {
+            failures.add('$name: tab $id never mounted');
+            return;
+          }
+          await t.tap(tab);
+        }
+
+        Future<void> goRoot(String id) async {
+          for (var pops = 0; pops < 3 && find.byKey(const Key('mobile-tab-home')).evaluate().isEmpty; pops++) {
+            await back();
+            await lab.settle(t, time: const Duration(milliseconds: 700));
+          }
+          await tabTo(id);
+          await lab.settle(t, time: const Duration(milliseconds: 1500));
+        }
+
+        bool agentOpen() => find.byKey(const Key('agent-profile-overflow-trigger')).evaluate().isNotEmpty ||
+            find.byKey(const ValueKey('agent-edit-role')).evaluate().isNotEmpty ||
+            find.byKey(const Key('desktop-directory-list')).evaluate().isEmpty;
+        bool membersShown() => find.byKey(const ValueKey('desktop-directory-agent-agent-0')).evaluate().isNotEmpty;
+
+        await run('nav-members-agent', prepare: () async {
+          await goRoot('members');
+          if (await waitUntil(membersShown, limit: const Duration(seconds: 10)) < 0) failures.add('$name: members never listed; misses=${napi.misses}; hits=${napi.hits}; screen=${screenText()}; section=${nw.section}');
+            if (Platform.environment['RAFT_LAB_DEBUG_HOLD'] != null || const bool.fromEnvironment('RAFT_LAB_DEBUG_HOLD')) await idle(const Duration(seconds: 40));
+        }, () async {
+          final opens = <Map<String, Object?>>[];
+          for (var i = 0; i < 3; i++) {
+            final id = 'agent-${i % 3}';
+            await step(opens, 'open-agent-$i', () => t.tap(find.byKey(ValueKey('desktop-directory-agent-$id'))), agentOpen);
+            await step(opens, 'back-agent-$i', back, membersShown);
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
+
+        bool channelShown(LabChannel c) => visibleText(newest(c)).evaluate().isNotEmpty;
+        bool homeShown() => find.text('lab-open-a', findRichText: true).evaluate().isNotEmpty;
+        await run('nav-home-channel', prepare: () async {
+          await goRoot('home');
+          if (await waitUntil(homeShown, limit: const Duration(seconds: 10)) < 0) failures.add('$name: home never listed channels');
+        }, () async {
+          final opens = <Map<String, Object?>>[];
+          for (var i = 0; i < 3; i++) {
+            final target = i.isEven ? openA : openB;
+            await step(opens, 'open-channel-$i', () => t.tap(find.text('lab-${target.id}', findRichText: true)), () => channelShown(target));
+            await step(opens, 'back-channel-$i', back, homeShown);
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
+
+        bool homeListShown() => find.text('Saved', findRichText: true).evaluate().isNotEmpty;
+        await run('nav-home-activity', prepare: () async {
+          await goRoot('home');
+          if (await waitUntil(homeListShown, limit: const Duration(seconds: 10)) < 0) failures.add('$name: home list never shown');
+        }, () async {
+          final opens = <Map<String, Object?>>[];
+          for (var i = 0; i < 3; i++) {
+            await step(opens, 'open-activity-$i', () => t.tap(find.text('Activity', findRichText: true).first), () => !homeListShown());
+            await step(opens, 'back-activity-$i', back, homeListShown);
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
+
+        napi.routes['GET /channels/inbox'] = (_) => {
+          'items': [
+            for (final c in [openA, openB, mix, img, hist, tagged])
+              {
+                'kind': 'channel', 'channelId': c.id, 'channelName': 'lab-${c.id}',
+                'lastMessagePreview': 'Latest in lab-${c.id}', 'unreadCount': 0,
+                'lastMessageId': newest(c),
+              },
+          ],
+        };
+        for (final c in [openA, openB, mix, img, hist, tagged]) {
+          napi.routes['GET /messages/context/${newest(c)}'] = (_) => {
+            'messages': c.rows.sublist(c.rows.length - 50), 'threadSummariesByParentMessageId': c.summaries,
+          };
+        }
+        napi.routes['GET /channels/mix/threads/${parent['id']}'] = (_) => {'threadChannelId': threadId};
+        bool threadShown() => nw.threadIdentity != null && visibleText(newest(thread)).evaluate().isNotEmpty;
+        await run('nav-channel-thread', prepare: () async {
+          await goRoot('home');
+          await t.tap(find.text('lab-mix', findRichText: true));
+          if (await waitUntil(() => channelShown(mix), limit: const Duration(seconds: 10)) < 0) failures.add('$name: mix never shown');
+          await lab.settle(t, time: const Duration(seconds: 1));
+        }, () async {
+          final opens = <Map<String, Object?>>[];
+          for (var i = 0; i < 3; i++) {
+            // Same call the thread-summary tap makes (RaftChatView.onOpenThread).
+            await step(opens, 'open-thread-$i', () => nw.openThreadIdentity(parentChannelId: mix.id, parentMessageId: '${parent['id']}', initialThreadChannelId: threadId), threadShown);
+            await step(opens, 'back-thread-$i', back, () => nw.threadIdentity == null && channelShown(mix));
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
+
+        Finder activityEntry() => find.byKey(const ValueKey('activity-channel-open-a'));
+        await run('nav-activity-item', prepare: () async {
+          await goRoot('home');
+          await t.tap(find.text('Activity', findRichText: true).first);
+          if (await waitUntil(() => activityEntry().evaluate().isNotEmpty, limit: const Duration(seconds: 10)) < 0) failures.add('$name: activity entries never listed');
+          await lab.settle(t, time: const Duration(seconds: 1));
+        }, () async {
+          final opens = <Map<String, Object?>>[];
+          for (var i = 0; i < 3; i++) {
+            await step(opens, 'open-activity-item-$i', () => t.tap(activityEntry()), () => channelShown(openA));
+            await step(opens, 'back-activity-item-$i', back, () => activityEntry().evaluate().isNotEmpty);
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
+
+        await run('nav-tabs', prepare: () => goRoot('home'), () async {
+          final opens = <Map<String, Object?>>[];
+          for (final id in ['tasks', 'members', 'settings', 'chat', 'members', 'tasks', 'chat']) {
+            await step(opens, 'tab-$id', () => tabTo(id), () => nw.navigation.mobileRootTab == id);
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
+
+        await run('nav-settings-sub', prepare: () => goRoot('settings'), () async {
+          final opens = <Map<String, Object?>>[];
+          for (var i = 0; i < 2; i++) {
+            await step(opens, 'open-appearance-$i', () => t.tap(find.text('Appearance', findRichText: true).first), () => nw.navigation.mobileRootTab == null);
+            await step(opens, 'back-appearance-$i', back, () => nw.navigation.mobileRootTab == 'settings');
+          }
+          return {'opens': opens};
+        }, kind: 'transitions');
       }
 
       if (api.misses.isNotEmpty) {

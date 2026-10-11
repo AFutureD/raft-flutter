@@ -48,10 +48,12 @@ class LabAdapter implements HttpClientAdapter {
   final Map<String, FutureOr<dynamic> Function(RequestOptions)> routes = {};
   final List<(bool Function(RequestOptions), FutureOr<dynamic> Function(RequestOptions))> patterns = [];
   final misses = <String, int>{};
+  final hits = <String, int>{};
   var requests = 0;
   @override
   Future<ResponseBody> fetch(RequestOptions o, Stream<Uint8List>? s, Future<void>? c) async {
     requests++;
+    hits.update('${o.method} ${o.path}', (v) => v + 1, ifAbsent: () => 1);
     var route = routes['${o.method} ${o.path}'];
     if (route == null) {
       for (final (match, handler) in patterns) {
@@ -289,7 +291,7 @@ List<String> mixKinds(int count) => [for (var i = 0; i < count; i++) mixCycle[i 
 
 /// Signs in a fixture workspace with the lab's routes. Every channel's rows
 /// arrive through the product's own network page path.
-Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images) async {
+Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false}) async {
   final api = LabAdapter();
   api.routes['POST /auth/login'] = (_) => {'accessToken': 'fixture-only', 'refreshToken': 'fixture-only', 'user': {'id': 'alice'}};
   api.routes['GET /agents'] = (_) => [];
@@ -338,8 +340,8 @@ Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChanne
   final client = LabClient(api);
   await client.login('fixture', 'fixture');
   client.selectServer('s1');
-  final w = WorkspaceController(client);
-  w.server = RaftRecord({'id': 's1', 'role': 'member'});
+  final w = WorkspaceController(client, mobileNavigation: mobile);
+  w.server = RaftRecord({'id': 's1', 'name': 'Lab', 'role': mobile ? 'owner' : 'member'});
   w.channels = [for (final c in channels) c.record];
   w.ledger.switchServer('s1');
   return (w, api, client);

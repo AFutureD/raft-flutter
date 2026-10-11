@@ -18,7 +18,11 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "app.raft.raft_flutter"
+        // Performance labs build an isolated test app next to the real one
+        // (`-PraftApplicationIdSuffix=.linkperf`); normal builds keep the id.
+        applicationId =
+            "app.raft.raft_flutter" +
+                ((project.findProperty("raftApplicationIdSuffix") as String?) ?: "")
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = maxOf(flutter.minSdkVersion, 24)
