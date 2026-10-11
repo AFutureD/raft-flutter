@@ -747,6 +747,24 @@ final Map<String, ParityCase> extConversationCases = () {
     );
   }
   for (final platform in const ['desktop', 'mobile']) {
+    add(
+      'mermaid',
+      platform,
+      'fullscreen',
+      _rowCase(
+        widgets: const ['raft_ui:RaftMermaidFullscreen'],
+        settle: const Duration(milliseconds: 900),
+        act: (t, ctx, stage) async {
+          // The diagram renders natively; the toolbar's expand control is
+          // enabled once the scene is ready.
+          await _pumpFrames(t, 30);
+          await t.tap(find.byTooltip('Expand diagram').first);
+          await _pumpFrames(t, 30);
+        },
+      ),
+    );
+  }
+  for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'text',
       'attachment',
@@ -859,11 +877,5 @@ final Map<String, ParityUncovered> extConversationUncovered = () {
           );
     }
   }
-  gap(
-    'mermaid',
-    const ['fullscreen'],
-    'Flutter has no Mermaid full-screen viewer: RaftMermaidBlock offers the '
-        'toolbar (diagram / code / download) only.',
-  );
   return gaps;
 }();

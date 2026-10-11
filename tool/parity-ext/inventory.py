@@ -222,7 +222,7 @@ SECTIONS = [
           d=['components.thread-ext.message.mermaid-*', '!*.mobile'], p=['components.thread-ext.message.mermaid-toolbar.mobile']),
         R('3.18', 'Mermaid full-screen viewer', 'components/mermaid/MermaidDiagramViewer.tsx', 'DP',
           d=['components.conversation.mermaid.desktop.*'], p=['components.conversation.mermaid.mobile.*'], prio=3,
-          note='Flutter page missing: RaftMermaidBlock has the toolbar but no full-screen viewer.'),
+          note='Toolbar expand opens a Lightbox (24 / 12px stage, close control only) with the whole diagram contain-fitted, wheel / pinch zoom, pan and double-tap zoom; Esc / backdrop close.'),
         R('3.19', 'Composer (empty, draft with send enabled)', 'components/message/MessageInput.tsx', 'DP',
           off=['components.thread.composer.empty', 'components.thread.composer.states'],
           d=['components.thread-ext.thread.desktop.composer'], p=['components.thread-ext.thread.mobile.composer']),

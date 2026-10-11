@@ -56,7 +56,7 @@ import 'lru_cache.dart';
 import 'message_list_marker.dart';
 import 'message_content_tokens.dart';
 import 'message_link_underline.dart';
-import 'attachment_lightbox.dart';
+import 'mermaid_fullscreen.dart';
 import 'diagram_theme.dart';
 import 'design_primitives.dart';
 import 'localization.dart';
@@ -1013,24 +1013,11 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
     final navigator = Navigator.of(context, rootNavigator: true);
     final route = DialogRoute<void>(
       context: context,
-      builder: (dialogContext) => RaftAttachmentLightbox(
-        title: raftText(dialogContext, 'Diagram'),
-        closeLabel: 'Close',
-        onClose: closeExpanded,
-        child: ClipRect(
-          child: Center(
-            child: InteractiveViewer(
-              minScale: .05,
-              maxScale: 8,
-              constrained: false,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: diagram(),
-              ),
-            ),
-          ),
-        ),
-      ),
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      useSafeArea: false,
+      builder: (dialogContext) =>
+          RaftMermaidFullscreen(onClose: closeExpanded, diagram: diagram()),
     );
     expandedRoute = route;
     expandedNavigator = navigator;
