@@ -35,11 +35,12 @@ import 'platform/workspace_cache.dart';
 import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
 import 'platform/background_notifications.dart';
+import 'platform/android_performance_hint.dart';
 
 final raftScreenshotKey = GlobalKey();
 
 Future<void> main([List<String> args = const []]) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  RaftWidgetsFlutterBinding.ensureInitialized();
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
   // First frames read saved layout choices synchronously from this.
