@@ -4322,7 +4322,10 @@ class WorkspaceController extends ChangeNotifier {
         // flight. The server cursor still advanced: fold the accepted frontier
         // in and clear only what it covers, so Home never keeps an indicator
         // for a conversation that was read (Source clearUnread).
-        _acceptStaleReadReceipt(id, receipt);
+        // A reset ledger or a revoked scope never accepts a late receipt.
+        if (ledger.generation == generation && !_revokedChannels.contains(id)) {
+          _acceptStaleReadReceipt(id, receipt);
+        }
         return;
       }
       if (receipt is Map && client.serverId != null && client.user != null) {
