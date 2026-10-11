@@ -111,7 +111,7 @@ void main() {
           )!;
           final payload = notificationPayload(w.client, alert.target);
           if (cold) {
-            plugin.launchDetails = NotificationAppLaunchDetails(
+            plugin.launch = NotificationAppLaunchDetails(
               true,
               notificationResponse: _response(payload),
             );
@@ -167,7 +167,7 @@ void main() {
             );
             coordinator.didChangeAppLifecycleState(AppLifecycleState.resumed);
             w.setForeground(true);
-            plugin.responseCallback!(_response(plugin.sent.single!));
+            plugin.onResponse!(_response(plugin.sent.single!));
           }
           final id = kind == 'thread'
               ? 'reply'

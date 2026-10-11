@@ -2352,7 +2352,16 @@ class RaftMenuItem extends StatefulWidget {
     this.autofocus = false,
     this.focusNode,
     this.onMove,
+    this.italic = false,
+    this.divider = false,
   });
+
+  /// SelectionPopover sentinel rows ("Assigned to me", "Unassigned"):
+  /// `italic text-foreground-muted` (brutal black/70).
+  final bool italic;
+
+  /// SelectionPopover rows end in `border-b` (brutal black/10) except the last.
+  final bool divider;
   final String label;
   final VoidCallback? onPressed;
   final RaftGlyph? glyph;
@@ -2470,6 +2479,15 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                     ? recipe.highlightedBackground
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(t.brutal ? 0 : 2),
+                border: widget.divider
+                    ? Border(
+                        bottom: BorderSide(
+                          color: t.brutal
+                              ? Colors.black.withValues(alpha: .1)
+                              : t.colors['line-muted']!,
+                        ),
+                      )
+                    : null,
               ),
               child: Opacity(
                 opacity: enabled ? 1 : .3,
@@ -2494,7 +2512,13 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                               ? t.ink
                               : recipe.foreground,
                         ),
-                      SizedBox(width: t.brutal ? 8 : 10),
+                      SizedBox(
+                        width:
+                            t.brutal ||
+                                widget.kind == RaftMenuKind.selectionPopover
+                            ? 8
+                            : 10,
+                      ),
                     ],
                     Expanded(
                       child: Text(
@@ -2507,6 +2531,12 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                                   widget.kind == RaftMenuKind.selectionPopover
                               ? FontWeight.w700
                               : recipe.label.fontWeight,
+                          fontStyle: widget.italic ? FontStyle.italic : null,
+                          color: widget.italic
+                              ? (t.brutal
+                                    ? Colors.black.withValues(alpha: .7)
+                                    : t.muted)
+                              : null,
                         ),
                       ),
                     ),

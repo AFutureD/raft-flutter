@@ -489,7 +489,45 @@ Future<void> _androidInteractions(
         // does not scroll either (ensureVisible would align it to the top).
         if (raw['scroll'] != false) await t.ensureVisible(target!.first);
         await t.pump();
-        await t.tap(target!.first, warnIfMissed: false);
+        if (raw['mouse'] == true) {
+          // Playwright clicks with a mouse: a touch tap would also raise the
+          // text-selection handles of a field the dialog focuses.
+          await t.tapAt(
+            t.getCenter(target!.first),
+            kind: PointerDeviceKind.mouse,
+          );
+        } else {
+          await t.tap(target!.first, warnIfMissed: false);
+        }
+      case 'tapText':
+        // Taps the first widget showing exactly this text (menu items and
+        // buttons that carry no key), scrolled into view like a click.
+        final byText = find.text(raw['text'] as String);
+        for (var i = 0; i < 40 && byText.evaluate().isEmpty; i++) {
+          await t.pump(const Duration(milliseconds: 50));
+        }
+        // A lazy list builds only what is near the viewport: scroll the list
+        // keyed `in` until the text exists (Playwright scrolls to the element).
+        final list = raw['in'] as String?;
+        if (byText.evaluate().isEmpty && list != null) {
+          await t.scrollUntilVisible(
+            byText,
+            300,
+            scrollable: find
+                .descendant(
+                  of: find.byKey(ValueKey(list)),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
+        }
+        if (byText.evaluate().isEmpty) {
+          throw StateError('androidInteractions text ${raw['text']} missing');
+        }
+        await t.pump(const Duration(milliseconds: 300));
+        await t.ensureVisible(byText.first);
+        await t.pump();
+        await t.tap(byText.first, warnIfMissed: false);
       case 'secondaryTap':
         // Native right click at the element centre, or at (x, y) from its
         // top-left like Playwright's `position`.

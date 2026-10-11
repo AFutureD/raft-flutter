@@ -135,7 +135,7 @@ void main() {
       await mouse.removePointer();
       await t.pumpAndSettle();
       expect(memory.current(scope).history, ['Android']);
-      await t.tap(find.text('Clear history'));
+      await t.tap(find.text('Clear'));
       await t.pumpAndSettle();
       expect(memory.current(scope).history, isEmpty);
       await memory.flush();

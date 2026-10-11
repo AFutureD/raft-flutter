@@ -421,6 +421,10 @@ void main() {
         }),
       );
       expect(card(t).hint, isNot(contains('Raft Desktop.')));
+      if (platform == TargetPlatform.windows) {
+        expect(card(t).hint, isNot(contains('ask for permission')));
+        expect(card(t).hint, contains('directly to the notification center'));
+      }
       await t.pumpAndSettle();
       expect(
         a.calls.where((o) => o.path.contains('notification-settings')),
@@ -445,6 +449,12 @@ void main() {
       await t.pumpAndSettle();
       expect(card(t).message, isNull);
       expect(card(t).error, 'Could not post a test notification.');
+      if (platform == TargetPlatform.windows) {
+        await t.tap(find.text('Open notification settings'));
+        await t.pumpAndSettle();
+        expect(s.settings, 1);
+        expect(s.enables, 0);
+      }
     });
   }
   testWidgets(

@@ -243,6 +243,50 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     ];
   }
 
+  bool diagnosticCopied = false;
+  Timer? diagnosticTimer;
+
+  @override
+  void dispose() {
+    diagnosticTimer?.cancel();
+    super.dispose();
+  }
+
+  /// `buildAgentDiagnosticInfo`: the agent's identity, runtime, computer and
+  /// live state as plain lines.
+  String get diagnosticInfo {
+    final m = machine;
+    final lines = <String, Object?>{
+      'Agent': displayName,
+      'Handle': a['name'],
+      'Agent ID': a['id'],
+      'Server ID': widget.controller.server?.id,
+      'Status': a['status'],
+      'Activity': activity,
+      'Runtime': a['runtime'],
+      'Model': a['model'],
+      'Reasoning effort': a['reasoningEffort'],
+      'Computer': m?['name'],
+      'Computer ID': a['machineId'],
+      'Computer status': m?['status'],
+      'Session ID': a['sessionId'],
+    };
+    return [
+      for (final e in lines.entries)
+        if (e.value != null && '${e.value}'.isNotEmpty) '${e.key}: ${e.value}',
+    ].join('\n');
+  }
+
+  Future<void> copyDiagnosticInfo() async {
+    await Clipboard.setData(ClipboardData(text: diagnosticInfo));
+    if (!mounted) return;
+    setState(() => diagnosticCopied = true);
+    diagnosticTimer?.cancel();
+    diagnosticTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => diagnosticCopied = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!canRenderWorkspaceAgent(a, widget.controller.server?.id)) {
@@ -533,6 +577,22 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           ),
         ],
       ],
+      // AgentDetailPanel Actions: `CopyButton` "Copy Diagnostic Info" (outline,
+      // Clipboard / Check icon), between Restart / Reset and Delete.
+      RaftButton(
+        key: const ValueKey('agent-copy-diagnostic'),
+        label: raftText(
+          context,
+          diagnosticCopied
+              ? 'Diagnostic Info Copied'
+              : 'Copy Diagnostic Info',
+        ),
+        glyph: diagnosticCopied ? RaftGlyph.check : RaftGlyph.clipboard,
+        tone: RaftButtonRecipeVariant.outline,
+        size: RaftButtonRecipeSize.md,
+        expand: true,
+        onPressed: copyDiagnosticInfo,
+      ),
       if (widget.actions.onDelete != null)
         RaftButton(
           label: raftText(context, 'Delete Agent'),
@@ -581,8 +641,11 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
               label: raftText(context, 'Role'),
               actions: [
                 RaftInlineIconButton(
+                  key: const ValueKey('agent-role-help'),
                   glyph: RaftGlyph.circleHelp,
                   tooltip: raftText(context, 'Role permissions'),
+                  onPressed: () =>
+                      showRaftRolePermissionHelp(context, agent: true),
                 ),
                 if (canEdit && role != null && role != 'owner')
                   RaftInlineIconButton(
@@ -661,6 +724,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                 raftText(context, 'Runtime Config'),
                 onEdit: canEdit ? widget.actions.onEditRuntime : null,
                 editLabel: raftText(context, 'Edit runtime config'),
+                editKey: const ValueKey('agent-edit-runtime'),
               ),
               RaftInfoRow(
                 label: raftText(context, 'Runtime'),

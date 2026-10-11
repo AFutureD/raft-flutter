@@ -119,6 +119,8 @@ const raftChinese = <String, String>{
   "Notification settings could not be loaded.": "无法加载通知设置。",
   "Stops notifications from {serverName} for your account. Other servers are unchanged.":
       "停止接收来自 {serverName} 的通知，其他服务器不受影响。",
+  "Not notified: {handles}. Select a person or agent from the mention picker and try again if needed.":
+      "未通知：{handles}。如需通知，请从提及选择器中选择具体的人类成员或 Agent 后重试。",
   "Notifications from {serverName} are muted.": "已静音来自 {serverName} 的通知。",
   "Notifications from {serverName} are unmuted.": "已恢复来自 {serverName} 的通知。",
   "Comments · {filename}": "评论 · {filename}",
@@ -410,6 +412,8 @@ const raftChinese = <String, String>{
   "Linux → your desktop environment's notification settings":
       "Linux → 桌面环境的通知设置",
   "Windows → Settings → System → Notifications": "Windows → 设置 → 系统 → 通知",
+  "Manage notifications for Raft in {path}. Do Not Disturb may send notifications directly to the notification center without showing a banner.":
+      "在 {path} 中管理 Raft 的通知。开启请勿打扰时，通知可能直接进入通知中心，而不显示横幅。",
   "Test notification posted to the system. If no banner appeared, allow notifications for {app} in {path}, then try again.":
       "测试通知已交给系统。如果没有看到横幅,请在 {path} 中允许 {app} 的通知后再试。",
   "System Settings → Notifications": "系统设置 → 通知",

@@ -68,10 +68,29 @@ class RaftMemberRowData {
     this.roleLabel,
     this.guest = false,
     this.human = false,
+    this.onTap,
+    this.roleActionLabel,
+    this.roleActionSemantics,
+    this.onRoleAction,
+    this.roleActionDisabled = false,
+    this.testId,
   });
   final String label;
+
+  /// Stable id of the row: keys the row (`<id>`), its profile button
+  /// (`<id>-open`), role action (`<id>-role`) and remove button (`<id>-remove`).
+  final String? testId;
   final Widget avatar;
   final VoidCallback? onRemove;
+
+  /// Members page: the row body IS the profile button (`onRowClick`).
+  final VoidCallback? onTap;
+
+  /// `ChannelMemberHoverActions` role action (`Make admin` / `Demote`):
+  /// `Button size="sm" variant="outline" className="h-7 px-2 text-xs"`.
+  final String? roleActionLabel, roleActionSemantics;
+  final VoidCallback? onRoleAction;
+  final bool roleActionDisabled;
 
   /// `truncate text-xs text-foreground-muted` sub-line of the members page row
   /// (agent activity in `font-mono`, a human's description).
@@ -1205,9 +1224,30 @@ class _MemberPageRowState extends State<_MemberPageRow> {
                 : RaftBadgeRecipeVariant.muted,
             fontFamily: t.monoFont,
           );
-    final actions = r.onRemove == null
+    final roleAction = r.onRoleAction == null || r.roleActionLabel == null
         ? null
-        : _RemoveMemberButton(label: r.label, onPressed: r.onRemove!);
+        : _RoleActionButton(
+            key: r.testId == null ? null : ValueKey('${r.testId}-role'),
+            label: r.roleActionLabel!,
+            semantics: r.roleActionSemantics,
+            disabled: r.roleActionDisabled,
+            onPressed: r.onRoleAction!,
+          );
+    final remove = r.onRemove == null
+        ? null
+        : _RemoveMemberButton(
+            key: r.testId == null ? null : ValueKey('${r.testId}-remove'),
+            label: r.label,
+            onPressed: r.onRemove!,
+          );
+    // `ChannelMemberHoverActions`: `flex items-center gap-2`.
+    final actions = roleAction == null && remove == null
+        ? null
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [?roleAction, ?remove],
+          );
     Widget? trailing;
     if (wide && (tag != null || actions != null)) {
       trailing = Stack(
@@ -1242,6 +1282,7 @@ class _MemberPageRowState extends State<_MemberPageRow> {
       );
     }
     return MouseRegion(
+      key: r.testId == null ? null : ValueKey<String>(r.testId!),
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
       child: Container(
@@ -1250,7 +1291,10 @@ class _MemberPageRowState extends State<_MemberPageRow> {
         child: Row(
           children: [
             Expanded(
-              child: Row(
+              child: _RowTap(
+                key: r.testId == null ? null : ValueKey('${r.testId}-open'),
+                onTap: r.onTap,
+                child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
@@ -1299,6 +1343,7 @@ class _MemberPageRowState extends State<_MemberPageRow> {
                   ),
                 ],
               ),
+              ),
             ),
             if (trailing != null) ...[const SizedBox(width: 8), trailing],
           ],
@@ -1312,7 +1357,11 @@ class _MemberPageRowState extends State<_MemberPageRow> {
 /// border border-line-muted bg-danger-soft text-danger-strong` with a
 /// `UserMinus size={14}`; brutal square, `border-black bg-brutal-red/20`.
 class _RemoveMemberButton extends StatelessWidget {
-  const _RemoveMemberButton({required this.label, required this.onPressed});
+  const _RemoveMemberButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+  });
   final String label;
   final VoidCallback onPressed;
   @override
@@ -1346,4 +1395,55 @@ class _RemoveMemberButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The row body as the profile `<button>` (`flex min-w-0 flex-1 items-start
+/// gap-2 text-left`); inert when the row has no profile to open.
+class _RowTap extends StatelessWidget {
+  const _RowTap({super.key, required this.child, this.onTap});
+  final Widget child;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => onTap == null
+      ? child
+      : Semantics(
+          button: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: child,
+          ),
+        );
+}
+
+/// `ChannelMemberHoverActions` role action: outline `Button size="sm"` with
+/// `h-7 whitespace-nowrap px-2 text-xs`.
+class _RoleActionButton extends StatelessWidget {
+  const _RoleActionButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.semantics,
+    this.disabled = false,
+  });
+  final String label;
+  final String? semantics;
+  final bool disabled;
+  final VoidCallback onPressed;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 28,
+    child: Semantics(
+      label: semantics,
+      child: RaftRecipeButton(
+        label: label,
+        variant: RaftButtonRecipeVariant.outline,
+        size: RaftButtonRecipeSize.sm,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        textStep: RaftTextSteps.xs,
+        disabled: disabled,
+        onPressed: onPressed,
+      ),
+    ),
+  );
 }

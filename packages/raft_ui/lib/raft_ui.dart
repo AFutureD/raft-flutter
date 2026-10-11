@@ -44,6 +44,7 @@ export 'src/indicators.dart';
 export 'src/live_agent_activity_bar.dart';
 export 'src/form_controls.dart';
 export 'src/list_items.dart';
+export 'src/list_page_parts.dart';
 export 'src/select_field.dart';
 export 'src/overlays/dialog.dart';
 export 'src/recipes/button_variants.g.dart'
@@ -84,6 +85,8 @@ export 'src/settings_billing.dart';
 export 'src/settings_applications.dart';
 export 'src/agent_dialogs.dart';
 export 'src/invite_human_dialog.dart';
+export 'src/role_permission_help_dialog.dart';
+export 'src/agent_unavailable_panel.dart';
 export 'src/settings_controls.dart';
 export 'src/settings_language.dart';
 export 'src/settings_administration.dart';
