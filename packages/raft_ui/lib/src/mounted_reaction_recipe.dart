@@ -102,7 +102,16 @@ class RaftMountedReaction extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox.square(dimension: 15, child: glyph),
+          // 15px at least; a glyph keeps its own advance (a non-sprite emoji
+          // such as Noto's rocket is wider than 15).
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 15,
+              minHeight: 15,
+              maxHeight: 15,
+            ),
+            child: glyph,
+          ),
           const SizedBox(width: 4),
           RaftReactionCount(
             count: count,

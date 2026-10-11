@@ -120,7 +120,11 @@ void main() {
               'senderName': name,
               'sourceServerId': server,
               'content': 'Public $id body',
-              'createdAt': '2026-06-22T02:30:00Z',
+              // Another day: same-sender rows of one day merge into a group
+              // (Web messageGrouping) and the foreign row keeps its header.
+              'createdAt': id == 'local'
+                  ? '2026-06-22T02:30:00Z'
+                  : '2026-06-23T02:30:00Z',
             },
         ], expectedGeneration: w.ledger.generation);
         w.visibleIds['c1'] = {'local', 'foreign'};
