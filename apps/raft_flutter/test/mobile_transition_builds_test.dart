@@ -380,6 +380,13 @@ void main() {
     expect(excluded(), isTrue, reason: 'no per-frame semantics mid-transition');
     await settle();
     expect(excluded(), isFalse, reason: 'exposed again once the route settles');
+    // At rest the real, current page is shown: no lingering snapshot, and the
+    // live page is fully opaque.
+    expect(find.byKey(const ValueKey('entering-snapshot')), findsNothing);
+    expect(
+      tester.widget<Opacity>(find.byKey(const ValueKey('live-page'))).opacity,
+      1,
+    );
     await tester.binding.handlePopRoute();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
