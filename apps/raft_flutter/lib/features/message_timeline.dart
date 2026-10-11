@@ -81,7 +81,6 @@ class RaftMessageTimeline extends StatefulWidget {
 
 class _RaftMessageTimelineState extends State<RaftMessageTimeline>
     implements RaftTimelineThumbDriver {
-  final edges = _TimelineEdges();
   double nearbyCache = 250;
   RaftMessageTimeline? listsOwner;
   Widget? historyList, forwardList;
@@ -202,13 +201,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
   }
 
   bool onNotification(Notification notification) {
-    if (notification is OverscrollIndicatorNotification &&
-        notification.leading &&
-        edges.olderPending) {
-      // The top is a temporary edge while history is still loading: no
-      // stretch or glow there (it would move the rows as history lands).
-      notification.disallowIndicator();
-    }
     // Only the timeline itself, not scrollables inside rows.
     if (notification is ScrollNotification && notification.depth != 0) {
       return false;
@@ -365,7 +357,7 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
 
   @override
   Widget build(BuildContext context) {
-    edges.olderPending = widget.controller.olderPending = widget.hasOlder;
+    widget.controller.olderPending = widget.hasOlder;
     final messages = widget.messages;
     final center = widget.centerIndex.clamp(0, messages.length);
     if (!identical(listsOwner, widget) &&
@@ -442,7 +434,6 @@ class _RaftMessageTimelineState extends State<RaftMessageTimeline>
         scrollBehavior: scrollbar ? behavior.copyWith(scrollbars: false) : null,
         center: forwardKey,
         anchor: widget.controller.anchor,
-        physics: _TimelinePhysics(edges),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         semanticChildCount: messages.length,
         scrollCacheExtent: ScrollCacheExtent.pixels(
@@ -541,7 +532,7 @@ class RaftTimelineScrollController extends ScrollController {
     if (positions.length == 1) {
       final p = position as RaftTimelinePosition;
       p.followEnd = p.followStart = false;
-      p.jumpTo(0);
+      p.restart();
     }
   }
 
@@ -611,6 +602,32 @@ class RaftTimelinePosition extends ScrollPositionWithSingleContext {
     super.forcePixels(value);
     _trackEnd();
   }
+
+  // Overscroll (iOS/macOS bounce, Android stretch) belongs to the user's
+  // drag or fling. The app's own moves (jump to a message, return to latest,
+  // re-center) stay inside the scroll range: targets are clamped, and an
+  // animation ends at rest instead of handing its velocity to a spring.
+  double _inRange(double value) => hasContentDimensions
+      ? math.min(math.max(value, minScrollExtent), maxScrollExtent)
+      : value;
+
+  /// Back to the center for a re-centered rebuild, whose range is not laid
+  /// out yet (the next layout positions it).
+  void restart() => super.jumpTo(0);
+
+  @override
+  void jumpTo(double value) => super.jumpTo(_inRange(value));
+
+  @override
+  Future<void> animateTo(
+    double to, {
+    required Duration duration,
+    required Curve curve,
+  }) => super.animateTo(_inRange(to), duration: duration, curve: curve);
+
+  @override
+  void goBallistic(double velocity) =>
+      super.goBallistic(activity is DrivenScrollActivity ? 0 : velocity);
 
   /// Moves to [value] for a scrollbar thumb drag, as a user scroll (load
   /// triggers see the user's direction).
@@ -703,7 +720,6 @@ class RaftTimelinePosition extends ScrollPositionWithSingleContext {
 class _TimelineScrollView extends CustomScrollView {
   const _TimelineScrollView({
     super.controller,
-    super.physics,
     super.center,
     super.anchor,
     super.keyboardDismissBehavior,
@@ -944,34 +960,6 @@ class _ThumbModel {
 
   /// The content snapped to the real top (-1) or latest end (1).
   int edge = 0;
-}
-
-class _TimelineEdges {
-  /// More history may still load above: no overscroll at the top edge, so a
-  /// spring never fights the history that lands there.
-  bool olderPending = false;
-}
-
-class _TimelinePhysics extends ScrollPhysics {
-  const _TimelinePhysics(this.edges, {super.parent});
-  final _TimelineEdges edges;
-
-  @override
-  _TimelinePhysics applyTo(ScrollPhysics? ancestor) =>
-      _TimelinePhysics(edges, parent: buildParent(ancestor));
-
-  @override
-  double applyBoundaryConditions(ScrollMetrics position, double value) {
-    if (edges.olderPending && value < position.pixels) {
-      if (position.pixels <= position.minScrollExtent) {
-        return value - position.pixels;
-      }
-      if (value < position.minScrollExtent) {
-        return value - position.minScrollExtent;
-      }
-    }
-    return super.applyBoundaryConditions(position, value);
-  }
 }
 
 /// Builder delegate whose total extent sums per-row estimates for the rows
