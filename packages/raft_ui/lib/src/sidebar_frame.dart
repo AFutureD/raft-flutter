@@ -4,6 +4,7 @@ import 'design_primitives.dart';
 import 'icons.dart';
 import 'indicators.dart';
 import 'sidebar_section.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// Mounted SidebarRoot surface. The host supplies its authorized contents;
@@ -41,17 +42,20 @@ class RaftMountedSidebarFrame extends StatelessWidget {
     if (!trailingEdge) {
       return ColoredBox(color: recipe.bodyBackground, child: column);
     }
-    return Container(
-      decoration: BoxDecoration(
-        color: recipe.bodyBackground,
-        border: Border(
-          right: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-            width: t.brutal ? 2 : 1,
-          ),
-        ),
+    final border = Border(
+      right: BorderSide(
+        color: t.brutal ? Colors.black : t.colors['line-muted']!,
+        width: t.brutal ? 2 : 1,
       ),
-      child: column,
+    );
+    // The column colour and its edge continue up under the status bar.
+    return RaftStatusBarSource(
+      color: recipe.bodyBackground,
+      border: border,
+      child: Container(
+        decoration: BoxDecoration(color: recipe.bodyBackground, border: border),
+        child: column,
+      ),
     );
   }
 }
