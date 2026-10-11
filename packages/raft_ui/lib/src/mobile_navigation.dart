@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'mobile_page_header.dart';
 
 import 'design_primitives.dart';
+import 'components.dart' show RaftSidebarUnreadCount;
 import 'icons.dart';
 import 'localization.dart';
 import 'primitive_tokens.dart';
@@ -20,11 +21,16 @@ class RaftMobileNavItem {
     required this.glyph,
     this.enabled = true,
     this.attention = false,
+    this.badgeCount = 0,
     this.key,
   });
   final String id, label;
   final RaftGlyph glyph;
   final bool enabled, attention;
+
+  /// Positive unread total shown as the sidebar count badge on the glyph
+  /// (Sidebar.tsx SidebarItemCount accent, capped at 99+). Zero shows none.
+  final int badgeCount;
   final Key? key;
 }
 
@@ -254,6 +260,30 @@ class RaftMobileNav extends StatelessWidget {
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
         final itemWidth = availableWidth / items.length;
+        // The count sits on the glyph's upper right corner and may overhang
+        // the cell: the capsule gap (Elegant) and the neighbour's rule
+        // (Brutal) leave room for "99+".
+        Widget badged(RaftMobileNavItem i, Widget glyph) => i.badgeCount <= 0
+            ? glyph
+            : Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  glyph,
+                  Positioned(
+                    top: t.brutal ? -3 : -8,
+                    left: 11,
+                    child: Semantics(
+                      key: ValueKey('mobile-nav-badge-${i.id}'),
+                      label: raftFormat(context, '{count} unread', {
+                        'count': i.badgeCount > 99 ? '99+' : i.badgeCount,
+                      }),
+                      child: ExcludeSemantics(
+                        child: RaftSidebarUnreadCount(count: i.badgeCount),
+                      ),
+                    ),
+                  ),
+                ],
+              );
         Widget item(RaftMobileNavItem i, int index) {
           final selected = i.id == selectedId;
           final height = recipe.itemHeight;
@@ -279,7 +309,7 @@ class RaftMobileNav extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (recipe.showGlyph) ...[
-                          RaftIcon(i.glyph, size: 18),
+                          badged(i, RaftIcon(i.glyph, size: 18)),
                           const SizedBox(height: 2),
                         ],
                         Text(
@@ -290,7 +320,7 @@ class RaftMobileNav extends StatelessWidget {
                       ],
                     )
                   else
-                    RaftIcon(i.glyph, size: 18),
+                    badged(i, RaftIcon(i.glyph, size: 18)),
                   if (i.attention)
                     Positioned(
                       top: t.brutal ? 4 : -4,

@@ -115,7 +115,8 @@ void main() {
           expect(
             tester.getRect(dm).top - tester.getRect(control).bottom,
             tokens.brutal ? 4 : 2,
-            reason: 'Mounted SidebarItem bottom margin is separate from the row box.',
+            reason:
+                'Mounted SidebarItem bottom margin is separate from the row box.',
           );
           final badge = find.descendant(
             of: channel,

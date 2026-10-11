@@ -8,36 +8,76 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftMessageActionCardContentRecipe].
 class RaftMessageActionCardContentRecipeStyle {
-  const RaftMessageActionCardContentRecipeStyle({required this.root, required this.properties, required this.property, required this.propertyLabel, required this.propertyValue, required this.scopeList, required this.scopeListLabel, required this.scope, required this.scopeName, required this.scopeDescription, required this.hint, required this.completion, required this.actions});
+  const RaftMessageActionCardContentRecipeStyle({
+    required this.root,
+    required this.properties,
+    required this.property,
+    required this.propertyLabel,
+    required this.propertyValue,
+    required this.scopeList,
+    required this.scopeListLabel,
+    required this.scope,
+    required this.scopeName,
+    required this.scopeDescription,
+    required this.hint,
+    required this.completion,
+    required this.actions,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `properties`.
   final RaftSlotStyle properties;
+
   /// Slot `property`.
   final RaftSlotStyle property;
+
   /// Slot `propertyLabel`.
   final RaftSlotStyle propertyLabel;
+
   /// Slot `propertyValue`.
   final RaftSlotStyle propertyValue;
+
   /// Slot `scopeList`.
   final RaftSlotStyle scopeList;
+
   /// Slot `scopeListLabel`.
   final RaftSlotStyle scopeListLabel;
+
   /// Slot `scope`.
   final RaftSlotStyle scope;
+
   /// Slot `scopeName`.
   final RaftSlotStyle scopeName;
+
   /// Slot `scopeDescription`.
   final RaftSlotStyle scopeDescription;
+
   /// Slot `hint`.
   final RaftSlotStyle hint;
+
   /// Slot `completion`.
   final RaftSlotStyle completion;
+
   /// Slot `actions`.
   final RaftSlotStyle actions;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'properties': properties, 'property': property, 'propertyLabel': propertyLabel, 'propertyValue': propertyValue, 'scopeList': scopeList, 'scopeListLabel': scopeListLabel, 'scope': scope, 'scopeName': scopeName, 'scopeDescription': scopeDescription, 'hint': hint, 'completion': completion, 'actions': actions};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'properties': properties,
+    'property': property,
+    'propertyLabel': propertyLabel,
+    'propertyValue': propertyValue,
+    'scopeList': scopeList,
+    'scopeListLabel': scopeListLabel,
+    'scope': scope,
+    'scopeName': scopeName,
+    'scopeDescription': scopeDescription,
+    'hint': hint,
+    'completion': completion,
+    'actions': actions,
+  };
 }
 
 /// raft-ui recipe `messageActionCardContent` (`src/components/message-action-card/message-action-card-content.recipe.ts`, index.mjs:10691).
@@ -48,19 +88,71 @@ class RaftMessageActionCardContentRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftMessageActionCardContentRecipe {
   static const String recipeName = 'messageActionCardContent';
-  static const List<String> slotNames = ['root', 'properties', 'property', 'propertyLabel', 'propertyValue', 'scopeList', 'scopeListLabel', 'scope', 'scopeName', 'scopeDescription', 'hint', 'completion', 'actions'];
+  static const List<String> slotNames = [
+    'root',
+    'properties',
+    'property',
+    'propertyLabel',
+    'propertyValue',
+    'scopeList',
+    'scopeListLabel',
+    'scope',
+    'scopeName',
+    'scopeDescription',
+    'hint',
+    'completion',
+    'actions',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftMessageActionCardContentRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftMessageActionCardContentRecipeStyle(root: s[0], properties: s[1], property: s[2], propertyLabel: s[3], propertyValue: s[4], scopeList: s[5], scopeListLabel: s[6], scope: s[7], scopeName: s[8], scopeDescription: s[9], hint: s[10], completion: s[11], actions: s[12]);
+  static RaftMessageActionCardContentRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftMessageActionCardContentRecipeStyle(
+      root: s[0],
+      properties: s[1],
+      property: s[2],
+      propertyLabel: s[3],
+      propertyValue: s[4],
+      scopeList: s[5],
+      scopeListLabel: s[6],
+      scope: s[7],
+      scopeName: s[8],
+      scopeDescription: s[9],
+      hint: s[10],
+      completion: s[11],
+      actions: s[12],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -95,6 +187,7 @@ abstract final class RaftMessageActionCardContentRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], [13, 14, 2, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    [13, 14, 2, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
   ];
 }

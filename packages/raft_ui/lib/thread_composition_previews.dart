@@ -30,42 +30,66 @@ class _ThreadCompositionPreviewState extends State<_ThreadCompositionPreview> {
     scroll.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) => RaftDensityScope(
     density: widget.density,
-    child: Column(children: [
-      RaftThreadHeader(
-        presentation: RaftThreadPresentation.side,
-        viewportWidth: widget.width,
-        viewportHeight: 560,
-        threadLabel: 'Thread', parentLabel: '#design',
-        jumpLabel: 'Scroll thread to first message',
-        backLabel: 'Back', closeLabel: 'Close thread',
-        onJumpToStart: () => scroll.jumpTo(0),
-        onBack: () => setState(() => actions++),
-        onClose: () => setState(() => actions++),
-        actions: [RaftThreadOverflowAction(
-          label: 'Thread actions', onPressed: () => setState(() => actions++),
-        )],
-      ),
-      Expanded(child: CustomScrollView(controller: scroll, slivers: [
-        const RaftThreadTimelineTopSliver(
-          parent: RaftMessageTile(
-            author: 'Public fixture 中文 日本語', timestamp: '10:30',
-            content: 'The parent scrolls with the replies.\n'
-                'This is a public interactive preview, not private chat data.',
-          ),
-          hasMore: false, historyLimited: false, loadingOlder: false,
-          loadingOlderLabel: 'Loading older replies...',
-          historyLimitedLabel: 'Older replies are limited by the current plan',
-          beginningLabel: 'Beginning of replies', replyCountLabel: '12 replies',
+    child: Column(
+      children: [
+        RaftThreadHeader(
+          presentation: RaftThreadPresentation.side,
+          viewportWidth: widget.width,
+          viewportHeight: 560,
+          threadLabel: 'Thread',
+          parentLabel: '#design',
+          jumpLabel: 'Scroll thread to first message',
+          backLabel: 'Back',
+          closeLabel: 'Close thread',
+          onJumpToStart: () => scroll.jumpTo(0),
+          onBack: () => setState(() => actions++),
+          onClose: () => setState(() => actions++),
+          actions: [
+            RaftThreadOverflowAction(
+              label: 'Thread actions',
+              onPressed: () => setState(() => actions++),
+            ),
+          ],
         ),
-        SliverList.builder(itemCount: 12, itemBuilder: (_, index) =>
-          RaftMessageTile(author: 'Public reply', timestamp: '10:31',
-            content: 'Reply ${index + 1} 中文 日本語')),
-      ])),
-      // Fixture callback receipt; this is not part of the Web header recipe.
-      Text('Preview actions: $actions'),
-    ]),
+        Expanded(
+          child: CustomScrollView(
+            controller: scroll,
+            slivers: [
+              const RaftThreadTimelineTopSliver(
+                parent: RaftMessageTile(
+                  author: 'Public fixture 中文 日本語',
+                  timestamp: '10:30',
+                  content:
+                      'The parent scrolls with the replies.\n'
+                      'This is a public interactive preview, not private chat data.',
+                ),
+                hasMore: false,
+                historyLimited: false,
+                loadingOlder: false,
+                loadingOlderLabel: 'Loading older replies...',
+                historyLimitedLabel:
+                    'Older replies are limited by the current plan',
+                beginningLabel: 'Beginning of replies',
+                replyCountLabel: '12 replies',
+              ),
+              SliverList.builder(
+                itemCount: 12,
+                itemBuilder: (_, index) => RaftMessageTile(
+                  author: 'Public reply',
+                  timestamp: '10:31',
+                  content: 'Reply ${index + 1} 中文 日本語',
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Fixture callback receipt; this is not part of the Web header recipe.
+        Text('Preview actions: $actions'),
+      ],
+    ),
   );
 }

@@ -19,17 +19,20 @@ const choices = [
   RaftComposerSuggestion(type: 'channel', id: 'channel-id', name: 'design'),
 ];
 void main() {
-  test('structured identity appears only in visible exact handle, including adjacent Chinese text', () {
-    expect(raftStructuredMentionAppears('草案@Mona', 'Mona'), isTrue);
-    expect(raftStructuredMentionAppears('draft@Mona', 'Mona'), isTrue);
-    expect(raftStructuredMentionAppears('草案@Mona继续', 'Mona'), isFalse);
-    expect(raftStructuredMentionAppears('`@Mona`', 'Mona'), isFalse);
-    expect(raftStructuredMentionAppears('```\n@Mona\n```', 'Mona'), isFalse);
-    expect(
-      raftStructuredMentionAppears('[@Mona](<app:system.test>)', 'Mona'),
-      isFalse,
-    );
-  });
+  test(
+    'structured identity appears only in visible exact handle, including adjacent Chinese text',
+    () {
+      expect(raftStructuredMentionAppears('草案@Mona', 'Mona'), isTrue);
+      expect(raftStructuredMentionAppears('draft@Mona', 'Mona'), isTrue);
+      expect(raftStructuredMentionAppears('草案@Mona继续', 'Mona'), isFalse);
+      expect(raftStructuredMentionAppears('`@Mona`', 'Mona'), isFalse);
+      expect(raftStructuredMentionAppears('```\n@Mona\n```', 'Mona'), isFalse);
+      expect(
+        raftStructuredMentionAppears('[@Mona](<app:system.test>)', 'Mona'),
+        isFalse,
+      );
+    },
+  );
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),

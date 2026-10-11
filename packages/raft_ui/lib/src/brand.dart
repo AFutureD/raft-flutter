@@ -65,8 +65,7 @@ final Map<RaftBrandSvg, List<(Color, Path)>> _parsed = {};
 
 List<(Color, Path)> _paths(RaftBrandSvg svg) => _parsed.putIfAbsent(svg, () {
   return [
-    for (final (argb, d) in svg.paths)
-      (Color(argb), _SvgPathProxy.parse(d)),
+    for (final (argb, d) in svg.paths) (Color(argb), _SvgPathProxy.parse(d)),
   ];
 });
 
@@ -81,8 +80,14 @@ class _SvgPathProxy implements PathProxy {
   @override
   void close() => path.close();
   @override
-  void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) =>
-      path.cubicTo(x1, y1, x2, y2, x3, y3);
+  void cubicTo(
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    double x3,
+    double y3,
+  ) => path.cubicTo(x1, y1, x2, y2, x3, y3);
   @override
   void lineTo(double x, double y) => path.lineTo(x, y);
   @override
@@ -115,11 +120,17 @@ class _BrandPainter extends CustomPainter {
               blue: 1 - color.b,
             )
           : color;
-      canvas.drawPath(path, Paint()..color = c..isAntiAlias = true);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = c
+          ..isAntiAlias = true,
+      );
     }
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_BrandPainter old) => old.svg != svg || old.invert != invert;
+  bool shouldRepaint(_BrandPainter old) =>
+      old.svg != svg || old.invert != invert;
 }

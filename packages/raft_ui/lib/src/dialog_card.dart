@@ -319,8 +319,7 @@ class RaftModalBackdrop extends StatelessWidget {
 class _PixelCenter extends SingleChildRenderObjectWidget {
   const _PixelCenter({required Widget child}) : super(child: child);
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderPixelCenter();
+  RenderObject createRenderObject(BuildContext context) => _RenderPixelCenter();
 }
 
 class _RenderPixelCenter extends RenderShiftedBox {
@@ -333,7 +332,9 @@ class _RenderPixelCenter extends RenderShiftedBox {
     size = constraints.constrain(
       Size(
         constraints.hasBoundedWidth ? constraints.maxWidth : child.size.width,
-        constraints.hasBoundedHeight ? constraints.maxHeight : child.size.height,
+        constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : child.size.height,
       ),
     );
     final at = Offset(
@@ -690,7 +691,10 @@ class _RenderFillWhenWrapped extends RenderProxyBox {
         constraints.hasBoundedWidth &&
         child.getMaxIntrinsicWidth(double.infinity) > constraints.maxWidth;
     size = constraints.constrain(
-      Size(wrapped ? constraints.maxWidth : child.size.width, child.size.height),
+      Size(
+        wrapped ? constraints.maxWidth : child.size.width,
+        child.size.height,
+      ),
     );
   }
 }

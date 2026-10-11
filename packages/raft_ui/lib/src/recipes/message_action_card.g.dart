@@ -8,16 +8,26 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftMessageActionCardRecipe].
 class RaftMessageActionCardRecipeStyle {
-  const RaftMessageActionCardRecipeStyle({required this.root, required this.header, required this.headerStatus});
+  const RaftMessageActionCardRecipeStyle({
+    required this.root,
+    required this.header,
+    required this.headerStatus,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `header`.
   final RaftSlotStyle header;
+
   /// Slot `headerStatus`.
   final RaftSlotStyle headerStatus;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'header': header, 'headerStatus': headerStatus};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'header': header,
+    'headerStatus': headerStatus,
+  };
 }
 
 /// raft-ui recipe `messageActionCard` (`src/components/message-action-card/message-action-card.recipe.ts`, index.mjs:10678).
@@ -33,14 +43,42 @@ abstract final class RaftMessageActionCardRecipe {
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftMessageActionCardRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftMessageActionCardRecipeStyle(root: s[0], header: s[1], headerStatus: s[2]);
+  static RaftMessageActionCardRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftMessageActionCardRecipeStyle(
+      root: s[0],
+      header: s[1],
+      headerStatus: s[2],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -54,6 +92,7 @@ abstract final class RaftMessageActionCardRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2], [0, 3, 2],
+    [0, 1, 2],
+    [0, 3, 2],
   ];
 }

@@ -218,8 +218,9 @@ List<RaftMessageSemanticsLink> raftMessageSemanticsLinks(String markdown) {
     for (final m in _authoredLink.allMatches(text)) {
       if (m.start > 0 && text[m.start - 1] == '!') continue;
       taken.add((m.start, m.end));
-      final label = _unescape(m[1]!.replaceAllMapped(_sentinel, (s) => s[2]!))
-          .trim();
+      final label = _unescape(
+        m[1]!.replaceAllMapped(_sentinel, (s) => s[2]!),
+      ).trim();
       found.add((m.start, (label: label.isEmpty ? m[2]! : label, href: m[2]!)));
       // A reference nested in an authored label is its own link.
       for (final s in _sentinel.allMatches(m[1]!)) {

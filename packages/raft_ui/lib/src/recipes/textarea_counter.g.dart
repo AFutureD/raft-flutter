@@ -30,14 +30,39 @@ abstract final class RaftTextareaCounterRecipe {
     RaftRecipeAxis('overLimit', ['true', 'false'], 'false', false),
   ];
 
-  static RaftTextareaCounterRecipeStyle resolve({required RaftRecipeTheme theme, bool? overLimit, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, overLimit?.toString()], states, tokens);
+  static RaftTextareaCounterRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    bool? overLimit,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, overLimit?.toString()],
+      states,
+      tokens,
+    );
     return RaftTextareaCounterRecipeStyle(root: s[0]);
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -51,6 +76,9 @@ abstract final class RaftTextareaCounterRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0], [1], [2], [3],
+    [0],
+    [1],
+    [2],
+    [3],
   ];
 }

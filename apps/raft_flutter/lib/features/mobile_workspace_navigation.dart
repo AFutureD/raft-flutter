@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/mobile_tabbar_preferences.dart';
+import '../data/source_activity_unread_store.dart';
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_navigation.dart';
@@ -25,8 +27,10 @@ String? mobileWorkspaceRootTab(
 }
 
 /// Root visibility comes from the accepted URL, never a retained data window.
-String? mobileWorkspaceRootTabForLocation(RaftLocation location) =>
-    WorkspaceNavigation(initial: location).mobileRootTab;
+String? mobileWorkspaceRootTabForLocation(
+  RaftLocation location, {
+  Set<String> tabs = const {},
+}) => (WorkspaceNavigation(initial: location)..mobileTabs = tabs).mobileRootTab;
 
 String mobileWorkspaceBackSection(String section) => switch (section) {
   'computers' ||
@@ -41,7 +45,8 @@ String mobileWorkspaceBackSection(String section) => switch (section) {
 };
 
 /// MobileTabBar (packages/web/src/components/layout/MobileTabBar.tsx): Home,
-/// Tasks, Members (hidden for guests / without viewMembers) and Settings.
+/// Tasks, Members (hidden for guests / without viewMembers) and Settings by
+/// default; the device's Bottom bar setting chooses and orders the tabs.
 class WorkspaceMobileTabBar extends StatelessWidget {
   const WorkspaceMobileTabBar({
     super.key,
@@ -49,43 +54,82 @@ class WorkspaceMobileTabBar extends StatelessWidget {
     required this.selectedId,
     required this.onSelected,
     this.bottomInset = 0,
+    this.tabs,
+    this.activityUnread,
   });
   final WorkspaceController controller;
+
+  /// The configurable tabs to show, in order (Settings is appended). Null is
+  /// the default bar; callers pass the account-filtered device choice.
+  final List<String>? tabs;
+
+  /// The shared Activity unread total (the one the desktop rail's Activity
+  /// attention reads); its count badges the Activity tab. The workspace owns
+  /// the acquisition, so the bar starts no requests of its own.
+  final SourceActivityUnreadStore? activityUnread;
   final String selectedId;
   final ValueChanged<String> onSelected;
   final double bottomInset;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => activityUnread == null
+      ? bar(context)
+      : ListenableBuilder(
+          listenable: activityUnread!,
+          builder: (context, _) => bar(context),
+        );
+
+  Widget bar(BuildContext context) {
     String tr(String s) => raftText(context, s);
     final w = controller;
     final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final t = RaftTokens.of(context);
+    final tabIds =
+        tabs ??
+        MobileTabbarSettings.defaults.effective(
+          guest: w.server?.string('role') == 'guest',
+          can: w.can,
+        );
+    RaftMobileNavItem item(String id) => switch (id) {
+      MobileTabs.tasks => RaftMobileNavItem(
+        id: id,
+        label: tr('Tasks'),
+        glyph: RaftGlyph.checkSquare,
+        key: const Key('mobile-tab-tasks'),
+      ),
+      MobileTabs.members => RaftMobileNavItem(
+        id: id,
+        label: tr('Members'),
+        glyph: RaftGlyph.users,
+        key: const Key('mobile-tab-members'),
+      ),
+      MobileTabs.computers => RaftMobileNavItem(
+        id: id,
+        label: tr('Computers'),
+        glyph: RaftGlyph.monitor,
+        key: const Key('mobile-tab-computers'),
+      ),
+      MobileTabs.activity => RaftMobileNavItem(
+        id: id,
+        label: tr('Activity'),
+        glyph: RaftGlyph.activity,
+        badgeCount: activityUnread?.totalUnreadCount ?? 0,
+        key: const Key('mobile-tab-activity'),
+      ),
+      _ => RaftMobileNavItem(
+        id: MobileTabs.home,
+        label: tr('Home'),
+        glyph: RaftGlyph.home,
+        key: const Key('mobile-tab-home'),
+      ),
+    };
     Widget navigation = RaftMobileNav(
       key: const Key('workspace-mobile-navigation'),
       selectedId: selectedId,
       bottomInset: bottomInset,
       onSelected: onSelected,
       items: [
-        RaftMobileNavItem(
-          id: 'chat',
-          label: tr('Home'),
-          glyph: RaftGlyph.home,
-          key: const Key('mobile-tab-home'),
-        ),
-        RaftMobileNavItem(
-          id: 'tasks',
-          label: tr('Tasks'),
-          glyph: RaftGlyph.checkSquare,
-          key: const Key('mobile-tab-tasks'),
-        ),
-        if (w.server?.string('role') != 'guest' && w.can('viewMembers'))
-          RaftMobileNavItem(
-            id: 'members',
-            label: tr('Members'),
-            glyph: RaftGlyph.users,
-            key: const Key('mobile-tab-members'),
-          ),
+        for (final id in tabIds) item(id),
         RaftMobileNavItem(
           id: 'settings',
           label: tr('Settings'),

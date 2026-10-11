@@ -66,7 +66,12 @@ class RaftMarkdownListMarker extends StatelessWidget {
       label: '•',
       child: ExcludeSemantics(
         child: CustomPaint(
-          painter: _DiscPainter(rect, style.color ?? DefaultTextStyle.of(context).style.color ?? Colors.black),
+          painter: _DiscPainter(
+            rect,
+            style.color ??
+                DefaultTextStyle.of(context).style.color ??
+                Colors.black,
+          ),
           child: Opacity(opacity: 0, child: Text('•', style: style)),
         ),
       ),
@@ -79,9 +84,11 @@ class _DiscPainter extends CustomPainter {
   final Rect rect;
   final Color color;
   @override
-  void paint(Canvas canvas, Size size) => canvas.drawOval(rect, Paint()..color = color);
+  void paint(Canvas canvas, Size size) =>
+      canvas.drawOval(rect, Paint()..color = color);
   @override
-  bool shouldRepaint(_DiscPainter oldDelegate) => oldDelegate.rect != rect || oldDelegate.color != color;
+  bool shouldRepaint(_DiscPainter oldDelegate) =>
+      oldDelegate.rect != rect || oldDelegate.color != color;
 }
 
 // One glyph measurement per style/direction/scale instead of one per bullet

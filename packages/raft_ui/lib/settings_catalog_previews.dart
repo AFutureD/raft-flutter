@@ -60,7 +60,9 @@ class _AppsPreviewState extends State<_AppsPreview> {
             name: 'Application $i',
             initials: 'AP',
             meta: 'Workspace application',
-            description: i.isEven ? 'One short description.' : 'A longer description that wraps at narrow widths and keeps each grid pair the same height.',
+            description: i.isEven
+                ? 'One short description.'
+                : 'A longer description that wraps at narrow widths and keeps each grid pair the same height.',
           ),
     ],
   );

@@ -101,7 +101,9 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
     final trigger = RaftInteractive(
       onPressed: enabled ? toggle : null,
       focusNode: triggerFocus,
-      semanticLabel: widget.label == null ? null : raftText(context, widget.label!),
+      semanticLabel: widget.label == null
+          ? null
+          : raftText(context, widget.label!),
       builder: (context, st) {
         final states = t.recipeStates(
           hovered: st.hovered,
@@ -144,7 +146,11 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
               Expanded(
                 child: Builder(
                   builder: (context) => DefaultTextStyle.merge(
-                    style: s.target(":is(& *)[data-slot='select-value']")?.fontWeight == null
+                    style:
+                        s
+                                .target(":is(& *)[data-slot='select-value']")
+                                ?.fontWeight ==
+                            null
                         ? null
                         : TextStyle(
                             fontWeight: s
@@ -221,9 +227,7 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
       child: TapRegion(
         onTapOutside: (_) => close(),
         child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape): close,
-          },
+          bindings: {const SingleActivator(LogicalKeyboardKey.escape): close},
           child: Stack(
             children: [
               CompositedTransformFollower(
@@ -252,7 +256,8 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               for (var i = 0; i < items.length; i++) ...[
-                                if (i > 0) SizedBox(height: sel.list.rowGap ?? 0),
+                                if (i > 0)
+                                  SizedBox(height: sel.list.rowGap ?? 0),
                                 items[i],
                               ],
                             ],

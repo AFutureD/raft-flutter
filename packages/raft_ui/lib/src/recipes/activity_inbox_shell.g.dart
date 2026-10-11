@@ -8,16 +8,26 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftActivityInboxShellRecipe].
 class RaftActivityInboxShellRecipeStyle {
-  const RaftActivityInboxShellRecipeStyle({required this.panel, required this.viewport, required this.loadingMore});
+  const RaftActivityInboxShellRecipeStyle({
+    required this.panel,
+    required this.viewport,
+    required this.loadingMore,
+  });
 
   /// Slot `panel`.
   final RaftSlotStyle panel;
+
   /// Slot `viewport`.
   final RaftSlotStyle viewport;
+
   /// Slot `loadingMore`.
   final RaftSlotStyle loadingMore;
 
-  Map<String, RaftSlotStyle> get slots => {'panel': panel, 'viewport': viewport, 'loadingMore': loadingMore};
+  Map<String, RaftSlotStyle> get slots => {
+    'panel': panel,
+    'viewport': viewport,
+    'loadingMore': loadingMore,
+  };
 }
 
 /// raft-ui recipe `activityInboxShell` (`src/components/activity-inbox/activity-inbox-shell.recipe.ts`, index.mjs:19696).
@@ -33,14 +43,42 @@ abstract final class RaftActivityInboxShellRecipe {
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftActivityInboxShellRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftActivityInboxShellRecipeStyle(panel: s[0], viewport: s[1], loadingMore: s[2]);
+  static RaftActivityInboxShellRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftActivityInboxShellRecipeStyle(
+      panel: s[0],
+      viewport: s[1],
+      loadingMore: s[2],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -56,6 +94,7 @@ abstract final class RaftActivityInboxShellRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 2], [3, 4, 5],
+    [0, 1, 2],
+    [3, 4, 5],
   ];
 }

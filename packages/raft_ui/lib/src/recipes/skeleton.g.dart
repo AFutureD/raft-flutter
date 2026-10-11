@@ -42,14 +42,39 @@ abstract final class RaftSkeletonRecipe {
     RaftRecipeAxis('variant', ['line', 'block', 'circle'], 'block', false),
   ];
 
-  static RaftSkeletonRecipeStyle resolve({required RaftRecipeTheme theme, RaftSkeletonRecipeVariant? variant, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name, variant?.css], states, tokens);
+  static RaftSkeletonRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftSkeletonRecipeVariant? variant,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name, variant?.css],
+      states,
+      tokens,
+    );
     return RaftSkeletonRecipeStyle(root: s[0]);
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -65,6 +90,11 @@ abstract final class RaftSkeletonRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0], [1], [2], [3], [4], [5],
+    [0],
+    [1],
+    [2],
+    [3],
+    [4],
+    [5],
   ];
 }

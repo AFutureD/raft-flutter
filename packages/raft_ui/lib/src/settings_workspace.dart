@@ -443,8 +443,9 @@ class RaftMessagingBridgesSection extends StatelessWidget {
         Container(
           key: const ValueKey('im-bridges-header'),
           padding: const EdgeInsets.all(16),
-          decoration: RaftSettingsCard.decoration(t)
-              .copyWith(color: t.brutal ? t.product.brutalCream : null),
+          decoration: RaftSettingsCard.decoration(
+            t,
+          ).copyWith(color: t.brutal ? t.product.brutalCream : null),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -486,7 +487,8 @@ class RaftMessagingBridgesSection extends StatelessWidget {
             size: RaftBannerRecipeSize.lg,
             glyph: RaftGlyph.circleAlert,
             title: 'Raft for Slack',
-            description: 'The Slack bridge operation failed. No setup state was assumed.',
+            description:
+                'The Slack bridge operation failed. No setup state was assumed.',
           )
         else
           ?child,

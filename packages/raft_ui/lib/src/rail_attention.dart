@@ -109,8 +109,9 @@ ui.Shader _radialMask(CssFunction gradient, Rect bounds) {
     final stop = (value as CssSeq).items;
     final literal = stop.first as CssColor;
     // A mask consumes CSS alpha, not the source-over colour paint fit.
-    final explicitAlpha = RegExp(r'/\s*([\d.]+)')
-        .firstMatch(literal.source ?? '');
+    final explicitAlpha = RegExp(
+      r'/\s*([\d.]+)',
+    ).firstMatch(literal.source ?? '');
     final alpha = explicitAlpha == null
         ? (literal.argb >> 24) / 255
         : double.parse(explicitAlpha.group(1)!);

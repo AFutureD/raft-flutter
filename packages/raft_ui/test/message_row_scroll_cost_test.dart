@@ -101,7 +101,8 @@ void main() {
         expect(
           find.byType(RaftMessageToolbar),
           findsNothing,
-          reason: 'Content moving under a stationary pointer cannot reopen a toolbar.',
+          reason:
+              'Content moving under a stationary pointer cannot reopen a toolbar.',
         );
         await mouse.moveTo(
           t.getCenter(find.text('Message 2')) + const Offset(1, 0),

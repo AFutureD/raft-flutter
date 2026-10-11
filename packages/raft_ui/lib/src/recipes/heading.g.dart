@@ -60,17 +60,57 @@ abstract final class RaftHeadingRecipe {
   static const List<String> slotNames = ['base'];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('level', ['1', '2', '3', '4', '5', '6'], '1', false),
-    RaftRecipeAxis('variant', ['default', 'primary', 'information', 'muted', 'placeholder', 'accent', 'success', 'warning', 'danger'], null, true),
+    RaftRecipeAxis(
+      'variant',
+      [
+        'default',
+        'primary',
+        'information',
+        'muted',
+        'placeholder',
+        'accent',
+        'success',
+        'warning',
+        'danger',
+      ],
+      null,
+      true,
+    ),
   ];
 
-  static RaftHeadingRecipeStyle resolve({RaftHeadingRecipeLevel? level, RaftHeadingRecipeVariant? variant, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [level?.css, variant?.css], states, tokens);
+  static RaftHeadingRecipeStyle resolve({
+    RaftHeadingRecipeLevel? level,
+    RaftHeadingRecipeVariant? variant,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [level?.css, variant?.css],
+      states,
+      tokens,
+    );
     return RaftHeadingRecipeStyle(base: s[0]);
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -140,9 +180,65 @@ abstract final class RaftHeadingRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13], [14], [15],
-    [16], [17], [18], [19], [20], [21], [22], [23], [24], [25], [26], [27], [28], [29], [30], [31],
-    [32], [33], [34], [35], [36], [37], [38], [39], [40], [41], [42], [43], [44], [45], [46], [47],
-    [48], [49], [50], [51], [52], [53], [54], [55], [56], [57], [58], [59],
+    [0],
+    [1],
+    [2],
+    [3],
+    [4],
+    [5],
+    [6],
+    [7],
+    [8],
+    [9],
+    [10],
+    [11],
+    [12],
+    [13],
+    [14],
+    [15],
+    [16],
+    [17],
+    [18],
+    [19],
+    [20],
+    [21],
+    [22],
+    [23],
+    [24],
+    [25],
+    [26],
+    [27],
+    [28],
+    [29],
+    [30],
+    [31],
+    [32],
+    [33],
+    [34],
+    [35],
+    [36],
+    [37],
+    [38],
+    [39],
+    [40],
+    [41],
+    [42],
+    [43],
+    [44],
+    [45],
+    [46],
+    [47],
+    [48],
+    [49],
+    [50],
+    [51],
+    [52],
+    [53],
+    [54],
+    [55],
+    [56],
+    [57],
+    [58],
+    [59],
   ];
 }

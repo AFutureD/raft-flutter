@@ -44,6 +44,7 @@ class ResourceView extends StatefulWidget {
     required this.section,
     required this.onMessage,
     this.onBack,
+    this.mobileRoot = false,
     this.clock,
     this.initialQuery,
     this.initialSearchChannelId,
@@ -68,6 +69,9 @@ class ResourceView extends StatefulWidget {
   final String section;
   final Future<void> Function(String, String?) onMessage;
   final VoidCallback? onBack;
+
+  /// A bottom-bar tab root on a phone: the tab root header, no back action.
+  final bool mobileRoot;
   final DateTime Function()? clock;
   final String? initialQuery;
 
@@ -3305,6 +3309,9 @@ class _ResourceViewState extends State<ResourceView> {
     final mobile =
         MediaQuery.sizeOf(context).width < RaftLayoutMetrics.desktopBreakpoint;
     final count = totalCount ?? rows.length;
+    if (widget.mobileRoot && mobile && widget.section == 'activity') {
+      return const RaftMobileRootHeader(title: 'Activity');
+    }
     return RaftPageHeader(
       title: raftText(context, switch (widget.section) {
         'tasks' => 'Tasks',

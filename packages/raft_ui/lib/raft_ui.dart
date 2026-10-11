@@ -63,6 +63,7 @@ export 'src/attachment_preview_shell.dart';
 export 'src/switch.dart';
 
 export 'src/mobile_navigation.dart';
+export 'src/mobile_tabbar_config.dart';
 export 'src/section_pager.dart';
 export 'src/mermaid_toolbar_recipe.dart';
 

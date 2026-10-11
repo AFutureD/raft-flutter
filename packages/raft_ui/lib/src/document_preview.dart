@@ -139,8 +139,14 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                   ),
                   child: Padding(
                     padding: width >= 768
-                        ? const EdgeInsets.symmetric(horizontal: 40, vertical: 48)
-                        : const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                        ? const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 48,
+                          )
+                        : const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 32,
+                          ),
                     child: RaftMessageBody(
                       content: '${data['markdown'] ?? ''}',
                       fontSize: 16,
@@ -167,7 +173,8 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(raftText(context, 'Plain text preview'), style: label),
-                  if (truncated) Text(raftText(context, 'Truncated'), style: label),
+                  if (truncated)
+                    Text(raftText(context, 'Truncated'), style: label),
                 ],
               ),
             ),
@@ -312,50 +319,22 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                           border: Border.fromBorderSide(recipe.cellBorder),
                         ),
                         child: Table(
-                        columnWidths: _columnWidths(
-                          context,
-                          recipe,
-                          headers,
-                          rows,
-                          bounds.maxWidth - recipe.border.width * 2 - 2,
-                        ),
-                        border: TableBorder(
-                          horizontalInside: recipe.cellBorder,
-                          verticalInside: recipe.cellBorder,
-                        ),
-                        children: [
-                          if (headers.isNotEmpty)
-                            TableRow(
-                              decoration: BoxDecoration(color: recipe.tableHeader),
-                              children: [
-                                for (var i = 0; i < headers.length; i++)
-                                  Padding(
-                                    padding: recipe.cellInset,
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxWidth: recipe.maxColumnWidth,
-                                      ),
-                                      child: Text(
-                                        headers[i].isEmpty
-                                            ? raftFormat(context, 'Column {index}', {'index': i + 1})
-                                            : headers[i],
-                                        style: recipe.tableText.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: t.brutal ? Colors.black : t.strong,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          for (var rowIndex = 0; rowIndex < rows.length; rowIndex++)
+                          columnWidths: _columnWidths(
+                            context,
+                            recipe,
+                            headers,
+                            rows,
+                            bounds.maxWidth - recipe.border.width * 2 - 2,
+                          ),
+                          border: TableBorder(
+                            horizontalInside: recipe.cellBorder,
+                            verticalInside: recipe.cellBorder,
+                          ),
+                          children: [
                             if (headers.isNotEmpty)
                               TableRow(
-                                // `odd:bg-black/[0.03]`: the 1st, 3rd, ... row.
                                 decoration: BoxDecoration(
-                                  color: rowIndex.isEven ? recipe.rowStripe : null,
+                                  color: recipe.tableHeader,
                                 ),
                                 children: [
                                   for (var i = 0; i < headers.length; i++)
@@ -365,21 +344,67 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                                         constraints: BoxConstraints(
                                           maxWidth: recipe.maxColumnWidth,
                                         ),
-                                        child: Semantics(
-                                          label: i < rows[rowIndex].length ? '${rows[rowIndex][i]}' : '',
-                                          excludeSemantics: true,
-                                          child: SelectableText(
-                                            i < rows[rowIndex].length ? '${rows[rowIndex][i]}' : '',
-                                            style: recipe.tableText,
-                                            maxLines: 1,
+                                        child: Text(
+                                          headers[i].isEmpty
+                                              ? raftFormat(
+                                                  context,
+                                                  'Column {index}',
+                                                  {'index': i + 1},
+                                                )
+                                              : headers[i],
+                                          style: recipe.tableText.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: t.brutal
+                                                ? Colors.black
+                                                : t.strong,
                                           ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ),
                                 ],
                               ),
-                        ],
-                      ),
+                            for (
+                              var rowIndex = 0;
+                              rowIndex < rows.length;
+                              rowIndex++
+                            )
+                              if (headers.isNotEmpty)
+                                TableRow(
+                                  // `odd:bg-black/[0.03]`: the 1st, 3rd, ... row.
+                                  decoration: BoxDecoration(
+                                    color: rowIndex.isEven
+                                        ? recipe.rowStripe
+                                        : null,
+                                  ),
+                                  children: [
+                                    for (var i = 0; i < headers.length; i++)
+                                      Padding(
+                                        padding: recipe.cellInset,
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: recipe.maxColumnWidth,
+                                          ),
+                                          child: Semantics(
+                                            label: i < rows[rowIndex].length
+                                                ? '${rows[rowIndex][i]}'
+                                                : '',
+                                            excludeSemantics: true,
+                                            child: SelectableText(
+                                              i < rows[rowIndex].length
+                                                  ? '${rows[rowIndex][i]}'
+                                                  : '',
+                                              style: recipe.tableText,
+                                              maxLines: 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -422,11 +447,14 @@ class RaftMediaControls extends StatelessWidget {
     children: [
       Row(
         children: [
-          RaftTooltip(message: raftText(context, playing ? 'Pause' : 'Play'), child: IconButton(
-            onPressed: onPlayPause,
-            icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          )),
+          RaftTooltip(
+            message: raftText(context, playing ? 'Pause' : 'Play'),
+            child: IconButton(
+              onPressed: onPlayPause,
+              icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            ),
+          ),
           Expanded(
             child: Slider(
               semanticFormatterCallback: (v) =>

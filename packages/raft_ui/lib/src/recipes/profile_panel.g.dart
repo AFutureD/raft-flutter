@@ -8,18 +8,31 @@ import 'recipe_utilities.g.dart';
 
 /// Resolved slots of [RaftProfilePanelRecipe].
 class RaftProfilePanelRecipeStyle {
-  const RaftProfilePanelRecipeStyle({required this.root, required this.header, required this.headerContent, required this.section});
+  const RaftProfilePanelRecipeStyle({
+    required this.root,
+    required this.header,
+    required this.headerContent,
+    required this.section,
+  });
 
   /// Slot `root`.
   final RaftSlotStyle root;
+
   /// Slot `header`.
   final RaftSlotStyle header;
+
   /// Slot `headerContent`.
   final RaftSlotStyle headerContent;
+
   /// Slot `section`.
   final RaftSlotStyle section;
 
-  Map<String, RaftSlotStyle> get slots => {'root': root, 'header': header, 'headerContent': headerContent, 'section': section};
+  Map<String, RaftSlotStyle> get slots => {
+    'root': root,
+    'header': header,
+    'headerContent': headerContent,
+    'section': section,
+  };
 }
 
 /// raft-ui recipe `profilePanel` (`src/components/profile-panel/profile-panel.recipe.ts`, index.mjs:16925).
@@ -30,19 +43,53 @@ class RaftProfilePanelRecipeStyle {
 /// every variant combination; [resolve] applies the CSS cascade for [states].
 abstract final class RaftProfilePanelRecipe {
   static const String recipeName = 'profilePanel';
-  static const List<String> slotNames = ['root', 'header', 'headerContent', 'section'];
+  static const List<String> slotNames = [
+    'root',
+    'header',
+    'headerContent',
+    'section',
+  ];
   static const List<RaftRecipeAxis> axes = [
     RaftRecipeAxis('theme', ['brutal', 'elegant'], null, false),
   ];
 
-  static RaftProfilePanelRecipeStyle resolve({required RaftRecipeTheme theme, RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [theme.name], states, tokens);
-    return RaftProfilePanelRecipeStyle(root: s[0], header: s[1], headerContent: s[2], section: s[3]);
+  static RaftProfilePanelRecipeStyle resolve({
+    required RaftRecipeTheme theme,
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [theme.name],
+      states,
+      tokens,
+    );
+    return RaftProfilePanelRecipeStyle(
+      root: s[0],
+      header: s[1],
+      headerContent: s[2],
+      section: s[3],
+    );
   }
 
   /// Resolve by raw tailwind-variants props (`{'size': 'md'}`); for tooling and tests.
-  static Map<String, RaftSlotStyle> resolveProps(Map<String, String?> props, {RaftRecipeStates states = RaftRecipeStates.none, RaftTokenResolver? tokens}) {
-    final s = raftResolveRecipe(raftRecipeEngine, axes, _lists, _combos, [for (final a in axes) props[a.name]], states, tokens);
+  static Map<String, RaftSlotStyle> resolveProps(
+    Map<String, String?> props, {
+    RaftRecipeStates states = RaftRecipeStates.none,
+    RaftTokenResolver? tokens,
+  }) {
+    final s = raftResolveRecipe(
+      raftRecipeEngine,
+      axes,
+      _lists,
+      _combos,
+      [for (final a in axes) props[a.name]],
+      states,
+      tokens,
+    );
     return {for (var i = 0; i < slotNames.length; i++) slotNames[i]: s[i]};
   }
 
@@ -58,6 +105,7 @@ abstract final class RaftProfilePanelRecipe {
 
   /// Per combination (mixed radix over [axes]): class list per slot.
   static const List<List<int>> _combos = [
-    [0, 1, 1, 1], [2, 3, 4, 5],
+    [0, 1, 1, 1],
+    [2, 3, 4, 5],
   ];
 }

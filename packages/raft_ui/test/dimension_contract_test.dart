@@ -70,53 +70,59 @@ void main() {
       expect(elegant.width, 56);
     },
   );
-  test('mounted product sidebar overrides library geometry and reserves actual mobile overlay', () {
-    final t = raftTheme(RaftFamily.elegant).extension<RaftTokens>()!;
-    final desktop = RaftSidebarRecipe(
-      t,
-      viewportWidth: 1024,
-      viewportHeight: 844,
-      variant: RaftSidebarVariant.mountedProduct,
-    );
-    expect(desktop.headerOverlaysContent, false);
-    expect(
-      desktop.headerInset,
-      const EdgeInsetsDirectional.symmetric(horizontal: 20),
-    );
-    expect(
-      desktop.contentInset(),
-      const EdgeInsetsDirectional.fromSTEB(8, 12, 8, 12),
-    );
-    expect(desktop.contentInset(headerInFlow: true), desktop.contentInset());
-    final workspace = RaftSidebarRecipe(
-      t,
-      viewportWidth: 1024,
-      viewportHeight: 844,
-      variant: RaftSidebarVariant.mountedProduct,
-      workspaceEnabled: true,
-    );
-    expect(workspace.headerHeight, 48);
-    expect(workspace.headerInset.start, 16);
-    final mobile = RaftSidebarRecipe(
-      t,
-      viewportWidth: 390,
-      viewportHeight: 844,
-      variant: RaftSidebarVariant.mountedProduct,
-    );
-    expect(mobile.headerInset.start, 16);
-    expect(mobile.contentInset().bottom, 68);
-    expect(
-      mobile.contentInset(liveActivity: true, bottomInset: 24).bottom,
-      140,
-    );
-    final brutal = RaftSidebarRecipe(
-      raftTheme(RaftFamily.brutal).extension<RaftTokens>()!,
-      viewportWidth: 390,
-      viewportHeight: 844,
-      variant: RaftSidebarVariant.mountedProduct,
-    );
-    expect(brutal.contentInset(liveActivity: true, bottomInset: 24).bottom, 12);
-  });
+  test(
+    'mounted product sidebar overrides library geometry and reserves actual mobile overlay',
+    () {
+      final t = raftTheme(RaftFamily.elegant).extension<RaftTokens>()!;
+      final desktop = RaftSidebarRecipe(
+        t,
+        viewportWidth: 1024,
+        viewportHeight: 844,
+        variant: RaftSidebarVariant.mountedProduct,
+      );
+      expect(desktop.headerOverlaysContent, false);
+      expect(
+        desktop.headerInset,
+        const EdgeInsetsDirectional.symmetric(horizontal: 20),
+      );
+      expect(
+        desktop.contentInset(),
+        const EdgeInsetsDirectional.fromSTEB(8, 12, 8, 12),
+      );
+      expect(desktop.contentInset(headerInFlow: true), desktop.contentInset());
+      final workspace = RaftSidebarRecipe(
+        t,
+        viewportWidth: 1024,
+        viewportHeight: 844,
+        variant: RaftSidebarVariant.mountedProduct,
+        workspaceEnabled: true,
+      );
+      expect(workspace.headerHeight, 48);
+      expect(workspace.headerInset.start, 16);
+      final mobile = RaftSidebarRecipe(
+        t,
+        viewportWidth: 390,
+        viewportHeight: 844,
+        variant: RaftSidebarVariant.mountedProduct,
+      );
+      expect(mobile.headerInset.start, 16);
+      expect(mobile.contentInset().bottom, 68);
+      expect(
+        mobile.contentInset(liveActivity: true, bottomInset: 24).bottom,
+        140,
+      );
+      final brutal = RaftSidebarRecipe(
+        raftTheme(RaftFamily.brutal).extension<RaftTokens>()!,
+        viewportWidth: 390,
+        viewportHeight: 844,
+        variant: RaftSidebarVariant.mountedProduct,
+      );
+      expect(
+        brutal.contentInset(liveActivity: true, bottomInset: 24).bottom,
+        12,
+      );
+    },
+  );
   test(
     'sidebar uses the source body role across theme and responsive variants',
     () {

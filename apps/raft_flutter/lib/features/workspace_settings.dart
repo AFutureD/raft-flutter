@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/mobile_tabbar_preferences.dart';
 import '../data/personal_presentation.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
@@ -14,6 +15,7 @@ import 'im_bridges_view.dart';
 import 'integrations_views.dart';
 import 'labs_view.dart';
 import 'locale_settings_page.dart';
+import 'mobile_tabbar_settings_page.dart';
 import 'management_support.dart'
     show pageIdentity, readPageSnapshot, writePageSnapshot;
 import 'mcp_views.dart';
@@ -35,6 +37,7 @@ class WorkspaceSettings extends StatefulWidget {
     required this.onAppearance,
     required this.presentation,
     this.notifications,
+    this.mobileTabbar,
     this.onLogout,
     this.initialTab = 'account',
     this.mobileRoot = true,
@@ -59,6 +62,10 @@ class WorkspaceSettings extends StatefulWidget {
   final ValueChanged<RaftAppearance> onAppearance;
   final PersonalPresentationStore presentation;
   final NativeNotificationService? notifications;
+
+  /// The device's bottom-bar choice; without it the mobile Bottom bar row is
+  /// not offered.
+  final MobileTabbarStore? mobileTabbar;
   final Future<void> Function()? onLogout;
   final String initialTab;
   final bool mobileRoot;
@@ -152,6 +159,18 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             presentation: widget.presentation,
           ),
         ),
+        if (widget.mobileTabbar != null)
+          RaftSettingsDestination(
+            'bottom-bar',
+            'Bottom bar',
+            RaftGlyph.smartphone,
+            (_) => MobileTabbarSettingsPage(
+              controller: w,
+              store: widget.mobileTabbar!,
+            ),
+            scroll: false,
+            mobileOnly: true,
+          ),
         if (widget.notifications != null)
           RaftSettingsDestination(
             'notifications',
@@ -238,8 +257,13 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               scroll: false,
             ),
           // Desktop has a dedicated Computers rail mode; the Settings
-          // sub-nav lists it on mobile only (Sidebar.tsx mobileInline).
-          if (!guest)
+          // sub-nav lists it on mobile only (Sidebar.tsx mobileInline). A
+          // Computers tab in the bottom bar replaces this entry.
+          if (!guest &&
+              widget.mobileTabbar?.settings
+                      .effective(guest: guest, can: w.can)
+                      .contains(MobileTabs.computers) !=
+                  true)
             RaftSettingsDestination.action(
               'computers',
               'Computers',

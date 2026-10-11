@@ -113,7 +113,8 @@ void main() {
             home: const Scaffold(
               body: SingleChildScrollView(
                 child: RaftMessageBody(
-                  content: '## Plan\nHello **team**\n```mermaid\nflowchart LR\n A[Draft] --> B[Review]\n```',
+                  content:
+                      '## Plan\nHello **team**\n```mermaid\nflowchart LR\n A[Draft] --> B[Review]\n```',
                 ),
               ),
             ),
@@ -294,22 +295,25 @@ void main() {
       semantics.dispose();
     },
   );
-  test('structured mentions keep identity after adjacent text edits; unknown DM remains literal', () {
-    const refs = [
-      RaftTextReference(
-        text: '@Mona',
-        href: 'raft-ref://mention/user/known',
-        identityBacked: true,
-      ),
-      RaftTextReference(text: '#team', href: 'raft-ref://channel/id'),
-    ];
-    final value = raftMessageReferences(
-      '草案@Mona @Mona继续 dm:@Mona:abcdef #team:abcdef',
-      references: refs,
-    );
-    expect(value, contains('草案[@Mona](<raft-ref://mention/user/known>)'));
-    expect(value, contains('@Mona继续 dm:@Mona:abcdef #team:abcdef'));
-  });
+  test(
+    'structured mentions keep identity after adjacent text edits; unknown DM remains literal',
+    () {
+      const refs = [
+        RaftTextReference(
+          text: '@Mona',
+          href: 'raft-ref://mention/user/known',
+          identityBacked: true,
+        ),
+        RaftTextReference(text: '#team', href: 'raft-ref://channel/id'),
+      ];
+      final value = raftMessageReferences(
+        '草案@Mona @Mona继续 dm:@Mona:abcdef #team:abcdef',
+        references: refs,
+      );
+      expect(value, contains('草案[@Mona](<raft-ref://mention/user/known>)'));
+      expect(value, contains('@Mona继续 dm:@Mona:abcdef #team:abcdef'));
+    },
+  );
   testWidgets('Mermaid inside a longer literal fence remains code', (
     tester,
   ) async {

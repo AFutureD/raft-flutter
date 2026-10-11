@@ -14,10 +14,12 @@ Future<Color> sample(WidgetTester t) async {
   return (await t.runAsync(() async {
     final image = await boundary.toImage(pixelRatio: 1);
     final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
-    final face = t.getRect(find.descendant(
-      of: find.byKey(const ValueKey('conversation')),
-      matching: find.byType(AnimatedContainer),
-    ));
+    final face = t.getRect(
+      find.descendant(
+        of: find.byKey(const ValueKey('conversation')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
     final origin = t.getTopLeft(find.byKey(const ValueKey('paint')));
     // Sample the face's right padding, independent of text/row height. The
     // previous fixed pixel fell into Ahem title glyphs for compact directory rows.
@@ -113,9 +115,7 @@ void main() {
           // Source Sidebar.tsx3754 supplies inherited Brutalist black;
           // DmRow's title at 1001 adds no text-color override.
           // Ordinary channel rendering remains independently asserted here.
-          tokens.brutal
-              ? Colors.black
-              : tokens.colors['foreground-strong'],
+          tokens.brutal ? Colors.black : tokens.colors['foreground-strong'],
         );
         final overlays = t.widgetList<DecoratedBox>(
           find.descendant(

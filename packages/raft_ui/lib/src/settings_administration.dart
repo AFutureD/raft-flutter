@@ -1471,10 +1471,7 @@ class RaftAdminOnboardingCard extends StatelessWidget {
         children: [
           RaftCssText(raftText(context, title), style: text.title),
           const SizedBox(height: 2),
-          RaftCssText(
-            raftText(context, description),
-            style: text.description,
-          ),
+          RaftCssText(raftText(context, description), style: text.description),
         ],
       );
       if (!wide) {
@@ -1667,90 +1664,92 @@ class RaftAdminSwitchCard extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(top: topGap),
       child: RaftSettingsCard(
-      key: cardKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RaftCssText(
-                      raftText(context, title),
-                      style: text.title.copyWith(color: t.strong),
-                    ),
-                    const SizedBox(height: 2),
-                    Builder(
-                      builder: (context) {
-                        final body = raftSettingsBody(
-                          t,
-                          size: 12,
-                          line: 20,
-                          color: t.muted,
-                        );
-                        final link = descriptionLink;
-                        if (link == null) {
-                          return RaftCssText(
-                            raftText(context, description),
-                            style: body,
+        key: cardKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RaftCssText(
+                        raftText(context, title),
+                        style: text.title.copyWith(color: t.strong),
+                      ),
+                      const SizedBox(height: 2),
+                      Builder(
+                        builder: (context) {
+                          final body = raftSettingsBody(
+                            t,
+                            size: 12,
+                            line: 20,
+                            color: t.muted,
                           );
-                        }
-                        return RaftCssText.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(text: '${raftText(context, description)} '),
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.baseline,
-                                baseline: TextBaseline.alphabetic,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: onDescriptionLink,
-                                  child: Text(
-                                    raftText(context, link),
-                                    style: body.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: body.color,
-                                      color: body.color,
+                          final link = descriptionLink;
+                          if (link == null) {
+                            return RaftCssText(
+                              raftText(context, description),
+                              style: body,
+                            );
+                          }
+                          return RaftCssText.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '${raftText(context, description)} ',
+                                ),
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.baseline,
+                                  baseline: TextBaseline.alphabetic,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: onDescriptionLink,
+                                    child: Text(
+                                      raftText(context, link),
+                                      style: body.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: body.color,
+                                        color: body.color,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          style: body,
-                        );
-                      },
-                    ),
-                  ],
+                              ],
+                            ),
+                            style: body,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: RaftSwitch(
-                  key: switchKey,
-                  value: checked,
-                  size: RaftSwitchSize.md,
-                  // Web: the 44x24 Switch is the whole target (no touch
-                  // padding), so the card layout matches at phone width.
-                  minimumTargetSize: 0,
-                  enabled: onChanged != null,
-                  semanticLabel: raftText(context, title),
-                  onChanged: onChanged,
+                const SizedBox(width: 16),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: RaftSwitch(
+                    key: switchKey,
+                    value: checked,
+                    size: RaftSwitchSize.md,
+                    // Web: the 44x24 Switch is the whole target (no touch
+                    // padding), so the card layout matches at phone width.
+                    minimumTargetSize: 0,
+                    enabled: onChanged != null,
+                    semanticLabel: raftText(context, title),
+                    onChanged: onChanged,
+                  ),
                 ),
-              ),
+              ],
+            ),
+            if (error case final error?) ...[
+              const SizedBox(height: 12),
+              RaftAdminWarning(error),
             ],
-          ),
-          if (error case final error?) ...[
-            const SizedBox(height: 12),
-            RaftAdminWarning(error),
           ],
-        ],
-      ),
+        ),
       ),
     );
   }

@@ -33,7 +33,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('panel'), findsOneWidget);
       expect(
-        tester.getSize(find.ancestor(of: find.text('panel'), matching: find.byType(RaftLightboxAside))).width,
+        tester
+            .getSize(
+              find.ancestor(
+                of: find.text('panel'),
+                matching: find.byType(RaftLightboxAside),
+              ),
+            )
+            .width,
         raftLightboxAsideWidth,
       );
     });

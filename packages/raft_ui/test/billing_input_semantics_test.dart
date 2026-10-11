@@ -87,7 +87,8 @@ void main() {
         expect(
           node.getSemanticsData().flagsCollection.isTextField,
           isFalse,
-          reason: 'A sibling billing field must not turn the plan card into a text field.',
+          reason:
+              'A sibling billing field must not turn the plan card into a text field.',
         );
       }
       expect(

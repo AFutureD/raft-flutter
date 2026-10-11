@@ -505,7 +505,8 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
         setState(
           () => operation = (
             done: true,
-            error: 'Restart timed out. Check that the Computer is online and retry.',
+            error:
+                'Restart timed out. Check that the Computer is online and retry.',
           ),
         );
         operationTimer = Timer(const Duration(seconds: 3), () {
@@ -656,7 +657,8 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                         child: RaftBanner(
                           key: const ValueKey('computer-disk-low-banner'),
                           title: diskTitle,
-                          description: 'Agents on this computer may fail to save work or start. Raft removes its own old migration data automatically; if space stays low, free up space on this computer.',
+                          description:
+                              'Agents on this computer may fail to save work or start. Raft removes its own old migration data automatically; if space stays low, free up space on this computer.',
                           size: RaftBannerRecipeSize.sm,
                           titleGap: 4,
                         ),
@@ -1658,7 +1660,8 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                     'Restart',
                     key: const ValueKey('computer-restart'),
                     glyph: RaftGlyph.rotateCcw,
-                    tooltip: "Use this to restart when the Computer isn't responding.",
+                    tooltip:
+                        "Use this to restart when the Computer isn't responding.",
                     onPressed: restart,
                   ),
                 if (kind == RaftComputerServiceKind.upToDate && webUpgradeOn)
@@ -2088,7 +2091,8 @@ class _BulkResetDialogState extends State<_BulkResetDialog> {
                   const SizedBox(height: 12),
                   const RaftBanner(
                     size: RaftBannerRecipeSize.sm,
-                    description: 'Full reset permanently deletes workspace files including MEMORY.md and notes/. This cannot be undone.',
+                    description:
+                        'Full reset permanently deletes workspace files including MEMORY.md and notes/. This cannot be undone.',
                   ),
                 ],
                 const SizedBox(height: 20),
