@@ -51,6 +51,10 @@ Map<String, dynamic> _errorDetails(Map? body) {
     'archivedChannelName',
     'archivedChannelType',
     'canUnarchiveArchivedChannel',
+    // agreement_required / agreement_changed: the community agreement the
+    // caller must accept before joining (a public guest join, a community
+    // server or an invite); public text, not a credential.
+    'agreement',
   };
   dynamic freeze(dynamic value) {
     if (value is Map) {
@@ -78,6 +82,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
         'transferIntentIds',
         'reservationIds',
       });
+    if (key == 'agreement') {
+      return receipt(value, {'id', 'title', 'bodyMarkdown', 'version'});
+    }
     if (key == 'conversionCommand')
       return receipt(value, {
         'id',
@@ -171,6 +178,12 @@ class RaftClient {
   Future<void>? _refreshing;
   Timer? _authRetry;
   Future<void> _persistence = Future<void>.value();
+  // Session writes queued or running. [dispose] waits for them only while this
+  // is non-zero: awaiting an already completed [_persistence] adds nothing in
+  // production, but in a widget test (client created in the FakeAsync zone) the
+  // continuation is a microtask of that zone and a tear-down that awaits
+  // `dispose()` would never resume.
+  int _persisting = 0;
   Future<void>? _credentialsReady;
   Future<void>? _disposing;
   bool _closed = false;
@@ -184,10 +197,15 @@ class RaftClient {
   }
 
   Future<void> _persist(Session? expected) {
+    _persisting++;
     final pending = _persistence.catchError((Object _) {}).then((_) async {
-      if (_credentialsReady != null) await _credentialsReady;
-      if (!_closed && _session == expected) {
-        await sessionStore.write(origin, expected);
+      try {
+        if (_credentialsReady != null) await _credentialsReady;
+        if (!_closed && _session == expected) {
+          await sessionStore.write(origin, expected);
+        }
+      } finally {
+        _persisting--;
       }
     });
     _persistence = pending;
@@ -950,7 +968,7 @@ class RaftClient {
     _authRetry?.cancel();
     _socket?.dispose();
     http.close(force: true);
-    await _persistence.catchError((Object _) {});
+    if (_persisting > 0) await _persistence.catchError((Object _) {});
     await _events.close();
   }
 }

@@ -27,3 +27,5 @@ build-auth-pages.py
 build-screen-cases.py
 build-composer-states.py
 build-list-pages.py
+build-conversation-pages.py
+build-public-server.py

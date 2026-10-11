@@ -140,6 +140,21 @@ Widget _page(ParityContext ctx) {
       ...w.channels,
     ];
   }
+  // Missing-page case 'archived': archived channels join the channel list (the React host
+  // patches the channel store with fixtures/auth-pages.json `archivedChannels`).
+  if (ctx.props['patch'] == 'archived') {
+    final base = w.channels.first.json;
+    w.channels = [
+      ...w.channels,
+      for (final c
+          in (ctx.fixtures['ext:auth-pages'] as Map)['archivedChannels'] as List)
+        RaftChannel({
+          ...base,
+          ...Map<String, dynamic>.from(c as Map),
+          'joined': true,
+        }),
+    ];
+  }
   final server = RaftRecord(serverJson);
   w
     ..server = server
