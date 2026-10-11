@@ -169,6 +169,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
   WorkspaceController get w => widget.controller;
   PageStorageBucket mobilePageStorage = PageStorageBucket();
   String? mobileStorageAuthority;
+  _MobileNavigationSelection? _mobileNavigationSelection;
+  _MobileNavigationSelection get mobileNavigationSelection =>
+      _mobileNavigationSelection ??= _MobileNavigationSelection(this);
   bool? mobileLayout;
 
   _WorkspaceViewState? get mobileHost =>
@@ -605,6 +608,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
     super.didUpdateWidget(oldWidget);
     adoptHostSearchEntry();
     if (!identical(oldWidget.controller, w)) {
+      _mobileNavigationSelection?.dispose();
+      _mobileNavigationSelection = null;
       oldWidget.controller.removeListener(syncMobileAppBadge);
       w.addListener(syncMobileAppBadge);
       syncMobileAppBadge();
@@ -727,6 +732,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   @override
   void dispose() {
+    _mobileNavigationSelection?.dispose();
     w.removeListener(syncMobileAppBadge);
     mobileAppBadge.removeListener(chatSelectionChanged);
     mobileAppBadge.dispose();
@@ -978,9 +984,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
   Widget build(BuildContext context) {
     final compact = RaftAdaptiveWorkspace.compactOf(context);
     if (ModalRoute.isCurrentOf(context) ?? true) mobileLayout = compact;
+    final Widget body;
     if (!widget.mobileRoutePage && (mobileLayout ?? compact)) {
-      return ListenableBuilder(
-        listenable: Listenable.merge([w, mobileTabbar]),
+      body = ListenableBuilder(
+        listenable: Listenable.merge([mobileNavigationSelection, mobileTabbar]),
         builder: (context, _) {
           updateChannelAuthority();
           if (RouteFrameDiagnostics.enabled) {
@@ -1006,10 +1013,16 @@ class _WorkspaceViewState extends State<WorkspaceView>
           );
         },
       );
+    } else {
+      body = buildWorkspace(context);
     }
     return PersonalPresentationScope(
       store: presentation,
-      child: AnnouncementHost(controller: w, child: buildWorkspace(context)),
+      // Account-level entry/resume work belongs to the workspace, not each
+      // page in its retained mobile Navigator.
+      child: widget.mobileRoutePage
+          ? body
+          : AnnouncementHost(controller: w, child: body),
     );
   }
 

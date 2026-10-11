@@ -126,8 +126,14 @@ class _RaftChatViewState extends State<RaftChatView>
   int? scrolledWindow, adapterWindow;
   int bindingRevision = 0;
   int selectionCaptureTicket = 0;
+  ModalRoute<dynamic>? preparationRoute;
   late final bodyPreparation = MessagePreparation(
-    isIdle: () => mounted && presentationActive && RaftFontWarmUp.isIdle,
+    isIdle: () =>
+        mounted &&
+        presentationActive &&
+        w.presentationActive &&
+        messagePreparationRouteIsIdle(preparationRoute) &&
+        RaftFontWarmUp.isIdle,
   );
   Object? bodyPreparationInputs;
 
@@ -280,6 +286,7 @@ class _RaftChatViewState extends State<RaftChatView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    preparationRoute = ModalRoute.of(context);
     final active =
         Visibility.of(context) && TickerMode.valuesOf(context).enabled;
     if (active != presentationActive) {
