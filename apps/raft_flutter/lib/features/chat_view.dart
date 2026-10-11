@@ -16,11 +16,16 @@ import 'message_timeline.dart';
 import 'row_extents.dart';
 
 import '../data/plan_history.dart';
+import '../data/raft_location.dart';
+import '../data/raft_permalink.dart';
+import '../data/thread_search.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
+import '../platform/content_links.dart';
 import '../data/personal_presentation.dart';
 import '../platform/file_selection.dart';
+import 'attachment_preview_dialog.dart' show attachmentPreviewKind;
 import 'attachment_view.dart';
 import 'message_presentation.dart';
 import 'message_preparation.dart';
@@ -43,6 +48,7 @@ import 'message_agent_presentation.dart';
 import 'agent_metadata_projection.dart';
 import 'agent_avatar_projection.dart';
 import 'profile_preview.dart';
+import 'quoted_message_preview.dart';
 import 'message_task_projection.dart';
 import 'saved_sidebar_entry.dart';
 
@@ -279,8 +285,15 @@ class _RaftChatViewState extends State<RaftChatView>
   RaftTimelineAlignment alignOn(String target, {double? leading}) =>
       RaftTimelineAlignment.row(
         find: () {
-          final box = focusAnchors[target]?.currentContext?.findRenderObject();
-          return box is RenderBox ? box : null;
+          final context = focusAnchors[target]?.currentContext;
+          if (context == null) return null;
+          try {
+            final box = context.findRenderObject();
+            return box is RenderBox && box.attached ? box : null;
+          } on FlutterError {
+            // The row's element went inactive while the timeline rebuilt.
+            return null;
+          }
         },
         leading: leading,
       );
@@ -305,6 +318,75 @@ class _RaftChatViewState extends State<RaftChatView>
       }
       if (active) sync();
     }
+  }
+
+  // Web ThreadPanel in-thread search (thread view only): the bar's field and
+  // focus, bound to the controller's [ThreadSearch].
+  final searchInput = TextEditingController();
+  final searchFocus = FocusNode();
+  ThreadSearch? boundSearch;
+  String? searchActive;
+  int seenSearchFocus = 0;
+
+  void bindThreadSearch() {
+    boundSearch?.removeListener(threadSearchChanged);
+    boundSearch = widget.thread ? w.threadSearch : null;
+    boundSearch?.addListener(threadSearchChanged);
+    searchActive = boundSearch?.activeMessageId;
+    seenSearchFocus = boundSearch?.focusRequest ?? 0;
+  }
+
+  void threadSearchChanged() {
+    final search = boundSearch;
+    if (!mounted || search == null) return;
+    if (searchInput.text != search.query) {
+      searchInput.value = TextEditingValue(
+        text: search.query,
+        selection: TextSelection.collapsed(offset: search.query.length),
+      );
+    }
+    if (search.focusRequest != seenSearchFocus) {
+      seenSearchFocus = search.focusRequest;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !search.isOpen) return;
+        searchFocus.requestFocus();
+        searchInput.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: searchInput.text.length,
+        );
+      });
+    }
+    final active = search.activeMessageId;
+    final changed = active != searchActive;
+    searchActive = active;
+    if (presentationActive) setState(() {});
+    if (changed && active != null) revealSearchMatch(active);
+  }
+
+  /// Web `ensureThreadSearchMatchVisible` then `scrollToMessage(center)`: a
+  /// match outside the loaded window reloads the thread around it (the
+  /// timeline's focus reveal centers it); a loaded one is centered here.
+  Future<void> revealSearchMatch(String id) async {
+    final search = boundSearch;
+    if (search == null) return;
+    final loaded = await search.ensureVisible(id);
+    if (!loaded || !mounted || searchActive != id || !presentationActive) {
+      return;
+    }
+    if (w.presentedThreadParent?.id == id) {
+      jumpToBeginning();
+      return;
+    }
+    final target = adapter.messages
+        .where((m) => m.metadata?['id'] == id)
+        .firstOrNull;
+    if (target == null) return;
+    // Mount the row's anchor, then center it.
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || searchActive != id) return;
+      recenter(first: target.id, alignment: alignOn(id));
+    });
   }
 
   final focusAnchors = <String, GlobalKey>{};
@@ -349,6 +431,7 @@ class _RaftChatViewState extends State<RaftChatView>
     selection = MessageSelection(w, thread: widget.thread)
       ..addListener(selectionChanged);
     w.translations.addListener(referencesChanged);
+    bindThreadSearch();
     w.addListener(sync);
     sync();
   }
@@ -393,6 +476,7 @@ class _RaftChatViewState extends State<RaftChatView>
       }
       selection = MessageSelection(w, thread: widget.thread)
         ..addListener(selectionChanged);
+      bindThreadSearch();
       selectionError = null;
       copiedSelectionTimer?.cancel();
       copiedSelectionMarkdown = false;
@@ -686,6 +770,9 @@ class _RaftChatViewState extends State<RaftChatView>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
+    boundSearch?.removeListener(threadSearchChanged);
+    searchInput.dispose();
+    searchFocus.dispose();
     copiedSelectionTimer?.cancel();
     bodyPreparation.dispose();
     highlightTimer?.cancel();
@@ -1165,9 +1252,8 @@ class _RaftChatViewState extends State<RaftChatView>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1376,9 +1462,8 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1582,56 +1667,62 @@ class _RaftChatViewState extends State<RaftChatView>
     }
 
     final images = all.where(raster).toList();
-    if (images.isEmpty) return null;
+    // Web MessageItem: images, then videos, then audio (each `space-y-2`),
+    // then every other attachment as a card.
+    final videos = [
+      for (final a in all)
+        if (!raster(a) && attachmentPreviewKind(a) == 'video') a,
+    ];
+    final audios = [
+      for (final a in all)
+        if (!raster(a) && attachmentPreviewKind(a) == 'audio') a,
+    ];
+    final others = [
+      for (final a in all)
+        if (!raster(a) && !videos.contains(a) && !audios.contains(a)) a,
+    ];
+    if (images.isEmpty && videos.isEmpty && audios.isEmpty) return null;
     final pending = WorkspaceController.isPendingSend(message);
     final messageId = pending ? null : message.id;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RaftAttachmentGallery(
-          dimensions: [
-            for (final a in images)
-              (
-                width: a['width'] is num
-                    ? (a['width'] as num).toDouble()
-                    : null,
-                height: a['height'] is num
-                    ? (a['height'] as num).toDouble()
-                    : null,
-              ),
-          ],
-          itemBuilder: (index, extent, fit) => sendStateAttachment(
-            pending,
-            AttachmentView(
-              key: ValueKey('attachment-${images[index]['id']}'),
-              controller: w,
-              metadata: images[index],
-              messageId: messageId,
-              imageExtent: extent,
-              imageFit: fit,
-            ),
-          ),
-        ),
-        if (all.any((a) => !raster(a))) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final a in all.where((a) => !raster(a)))
-                sendStateAttachment(
-                  pending,
-                  AttachmentView(
-                    key: ValueKey('attachment-${a['id']}'),
-                    controller: w,
-                    metadata: a,
-                    messageId: messageId,
+    Widget view(Map<String, dynamic> a) => sendStateAttachment(
+      pending,
+      AttachmentView(
+        key: ValueKey('attachment-${a['id']}'),
+        controller: w,
+        metadata: a,
+        messageId: messageId,
+      ),
+    );
+    return RaftAttachmentStack(
+      gallery: images.isEmpty
+          ? null
+          : RaftAttachmentGallery(
+              dimensions: [
+                for (final a in images)
+                  (
+                    width: a['width'] is num
+                        ? (a['width'] as num).toDouble()
+                        : null,
+                    height: a['height'] is num
+                        ? (a['height'] as num).toDouble()
+                        : null,
                   ),
+              ],
+              itemBuilder: (index, extent, fit) => sendStateAttachment(
+                pending,
+                AttachmentView(
+                  key: ValueKey('attachment-${images[index]['id']}'),
+                  controller: w,
+                  metadata: images[index],
+                  messageId: messageId,
+                  imageExtent: extent,
+                  imageFit: fit,
                 ),
-            ],
-          ),
-        ],
-      ],
+              ),
+            ),
+      videos: [for (final a in videos) view(a)],
+      audios: [for (final a in audios) view(a)],
+      others: [for (final a in others) view(a)],
     );
   }
 
@@ -1902,9 +1993,8 @@ class _RaftChatViewState extends State<RaftChatView>
       await store.setSaved(message.id, !store.isSaved(message.id));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1983,15 +2073,70 @@ class _RaftChatViewState extends State<RaftChatView>
             listenable: presentation.presenceOf(message.senderId),
             builder: (context, _) => avatar(),
           );
-    // Web SenderAvatar PreviewCard (profile / external identity on hover).
+    // Web SenderAvatar `<button>` + PreviewCard (profile / external identity
+    // on hover): a click opens the profile side panel.
     return compact
         ? sender
         : senderProfileHoverCard(
             controller: w,
             message: message,
             content: avatarContent,
-            child: sender,
+            child: RaftAvatarButton(
+              key: ValueKey('sender-avatar-${w.messageKey(message)}'),
+              semanticLabel: message.author,
+              onPressed: senderProfileTarget(message) == null
+                  ? null
+                  : () => openSenderProfile(message),
+              child: sender,
+            ),
+            onOpenActivity: senderIsAgent(message)
+                ? (id) => w.openProfile(
+                    RaftProfileKind.agent,
+                    id,
+                    agentTab: 'activity',
+                  )
+                : null,
           );
+  }
+
+  bool senderIsAgent(RaftMessage m) => m.string('senderType') == 'agent';
+
+  /// Web MessageItem `handleNavigateAgent` / `Human` / `External`: the kind a
+  /// sender avatar opens, or null (system rows, another server's sender).
+  RaftProfileKind? senderProfileTarget(RaftMessage m) {
+    if (m.json['sourceServerId'] != null &&
+        m.json['sourceServerId'] != w.server?.id) {
+      return null;
+    }
+    if (m.string('senderType') == 'external_projection' ||
+        m.json['externalAuthor'] is Map) {
+      return m.json['externalAuthor'] is Map ? RaftProfileKind.external : null;
+    }
+    if (m.string('senderId').isEmpty) return null;
+    return switch (m.string('senderType')) {
+      'agent' => RaftProfileKind.agent,
+      'user' => RaftProfileKind.human,
+      _ => null,
+    };
+  }
+
+  void openSenderProfile(RaftMessage m) {
+    if (selection.active) return;
+    switch (senderProfileTarget(m)) {
+      case RaftProfileKind.external:
+        w.openProfile(
+          RaftProfileKind.external,
+          m.id,
+          channelId: m.channelId,
+          externalAuthor: Map<String, dynamic>.from(
+            m.json['externalAuthor'] as Map,
+          ),
+        );
+      case final kind?:
+        w.openProfile(kind, m.string('senderId'));
+      case null:
+        break;
+    }
   }
 
   Widget? taskReference(RaftMessage message) {
@@ -2086,36 +2231,113 @@ class _RaftChatViewState extends State<RaftChatView>
         fontSize: fontSize,
       );
     }
+    final quoted = quotedPermalink(m);
     final body = MessagePresentation(
       controller: w,
       message: m,
+      unavailablePermalink: quoted == null ? null : unavailableQuoted[m.id],
       content: translation.translatedContent,
       taskByNumber: taskProjection.taskByNumber,
       onExternalLink: link,
       directoryReferences: referenceDirectory.references,
       fontSize: fontSize,
+      searchHighlight: searchActive == m.id ? boundSearch?.query : null,
     );
-    if (!translation.bilingual) return body;
+    if (!translation.bilingual) return withQuotedPreview(m, quoted, body);
+    return withQuotedPreview(
+      m,
+      quoted,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          body,
+          RaftMessageTranslationOriginal(
+            key: ValueKey('message-translation-bilingual-original-${m.id}'),
+            label: raftText(context, 'Original'),
+            child: MessagePresentation(
+              controller: w,
+              message: m,
+              taskByNumber: taskProjection.taskByNumber,
+              onExternalLink: link,
+              directoryReferences: referenceDirectory.references,
+              fontSize: fontSize,
+              foregroundColor: RaftMessageTranslationOriginal.foreground(
+                context,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Web MessageItem: the first Raft permalink of this server in the text.
+  ({String rawUrl, RaftPermalink parsed})? quotedPermalink(RaftMessage m) {
+    if (m.json['sourceServerId'] != null &&
+        m.json['sourceServerId'] != w.server?.id) {
+      return null;
+    }
+    return extractFirstQuotedPermalink(
+      m.content,
+      hostname: ContentLinks.originFor(w.client.origin).host,
+      serverSlug: w.server?.string('slug'),
+    );
+  }
+
+  /// Raw URL of a row's permalink whose preview could not be read.
+  final Map<String, String> unavailableQuoted = {};
+
+  Widget withQuotedPreview(
+    RaftMessage m,
+    ({String rawUrl, RaftPermalink parsed})? quoted,
+    Widget body,
+  ) {
+    if (quoted == null || unavailableQuoted[m.id] == quoted.rawUrl) return body;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         body,
-        RaftMessageTranslationOriginal(
-          key: ValueKey('message-translation-bilingual-original-${m.id}'),
-          label: raftText(context, 'Original'),
-          child: MessagePresentation(
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: QuotedMessagePermalinkPreview(
+            key: ValueKey('quoted-${m.id}-${quoted.rawUrl}'),
             controller: w,
-            message: m,
-            taskByNumber: taskProjection.taskByNumber,
-            onExternalLink: link,
-            directoryReferences: referenceDirectory.references,
-            fontSize: fontSize,
-            foregroundColor: RaftMessageTranslationOriginal.foreground(context),
+            permalink: quoted.parsed,
+            avatar: (target) => senderAvatar(target, compact: true),
+            subtitle: senderSubtitle,
+            formatTimestamp: quotedTimestamp(),
+            onOpen: (link) => unawaited(openRaftPermalink(w, link)),
+            onUnavailable: () {
+              // Web: the chip reads "Unavailable linked message" and the card
+              // is dropped; the row repaints after the current frame.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && unavailableQuoted[m.id] != quoted.rawUrl) {
+                  setState(() => unavailableQuoted[m.id] = quoted.rawUrl);
+                }
+              });
+            },
           ),
         ),
       ],
     );
+  }
+
+  /// Web `formatShortDateTime` in the account's zone and hour cycle.
+  String Function(DateTime) quotedTimestamp() {
+    final user = w.client.user;
+    return SourceTimeFormatter(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+      preferredTimezone:
+          user?.string('preferredTimezone') ?? user?.string('timezone'),
+      preferredTimeFormat: sourceTimeFormatPreference(
+        user?.string('preferredTimeFormat') ?? user?.string('timeFormat'),
+      ),
+      systemTimeFormat: MediaQuery.alwaysUse24HourFormatOf(context)
+          ? SourceTimeFormat.twentyFourHour
+          : null,
+    ).shortDateTime;
   }
 
   /// Web MessageItem `TranslationIndicator`.
@@ -2260,7 +2482,7 @@ class _RaftChatViewState extends State<RaftChatView>
       ),
       coarsePointer: RaftDensityScope.of(context) == RaftDensity.touch,
       popupOpen: pickerMessageId == m.id || menuMessageId == m.id,
-      highlighted: w.highlightedMessageId == m.id,
+      highlighted: w.highlightedMessageId == m.id || searchActive == m.id,
       collapseLongMessages:
           (m.json['actionMetadata'] is! Map ||
               m.json['actionMetadata']['kind'] != 'action-card') &&
@@ -2700,7 +2922,9 @@ class _RaftChatViewState extends State<RaftChatView>
     final child =
         captureFocus &&
             !parent &&
-            (m.id == w.highlightedMessageId || m.id == scrolledHighlight)
+            (m.id == w.highlightedMessageId ||
+                m.id == scrolledHighlight ||
+                m.id == searchActive)
         ? KeyedSubtree(
             key: focusAnchors.putIfAbsent(m.id, GlobalKey.new),
             child: body,
@@ -2868,6 +3092,23 @@ class _RaftChatViewState extends State<RaftChatView>
 
   @override
   Widget build(BuildContext context) {
+    final search = boundSearch;
+    if (!widget.thread || search == null) return buildView(context);
+    final apple =
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    return CallbackShortcuts(
+      // Web ThreadPanel: Cmd/Ctrl+F opens the thread search while the thread
+      // surface has focus.
+      bindings: {
+        SingleActivator(LogicalKeyboardKey.keyF, control: !apple, meta: apple):
+            search.open,
+      },
+      child: buildView(context),
+    );
+  }
+
+  Widget buildView(BuildContext context) {
     scheduleBodyPreparation(context);
     if (widget.thread &&
         w.threadChannelId == null &&
@@ -2969,10 +3210,21 @@ class _RaftChatViewState extends State<RaftChatView>
         : channelFooterWidgets();
     // Rows read breakpoint bands, not the raw window width, so a resize
     // within a band does not rebuild every mounted message.
+    final search = boundSearch;
     return RaftViewportBreakpointScope(
       child: Column(
         children: [
           RaftToastPortal(controller: selectionToast),
+          if (widget.thread && search != null && search.isOpen)
+            RaftThreadSearchBar(
+              controller: searchInput,
+              focusNode: searchFocus,
+              countLabel: search.countLabel(raftText(context, 'Loading')),
+              canStep: search.matches.isNotEmpty,
+              onChanged: search.setQuery,
+              onStep: search.step,
+              onClose: search.close,
+            ),
           Expanded(
             child: Stack(
               fit: StackFit.expand,
