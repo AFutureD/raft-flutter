@@ -1349,10 +1349,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
             // Phones: the tab bar must not ride up with the keyboard, so the
             // adaptive workspace shrinks only its content region above it.
             resizeToAvoidBottomInset: wide,
-            // The drawer opens rarely; project the sidebar only when it does.
-            drawer: wide
-                ? null
-                : Drawer(child: Builder(builder: (_) => sidebar())),
+            // No drawer: phones reach the sidebar through the Home tab (as Web
+            // does). A drawer here would open from a left-edge swipe, racing
+            // Android's back gesture, with nothing in the app opening it.
             body: RaftSystemBarSurface(
               statusBarBackground: wide ? t.canvas : headerBackground,
               child: SafeArea(

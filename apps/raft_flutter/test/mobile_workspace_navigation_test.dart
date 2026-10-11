@@ -883,4 +883,44 @@ void main() {
       expect(find.text('Actual account detail'), findsNothing);
     },
   );
+
+  for (final family in [RaftFamily.brutal, RaftFamily.elegant]) {
+    testWidgets('a left-edge swipe never opens a sidebar drawer $family', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final c = _Client()..selectServer('s');
+      final w = WorkspaceController(
+        c,
+        mobileNavigation: true,
+      )..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
+      w.setSection('members');
+      addTearDown(() async {
+        w.dispose();
+        await c.stream.close();
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(family),
+          home: WorkspaceView(
+            controller: w,
+            appearance: RaftAppearance(mode: ThemeMode.light, light: family),
+            onAppearance: (_) async {},
+            onLogout: () async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Phones reach the sidebar through the Home tab only (Web has no
+      // drawer); an edge drag must not race Android's back gesture.
+      await tester.dragFrom(const Offset(2, 420), const Offset(300, 0));
+      await tester.pumpAndSettle();
+      expect(find.byType(Drawer), findsNothing);
+      expect(find.byType(DrawerController), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
