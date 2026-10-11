@@ -37,6 +37,8 @@ const raftChinese = <String, String>{
   "{count} Agent following": "{count} 个 Agent 正在关注",
   "{count} Agents following": "{count} 个 Agent 正在关注",
   "Remove {agent} from followers": "将 {agent} 移出关注者",
+  "{count} images": "{count} 张图片",
+  "{count} attachments": "{count} 个附件",
   "{agent} follows from {server}. Switch to that server to remove them.":
       "{agent} 从 {server} 关注此消息列。请切到该 Server 后移除。",
   "Removed {agent} from this thread's followers.":

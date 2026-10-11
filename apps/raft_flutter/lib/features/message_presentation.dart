@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../data/raft_permalink.dart';
 import '../data/source_time_formatter.dart';
 
 import 'package:raft_client/raft_client.dart';
@@ -10,6 +11,8 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/attachment_files.dart';
+import '../platform/content_links.dart';
+import 'quoted_message_preview.dart';
 import 'message_action_card.dart';
 import 'attachment_view.dart';
 import 'fleet_views.dart';
@@ -157,7 +160,13 @@ class MessagePresentation extends StatelessWidget {
     this.content,
     this.foregroundColor,
     this.searchHighlight,
+    this.unavailablePermalink,
   });
+
+  /// The raw URL of the message permalink whose preview could not be read
+  /// (Web `unavailableQuotedPermalinkUrl`): its chip reads "Unavailable linked
+  /// message" and is inert.
+  final String? unavailablePermalink;
 
   /// Web `threadSearchHighlightQuery`: the in-thread search query marked in
   /// the active match's text.
@@ -396,6 +405,16 @@ class MessagePresentation extends StatelessWidget {
       return;
     }
     if (uri?.scheme != 'raft-ref') {
+      // Web handleOpenPermalink: a message link of this server opens in the
+      // app, any other link opens externally.
+      final link = parseRaftPermalink(href, hostnames: [permalinkHostname]);
+      if (link != null &&
+          localAuthority &&
+          !exportMode &&
+          link.serverSlug == controller.server?.string('slug')) {
+        await openRaftPermalink(controller, link);
+        return;
+      }
       onExternalLink(href);
       return;
     }
@@ -698,6 +717,53 @@ class MessagePresentation extends StatelessWidget {
           knownTaskNumber ??
           (taskByNumber == null ? null : (n) => taskByNumber!(n) != null),
       referenceAppearance: appearance,
+      permalinkAppearance: (href) => permalinkAppearance(context, href),
+      permalinkKey: Object.hash(
+        unavailablePermalink,
+        controller.channels.length,
+        controller.dms.length,
+      ),
+    );
+  }
+
+  String get permalinkHostname =>
+      ContentLinks.originFor(controller.client.origin).host;
+
+  /// Web MessageItem markdown `a` renderer for Raft permalinks: a Link chip
+  /// labelled with the channel (or "linked message"), inert once unavailable.
+  RaftReferenceAppearance? permalinkAppearance(
+    BuildContext context,
+    String href,
+  ) {
+    if (exportMode || !localAuthority) return null;
+    final link = parseRaftPermalink(
+      href.replaceAll('&amp;', '&'),
+      hostnames: [permalinkHostname],
+    );
+    if (link == null) return null;
+    final raw = unavailablePermalink == null
+        ? null
+        : parseRaftPermalink(
+            unavailablePermalink!,
+            hostnames: [permalinkHostname],
+          );
+    if (raw != null && raw == link) {
+      return RaftReferenceAppearance(
+        RaftReferenceKind.permalinkUnavailable,
+        label: raftText(context, 'Unavailable linked message'),
+      );
+    }
+    final channel = [
+      ...controller.channels,
+      ...controller.dms,
+    ].where((c) => c.id == link.channelId).firstOrNull;
+    return RaftReferenceAppearance(
+      RaftReferenceKind.permalink,
+      label: channel == null
+          ? raftText(context, 'linked message')
+          : channel.type == 'dm'
+          ? '@${channel.string('peerDisplayName', channel.string('peerName', channel.name))}'
+          : '#${channel.name}',
     );
   }
 

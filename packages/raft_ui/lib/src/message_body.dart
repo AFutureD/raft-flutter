@@ -398,7 +398,18 @@ class RaftMessageBody extends StatelessWidget {
     this.enableProseSelection = true,
     this.compactSemantics = false,
     this.searchHighlight,
+    this.permalinkAppearance,
+    this.permalinkKey,
   });
+
+  /// Changes whenever [permalinkAppearance] would answer differently (the
+  /// markdown subtree only rebuilds on a changed key).
+  final Object? permalinkKey;
+
+  /// Web MessageItem `a` renderer for Raft message permalinks: the chip for a
+  /// link to a message of this server (label, tap), or null for an ordinary
+  /// link.
+  final RaftReferenceAppearance? Function(String href)? permalinkAppearance;
 
   /// Web `threadSearchHighlightQuery`: prose and inline-code occurrences of this
   /// (trimmed, case-insensitive) query get the `<mark>` treatment; links,
@@ -521,7 +532,11 @@ class RaftMessageBody extends StatelessWidget {
           },
         );
     final builders = <String, MarkdownElementBuilder>{
-      'a': _MessageLinkBuilder(onLink, referenceAppearance),
+      'a': _MessageLinkBuilder(
+        onLink,
+        referenceAppearance,
+        permalinkAppearance: permalinkAppearance,
+      ),
       'raftref': _MessageLinkBuilder(onLink, referenceAppearance),
       'code': _MessageInlineCodeBuilder(highlight: highlight),
       if (highlight.isNotEmpty) 'mark': _SearchMarkBuilder(t),
@@ -552,6 +567,7 @@ class RaftMessageBody extends StatelessWidget {
               styleSheet: resolveStyleSheets().$1,
               resolvedStyleSheet: resolveStyleSheets().$2,
               searchHighlight: highlight,
+              builderKey: permalinkKey,
               builders: builders,
               paddingBuilderFactory: () => recipe.headingPadding(chunk.text),
               onTapLink: (_, href, _) {
@@ -671,6 +687,7 @@ class _RaftMarkdown extends MarkdownBody {
     required MarkdownStyleSheet super.styleSheet,
     required this.resolvedStyleSheet,
     required this.searchHighlight,
+    required this.builderKey,
     required Map<String, MarkdownElementBuilder> super.builders,
     required this.paddingBuilderFactory,
     required MarkdownTapLinkCallback super.onTapLink,
@@ -683,6 +700,9 @@ class _RaftMarkdown extends MarkdownBody {
 
   /// Normalized thread-search query ('' when none).
   final String searchHighlight;
+
+  /// See [RaftMessageBody.permalinkKey].
+  final Object? builderKey;
 
   /// Heading padding builders carry per-build state, so each build gets
   /// fresh ones.
@@ -710,7 +730,8 @@ class _RaftMarkdownState extends State<MarkdownWidget>
     if (widget.data != oldWidget.data ||
         widget.styleSheet != oldWidget.styleSheet ||
         markdown.searchHighlight !=
-            (oldWidget as _RaftMarkdown).searchHighlight) {
+            (oldWidget as _RaftMarkdown).searchHighlight ||
+        markdown.builderKey != oldWidget.builderKey) {
       rebuildChildren();
     }
   }
@@ -1384,13 +1405,24 @@ class _MessageInlineCodeBuilder extends MarkdownElementBuilder {
 }
 
 class _MessageLinkBuilder extends MarkdownElementBuilder {
-  _MessageLinkBuilder(this.onLink, this.appearanceOf, [this.recognizers]);
+  _MessageLinkBuilder(
+    this.onLink,
+    this.appearanceOf, {
+    this.recognizers,
+    this.permalinkAppearance,
+  });
   final ValueChanged<String>? onLink;
   final RaftReferenceAppearance? Function(String href)? appearanceOf;
+  final RaftReferenceAppearance? Function(String href)? permalinkAppearance;
   final List<GestureRecognizer>? recognizers;
 
   _MessageLinkBuilder withRecognizers(List<GestureRecognizer> owned) =>
-      _MessageLinkBuilder(onLink, appearanceOf, owned);
+      _MessageLinkBuilder(
+        onLink,
+        appearanceOf,
+        recognizers: owned,
+        permalinkAppearance: permalinkAppearance,
+      );
 
   InlineSpan _reference(
     BuildContext context,
@@ -1428,6 +1460,29 @@ class _MessageLinkBuilder extends MarkdownElementBuilder {
       return Text.rich(
         TextSpan(
           children: [_reference(context, href, label, base, preferredStyle)],
+        ),
+      );
+    }
+    // A Raft message permalink is a reference chip, not a URL.
+    final permalink = permalinkAppearance?.call(href);
+    if (permalink != null) {
+      return Text.rich(
+        TextSpan(
+          children: [
+            raftReferenceSpan(
+              context,
+              label: label,
+              href: href,
+              base: base,
+              linkStyle: preferredStyle,
+              appearance: permalink,
+              onTap:
+                  onLink == null ||
+                      permalink.kind == RaftReferenceKind.permalinkUnavailable
+                  ? null
+                  : () => onLink!(href),
+            ),
+          ],
         ),
       );
     }

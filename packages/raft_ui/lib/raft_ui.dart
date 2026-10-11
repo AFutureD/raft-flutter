@@ -124,6 +124,7 @@ export 'src/quick_reaction_picker.dart';
 
 export 'src/thread_composition.dart';
 export 'src/thread_followers.dart';
+export 'src/quoted_message_card.dart';
 
 export 'src/attachment_tokens.dart';
 

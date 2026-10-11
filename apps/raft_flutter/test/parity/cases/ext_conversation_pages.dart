@@ -531,6 +531,11 @@ _RowStage _rowStage(ParityContext ctx) {
     (_fx(ctx)['rows'] as Map)[ctx.props['row']] as Map,
   );
   final message = Map<String, dynamic>.from(row['message'] as Map);
+  // The React host fills the page origin into permalink fixtures.
+  message['content'] = (message['content'] as String).replaceAll(
+    '__ORIGIN__',
+    'https://parity-fixture.invalid',
+  );
   final width = (ctx.props['boxWidth'] as num?)?.toDouble() ?? 440;
   // No boxHeight: the box is as tall as its row (CSS auto height), height 0.
   final height = (ctx.props['boxHeight'] as num?)?.toDouble() ?? 0;
@@ -742,6 +747,28 @@ final Map<String, ParityCase> extConversationCases = () {
     );
   }
   for (final platform in const ['desktop', 'mobile']) {
+    for (final state in const [
+      'text',
+      'attachment',
+      'archived',
+      'loading',
+      'unavailable',
+    ]) {
+      add(
+        'quote',
+        platform,
+        state,
+        _rowCase(
+          widgets: const [
+            'raft_flutter:QuotedMessagePermalinkPreview',
+            'raft_ui:RaftQuotedMessageCard',
+          ],
+          settle: const Duration(milliseconds: 600),
+        ),
+      );
+    }
+  }
+  for (final platform in const ['desktop', 'mobile']) {
     for (final kind in const ['audio', 'video', 'pdf', 'patch']) {
       add('attach', platform, kind, _rowCase());
     }
@@ -837,12 +864,6 @@ final Map<String, ParityUncovered> extConversationUncovered = () {
     const ['fullscreen'],
     'Flutter has no Mermaid full-screen viewer: RaftMermaidBlock offers the '
         'toolbar (diagram / code / download) only.',
-  );
-  gap(
-    'quote',
-    const ['text', 'attachment', 'archived', 'loading', 'unavailable'],
-    'Flutter has no quoted-message permalink preview: a Raft message link in a '
-        'message body renders as a plain link, without the QuotedMessageCard.',
   );
   return gaps;
 }();

@@ -217,7 +217,7 @@ SECTIONS = [
           d=['components.thread-ext.message.forward-*', '!*.mobile'], p=['components.thread-ext.message.forward-*.mobile']),
         R('3.16', 'Quoted message permalink preview and linked-message fallbacks', 'components/message/QuotedMessagePermalinkPreview.tsx', 'DP',
           d=['components.conversation.quote.desktop.*'], p=['components.conversation.quote.mobile.*'], prio=3,
-          note='Flutter page missing: a Raft message link renders as a plain link, without the QuotedMessageCard.'),
+          note='A Raft message link renders as a Link chip (channel label + msg) with the quoted card (author, time, thread / archived tags, clamped markdown, attachment tag) under the body; skeleton while loading, card dropped + "Unavailable linked message" chip when unreadable.'),
         R('3.17', 'Mermaid diagram card (toolbar, code view, diagram view)', 'components/mermaid/MermaidDiagram.tsx', 'DP',
           d=['components.thread-ext.message.mermaid-*', '!*.mobile'], p=['components.thread-ext.message.mermaid-toolbar.mobile']),
         R('3.18', 'Mermaid full-screen viewer', 'components/mermaid/MermaidDiagramViewer.tsx', 'DP',

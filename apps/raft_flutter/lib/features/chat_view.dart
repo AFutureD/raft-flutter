@@ -16,10 +16,12 @@ import 'message_timeline.dart';
 import 'row_extents.dart';
 
 import '../data/plan_history.dart';
+import '../data/raft_permalink.dart';
 import '../data/thread_search.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
+import '../platform/content_links.dart';
 import '../data/personal_presentation.dart';
 import '../platform/file_selection.dart';
 import 'attachment_view.dart';
@@ -44,6 +46,7 @@ import 'message_agent_presentation.dart';
 import 'agent_metadata_projection.dart';
 import 'agent_avatar_projection.dart';
 import 'profile_preview.dart';
+import 'quoted_message_preview.dart';
 import 'message_task_projection.dart';
 import 'saved_sidebar_entry.dart';
 
@@ -2165,9 +2168,11 @@ class _RaftChatViewState extends State<RaftChatView>
         fontSize: fontSize,
       );
     }
+    final quoted = quotedPermalink(m);
     final body = MessagePresentation(
       controller: w,
       message: m,
+      unavailablePermalink: quoted == null ? null : unavailableQuoted[m.id],
       content: translation.translatedContent,
       taskByNumber: taskProjection.taskByNumber,
       onExternalLink: link,
@@ -2175,27 +2180,101 @@ class _RaftChatViewState extends State<RaftChatView>
       fontSize: fontSize,
       searchHighlight: searchActive == m.id ? boundSearch?.query : null,
     );
-    if (!translation.bilingual) return body;
+    if (!translation.bilingual) return withQuotedPreview(m, quoted, body);
+    return withQuotedPreview(
+      m,
+      quoted,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          body,
+          RaftMessageTranslationOriginal(
+            key: ValueKey('message-translation-bilingual-original-${m.id}'),
+            label: raftText(context, 'Original'),
+            child: MessagePresentation(
+              controller: w,
+              message: m,
+              taskByNumber: taskProjection.taskByNumber,
+              onExternalLink: link,
+              directoryReferences: referenceDirectory.references,
+              fontSize: fontSize,
+              foregroundColor: RaftMessageTranslationOriginal.foreground(
+                context,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Web MessageItem: the first Raft permalink of this server in the text.
+  ({String rawUrl, RaftPermalink parsed})? quotedPermalink(RaftMessage m) {
+    if (m.json['sourceServerId'] != null &&
+        m.json['sourceServerId'] != w.server?.id) {
+      return null;
+    }
+    return extractFirstQuotedPermalink(
+      m.content,
+      hostname: ContentLinks.originFor(w.client.origin).host,
+      serverSlug: w.server?.string('slug'),
+    );
+  }
+
+  /// Raw URL of a row's permalink whose preview could not be read.
+  final Map<String, String> unavailableQuoted = {};
+
+  Widget withQuotedPreview(
+    RaftMessage m,
+    ({String rawUrl, RaftPermalink parsed})? quoted,
+    Widget body,
+  ) {
+    if (quoted == null || unavailableQuoted[m.id] == quoted.rawUrl) return body;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         body,
-        RaftMessageTranslationOriginal(
-          key: ValueKey('message-translation-bilingual-original-${m.id}'),
-          label: raftText(context, 'Original'),
-          child: MessagePresentation(
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: QuotedMessagePermalinkPreview(
+            key: ValueKey('quoted-${m.id}-${quoted.rawUrl}'),
             controller: w,
-            message: m,
-            taskByNumber: taskProjection.taskByNumber,
-            onExternalLink: link,
-            directoryReferences: referenceDirectory.references,
-            fontSize: fontSize,
-            foregroundColor: RaftMessageTranslationOriginal.foreground(context),
+            permalink: quoted.parsed,
+            avatar: (target) => senderAvatar(target, compact: true),
+            subtitle: senderSubtitle,
+            formatTimestamp: quotedTimestamp(),
+            onOpen: (link) => unawaited(openRaftPermalink(w, link)),
+            onUnavailable: () {
+              // Web: the chip reads "Unavailable linked message" and the card
+              // is dropped; the row repaints after the current frame.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && unavailableQuoted[m.id] != quoted.rawUrl) {
+                  setState(() => unavailableQuoted[m.id] = quoted.rawUrl);
+                }
+              });
+            },
           ),
         ),
       ],
     );
+  }
+
+  /// Web `formatShortDateTime` in the account's zone and hour cycle.
+  String Function(DateTime) quotedTimestamp() {
+    final user = w.client.user;
+    return SourceTimeFormatter(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+      preferredTimezone:
+          user?.string('preferredTimezone') ?? user?.string('timezone'),
+      preferredTimeFormat: sourceTimeFormatPreference(
+        user?.string('preferredTimeFormat') ?? user?.string('timeFormat'),
+      ),
+      systemTimeFormat: MediaQuery.alwaysUse24HourFormatOf(context)
+          ? SourceTimeFormat.twentyFourHour
+          : null,
+    ).shortDateTime;
   }
 
   /// Web MessageItem `TranslationIndicator`.
