@@ -39,6 +39,8 @@ const raftChinese = <String, String>{
   "There are {part}": "有 {part}",
   "There are {parts}": "有 {parts}",
   "There are {count} system updates: {parts}": "有 {count} 条系统更新：{parts}",
+  "This message is older than the {days}-day history available on the {plan} plan. Upgrade to view it.":
+      "这条消息早于 {plan} 套餐可查看的 {days} 天历史范围，升级后即可查看。",
   "Message history is limited to {days} days on the {plan} plan.":
       "消息历史在 {plan} 套餐下仅保留 {days} 天。",
   // Settings > Feedback (hands-feedback-react 0.4.1 locale.ts zh-CN).
@@ -2017,6 +2019,7 @@ const raftChinese = <String, String>{
   "Join Server": "加入服务器",
   "Join as Guest": "以 Guest 身份加入",
   "Join channel": "加入频道",
+  "Join #{channel}": "加入 #{channel}",
   "Join channel to comment": "加入频道后才能评论",
   "Join channel to reply": "加入频道以回复",
   "Join selected channels first": "请先加入所选频道",

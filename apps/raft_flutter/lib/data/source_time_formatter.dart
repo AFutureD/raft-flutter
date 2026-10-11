@@ -199,6 +199,20 @@ class SourceTimeFormatter {
     return '$day${_chinese ? ' ' : ', '} ${_clock(date)}'.replaceAll('  ', ' ');
   }
 
+  /// react-intl `formatDate(value, {dateStyle: 'medium', timeStyle: 'short'})`
+  /// in the preferred zone and the chosen hour cycle (ChatPanel's joint
+  /// over-limit grace deadline).
+  String mediumDateTime(Object? value) {
+    final date = _date(value);
+    if (date == null) return value?.toString() ?? '';
+    final wall = wallTime(date);
+    final day = DateFormat.yMMMd(locale).format(wall);
+    // `timeStyle: 'short'` follows the locale's hour cycle, not the account's
+    // 12h / 24h preference (only useTimeFormatter honours that).
+    final time = DateFormat.jm(locale).format(wall);
+    return '$day${_chinese ? ' ' : ', '}$time';
+  }
+
   /// react-intl `formatDate(value, {month: 'short', day: 'numeric'})`.
   String shortDate(Object? value) {
     final date = _date(value);

@@ -33,6 +33,7 @@ import 'system_message_grouping.dart';
 import 'copy_selection_links.dart';
 import 'message_image_export.dart';
 import 'forward_messages_dialog.dart';
+import 'channel_footer_states.dart';
 import 'composer_directory.dart';
 import 'composer_attachment_input.dart';
 import 'composer_attachments_view.dart';
@@ -74,8 +75,13 @@ class RaftChatView extends StatefulWidget {
     this.viewportHandle,
     this.onTask,
     this.onViewBilling,
+    this.onOpenChannelSettings,
   });
   final WorkspaceController controller;
+
+  /// ChatPanel's archived banner "Unarchive" link (Web `setOverflowOpen(true)`):
+  /// opens the channel settings the header gear opens.
+  final VoidCallback? onOpenChannelSettings;
 
   /// HistoryLimitBanner's "View Billing" link (Web `nav.toSettings("billing")`).
   final VoidCallback? onViewBilling;
@@ -1152,8 +1158,9 @@ class _RaftChatViewState extends State<RaftChatView>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1362,8 +1369,9 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1887,8 +1895,9 @@ class _RaftChatViewState extends State<RaftChatView>
       await store.setSaved(message.id, !store.isSaved(message.id));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -2312,6 +2321,77 @@ class _RaftChatViewState extends State<RaftChatView>
     );
   }
 
+  /// Web ChatPanel footer chain (channel_footer_states.dart): the replacement
+  /// for the composer (null = show the composer) and the joint over-limit grace
+  /// banner above it.
+  (Widget?, Widget?) channelFooterWidgets() {
+    final channel = w.channel;
+    if (channel == null) return (null, null);
+    final now = sourceTimeNow();
+    Widget? grace;
+    final ends = channel.archived
+        ? null
+        : jointChannelGraceEndsAt(channel.json, now);
+    if (ends != null) {
+      grace = ChannelGraceBanner(
+        message: raftFormat(
+          context,
+          "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.",
+          {'deadline': timeFormatter.mediumDateTime(ends)},
+        ),
+      );
+    }
+    final guest = w.server?.string('role') == 'guest';
+    final footer = switch (channelFooterKind(w, now)) {
+      null || ChannelFooterKind.composer => null,
+      ChannelFooterKind.archived => ChannelArchivedFooter(
+        message: 'This channel is archived.',
+        linkLabel: w.can('archiveChannels') ? 'Unarchive' : null,
+        onLink: widget.onOpenChannelSettings,
+      ),
+      ChannelFooterKind.jointLocked => ChannelBannerFooter(
+        message:
+            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        linkLabel: 'View Billing',
+        onLink: widget.onViewBilling,
+      ),
+      ChannelFooterKind.guestReadOnly => const ChannelBannerFooter(
+        message:
+            'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
+      ),
+      ChannelFooterKind.join => ChannelJoinFooter(
+        channelName: channel.name,
+        onJoin: w.joinOpenChannel,
+        explanation: guest
+            ? 'Joining adds this channel to your sidebar and follows its updates. It does not enable posting or reactions.'
+            : null,
+      ),
+    };
+    return (footer, grace);
+  }
+
+  /// ChatPanel `contextLoadError` banner above the history state: the jump
+  /// target is missing ("Message not found") or hidden by the plan cutoff.
+  Widget? contextLoadBanner() {
+    final error = w.contextLoadError;
+    if (error == null) return null;
+    if (error == MessageContextLoadError.beyondHistory) {
+      final limit = planHistoryLimit(w.server?.string('plan'));
+      return RaftHistoryLimitBanner(
+        message: raftFormat(
+          context,
+          'This message is older than the {days}-day history available on the {plan} plan. Upgrade to view it.',
+          {'days': limit.days, 'plan': limit.plan},
+        ),
+        linkLabel: raftText(context, 'View Billing'),
+        onLink: widget.onViewBilling ?? () {},
+      );
+    }
+    return RaftHistoryLimitBanner(
+      message: raftText(context, 'Message not found'),
+    );
+  }
+
   /// Web HistoryLimitBanner: the plan message-history cutoff notice with a
   /// billing link, shared by the channel list and the thread panel.
   Widget historyLimitBanner({bool inset = false}) {
@@ -2564,29 +2644,36 @@ class _RaftChatViewState extends State<RaftChatView>
         RaftTimelineSparseFill(
           child: Align(
             alignment: Alignment.topCenter,
-            child: empty
+            child: empty && w.contextLoadError == null
                 ? const SizedBox.shrink()
                 : Padding(
                     padding: recipe.channelHeaderInset,
-                    child: !w.hasMore && w.historyLimited
-                        ? historyLimitBanner()
-                        : RaftThreadHistoryTopState(
-                            hasMore: w.hasMore,
-                            historyLimited: w.historyLimited,
-                            loadingOlder: w.loadingOlder,
-                            loadingOlderLabel: raftText(
-                              context,
-                              'Loading older messages...',
-                            ),
-                            historyLimitedLabel: raftText(
-                              context,
-                              'Older messages are limited by the current plan',
-                            ),
-                            beginningLabel: raftText(
-                              context,
-                              'Beginning of messages',
-                            ),
-                          ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ?contextLoadBanner(),
+                        if (!empty)
+                          !w.hasMore && w.historyLimited
+                              ? historyLimitBanner()
+                              : RaftThreadHistoryTopState(
+                                  hasMore: w.hasMore,
+                                  historyLimited: w.historyLimited,
+                                  loadingOlder: w.loadingOlder,
+                                  loadingOlderLabel: raftText(
+                                    context,
+                                    'Loading older messages...',
+                                  ),
+                                  historyLimitedLabel: raftText(
+                                    context,
+                                    'Older messages are limited by the current plan',
+                                  ),
+                                  beginningLabel: raftText(
+                                    context,
+                                    'Beginning of messages',
+                                  ),
+                                ),
+                      ],
+                    ),
                   ),
           ),
         ),
@@ -2772,6 +2859,9 @@ class _RaftChatViewState extends State<RaftChatView>
         ),
       );
     }
+    final (channelFooter, channelGraceBanner) = widget.thread
+        ? (null, null)
+        : channelFooterWidgets();
     // Rows read breakpoint bands, not the raw window width, so a resize
     // within a band does not rebuild every mounted message.
     return RaftViewportBreakpointScope(
@@ -2803,6 +2893,7 @@ class _RaftChatViewState extends State<RaftChatView>
               ],
             ),
           ),
+          ?channelGraceBanner,
           if (selection.active)
             CallbackShortcuts(
               bindings: {
@@ -2816,6 +2907,8 @@ class _RaftChatViewState extends State<RaftChatView>
               padding: const EdgeInsets.all(12),
               child: Text(raftText(context, 'Channel conversion in progress')),
             )
+          else if (channelFooter != null)
+            channelFooter
           else
             RaftComposer(
               // Web MessageInput drag-and-drop, paste and keyboard images.
