@@ -1941,6 +1941,7 @@ class _RaftChatViewState extends State<RaftChatView>
       fallback: RaftMountedAvatarFallback(
         avatarContext: avatarContext,
         gravatar: source.gravatarUrl != null,
+        initials: message.author,
         identity: switch (kind) {
           RaftAvatarKind.agent => RaftMountedAvatarIdentity.agent,
           RaftAvatarKind.app => RaftMountedAvatarIdentity.app,

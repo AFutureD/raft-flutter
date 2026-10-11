@@ -580,10 +580,12 @@ Widget senderProfileHoverCard({
       provider: author['provider'] as String?,
       workspaceName: author['workspaceName'] as String?,
       actorKind: author['actorKind'] as String?,
+      // AvatarSlot type="app": initials on the soft-signal fill (Brutal).
       avatar: RaftAvatarSlot(
         name: message.author,
         slot: RaftAvatarSlotContext.mentionCard,
         agent: false,
+        server: true,
         content: content,
       ),
       child: child,
