@@ -314,7 +314,7 @@ void main() {
     expect(state.laneCursors['todo'], '30');
   });
 
-  testWidgets('the task list keeps its loaded pages across a task event', (
+  testWidgets('the task list keeps its loaded lane pages across a task event', (
     tester,
   ) async {
     await tester.pumpWidget(page());
@@ -322,27 +322,62 @@ void main() {
     final dynamic state = tester.state(find.byType(ResourceView));
     await tester.tap(find.text('List'));
     await tester.pumpAndSettle();
-    expect(state.rows, hasLength(50));
-    await state.load(append: true);
+    // Source serverTaskPages: the server-wide list walks one cursor per status
+    // lane (a first page each), exactly like the board.
+    expect(lane(state, 'todo'), hasLength(30));
+    expect(lane(state, 'in_progress'), hasLength(5));
+    expect(state.laneCursors['todo'], '30');
+    expect(state.laneCursors['in_progress'], isNull);
+    await state.moreLane('todo');
     await tester.pumpAndSettle();
-    expect(state.rows, hasLength(85));
+    expect(state.rows, hasLength(65));
     final requests = w.taskQueries.length;
     client.emit('task:updated', {
       'channelId': 'c1',
-      'task': {...taskRow(3, 'done'), 'title': 'Listed 3'},
+      'task': {...taskRow(79, 'in_review'), 'title': 'Listed 79'},
     });
     await tester.pump(const Duration(milliseconds: 300));
-    expect(state.rows, hasLength(85));
+    expect(state.rows, hasLength(65));
     expect(
-      state.rows.firstWhere((t) => t['id'] == 't3')['status'],
-      'done',
+      state.rows.firstWhere((t) => t['id'] == 't78')['status'],
+      'todo',
     );
     expect(w.taskQueries, hasLength(requests));
-    // Revalidation spans the loaded list.
+    // Revalidation spans each lane's loaded window.
     await state.load(keep: true);
     await tester.pumpAndSettle();
-    expect(w.taskQueries.last['limit'], 85);
-    expect(state.rows, hasLength(85));
+    final todoQuery = w.taskQueries.lastWhere((q) => q['status'] == 'todo');
+    // t79 moved to In Review: the Todo window is now 59 tasks.
+    expect(todoQuery['limit'], 59);
+    expect(lane(state, 'in_progress'), hasLength(5));
+  });
+
+  testWidgets('each status lane of the list has its own Load more', (
+    tester,
+  ) async {
+    await tester.pumpWidget(page());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('List'));
+    await tester.pumpAndSettle();
+    final dynamic state = tester.state(find.byType(ResourceView));
+    // Only Todo has another page; in-progress ends at five tasks.
+    final more = find.byKey(const ValueKey('task-load-more-todo'));
+    await tester.dragUntilVisible(
+      more,
+      find.byType(CustomScrollView).first,
+      const Offset(0, -300),
+    );
+    expect(more, findsOneWidget);
+    expect(find.byKey(const ValueKey('task-load-more-in_progress')), findsNothing);
+    expect(find.text('Load more'), findsOneWidget);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(lane(state, 'todo'), hasLength(60));
+    expect(
+      w.taskQueries.last,
+      containsPair('cursor', '30'),
+    );
+    expect(w.taskQueries.last['status'], 'todo');
   });
 
   group('task window helpers', () {

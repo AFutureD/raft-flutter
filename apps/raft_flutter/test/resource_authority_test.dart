@@ -443,7 +443,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Board'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Load more Todo'));
+      await tester.tap(find.text('Load more'));
       await tester.pump();
       _role(w, 'guest');
       await tester.pumpAndSettle();
