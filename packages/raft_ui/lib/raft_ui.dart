@@ -208,3 +208,4 @@ export 'src/sidebar_indicators.dart';
 export 'src/mobile_page_header.dart';
 export 'src/product_empty_state.dart';
 export 'src/task_timeline.dart';
+export 'src/app_icon_choices.dart';
