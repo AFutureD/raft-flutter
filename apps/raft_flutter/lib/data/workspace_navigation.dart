@@ -20,6 +20,24 @@ class WorkspaceNavigation {
   List<RaftLocation> get entries => List.unmodifiable(_entries);
   int get index => _index;
 
+  /// A route reads its own location while sharing the accepted history owner.
+  /// Updating presentation never creates a navigation intent.
+  void projectHistory(WorkspaceNavigation source, RaftLocation location) {
+    _authority = source._authority;
+    _location = location;
+    _entries
+      ..clear()
+      ..addAll(source._entries);
+    _index = source.location.uri == location.uri
+        ? source.index
+        : _entries
+              .take(source.index + 1)
+              .toList()
+              .lastIndexWhere((entry) => entry.uri == location.uri);
+    _revision = source._revision;
+    _taskRevision = source._taskRevision;
+  }
+
   /// A new principal/server epoch cannot inherit another epoch's history.
   bool bind(String authority, RaftLocation initial) {
     if (_authority == authority) return false;

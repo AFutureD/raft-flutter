@@ -80,6 +80,7 @@ import '../platform/system_bars.dart';
 import '../platform/keyboard_inset_diagnostics.dart';
 
 part 'workspace_view_sidebar_menus.dart';
+part 'mobile_workspace_route.dart';
 
 class WorkspaceView extends StatefulWidget {
   const WorkspaceView({
@@ -94,8 +95,12 @@ class WorkspaceView extends StatefulWidget {
     this.mobileTabbar,
     this.onChooseServer,
     this.onSwitchServer,
+    this.mobileRoutePage = false,
+    this.mobileHost,
   });
   final WorkspaceController controller;
+  final bool mobileRoutePage;
+  final Object? mobileHost;
   final NativeNotificationService? notifications;
   final NativeSharing? sharing;
   final PersonalPresentationStore? presentation;
@@ -161,12 +166,23 @@ class _WorkspaceViewState extends State<WorkspaceView>
   final mainSelection = ChatSelectionHandle(),
       threadSelection = ChatSelectionHandle();
   WorkspaceController get w => widget.controller;
+  PageStorageBucket mobilePageStorage = PageStorageBucket();
+  String? mobileStorageAuthority;
+  bool? mobileLayout;
+
+  _WorkspaceViewState? get mobileHost =>
+      widget.mobileHost as _WorkspaceViewState?;
   TaskSurfaceSeed? taskSeed;
   void openTaskSurface(
     Map<String, dynamic> row,
     Future<void> Function() reload, {
     bool boardIntent = true,
   }) {
+    final host = mobileHost;
+    if (host != null) {
+      host.openTaskSurface(row, reload, boardIntent: boardIntent);
+      return;
+    }
     final channelId = row['channelId'];
     final itemId = row['isLegacy'] == true ? row['id'] : row['messageId'];
     if (channelId is! String || itemId is! String || itemId.isEmpty) return;
@@ -253,7 +269,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   String get desktopAuthority => '$mobileAuthority|$channelAuthorityRevision';
   int mobileSettingsRevision = 0;
   String get mobileAuthority => jsonEncode([
-    identityHashCode(w),
+    identityHashCode(w.presentationSource ?? w),
     w.client.generation,
     w.client.user?.id,
     w.server?.id,
@@ -443,15 +459,20 @@ class _WorkspaceViewState extends State<WorkspaceView>
     syncMobileAppBadge();
     activityUnread = w.acquireActivityUnread(this)
       ..addListener(activityUnreadChanged);
-    serverUnread = SourceServerUnreadStore(w)..addListener(serverUnreadChanged);
+    serverUnread = mobileHost?.serverUnread ?? SourceServerUnreadStore(w);
+    serverUnread.addListener(serverUnreadChanged);
     serverMenu.addListener(serverMenuChanged);
     w.addListener(syncServerMenu);
     syncServerMenu();
-    workspaceMode = WorkspaceModeStore(w);
-    activityFlag = DesktopActivityFlag(w)..addListener(activityFlagChanged);
-    activityDirectory = MessageReferenceDirectory(w);
-    liveActivities = ChatAgentPresentation(w, activityDirectory)
-      ..addListener(syncLiveActivityShown);
+    workspaceMode = mobileHost?.workspaceMode ?? WorkspaceModeStore(w);
+    activityFlag = mobileHost?.activityFlag ?? DesktopActivityFlag(w);
+    activityFlag.addListener(activityFlagChanged);
+    activityDirectory =
+        mobileHost?.activityDirectory ?? MessageReferenceDirectory(w);
+    liveActivities =
+        mobileHost?.liveActivities ??
+        ChatAgentPresentation(w, activityDirectory);
+    liveActivities.addListener(syncLiveActivityShown);
     syncLiveActivityShown();
     shellIdentities = bindShellIdentities();
     w.addListener(syncChannelSearch);
@@ -467,7 +488,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.addListener(syncSidebarAgents);
     w.addListener(syncBridgeFlag);
     syncSidebarAgents();
-    syncBridgeFlag();
+    if (mobileHost == null) {
+      syncBridgeFlag();
+    } else {
+      bridgeEnabled = mobileHost!.bridgeEnabled;
+      providerEnabled = mobileHost!.providerEnabled;
+      labsEnabled = mobileHost!.labsEnabled;
+    }
   }
 
   late WorkspaceModeStore workspaceMode;
@@ -480,6 +507,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
   bool get gridActive => workspaceMode.active(MediaQuery.sizeOf(context).width);
 
   void syncBridgeFlag() {
+    final host = mobileHost;
+    if (host != null) {
+      bridgeEnabled = host.bridgeEnabled;
+      providerEnabled = host.providerEnabled;
+      labsEnabled = host.labsEnabled;
+      return;
+    }
     final next = jsonEncode([
       w.client.generation,
       w.client.user?.id,
@@ -698,8 +732,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncServerMenu);
     serverMenu.removeListener(serverMenuChanged);
     serverMenu.dispose();
-    serverUnread.dispose();
-    workspaceMode.dispose();
+    serverUnread.removeListener(serverUnreadChanged);
+    if (mobileHost == null) {
+      serverUnread.dispose();
+      workspaceMode.dispose();
+    }
     persistPanels?.cancel();
     w.releaseConversationPresentation(this);
     w.removeListener(syncChannelSearch);
@@ -709,12 +746,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
     HardwareKeyboard.instance.removeHandler(globalShortcut);
     quickSwitcher.dispose();
     sidebarDisclosure.dispose();
-    liveActivities.dispose();
+    liveActivities.removeListener(syncLiveActivityShown);
+    if (mobileHost == null) liveActivities.dispose();
     liveActivityShown.dispose();
     shellIdentities.dispose();
-    activityDirectory.dispose();
+    if (mobileHost == null) activityDirectory.dispose();
     activityFlag.removeListener(activityFlagChanged);
-    activityFlag.dispose();
+    if (mobileHost == null) activityFlag.dispose();
     ownedPresentation.dispose();
     mainSelection.dispose();
     threadSelection.dispose();
@@ -725,6 +763,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   void dismissPanel() {
+    final host = mobileHost;
+    if (host != null) {
+      if (threadSelection.dismiss() || mainSelection.dismiss()) return;
+      host.dismissPanel();
+      return;
+    }
     if (w.location.task != null || w.location.legacyTask != null) {
       if (wide) {
         w.navigation.back();
@@ -832,11 +876,104 @@ class _WorkspaceViewState extends State<WorkspaceView>
     await w.selectChannel(fresh ?? c);
   }
 
+  void updateChannelAuthority() {
+    final currentChannelAuthority = w.channel == null
+        ? null
+        : {
+            'joined': w.channel!.joined,
+            'channelCapabilities': w.channel!.json['channelCapabilities'],
+          };
+    if (lastChannelId == w.channel?.id) {
+      if (channelAuthorityReduced(
+        lastChannelAuthority,
+        currentChannelAuthority,
+      )) {
+        channelAuthorityRevision++;
+      }
+    } else if (lastChannelId != null) {
+      final prior = [
+        ...w.channels,
+        ...w.dms,
+      ].where((c) => c.id == lastChannelId).firstOrNull;
+      if (channelAuthorityReduced(
+        lastChannelAuthority,
+        prior == null
+            ? null
+            : {
+                'joined': prior.joined,
+                'channelCapabilities': prior.json['channelCapabilities'],
+              },
+      )) {
+        channelAuthorityRevision++;
+      }
+    }
+    lastChannelId = w.channel?.id;
+    lastChannelAuthority = currentChannelAuthority;
+  }
+
+  String bindPageAuthority() {
+    final authority = jsonEncode([
+      identityHashCode(w.presentationSource ?? w),
+      w.client.origin,
+      w.client.generation,
+      w.client.user?.id,
+      w.server?.id,
+      w.server?.string('role'),
+      mobileHost?.channelAuthorityRevision ?? channelAuthorityRevision,
+    ]);
+    if (lastAuthority != authority) {
+      if (lastAuthority != null && w.location.channelPage != null) {
+        w.navigation.navigate(
+          w.location.withQuery({'channelPage': null}),
+          kind: RaftNavigationKind.replace,
+        );
+      }
+      retainedSettingsContent = null;
+      conversationInstance = null;
+      accountSettingsWidget = null;
+      accountSettingsInputs = null;
+      lastAuthority = authority;
+      final navigator = Navigator.of(context, rootNavigator: true);
+      for (final observer
+          in navigator.widget.observers.whereType<PrivateRouteGuard>()) {
+        observer.scopeChanged(authority);
+      }
+    }
+    return authority;
+  }
+
   @override
-  Widget build(BuildContext context) => PersonalPresentationScope(
-    store: presentation,
-    child: AnnouncementHost(controller: w, child: buildWorkspace(context)),
-  );
+  Widget build(BuildContext context) {
+    final compact = RaftAdaptiveWorkspace.compactOf(context);
+    if (ModalRoute.isCurrentOf(context) ?? true) mobileLayout = compact;
+    if (!widget.mobileRoutePage && (mobileLayout ?? compact)) {
+      return ListenableBuilder(
+        listenable: Listenable.merge([w, mobileTabbar]),
+        builder: (context, _) {
+          updateChannelAuthority();
+          bindPageAuthority();
+          if (mobileStorageAuthority != desktopAuthority) {
+            mobileStorageAuthority = desktopAuthority;
+            mobilePageStorage = PageStorageBucket();
+          }
+          w.navigation.mobileTabs = mobileTabIds.toSet();
+          return MobileWorkspacePages(
+            storageBucket: mobilePageStorage,
+            key: ValueKey('mobile-pages-$desktopAuthority'),
+            navigation: w.navigation,
+            onBack: dismissPanel,
+            pageBuilder: (context, location) =>
+                _MobileWorkspaceRoute(host: this, location: location),
+          );
+        },
+      );
+    }
+    return PersonalPresentationScope(
+      store: presentation,
+      child: AnnouncementHost(controller: w, child: buildWorkspace(context)),
+    );
+  }
+
   Widget buildWorkspace(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([
       w,
@@ -872,65 +1009,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
         gridEntered = false;
         retainedGridSize = null;
       }
-      final currentChannelAuthority = w.channel == null
-          ? null
-          : {
-              'joined': w.channel!.joined,
-              'channelCapabilities': w.channel!.json['channelCapabilities'],
-            };
-      if (lastChannelId == w.channel?.id) {
-        if (channelAuthorityReduced(
-          lastChannelAuthority,
-          currentChannelAuthority,
-        )) {
-          channelAuthorityRevision++;
-        }
-      } else if (lastChannelId != null) {
-        final prior = [
-          ...w.channels,
-          ...w.dms,
-        ].where((c) => c.id == lastChannelId).firstOrNull;
-        if (channelAuthorityReduced(
-          lastChannelAuthority,
-          prior == null
-              ? null
-              : {
-                  'joined': prior.joined,
-                  'channelCapabilities': prior.json['channelCapabilities'],
-                },
-        )) {
-          channelAuthorityRevision++;
-        }
-      }
-      lastChannelId = w.channel?.id;
-      lastChannelAuthority = currentChannelAuthority;
-      final authority = jsonEncode([
-        identityHashCode(w),
-        w.client.origin,
-        w.client.generation,
-        w.client.user?.id,
-        w.server?.id,
-        w.server?.string('role'),
-        channelAuthorityRevision,
-      ]);
-      if (lastAuthority != authority) {
-        if (lastAuthority != null && w.location.channelPage != null) {
-          w.navigation.navigate(
-            w.location.withQuery({'channelPage': null}),
-            kind: RaftNavigationKind.replace,
-          );
-        }
-        retainedSettingsContent = null;
-        conversationInstance = null;
-        accountSettingsWidget = null;
-        accountSettingsInputs = null;
-        lastAuthority = authority;
-        final navigator = Navigator.of(context);
-        for (final observer
-            in navigator.widget.observers.whereType<PrivateRouteGuard>()) {
-          observer.scopeChanged(authority);
-        }
-      }
+      updateChannelAuthority();
+      final authority = bindPageAuthority();
       if (mobileRouteAuthority != mobileAuthority) {
         mobileRouteAuthority = mobileAuthority;
         mobileSettingsRevision++;
@@ -1265,16 +1345,20 @@ class _WorkspaceViewState extends State<WorkspaceView>
               },
             );
       if (['members', 'agents', 'computers'].contains(route)) {
-        content = DesktopMasterDetail(
-          master: content,
-          directoryWidth: sidebarWidth,
-          onWidthChanged: (value, _) {
-            setState(() => sidebarWidth = value);
-            savePanels(value, threadWidth);
-          },
-          detail:
-              desktopContentDetail() ?? (wide ? const SizedBox.expand() : null),
-        );
+        final detail = desktopContentDetail();
+        content = widget.mobileRoutePage && detail != null
+            ? detail
+            : DesktopMasterDetail(
+                master: content,
+                directoryWidth: sidebarWidth,
+                onWidthChanged: (value, _) {
+                  setState(() => sidebarWidth = value);
+                  savePanels(value, threadWidth);
+                },
+                detail:
+                    desktopContentDetail() ??
+                    (wide ? const SizedBox.expand() : null),
+              );
       }
       if (DesktopNavigationPolicy.forSection(route).contentMasterDetail) {
         content = DesktopMasterDetail(
@@ -1633,7 +1717,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       );
       final body = WorkspaceTaskHost(
         controller: w,
-        seed: taskSeed,
+        seed: taskSeed ?? mobileHost?.taskSeed,
         // RightPanel handles content routes before its workspace guard.
         presented: !gridActive || route == 'search' || route == 'activity',
         leadingExtent: wide
@@ -1647,15 +1731,16 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       : 0)
             : 0,
         childBuilder: (dockWidth, onEscape) =>
-            channelPageHost(workspace(dockWidth, onEscape)),
+            widget.mobileRoutePage &&
+                (location.task != null || location.legacyTask != null)
+            ? const SizedBox.expand()
+            : channelPageHost(
+                widget.mobileRoutePage && location.channelPage != null
+                    ? const SizedBox.expand()
+                    : workspace(dockWidth, onEscape),
+              ),
       );
-      return MobileWorkspacePages(
-        enabled: !wide,
-        key: ValueKey('mobile-pages-$desktopAuthority'),
-        navigation: w.navigation,
-        onBack: dismissPanel,
-        child: body,
-      );
+      return body;
     },
   );
   final threadViewport = ChatViewportHandle();
@@ -1966,6 +2051,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
   /// (composer, a field, nothing focused) while this workspace is the visible
   /// route, and never under an open dialog.
   bool globalShortcut(KeyEvent event) {
+    if (widget.mobileRoutePage && !w.presentationActive ||
+        !widget.mobileRoutePage && RaftAdaptiveWorkspace.compactOf(context)) {
+      return false;
+    }
     final key = event.logicalKey;
     if (event is! KeyDownEvent ||
         key != LogicalKeyboardKey.keyK && key != LogicalKeyboardKey.comma ||
@@ -3513,7 +3602,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
         notifications: widget.notifications,
         onLogout: widget.onLogout,
         mobileRoot: w.location.settingsPath.isEmpty,
-        mobileResetRevision: mobileSettingsRevision,
+        mobileResetRevision:
+            mobileSettingsRevision + (mobileHost?.mobileSettingsRevision ?? 0),
         mobileTabbar: mobileTabbar,
         onMobileLocationChanged: (tab) {
           if (!mounted || scope != mobileAuthority) return;

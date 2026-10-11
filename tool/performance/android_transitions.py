@@ -37,8 +37,7 @@ def main():
     p.add_argument('--semantics', default='platform', choices=['platform', 'on', 'off'])
     p.add_argument('--apk', type=Path, help='reuse a prebuilt isolated test APK instead of building')
     p.add_argument('--define', action='append', default=[], metavar='KEY=VALUE',
-                   help='extra --dart-define for the build, e.g. RAFT_NAV_FADE_SNAPSHOTS=false or '
-                        'RAFT_NAV_DEFER_SEMANTICS=false to measure a change on its own (repeatable)')
+                   help='extra --dart-define for the build (repeatable)')
     p.add_argument('--allow-noisy', action='store_true', help='measure even if host load is high (results labelled NOISY)')
     args = p.parse_args()
     out = args.out.resolve()
