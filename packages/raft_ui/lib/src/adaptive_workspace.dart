@@ -114,6 +114,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
     );
   }
 
+  bool sidebarMounted = false;
   late double sidebarWidth = widget.sidebarWidth.clamp(180, 320);
   late double threadWidth = widget.threadWidth;
 
@@ -143,6 +144,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
     builder: (context, constraints) {
       final width = constraints.maxWidth;
       if (width < RaftAdaptiveWorkspace.desktopMinWidth) {
+        sidebarMounted = false;
         // Keep the content's parent chain stable when a detail hides the bar
         // or the theme switches between in-flow and floating navigation.
         return Column(
@@ -169,6 +171,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
           ],
         );
       }
+      if (widget.sidebarVisible) sidebarMounted = true;
       final t = RaftTokens.of(context);
       final railWidth = RaftLayoutMetrics.railWidth(
         t,
@@ -199,25 +202,41 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
           Row(
             children: [
               SizedBox(width: railWidth, child: widget.rail),
-              if (widget.sidebarVisible)
-                Container(
-                  key: const Key('workspace-sidebar-panel'),
-                  width: sidebarWidth,
-                  decoration: BoxDecoration(
-                    border: Border(
-                      right: BorderSide(
-                        color: t.brutal
-                            ? Colors.black
-                            : t.colors['line-muted']!,
-                        width: t.brutal ? 2 : 1,
+              // Keep the visited sidebar at its fixed panel width while
+              // another route owns the content. Offstage consumes no width
+              // and excludes paint/hit tests/semantics; focus and tickers are
+              // gated separately. Initial hidden routes remain lazy.
+              Offstage(
+                offstage: !widget.sidebarVisible,
+                child: !sidebarMounted
+                    ? const SizedBox.shrink()
+                    : TickerMode(
+                        enabled: widget.sidebarVisible,
+                        child: ExcludeFocus(
+                          excluding: !widget.sidebarVisible,
+                          child: Container(
+                            key: const Key('workspace-sidebar-panel'),
+                            width: sidebarWidth,
+                            decoration: BoxDecoration(
+                              border: Border(
+                                right: BorderSide(
+                                  color: t.brutal
+                                      ? Colors.black
+                                      : t.colors['line-muted']!,
+                                  width: t.brutal ? 2 : 1,
+                                ),
+                              ),
+                            ),
+                            child: Material(
+                              color: t.brutal
+                                  ? t.colors['brutal-cream']
+                                  : t.sidebar,
+                              child: widget.sidebar,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  child: Material(
-                    color: t.brutal ? t.colors['brutal-cream'] : t.sidebar,
-                    child: widget.sidebar,
-                  ),
-                ),
+              ),
               Expanded(
                 child: conversation(
                   split: sideThread,

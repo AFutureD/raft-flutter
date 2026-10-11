@@ -1345,6 +1345,7 @@ class _WorkspaceViewState extends State<WorkspaceView> {
                       ),
                     Expanded(
                       child: RaftAdaptiveWorkspace(
+                        key: ValueKey('adaptive-workspace-$authority'),
                         onPresentationChanged: (main, thread) =>
                             w.setConversationPresentation(
                               this,

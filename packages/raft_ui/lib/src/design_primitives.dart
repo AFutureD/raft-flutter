@@ -1854,6 +1854,26 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
   int ticket = 0;
   Timer? hoverClose;
   bool focusPopup = true;
+  bool presentationActive = true;
+  bool get triggerEnabled => widget.enabled && presentationActive;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active =
+        TickerMode.valuesOf(context).enabled && Visibility.of(context);
+    if (active == presentationActive) return;
+    presentationActive = active;
+    ++ticket;
+    if (!active) {
+      hoverClose?.cancel();
+      // Retained pages suspend their presentation before removing layout.
+      // Never reopen or restore focus into a suspended trigger.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !presentationActive) close(restoreFocus: false);
+      });
+    }
+  }
   RaftMenuController get controller => widget.controller ?? ownedController;
   @override
   void initState() {
@@ -1864,7 +1884,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       if (!mounted) {
         return;
       }
-      if (widget.defaultOpen && widget.enabled) {
+      if (widget.defaultOpen && triggerEnabled) {
         controller.open();
       }
       if (controller.isOpen) {
@@ -1893,9 +1913,9 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       });
     }
     _resizeNodes();
-    if (!widget.enabled) {
+    if (!triggerEnabled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !widget.enabled) {
+        if (mounted && !triggerEnabled) {
           close(restoreFocus: false);
         }
       });
@@ -1907,7 +1927,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       return;
     }
     ticket++;
-    if (!widget.enabled && controller.isOpen) {
+    if (!triggerEnabled && controller.isOpen) {
       controller.close();
       return;
     }
@@ -1917,7 +1937,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       final captured = ticket, requestFocus = focusPopup;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted &&
-            widget.enabled &&
+            triggerEnabled &&
             captured == ticket &&
             controller.isOpen &&
             requestFocus) {
@@ -1933,6 +1953,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
     hoverClose?.cancel();
     controller.close();
     if (restoreFocus &&
+        triggerEnabled &&
         mounted &&
         (ModalRoute.of(context)?.isCurrent ?? true)) {
       trigger.requestFocus();
@@ -1940,7 +1961,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
   }
 
   void show({int? edge}) {
-    if (!widget.enabled) {
+    if (!triggerEnabled) {
       return;
     }
     focusPopup =
@@ -1952,7 +1973,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       final captured = ticket;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted &&
-            widget.enabled &&
+            triggerEnabled &&
             captured == ticket &&
             controller.isOpen) {
           _edge(edge);
@@ -1963,7 +1984,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
 
   void hoverEnter() {
     hoverClose?.cancel();
-    if (!widget.openOnHover || !widget.enabled || controller.isOpen) return;
+    if (!widget.openOnHover || !triggerEnabled || controller.isOpen) return;
     // Source Help opens immediately on hover without moving keyboard focus.
     focusPopup = false;
     controller.open();
@@ -1982,7 +2003,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
         i,
   ];
   void _edge(int delta) {
-    if (!widget.enabled) {
+    if (!triggerEnabled) {
       return;
     }
     if (enabled.isEmpty) {
@@ -1993,7 +2014,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
   }
 
   void move(int delta) {
-    if (!widget.enabled) {
+    if (!triggerEnabled) {
       return;
     }
     final choices = enabled;
@@ -2010,7 +2031,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
 
   void activateEntry(int index) {
     if (!mounted ||
-        !widget.enabled ||
+        !triggerEnabled ||
         !controller.isOpen ||
         index >= widget.entries.length) {
       return;
@@ -2046,7 +2067,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
       viewportHeight: MediaQuery.sizeOf(context).height,
     );
     void toggle() {
-      if (!widget.enabled) return;
+      if (!triggerEnabled) return;
       if (controller.isOpen) {
         close();
       } else {
@@ -2061,7 +2082,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
     final movement = Scrollable.maybeOf(context)?.position;
     return OverlayPortal(
       controller: portal,
-      overlayChildBuilder: (context) => !widget.enabled
+      overlayChildBuilder: (context) => !triggerEnabled
           ? const SizedBox.shrink()
           : Stack(
               children: [
@@ -2175,7 +2196,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
             link: anchor,
             child: CallbackShortcuts(
               bindings: {
-                if (widget.enabled) ...{
+                if (triggerEnabled) ...{
                   const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
                       show(edge: 1),
                   const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
@@ -2189,7 +2210,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                   widget.triggerBuilder?.call(
                     context,
                     trigger,
-                    widget.enabled ? toggle : null,
+                    triggerEnabled ? toggle : null,
                   ) ??
                   RaftControl(
                     focusNode: trigger,
@@ -2206,7 +2227,7 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                         widget.triggerStyle == RaftDropdownTriggerStyle.picker
                         ? RaftPickerTriggerRecipe(t, selected: widget.selected)
                         : null,
-                    onPressed: !widget.enabled
+                    onPressed: !triggerEnabled
                         ? null
                         : () {
                             if (controller.isOpen) {

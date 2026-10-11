@@ -427,6 +427,7 @@ class _WorkspacePreviewState extends State<_WorkspacePreview> {
       );
     }
     return RaftAdaptiveWorkspace(
+      sidebarVisible: selected == 'chat',
       sidebar: ListView(
         children: [
           const Material(
