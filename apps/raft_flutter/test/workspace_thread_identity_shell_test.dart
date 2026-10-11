@@ -102,6 +102,15 @@ void main() {
               await Future<void>.delayed(const Duration(milliseconds: 10));
             }
           });
+          // The resolved parent reaches the header within a few frames even
+          // on a loaded host; from then on it must hold still.
+          for (var settle = 0;
+              settle < 30 &&
+                  tester.widget<RaftThreadHeader>(headerFinder).parentLabel ==
+                      null;
+              ++settle) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
           for (var frame = 0; frame < 4; ++frame) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(w.threadParentLoading, isTrue);
