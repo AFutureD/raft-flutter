@@ -2478,7 +2478,10 @@ class _RaftChatViewState extends State<RaftChatView>
     final message = list[index];
     final measured = measuredRows[message.id];
     if (measured != null && (measured.$1 - width).abs() < 1) return measured.$2;
-    return raftRowExtents.guess(message.id, message.metadata, width);
+    // Projected model getters create a fresh Map view on each access. Reuse
+    // the canonical row metadata for width-independent extent preparation.
+    final metadata = sources[message]?.json ?? message.metadata;
+    return raftRowExtents.guess(message.id, metadata, width);
   }
 
   Widget tile(RaftMessage m, {bool parent = false, bool captureFocus = true}) {
