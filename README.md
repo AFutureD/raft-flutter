@@ -1,86 +1,219 @@
 # Raft Flutter
 
-Linux 和 Android 优先、已加入 macOS 和 iOS 宿主的 Raft Flutter 客户端，参照 Web 1.17.5 / `26f77ef`。当前同源码两平台完整功能流程已通过，移动布局和共享设计系统的视觉验收仍未完成，最终 Android APK 和 Linux 压缩包已构建，并通过实际安装／移目录运行及浏览器下载校验。Android 后台通知的冷进程投递、周期去重、系统点击及关闭/注销已实测通过；iOS 仅源码接入，编译和运行待 Mac／设备验证。
+A native Flutter client for [Raft](https://github.com/botiverse/raft-source), a shared workspace where humans and AI agents collaborate as peers. It talks to a Raft server over its HTTP and Socket.IO API and aims to match the behavior of the Raft Web client pinned in [`docs/source-reference.json`](docs/source-reference.json) (Web 1.17.5, raft-source `26f77ef`). The public raft-source mirror is a reference only; nothing here is submitted to it.
 
-- [架构与阶段](docs/architecture.md)
-- [Web 来源版本](docs/source-reference.json)
-- [功能对齐清单](docs/feature-parity.csv)
-- [逐组件验收](docs/widget-acceptance.md)
-- [本地服务对照](docs/local-test-stack.md)
-- [macOS 构建、权限与验收](docs/macos-evidence.md)
-- [Android／iOS 后台收件箱兜底及验证边界](docs/background-inbox.md)
+Status in one paragraph: the Linux and Android full-app functional flows passed on the same source (see [release evidence](docs/release-evidence.md) and [current acceptance](docs/current-acceptance.md)); macOS builds and starts but has little real-world acceptance; iOS is source-only and has never been compiled or run; Windows is not set up. Pixel-level visual parity with the Web client is **not** accepted yet (see [Page coverage and alignment](#page-coverage-and-alignment)). Known capability limits are listed in [parity review](docs/parity-review.md).
 
-工程结构：`apps/raft_flutter`（产品）、`packages/raft_ui`（主题/组件）、`packages/raft_client`（协议）、`packages/raft_sync`（同步），原生存储/文件选择适配位于产品的 `lib/platform`。组件及主题生成物应有明确来源版本；公共源码镜像只作为参照。
+## Supported platforms
 
+| Platform | Status | Minimum OS / architecture | Build command (run in `apps/raft_flutter`) |
+| --- | --- | --- | --- |
+| Android | Verified: full-app flows on a real build and an emulator, background notification fallback, released-APK smoke test | `minSdk` = max(Flutter default, 24), `compileSdk`/`targetSdk` 37; ARM64 for devices (`tool/android-install` refuses other ABIs); x86_64 emulator used for functional checks only | `../../tool/flutter build apk --release` |
+| Linux | Verified: full-app flows on X11/GTK, relocated-archive smoke test | x86_64 only; the pinned media runtime (`tool/prepare-media-linux`) supports Ubuntu amd64 only. Wayland and other distributions are not verified | `../../tool/flutter build linux --release` after `tool/prepare-media-linux` |
+| macOS | Builds, signs and starts to the login screen; login, Keychain, upload, notifications and media are configured but not accepted on a Mac ([evidence](docs/macos-evidence.md)) | macOS 12+, Apple Silicon (ARM64) only; x86_64 is excluded in the Xcode project and Pods | `../../tool/flutter build macos --release` |
+| iOS | **Source only.** The host in `apps/raft_flutter/ios` exists (background fetch, Keychain, UIScene) but has not been compiled or run; no `Podfile` is checked in, no iOS media_kit libs are in `pubspec.yaml`, signing is unset | Xcode project deployment target 15.0 (`ios/Flutter/AppFrameworkInfo.plist` says 14.0 and `docs/background-inbox.md` says 14+; the project setting is the effective one) | `../../tool/flutter build ios` on a Mac with Xcode (untested) |
+| Windows | **Not supported.** There is no `apps/raft_flutter/windows` host and `pubspec.yaml` describes the app as "Linux, Android and macOS". Nothing has been built or verified | - | - |
 
-工具链固定 Flutter 3.47.6 / Dart 3.13.5，通过 `tool/flutter` 调用。登录会话使用系统安全存储，工作区缓存使用 Drift SQLite；私有验收资料放于忽略的 `.local/`。
+Platform boundaries worth knowing:
 
-已在 Linux 和 Android 验证：登录和安全会话恢复、持久化草稿、刷新丢响应重试、幂等发送、中日文编辑、线程、断线消息回放、跨客户端未读状态、反应、任务创建/认领/状态/历史、搜索与收藏跳转、三种主题及退出。`packages/raft_ui` 提供独立 SDK Widget Preview；平台测试不由浏览器预览替代。
+- Android and iOS refresh unread Activity periodically (WorkManager / BGAppRefresh) and show local notifications. FCM, APNs and UnifiedPush are not registered, and the server's desktop message push is not wired up. See [background inbox](docs/background-inbox.md).
+- In-app PDF preview: Android uses `PdfRenderer`, Linux uses the system `poppler-utils`; macOS falls back to download. Native sharing is Android only.
+- Independent native workspace windows are not implemented.
+- Widget Preview never substitutes for platform tests (accessibility, IME, lifecycle, notifications).
 
-开发检查：`tool/flutter analyze --no-pub`，`tool/flutter test packages/raft_client/test packages/raft_sync/test packages/raft_ui/test --no-pub`。原生缓存测试及集成测试在 `apps/raft_flutter` 目录运行 `../../tool/flutter`。
+## Project structure
 
-新检出或工作目录先在仓库根目录运行 `tool/flutter pub get --enforce-lockfile`。Android 原生绑定生成工具是独立包，全工程静态分析前还需初始化其依赖：
+| Path | What it is |
+| --- | --- |
+| `apps/raft_flutter` | The product app: `lib/` (features, `lib/platform` native adapters such as secure session storage, file picking, notifications, sharing), host folders `android/ ios/ linux/ macos/`, `test/` (about 300 widget/unit test files, plus `test/parity/` for the visual parity provider), `integration_test/` (native flows, `perf_lab_test.dart`), `test_driver/` (`flutter drive` drivers for the perf lab), `tool/bindings_generator` (Android Performance Hint FFI bindings, separate package), `third_party/android` (NDK headers) |
+| `packages/raft_ui` | Design system: generated tokens (`lib/src/tokens/*.g.dart`), component recipes (`lib/src/recipes/`), components and standalone SDK Widget Previews. No API, database or OS-service dependencies |
+| `packages/raft_client` | Pure Dart client: human auth, HTTP, Socket.IO, secure-storage interface, typed errors |
+| `packages/raft_sync` | Sync reducers (seq/epoch/dedupe/gap repair, read state) ported from the Web client |
+| `packages/flutter_chat_ui` | Vendored chat UI package (see its `UPSTREAM.json`) |
+| `tool/` | Pinned-SDK wrapper `tool/flutter`, gates (`check-project`, `ds-audit`, `source-hash`), parity (`parity`, `parity-ext/`, `alignment-audit.py`), performance (`performance/`), packaging (`prepare-media-linux`, `build-deliverables`, `android-install`), generators (`gen-tokens`, `gen-glyphs`, `recipes/`, `gen-macos-icon`), local server stack (`raft-stack`), `tests/` (Python host tests) |
+| `docs/` | Architecture, evidence and audit documents. Start with [architecture](docs/architecture.md); the rest are indexed by topic below |
+| `.github/workflows/performance.yml` | Message-performance CI (Python guards on hosted runners; Linux profile run on a self-hosted runner) |
+
+Generated, do not edit by hand: `packages/raft_ui/lib/src/tokens/*.g.dart` (`tool/gen-tokens`, from vendored raft-ui 0.5.27 CSS, see [design tokens](docs/design-tokens.md)), `packages/raft_ui/lib/src/recipes/*.g.dart` (`tool/recipes/run`, see [component recipes](docs/component-recipes.md)), glyph geometry (`tool/gen-glyphs`), Android ADPF bindings. Private acceptance data lives in the git-ignored `.local/`; `build/` is also ignored.
+
+Design-system rules: tokens and recipes are shared, sizes come from them rather than literals in app code ([design dimensions](docs/design-dimensions.md), [component acceptance](docs/widget-acceptance.md)). `tool/ds-audit` enforces this on `apps/raft_flutter/lib`. Persistence: the login session uses the system secure store; the workspace cache is Drift SQLite.
+
+More docs: [feature parity matrix](docs/feature-parity.csv) · [local server stack](docs/local-test-stack.md) · [mobile navigation](docs/mobile-navigation.md) · [attachments](docs/attachment-evidence.md) · [sharing](docs/sharing-evidence.md) · [notifications and content links](docs/notification-content-evidence.md) · [Linux media runtime](docs/linux-media-runtime.md) · [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Development workflow
+
+### Prerequisites
+
+- Flutter **3.47.6** / Dart 3.13.5, pinned in `.fvmrc`. Always call Flutter through `tool/flutter`: it looks for `.fvm/flutter_sdk` or `~/flutter-sdks/versions/3.47.6`, honours `RAFT_FLUTTER_BIN`, and refuses any other SDK version. Install with `fvm install && fvm use 3.47.6`.
+- Python 3 for the `tool/` scripts. Node 24 / pnpm only for the parity and generator tools that read a raft-source checkout.
+- Per platform: Android SDK (+ NDK only to regenerate ADPF bindings), the Flutter Linux desktop toolchain, Xcode and CocoaPods for macOS and iOS.
+
+### Set up
 
 ```sh
+tool/flutter pub get --enforce-lockfile        # repository root; Dart pub workspace
 (cd apps/raft_flutter/tool/bindings_generator && ../../../../tool/flutter pub get --enforce-lockfile)
 ```
 
-`tool/check-project` 会自动执行这一步并记录结果；初始化依赖不需要 Android NDK。重新生成绑定时的 NDK 配置见 [Android Performance Hint 接入](docs/android-performance-hint.md)。
+The second command is a separate package that whole-project analysis needs; it needs no NDK (regenerating bindings does, see [Android Performance Hint](docs/android-performance-hint.md)). `tool/check-project` runs it for you.
 
-附件、分享和通知的独立 OS 证据见 [附件](docs/attachment-evidence.md)、[分享](docs/sharing-evidence.md)、[通知与内容链接](docs/notification-content-evidence.md)。它们不替代主应用完整链路。历史功能基线覆盖线程、文档/PDF/音频/视频、操作卡、资源控制、管理/联合频道、侧栏、中文 Locale、主题与安全退出；后续源码需重跑。Android 后台兜底的独立原生证据见 [后台通知](docs/background-inbox.md)。Linux 服务端 desktop 消息 push 和 FCM/APNs 注册不由这些结果证明。
-
-Linux 首次构建先运行 `tool/prepare-media-linux`，它只下载并展开固定 media 运行库到被忽略的本地目录，不修改主机或 Pub 缓存。PDF 应用内预览需要系统提供 `poppler-utils`；缺少时显示下载回退。具体版本、打包及兼容边界见 [Linux media 运行时](docs/linux-media-runtime.md)。
-
-macOS 在安装 Xcode 与 CocoaPods 的本机运行以下命令；最低系统版本为 macOS 12，仅构建 Apple Silicon（ARM64）版本。构建产物为 `Raft.app`，后台打开方式及实际平台覆盖见 [macOS 验收记录](docs/macos-evidence.md)。
+### Run the app
 
 ```sh
-fvm install
-fvm use 3.47.6
 cd apps/raft_flutter
-fvm flutter pub get
-fvm flutter build macos --release
-open -g build/macos/Build/Products/Release/Raft.app
+../../tool/flutter run -d linux     # Linux; run tool/prepare-media-linux first
+../../tool/flutter run -d macos     # macOS (Apple Silicon)
+../../tool/flutter run -d <serial>  # Android emulator (see the install warning below)
 ```
 
-完整工程检查用 `tool/check-project`。原生验收分别用 `tool/native-linux` 和 `tool/native-test emulator-5580`，需要自行建立隔离本地服务并在 `.local/test-user.json` 配置私有验收身份，不能把登录资料放进源码、资源或编译参数。两平台当前源码验收通过后，`tool/build-deliverables` 串行生成 Linux bundle 和 Android APK，并附 SHA256。APK 使用本地验收签名，尚未接入商店发布签名。
+The app talks to `http://localhost:13041` by default; pass `--dart-define=RAFT_ORIGIN=https://raft.example.com` to change it, or edit the origin on the login screen (see [Self-deploy](#self-deploy)). For a local server see [local server stack](docs/local-test-stack.md): `tool/raft-stack start|stop|status|ports` wraps the raft-source `raftdev` launcher and needs a git-ignored `.local/stack.json`.
 
-当前能力边界见 [对齐审查](docs/parity-review.md)：独立原生工作区多窗口尚未实现，超出原生 Mermaid 解析器的语法显示源码回退；外部 OAuth、Slack、Stripe、默认关闭的 conversion worker 与完整 Computer/Cindy 流程尚无配置后真实执行证明。
+Never use `flutter run/drive/test/install` on a device that holds the real (formal) app; Flutter may uninstall and reinstall it. Use `tool/android-install` (see [AGENTS.md](AGENTS.md) and [Android installation](docs/android-installation.md)).
 
-## 已验证的源码与当前边界
+`packages/raft_ui` components each ship an SDK Widget Preview for reviewing themes and states (`brutal-light`, `elegant-light`, `elegant-dark`).
 
-| 源码检查点 | 工程检查 | Linux 完整主应用 | Android 完整主应用 |
-| --- | --- | --- | --- |
-| 历史 `6ab79f33` | 353 Dart、29 host、分析器通过 | 通过；53 检查点，03:11:25 run | 通过；54 检查点，03:02:43 run |
-| 历史 `0ea636e6` | 不由旧平台结果推断新版工程状态 | 通过；53 检查点，07:53:47 run | 失败；08:00:19 run，8 检查点后旧移动导航定位失效 |
-| 移动导航 `518ad5e4` | 533 Dart、29 host、分析器通过 | 未运行 | 失败；08:56:29 run，44 检查点后 Mermaid 窄屏工具栏溢出及退出选择定位歧义 |
-| 后续修正 `1b8906fa` | 541 Dart、29 host、分析器通过 | 未运行 | 未运行 |
-| 共享布局 `348911c8` | 548 Dart、29 host、分析器通过 | 未运行 | 已开始后中断；09:28:15 run，Home/详情/历史通过，Search 全局等待停滞 |
-| 历史修正 `e1ac2c23` | 549 Dart、29 host、分析器通过 | 未运行 | 失败；09:41:21 run，三主题 Home 与 Search 目标可见通过，随后显示源码后的复制点击失败 |
-| 分组基础 `2b85d1b4` | 562 Dart、29 host、分析器通过 | 未运行 | 失败；10:01:22 run，分组组件挂载后，Search 部分遮挡的消息被接受，真实操作点击失败 |
-| 可见范围修正 `d6cf1b57` | 563 Dart、33 host、分析器通过 | 未运行 | 失败；10:13:43 run，Search/Save 真实点击与 Copy 精确剪贴板通过；Expand 原本可点击，辅助滚动后移出命中区域 |
-| 富文本点击辅助修正 `4df9efd8` | 563 Dart、33 host、分析器通过 | 未运行 | 失败；10:24:11 run，25 个检查点后切回聊天时 pumpAndSettle 超时；运行时采样确认持续重排 |
-| 新导航、通知、Feedback 与初始布局 `ad337ead` | 696 Dart、33 host、分析器通过 | 未运行 | 失败；11:36:09 run，60 个检查点通过后，侧栏标题测试仍按旧大小写定位；保留此失败后修正测试 |
-| 侧栏定位与独立复验 `7f39a5f4` | 696 Dart、33 host、分析器通过 | 未运行 | 独立侧栏实际操作、API 结果与恢复设置通过；完整流程未开始，此通过不替代整轮验收 |
-| 共享会话规则与桌面铃铛复验 `1ca110f6` | 709 Dart、33 host、分析器通过 | 未运行 | 通过；12:06:34 run，66 个完整流程检查点与实际退出登录通过，原始证据已归档 |
-| 共享规则与完整原生复验 `3ac80c8f` | 709 Dart、33 host、分析器通过 | 通过；12:13:48 run，56 检查点 | 通过；12:20:19 run，66 检查点；两平台实际退出登录与会话清除通过 |
-| 发布配置显式化 `1844d4af` | 709 Dart、33 host、分析器通过 | 已开始后因补齐会话备份策略而中断；无整轮通过 | 未运行 |
-| 最终备份策略 `14fd1064` | 709 Dart、33 host、分析器通过；实际 APK 发布构建预检通过 | 通过；12:44:12 run，56 检查点，实际退出及会话清除 | 失败；12:50:22 run，首轮 53 检查点后 HTTP 响应解析异常；12:55:15 同源第二轮 42 检查点后 PDF 真实点击未命中 |
-| 最终附件命中辅助与完整复验 `b98e0a30` | 709 Dart、33 host、分析器通过 | 通过；13:10:10 run，56 检查点，实际退出及会话清除 | 通过；13:04:28 run，66 检查点，真实 PDF 点击与原生解码、管理操作、退出清空会话通过 |
+### Test and analyze
 
-以上时间均为 2026-10-08 UTC；完整源码哈希分别为 `6ab79f33a7f39f98523dadd38dfc1430fd2d7f8e75d10736d0c80050bd1c5701`、`0ea636e658e0d8042b6342e9e50d9ba504cc87492f1e51ad2e9b1a4f99b7baed`、`518ad5e4ca0686df5eb7805fcbde752a4d774fab9bd627a4dbae44e9f36947e3`、`1b8906fa579960daa933c0c18dc18cda7ecc3d648834e83967e2269840040d95`、`348911c8c934e37a7d5dcc39d5a8812115400a4e6aae9866c6a6de5fccbca916`、`e1ac2c23eff8c980e405b01ed92beaed54dd9e69e953aeb9429d5860fe216c5d`、`2b85d1b4a9ee271ab23eb582add5c8277d1e22821d6a37ddf645a3833413e9a6`、`d6cf1b57d689b28d4c2d88adb524ce727771ffd4aab79e88f217c822981d2a12`、`4df9efd8a0374ecaa877fe925c22377ec0ba273835d122a410546de93f96f032`、`ad337eade5901c79658179a06863646ea5f7d3b1a76398eb51878151c9e20b87`、`7f39a5f4f8b4d4265da6fb00a128dcb880e05f432b2803a11399b7bbdae64b40`、`1ca110f694349b8a540d073a810f8e77fdfdce34ce336c28b4f23f1082229877`、`3ac80c8fe00d6dd9cf1e5f58407a8c526cfccec9a28790fa3bbce5aa35a416d6`、`1844d4afe53cb45c150cca1e608adc313e83104f577520435d83500bbe79d884`、`14fd1064f16f726a7835c33e9a22b2239407fb422ab80b698777215bc4f7b72e`、`b98e0a301b74980654be7a5268f2ada2202541b2c2ba026b9a8b3f575a7fc079`。6ab 基线归档于 `.local/functional-baseline-6ab`，0ea Linux 归档于 `.local/functional-phase4-0ea636e658e0`。源码和 runId 决定证据适用范围；旧通过不能计为当前修改通过。
+```sh
+tool/flutter analyze --no-pub
+tool/flutter test packages/raft_client/test packages/raft_sync/test packages/raft_ui/test --no-pub
+cd apps/raft_flutter && ../../tool/flutter test test/<file>_test.dart --no-pub   # app tests
+python3 -m unittest discover -s tool/tests -p 'test_*.py'                         # Python host tests
+tool/ds-audit --check                                                            # design-system drift
+```
 
-Search、Account、Appearance 和移动四项导航已有后续实现与定向回归。依据用户要求继续完善共享尺寸、响应式与布局约束；后续 348、e1ac、2b85、d6cf、4df9 与 ad337 已分别冻结并实际运行 Android，均未完成通过两平台流程。3ac 已完成同源码 Linux 56 与 Android 66 个原生功能检查点，证据已保留。发布构建随后要求明确三个 loopback 域名的 includeSubdomains=false；该默认值显式化形成 1844 源码，709 Dart、33 host 与全工程分析器已通过；Linux 复验开始后因还需明确会话备份策略而中断，Android 尚未运行。最终会话备份策略已冻结为 14fd 源码，配置为排除云端与设备转移备份中的本地状态；实际 APK 发布构建预检及 709 Dart、33 host、全工程分析器已通过；当前 Linux 56 个完整检查点已通过，Android 首轮在 53 个检查点后出现 HTTP 响应解析异常，已记录失败；同源码第二轮又在 42 个检查点后 PDF 真实点击未命中；随后仅修正附件测试的滚动定位与命中就绪辅助；b98 工程检查及同源码 Linux 56、Android 66 个完整检查点已通过；最终 APK／Linux 包构建、实际安装／移目录基本交互、媒体解码及发布报告浏览器下载 SHA 校验已通过。
+Native flows: `tool/native-linux` (runs `integration_test/workspace_test.dart` on Linux) and `tool/native-test emulator-5580` (Android). Both need an isolated local server and a private fixture identity in the ignored `.local/test-user.json`; never put login data in source, assets or build arguments.
 
-视觉验收未完成。旧 `0e049d15` 的 30 组实际失败配对保留为历史；`518ad5e4`、`348911c8`、`e1ac2c23`、`2b85d1b4` 与 `d6cf1b57` 的三主题 Android Home 结构对照也均未通过。e1ac 背景色与按钮居中已有实测改进，2b85 已显示共享分组计数、折叠与排序操作；触摸适配后的布局、导航分组间距及原版提醒中心仍未完整验收。ad337 的三主题 Home 与真实系统通知弹窗已发布为六张原始截图；实际打开、320×288 尺寸及关闭操作通过，但没有判定像素通过。固定清单为 523 项，另有三组移动诊断。移动诊断使用原 Web 和原生各自真实的 412×915 图，不裁剪或缩放，但公开参考数据与原生工作区数据、安全区不同，不能充当同数据逐像素验收。原生根页面操作通过不代表字体、布局、颜色或全部状态与 Web 一致。
+`tool/ds-audit` is an AST-based scan of `apps/raft_flutter/lib` for Material widgets, literal dimensions, fonts, radii and colors. It compares per-file and per-category counts with the checked-in `tool/ds-audit-baseline.json`; `--check` fails if any count grew, `--update-baseline` lowers the baseline, and `// ds-allow: <reason>` marks reviewed platform-only code. Rules: [design-system migration](docs/ds-migration.md).
 
-设计系统使用共享 tokens 与组件 recipes。尺寸来源、画面尺寸、原生触摸范围、安全区、窄屏换行与容器约束须统一表达并实际验证；新增页面复用这些规则。详见 [组件验收](docs/widget-acceptance.md)。
+### Merge gate: `tool/check-project`
 
-共享尺寸来源及尚未绑定的布局规则见 [尺寸合同](docs/design-dimensions.md)；详细源文件、行号、摘录与 SHA 在同名 JSON 中。该审计快照不代表像素或原生验收通过。
+`python3 tool/check-project` is the whole-project gate. It records the `tool/source-hash` of the tree, then runs (1) the Python host tests in `tool/tests`, (2) `pub get --enforce-lockfile` for the bindings generator, (3) all Dart tests of `apps/raft_flutter` plus `raft_client`, `raft_sync`, `raft_ui`, and (4) `flutter analyze --no-pub`. It writes logs and `.local/engineering-run.json` and fails if the source changed while it ran. It is slow; it does **not** run `tool/ds-audit`, so run that separately.
 
-当前完整输入为 b98：仅附件测试使用支持的 Scrollable.ensureVisible 将真实标题居中，并等待有限时间内真实命中检查通过，再执行原有真实点击；PDF、音频、视频断言未改。工程与同源码 Linux／Android 整轮、最终制品运行与下载校验均已通过；这不证明 Search 自动定位或已解决此前 HTTP 异常。
+### Branches and batches
 
-## Final released artifact scope
+Work on one branch per task, ideally in its own `git worktree`. While iterating run only the tests, `analyze` and `ds-audit` relevant to the change. A batch of reviewed branches is merged into an integration branch, `tool/check-project` runs once for the batch, and only then does it go to the main line. Conventions for contributors and agents (UI rules, data lifecycle, performance bar) are in [AGENTS.md](AGENTS.md).
 
-The delivered b98 APK and Linux archive match the manifest bound to product commit `032f9f0442cf972c3e566c57ee9a19e8f361e2f3`. The real browser downloaded both archives and confirmed their sizes and SHA-256 against the independently reviewed manifest; all 221 report images decoded. See [released artifact evidence](docs/release-evidence.md) for exact hashes and probe boundaries.
+## Page coverage and alignment
 
-The released APK smoke used an owned 16KiB Android emulator and synthetic input without authentication. Linux basic GUI/CJK interaction used a relocated archive, the build host’s isolated GTK/X11 session and an initialized empty SecretService keyring. Its live text readback passed, while the separately attempted AT-SPI Component.GetExtents method still timed out; screenshot-measured pointer input does not certify that coordinate method. Bundled libmpv PCM decoding passed separately. These checks do not establish store signing, physical devices, authenticated release workflows, Wayland or arbitrary Linux distributions. Pixel-level parity remains unaccepted, and the earlier HTTP parser failure has no confirmed cause.
+Visual parity is measured against the real Web client, rendered from a raft-source checkout, using raft-source's own visual-testing tool. Flutter plugs in as a provider and the official CLI does the diff and scoring.
+
+Requirements (the scripts have maintainer-machine defaults that you must override): a read-only raft-source checkout (`PARITY_RAFT_SOURCE`), a text file listing absolute paths of Node 24 and pnpm binaries (`PARITY_TOOLCHAIN_PATHS`; `tool/raft-stack` can create one), and for publishing a reports directory (`PARITY_REPORTS_ROOT`) and base URL (`PARITY_BASE_URL`). The raft-source checkout is never edited.
+
+### Official suite: `tool/parity`
+
+```sh
+tool/parity run [--cases <id|glob>[,...]] [--refresh-react] [--shards N]
+tool/parity summary
+tool/parity publish [--no-verify]
+```
+
+`run` captures the Web side (cached unless `--refresh-react`), captures Flutter through `apps/raft_flutter/test/parity`, runs the official diff and site generation, and writes everything to `build/parity/` (`PARITY_OUT`), including `summary.json`. It covers the official 99 phone cases. Details and history: [parity](docs/parity.md).
+
+### Extension suite: `tool/parity-ext/run`
+
+The extension suite adds cases for pages the official set lacks (ids `components.<area>.*`, several hundred brutal-light cases).
+
+```sh
+export PARITY_EXT_WEB_PORT=4xxx                       # unique per run; default 4396
+tool/parity-ext/run run --cases 'components.<area>.*' # comma list / globs; --refresh-react to recapture
+tool/parity-ext/run summary
+```
+
+- Cases are generated on every run by the builders listed in `tool/parity-ext/builders.txt` into `build/parity-ext/cases.json` (never committed); Flutter-side cases live in `apps/raft_flutter/test/parity/cases/`. Adding or fixing a surface: [extension quickstart](docs/parity-ext-quickstart.md).
+- Theme sampling: `brutal-light` (the default theme) runs every case; `elegant-light` and `elegant-dark` run one or two cases per surface (rule in `tool/parity-ext/sampling.py`). `--cases` only sees the sampled set; `PARITY_EXT_ALL_THEMES=1` runs everything, `PARITY_EXT_ALL_DARK=1` keeps every elegant-dark case.
+- Web captures are cached across worktrees (`PARITY_EXT_CACHE` overrides the location) and recaptured only when their inputs change.
+- Output goes to `build/parity-ext/` (`PARITY_EXT_OUT`): `summary.md` (per-case and per-area tables) and `site/index.html`.
+
+### What "pass" means
+
+- **Official pass**: the official diff status is `same`, `pass` or `basic-pass` (pixel-perfect similarity above 96%); "strict" pass is above 99%.
+- **Geometry pass** (the extension suite's target): the "non-text" similarity in `summary.md` is at least 99.5%, counting pixels classified as text glyph anti-aliasing as matching. `tool/parity-ext/analyze-diffs.py --cases <glob> --viz DIR` shows where the remaining difference is (fill, hairline, corner, offset, text, other).
+- Text anti-aliasing differences between Chromium and Skia are ignored; fix layout, color, spacing, borders, radii and whole-pixel glyph positions instead.
+- A case existing means coverage, not that Flutter passes it.
+
+### Page inventory
+
+[`docs/parity-page-inventory.md`](docs/parity-page-inventory.md) lists every Web page, modal and state with desktop/phone coverage (`ok`, `partial`, `wip`, `MISSING`, `n/a`, `excluded`) and a priority. It is generated from rows in `tool/parity-ext/inventory.py`: edit the rows, run `python3 tool/parity-ext/inventory.py` to regenerate, and `python3 tool/parity-ext/inventory.py --check` to verify (the unit tests fail on a stale document). Note that running it without `--check` rewrites the document.
+
+### Alignment audit
+
+`tool/alignment-audit.py` compares strong vertical edges and text start columns between the Web and Flutter captures of each case and reports offsets in CSS px:
+
+```sh
+tool/alignment-audit.py run --root build/parity --root build/parity-ext [--cases GLOB] [--out DIR]
+tool/alignment-audit.py show --root build/parity-ext --case <id> --out overlay.png
+tool/alignment-audit.py overlays --out DIR     # overlays of every flagged case
+tool/alignment-audit.py selftest
+```
+
+`--root` is a parity output directory. Results go to `--out` (default `.local/alignment/audit`) and never into the root. An offset within 0.75 CSS px counts as aligned; up to 12 px is reported as an offset; beyond that is a layout difference. A near-miss pass flags mixed insets and tells you whether the Web page has them too. Method, results and the open list: [alignment audit](docs/alignment-audit.md).
+
+### Where reports land
+
+`build/parity/` and `build/parity-ext/` locally. `tool/parity publish` and `tool/parity-ext/run publish` copy the site into `$PARITY_REPORTS_ROOT/raft_flutter_parity/<stamp>` (extension: `raft_flutter_parity_ext/`) with a `latest` link and, unless `--no-verify`, check the served URLs. Do not publish from a task branch; the lead publishes per batch. Functional evidence reports go through `tool/publish-report`.
+
+## Performance tuning
+
+Goal: every frame's UI and raster work within 8.33 ms (120 Hz budget); the current Linux gate is no frame over 16.7 ms and no stutter. Scrolling, opening and resizing smoothness has priority over pixel parity ([AGENTS.md](AGENTS.md)).
+
+### Perf lab
+
+`apps/raft_flutter/integration_test/perf_lab_test.dart` runs fixed scenarios (chat scrolling and row mounting, transitions, mobile `nav-*` flows through the production `RaftApp` with background data replay) in **profile mode** with synthetic fixtures; no real account is used. `tool/performance/lab.py` drives it:
+
+```sh
+python3 tool/performance/lab.py run --out .local/performance/lab/<name> [--themes brutal-light,elegant-light] [--scenarios 'steady-scroll,mount-*'] [--semantics platform|on|off] [--no-trace]
+python3 tool/performance/lab.py compare .local/performance/lab/<before> .local/performance/lab/<after>
+python3 tool/performance/lab.py summarize .local/performance/lab/<name>
+```
+
+The runner refuses to start on a noisy host (1-minute load above 0.35 x CPUs; `--allow-noisy` overrides and labels the run NOISY), and `compare` flags regressions in UI/raster p90/p99, over-budget frame counts and stutter. `--device macos` runs the lab on a Mac. Linux needs an X11 session (`DISPLAY`, `GDK_BACKEND=x11`). Scenarios, metrics, outputs and baselines: [performance lab](docs/performance-lab.md). Other probes: `tool/performance/run.py` (message-scroll benchmark P01 used by CI, [message performance](docs/message-performance.md)), `capture_sections.py`, `activity_preview.dart`, `cache_codec_benchmark.dart`.
+
+### Android: page transitions on a device
+
+```sh
+python3 tool/performance/android_transitions.py --device <adb serial> \
+  --out .local/performance/android-transitions/<run> [--themes brutal-light] [--scenarios nav-home-channel,nav-tabs]
+```
+
+This builds `integration_test/perf_lab_test.dart` as an ARM64 profile APK with the Gradle property `raftApplicationIdSuffix=.linkperf`, so its application id is `app.raft.raft_flutter.linkperf` and it never touches the real app. `lab.py` accepts only that package, forces `--keep-app-running` (no automatic uninstall) and fails if the real app's install time or data directories change. Do not invent other ways to run profile tests on a device. Pass `--abi x64 --device emulator-5580` for a functional check on an emulator only; its timings are not evidence for phones. Compare two runs with `lab.py compare <before>/run <after>/run`. See [Android transitions](docs/android-transitions.md) and [Android installation](docs/android-installation.md).
+
+### Switches and probes
+
+- `RAFT_ANDROID_PERFORMANCE_HINT` (`--dart-define`, default `true`): the Android Performance Hint (ADPF) session for the Dart UI thread; `false` disables it. Debug and non-Android builds never load it. To judge it, build two APKs from the same source (`true`/`false`; `android_transitions.py --define RAFT_ANDROID_PERFORMANCE_HINT=false`) and compare with the isolated `.linkperf` app. A run with zero reported sessions proves nothing. No real-phone gain is established yet ([Android Performance Hint](docs/android-performance-hint.md)).
+- `RAFT_ROUTE_FRAME_DIAGNOSTICS=true`: off by default; logs per-route frame costs (route categories only, no IDs or content) for real-device investigations; collect with `tool/performance/route_probe.py` ([route performance probe](docs/route-performance-probe.md)).
+- Profile builds only: debug-mode numbers are not meaningful. Compare identical fixtures, engine, renderer, view size and semantics mode.
+
+Audits and findings: [Android performance audit](docs/android-performance-audit.md), [mobile route investigation](docs/mobile-route-performance-investigation.md), [macOS investigation](docs/mac-performance-investigation.md), [message performance](docs/message-performance.md).
+
+## Self-deploy
+
+This repository builds the **client**. You need a Raft server for it to talk to; run your own from [raft-source](https://github.com/botiverse/raft-source) (`pnpm install && ./raftdev start`, which needs Node 24, pnpm and Docker; see that repository). The client does not need a server-side change.
+
+### Point the client at your server
+
+- Login screen: the server origin is editable (scheme `http` or `https` and host only, no path, such as `https://raft.example.com`). Prefer HTTPS.
+- Compile-time default: `--dart-define=RAFT_ORIGIN=<origin>` (default `http://localhost:13041`). Related defines: `RAFT_FRONTEND_ORIGIN` (the Web frontend origin used for browser hand-off and content links), `RAFT_DEPLOYMENT_ENV` (`production` default; `staging` and `slockdev` switch the Raft Computer install commands), `RAFT_APP_VERSION` (label shown in settings). Do not pass credentials or test fixtures as defines.
+- Android blocks cleartext HTTP except for three development hosts (`network_security_config.xml`); a public deployment must use HTTPS. Android backup is disabled and local state is excluded from cloud and device-transfer backups.
+- The `raft:` URL scheme (OAuth callback and content links) is registered on Android, macOS, iOS and in the Linux desktop entry.
+
+### Build release artifacts
+
+Run from `apps/raft_flutter` with `../../tool/flutter` and the pinned SDK. Release builds use `--target=lib/main.dart` (the default) and must not include the test defines used by the native test scripts.
+
+```sh
+../../tool/flutter build apk --release --dart-define=RAFT_ORIGIN=https://raft.example.com           # Android universal APK
+../../tool/flutter build apk --release --split-per-abi --target-platform android-arm64 --build-number <n>  # ARM64 split APK
+../../tool/prepare-media-linux && ../../tool/flutter build linux --release                          # Linux (x86_64 bundle)
+../../tool/flutter build macos --release                                                            # macOS app Raft.app (arm64)
+```
+
+### Signing and packaging
+
+- **Android**: `android/app/build.gradle.kts` signs release builds with the **debug key** (the project's own TODO). Current artifacts are acceptance builds and are not store-ready. Before distributing, add your own signing config (keep the keystore and passwords outside the repository) and a unique application id; the id is currently `app.raft.raft_flutter`. Updating an installed app needs the same signing key and a higher version code; use `tool/android-install --device <serial> --apk <arm64.apk> --check-only` and then `--launch`, which checks identity, architecture, version and signature and never uninstalls or clears data.
+- **Linux**: `tool/build-deliverables` is the local acceptance packager. It requires a passing `tool/check-project` and native runs for the same source hash, then builds the Linux bundle and APK, rewrites ELF RPATHs to be relocatable with a pinned local `patchelf`, checks dependencies, and writes `build/deliverables/raft-flutter-linux-x64.tar.gz`, `raft-flutter-android.apk`, `CHECKSUMS.txt` and `build-manifest.json`. The bundle needs a compatible glibc, GTK and graphics drivers, and `poppler-utils` for PDF preview. An example desktop entry for the `raft:` scheme is in `linux/packaging/`. Media libraries include GPL components; read [Linux media runtime](docs/linux-media-runtime.md) before redistributing.
+- **macOS**: sandboxed (entitlements in `macos/Runner/`), local development signing only. Developer ID signing, notarization and DMG/store packaging are not set up ([macOS evidence](docs/macos-evidence.md)).
+- **iOS**: no signing team, provisioning, push or release setup; configure signing in Xcode on a Mac. Compilation has never been verified.
+- **Windows**: no host and no packaging.
+
+Verification of the delivered Android and Linux artifacts (hashes, install and relocation smoke tests, what they do not prove): [release evidence](docs/release-evidence.md).
