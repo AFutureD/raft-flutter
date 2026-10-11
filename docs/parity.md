@@ -521,7 +521,7 @@ everything below is generated from this repository.
 
 | piece | file | role |
 | --- | --- | --- |
-| manifest | `build/parity-ext/cases.json`, generated on every `run` by the `tool/parity-ext/build-*.py` builders (ordered by `tool/parity-ext/builders.txt`; never committed) | `sharedCases.json` schema; ids `components.computers.<surface>.<theme>`; per-case `viewport` (desktop 1280 wide, density 1), `capture.selector` (React crop), `capture.androidKey` (the Flutter `ValueKey` of the same region), `capture.interactions` / `capture.androidInteractions` |
+| manifest | `build/parity-ext/cases.json`, generated on every `run` by the `tool/parity-ext/build-*.py` builders (discovered automatically by `builders.py`; never committed) | `sharedCases.json` schema; ids `components.computers.<surface>.<theme>`; per-case `viewport` (desktop 1280 wide, density 1), `capture.selector` (React crop), `capture.androidKey` (the Flutter `ValueKey` of the same region), `capture.interactions` / `capture.androidInteractions` |
 | fixture | `tool/parity-ext/fixtures/computers.json` | data both providers render (machines in every state, the two official agents placed on `computer-mbp`, workspaces, follow-up API routes) |
 | React render host | `tool/parity-ext-web.mjs` + `tool/parity-ext/host/*.tsx` | the pinned official Vite host with generated, anchor-checked additions: the `parityTheme` root override (brutal-light / elegant-light / elegant-dark, as `tool/theme-parity-web.mjs`), the host files appended to a generated `VisualTestingCases.tsx` whose default export asks the extension registry first (official ids fall through unchanged), and the fixture as `virtual:parity-ext/computers` |
 | React provider | generated copy of the official spec/config (same as `tool/parity`) plus three anchored patches | answer the fixture's `routes` and the case's machine list with `page.route`, a `hover` interaction, park the pointer after click-only interactions (Flutter taps leave no hover); `deviceScaleFactor` follows each case's density; `reuseExistingServer: false` |
@@ -561,9 +561,8 @@ added for its dialogs/progress yet.
 `tool/parity-ext/cases.json` is no longer committed (it was the one file every
 parallel branch that added a family had to merge). Every `tool/parity-ext/run`
 invocation runs all `tool/parity-ext/build-*.py` into `<out>/cases.json`
-(`PARITY_EXT_MANIFEST`, `builders.py`) in the order of `builders.txt`; a
-builder missing from the registry still runs, last and alphabetically, with a
-warning. The theme-sampled `cases.sampled.json` is derived from it; the Flutter
+(`PARITY_EXT_MANIFEST`, `builders.py`). Builders are discovered automatically (no registry file): `build-cases.py`
+first, then by an optional top-level `ORDER = n` constant in the builder (default 1000), then by file name. The theme-sampled `cases.sampled.json` is derived from it; the Flutter
 capture reads it through `PARITY_MANIFEST` (`case_map.dart` never read the
 file). Builders replace only their own `components.<area>.*` cases, so the
 result is order independent apart from case order. The generated
@@ -693,8 +692,8 @@ Derived from Web `components/layout/LiveAgentActivityBar.tsx`
 recipe, `MainLayout.tsx` / `MobileBottomBarStack.tsx` (placement) and
 `utils/liveAgentActivity.ts` (only `working` / `thinking` items show).
 `tool/parity-ext/build-live-activity.py` appends the ids
-`components.liveactivity.<platform>.<kind>.<theme>` to the generated manifest (registered
-after `build-cases.py` in `builders.txt`); the React side is `host/LiveActivityCases.tsx`, the
+`components.liveactivity.<platform>.<kind>.<theme>` to the generated manifest (runs
+after `build-cases.py`); the React side is `host/LiveActivityCases.tsx`, the
 Flutter side `test/parity/cases/ext_live_activity.dart`. The capture is the bar
 itself (`[data-testid="live-agent-activity-bar"]` / `ValueKey
 live-agent-activity-bar`) on the sidebar surface it sits in:
@@ -1355,8 +1354,7 @@ replies, history; `routes` + `routeSets` answer the API on both providers).
 
 ### WP6 task and settings leftovers (153 = 51 surfaces x 3 themes)
 
-`tool/parity-ext/build-wp6-cases.py` (registered last in
-`tool/parity-ext/builders.txt`, run by `tool/parity-ext/run`) appends `components.wp6.<surface>.<state>.<theme>` and writes
+`tool/parity-ext/build-wp6-cases.py` (run by `tool/parity-ext/run`) appends `components.wp6.<surface>.<state>.<theme>` and writes
 `tool/parity-ext/fixtures/wp6.json` (every route in a `routeSets` entry, so no
 other family sees it). React host: `host/Wp6Cases.tsx` (tasks surfaces mount the
 real `CreateTaskDialog` / `TaskFilterSegmentedControl` / `MainLayout`; the
@@ -1408,7 +1406,7 @@ Blink border snapping on fractional boxes and one-level translucent fills in
 `RaftBanner` (dark).
 ### Auth and onboarding cases (240 = 41 surfaces x 2 platforms x 3 themes, the two first-server forms mobile only)
 
-`tool/parity-ext/build-auth-cases.py` (registered last in `builders.txt`) writes
+`tool/parity-ext/build-auth-cases.py` (discovered automatically) writes
 `components.auth-ext.<platform>.<surface>.<theme>` (platform desktop 1280x800 @1 /
 mobile 390x844 @3) and `fixtures/auth-ext.json` (user, providers, servers, per-case
 `routeSets`). React host: `host/AuthCases.tsx` mounts the real `LoginPage`,

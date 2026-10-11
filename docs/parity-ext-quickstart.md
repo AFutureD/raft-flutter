@@ -13,9 +13,9 @@ One page for adding or fixing a surface in the extension suite
    cases in the manifest at `manifest_path()` (`from builders import manifest_path`; copy
    `build-notification-card.py`). It may also write `fixtures/<name>.json`. The manifest
    (`build/parity-ext/cases.json`) is generated every run and never committed.
-3. **Register** the builder with one line in `tool/parity-ext/builders.txt` (order = run order;
-   `build-cases.py` first). An unlisted `build-*.py` still runs last, alphabetically, with a warning.
-   On a merge conflict in that file keep both lines.
+3. **No registration**: every `build-*.py` is discovered automatically (`build-cases.py` first, then by an optional
+   top-level `ORDER = n` constant in the builder, default 1000, then by file name). Add `ORDER = n` only if your
+   builder must run before or after another one (it reads/amends the manifest); no shared file is edited.
 4. **Flutter**: `apps/raft_flutter/test/parity/cases/ext_<area>.dart` (a `Map<String, ParityCase>`
    keyed like the case's `androidCaseHint`) and one `...ext<Area>Cases` line in `case_map.dart`.
    Crop with `capture.androidKey` (a `ValueKey` in the widget); interactions with `capture.androidInteractions`.

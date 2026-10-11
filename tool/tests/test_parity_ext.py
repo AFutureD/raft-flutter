@@ -45,32 +45,33 @@ class BuilderOrderTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_registry_order_then_unregistered_alphabetically(self):
-        write(self.ext / 'builders.txt', '# comment\nbuild-z.py\n\nbuild-b.py  # trailing\nbuild-gone.py\n')
-        names, unknown, missing = builders.ordered_builders(self.ext)
-        self.assertEqual(names, ['build-z.py', 'build-b.py', 'build-a.py', 'build-new.py'])
-        self.assertEqual(unknown, ['build-a.py', 'build-new.py'])
-        self.assertEqual(missing, ['build-gone.py'])
+    def test_discovered_alphabetically_with_build_cases_first(self):
+        write(self.ext / 'build-cases.py', 'print(1)\n')
+        names = builders.ordered_builders(self.ext)
+        self.assertEqual(names, ['build-cases.py', 'build-a.py', 'build-b.py', 'build-new.py', 'build-z.py'])
 
-    def test_missing_registry_runs_everything_alphabetically(self):
-        names, unknown, _ = builders.ordered_builders(self.ext)
-        self.assertEqual(names, ['build-a.py', 'build-b.py', 'build-new.py', 'build-z.py'])
-        self.assertEqual(unknown, names)
+    def test_order_constant_sorts_before_filename(self):
+        write(self.ext / 'build-z.py', '"""doc"""\nORDER = 10\nprint(1)\n')
+        write(self.ext / 'build-b.py', 'ORDER = 20  # after z\n')
+        write(self.ext / 'build-new.py', 'x = 1\n    ORDER = 5\n')  # indented: not a top-level constant
+        self.assertEqual(builders.ordered_builders(self.ext), ['build-z.py', 'build-b.py', 'build-a.py', 'build-new.py'])
 
     def test_build_manifest_runs_in_order_and_writes_the_output_dir(self):
+        write(self.ext / 'build-z.py', 'ORDER = 10\n')
         for name in ('build-a.py', 'build-b.py', 'build-z.py', 'build-new.py'):
             tag = name[6:-3]
-            write(self.ext / name, 'import json, os, pathlib\n'
+            path = self.ext / name
+            body = path.read_text() if name == 'build-z.py' else ''
+            write(path, body + 'import json, os, pathlib\n'
                   "p = pathlib.Path(os.environ['PARITY_EXT_MANIFEST'])\n"
                   "m = json.loads(p.read_text()) if p.exists() else {'cases': []}\n"
                   f"m['cases'].append({{'id': 'components.{tag}.x'}})\n"
                   'p.write_text(json.dumps(m))\n')
-        write(self.ext / 'builders.txt', 'build-z.py\nbuild-b.py\n')
         out = pathlib.Path(self.tmp.name) / 'out'
         target = builders.build_manifest(out, ext=self.ext)
         self.assertEqual(target, out / 'cases.json')
         self.assertEqual([c['id'].split('.')[1] for c in json.loads(target.read_text())['cases']],
-                         ['z', 'b', 'a', 'new'])
+                         ['z', 'a', 'b', 'new'])
 
     def test_failing_builder_stops_the_run(self):
         write(self.ext / 'build-a.py', 'raise SystemExit(3)\n')
@@ -83,12 +84,11 @@ class BuilderOrderTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 builders.manifest_path()
 
-    def test_every_repo_builder_is_registered(self):
-        names, unknown, missing = builders.ordered_builders(EXT)
-        self.assertEqual(missing, [])
+    def test_repo_builders_are_discovered_with_build_cases_first(self):
+        names = builders.ordered_builders(EXT)
         self.assertEqual(names[0], 'build-cases.py')  # creates the manifest the others amend
-        if unknown:  # allowed (warned at run time); a registered list keeps the order stable
-            self.skipTest(f'unregistered builders: {unknown}')
+        self.assertEqual(sorted(names), sorted(p.name for p in EXT.glob('build-*.py')))
+        self.assertFalse((EXT / 'builders.txt').exists(), 'builders are discovered; there is no registry to edit')
 
 
 CASE = {
