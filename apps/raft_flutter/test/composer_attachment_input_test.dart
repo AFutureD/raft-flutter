@@ -66,6 +66,11 @@ Future<(WorkspaceController, MessageAdapter)> _chat(WidgetTester tester) async {
   return (w, api);
 }
 
+/// These tests replay the GTK drop sequence (motion, leave, data). desktop_drop
+/// only accepts data after a leave when the host is Linux, so elsewhere the
+/// events never reach the composer and the tests would prove nothing.
+final _gtkOnly = !Platform.isLinux;
+
 void main() {
   late Directory temp;
   late String notes, folder;
@@ -146,7 +151,7 @@ void main() {
     expect(w.composerErrorFor(), isNull);
     expect(find.text('notes.txt'), findsOneWidget);
     expect(tester.takeException(), isNull);
-  });
+  }, skip: _gtkOnly);
 
   testWidgets('a route covering the chat takes the composer out of drops', (
     tester,
@@ -174,7 +179,7 @@ void main() {
     }
     expect(_uploaded(api), isEmpty);
     expect(w.uploads(), isEmpty);
-  });
+  }, skip: _gtkOnly);
 
   testWidgets('Ctrl+V attaches copied files or an image; text still pastes', (
     tester,
