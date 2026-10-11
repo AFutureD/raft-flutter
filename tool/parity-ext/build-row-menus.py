@@ -57,8 +57,8 @@ def tap(key):
 
 
 def press(kind, key, x=None, y=None):
-    """The Flutter interaction opening the menu: native right click, except on the phone's
-    rows (Sidebar.tsx useLongPress); section headers and the list surface only know right click."""
+    """The Flutter interaction opening the menu: native right click (the Web host right-clicks too),
+    a touch long press for the phone's rows."""
     is_row = key.startswith(('sidebar-channel-', 'sidebar-agent:'))
     step = {'type': 'longPress' if kind != 'desktop' and is_row else 'secondaryTap', 'key': key}
     if is_row:

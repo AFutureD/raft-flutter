@@ -85,7 +85,7 @@ class RaftSidebarSectionHeader extends StatelessWidget {
     this.topInset,
   });
 
-  /// Sidebar.tsx `SidebarSectionHeader onContextMenu`: right click
+  /// Sidebar.tsx `SidebarSectionHeader onContextMenu`: right click / long press
   /// anywhere on the header row, at the global pointer position.
   final ValueChanged<Offset>? onContextMenu;
   final String label;
@@ -187,9 +187,10 @@ class RaftSidebarSectionHeader extends StatelessWidget {
     if (onContextMenu == null) return header;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      // Sidebar.tsx SidebarSectionHeader wires `onContextMenu` only; unlike
-      // the rows (`useLongPress`) there is no touch long press on a header.
+      // Sidebar.tsx SidebarSectionHeader `onContextMenu`: right click, and on
+      // touch the browser's long-press `contextmenu`.
       onSecondaryTapDown: (d) => onContextMenu!(d.globalPosition),
+      onLongPressStart: (d) => onContextMenu!(d.globalPosition),
       child: header,
     );
   }

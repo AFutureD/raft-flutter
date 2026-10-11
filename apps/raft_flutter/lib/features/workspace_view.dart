@@ -3325,9 +3325,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 // Sidebar.tsx `sidebar-scroll-surface onContextMenu`: rows,
                 // sections and the Saved entry claim their own gestures first.
                 behavior: HitTestBehavior.translucent,
-                // Web wires only `contextmenu` here (also on the phone); the
-                // rows alone add a touch long press.
+                // Web `contextmenu`: right click (also in a phone viewport) and
+                // the touch browsers' long press.
                 onSecondaryTapDown: (d) => openSurfaceMenu(d.globalPosition),
+                onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
                 child: RaftPullToRefresh(
                   enabled: mobileHome,
                   onRefresh: () => Future.wait([

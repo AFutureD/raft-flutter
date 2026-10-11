@@ -712,30 +712,50 @@ void main() {
     });
   });
 
-  group('Section and surface menus (right click only, like Web)', () {
-    testWidgets('a long press on a section header does not open the menu, a '
-        'right click does', (tester) async {
+  group('Section and surface menus (long press on the phone, right click)', () {
+    testWidgets('a long press on a section header opens its menu', (
+      tester,
+    ) async {
       await setup(tester);
       final header = find.byKey(
         const ValueKey('sidebar-section-system:channels'),
       );
       await tester.longPressAt(tester.getCenter(header));
       await tester.pumpAndSettle();
-      expect(find.text('Hide empty sections'), findsNothing);
-      await secondaryTapAt(tester, header);
+      expect(find.text('Hide empty sections'), findsOneWidget);
+      expect(find.text('Show joined channels only'), findsOneWidget);
+    });
+
+    testWidgets('a right click on a section header opens its menu', (
+      tester,
+    ) async {
+      await setup(tester);
+      await secondaryTapAt(
+        tester,
+        find.byKey(const ValueKey('sidebar-section-system:channels')),
+      );
       expect(find.text('Hide empty sections'), findsOneWidget);
     });
 
-    testWidgets('a long press on the list surface does not open the menu, a '
-        'right click does', (tester) async {
+    testWidgets('a long press on the list surface opens the surface menu', (
+      tester,
+    ) async {
       await setup(tester);
       final list = find.byKey(const Key('workspace-sidebar'));
-      final at = tester.getBottomLeft(list) + const Offset(120, -30);
-      await tester.longPressAt(at);
+      await tester.longPressAt(
+        tester.getBottomLeft(list) + const Offset(120, -30),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('New section…'), findsNothing);
+      expect(find.text('New section…'), findsOneWidget);
+    });
+
+    testWidgets('a right click on the list surface opens the surface menu', (
+      tester,
+    ) async {
+      await setup(tester);
+      final list = find.byKey(const Key('workspace-sidebar'));
       await tester.tapAt(
-        at,
+        tester.getBottomLeft(list) + const Offset(120, -30),
         kind: PointerDeviceKind.mouse,
         buttons: kSecondaryMouseButton,
       );
