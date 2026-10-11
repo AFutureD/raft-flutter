@@ -2370,6 +2370,40 @@ class _RaftChatViewState extends State<RaftChatView>
     return (footer, grace);
   }
 
+  /// Web ThreadPanel footer chain: guest read-only / joint locked banners and
+  /// the "Join channel to reply" CTA replace the composer (null = composer).
+  Widget? threadFooterWidget() {
+    final parent = w.threadSourceChannel;
+    if (parent == null) return null;
+    final guest = w.server?.string('role') == 'guest';
+    final joined = parent.joined;
+    final guestJoinable = parent.json['guestJoinable'] == true;
+    if (guest && (joined || !guestJoinable)) {
+      return const ChannelBannerFooter(
+        message:
+            'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
+      );
+    }
+    if (selection.active) return null;
+    if (jointChannelReadOnly(parent.json, sourceTimeNow())) {
+      return ChannelBannerFooter(
+        message:
+            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        linkLabel: 'View Billing',
+        onLink: widget.onViewBilling,
+      );
+    }
+    if (joined) return null;
+    return ChannelJoinFooter(
+      channelName: parent.name,
+      label: guest ? 'Join channel' : 'Join channel to reply',
+      onJoin: w.joinThreadParentChannel,
+      explanation: guest
+          ? 'Joining follows the parent channel. Guest access remains read-only.'
+          : null,
+    );
+  }
+
   /// ChatPanel `contextLoadError` banner above the history state: the jump
   /// target is missing ("Message not found") or hidden by the plan cutoff.
   Widget? contextLoadBanner() {
@@ -2860,7 +2894,7 @@ class _RaftChatViewState extends State<RaftChatView>
       );
     }
     final (channelFooter, channelGraceBanner) = widget.thread
-        ? (null, null)
+        ? (threadFooterWidget(), null)
         : channelFooterWidgets();
     // Rows read breakpoint bands, not the raw window width, so a resize
     // within a band does not rebuild every mounted message.

@@ -171,7 +171,11 @@ class ChannelJoinFooter extends StatelessWidget {
     required this.channelName,
     required this.onJoin,
     this.explanation,
+    this.label,
   });
+
+  /// Full button copy (thread panel: "Join channel to reply"); null = `Join #name`.
+  final String? label;
   final String channelName;
   final VoidCallback onJoin;
   final String? explanation;
@@ -196,9 +200,9 @@ class ChannelJoinFooter extends StatelessWidget {
             gap: 6,
             expand: true,
             fontWeight: FontWeight.w700,
-            label: raftFormat(context, 'Join #{channel}', {
-              'channel': channelName,
-            }),
+            label:
+                label ??
+                raftFormat(context, 'Join #{channel}', {'channel': channelName}),
             onPressed: onJoin,
           ),
           if (explanation != null)

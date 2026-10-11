@@ -4687,8 +4687,9 @@ class WorkspaceController extends ChangeNotifier {
         }
         // A cached window stays readable when its revalidation fails.
         if (current() && cached == null) {
+          // ThreadPanel's in-panel "Couldn't load this thread" + Retry; Web raises
+          // no workspace-level error for it.
           _threadResolutionError = '$e';
-          error = '$e';
         }
       } finally {
         if (current()) {
@@ -5072,6 +5073,19 @@ class WorkspaceController extends ChangeNotifier {
       await command('POST', '/channels/${c.id}/join');
       await refreshChannels();
       await selectChannel(channels.firstWhere((next) => next.id == c.id));
+    } catch (e) {
+      setError('$e');
+    }
+  }
+
+  /// Web ThreadPanel `handleJoinParentChannel`: join the thread's parent
+  /// channel (the CTA that replaces the composer for a non-member).
+  Future<void> joinThreadParentChannel() async {
+    final id = threadParentChannelId;
+    if (id == null) return;
+    try {
+      await command('POST', '/channels/$id/join');
+      await refreshChannels();
     } catch (e) {
       setError('$e');
     }
