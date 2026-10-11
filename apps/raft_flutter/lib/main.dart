@@ -127,7 +127,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   String? bootError;
   String origin = const String.fromEnvironment(
     'RAFT_ORIGIN',
-    defaultValue: 'http://localhost:13041',
+    defaultValue: 'https://api.raft.build',
   );
   @override
   void initState() {
