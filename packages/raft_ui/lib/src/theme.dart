@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 
+import 'control_typography.dart';
 import 'tokens/tokens.dart';
 
 enum RaftFamily { brutal, elegant }
@@ -366,6 +368,12 @@ ThemeData raftTheme(
   bool dark = false,
   bool systemFonts = false,
   RaftFontFamilies systemFontFamilies = const RaftFontFamilies(),
+
+  /// The UI locale. With [platform] it selects [RaftControlTypography] for the
+  /// Material control families (buttons, chips, segments, menus, nav labels);
+  /// without it the theme keeps the Web line boxes.
+  Locale? locale,
+  TargetPlatform? platform,
 }) {
   if (dark) family = RaftFamily.elegant;
   final t = RaftTokens.theme(
@@ -478,8 +486,15 @@ ThemeData raftTheme(
     labelMedium: text(12, 16, weight: FontWeight.w500),
     labelSmall: text(11, 16, weight: FontWeight.w500),
   );
+  TextStyle? control(TextStyle? style) => style == null || locale == null
+      ? style
+      : RaftControlTypography.resolve(
+          baseStyle: style,
+          platform: platform ?? defaultTargetPlatform,
+          locale: locale,
+        );
   final buttonStyle = ButtonStyle(
-    textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
+    textStyle: WidgetStatePropertyAll(control(textTheme.labelLarge)),
     minimumSize: const WidgetStatePropertyAll(Size(32, 32)),
     padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
     tapTargetSize: MaterialTapTargetSize.padded,
@@ -641,7 +656,7 @@ ThemeData raftTheme(
         6,
         side: BorderSide(color: t.line, width: t.border),
       ),
-      textStyle: textTheme.bodyMedium,
+      textStyle: control(textTheme.bodyMedium),
       menuPadding: const EdgeInsets.all(4),
     ),
     menuTheme: MenuThemeData(
@@ -681,7 +696,7 @@ ThemeData raftTheme(
     chipTheme: ChipThemeData(
       backgroundColor: t.panel,
       selectedColor: t.brutal ? t.accentFill : t.accentSoft,
-      labelStyle: textTheme.labelMedium,
+      labelStyle: control(textTheme.labelMedium),
       side: BorderSide(color: t.line, width: t.brutal ? 1 : .5),
       shape: shape(4),
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -726,7 +741,7 @@ ThemeData raftTheme(
       indicatorColor: t.brutal ? t.accentFill : t.card,
       elevation: 0,
       iconTheme: WidgetStatePropertyAll(IconThemeData(size: 18, color: t.ink)),
-      labelTextStyle: WidgetStatePropertyAll(textTheme.labelMedium),
+      labelTextStyle: WidgetStatePropertyAll(control(textTheme.labelMedium)),
     ),
     tooltipTheme: TooltipThemeData(
       waitDuration: const Duration(milliseconds: 600),

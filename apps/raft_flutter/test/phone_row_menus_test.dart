@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/create_joint_channel_dialog.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -145,6 +146,19 @@ void main() {
   }
 
   double top(WidgetTester tester, Finder f) => tester.getTopLeft(f).dy;
+
+  testWidgets('Joint channels + opens Create Joint Channel in place, not a '
+      'settings page', (tester) async {
+    await setup(tester);
+    api.routes['GET /agents'] = (_) => {'agents': []};
+    api.routes['GET /servers/s1/members'] = (_) => {'members': []};
+    expect(w.can('federateChannels'), isTrue);
+    await tester.tap(find.bySemanticsLabel('Create joint channel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateJointChannelDialog), findsOneWidget);
+    expect(w.section, 'home');
+    expect(w.location.settingsPath, isEmpty);
+  });
 
   testWidgets('long press opens the anchored row menu with Web items', (
     tester,

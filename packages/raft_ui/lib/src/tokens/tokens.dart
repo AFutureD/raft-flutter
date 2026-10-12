@@ -3,7 +3,8 @@
 /// Tiers: [RaftPrimitiveColors] (raw ramps) → [RaftSemanticColors] (theme
 /// blocks) / [RaftProductColors] (Tailwind aliases incl. Web product
 /// overrides) → [RaftComponentColors] (recipe roles). Shadows live in
-/// [RaftThemeShadows], metrics in [RaftThemeMetrics] and [RaftScale].
+/// [RaftThemeShadows], metrics in [RaftThemeMetrics] and [RaftScale]. Control-label
+/// typography policy values live in [RaftControlTypographyTokens].
 /// See docs/design-tokens.md.
 library;
 
@@ -14,3 +15,4 @@ export 'product_colors.g.dart';
 export 'semantic_colors.g.dart';
 export 'shadows.g.dart';
 export 'token_set.g.dart';
+export 'typography.g.dart';

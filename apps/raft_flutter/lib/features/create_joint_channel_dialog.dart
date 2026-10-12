@@ -10,7 +10,9 @@ import 'package:raft_ui/raft_ui.dart';
 import 'channel_form_fields.dart';
 import 'create_channel_dialog.dart'
     show ChannelMemberCandidate, channelNameError;
+import '../data/workspace_controller.dart';
 import 'joint_channel_views.dart' show jointPeople;
+import 'management_support.dart';
 
 /// `MAX_JOINT_CHANNEL_SERVERS` of @botiverse/raft-shared.
 const maxJointChannelServers = 30;
@@ -37,6 +39,61 @@ class CreateJointChannelDialog extends StatefulWidget {
   final bool freePlan;
   final String? origin;
   final VoidCallback? onViewBilling;
+
+  /// The sidebar's Joint channels "+" and "Create Joint Channel" menu items
+  /// (Web Sidebar `openCreateJointChannelDialog`): the dialog opens in place
+  /// over the current page, like Create Channel. Mutations stay bound to the
+  /// server and the federateChannels capability that opened it.
+  static Future<void> show(
+    BuildContext context, {
+    required WorkspaceController controller,
+    Future<void> Function(RaftChannel channel)? onCreated,
+  }) async {
+    final w = controller;
+    final serverId = w.server?.id;
+    if (serverId == null || !w.can('federateChannels')) return;
+    bool current() =>
+        context.mounted &&
+        w.server?.id == serverId &&
+        w.can('federateChannels');
+    final values = await Future.wait([
+      w.client.get('/agents'),
+      w.client.get('/servers/$serverId/members'),
+    ]);
+    if (!current()) return;
+    final agents = managementRows(values[0])
+        .where((a) => a['deletedAt'] == null)
+        .toList();
+    final users = managementRows(values[1])
+        .where((u) => (u['userId'] ?? u['id']) != w.client.user?.id)
+        .toList();
+    Future<Map<String, dynamic>> post(
+      String path,
+      Map<String, dynamic>? data,
+    ) async {
+      if (!current()) {
+        throw StateError('Workspace access changed. Reopen this form.');
+      }
+      return managementMap(await w.client.post(path, data: data));
+    }
+
+    if (!context.mounted) return;
+    final created = await showRaftModal<Map<String, dynamic>>(
+      context,
+      builder: (_) => CreateJointChannelDialog(
+        agents: agents,
+        users: users,
+        freePlan: (w.server?.string('plan') ?? 'free') == 'free',
+        origin: w.client.origin,
+        onCreate: (payload) => post('/channels', payload),
+        onUnarchive: (id) => post('/channels/$id/unarchive', null),
+        onViewBilling: () => w.setSection('billing'),
+      ),
+    );
+    if (!current() || created == null || created['id'] == null) return;
+    await w.refreshChannels();
+    await onCreated?.call(RaftChannel(created));
+  }
 
   @override
   State<CreateJointChannelDialog> createState() =>

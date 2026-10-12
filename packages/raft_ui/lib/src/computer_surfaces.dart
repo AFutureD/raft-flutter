@@ -99,6 +99,7 @@ class RaftRuntimeChip extends StatelessWidget {
     final text = RaftCssText(
       label,
       maxLines: 1,
+      controlLabel: true,
       style: raftCssText.merge(
         RaftTypography.body(
           t,

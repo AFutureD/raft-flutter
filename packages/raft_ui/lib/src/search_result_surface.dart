@@ -120,6 +120,7 @@ class RaftTaskFilterButton extends StatelessWidget {
           style: slot,
           tokens: t.recipeTokens,
           overflowCenter: true,
+          controlLabel: true,
           child: Center(widthFactor: 1, heightFactor: 1, child: child),
         );
       },

@@ -133,6 +133,7 @@ class RaftRecipeBadge extends StatelessWidget {
       upper ? label.toUpperCase() : label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+      controlLabel: true,
       style: raftCssText.merge(
         RaftTypography.body(t, size: 10, line: 10)
             .merge(s.textStyle(rt))
@@ -528,9 +529,9 @@ abstract final class RaftPanelText {
     fontStyle: FontStyle.italic,
     color: raftPanelInk(t, .4, t.colors['foreground-muted']!),
   );
-  static TextStyle muted(RaftTokens t) => value(
-    t,
-  ).copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
+  static TextStyle muted(RaftTokens t) =>
+      value(t)
+          .copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
   static TextStyle mono(RaftTokens t) =>
       value(t).copyWith(fontFamily: t.monoFont);
   static TextStyle monoSemibold(RaftTokens t) =>
@@ -1185,9 +1186,8 @@ class RaftSkillsSection extends StatelessWidget {
             Flexible(
               child: RaftCssText(
                 s.displayName,
-                style: RaftPanelText.value(
-                  t,
-                ).copyWith(fontWeight: FontWeight.w700),
+                style: RaftPanelText.value(t)
+                    .copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             if (s.userInvocable) ...[
@@ -1329,9 +1329,8 @@ class RaftReminderListView extends StatelessWidget {
                   const SizedBox(height: 12),
                   RaftCssText(
                     raftText(context, 'No reminders'),
-                    style: RaftPanelText.value(
-                      t,
-                    ).copyWith(fontWeight: FontWeight.w700),
+                    style: RaftPanelText.value(t)
+                        .copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),

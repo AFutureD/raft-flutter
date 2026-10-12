@@ -47,6 +47,7 @@ import 'page_layout.dart';
 import 'channel_settings.dart';
 import 'channel_members.dart';
 import 'create_channel_dialog.dart';
+import 'create_joint_channel_dialog.dart' show CreateJointChannelDialog;
 import 'workspace_settings.dart';
 import 'server_views.dart';
 import 'mobile_workspace_navigation.dart';
@@ -2578,12 +2579,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final scope = mobileAuthority;
     return RaftServerSwitcher(
       mobile: mobile,
-      attention:
-          w.servers.any(
-            (s) =>
-                s.id != w.server?.id &&
-                (serverUnread[s.id]?.activityUnreadCount ?? 0) > 0,
-          ),
+      attention: w.servers.any(
+        (s) =>
+            s.id != w.server?.id &&
+            (serverUnread[s.id]?.activityUnreadCount ?? 0) > 0,
+      ),
       headerActions: mobile
           ? [
               SystemNotificationBell(
@@ -3530,7 +3530,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         id == 'system:channels' && w.can('createChannels')
         ? createChannel
         : id == 'system:joint' && w.can('federateChannels')
-        ? () => select('joint-channels')
+        ? createJointChannel
         : null;
     return [
       if (sortable)
@@ -3656,6 +3656,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   Future<void> createChannel() => CreateChannelDialog.show(
+    context,
+    controller: w,
+    onCreated: (channel) => chooseChannel(channel),
+  );
+
+  Future<void> createJointChannel() => CreateJointChannelDialog.show(
     context,
     controller: w,
     onCreated: (channel) => chooseChannel(channel),

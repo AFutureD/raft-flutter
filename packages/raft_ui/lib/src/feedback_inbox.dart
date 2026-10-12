@@ -7,6 +7,7 @@
 // is resolved here.
 import 'package:flutter/material.dart';
 
+import 'control_typography.dart';
 import 'banner.dart';
 import 'system_inset.dart';
 import 'components.dart' show RaftButton;
@@ -617,14 +618,17 @@ class RaftFeedbackKindChip extends StatelessWidget {
     final iconColor = problem
         ? t.colors['danger']!
         : (s.target('& > svg')?.color?.resolve(rt) ?? fg);
-    final text = TextStyle(
-      // The chip inherits the hands-feedback root face.
-      fontFamily: raftSystemUiFont,
-      fontSize: 10.5,
-      height: 1,
-      fontWeight: FontWeight.w700,
-      color: fg,
-      leadingDistribution: TextLeadingDistribution.even,
+    final text = RaftControlTypography.of(
+      context,
+      TextStyle(
+        // The chip inherits the hands-feedback root face.
+        fontFamily: raftSystemUiFont,
+        fontSize: 10.5,
+        height: 1,
+        fontWeight: FontWeight.w700,
+        color: fg,
+        leadingDistribution: TextLeadingDistribution.even,
+      ),
     );
     return Container(
       height: 20,

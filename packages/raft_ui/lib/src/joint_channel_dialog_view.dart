@@ -85,8 +85,12 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
           : t.colors['foreground-muted'],
       trackingEm: .025,
     );
-    Widget actionButtons() => Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    // Web `flex justify-end gap-3`; on a phone-width dialog the two buttons
+    // wrap instead of overflowing (same layout whenever they fit).
+    Widget actionButtons() => Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         RaftRecipeButton(
           label: 'Cancel',
@@ -97,7 +101,6 @@ class RaftCreateJointChannelDialogView extends StatelessWidget {
           disabled: submitting,
           onPressed: onClose,
         ),
-        const SizedBox(width: 12), // gap-3
         RaftRecipeButton(
           key: const ValueKey('joint-create-submit'),
           label: submitting ? 'Creating…' : 'Create Joint Channel',

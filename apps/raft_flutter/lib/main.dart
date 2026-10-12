@@ -1757,12 +1757,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       '${client?.generation}|${client?.user?.id}',
       domain: 'account',
     );
+    final locale = displayLocale(client?.user?.string('displayLanguage'));
     return MaterialApp.router(
       title: 'Raft',
       routerDelegate: appRouter,
       routeInformationParser: const RaftAppRouteParser(),
       routeInformationProvider: routeInformation,
-      locale: displayLocale(client?.user?.string('displayLanguage')),
+      locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       builder: (context, child) => RepaintBoundary(
@@ -1787,12 +1788,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         appearance.light,
         systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
         systemFontFamilies: NativeSystemFonts.instance.value,
+        locale: locale,
       ),
       darkTheme: raftTheme(
         RaftFamily.elegant,
         dark: true,
         systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
         systemFontFamilies: NativeSystemFonts.instance.value,
+        locale: locale,
       ),
       themeMode: appearance.mode,
     );

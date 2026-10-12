@@ -1,3 +1,4 @@
+import 'control_typography.dart';
 import 'composer_composing_text.dart';
 import 'message_semantics.dart';
 import 'message_row_recipe.dart';
@@ -332,6 +333,7 @@ class RaftButton extends StatelessWidget {
           style: s,
           tokens: rt,
           overflowCenter: true,
+          controlLabel: true,
           opacityCompositing: opacityCompositing,
           width: expand ? double.infinity : null,
           decorationOverride: highContrastDanger
@@ -3234,14 +3236,17 @@ class RaftActorTypeBadge extends StatelessWidget {
       uppercase: true,
       tokens: resolver,
     ).root;
-    final text = s
-        .textStyle(resolver)
-        .copyWith(
-          fontFamily: t.headingFont,
-          fontSize: 10,
-          height: 1,
-          leadingDistribution: TextLeadingDistribution.even,
-        );
+    final text = RaftControlTypography.of(
+      context,
+      s
+          .textStyle(resolver)
+          .copyWith(
+            fontFamily: t.headingFont,
+            fontSize: 10,
+            height: 1,
+            leadingDistribution: TextLeadingDistribution.even,
+          ),
+    );
     return (
       decoration: s.decoration(resolver),
       text: text,
@@ -3300,12 +3305,15 @@ class RaftArchivedBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         s.textTransform == 'uppercase' ? label.toUpperCase() : label,
-        style: s
-            .textStyle(resolver)
-            .copyWith(
-              fontFamily: t.headingFont,
-              leadingDistribution: TextLeadingDistribution.even,
-            ),
+        style: RaftControlTypography.of(
+          context,
+          s
+              .textStyle(resolver)
+              .copyWith(
+                fontFamily: t.headingFont,
+                leadingDistribution: TextLeadingDistribution.even,
+              ),
+        ),
       ),
     );
   }
