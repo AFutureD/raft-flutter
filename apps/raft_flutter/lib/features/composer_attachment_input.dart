@@ -149,6 +149,15 @@ class _ComposerFileDropTargetState extends State<ComposerFileDropTarget> {
   Future<void> drop(DropDoneDetails details) async {
     final thread = widget.thread;
     final current = _fence(w, thread, active);
+    // Linux: the portal transfer and the URI list both failed (the plugin
+    // only sets this then), so say so rather than dropping the files silently.
+    if (details.error != null) {
+      w.setComposerError(
+        raftText(context, "Couldn't read dropped files"),
+        thread: thread,
+      );
+      return;
+    }
     final bookmarks = [
       for (final item in details.files)
         if (Platform.isMacOS && (item.extraAppleBookmark?.isNotEmpty ?? false))
