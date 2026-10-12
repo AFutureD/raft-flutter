@@ -94,17 +94,11 @@ class MobileIconAssetsTest(unittest.TestCase):
             for density in ['mdpi','hdpi','xhdpi','xxhdpi','xxxhdpi']:
                 self.assertEqual(next(pixels(RES/f'mipmap-{density}/ic_launcher_{color}.png'))[:3],rgb)
 
-    def test_dark_launch_swaps_ink_and_paper_without_changing_the_silhouette(self):
+    def test_launch_mark_is_one_light_image_for_the_native_icon_tile(self):
         folder = ASSETS/'LaunchMark.imageset'
-        light = list(pixels(folder/'mark-light.png'))
-        dark = list(pixels(folder/'mark-dark.png'))
-        self.assertEqual(len(light),len(dark))
-        checked = 0
-        for a,b in zip(light,dark):
-            self.assertEqual(a[3],b[3])
-            if a == (0,0,0,255):
-                self.assertEqual(b,(255,250,239,255))
-                checked += 1
-            if a == (255,250,239,255):
-                self.assertEqual(b,(20,17,17,255))
-        self.assertGreater(checked,10000)
+        catalog = json.loads((folder/'Contents.json').read_text())
+        self.assertEqual([x['filename'] for x in catalog['images']], ['mark-light.png'])
+        self.assertFalse((folder/'mark-dark.png').exists())
+        colors = set(pixels(folder/'mark-light.png'))
+        self.assertIn((0, 0, 0, 255), colors)
+        self.assertIn((255, 250, 239, 255), colors)

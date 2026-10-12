@@ -2,14 +2,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dynamic_icon_plus/flutter_dynamic_icon_plus_platform_interface.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import 'launch_theme.dart';
+
 /// Device-wide icon state, read back from the operating system after a change.
 class NativeAppIcon extends ChangeNotifier {
-  NativeAppIcon({FlutterDynamicIconPlusPlatform? api, this.platformOverride})
-    : api = api ?? FlutterDynamicIconPlusPlatform.instance;
+  NativeAppIcon({
+    FlutterDynamicIconPlusPlatform? api,
+    this.platformOverride,
+    NativeLaunchTheme? launchTheme,
+  }) : api = api ?? FlutterDynamicIconPlusPlatform.instance,
+       launchTheme = launchTheme ?? NativeLaunchTheme.instance;
 
   static final instance = NativeAppIcon();
   final FlutterDynamicIconPlusPlatform api;
   final TargetPlatform? platformOverride;
+  final NativeLaunchTheme launchTheme;
   TargetPlatform get platform => platformOverride ?? defaultTargetPlatform;
   bool get mobile =>
       !kIsWeb &&
@@ -80,6 +87,8 @@ class NativeAppIcon extends ChangeNotifier {
       if (selected != choice) {
         throw const FormatException('Icon readback mismatch');
       }
+      // The native splash shows the enabled icon: persist it for next launch.
+      await launchTheme.refresh();
     } catch (_) {
       // A native call may have changed the OS before reporting a later error.
       // Preserve the actual state rather than committing an optimistic choice.
