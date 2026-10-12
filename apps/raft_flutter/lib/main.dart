@@ -215,6 +215,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           WidgetsBinding.instance.platformDispatcher.defaultRouteName,
         ) ??
         Uri(path: '/');
+    if (NativeSharing.isIncomingShareLink(requestedLocation)) {
+      requestedLocation = Uri(path: '/');
+    }
     invite = InviteLink.fromLocation(requestedLocation);
     inviteOrigin = invite?.origin;
     InviteRequests.instance.addListener(inviteRequested);
@@ -237,6 +240,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     NativeSystemFonts.instance.addListener(systemFontsChanged);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
+    content.onIncomingShare = () => unawaited(sharing.resume());
     unawaited(sharing.init());
     unawaited(content.init(initialArguments: widget.initialArguments));
     restore();
@@ -1148,6 +1152,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> receiveAppLocation(Uri location) async {
+    if (NativeSharing.isIncomingShareLink(location)) {
+      unawaited(sharing.resume());
+      return;
+    }
     final link = InviteLink.fromLocation(location);
     if (link != null) {
       // An invite link opens the invite page; the URL itself is consumed.

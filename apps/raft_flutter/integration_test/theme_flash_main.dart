@@ -32,13 +32,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'perf_lab/fixtures.dart';
 import 'perf_lab/navigation_host.dart';
 
-const _seedFile = '/data/local/tmp/raft-theme-flash.txt';
+// Android: pushed with adb. Desktop: THEME_FLASH_SEED=<file> in the environment.
+final _seedFile = Platform.environment['THEME_FLASH_SEED'] ?? '/data/local/tmp/raft-theme-flash.txt';
 final _boot = Stopwatch()..start();
 
 Future<void> main() async {
   RaftWidgetsFlutterBinding.ensureInitialized();
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
+  _boot.start();
   final seed = File(_seedFile);
   if (seed.existsSync()) {
     final parts = seed.readAsStringSync().trim().split(RegExp(r'\s+'));
@@ -46,10 +48,16 @@ Future<void> main() async {
     await p.setString('raft.mode', parts[0]);
     await p.setString('raft.light', parts.length > 1 ? parts[1] : 'brutal');
     await p.setString('raft.origin', 'https://example.invalid');
+    // THEME_FLASH_PRESENTATION='{"font":"lg","hideEmptySections":false}': the
+    // stored Appearance-section choices (font size, hidden empty sections...).
+    final presentation = Platform.environment['THEME_FLASH_PRESENTATION'];
+    if (presentation != null) {
+      await p.setString('raft:presentation:["https://example.invalid","alice"]', presentation);
+    }
     // `nodefer` skips deferFirstFrame: shows what any path that paints before
     // the stored appearance is known would put on screen.
     await p.setBool('theme_flash.nodefer', parts.length > 3 && parts[3] == 'nodefer');
-    if (parts.length > 2) {
+    if (parts.length > 2 && Platform.isAndroid) {
       // The launcher icon (and so the native splash colour) of the isolated package.
       final icon = NativeAppIcon.instance;
       await icon.refresh();
@@ -83,7 +91,12 @@ Future<void> main() async {
   api.routes['GET /announcements/active'] = (_) => {'announcements': <dynamic>[]};
   api.routes['GET /product-feedback/tickets'] = (_) => {'unread_total': 0, 'tickets': <dynamic>[]};
   api.routes['GET /tasks/server'] = (_) => {'tasks': <dynamic>[]};
-  final dir = await Directory.systemTemp.createTemp('raft-theme-flash-');
+  // THEME_FLASH_CACHE=<dir> keeps the workspace cache between launches, so the
+  // second cold start paints from the on-device cache (cache-first start).
+  final cacheDir = Platform.environment['THEME_FLASH_CACHE'];
+  final dir = cacheDir != null
+      ? await Directory(cacheDir).create(recursive: true)
+      : await Directory.systemTemp.createTemp('raft-theme-flash-');
 
   // === Same sequence as lib/main.dart main() from here. ===
   RootErrors.instance.install();
