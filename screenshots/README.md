@@ -1,3 +1,14 @@
+# Linux desktop screenshot
+
+![Raft AppImage workspace on Fedora KDE Wayland](raft-linux-fedora-kde-2026-10-12.png)
+
+Kevin provided this original screenshot from his Fedora KDE Wayland desktop on
+October 12, 2026 and requested its use in the main README. It shows an authenticated
+workspace in the Brutal light theme. The image is unchanged; its capture scale was
+not supplied. This screenshot does not establish full feature or pixel-parity acceptance.
+
+[Capture provenance and digest](raft-linux-fedora-kde-2026-10-12.json).
+
 # Fedora KDE Wayland AppImage screenshot
 
 ![Raft AppImage on Fedora KDE Wayland at native 2x scale](raft-linux-appimage-fedora-wayland-hidpi-2026-10-12.png)

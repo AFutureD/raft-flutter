@@ -5,11 +5,85 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_ID = 'app.raft.raft_flutter'
+HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
+                         'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE',
+                         'GDK_PIXBUF_MODULE_FILE')
+
+
+GTK3_IM_CACHES = (
+    '/usr/lib64/gtk-3.0/3.0.0/immodules.cache',
+    '/usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules.cache',
+    '/usr/lib/gtk-3.0/3.0.0/immodules.cache',
+)
+
+
+def input_method_cache_setup(candidates=GTK3_IM_CACHES):
+    dollar = chr(36)
+    # These are host GTK3 module caches for the installed input-method bridge.
+    # Preserve an explicit value, including an intentionally empty value.
+    return '\n'.join([
+        'if [ -z "' + dollar + '{GTK_IM_MODULE_FILE+x}" ]; then',
+        '  for module_cache in ' + ' '.join(shlex.quote(path) for path in candidates) + '; do',
+        '    if [ -r "' + dollar + 'module_cache" ]; then',
+        '      export GTK_IM_MODULE_FILE="' + dollar + 'module_cache"',
+        '      break',
+        '    fi',
+        '  done',
+        'fi',
+    ]) + '\n'
+
+
+def host_environment_capture():
+    lines = []
+    for key in HOST_LAUNCH_VARIABLES:
+        lines.append('export RAFT_APPIMAGE_HOST_' + key + '_SET="' +
+                     chr(36) + '{' + key + '+x}"')
+        lines.append('export RAFT_APPIMAGE_HOST_' + key + '="' +
+                     chr(36) + '{' + key + '-}"')
+    return '\n'.join(lines) + '\n'
+
+
+def desktop_launcher_wrapper():
+    # Host programs must not load Ubuntu AppImage libraries or GIO modules.
+    dollar = chr(36)
+    lines = ['#!/bin/sh', 'set -eu',
+             'helper_dir=' + dollar + '(CDPATH= cd -- "' + dollar +
+             '(dirname -- "' + dollar + '0")" && pwd)',
+             'launcher="' + dollar + '{RAFT_APPIMAGE_HOST_GIO_LAUNCH_DESKTOP:-' +
+             dollar + 'helper_dir/gio-launch-desktop}"']
+    for key in HOST_LAUNCH_VARIABLES:
+        prefix = 'RAFT_APPIMAGE_HOST_' + key
+        lines.extend([
+            'if [ "' + dollar + '{' + prefix + '_SET:-}" = x ]; then',
+            '  export ' + key + '="' + dollar + '{' + prefix + '-}"',
+            'else',
+            '  unset ' + key,
+            'fi',
+            'unset ' + prefix + ' ' + prefix + '_SET'])
+    lines.append('unset APPDIR APPIMAGE ARGV0 OWD')
+    lines.append('exec "' + dollar + 'launcher" "' + dollar + '@"')
+    return '\n'.join(lines) + '\n'
+
+
+def image_loader_cache(text, modules):
+    """Use module basenames; the bundled GModule finds them in private lib RPATH.
+
+    Ubuntu's Linux GdkPixbuf is not built with Windows-style relocatable paths.
+    CI must decode an SVG using the extracted library, not a host replacement.
+    """
+    for module in modules:
+        text = text.replace('"' + str(module) + '"', '"' + module.name + '"')
+    paths = re.findall(r'^"([^"\n]+\.so)"$', text, re.M)
+    if set(paths) != {module.name for module in modules}:
+        raise ValueError('Image loader cache does not match the packaged modules')
+    # Build directory comments are unnecessary and would be misleading on hosts.
+    return '\n'.join(line for line in text.splitlines() if not line.startswith('#')) + '\n'
 
 
 def capture(args, **kwargs):
@@ -142,14 +216,27 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     helpers = stage / 'bin'
     helpers.mkdir()
     commands = []
-    for name in ('pdfinfo', 'pdftoppm'):
-        source = Path(shutil.which(name) or '')
-        if not source.is_file():
-            raise ValueError(f'Missing PDF helper {name}')
+    for name in ('pdfinfo', 'pdftoppm', 'gio-launch-desktop'):
+        # Bundled GLib otherwise calls its Ubuntu build-time libexec path,
+        # which does not exist on Fedora/KDE. Its tiny launch helper uses libc
+        # only, so ship the matching distribution helper with provenance.
+        source = (Path('/usr/lib/x86_64-linux-gnu/glib-2.0/gio-launch-desktop')
+                  if name == 'gio-launch-desktop' else Path(shutil.which(name) or ''))
+        if not source.is_file() or not os.access(source, os.X_OK):
+            raise ValueError(f'Missing desktop/PDF helper {name}')
         row = provenance(name, source, notices)
         row['name'] = row.pop('library')
         commands.append(row)
         shutil.copy2(source, helpers / name)
+    loader_dir = Path('/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders')
+    loaders = sorted(loader_dir.glob('libpixbufloader-*.so'))
+    if not any(path.name == 'libpixbufloader-svg.so' for path in loaders):
+        raise ValueError('Missing matching GdkPixbuf SVG loader')
+    for source in loaders:
+        records[source.name] = provenance(source.name, source, notices)
+        shutil.copy2(source, stage / 'lib' / source.name)
+    cache_text = capture(['/usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders', *loaders])
+    (stage / 'lib/loaders.cache').write_text(image_loader_cache(cache_text, loaders))
     env = {key: value for key, value in os.environ.items() if key not in {'LD_LIBRARY_PATH', 'LD_PRELOAD'}}
     files = [path for path in stage.rglob('*') if path.is_file() and elf(path)]
     # ldd resolves the recursive closure, including GTK and Secret Service plugins.
@@ -183,13 +270,18 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     launcher.write_text('''#!/bin/sh
 set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-export PATH="$app_dir/raft/bin:$PATH"
+''' + host_environment_capture() + input_method_cache_setup() + '''export PATH="$app_dir/raft/bin:$PATH"
 export LD_LIBRARY_PATH="$app_dir/raft/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export GIO_MODULE_DIR="$app_dir/raft/lib/gio/modules"
 export GSETTINGS_SCHEMA_DIR="$app_dir/usr/share/glib-2.0/schemas"
+export GIO_LAUNCH_DESKTOP="$app_dir/raft/bin/raft-gio-launch-desktop"
+export GDK_PIXBUF_MODULE_FILE="$app_dir/raft/lib/loaders.cache"
 exec "$app_dir/raft/raft_flutter" "$@"
 ''')
     launcher.chmod(0o755)
+    desktop_wrapper = helpers / 'raft-gio-launch-desktop'
+    desktop_wrapper.write_text(desktop_launcher_wrapper())
+    desktop_wrapper.chmod(0o755)
     files = [path for path in stage.rglob('*') if path.is_file() and elf(path)]
     needed_glibc = (0, 0)
     for path in files:
@@ -203,7 +295,8 @@ exec "$app_dir/raft/raft_flutter" "$@"
     for row in commands:
         row['sha256'] = file_digest(helpers / row['name'])
     manifest.update(libraries=sorted(records.values(), key=lambda row: row['library']),
-                    commands=commands, hostProvidedLibraries=sorted(host_libraries))
+                    commands=commands, imageLoaderModules=[path.name for path in loaders],
+                    hostProvidedLibraries=sorted(host_libraries))
     manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
     tools = json.loads((root / 'packaging/appimage/tools.json').read_text())
     tool_notices = stage / 'data/notices/appimage-runtime'
@@ -222,4 +315,6 @@ exec "$app_dir/raft/raft_flutter" "$@"
             'maximumGlibcRequired': '.'.join(map(str, needed_glibc)),
             'elfFilesChecked': len(files), 'hostProvidedLibraries': sorted(host_libraries),
             'pdfHelpers': ['pdfinfo', 'pdftoppm'],
+            'imageLoaderModules': [path.name for path in loaders],
+            'desktopLauncher': 'raft-gio-launch-desktop (bundled helper, restored host environment)',
             'launchModes': ['direct (static FUSE 3 library)', '--appimage-extract-and-run (no FUSE)']}

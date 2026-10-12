@@ -14,3 +14,19 @@ on the host and bundles the remaining GTK and media dependencies together.
 The shipped runtime's MIT license and source snapshot metadata accompany the
 payload. All copied distribution libraries and PDF commands carry their own
 copyright notices, source package versions and digests in data/notices/raft-media.
+
+The matching Ubuntu GLib desktop launcher is included under raft/bin and
+AppRun selects a small wrapper through GIO_LAUNCH_DESKTOP using the current
+AppImage mount path. Before launching external applications, the wrapper restores
+the original PATH, LD_LIBRARY_PATH, GIO_MODULE_DIR and GSETTINGS_SCHEMA_DIR, including
+whether each variable was unset or explicitly empty. An explicitly supplied desktop
+helper override remains supported through that wrapper. This removes the
+Ubuntu-only build-time helper path that failed on Fedora KDE. The helper has
+its own package source, copyright and digest receipt like the PDF commands.
+
+If GTK_IM_MODULE_FILE was not supplied, AppRun selects a readable host GTK3
+input-method cache from Fedora, Debian/Ubuntu or Arch-style library directories.
+The installed IBus/Fcitx bridge and its desktop daemon remain host services. An
+explicit cache selection is preserved. This fixes the Ubuntu cache prefix failing
+to discover the installed IBus module on Fedora; actual language composition still
+needs platform acceptance. Desktop children recover the original cache variable too.

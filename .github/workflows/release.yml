@@ -115,7 +115,7 @@ jobs:
           fi
       - name: Install AppImage startup test tools
         if: matrix.platform == 'appimage'
-        run: sudo apt-get install -y xvfb x11-utils imagemagick desktop-file-utils gnome-keyring at-spi2-core
+        run: sudo apt-get install -y libgdk-pixbuf2.0-bin librsvg2-common xvfb x11-utils imagemagick desktop-file-utils gnome-keyring at-spi2-core
       - name: Resolve locked dependencies
         run: python tool/flutter pub get --enforce-lockfile
       - name: Build and package desktop
