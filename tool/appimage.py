@@ -10,6 +10,39 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_ID = 'app.raft.raft_flutter'
+HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
+                         'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP')
+
+
+def host_environment_capture():
+    lines = []
+    for key in HOST_LAUNCH_VARIABLES:
+        lines.append('export RAFT_APPIMAGE_HOST_' + key + '_SET="' +
+                     chr(36) + '{' + key + '+x}"')
+        lines.append('export RAFT_APPIMAGE_HOST_' + key + '="' +
+                     chr(36) + '{' + key + '-}"')
+    return '\n'.join(lines) + '\n'
+
+
+def desktop_launcher_wrapper():
+    # Host programs must not load Ubuntu AppImage libraries or GIO modules.
+    dollar = chr(36)
+    lines = ['#!/bin/sh', 'set -eu',
+             'helper_dir=' + dollar + '(CDPATH= cd -- "' + dollar +
+             '(dirname -- "' + dollar + '0")" && pwd)',
+             'launcher="' + dollar + '{RAFT_APPIMAGE_HOST_GIO_LAUNCH_DESKTOP:-' +
+             dollar + 'helper_dir/gio-launch-desktop}"']
+    for key in HOST_LAUNCH_VARIABLES:
+        prefix = 'RAFT_APPIMAGE_HOST_' + key
+        lines.extend([
+            'if [ "' + dollar + '{' + prefix + '_SET:-}" = x ]; then',
+            '  export ' + key + '="' + dollar + '{' + prefix + '-}"',
+            'else',
+            '  unset ' + key,
+            'fi',
+            'unset ' + prefix + ' ' + prefix + '_SET'])
+    lines.append('exec "' + dollar + 'launcher" "' + dollar + '@"')
+    return '\n'.join(lines) + '\n'
 
 
 def capture(args, **kwargs):
@@ -187,14 +220,17 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     launcher.write_text('''#!/bin/sh
 set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-export PATH="$app_dir/raft/bin:$PATH"
+''' + host_environment_capture() + '''export PATH="$app_dir/raft/bin:$PATH"
 export LD_LIBRARY_PATH="$app_dir/raft/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export GIO_MODULE_DIR="$app_dir/raft/lib/gio/modules"
 export GSETTINGS_SCHEMA_DIR="$app_dir/usr/share/glib-2.0/schemas"
-export GIO_LAUNCH_DESKTOP="${GIO_LAUNCH_DESKTOP:-$app_dir/raft/bin/gio-launch-desktop}"
+export GIO_LAUNCH_DESKTOP="$app_dir/raft/bin/raft-gio-launch-desktop"
 exec "$app_dir/raft/raft_flutter" "$@"
 ''')
     launcher.chmod(0o755)
+    desktop_wrapper = helpers / 'raft-gio-launch-desktop'
+    desktop_wrapper.write_text(desktop_launcher_wrapper())
+    desktop_wrapper.chmod(0o755)
     files = [path for path in stage.rglob('*') if path.is_file() and elf(path)]
     needed_glibc = (0, 0)
     for path in files:
@@ -227,5 +263,5 @@ exec "$app_dir/raft/raft_flutter" "$@"
             'maximumGlibcRequired': '.'.join(map(str, needed_glibc)),
             'elfFilesChecked': len(files), 'hostProvidedLibraries': sorted(host_libraries),
             'pdfHelpers': ['pdfinfo', 'pdftoppm'],
-            'desktopLauncher': 'gio-launch-desktop (bundled, relocatable)',
+            'desktopLauncher': 'raft-gio-launch-desktop (bundled helper, restored host environment)',
             'launchModes': ['direct (static FUSE 3 library)', '--appimage-extract-and-run (no FUSE)']}

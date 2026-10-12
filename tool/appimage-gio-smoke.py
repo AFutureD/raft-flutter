@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Exercise a packaged GIO desktop launcher with a harmless executable."""
 import ctypes
+import json
+import os
+import shlex
+import tempfile
+import time
 from pathlib import Path
 import sys
 
@@ -24,20 +29,41 @@ def main():
     gio.g_app_info_launch.restype = ctypes.c_int
     glib.g_error_free.argtypes = [error_pointer]
     gobject.g_object_unref.argtypes = [ctypes.c_void_p]
-    error = error_pointer()
-    info = gio.g_app_info_create_from_commandline(
-        b'/usr/bin/true', b'Raft AppImage desktop launcher check', 0,
-        ctypes.byref(error))
-    try:
-        if not info or not gio.g_app_info_launch(info, None, None, ctypes.byref(error)):
-            message = error.contents.message.decode() if error else 'Unknown GIO launch failure'
-            raise ValueError(message)
-        print('Bundled GIO desktop launcher executed the harmless command')
-    finally:
-        if info:
-            gobject.g_object_unref(info)
-        if error:
-            glib.g_error_free(error)
+    keys = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
+            'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP')
+    expected = {key: os.environ.get('RAFT_APPIMAGE_HOST_' + key, '')
+                for key in keys
+                if os.environ.get('RAFT_APPIMAGE_HOST_' + key + '_SET') == 'x'}
+    with tempfile.TemporaryDirectory(prefix='raft-gio-child-check-') as temporary:
+        output = Path(temporary) / 'child-environment.json'
+        # Only this throwaway child sees/writes the selected environment.
+        # No browser, account or user file is opened.
+        child_code = ('import json,os; from pathlib import Path; '
+                      f'keys={keys!r}; '
+                      'value={k:v for k,v in os.environ.items() if k in keys '
+                      'or k.startswith("RAFT_APPIMAGE_HOST_")}; '
+                      f'path=Path({str(output)!r}); staged=path.with_suffix(".pending"); '
+                      'staged.write_text(json.dumps(value)); staged.replace(path)')
+        command = shlex.join([sys.executable, '-c', child_code]).encode()
+        error = error_pointer()
+        info = gio.g_app_info_create_from_commandline(
+            command, b'Raft AppImage desktop launcher check', 0,
+            ctypes.byref(error))
+        try:
+            if not info or not gio.g_app_info_launch(info, None, None, ctypes.byref(error)):
+                message = error.contents.message.decode() if error else 'Unknown GIO launch failure'
+                raise ValueError(message)
+            deadline = time.monotonic() + 10
+            while not output.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if not output.exists() or json.loads(output.read_text()) != expected:
+                raise ValueError('Desktop child did not recover the original host environment')
+            print('Bundled GIO desktop launcher executed the child with the original host environment')
+        finally:
+            if info:
+                gobject.g_object_unref(info)
+            if error:
+                glib.g_error_free(error)
 
 
 if __name__ == '__main__':

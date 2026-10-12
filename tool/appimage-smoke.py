@@ -75,7 +75,12 @@ def main():
                 LD_LIBRARY_PATH=str(payload / 'lib'),
                 GIO_MODULE_DIR=str(payload / 'lib/gio/modules'),
                 GSETTINGS_SCHEMA_DIR=str(payload.parent / 'usr/share/glib-2.0/schemas'),
-                GIO_LAUNCH_DESKTOP=str(payload / 'bin/gio-launch-desktop'))
+                GIO_LAUNCH_DESKTOP=str(payload / 'bin/raft-gio-launch-desktop'))
+            for key in ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
+                        'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP'):
+                prefix = 'RAFT_APPIMAGE_HOST_' + key
+                desktop_env[prefix + '_SET'] = 'x' if key in os.environ else ''
+                desktop_env[prefix] = os.environ.get(key, '')
             for key in ('XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'):
                 folder = Path(temporary) / key
                 folder.mkdir()
@@ -85,7 +90,7 @@ def main():
             (args.output / 'payload-check.json').write_text(json.dumps({
                 'commit': receipt['commit'], 'elfFilesChecked': checked,
                 'pdfPageRendered': True, 'pdfColors': colors,
-                'desktopLauncherSpawned': True}, indent=2) + '\n')
+                'desktopLauncherSpawned': True, 'desktopEnvironmentRestored': True}, indent=2) + '\n')
     if args.mode != 'direct' and Path('/dev/fuse').exists():
         # Extract mode still never opens /dev/fuse; containers additionally prove
         # it works when the device itself does not exist.
