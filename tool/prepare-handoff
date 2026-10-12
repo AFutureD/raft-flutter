@@ -122,6 +122,11 @@ def main():
     parser.add_argument('--no-check', action='store_true',
                         help='merge only (docs-only branches)')
     args = parser.parse_args()
+    # A machine-local default, so gates started from any shell here report failures
+    # to the same place; check-project inherits it.
+    notify_file = pathlib.Path.home() / '.config/raft-flutter/gate-notify-target'
+    if not os.environ.get('RAFT_GATE_NOTIFY_TARGET') and notify_file.is_file():
+        os.environ['RAFT_GATE_NOTIFY_TARGET'] = notify_file.read_text().strip()
     emit = gate_events.Events(root)
     if git('status', '--porcelain'):
         sys.exit('Working tree is not clean; commit first.')
