@@ -1,5 +1,6 @@
 import 'control_typography.dart';
 import 'composer_composing_text.dart';
+import 'composer_editing.dart';
 import 'message_semantics.dart';
 import 'message_row_recipe.dart';
 import 'message_content_tokens.dart';
@@ -1994,6 +1995,8 @@ class _RaftComposerState extends State<RaftComposer> {
   bool sending = false;
   bool composerFocused = false;
   bool restoringDraft = false;
+  RaftDeferredComposerDraft? deferredDraft;
+  bool deferredFlushQueued = false;
   RaftComposerTrigger? trigger;
   int suggestionIndex = 0;
   String? dismissedValue;
@@ -2048,7 +2051,14 @@ class _RaftComposerState extends State<RaftComposer> {
   void changed() {
     if (dismissedValue != null && dismissedValue != controller.text)
       dismissedValue = null;
-    if (!restoringDraft) widget.onDraftChanged?.call(controller.text);
+    if (!restoringDraft) {
+      // Persist the projected external draft while leaving native composition
+      // untouched, so navigation cannot lose a deferred caption/recovery.
+      widget.onDraftChanged?.call(
+        deferredDraft?.resolve(controller.text) ?? controller.text,
+      );
+    }
+    queueDeferredDraftFlush();
     mentions.removeWhere(
       (name, _) => !raftStructuredMentionAppears(controller.text, name),
     );
@@ -2066,6 +2076,55 @@ class _RaftComposerState extends State<RaftComposer> {
     }
   }
 
+  void queueDeferredDraftFlush() {
+    if (deferredDraft == null || composing || deferredFlushQueued) return;
+    deferredFlushQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      deferredFlushQueued = false;
+      if (!mounted || composing || deferredDraft == null) return;
+      commitDeferredDraft();
+      widget.onDraftChanged?.call(controller.text);
+    });
+  }
+
+  void commitDeferredDraft() {
+    final pending = deferredDraft;
+    if (pending == null || composing) return;
+    final next = pending.resolveValue(controller.value);
+    deferredDraft = null;
+    restoringDraft = true;
+    controller.value = next;
+    restoringDraft = false;
+  }
+
+  void applyProgrammaticDraft(String text, {bool preferPrepend = false}) {
+    final next = raftProgrammaticEditingText(text), value = controller.value;
+    if (next == value.text) {
+      deferredDraft = null;
+      return;
+    }
+    if (composing) {
+      final previous = deferredDraft;
+      final projected = previous?.resolve(value.text) ?? value.text;
+      if (next == projected) return;
+      deferredDraft = RaftDeferredComposerDraft(
+        projected,
+        next,
+        following: previous,
+        preferPrepend: preferPrepend,
+      );
+      widget.onDraftChanged?.call(deferredDraft!.resolve(value.text));
+      return;
+    }
+    deferredDraft = null;
+    restoringDraft = true;
+    controller.value = TextEditingValue(
+      text: next,
+      selection: raftProgrammaticSelection(value, next),
+    );
+    restoringDraft = false;
+  }
+
   void insert(RaftComposerSuggestion suggestion) {
     final range = trigger;
     if (!presentationActive ||
@@ -2076,8 +2135,8 @@ class _RaftComposerState extends State<RaftComposer> {
         !widget.enabled)
       return;
     final next = controller.text.replaceRange(
-      range.start,
-      range.end,
+      raftSafeEditingOffset(controller.text, range.start),
+      raftSafeEditingOffset(controller.text, range.end, forward: true),
       '${suggestion.insertion} ',
     );
     if (suggestion.isMention) mentions[suggestion.name] = suggestion.mention;
@@ -2085,7 +2144,10 @@ class _RaftComposerState extends State<RaftComposer> {
     controller.value = TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(
-        offset: range.start + suggestion.insertion.length + 1,
+        offset:
+            raftSafeEditingOffset(controller.text, range.start) +
+            suggestion.insertion.length +
+            1,
       ),
     );
     focus.requestFocus();
@@ -2099,9 +2161,12 @@ class _RaftComposerState extends State<RaftComposer> {
         !widget.enabled ||
         !suggestion.isMention)
       return false;
-    final cursor = controller.selection.baseOffset < 0
-        ? controller.text.length
-        : controller.selection.baseOffset.clamp(0, controller.text.length);
+    final cursor = raftSafeEditingOffset(
+      controller.text,
+      controller.selection.baseOffset < 0
+          ? controller.text.length
+          : controller.selection.baseOffset,
+    );
     final before = controller.text.substring(0, cursor);
     final after = controller.text.substring(cursor);
     final leading = before.isNotEmpty && !RegExp(r'\s$').hasMatch(before);
@@ -2212,16 +2277,20 @@ class _RaftComposerState extends State<RaftComposer> {
     final selection = value.selection.isValid
         ? value.selection
         : TextSelection.collapsed(offset: value.text.length);
+    final start = raftSafeEditingOffset(value.text, selection.start);
+    final end = raftSafeEditingOffset(value.text, selection.end, forward: true);
     controller.value = TextEditingValue(
-      text: value.text.replaceRange(selection.start, selection.end, '\n'),
-      selection: TextSelection.collapsed(offset: selection.start + 1),
+      text: value.text.replaceRange(start, end, '\n'),
+      selection: TextSelection.collapsed(offset: start + 1),
     );
   }
 
   @override
   void initState() {
     super.initState();
-    controller = RaftComposerEditingController(text: widget.initialDraft);
+    controller = RaftComposerEditingController(
+      text: raftProgrammaticEditingText(widget.initialDraft),
+    );
     controller.addListener(changed);
     widget.handle?._bind(this, insertSender);
     updateSuggestionPortal(defer: true);
@@ -2237,29 +2306,13 @@ class _RaftComposerState extends State<RaftComposer> {
     }
     updateSuggestionPortal(defer: true);
     if (oldWidget.draftRevision != widget.draftRevision) {
-      final value = controller.value, length = widget.initialDraft.length;
-      restoringDraft = true;
-      controller.value = TextEditingValue(
-        text: widget.initialDraft,
-        selection: value.selection.isValid
-            ? TextSelection(
-                baseOffset: value.selection.baseOffset.clamp(0, length),
-                extentOffset: value.selection.extentOffset.clamp(0, length),
-                affinity: value.selection.affinity,
-                isDirectional: value.selection.isDirectional,
-              )
-            : TextSelection.collapsed(offset: length),
-        composing: widget.initialDraft.startsWith(value.text)
-            ? value.composing
-            : TextRange.empty,
-      );
-      restoringDraft = false;
+      applyProgrammaticDraft(widget.initialDraft);
     } else if (oldWidget.initialDraft != widget.initialDraft &&
         controller.text.isEmpty &&
         !focus.hasFocus &&
         !sending) {
       restoringDraft = true;
-      controller.text = widget.initialDraft;
+      controller.text = raftProgrammaticEditingText(widget.initialDraft);
       restoringDraft = false;
     }
   }
@@ -2279,6 +2332,9 @@ class _RaftComposerState extends State<RaftComposer> {
   }
 
   Future<void> send({bool forceTask = false}) async {
+    if (!composing && deferredDraft != null) {
+      commitDeferredDraft();
+    }
     final draft = controller.text;
     final text = draft.trim();
     if (!presentationActive ||
@@ -2352,10 +2408,19 @@ class _RaftComposerState extends State<RaftComposer> {
     for (final entry in submitted.entries) {
       mentions.putIfAbsent(entry.key, () => entry.value);
     }
-    controller.value = TextEditingValue(
-      text: restored,
-      selection: TextSelection.collapsed(offset: restored.length),
-    );
+    if (composing || deferredDraft != null) {
+      final projected = deferredDraft?.resolve(current) ?? current;
+      final recovery = projected.isEmpty
+          ? draft
+          : '$draft${draft.endsWith('\n') || projected.startsWith('\n') ? '' : '\n'}$projected';
+      applyProgrammaticDraft(recovery, preferPrepend: true);
+      queueDeferredDraftFlush();
+    } else {
+      controller.value = TextEditingValue(
+        text: raftProgrammaticEditingText(restored),
+        selection: TextSelection.collapsed(offset: restored.length),
+      );
+    }
   }
 
   @override
