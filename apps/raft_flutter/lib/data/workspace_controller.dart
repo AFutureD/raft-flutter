@@ -1288,6 +1288,7 @@ class WorkspaceController extends ChangeNotifier {
       drafts.clear();
       _draftRevisions.clear();
       _draftShareTokens.clear();
+      _shareHolds.clear();
       visibleIds.clear();
       _windowState.clear();
       _diskOnlyWindows.clear();
@@ -1810,6 +1811,111 @@ class WorkspaceController extends ChangeNotifier {
       composerErrors[scope] = message;
     }
     notifyListeners();
+  }
+
+  /// Shared content hand-off (docs/sharing-evidence.md): the composer opens
+  /// from device data and the destination is checked afterwards. While a scope
+  /// is held, Send is off: `null` = still checking, a string = the check
+  /// refused it and this notice (an English key) shows on the composer. The
+  /// draft and the staged files stay either way.
+  final Map<String, String?> _shareHolds = {};
+  Map<String, String?> get shareHolds =>
+      presentationSource?.shareHolds ?? _shareHolds;
+  bool sharedBlocked({bool thread = false}) =>
+      !thread && shareHolds.containsKey(draftScope());
+  String? shareNoticeFor({bool thread = false}) =>
+      thread ? null : shareHolds[draftScope()];
+
+  void holdShared(String scope) {
+    final source = presentationSource;
+    if (source != null) return source.holdShared(scope);
+    if (_shareHolds.containsKey(scope)) return;
+    _shareHolds[scope] = null;
+    notifyListeners();
+  }
+
+  /// The check passed (or could not be made: the server still decides on send).
+  void releaseShared(String scope) {
+    final source = presentationSource;
+    if (source != null) return source.releaseShared(scope);
+    if (!_shareHolds.containsKey(scope) || _shareHolds[scope] != null) return;
+    _shareHolds.remove(scope);
+    notifyListeners();
+  }
+
+  /// The check refused the destination: Send stays off and [notice] shows.
+  void blockShared(String scope, String notice) {
+    final source = presentationSource;
+    if (source != null) return source.blockShared(scope, notice);
+    if (_disposed || _shareHolds[scope] == notice) return;
+    _shareHolds[scope] = notice;
+    notifyListeners();
+  }
+
+  /// A destination that does not exist on the server yet (a new DM): the
+  /// composer opens on this local row; [adoptResolvedDm] swaps in the real one.
+  static RaftChannel pendingDm({
+    required String key,
+    required String serverId,
+    required String name,
+  }) => RaftChannel({
+    'id': 'pending-dm:$key',
+    'name': name,
+    'type': 'dm',
+    'joined': true,
+    'serverId': serverId,
+    'peerDisplayName': name,
+    'pendingDm': true,
+  });
+  static bool isPendingDm(RaftChannel? c) => c?.json['pendingDm'] == true;
+
+  /// The new DM exists now: its draft, staged files and hold move from the
+  /// local row to [real], which takes its place in the lists and, when open,
+  /// as the selection.
+  Future<void> adoptResolvedDm(String pendingId, RaftChannel real) async {
+    final source = presentationSource;
+    if (source != null) return source.adoptResolvedDm(pendingId, real);
+    if (_disposed) return;
+    final wasOpen = channel?.id == pendingId;
+    final text = drafts.remove(pendingId);
+    final moved = _uploads.remove(pendingId);
+    final tokens = _draftShareTokens.remove(pendingId);
+    _draftRevisions.remove(pendingId);
+    final hold = _shareHolds.containsKey(pendingId)
+        ? _shareHolds.remove(pendingId)
+        : null;
+    if (text != null && text.isNotEmpty) {
+      final held = drafts[real.id];
+      drafts[real.id] = held == null || held.isEmpty ? text : '$held\n\n$text';
+    }
+    if (moved != null) (_uploads[real.id] ??= []).addAll(moved);
+    if (tokens != null) (_draftShareTokens[real.id] ??= {}).addAll(tokens);
+    if (hold != null) _shareHolds[real.id] = hold;
+    _draftRevisions[real.id] = (_draftRevisions[real.id] ?? 0) + 1;
+    _channelRowSeq[real.id] = ++_channelReadSeq;
+    if (wasOpen) channel = real;
+    _putChannelRow(real);
+    notifyListeners();
+    unawaited(_save('draft', pendingId, null));
+    unawaited(_saveDraftScope(real.id));
+    if (wasOpen) {
+      await selectChannel(
+        [
+          ...channels,
+          ...dms,
+        ].firstWhere((c) => c.id == real.id, orElse: () => real),
+        autoRead: false,
+      );
+    }
+  }
+
+  /// A joined copy of a public channel's row while its join is in flight; the
+  /// original goes back when [joined] is false.
+  void putSharedChannelRow(RaftChannel row) {
+    final source = presentationSource;
+    if (source != null) return source.putSharedChannelRow(row);
+    _channelRowSeq[row.id] = ++_channelReadSeq;
+    _putChannelRow(row);
   }
 
   /// Web `resolveAttachmentUploadLimitBytes`: the server ceiling from
@@ -2718,6 +2824,7 @@ class WorkspaceController extends ChangeNotifier {
     drafts.clear();
     _draftRevisions.clear();
     _draftShareTokens.clear();
+    _shareHolds.clear();
     visibleIds.clear();
     _windowState.clear();
     _windowHistoryLimited.clear();
@@ -3174,7 +3281,13 @@ class WorkspaceController extends ChangeNotifier {
 
   void _revokeChannel(String id) {
     final sharedPrincipal = client.user?.id, sharedServer = client.serverId;
-    if (sharedPrincipal != null && sharedServer != null) {
+    // Content just handed over from a share is kept when its destination is
+    // refused: the composer says so and Send stays off, nothing is discarded.
+    final keepShared = _shareHolds.containsKey(id);
+    if (keepShared) {
+      _shareHolds[id] = 'This conversation is no longer available. Your draft and files are kept.';
+    }
+    if (!keepShared && sharedPrincipal != null && sharedServer != null) {
       unawaited(
         discardSharedScope?.call(
           client.origin,
@@ -3235,6 +3348,7 @@ class WorkspaceController extends ChangeNotifier {
       if (serverId != null && principal != null) {
         readState.revoke(serverId, principal, scope);
       }
+      if (keepShared && scope == id) continue;
       drafts.remove(scope);
       _draftRevisions.remove(scope);
       for (final draft in _uploads.remove(scope) ?? <UploadDraft>[]) {
@@ -3259,7 +3373,7 @@ class WorkspaceController extends ChangeNotifier {
         bucket.remove(messageId);
       }
     }
-    if (channel?.id == id) {
+    if (channel?.id == id && !keepShared) {
       channel = null;
       channelGeneration++;
     }
@@ -3275,6 +3389,8 @@ class WorkspaceController extends ChangeNotifier {
           for (final scope in {id, ...threadIds}) {
             await cache?.revokeChannel(origin, principal, serverId, scope);
           }
+          // The purge above removed the saved draft too: write the kept one back.
+          if (keepShared) await _saveDraftScope(id);
           for (final messageId in messageIds) {
             await cache?.write(
               origin,
@@ -3537,7 +3653,12 @@ class WorkspaceController extends ChangeNotifier {
       'channels': channels.map((c) => c.json).toList(),
       'dms': dms.map((c) => c.json).toList(),
     });
-    if (channel != null) {
+    // A held share's destination (and a DM that is not on the server yet)
+    // stays open when the lists do not carry it: the composer says why.
+    if (channel != null &&
+        !isPendingDm(channel) &&
+        !(_shareHolds.containsKey(channel!.id) &&
+            !accessible.contains(channel!.id))) {
       channel = [
         ...channels,
         ...dms,
@@ -4069,6 +4190,7 @@ class WorkspaceController extends ChangeNotifier {
     bool navigate = true,
     bool retainContextUntilAccepted = false,
     bool preserveThread = false,
+    VoidCallback? onDraftRestored,
   }) async {
     final source = presentationSource;
     if (source != null) {
@@ -4078,6 +4200,7 @@ class WorkspaceController extends ChangeNotifier {
         navigate: navigate,
         retainContextUntilAccepted: retainContextUntilAccepted,
         preserveThread: preserveThread,
+        onDraftRestored: onDraftRestored,
       );
     }
     final retainThread =
@@ -4155,10 +4278,24 @@ class WorkspaceController extends ChangeNotifier {
         !_revokedChannels.contains(next.id) &&
         can('viewChannel', resource: channel);
     notifyListeners();
+    if (isPendingDm(next)) {
+      // A DM that is not on the server yet has nothing to read: only its
+      // saved draft, then the composer.
+      await _restoreDraft(next.id);
+      onDraftRestored?.call();
+      if (current()) {
+        channelLoading = false;
+        notifyListeners();
+      }
+      return;
+    }
     // Source ChatPanel loads the channel's tasks with its messages: start the
     // bucket read now so the chips are cached when the rows first render.
     unawaited(MessageTaskCache.of(client).warm(this, next.id));
     await _restoreDraft(next.id);
+    // The composer can take staged content from here on; the message page
+    // below is still loading.
+    onDraftRestored?.call();
     if (!current()) return;
     try {
       final page = retainContextUntilAccepted
@@ -4556,6 +4693,8 @@ class WorkspaceController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    // Shared content whose destination is not confirmed yet is never sent.
+    if (sharedBlocked(thread: thread)) return false;
     error = null;
     final generation = ledger.generation;
     final principal = client.user?.id, serverId = client.serverId;

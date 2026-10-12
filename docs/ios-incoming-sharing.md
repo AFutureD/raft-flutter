@@ -35,9 +35,13 @@ serialized recovery and token deduplication. A cold share URI is consumed before
 building the normal app route. Shares wait for account restoration when needed.
 
 The main app displays the same IncomingSharePicker and ordinary editable draft
-handoff as Android: cached servers/conversations first, background authority
-revalidation, then an explicit Continue adds text and queued attachments to the
-chosen conversation. Uploading and sending remain the composer's explicit action.
+handoff as Android: cached servers/conversations first, then an explicit Continue
+adds text and queued attachments to the chosen conversation. The extension has
+already published the files, so Continue awaits no copy and, since 2026-10-12, no
+request: the composer opens from device data and membership, the destination row,
+a join or a new DM are checked behind it (docs/sharing-evidence.md, "Instant
+hand-off"). A refusal keeps the draft and files and puts a notice on the composer;
+Send stays off until the check passes. Uploading and sending remain the composer's explicit action.
 Account binding, role/membership checks, conversion fences, draft persistence and
 refresh credentials remain in the main app's existing services.
 

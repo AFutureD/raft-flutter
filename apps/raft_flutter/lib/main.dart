@@ -277,11 +277,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       return;
     }
     final staging = IncomingShareStaging(raw);
-    staging.start((progress) async {
+    staging.start((progress, bytes) async {
       final share = await sharing.inbox.stage(
         raw,
         current: () => mounted && epoch == shareEpoch && !staging.cancelled,
         onProgress: progress,
+        onBytes: bytes,
       );
       if (!mounted || epoch != shareEpoch || staging.cancelled) {
         throw const FormatException('Cancelled');
@@ -379,10 +380,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     sharePickerOpen = true;
     var handedOff = false;
     try {
-      if (staging.failed) {
-        if (valid()) showShareError();
-        return;
-      }
       // Bind the copied files to this account as soon as they are staged, in
       // the background, so Continue finds the claim already done.
       final owned = staging.result.then((share) async {
@@ -406,33 +403,40 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             staging: staging,
             cachedTargets: (server) => cachedShareTargets(w, server),
             onContinue: (server, target) async {
+              // Cancel (or leaving the page) ends the hand-off: nothing below
+              // changes the workspace once the user has backed out.
+              bool live() => valid() && !staging.cancelled;
+              // Continue never waits for the network. Only the copy is
+              // awaited (on this device, and long finished unless the provider
+              // is slow); the server, the conversation and its saved draft come
+              // from the device. Membership, the destination row, a join or a
+              // new DM are checked afterwards: [verifySharedDestination].
               final share = await owned;
-              if (!valid()) {
+              if (!live()) {
                 throw const RaftApiException('The conversation changed.');
               }
-              final freshServers = await c.servers();
-              if (!valid() || !freshServers.any((s) => s.id == server.id)) {
-                throw const RaftApiException('Server membership changed.');
-              }
-              w.applyMembershipRole({
-                'serverId': server.id,
-                'userId': principal,
-                'role': freshServers
-                    .firstWhere((s) => s.id == server.id)
-                    .string('role'),
-              });
-              w.servers = freshServers;
-              await chooseServer(
-                freshServers.firstWhere((s) => s.id == server.id),
-              );
-              if (!valid() || c.serverId != server.id) {
+              // The queued files are opened while the workspace switches.
+              final restoring = Future.wait([
+                for (final source in share.files)
+                  sharing.inbox.restore(
+                    {'token': share.token, 'file': source.uri},
+                    c.origin,
+                    principal,
+                  ),
+              ]);
+              final known = w.servers
+                  .where((s) => s.id == server.id)
+                  .firstOrNull;
+              if (known == null) w.servers = [...w.servers, server];
+              await chooseServer(known ?? server, cacheOnly: true);
+              if (!live() || c.serverId != server.id) {
                 throw const RaftApiException('The conversation changed.');
               }
               final generation = c.generation, role = w.server?.string('role');
               int? channelWindow;
               String? targetChannelId;
               bool destinationCurrent() =>
-                  valid() &&
+                  live() &&
                   c.serverId == server.id &&
                   c.generation == generation &&
                   w.server?.string('role') == role &&
@@ -440,75 +444,90 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
                       channelWindow == w.channelGeneration &&
                           w.channel?.id == targetChannelId &&
                           w.channel?.joined == true);
-              final id =
-                  target.channel?.id ??
-                  (await c.post(
-                        '/channels/dm',
-                        data: {
-                          if (target.agentId != null) 'agentId': target.agentId,
-                          if (target.userId != null) 'userId': target.userId,
-                        },
-                      ) as Map)['id']
-                      as String;
-              if (!destinationCurrent()) {
-                throw const RaftApiException('The conversation changed.');
-              }
-              if (target.requiresJoin) {
-                await c.post('/channels/$id/join');
-                if (!destinationCurrent()) {
-                  throw const RaftApiException('The conversation changed.');
-                }
-              }
-              final row = await c.get('/channels/$id');
-              if (!destinationCurrent() ||
-                  row is! Map ||
-                  row['id'] != id ||
-                  row['serverId'] != server.id) {
-                throw const RaftApiException('The conversation changed.');
-              }
-              final channel = RaftChannel(Map<String, dynamic>.from(row));
-              if (!acceptsSharedDraft(channel)) {
+              final cachedRow = target.channel;
+              // A public channel the account has not joined: the joined row is
+              // shown at once and the join runs in the background.
+              final opened = cachedRow == null
+                  ? WorkspaceController.pendingDm(
+                      key: target.key,
+                      serverId: server.id,
+                      name: target.label.replaceFirst('@', ''),
+                    )
+                  : target.requiresJoin
+                  ? RaftChannel({...cachedRow.json, 'joined': true})
+                  : cachedRow;
+              if (!acceptsSharedDraft(opened)) {
                 throw const RaftApiException(
                   'This conversation cannot receive shared content.',
                 );
               }
-              final selectingChannel = w.selectChannel(channel);
-              channelWindow = w.channelGeneration;
-              targetChannelId = id;
-              await selectingChannel;
-              if (!destinationCurrent() || w.channel?.id != id) {
-                throw const RaftApiException('The conversation changed.');
-              }
-              w.closeThread();
-              w.setSection('chat');
-              final files = <SharedDraftAttachment>[];
-              for (final source in share.files) {
-                final file = await sharing.inbox.restore(
-                  {'token': share.token, 'file': source.uri},
-                  c.origin,
-                  principal,
+              final id = opened.id;
+              // Send is off until the destination is checked; set before the
+              // selection so no list refresh can drop the opened row.
+              w.holdShared(id);
+              try {
+                if (target.requiresJoin) w.putSharedChannelRow(opened);
+                final draftRestored = Completer<void>();
+                final selectingChannel = w.selectChannel(
+                  opened,
+                  onDraftRestored: () {
+                    if (!draftRestored.isCompleted) draftRestored.complete();
+                  },
                 );
-                if (file == null || !destinationCurrent()) {
-                  throw const RaftApiException('Shared file unavailable.');
+                unawaited(
+                  selectingChannel.whenComplete(() {
+                    if (!draftRestored.isCompleted) draftRestored.complete();
+                  }),
+                );
+                channelWindow = w.channelGeneration;
+                targetChannelId = id;
+                await draftRestored.future;
+                if (!destinationCurrent() || w.channel?.id != id) {
+                  throw const RaftApiException('The conversation changed.');
                 }
-                files.add(file);
+                w.closeThread();
+                w.setSection('chat');
+                final files = <SharedDraftAttachment>[];
+                for (final file in await restoring) {
+                  if (file == null || !destinationCurrent()) {
+                    throw const RaftApiException('Shared file unavailable.');
+                  }
+                  files.add(file);
+                }
+                await sharing.inbox.bindDestination(
+                  share.token!,
+                  server.id,
+                  id,
+                );
+                if (!destinationCurrent()) {
+                  throw const RaftApiException('The conversation changed.');
+                }
+                await w.stageSharedDraft(
+                  share.text ?? '',
+                  files,
+                  sourceToken: share.token,
+                );
+              } catch (_) {
+                w.releaseShared(id);
+                rethrow;
               }
-              await sharing.inbox.bindDestination(share.token!, server.id, id);
-              if (!destinationCurrent()) {
-                throw const RaftApiException('The conversation changed.');
-              }
-              await w.stageSharedDraft(
-                share.text ?? '',
-                files,
-                sourceToken: share.token,
-              );
               handedOff = true;
+              unawaited(
+                verifySharedDestination(
+                  c: c,
+                  w: w,
+                  server: server,
+                  target: target,
+                  opened: opened,
+                  token: share.token!,
+                  valid: valid,
+                ),
+              );
               await sharing.inbox.complete(share.token!);
             },
           ),
         ),
       );
-      if (!handedOff && staging.failed && valid()) showShareError();
     } catch (_) {
       if (valid()) showShareError();
     } finally {
@@ -522,6 +541,97 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
       sharePickerOpen = false;
       scheduleShares();
+    }
+  }
+
+  /// The checks the share hand-off no longer waits for. The composer is open
+  /// on device data with Send held; this confirms membership and the
+  /// destination row, joins a public channel, or creates a new DM, then
+  /// releases Send. A refusal (the server says no) keeps the draft and the
+  /// staged files and puts a notice on the composer; a transient failure
+  /// releases, because the server still decides on every send.
+  Future<void> verifySharedDestination({
+    required RaftClient c,
+    required WorkspaceController w,
+    required RaftRecord server,
+    required IncomingShareTarget target,
+    required RaftChannel opened,
+    required String token,
+    required bool Function() valid,
+  }) async {
+    var scope = opened.id;
+    final pending = WorkspaceController.isPendingDm(opened);
+    bool stillHere() => valid() && c.user != null;
+    void refuse(String notice) {
+      if (stillHere()) w.blockShared(scope, notice);
+    }
+
+    const kept = ' Your draft and files are kept.';
+    try {
+      final membership = c.servers();
+      unawaited(membership.then<void>((_) {}, onError: (Object _) {}));
+      if (pending) {
+        final created = await c.post(
+          '/channels/dm',
+          data: {
+            if (target.agentId != null) 'agentId': target.agentId,
+            if (target.userId != null) 'userId': target.userId,
+          },
+        ) as Map;
+        if (!stillHere()) return;
+        final row = await c.get('/channels/${created['id']}');
+        if (!stillHere()) return;
+        if (row is! Map || row['id'] is! String) {
+          throw const RaftApiException('The conversation changed.');
+        }
+        final real = RaftChannel(Map<String, dynamic>.from(row));
+        final from = scope;
+        scope = real.id;
+        await w.adoptResolvedDm(from, real);
+        await sharing.inbox.bindDestination(token, server.id, real.id);
+      } else if (target.requiresJoin) {
+        try {
+          await c.post('/channels/$scope/join');
+        } on RaftApiException {
+          // Not joined after all: the original row (and its Join button)
+          // returns; the draft and files stay with the conversation.
+          if (stillHere()) {
+            w.putSharedChannelRow(target.channel!);
+            w.releaseShared(scope);
+            w.setError('Could not join this channel.');
+          }
+          return;
+        }
+      }
+      final row = await c.get('/channels/$scope');
+      final servers = await membership;
+      if (!stillHere()) return;
+      if (!servers.any((s) => s.id == server.id)) {
+        refuse('You are no longer a member of this server.$kept');
+        return;
+      }
+      if (row is! Map ||
+          row['id'] != scope ||
+          row['serverId'] != server.id ||
+          !acceptsSharedDraft(RaftChannel(Map<String, dynamic>.from(row)))) {
+        refuse('This conversation cannot receive shared content.$kept');
+        return;
+      }
+      if (target.requiresJoin) {
+        w.putSharedChannelRow(RaftChannel(Map<String, dynamic>.from(row)));
+      }
+      w.releaseShared(scope);
+    } on RaftApiException catch (e) {
+      if (!stillHere()) return;
+      if (pending) {
+        refuse('Could not open this conversation.$kept');
+      } else if (e.status == 403 || e.status == 404) {
+        refuse('This conversation is no longer available.$kept');
+      } else {
+        w.releaseShared(scope);
+      }
+    } catch (_) {
+      if (stillHere()) w.releaseShared(scope);
     }
   }
 
@@ -1414,10 +1524,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     );
   }
 
+  /// [cacheOnly]: return once the on-device workspace of [selected] is painted
+  /// (or known to be absent), never after a network read: the fresh channels
+  /// and page arrive behind the screen like any server opening. Used by the
+  /// share hand-off, which must not wait for the network.
   Future<void> chooseServer(
     RaftRecord selected, {
     Uri? location,
     bool resolveDesktopRoot = false,
+    bool cacheOnly = false,
   }) async {
     final w = workspace, c = client;
     if (w == null ||
@@ -1446,7 +1561,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         final hydrated = Completer<void>();
         final selecting = w.selectServer(
           selected,
-          onCacheMiss: finishStartup,
+          onCacheMiss: () {
+            finishStartup();
+            if (cacheOnly && !hydrated.isCompleted) hydrated.complete();
+          },
           onHydrated: () {
             if (!hydrated.isCompleted) hydrated.complete();
           },
