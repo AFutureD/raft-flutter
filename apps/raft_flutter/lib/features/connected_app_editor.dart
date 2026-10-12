@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../platform/file_selection.dart';
+
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
 import 'app_notifications_catalog.dart';
@@ -58,10 +60,12 @@ List<String> toggleDeclaredScope(Iterable<String> value, String scope) {
   String group,
   bool checked,
 ) {
-  final nextGroups = checked ? [...groups, group] : [
-    for (final g in groups)
-      if (g != group) g,
-  ];
+  final nextGroups = checked
+      ? [...groups, group]
+      : [
+          for (final g in groups)
+            if (g != group) g,
+        ];
   final nextEvents = checked
       ? events
       : [
@@ -156,7 +160,15 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
       unawaited(loadShare());
       unawaited(loadNotifications());
     }
-    for (final c in [name, clientId, description, whenToUse, homepage, returnUrl, manifest]) {
+    for (final c in [
+      name,
+      clientId,
+      description,
+      whenToUse,
+      homepage,
+      returnUrl,
+      manifest,
+    ]) {
       c.addListener(refresh);
     }
     widget.secret.addListener(refresh);
@@ -171,7 +183,16 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     shareCopyReset?.cancel();
     secretCopyReset?.cancel();
     widget.secret.removeListener(refresh);
-    for (final c in [name, clientId, description, whenToUse, homepage, returnUrl, manifest, endpoint]) {
+    for (final c in [
+      name,
+      clientId,
+      description,
+      whenToUse,
+      homepage,
+      returnUrl,
+      manifest,
+      endpoint,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -227,10 +248,9 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     notifications = data;
     configOpen = managementMap(data['webhook'])['enabled'] == true;
     final pending = data['pending_revision'];
-    final requested = pending is Map ? pending : {
-      'groups': data['current_groups'],
-      'events': data['current_events'],
-    };
+    final requested = pending is Map
+        ? pending
+        : {'groups': data['current_groups'], 'events': data['current_events']};
     final selection = _sortedSelection(
       managementStrings(requested['groups']),
       managementStrings(requested['events']),
@@ -244,10 +264,12 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     final state = notifications;
     if (state == null) return groups.isNotEmpty || events.isNotEmpty;
     final pending = state['pending_revision'];
-    final requested = pending is Map ? pending : {
-      'groups': state['current_groups'],
-      'events': state['current_events'],
-    };
+    final requested = pending is Map
+        ? pending
+        : {
+            'groups': state['current_groups'],
+            'events': state['current_events'],
+          };
     return managementStrings(requested['groups']).join('\u0000') !=
             groups.join('\u0000') ||
         managementStrings(requested['events']).join('\u0000') !=
@@ -359,14 +381,13 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
   }
 
   Future<void> uploadLogo() async {
-    final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(
-          label: 'App logo',
-          extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-          mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-        ),
-      ],
+    final file = await selectImage(
+      typeGroup: const XTypeGroup(
+        label: 'App logo',
+        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        uniformTypeIdentifiers: ['public.image'],
+      ),
     );
     if (file == null || !live) return;
     final bytes = await file.readAsBytes();
@@ -476,7 +497,9 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         loadingLabel: tr('Regenerating...'),
         confirmGlyph: RaftGlyph.alertTriangle,
         confirmVariant: RaftButtonRecipeVariant.primary,
-        confirmKey: const ValueKey('connected-app-regenerate-secret-confirm-button'),
+        confirmKey: const ValueKey(
+          'connected-app-regenerate-secret-confirm-button',
+        ),
         onConfirm: () async {
           regenerating = true;
           try {
@@ -629,11 +652,14 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     if (mounted) setState(() => configOpen = false);
   }
 
-  String groupLabel(String group) => tr(appNotificationGroupLabels[group] ?? group);
+  String groupLabel(String group) =>
+      tr(appNotificationGroupLabels[group] ?? group);
 
   String permissionLabel(String group) => group == 'agent_reminder_write'
       ? groupLabel(group)
-      : raftFormat(context, '{resource} · read', {'resource': groupLabel(group)});
+      : raftFormat(context, '{resource} · read', {
+          'resource': groupLabel(group),
+        });
 
   static const _groupSummaries = <String, String>{
     'server': 'Server information',
@@ -701,8 +727,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.shield,
         railLabel: 'App permissions',
         title: 'App permissions',
-        description:
-            'Approved by a Server admin at installation. The app accesses data directly.',
+        description: 'Approved by a Server admin at installation. The app accesses data directly.',
         status: raftFormat(context, '{count} permissions selected', {
           'count': groups.length,
         }),
@@ -723,7 +748,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.link2,
         railLabel: 'Distribution',
         title: 'Distribution',
-        description: 'Private sharing, Marketplace review, and publication state.',
+        description:
+            'Private sharing, Marketplace review, and publication state.',
         status: tr(distribution),
         child: distributionSection(),
       ),
@@ -732,8 +758,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.alertTriangle,
         railLabel: 'Danger zone',
         title: 'Danger zone',
-        description:
-            'Credential rotation, offline review, and deletion stay separate from routine configuration.',
+        description: 'Credential rotation, offline review, and deletion stay separate from routine configuration.',
         status: tr(app == null ? 'Available after save' : 'Restricted'),
         warning: true,
         child: dangerSection(),
@@ -759,7 +784,12 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             ? 'Register app'
             : 'Save',
       ),
-      onSubmit: submitting || notificationsLoading || savingId != null && savingId == '${app?['id']}' ? null : save,
+      onSubmit:
+          submitting ||
+              notificationsLoading ||
+              savingId != null && savingId == '${app?['id']}'
+          ? null
+          : save,
       railLabel: 'App editor sections',
       banner: (error != null && error!.isNotEmpty) || showSecret
           ? RaftAppEditorStack(
@@ -903,7 +933,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         RaftAppEditorField(
           label: 'When to use',
           optional: true,
-          hint: 'Shown to agents in their system prompt; leave empty to hide it.',
+          hint:
+              'Shown to agents in their system prompt; leave empty to hide it.',
           child: input(
             whenToUse,
             placeholder: 'When an agent should reach for this app, in one line',
@@ -918,14 +949,18 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     children: [
       RaftAppEditorField(
         label: 'Return URL',
-        child: input(returnUrl, placeholder: 'https://example.com/login/callback'),
+        child: input(
+          returnUrl,
+          placeholder: 'https://example.com/login/callback',
+        ),
       ),
       RaftAppEditorField(
         label: 'Agent Manifest URL',
         optional: true,
         child: input(
           manifest,
-          placeholder: 'https://example.com/.well-known/raft-agent-manifest.json',
+          placeholder:
+              'https://example.com/.well-known/raft-agent-manifest.json',
         ),
       ),
       RaftDeclaredScopesPicker(
@@ -949,7 +984,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
   Widget permissions() {
     final pending = notifications?['pending_revision'];
     final source = notifications?['source_installation'];
-    final locked = notificationsLoading || (editing != null && notifications == null);
+    final locked =
+        notificationsLoading || (editing != null && notifications == null);
     return RaftAppEditorStack(
       gap: RaftSpace.x3,
       children: [
@@ -1066,7 +1102,11 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                     ? 'Save the app before enabling its webhook.'
                     : null,
                 value: configOpen && app != null,
-                onChanged: app == null || notificationsLoading || notifications == null || busy
+                onChanged:
+                    app == null ||
+                        notificationsLoading ||
+                        notifications == null ||
+                        busy
                     ? null
                     : toggleWebhook,
               ),
@@ -1100,7 +1140,9 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
                   actions: [
                     if (webhook['enabled'] == true)
                       RaftSettingsRecipeButton(
-                        label: webhookBusy == 'rotate' ? 'Rotating...' : 'Rotate secret',
+                        label: webhookBusy == 'rotate'
+                            ? 'Rotating...'
+                            : 'Rotate secret',
                         glyph: RaftGlyph.rotateCw,
                         glyphSize: 13,
                         size: small,
@@ -1124,8 +1166,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         if (configOpen && app != null)
           RaftAppEditorPanel(
             title: 'Webhook events',
-            description:
-                'Choose events for the resources selected in App permissions. Each installation controls its subscriptions separately.',
+            description: 'Choose events for the resources selected in App permissions. Each installation controls its subscriptions separately.',
             child: RaftAppEditorStack(
               gap: RaftSpace.x3,
               children: [
@@ -1161,12 +1202,16 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     final locked = notificationsLoading || notifications == null;
     return [
       RaftAppEditorEventGroup(
-        title: raftFormat(context, '{group} events', {'group': groupLabel(group)}),
+        title: raftFormat(context, '{group} events', {
+          'group': groupLabel(group),
+        }),
         children: [
           for (final e in list)
             RaftAppEditorCheckTile(
               label: tr(appNotificationEventLabels[e.key] ?? e.key),
-              caption: e.value.length > 1 ? tr('Requires Agent + Computer') : null,
+              caption: e.value.length > 1
+                  ? tr('Requires Agent + Computer')
+                  : null,
               value: events.contains(e.key),
               enabled: !locked && e.value.every(groups.contains),
               onChanged: (on) => setState(() {
@@ -1188,10 +1233,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     final app = editing;
     final status = publishStatus;
     final hint = switch (status) {
-      'publish_requested' || 'in_review' =>
-        'Marketplace review is pending. You can edit this app while it waits, or delete it to withdraw the request.',
-      'unpublish_requested' =>
-        'Marketplace offline review is pending. The app stays listed and installable until App Admin approves removal; approval revokes existing server installs and access.',
+      'publish_requested' || 'in_review' => 'Marketplace review is pending. You can edit this app while it waits, or delete it to withdraw the request.',
+      'unpublish_requested' => 'Marketplace offline review is pending. The app stays listed and installable until App Admin approves removal; approval revokes existing server installs and access.',
       _ => null,
     };
     final shareable = status == 'private' || status == 'rejected';
@@ -1213,8 +1256,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
               children: [
                 RaftAppEditorActionRow(
                   title: 'Private share link',
-                  description:
-                      'Invite another server owner or admin to install this app without listing it in the public marketplace.',
+                  description: 'Invite another server owner or admin to install this app without listing it in the public marketplace.',
                   extra: shareLink == null
                       ? null
                       : raftFormat(context, 'Active link expires {when}.', {
@@ -1267,10 +1309,11 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             cream: true,
             child: RaftAppEditorActionRow(
               title: 'Marketplace publish request',
-              description:
-                  'Category and data access come from the app metadata and declared scopes above. Requesting review saves those changes first.',
+              description: 'Category and data access come from the app metadata and declared scopes above. Requesting review saves those changes first.',
               action: RaftSettingsRecipeButton(
-                label: savingId == '${app['id']}' ? 'Requesting…' : 'Request publish',
+                label: savingId == '${app['id']}'
+                    ? 'Requesting…'
+                    : 'Request publish',
                 variant: RaftButtonRecipeVariant.accent,
                 size: small,
                 onPressed: savingId == '${app['id']}' ? null : requestPublish,
@@ -1305,11 +1348,12 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
           shadow: false,
           child: RaftAppEditorActionRow(
             title: 'Client secret',
-            description:
-                'Regenerating invalidates the previous secret for this app. The new secret is shown once.',
+            description: 'Regenerating invalidates the previous secret for this app. The new secret is shown once.',
             action: RaftSettingsRecipeButton(
               key: const ValueKey('connected-app-regenerate-secret-button'),
-              label: regenerating ? 'Regenerating...' : 'Regenerate client secret',
+              label: regenerating
+                  ? 'Regenerating...'
+                  : 'Regenerate client secret',
               variant: RaftButtonRecipeVariant.primary,
               size: small,
               onPressed: submitting || regenerating ? null : confirmRegenerate,
@@ -1322,8 +1366,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             shadow: false,
             child: RaftAppEditorActionRow(
               title: 'Marketplace lifecycle',
-              description:
-                  'Requesting offline review keeps the app live until App Admin approves removal.',
+              description: 'Requesting offline review keeps the app live until App Admin approves removal.',
               action: RaftSettingsRecipeButton(
                 label: 'Request offline',
                 size: small,
@@ -1331,13 +1374,16 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
               ),
             ),
           ),
-        if (const {'private', 'publish_requested', 'in_review', 'rejected'}
-            .contains(status))
+        if (const {
+          'private',
+          'publish_requested',
+          'in_review',
+          'rejected',
+        }.contains(status))
           RaftSettingsActionCard(
             key: const ValueKey('connected-app-delete-card'),
             title: 'Delete app',
-            description:
-                'Permanently deletes this app registration and its current credentials.',
+            description: 'Permanently deletes this app registration and its current credentials.',
             stacked: true,
             action: RaftSettingsRecipeButton(
               label: 'Delete',
