@@ -41,6 +41,7 @@ import 'platform/ios_share_session.dart';
 import 'platform/incoming_share_staging.dart';
 import 'platform/content_coordinator.dart';
 import 'platform/workspace_cache.dart';
+import 'platform/desktop_title_bar.dart';
 import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
 import 'platform/background_notifications.dart';
@@ -213,6 +214,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           WidgetsBinding.instance.platformDispatcher.defaultRouteName,
         ) ??
         Uri(path: '/');
+    if (NativeSharing.isIncomingShareLink(requestedLocation)) {
+      requestedLocation = Uri(path: '/');
+    }
     invite = InviteLink.fromLocation(requestedLocation);
     inviteOrigin = invite?.origin;
     InviteRequests.instance.addListener(inviteRequested);
@@ -235,6 +239,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     NativeSystemFonts.instance.addListener(systemFontsChanged);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
+    content.onIncomingShare = () => unawaited(sharing.resume());
     unawaited(sharing.init());
     unawaited(content.init(initialArguments: widget.initialArguments));
     restore();
@@ -1146,6 +1151,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> receiveAppLocation(Uri location) async {
+    if (NativeSharing.isIncomingShareLink(location)) {
+      unawaited(sharing.resume());
+      return;
+    }
     final link = InviteLink.fromLocation(location);
     if (link != null) {
       // An invite link opens the invite page; the URL itself is consumed.
@@ -1780,15 +1789,17 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       builder: (context, child) => RepaintBoundary(
         key: raftScreenshotKey,
-        child: RaftTooltipProvider(
-          delay: const Duration(milliseconds: 600),
-          child: RaftViewportBreakpointScope(
-            // Resolves the theme's font combinations once the app is idle.
-            child: RaftFontWarmUpScope(
-              child: RaftSystemBars(
-                child: KeyboardInsetGuard(
-                  imeVisible: platformImeVisibility,
-                  child: child!,
+        child: DesktopTitleBar(
+          child: RaftTooltipProvider(
+            delay: const Duration(milliseconds: 600),
+            child: RaftViewportBreakpointScope(
+              // Resolves the theme's font combinations once the app is idle.
+              child: RaftFontWarmUpScope(
+                child: RaftSystemBars(
+                  child: KeyboardInsetGuard(
+                    imeVisible: platformImeVisibility,
+                    child: child!,
+                  ),
                 ),
               ),
             ),

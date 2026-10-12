@@ -21,6 +21,7 @@ import 'background_inbox.dart';
 import 'background_notifications.dart';
 import 'desktop_inbox_notifications.dart';
 import 'macos_dock_unread.dart';
+import 'native_sharing.dart';
 
 /// Binds platform links and notification clicks to the currently signed-in
 /// principal. Every navigation rechecks server membership and visible context.
@@ -28,6 +29,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   NativeContentCoordinator({
     NativeNotificationService? notifications,
     this.links,
+    this.onIncomingShare,
     MacOSDockUnread? dockUnread,
   }) : _providedDockUnread = dockUnread,
        notifications = notifications ?? NativeNotificationService();
@@ -36,6 +38,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   late final dockUnread =
       _providedDockUnread ?? MacOSDockUnread(platform: notifications.platform);
   final Stream<Uri>? links;
+  void Function()? onIncomingShare;
   final background = BackgroundNotificationScheduler();
   DesktopInboxNotifications? desktop;
   bool? _appForeground;
@@ -185,6 +188,10 @@ class NativeContentCoordinator with WidgetsBindingObserver {
 
   void receiveLink(Uri uri) {
     if (_closed || uri.scheme == 'raft' && uri.host == 'oauth') return;
+    if (NativeSharing.isIncomingShareLink(uri)) {
+      onIncomingShare?.call();
+      return;
+    }
     if (notifications.receiveWindowsActivation(uri)) return;
     // raft://v1/join/<token>: an invite opens the invite page, signed in or not.
     if (uri.scheme == 'raft' && uri.host == 'v1') {
