@@ -41,6 +41,7 @@ import 'platform/ios_share_session.dart';
 import 'platform/incoming_share_staging.dart';
 import 'platform/content_coordinator.dart';
 import 'platform/workspace_cache.dart';
+import 'platform/desktop_title_bar.dart';
 import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
 import 'platform/background_notifications.dart';
@@ -1780,15 +1781,17 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       builder: (context, child) => RepaintBoundary(
         key: raftScreenshotKey,
-        child: RaftTooltipProvider(
-          delay: const Duration(milliseconds: 600),
-          child: RaftViewportBreakpointScope(
-            // Resolves the theme's font combinations once the app is idle.
-            child: RaftFontWarmUpScope(
-              child: RaftSystemBars(
-                child: KeyboardInsetGuard(
-                  imeVisible: platformImeVisibility,
-                  child: child!,
+        child: DesktopTitleBar(
+          child: RaftTooltipProvider(
+            delay: const Duration(milliseconds: 600),
+            child: RaftViewportBreakpointScope(
+              // Resolves the theme's font combinations once the app is idle.
+              child: RaftFontWarmUpScope(
+                child: RaftSystemBars(
+                  child: KeyboardInsetGuard(
+                    imeVisible: platformImeVisibility,
+                    child: child!,
+                  ),
                 ),
               ),
             ),

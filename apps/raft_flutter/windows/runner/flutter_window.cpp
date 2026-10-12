@@ -1,8 +1,37 @@
 #include "flutter_window.h"
 
+#include <dwmapi.h>
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
+
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+
+namespace {
+
+// DWMWA_CAPTION_COLOR / DWMWA_TEXT_COLOR / DWMWA_USE_IMMERSIVE_DARK_MODE.
+// The first two exist from Windows 11 (build 22000); older systems reject
+// them and keep their own caption, which is harmless. Spelled as numbers so an
+// older SDK still builds.
+constexpr DWORD kCaptionColor = 35;
+constexpr DWORD kCaptionTextColor = 36;
+constexpr DWORD kImmersiveDarkMode = 20;
+
+int64_t IntArgument(const flutter::EncodableMap& arguments, const char* key) {
+  auto found = arguments.find(flutter::EncodableValue(key));
+  if (found == arguments.end()) return 0;
+  if (const auto* value = std::get_if<int32_t>(&found->second)) return *value;
+  if (const auto* value = std::get_if<int64_t>(&found->second)) return *value;
+  return 0;
+}
+
+// Dart sends 0xAARRGGBB; COLORREF is 0x00BBGGRR.
+COLORREF ToColorRef(int64_t argb) {
+  return RGB((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF);
+}
+
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -27,6 +56,51 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   notifications_channel_ = CreateWindowsNotificationsChannel(
       flutter_controller_->engine()->messenger(), GetHandle());
+  // The app tells the runner the nav rail's colours; the caption takes them
+  // (Windows 11) and its title text is drawn in the caption colour so the bar
+  // is empty. The caption's height, dragging and double-click stay the
+  // system's, so there is no strip for the app to draw or report.
+  titlebar_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(), "app.raft/titlebar",
+          &flutter::StandardMethodCodec::GetInstance());
+  HWND window_handle = GetHandle();
+  titlebar_channel_->SetMethodCallHandler(
+      [window_handle](
+          const flutter::MethodCall<flutter::EncodableValue>& call,
+          std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+              result) {
+        if (call.method_name() == "status") {
+          flutter::EncodableMap state;
+          state[flutter::EncodableValue("height")] =
+              flutter::EncodableValue(0.0);
+          state[flutter::EncodableValue("fullscreen")] =
+              flutter::EncodableValue(false);
+          result->Success(flutter::EncodableValue(state));
+        } else if (call.method_name() == "setStyle") {
+          const auto* arguments =
+              std::get_if<flutter::EncodableMap>(call.arguments());
+          if (arguments != nullptr) {
+            COLORREF background =
+                ToColorRef(IntArgument(*arguments, "background"));
+            DwmSetWindowAttribute(window_handle, kCaptionColor, &background,
+                                  sizeof(background));
+            DwmSetWindowAttribute(window_handle, kCaptionTextColor,
+                                  &background, sizeof(background));
+            auto dark = arguments->find(flutter::EncodableValue("dark"));
+            if (dark != arguments->end()) {
+              if (const auto* value = std::get_if<bool>(&dark->second)) {
+                BOOL immersive = *value ? TRUE : FALSE;
+                DwmSetWindowAttribute(window_handle, kImmersiveDarkMode,
+                                      &immersive, sizeof(immersive));
+              }
+            }
+          }
+          result->Success();
+        } else {
+          result->NotImplemented();
+        }
+      });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -43,6 +117,7 @@ bool FlutterWindow::OnCreate() {
 
 void FlutterWindow::OnDestroy() {
   notifications_channel_ = nullptr;
+  titlebar_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -420,32 +420,56 @@ class _MessageImageReviewState extends State<MessageImageReview> {
     }
   }
 
+  void close() {
+    if (!busy) Navigator.pop(context, false);
+  }
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !busy,
-    child: Dialog.fullscreen(
-      backgroundColor: RaftLightboxRecipe(RaftTokens.of(context)).backdrop,
-      child: SafeArea(
-        child: Center(
-          child: SizedBox(
-            width: 768,
-            height: MediaQuery.sizeOf(context).height * .85,
-            child: RaftImageReview(
-              preview: RaftSizedImage.memory(
-                widget.bytes,
-                fit: BoxFit.contain,
-                evictOnDispose: true,
-                semanticLabel: raftText(
-                  context,
-                  'Preview of selected messages',
+    // Web Lightbox: Escape (the route handles it), Ctrl/Cmd+W and a press on
+    // the backdrop close it; none of them while the export runs.
+    child: CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true): close,
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true): close,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Dialog.fullscreen(
+          backgroundColor: RaftLightboxRecipe(RaftTokens.of(context)).backdrop,
+          child: GestureDetector(
+            key: const ValueKey('image-export-backdrop'),
+            behavior: HitTestBehavior.opaque,
+            onTap: close,
+            child: SafeArea(
+              child: Center(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: SizedBox(
+                    width: 768,
+                    height: MediaQuery.sizeOf(context).height * .85,
+                    child: RaftImageReview(
+                      preview: RaftSizedImage.memory(
+                        widget.bytes,
+                        fit: BoxFit.contain,
+                        evictOnDispose: true,
+                        semanticLabel: raftText(
+                          context,
+                          'Preview of selected messages',
+                        ),
+                        gaplessPlayback: false,
+                      ),
+                      onClose: () => Navigator.pop(context, false),
+                      onSave: () => act(false),
+                      onShare: sharing.supported ? () => act(true) : null,
+                      busy: busy,
+                      error: error,
+                    ),
+                  ),
                 ),
-                gaplessPlayback: false,
               ),
-              onClose: () => Navigator.pop(context, false),
-              onSave: () => act(false),
-              onShare: sharing.supported ? () => act(true) : null,
-              busy: busy,
-              error: error,
             ),
           ),
         ),

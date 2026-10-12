@@ -230,29 +230,33 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) close();
       },
-      child: RaftAgentAvatarPicker(
-        name: '${widget.agent['name']}',
-        preview: preview,
-        selectedKey: current,
-        uploadSelected:
-            upload != null ||
-            !changed && stored != null && !stored.startsWith('pixel:'),
-        dirty: changed,
-        busy: busy,
-        error: error,
-        onChoice: (key) {
-          if (!valid || busy) return;
-          ++ticket;
-          setState(() {
-            changed = true;
-            preset = key;
-            upload = null;
-            error = null;
-          });
-        },
-        onUpload: chooseUpload,
-        onClose: close,
-        onSave: save,
+      // Web `Dialog onOpenChange`: Escape runs the same guarded close.
+      child: RaftDismissScope(
+        onDismiss: close,
+        child: RaftAgentAvatarPicker(
+          name: '${widget.agent['name']}',
+          preview: preview,
+          selectedKey: current,
+          uploadSelected:
+              upload != null ||
+              !changed && stored != null && !stored.startsWith('pixel:'),
+          dirty: changed,
+          busy: busy,
+          error: error,
+          onChoice: (key) {
+            if (!valid || busy) return;
+            ++ticket;
+            setState(() {
+              changed = true;
+              preset = key;
+              upload = null;
+              error = null;
+            });
+          },
+          onUpload: chooseUpload,
+          onClose: close,
+          onSave: save,
+        ),
       ),
     );
   }

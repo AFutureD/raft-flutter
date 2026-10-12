@@ -17,6 +17,7 @@ class WorkspaceActions {
   ) async {
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: 'Create workspace',
         submitLabel: 'Create',
@@ -49,6 +50,7 @@ class WorkspaceActions {
   static Future<void> join(BuildContext context, WorkspaceController w) async {
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => RaftFormDialog(
         title: 'Join workspace',
         submitLabel: 'Review invitation',
@@ -82,6 +84,7 @@ class WorkspaceActions {
     if (server == null) return;
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: delete ? 'Delete workspace?' : 'Leave workspace?',
         description: delete
@@ -543,6 +546,7 @@ class _MembersViewState extends State<MembersView> {
         name = '${member['displayName'] ?? member['name']}';
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: role == 'remove'
             ? raftFormat(context, 'Remove {name}?', {'name': name})

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'anchored_popup.dart';
 import 'dialog_card.dart';
+import 'dismiss_scope.dart';
 import 'emoji_picker.dart';
 import 'form_controls.dart';
 import 'popover_surface.dart';
@@ -180,7 +181,10 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
             onSubmitted: (_) => submit(),
             leading: OverlayPortal(
               controller: emojiPortal,
-              overlayChildBuilder: emojiPopover,
+              overlayChildBuilder: raftBackDismissed(
+                () => setState(emojiPortal.hide),
+                emojiPopover,
+              ),
               child: KeyedSubtree(
                 key: emojiAnchor,
                 // The open popover keeps the trigger out of hover.
@@ -327,22 +331,24 @@ Future<void> showRaftSidebarSectionDialog(
   transitionDuration: Duration.zero,
   pageBuilder: (dialogContext, _, _) {
     void close() => Navigator.of(dialogContext).pop();
-    return Material(
-      type: MaterialType.transparency,
-      child: RaftModalBackdrop(
-        onBackdrop: close,
-        child: KeyedSubtree(
-          key: cardKey,
-          child: RaftSidebarSectionDialog(
-            title: title,
-            submitLabel: submitLabel,
-            initialName: initialName,
-            initialEmoji: initialEmoji,
-            onClose: close,
-            onSubmit: (name, emoji) {
-              close();
-              onSubmit(name, emoji);
-            },
+    return RaftDismissScope(
+      child: Material(
+        type: MaterialType.transparency,
+        child: RaftModalBackdrop(
+          onBackdrop: close,
+          child: KeyedSubtree(
+            key: cardKey,
+            child: RaftSidebarSectionDialog(
+              title: title,
+              submitLabel: submitLabel,
+              initialName: initialName,
+              initialEmoji: initialEmoji,
+              onClose: close,
+              onSubmit: (name, emoji) {
+                close();
+                onSubmit(name, emoji);
+              },
+            ),
           ),
         ),
       ),
