@@ -145,8 +145,15 @@ class RaftForwardedBundle extends StatefulWidget {
     this.attachmentBuilder,
     this.formatTimestamp,
     this.exportMode = false,
+    this.headerLine,
   });
   final Map<String, dynamic> metadata;
+
+  /// Line box of the header's count and source text. Null keeps the in-feed
+  /// 20px (the message row's leading); the note page mounts the card outside a
+  /// message, where the Web header inherits the root `leading-normal` (11px
+  /// x 1.5 = 16.5px).
+  final double? headerLine;
   final Widget Function(Map<String, dynamic>)? attachmentBuilder;
   final String Function(DateTime)? formatTimestamp;
   final bool exportMode;
@@ -361,7 +368,11 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                                     : '{count} messages',
                                 {'count': items.length},
                               ),
-                              style: recipe.count,
+                              style: widget.headerLine == null
+                                  ? recipe.count
+                                  : recipe.count.copyWith(
+                                      height: widget.headerLine! / 11,
+                                    ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -375,7 +386,11 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                           raftFormat(context, 'from {target}', {
                             'target': first.sourceLabel!,
                           }),
-                          style: recipe.source,
+                          style: widget.headerLine == null
+                              ? recipe.source
+                              : recipe.source.copyWith(
+                                  height: widget.headerLine! / 11,
+                                ),
                           textAlign: TextAlign.right,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

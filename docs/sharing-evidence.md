@@ -109,3 +109,7 @@ Flutter 既有 incoming_share_review 使用当前已加入会话和“添加分�
 三主题 10000 个目标的惰性列表用例验证首屏构建少于 30 行，且远端行未构建；它只证明构建数量，不替代手机帧耗时基准。已提供三主题 SDK Widget Preview 入口 `features/incoming_share_previews.dart`。
 
 最终 ARM64 release：Flutter build-number 4006，分 ABI 后实际 versionCode **6006**，target SDK **37**，仅 `arm64-v8a`。APK SHA-256 `aef7eeb0e85e818b3b587fe0a82e0eb7cbe6bf1f76f4c1b88f16f2505c3e2962`。用户要求安装后，重新执行 `tool/android-install --check-only` 通过真实制品身份 / 架构 / 版本 / 签名检查，再用同一脚本覆盖更新。安装结果 verified，版本从 4005 更新至 6006；首次安装时间及 CE / DE 数据目录 inode 均保持一致。没有主动启动 App 或操作手机 UI。安装回执保存在忽略的 `.local/android-installs/20261010T182203207084Z.json`；工程与基线详细结果保存在忽略的 `.local/incoming-share-validation.json` 及相邻日志中。本次 Android 真实 provider 分享、冷启动 / 后台生命周期与性能尚待验收。
+
+### 目标选择页对齐 Web 手机转发页（cindy/share-forward）
+
+选择页不再是独立样式：它与消息转发共用 Web `ForwardComposerMobile` 的同一组 raft_ui 页面组件，只在分享模式下替换内容。第一页标题为“选择目标”，副标题说明分享的内容（文件数 / 文字）；服务器 chips 位于搜索框上方（仅多个服务器时出现）；单选行无复选框、无箭头、无底部选择条；点击一行进入第二页“添加分享内容”，显示分享预览（文字片段、文件名与大小）和全宽“继续”。交接、暂存上限、加入频道确认、成员资格重验证和“不上传、不发送”均未改动。差异与测量见 docs/parity.md “Phone forward page and incoming share”。

@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'channel_header.dart' show raftCollapseWhitespace;
+import 'panel_edge.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
@@ -240,19 +241,9 @@ class _OverflowDrawerFrame extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Container(
             decoration: BoxDecoration(
-              // Owner decision 2026-10-12: the phone's full-width page draws
-              // no left edge line (intended difference from Web).
-              border:
-                  t.brutal &&
-                      !page &&
-                      size.width >= RaftLayoutMetrics.desktopBreakpoint
-                  ? Border(
-                      left: BorderSide(
-                        color: t.colors['line-strong']!,
-                        width: 2,
-                      ),
-                    )
-                  : null,
+              // The shared rule (RaftPanelEdge): every width but the
+              // full-width phone page draws `theme-brutal:border-l-2`.
+              border: RaftPanelEdge.left(context, RaftPanelEdgeStyle.drawer),
             ),
             child: DefaultTextStyle.merge(
               style: TextStyle(fontFamily: t.bodyFont, color: t.strong),

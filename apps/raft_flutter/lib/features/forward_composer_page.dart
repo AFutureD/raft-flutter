@@ -15,6 +15,7 @@ import '../data/workspace_controller.dart';
 import 'channel_footer_states.dart' show jointChannelReadOnly;
 import 'forward_messages_dialog.dart';
 import 'private_route_guard.dart';
+import 'sender_avatar_projection.dart';
 
 /// One destination: a local channel/DM (`localTarget`) or a search row.
 class _Destination {
@@ -39,6 +40,44 @@ String forwardTargetLabel(RaftChannel c) {
     return '@$peer';
   }
   return '#${c.name}';
+}
+
+/// Web `targetIcon` / the search row icon: the row's peer artwork. [type] is
+/// the channel type, or `dm` / `human` / `agent` for people.
+Widget forwardTargetIcon(
+  String origin, {
+  required String name,
+  required String type,
+  bool agent = false,
+  String? peerId,
+  String? avatarUrl,
+  String? gravatarHash,
+}) {
+  final person = type == 'dm' || type == 'human' || type == 'agent';
+  if (!person) return raftForwardTargetIcon(name: name, type: type);
+  final isAgent = agent || type == 'agent';
+  final id = peerId ?? name;
+  final projection = projectSenderAvatar(
+    origin: origin,
+    senderId: id,
+    senderType: isAgent ? 'agent' : 'user',
+    agents: [
+      if (isAgent) {'id': id, 'avatarUrl': avatarUrl},
+    ],
+    members: [
+      if (!isAgent)
+        {'userId': id, 'avatarUrl': avatarUrl, 'gravatarHash': gravatarHash},
+    ],
+    requestSize: 40,
+  );
+  return raftForwardTargetIcon(
+    name: name,
+    type: type,
+    agent: isAgent,
+    pixelKey: projection.pixelKey,
+    uploadedUrl: projection.uploadedUrl,
+    gravatarUrl: projection.gravatarUrl,
+  );
 }
 
 /// `targetPickerLabel`: DMs keep `@peer`, channels show the bare name.
@@ -224,6 +263,9 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
 
   void choose(_Destination d) {
     if (busy) return;
+    // The row (tabIndex 0) takes focus from the search input on Web, which
+    // also closes the soft keyboard.
+    searchFocus.unfocus();
     setState(() {
       if (multi) {
         if (selected.remove(d.key) == null && selected.length < 10) {
@@ -239,8 +281,8 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
   }
 
   /// Joins / opens a DM for search rows that need it, then forwards.
-  Future<void> send() async {
-    if (!current || busy || selected.isEmpty) return;
+  Future<bool> send() async {
+    if (!current || busy || selected.isEmpty) return false;
     setState(() {
       busy = true;
       error = null;
@@ -283,11 +325,11 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
         '/messages/forward',
         data: attempt!.payload,
       );
-      if (!current || !mounted) return;
+      if (!current || !mounted) return false;
       attempt!.apply(response);
       if (attempt!.completed) {
         Navigator.of(context).pop(true);
-        return;
+        return true;
       }
       setState(
         () => error = raftText(
@@ -300,6 +342,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
     } finally {
       if (current) setState(() => busy = false);
     }
+    return false;
   }
 
   @override
@@ -357,8 +400,9 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
               'id': source?.id,
               'type': source?.type,
               'label': sourceLabel,
-              'labelVisibility':
-                  source?.type == 'channel' || thread ? 'public' : 'restricted',
+              'labelVisibility': source?.type == 'channel' || thread
+                  ? 'public'
+                  : 'restricted',
             },
             'contentSnapshot': m.content,
             'attachmentPolicy': 'projected',
@@ -394,7 +438,10 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
       clearLabel: raftText(context, 'Clear'),
       onClear: busy ? null : () => setState(selected.clear),
       rows: query.isEmpty
-          ? [for (final c in forwardRecentTargets(w.channels, w.dms)) localRow(c)]
+          ? [
+              for (final c in forwardRecentTargets(w.channels, w.dms))
+                localRow(c),
+            ]
           : searchRows(),
       error: error,
       preview: RaftForwardedBundle(
@@ -461,10 +508,13 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
                 )
               : RaftForwardTextAction(
                   label: raftText(context, 'Select multiple'),
-                  onPressed: () => setState(() {
-                    selected.clear();
-                    multi = true;
-                  }),
+                  onPressed: () {
+                    searchFocus.unfocus();
+                    setState(() {
+                      selected.clear();
+                      multi = true;
+                    });
+                  },
                 ),
         ),
         Expanded(
@@ -528,16 +578,23 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
           final action = r['requiredAction'];
           return RaftForwardTargetRow(
             key: ValueKey('forward-search-target-$type-${r['id']}'),
-            icon: raftForwardTargetIcon(
+            icon: forwardTargetIcon(
+              w.client.origin,
               name: '${r['title']}',
               type: type == 'channel'
                   ? '${r['channelType'] ?? 'channel'}'
                   : '$type',
               agent: r['subtitle'] == 'agent',
+              peerId: r['id'] is String ? r['id'] as String : null,
+              avatarUrl: r['avatarUrl'] is String
+                  ? r['avatarUrl'] as String
+                  : null,
             ),
             label: '${r['title']}',
             selected: selected.containsKey(key),
             checkbox: multi,
+            checkboxDisabled:
+                !selected.containsKey(key) && selected.length >= 10,
             unavailable: unavailable,
             trailing: action == 'join_channel' || action == 'create_dm'
                 ? RaftForwardTargetBadge(
@@ -564,14 +621,23 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
     final key = 'channel:${c.id}';
     return RaftForwardTargetRow(
       key: ValueKey('forward-target-${c.id}'),
-      icon: raftForwardTargetIcon(
+      icon: forwardTargetIcon(
+        w.client.origin,
         name: forwardTargetPickerLabel(c),
         type: c.type,
         agent: c.json['peerType'] == 'agent',
+        peerId: c.json['peerId'] is String ? c.json['peerId'] as String : null,
+        avatarUrl: c.json['peerAvatarUrl'] is String
+            ? c.json['peerAvatarUrl'] as String
+            : null,
+        gravatarHash: c.json['peerGravatarHash'] is String
+            ? c.json['peerGravatarHash'] as String
+            : null,
       ),
       label: forwardTargetPickerLabel(c),
       selected: selected.containsKey(key),
       checkbox: multi,
+      checkboxDisabled: !selected.containsKey(key) && selected.length >= 10,
       onTap: () => choose(
         _Destination(key: key, label: forwardTargetLabel(c), channel: c),
       ),
@@ -601,20 +667,28 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
             preview: RaftForwardedBundle(
               metadata: previewMetadata,
               formatTimestamp: forwardStamp(),
+              headerLine: 16.5,
             ),
             noteLabel: raftText(context, 'Optional note'),
-            note: RaftForwardNoteField(
+            // Web mounts MessageInput variant="compact" with allowEmptySubmit:
+            // the same composer the attachment comments use; the note may be
+            // empty, so it counts as "has content" (`hasAttachments`).
+            note: RaftComposer(
               key: const Key('forward-mobile-note'),
-              controller: note,
-              autofocus: true,
-              enabled: !busy && attempt == null,
+              variant: RaftComposerVariant.compact,
               hint: raftText(context, 'Add a note'),
-            ),
-            send: RaftForwardIconAction(
-              glyph: RaftGlyph.send,
-              accent: true,
-              tooltip: raftText(context, 'Send forward'),
-              onPressed: busy || selected.isEmpty ? null : send,
+              autofocus: true,
+              hasAttachments: true,
+              bottomSafeInset: 0,
+              enabled: !busy && attempt == null,
+              submitBusy: busy,
+              submitTooltip: raftText(context, 'Send forward'),
+              initialDraft: note.text,
+              onDraftChanged: (text) => note.text = text,
+              onSend: (text) {
+                note.text = text;
+                return send();
+              },
             ),
           ),
         ),

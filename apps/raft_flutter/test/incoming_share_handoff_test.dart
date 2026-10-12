@@ -114,7 +114,7 @@ void main() {
       expect(find.byType(IncomingSharePicker), findsOneWidget);
       await t.tap(find.text('Beta').last);
       await f.flush(t);
-      await t.tap(find.text('#general-b'));
+      await t.tap(find.byKey(const ValueKey('incoming-target-cb')));
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
       for (

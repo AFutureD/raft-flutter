@@ -228,8 +228,10 @@ SECTIONS = [
           off=['components.thread.message-share.*'], d=['components.conversation.selection.desktop.*'], prio=3,
           note='Desktop: selection toolbar with one / two rows selected. The share-as-image lightbox has no case (it needs the html-to-image export).'),
         R('3.14', 'Forward composer (destinations, note, send)', 'components/message/ForwardComposerDesktop.tsx, ForwardComposerMobile.tsx', 'DP',
-          off=['components.thread.forward-modal'], d=['components.conversation.forward.desktop.*'], prio=2,
-          note='Desktop dialog opened from the selection toolbar (destinations column, preview, note composer).'),
+          off=['components.thread.forward-modal'], d=['components.conversation.forward.desktop.*'],
+          p=['components.forward-mobile.page.*'], prio=2,
+          note='Desktop dialog opened from the selection toolbar (destinations column, preview, note composer). '
+               'Phone: the full-screen destinations / note pages (components.forward-mobile.page.*, also the share-mode chrome).'),
         R('3.15', 'Forwarded bundle card in the timeline (single, multi, expanded, thread, restricted)', 'components/message/ForwardedBundleCard.tsx', 'DP',
           d=['components.thread-ext.message.forward-*', '!*.mobile'], p=['components.thread-ext.message.forward-*.mobile']),
         R('3.16', 'Quoted message permalink preview and linked-message fallbacks', 'components/message/QuotedMessagePermalinkPreview.tsx', 'DP',

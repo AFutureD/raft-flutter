@@ -2,6 +2,7 @@ name: Build and release
 
 on:
   push:
+    # vX.Y.Z and vX.Y.Z+N: +N distinguishes releases; run_number is the build number.
     tags: ['v*']
   pull_request:
     paths:
