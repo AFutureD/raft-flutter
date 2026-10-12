@@ -958,7 +958,20 @@ class _WorkspaceViewState extends State<WorkspaceView>
       return;
     }
     if (wide && desktopNavigation.target != null) {
-      closeDesktopDetail();
+      // Column 4 (profile, then thread) closes before its column-3 detail.
+      final panels = DesktopNavigationPolicy.sidePanels(
+        route: w.section,
+        wide: wide,
+        location: w.location,
+        target: desktopNavigation.target?.kind,
+      );
+      if (panels.profile) {
+        w.closeProfile();
+      } else if (panels.thread) {
+        closeThreadPanel();
+      } else {
+        closeDesktopDetail();
+      }
       return;
     }
     if (w.threadParent != null &&
@@ -1268,11 +1281,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
         channelSearchAuthority = workspaceAuthority(w);
       }
       final t = RaftTokens.of(context);
-      final thread =
-          route == 'chat' &&
-          location.thread != null &&
-          !(wide &&
-              desktopNavigation.target?.kind == DesktopContentKind.thread);
+      final sidePanels = DesktopNavigationPolicy.sidePanels(
+        route: route,
+        wide: wide,
+        location: location,
+        target: desktopNavigation.target?.kind,
+      );
+      final thread = sidePanels.thread;
       final rootTab = w.navigation.mobileRootTabOf(location);
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
@@ -1795,6 +1810,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                               child: WorkspaceGridView(
                                                 key: gridKey,
                                                 controller: w,
+                                                onViewBilling: () =>
+                                                    select('billing'),
                                                 route: route,
                                                 routeBody: content,
                                                 active: gridActive,
@@ -1845,9 +1862,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 )
                               : null,
                           profile:
-                              (route == 'chat' || route == 'home') &&
-                                  location.profile != null &&
-                                  !gridActive
+                              sidePanels.profile && !gridActive
                               ? profileSidePanel(location.profile!, page: !wide)
                               : null,
                         ),
@@ -1862,6 +1877,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
       );
       final body = WorkspaceTaskHost(
         controller: w,
+        onTask: openMessageTaskSurface,
+        onViewBilling: () => select('billing'),
         seed: taskSeed ?? mobileHost?.taskSeed,
         // RightPanel handles content routes before its workspace guard.
         presented: !gridActive || route == 'search' || route == 'activity',

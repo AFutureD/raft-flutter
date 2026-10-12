@@ -32,6 +32,7 @@ import 'theme.dart';
 import 'tokens/shadows.g.dart' show RaftProductShadows;
 import 'tooltip.dart';
 import 'viewport_breakpoints.dart';
+import 'sized_image.dart';
 
 enum RaftConnectedAppsTab { marketplace, installed, myApps }
 
@@ -780,7 +781,7 @@ class RaftAppLogo extends StatelessWidget {
     );
     Widget content(TextStyle style) => url == null || url.isEmpty
         ? fallback(style)
-        : Image.network(
+        : RaftSizedImage.network(
             url,
             fit: BoxFit.cover,
             width: box,

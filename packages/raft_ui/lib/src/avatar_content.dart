@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'avatar_pixel_data.dart';
 import 'icons.dart';
+import 'sized_image.dart';
 
 /// Image/artwork only. The product retains its authorized identity projection,
 /// origin resolution, semantic identity label, and theme-specific avatar frame.
@@ -52,9 +53,10 @@ class RaftAvatarContent extends StatelessWidget {
   }
 
   Widget _image(String url, Widget placeholder, Widget Function() failure) =>
-      Image(
+      RaftSizedImage(
         key: ValueKey('avatar-content-image-$url'),
-        image: imageProviderBuilder?.call(url) ?? NetworkImage(url),
+        // Decodes at the slot's extent x devicePixelRatio, not the upload size.
+        image: imageProviderBuilder?.call(url) ?? raftPublicNetworkImage(url),
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,

@@ -47,6 +47,11 @@ def release_plan(config, selection, version, ref='', event=''):
                 else [name for name, row in config.items() if row['enabled']])
     if not selected or len(selected) != len(set(selected)) or any(name not in PLATFORMS for name in selected):
         raise ValueError('Select unique known platforms: windows, android, linux, macos')
+    # Pull requests never receive the persistent Android signing key.
+    if event == 'pull_request':
+        selected = [name for name in selected if name != 'android']
+        if not selected:
+            raise ValueError('Pull requests require at least one unsigned desktop platform')
     if event == 'push' and ref != f'refs/tags/v{version}':
         raise ValueError('Release tag must exactly match the app pubspec version (vX.Y.Z[-prerelease])')
     return {'include': [{'platform': name, 'runner': config[name]['runner'],
@@ -168,6 +173,41 @@ def zip_folder(stage, destination):
                 archive.write(path, path.relative_to(stage.parent))
 
 
+def verify_android(apk, keystore, env, version, number):
+    sdk_root = env.get('ANDROID_HOME') or env.get('ANDROID_SDK_ROOT')
+    if not sdk_root:
+        raise ValueError('Android SDK path is missing')
+    tools = Path(sdk_root) / 'build-tools/37.0.0'
+    badging = subprocess.check_output([str(tools / 'aapt'), 'dump', 'badging', str(apk)],
+                                     text=True, env=env)
+    identity = re.search(r"^package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'", badging, re.M)
+    # Pinned Flutter adds 2000 to the build number for split ARM64 APKs.
+    if (not identity or identity[1] != 'app.raft.raft_flutter'
+            or int(identity[2]) != int(number) + 2000 or identity[3] != version):
+        raise ValueError('Android APK package or compiled version differs from the release plan')
+    if re.search(r'^application-debuggable(?:\s|$)', badging, re.M):
+        raise ValueError('Debuggable Android APK cannot be released')
+    with zipfile.ZipFile(apk) as archive:
+        abis = sorted({name.split('/')[1] for name in archive.namelist()
+                       if name.startswith('lib/') and name.endswith('.so')})
+    if abis != ['arm64-v8a']:
+        raise ValueError('Android release must contain only ARM64 native libraries')
+    cert = subprocess.check_output([
+        'keytool', '-exportcert', '-keystore', str(keystore), '-alias', env['RAFT_ANDROID_KEY_ALIAS'],
+        '-storepass:env', 'RAFT_ANDROID_STORE_PASSWORD',
+    ], env=env, stderr=subprocess.PIPE)
+    expected = hashlib.sha256(cert).hexdigest()
+    signatures = subprocess.check_output([
+        str(tools / 'apksigner'), 'verify', '--print-certs', str(apk),
+    ], text=True, env=env)
+    actual = sorted(set(value.lower() for value in re.findall(
+        r'^(?:Signer #\d+|V[234](?:\.\d+)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', signatures, re.M)))
+    if actual != [expected]:
+        raise ValueError('Android APK signature differs from the configured release certificate')
+    return {'package': identity[1], 'versionCode': int(identity[2]), 'versionName': identity[3],
+            'abis': abis, 'certificateSHA256': expected}
+
+
 def build(platform):
     version, number = version_info((APP / 'pubspec.yaml').read_text(encoding='utf-8'))
     if os.environ.get('RELEASE_VERSION', version) != version or os.environ.get('RELEASE_BUILD_NUMBER', number) != number:
@@ -180,6 +220,7 @@ def build(platform):
     # The only define supplied here is the public release version shown in About.
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
+    android = None
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
                f'--dart-define=RAFT_APP_VERSION={version}']
@@ -192,6 +233,7 @@ def build(platform):
                 raise ValueError('Android CI requires all four RAFT_ANDROID signing secrets; debug signing is forbidden')
             keystore = work / 'release.jks'
             keystore.write_bytes(base64.b64decode(env.pop('RAFT_ANDROID_KEYSTORE_BASE64'), validate=True))
+            keystore.chmod(0o600)
             env['RAFT_ANDROID_KEYSTORE_PATH'] = str(keystore)
             env['RAFT_ANDROID_SIGNING_REQUIRED'] = 'true'
             command += ['--split-per-abi', '--target-platform=android-arm64']
@@ -219,12 +261,15 @@ def build(platform):
         else:
             artifact = OUT / f'{name}.apk'
             shutil.copy2(APP / 'build/app/outputs/flutter-apk/app-arm64-v8a-release.apk', artifact)
+            android = verify_android(artifact, keystore, env, version, number)
             signing = 'release keystore from GitHub secrets'
     receipt = {'platform': platform, 'arch': arch, 'version': version, 'buildNumber': number,
                'commit': capture(['git', 'rev-parse', 'HEAD']),
                'flutter': json.loads((ROOT / '.fvmrc').read_text())['flutter'],
                'signing': signing, 'nativeAcceptance': 'not performed by hosted build CI',
                'artifact': artifact.name, 'sha256': digest(artifact), 'bytes': artifact.stat().st_size}
+    if android is not None:
+        receipt['android'] = android
     (OUT / f'{name}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     (OUT / f'{name}.sha256').write_text(f"{receipt['sha256']}  {artifact.name}\n", encoding='utf-8')
     print(json.dumps(receipt, indent=2))

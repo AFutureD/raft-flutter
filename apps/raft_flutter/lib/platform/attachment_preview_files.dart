@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'attachment_files.dart';
+import 'attachment_http.dart';
 import 'native_sharing.dart';
 
 /// Private local inputs prevent native decoders retaining signed URL handles.
@@ -15,14 +16,7 @@ class AttachmentPreviewFiles {
   AttachmentPreviewFiles({
     Dio? dio,
     Future<Directory> Function()? temporaryDirectory,
-  }) : dio =
-           dio ??
-           Dio(
-             BaseOptions(
-               connectTimeout: const Duration(seconds: 15),
-               receiveTimeout: const Duration(seconds: 45),
-             ),
-           ),
+  }) : dio = dio ?? AttachmentHttp.shared,
        temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
   final Dio dio;
   final Future<Directory> Function() temporaryDirectory;
@@ -58,6 +52,7 @@ class AttachmentPreviewFiles {
         AttachmentFiles.attachmentUri(url).toString(),
         file.path,
         cancelToken: cancel,
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
         onReceiveProgress: (received, total) {
           if (!authorized() || received > maxBytes || total > maxBytes) {
             cancel.cancel();

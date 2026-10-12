@@ -299,7 +299,7 @@ Future<bool?> previewMessageImage(
     w.removeListener(revoke);
     authorityChanges?.removeListener(revoke);
     if (png != null) {
-      await MemoryImage(png).evict();
+      await raftEvictMemoryImage(png);
       png.fillRange(0, png.length, 0);
     }
   }
@@ -451,9 +451,10 @@ class _MessageImageReviewState extends State<MessageImageReview> {
                     width: 768,
                     height: MediaQuery.sizeOf(context).height * .85,
                     child: RaftImageReview(
-                      preview: Image.memory(
+                      preview: RaftSizedImage.memory(
                         widget.bytes,
                         fit: BoxFit.contain,
+                        evictOnDispose: true,
                         semanticLabel: raftText(
                           context,
                           'Preview of selected messages',

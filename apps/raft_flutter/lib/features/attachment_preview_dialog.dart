@@ -136,6 +136,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     super.key,
     required this.controller,
     required this.metadata,
+    this.channelId,
     required this.authorized,
     required this.onClose,
     required this.onDownload,
@@ -146,6 +147,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
+  final String? channelId;
   final bool Function() authorized;
   final VoidCallback onClose;
   final Future<void> Function() onDownload;
@@ -193,7 +195,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   void scopeChanged() {
     if (!widget.authorized()) {
       invalidated = true;
-      if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+      if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
       setState(() {
         document = null;
         pageBytes = null;
@@ -249,13 +251,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           truncated = value['truncated'] == true;
         });
       } else if (['pdf', 'audio', 'video'].contains(kind)) {
-        final value = await widget.controller.query(
-          '/attachments/${widget.metadata['id']}/url',
-          query: {'disposition': 'inline'},
+        final url = await widget.controller.attachmentUrl(
+          '${widget.metadata['id']}',
+          channelId: widget.channelId ?? widget.metadata['channelId'] as String?,
         );
         if (!current || ticket != request) return;
         final prepared = await (widget.files ?? AttachmentPreviewFiles()).load(
-          value['url'] as String,
+          url,
           '${widget.metadata['filename'] ?? 'attachment'}',
           cancel: cancel,
           authorized: () => current,
@@ -312,7 +314,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         authorized: () => current,
       );
       if (!current) return;
-      if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+      if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
       setState(() {
         page = next;
         pageBytes = value.bytes;
@@ -352,7 +354,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     transfer.dispose();
     widget.controller.removeListener(scopeChanged);
     WidgetsBinding.instance.removeObserver(this);
-    if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+    if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
     pageBytes = null;
     unawaited(releaseInputs());
     super.dispose();
@@ -464,7 +466,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               ? RaftDocumentPreview(data: document!, truncated: truncated)
               : kind == 'pdf' && pageBytes != null
               ? InteractiveViewer(
-                  child: Image.memory(pageBytes!, fit: BoxFit.contain),
+                  child: RaftSizedImage.memory(
+                    pageBytes!,
+                    fit: BoxFit.contain,
+                    // The page stays sharp at the viewer's maximum zoom.
+                    zoom: raftZoomableImageScale,
+                    evictOnDispose: true,
+                  ),
                 )
               : kind == 'video' && player != null
               ? player!.video()
