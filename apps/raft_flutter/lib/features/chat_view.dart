@@ -1230,7 +1230,7 @@ class _RaftChatViewState extends State<RaftChatView>
   Future<void> previewDraftImage(UploadDraft draft) async {
     final zoom = TransformationController();
     late final DialogRoute<void> route;
-    route = DialogRoute<void>(
+    route = RaftFullBleedDialogRoute<void>(
       context: context,
       builder: (_) => RaftAttachmentLightbox(
         title: draft.filename,
@@ -1275,8 +1275,9 @@ class _RaftChatViewState extends State<RaftChatView>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -1485,8 +1486,9 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -2016,8 +2018,9 @@ class _RaftChatViewState extends State<RaftChatView>
       await store.setSaved(message.id, !store.isSaved(message.id));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -2611,12 +2614,14 @@ class _RaftChatViewState extends State<RaftChatView>
         onLink: widget.onOpenChannelSettings,
       ),
       ChannelFooterKind.jointLocked => RaftChannelBannerFooter(
-        message: "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        message:
+            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
         linkLabel: 'View Billing',
         onLink: widget.onViewBilling,
       ),
       ChannelFooterKind.guestReadOnly => const RaftChannelBannerFooter(
-        message: 'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
+        message:
+            'Guest access is read-only. You can read and follow updates, but you cannot post or react.',
       ),
       ChannelFooterKind.join => RaftChannelJoinFooter(
         channelName: channel.name,
@@ -2639,13 +2644,15 @@ class _RaftChatViewState extends State<RaftChatView>
     final guestJoinable = parent.json['guestJoinable'] == true;
     if (guest && (joined || !guestJoinable)) {
       return const RaftChannelBannerFooter(
-        message: 'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
+        message:
+            'Guest access is read-only. You can read and follow this thread, but you cannot reply or react.',
       );
     }
     if (selection.active) return null;
     if (jointChannelReadOnly(parent.json, sourceTimeNow())) {
       return RaftChannelBannerFooter(
-        message: "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
+        message:
+            "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
         linkLabel: 'View Billing',
         onLink: widget.onViewBilling,
       );

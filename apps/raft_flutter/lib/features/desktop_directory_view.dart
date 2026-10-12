@@ -532,6 +532,9 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     // SidebarRoot: `border-r border-line-muted theme-brutal:border-r-2
     // theme-brutal:border-black` inside the 240px column (desktop only).
     final frame = RaftMountedSidebarFrame(
+      // The edge is drawn by the frame so the column's colour and divider both
+      // continue under the status bar.
+      trailingEdge: !widget.mobileRoot,
       header: widget.mobileRoot
           ? RaftMobileRootHeader(
               title: widget.computers ? 'Computers' : 'Members',
@@ -561,7 +564,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
       key: PageStorageKey(
         'directory-${widget.computers ? 'computers' : 'members'}',
       ),
-      child: widget.mobileRoot ? frame : RaftSidebarColumnEdge(child: frame),
+      child: frame,
     );
   }
 }
