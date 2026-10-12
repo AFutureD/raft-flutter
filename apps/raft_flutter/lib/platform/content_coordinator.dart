@@ -333,7 +333,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     final key = '${target.serverId}:${target.messageId}';
     if (_delivered.contains(key) || _inFlight.contains(key)) return;
     try {
-      if (mobileBackgroundSupported &&
+      if (backgroundRefreshSupported &&
           await background.store.seen(scope, target.messageId!)) {
         return;
       }
@@ -377,7 +377,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
           'uri': target.nativeUri(target.serverId!).toString(),
         }),
       );
-      if (mobileBackgroundSupported &&
+      if (backgroundRefreshSupported &&
           !_closed &&
           _workspace == w &&
           _scope == scope &&

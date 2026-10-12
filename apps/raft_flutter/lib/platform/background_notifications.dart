@@ -18,13 +18,19 @@ import 'session_store.dart';
 
 export 'session_owner.dart';
 
-bool get mobileBackgroundSupported => Platform.isAndroid || Platform.isIOS;
+/// Only iOS runs a periodic background refresh. Android relies on the live
+/// socket (`notification:push`) and on the OS keeping the process alive; the
+/// WorkManager task of earlier builds is cancelled, never registered again.
+bool get backgroundRefreshSupported => Platform.isIOS;
 
 @pragma('vm:entry-point')
 void backgroundNotificationDispatcher() {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   Workmanager().executeTask((task, _) async {
+    // A job queued by an earlier Android build may still fire once before
+    // the cancel at startup removes it. It must do nothing.
+    if (!Platform.isIOS) return true;
     if (task != backgroundInboxTask && task != Workmanager.iOSBackgroundTask) {
       return true;
     }
@@ -209,14 +215,6 @@ const notificationDetails = NotificationDetails(
 Future<bool> notificationPermission(
   FlutterLocalNotificationsPlugin plugin,
 ) async {
-  if (Platform.isAndroid) {
-    return await plugin
-            .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.areNotificationsEnabled() ??
-        false;
-  }
   if (Platform.isIOS) {
     return (await plugin
                 .resolvePlatformSpecificImplementation<
@@ -237,31 +235,88 @@ String notificationPayload(RaftClient client, ContentTarget target) =>
       'uri': target.nativeUri(target.serverId!).toString(),
     });
 
+/// The part of the Workmanager plugin the scheduler uses, so tests can
+/// observe registrations without a platform channel.
+abstract class BackgroundWork {
+  Future<void> initialize(Function callbackDispatcher);
+  Future<void> registerPeriodic(String name, Duration frequency);
+  Future<void> cancel(String name);
+}
+
+class WorkmanagerBackgroundWork implements BackgroundWork {
+  @override
+  Future<void> initialize(Function callbackDispatcher) =>
+      Workmanager().initialize(callbackDispatcher);
+  @override
+  Future<void> registerPeriodic(String name, Duration frequency) =>
+      Workmanager().registerPeriodicTask(
+        name,
+        name,
+        frequency: frequency,
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+        constraints: Constraints(networkType: NetworkType.connected),
+      );
+  @override
+  Future<void> cancel(String name) => Workmanager().cancelByUniqueName(name);
+}
+
+/// iOS: registers and cancels the BGAppRefresh task with the notification
+/// setting. Android: never registers; once per process it cancels the periodic
+/// WorkManager task that builds before this change left behind, so upgraded
+/// installs stop running it.
 class BackgroundNotificationScheduler {
-  final store = BackgroundInboxStore();
+  BackgroundNotificationScheduler({
+    BackgroundWork? work,
+    BackgroundInboxStore? store,
+    bool? android,
+    bool? ios,
+  }) : work = work ?? WorkmanagerBackgroundWork(),
+       store = store ?? BackgroundInboxStore(),
+       android = android ?? Platform.isAndroid,
+       ios = ios ?? Platform.isIOS;
+  final BackgroundWork work;
+  final BackgroundInboxStore store;
+  final bool android, ios;
   Future<void> _tail = Future.value();
   Future<void>? _initializing;
+  Future<void>? _legacyCancel;
   String? _boundScope;
   bool? _boundEnabled;
-  Future<void> initialize() async {
-    if (!mobileBackgroundSupported) return;
-    await (_initializing ??= Workmanager()
+
+  /// iOS: register the background dispatcher. Android: drop the legacy task.
+  Future<void> initialize() {
+    if (android) return cancelLegacyAndroidTask();
+    if (!ios) return Future.value();
+    return _initializing ??= work
         .initialize(backgroundNotificationDispatcher)
         .catchError((Object e, StackTrace stack) {
           _initializing = null;
           Error.throwWithStackTrace(e, stack);
-        }));
+        });
   }
+
+  /// Cancels the unique periodic task and the scope it selected. Idempotent
+  /// and retried on the next call after a failure.
+  Future<void> cancelLegacyAndroidTask() => _legacyCancel ??=
+      () async {
+        await work.cancel(backgroundInboxTask);
+        await store.select(null);
+      }().catchError((Object e, StackTrace stack) {
+        _legacyCancel = null;
+        Error.throwWithStackTrace(e, stack);
+      });
 
   Future<void> get settled => _tail;
   Future<void> bind(String? scope, bool enabled) {
-    if (!mobileBackgroundSupported) return Future.value();
+    // Nothing to schedule on Android; a failed cancel is retried next call.
+    if (android) return cancelLegacyAndroidTask().catchError((Object _) {});
+    if (!ios) return Future.value();
     _tail = _tail.catchError((Object _) {}).then((_) async {
       if (_boundScope == scope && _boundEnabled == enabled) return;
       if (!enabled || scope == null) {
         await store.select(null);
         await initialize();
-        await Workmanager().cancelByUniqueName(backgroundInboxTask);
+        await work.cancel(backgroundInboxTask);
         if (scope != null) await store.forget(scope);
         _boundScope = scope;
         _boundEnabled = enabled;
@@ -270,12 +325,9 @@ class BackgroundNotificationScheduler {
       await store.activate(scope);
       await store.select(scope);
       await initialize();
-      await Workmanager().registerPeriodicTask(
+      await work.registerPeriodic(
         backgroundInboxTask,
-        backgroundInboxTask,
-        frequency: const Duration(minutes: 15),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-        constraints: Constraints(networkType: NetworkType.connected),
+        const Duration(minutes: 15),
       );
       _boundScope = scope;
       _boundEnabled = enabled;

@@ -2,6 +2,11 @@
 // English source text is the key. Part of `raftChinese` (merged by the generated zh_index.g.dart).
 const Map<String, String> zhCatalogNativeOnly = <String, String>{
   // Native-only copy with no Web counterpart (Web glossary terms).
+  // Android notification settings: no periodic background check any more.
+  // PROPOSED wording, to be confirmed by the owner.
+  "While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification.": "Raft 连接时，会对新私信、直接提及和已关注消息串的回复弹出系统通知。",
+  "To receive notifications in the background, turn off battery optimization for Raft.": "要在后台接收通知，请为 Raft 关闭电池优化。",
+  "Open battery settings": "打开电池设置",
   "Close profile": "关闭资料",
   "Profile could not be loaded.": "无法加载资料。",
   "Create direct message": "创建私信",

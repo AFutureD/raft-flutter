@@ -91,6 +91,7 @@ class MainActivity : FlutterActivity() {
         sharing = NativeSharingBridge(this, flutterEngine, ::shareReceiverAttached)
         systemFonts = NativeSystemFontsBridge(this, flutterEngine)
         systemProxy = NativeProxyBridge(this, flutterEngine)
+        NativeBatteryBridge(this, flutterEngine)
         LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
         // Uploaded HTML previews run in an Android WebView. The app has no

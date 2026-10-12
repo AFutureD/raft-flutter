@@ -40,7 +40,7 @@ Sign out (and clear stored credentials) happens only for **401 whose body is the
 | 14 | resource 401 `client.dart:~632` | expired access token | refresh and retry once (a request whose 401 arrives after another request already rotated rotates again) | skips the second rotation; failed refresh cooldown 3 s |
 | 15 | resource 400/403/404/409/422/429/5xx | any | error to the caller, no sign-out | unchanged (pinned by tests); `403 Not a member` revokes only that server |
 | 16 | `workspace_controller.dart:2799,3672,3846,4198,5051,5364,5404` | 403/404 on a channel or server | resource/server-level state | unchanged |
-| 17 | Background WorkManager guest (`background_notifications.dart:104`) | refresh rejected | could clear the stored session and revoke the family | `allowSessionEnd: false`: it only stops; the foreground meets the same rejection with the user present |
+| 17 | Background BGAppRefresh guest (iOS; Android WorkManager guest removed 2026-10-13) (`background_notifications.dart:104`) | refresh rejected | could clear the stored session and revoke the family | `allowSessionEnd: false`: it only stops; the foreground meets the same rejection with the user present |
 | 18 | `_reloadOwnedCredentials` `client.dart:~323` | stored record cleared or a different principal after a guest handoff | `session:ended` | same, now audited (`store_cleared` / `principal_changed`) |
 | 19 | `main.dart:1604` `account:updated` principal mismatch | `/auth/me` returns another id | logout | unchanged, reason `principal_changed` |
 | 20 | `_rotate` after a 200 that is not a token pair | captive portal / proxy page | `TypeError`, request fails (no sign-out) | explicit transient error |

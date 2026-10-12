@@ -10,6 +10,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/notification_settings_view.dart';
+import 'package:raft_flutter/platform/battery_optimization.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/test_themes.dart';
 
@@ -79,6 +80,19 @@ class Service extends NativeNotificationService {
   }
 }
 
+class _Battery extends BatteryOptimization {
+  _Battery(this.value) : super(supported: true);
+  bool? value;
+  int opened = 0;
+  @override
+  Future<bool?> exempt() async => value;
+  @override
+  Future<bool> openSettings() async {
+    opened++;
+    return true;
+  }
+}
+
 Future<(WorkspaceController, Adapter, Service)> fixture() async {
   final a = Adapter();
   final c = RaftClient(
@@ -101,6 +115,7 @@ Widget host(
   bool dark = false,
   RaftFamily family = RaftFamily.elegant,
   Locale? locale,
+  BatteryOptimization? battery,
 }) => MaterialApp(
   locale: locale,
   localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -108,7 +123,11 @@ Widget host(
   theme: raftTheme(family, dark: dark),
   home: Scaffold(
     body: SingleChildScrollView(
-      child: NotificationSettingsView(controller: w, service: s),
+      child: NotificationSettingsView(
+        controller: w,
+        service: s,
+        battery: battery,
+      ),
     ),
   ),
 );
@@ -318,6 +337,74 @@ void main() {
     expect(s.tests, 1);
     expect(card(t).message, contains('Test notification sent'));
     expect(card(t).error, isNull);
+  });
+  testWidgets('Android: battery optimised shows the notice and opens settings', (
+    t,
+  ) async {
+    final (w, a, s) = (await t.runAsync(fixture))!;
+    addTearDown(w.dispose);
+    addTearDown(s.dispose);
+    final battery = _Battery(false);
+    await t.pumpWidget(host(w, s, battery: battery));
+    await t.pumpAndSettle();
+    expect(
+      card(t).description,
+      isNot(contains('checks for new messages periodically')),
+    );
+    expect(
+      card(t).notice,
+      'To receive notifications in the background, turn off battery optimization for Raft.',
+    );
+    expect(
+      find.byKey(const ValueKey('notification-settings-notice')),
+      findsOneWidget,
+    );
+    await t.tap(find.text('Open battery settings'));
+    await t.pump();
+    expect(battery.opened, 1);
+    // Returning from the system screen with the app now exempt hides it.
+    battery.value = true;
+    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await t.pumpAndSettle();
+    expect(card(t).notice, isNull);
+    expect(find.text('Open battery settings'), findsNothing);
+  });
+  testWidgets('Android: exempt or unknown battery status shows no notice', (
+    t,
+  ) async {
+    final (w, a, s) = (await t.runAsync(fixture))!;
+    addTearDown(w.dispose);
+    addTearDown(s.dispose);
+    for (final value in [true, null]) {
+      await t.pumpWidget(host(w, s, battery: _Battery(value)));
+      await t.pumpAndSettle();
+      expect(card(t).notice, isNull);
+    }
+  });
+  testWidgets('iOS never asks about battery optimisation; zh notice wording', (
+    t,
+  ) async {
+    final (w, a, unused) = (await t.runAsync(fixture))!;
+    final ios = Service(platform: TargetPlatform.iOS);
+    addTearDown(w.dispose);
+    addTearDown(unused.dispose);
+    addTearDown(ios.dispose);
+    await t.pumpWidget(host(w, ios, battery: _Battery(false)));
+    await t.pumpAndSettle();
+    expect(card(t).notice, isNull);
+    expect(
+      card(t).description,
+      contains('checks for new messages periodically'),
+    );
+    final android = Service();
+    addTearDown(android.dispose);
+    await t.pumpWidget(
+      host(w, android, battery: _Battery(false), locale: const Locale('zh')),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('要在后台接收通知，请为 Raft 关闭电池优化。'), findsOneWidget);
+    expect(find.text('打开电池设置'), findsOneWidget);
   });
   testWidgets(
     'phone: a permission the system stops asking about opens settings',

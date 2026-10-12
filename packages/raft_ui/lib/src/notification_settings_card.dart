@@ -25,6 +25,9 @@ class RaftNotificationSettingsCard extends StatelessWidget {
     required this.muted,
     this.sectionLabel = 'Notifications',
     this.hint,
+    this.notice,
+    this.noticeActionLabel,
+    this.onNoticeAction,
     this.error,
     this.message,
     this.muteDescription,
@@ -37,9 +40,13 @@ class RaftNotificationSettingsCard extends StatelessWidget {
   });
   final String sectionLabel, title, description, status, actionLabel, saveLabel;
   final String? hint, error, message, muteDescription;
+
+  /// A short action the person can take outside the app for notifications to
+  /// work (Android battery optimisation), with one button for it.
+  final String? notice, noticeActionLabel;
   final bool muted;
   final RaftButtonRecipeVariant actionTone;
-  final VoidCallback? onAction, onRetry, onSave;
+  final VoidCallback? onAction, onRetry, onSave, onNoticeAction;
   final ValueChanged<bool>? onMutedChanged;
 
   /// `inline-flex shrink-0 border border-line-strong bg-primary-soft px-2 py-1
@@ -127,6 +134,29 @@ class RaftNotificationSettingsCard extends StatelessWidget {
               if (hint != null) ...[
                 const SizedBox(height: 12),
                 Text(raftText(context, hint!), style: hintStyle),
+              ],
+              if (notice != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  raftText(context, notice!),
+                  key: const ValueKey('notification-settings-notice'),
+                  style: hintStyle.copyWith(fontWeight: FontWeight.w700),
+                ),
+                if (noticeActionLabel != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: RaftButton(
+                      key: const ValueKey(
+                        'notification-settings-notice-action',
+                      ),
+                      label: noticeActionLabel!,
+                      tone: RaftButtonRecipeVariant.outline,
+                      size: RaftButtonRecipeSize.sm,
+                      onPressed: onNoticeAction,
+                    ),
+                  ),
+                ],
               ],
               if (error != null) ...[
                 const SizedBox(height: 12),

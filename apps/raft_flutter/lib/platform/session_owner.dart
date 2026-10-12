@@ -25,12 +25,14 @@ enum OwnerProbe { none, delegated, busy }
 ///
 /// The foreground (UI engine) is the owner: [claim] is synchronous, never
 /// fails and never waits, and replaces whatever registration exists. Background
-/// workers are guests: they register only when nobody else is registered,
+/// workers are guests (iOS only: Android runs no background worker, so there
+/// is never a second engine to own the session there): they register only when
+/// nobody else is registered,
 /// delegate to a live foreground, are told to [onPreempt] the instant a
 /// foreground claims the session, and must not write credentials after that.
 class NativeSessionOwner {
   NativeSessionOwner({this.poll, this.onPreempt, bool? supported})
-    : supported = supported ?? (Platform.isAndroid || Platform.isIOS);
+    : supported = supported ?? Platform.isIOS;
   final bool supported;
 
   /// Foreground: poll the inbox with the UI's own client for a worker.

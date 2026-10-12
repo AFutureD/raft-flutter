@@ -1,5 +1,7 @@
 # Session ownership: the foreground owns, background work are guests
 
+Background workers exist on iOS only (BGAppRefresh); Android runs none since 2026-10-13, so its `NativeSessionOwner` is inert (`supported` is false) and only the foreground holds the session there. The history below describes the Android failure that led to these rules, which the rules still guard on iOS.
+
 Rule: **the foreground never waits for, and never fails because of, background work.** Background work may wait, retry later, or be cancelled at any point.
 
 Code: `apps/raft_flutter/lib/platform/session_owner.dart` (`NativeSessionOwner`, `GuestSessionStore`), the guest side in `background_notifications.dart`, and the credential handoff in `packages/raft_client/lib/src/client.dart`.

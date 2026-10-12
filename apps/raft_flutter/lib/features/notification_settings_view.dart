@@ -5,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../platform/battery_optimization.dart';
 import '../platform/native_notifications.dart';
 import 'management_support.dart';
 
@@ -18,14 +19,19 @@ class NotificationSettingsView extends StatefulWidget {
     super.key,
     required this.service,
     this.controller,
+    this.battery,
   });
   final NativeNotificationService service;
+
+  /// Android battery optimisation; the default reads the real device.
+  final BatteryOptimization? battery;
   final WorkspaceController? controller;
   @override
   State<NotificationSettingsView> createState() => _NotificationSettingsState();
 }
 
-class _NotificationSettingsState extends State<NotificationSettingsView> {
+class _NotificationSettingsState extends State<NotificationSettingsView>
+    with WidgetsBindingObserver {
   Object? scope;
   int ticket = 0, version = -1;
   bool loading = false, busy = false, muted = false, savedMuted = false;
@@ -33,6 +39,32 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   String? error, message;
   bool testPosted = false, nativeBusy = false;
   WorkspaceController? get w => widget.controller;
+  late BatteryOptimization battery = widget.battery ?? BatteryOptimization();
+
+  /// Android only: null until known, false while the app is battery optimised.
+  bool? batteryExempt;
+  int batteryTicket = 0;
+
+  /// Without push, a background notification needs the app exempt from
+  /// battery optimisation; the notice shows only once the system says it is not.
+  bool get showBatteryNotice =>
+      widget.service.platform == TargetPlatform.android &&
+      batteryExempt == false;
+
+  Future<void> refreshBattery() async {
+    if (widget.service.platform != TargetPlatform.android) return;
+    final request = ++batteryTicket;
+    final exempt = await battery.exempt();
+    if (mounted && request == batteryTicket && exempt != batteryExempt) {
+      setState(() => batteryExempt = exempt);
+    }
+  }
+
+  /// The person returns from the system screen: read the status again.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(refreshBattery());
+  }
 
   /// Phones own the member mute form; desktop authorization belongs to the OS.
   bool get phone =>
@@ -60,6 +92,8 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(refreshBattery());
     widget.service.addListener(serviceChanged);
     w?.addListener(workspaceChanged);
     scope = authority;
@@ -70,10 +104,15 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   @override
   void didUpdateWidget(NotificationSettingsView old) {
     super.didUpdateWidget(old);
+    if (old.battery != widget.battery) {
+      battery = widget.battery ?? BatteryOptimization();
+    }
     if (old.service != widget.service) {
       old.service.removeListener(serviceChanged);
       widget.service.addListener(serviceChanged);
       clear();
+      batteryExempt = null;
+      unawaited(refreshBattery());
     }
     if (old.controller != w) {
       old.controller?.removeListener(workspaceChanged);
@@ -88,6 +127,8 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
   @override
   void dispose() {
     ++ticket;
+    ++batteryTicket;
+    WidgetsBinding.instance.removeObserver(this);
     widget.service.removeListener(serviceChanged);
     w?.removeListener(workspaceChanged);
     super.dispose();
@@ -431,8 +472,9 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     return RaftNotificationSettingsCard(
       key: const ValueKey('notification-settings-card'),
       title: 'Phone notifications',
-      description:
-          'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.',
+      description: platform == TargetPlatform.android
+          ? 'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification.'
+          : 'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.',
       status: unavailable
           ? 'Unavailable'
           : service.enabled
@@ -441,6 +483,11 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       hint: unavailable
           ? 'System notifications are unavailable on this device.'
           : phoneHint(context, platform),
+      notice: showBatteryNotice
+          ? 'To receive notifications in the background, turn off battery optimization for Raft.'
+          : null,
+      noticeActionLabel: 'Open battery settings',
+      onNoticeAction: () => unawaited(battery.openSettings()),
       error: error ?? service.backgroundError ?? service.error,
       message: testPosted
           ? testSentMessage(context, platform)
