@@ -65,9 +65,14 @@ class SourceFeedbackView extends StatefulWidget {
     super.key,
     required this.controller,
     this.onUnreadChanged,
+    this.initialTicketId,
   });
   final WorkspaceController controller;
   final ValueChanged<int>? onUnreadChanged;
+
+  /// `/settings/feedback/ticket/:id` deep link (the Report Issue dialog's
+  /// "View ticket"): the ticket opens once the inbox is read.
+  final String? initialTicketId;
   @override
   State<SourceFeedbackView> createState() => _SourceFeedbackViewState();
 }
@@ -167,7 +172,12 @@ class _SourceFeedbackViewState extends State<SourceFeedbackView> {
     );
     widget.controller.addListener(changed);
     session = widget.controller.client.events.listen((_) => changed());
-    unawaited(store.loadList());
+    final ticket = widget.initialTicketId;
+    unawaited(
+      store.loadList().then((_) {
+        if (mounted && ticket != null) return store.openTicket(ticket);
+      }),
+    );
   }
 
   void changed() {

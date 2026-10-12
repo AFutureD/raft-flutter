@@ -223,7 +223,7 @@ for platform in ('desktop', 'phone'):
     # ---- 7.17 runtime config editor
     agent_main(platform, 'agent.runtime-edit', 'Agent profile: runtime config editor open',
                interactions=[click('button[aria-label="Edit runtime config"]')],
-               android_interactions=[tap('agent-edit-runtime')])
+               android_interactions=[tap_here('agent-edit-runtime')])
 
     # ---- 7.18 stop / delete confirmations and the overflow menu
     if phone:
@@ -255,8 +255,7 @@ for platform in ('desktop', 'phone'):
     # ---- 7.25 member graph
     add(platform, 'graph', 'Member graph (/members/graph)', 'main', selector=MAIN if not phone else VIEW,
         android_key='desktop-content-detail' if not phone else None, hint=SRC + 'settings/MemberGraphSection.tsx',
-        props={'route': '/members/graph'}, android_interactions=[tap('desktop-directory-graph')], flutter=False,
-        note='Flutter page missing: RaftRoute.memberGraph maps to the members tab but no graph view exists.')
+        props={'route': '/members/graph'}, android_interactions=[tap('desktop-directory-graph')] if not phone else [])
 
 # ---- 7.06 invite dialog states (both platforms; the dialog is mounted alone like the official host)
 INVITE_HINT = SRC + 'member/InviteHumanDialog.tsx'
@@ -285,10 +284,10 @@ for platform in ('desktop', 'phone'):
 # ---- 7.19 report issue dialog (mounted alone; gated on VITE_FEEDBACK_EXPORT_URL in the Web build)
 for platform in ('desktop', 'phone'):
     add(platform, 'report-issue', 'Report issue dialog', 'report',
-        selector=CARD_DLG if platform == 'desktop' else VIEW, android_key=None, hint=SRC + 'agent/ReportIssueDialog.tsx',
+        selector=CARD_DLG if platform == 'desktop' else VIEW,
+        android_key='report-issue-dialog' if platform == 'desktop' else None, hint=SRC + 'agent/ReportIssueDialog.tsx',
         props={'boxW': str({'desktop': 1280, 'phone': 390}[platform]),
-               'boxH': str({'desktop': 800, 'phone': 844}[platform])},
-        flutter=False, note='Flutter page missing: no Report issue dialog.')
+               'boxH': str({'desktop': 800, 'phone': 844}[platform])})
 
 # ---- 7.07 avatar management (desktop; the official phone case components.members.avatar-management exists)
 agent_main('desktop', 'agent.avatar-change', 'Agent profile: change avatar dialog', selector=VIEW,

@@ -129,57 +129,56 @@ void main() {
   });
 
   test(
-    'cached account paints while ownership, validation and requests wait',
+    'requests and the cached account never wait for a guest to settle',
     () async {
-      final ownership = Completer<void>();
+      final guest = Completer<void>();
       final (client, adapter, store) = await _restore({
         'id': 'alice',
-      }, credentialsReady: ownership.future);
-      final read = client.get('/servers');
-      await Future<void>.delayed(Duration.zero);
+      }, credentialsReady: guest.future);
+      final read = await client.get('/servers');
+      expect(read, isNotNull);
       expect(client.user?.id, 'alice');
-      expect(adapter.requests, isEmpty);
-      final rotated = Session(
-        accessToken: 'worker-rotated-fixture',
-        refreshToken: 'worker-rotated-fixture',
-        cachedUser: {'id': 'alice', 'name': 'Alice'},
-      );
-      await store.write(client.origin, rotated);
-      ownership.complete();
-      await read;
       expect(
         adapter.requests
             .singleWhere((r) => r.path == '/servers')
             .headers['Authorization'],
-        'Bearer worker-rotated-fixture',
+        'Bearer fixture-only',
       );
+      // The guest rotated meanwhile; only after it stops does the client move
+      // to the latest stored record.
+      await store.write(
+        client.origin,
+        Session(
+          accessToken: 'worker-rotated-fixture',
+          refreshToken: 'worker-rotated-fixture',
+          cachedUser: {'id': 'alice', 'name': 'Alice'},
+        ),
+      );
+      guest.complete();
       adapter.gate.complete();
       await client.sessionValidated;
+      await client.get('/channels');
       expect(
-        adapter.requests.every(
-          (r) => r.headers['Authorization'] == 'Bearer worker-rotated-fixture',
-        ),
-        isTrue,
-      );
-      expect(
-        (await store.read(client.origin))?.refreshToken,
-        'worker-rotated-fixture',
+        adapter.requests
+            .singleWhere((r) => r.path == '/channels')
+            .headers['Authorization'],
+        'Bearer worker-rotated-fixture',
       );
       await client.dispose();
     },
   );
 
   test(
-    'refresh waits for handoff and retries the worker\'s persisted attempt',
+    'refresh waits for the guest to settle and retries its persisted attempt',
     () async {
-      final ownership = Completer<void>();
+      final guest = Completer<void>();
       final (client, adapter, store) = await _restore({
         'id': 'alice',
-      }, credentialsReady: ownership.future);
+      }, credentialsReady: guest.future);
       adapter.rotated = true;
       final refresh = client.refresh();
       await Future<void>.delayed(Duration.zero);
-      expect(adapter.requests, isEmpty);
+      expect(adapter.paths.where((p) => p.contains('/auth/refresh')), isEmpty);
       await store.write(
         client.origin,
         Session(
@@ -190,7 +189,7 @@ void main() {
           cachedUser: {'id': 'alice'},
         ),
       );
-      ownership.complete();
+      guest.complete();
       await refresh;
       final request = adapter.requests.singleWhere(
         (r) => r.path == '/auth/refresh',
@@ -211,20 +210,43 @@ void main() {
     },
   );
 
+  test('refresh adopts credentials the guest already rotated', () async {
+    final guest = Completer<void>();
+    final (client, adapter, store) = await _restore({
+      'id': 'alice',
+    }, credentialsReady: guest.future);
+    final refresh = client.refresh();
+    await store.write(
+      client.origin,
+      Session(
+        accessToken: 'worker-rotated-fixture',
+        refreshToken: 'worker-rotated-fixture',
+        cachedUser: {'id': 'alice'},
+      ),
+    );
+    guest.complete();
+    await refresh;
+    expect(adapter.paths.where((p) => p.contains('/auth/refresh')), isEmpty);
+    await client.get('/servers');
+    expect(
+      adapter.requests
+          .singleWhere((r) => r.path == '/servers')
+          .headers['Authorization'],
+      'Bearer worker-rotated-fixture',
+    );
+    await client.dispose();
+  });
+
   for (final replaced in [false, true]) {
     test(
-      'handoff ${replaced ? 'to another account' : 'after revocation'} retires cached identity before any request',
+      'guest handoff ${replaced ? 'to another account' : 'after revocation'} retires the cached identity',
       () async {
-        final ownership = Completer<void>();
+        final guest = Completer<void>();
         final (client, adapter, store) = await _restore({
           'id': 'alice',
-        }, credentialsReady: ownership.future);
+        }, credentialsReady: guest.future);
         final ended = client.events.firstWhere(
           (e) => e.name == 'session:ended',
-        );
-        final request = expectLater(
-          client.get('/servers'),
-          throwsA(isA<RaftApiException>()),
         );
         await store.write(
           client.origin,
@@ -236,12 +258,17 @@ void main() {
                 )
               : null,
         );
-        ownership.complete();
-        await client.sessionValidated;
+        guest.complete();
         await ended;
-        await request;
         expect(client.user, isNull);
-        expect(adapter.requests, isEmpty);
+        await client.get('/servers');
+        expect(
+          adapter.requests
+              .singleWhere((r) => r.path == '/servers')
+              .headers['Authorization'],
+          isNull,
+          reason: 'the retired identity\'s credentials are never sent again',
+        );
         expect(
           (await store.read(client.origin))?.cachedUser?['id'],
           replaced ? 'bob' : null,
@@ -251,63 +278,51 @@ void main() {
     );
   }
 
-  test(
-    'logout while awaiting handoff never restores the cached identity',
-    () async {
-      final ownership = Completer<void>();
-      final (client, adapter, store) = await _restore({
-        'id': 'alice',
-      }, credentialsReady: ownership.future);
-      final request = expectLater(
-        client.get('/servers'),
-        throwsA(isA<RaftApiException>()),
-      );
-      final logout = client.logout();
-      ownership.complete();
-      await logout;
-      await client.sessionValidated;
-      await request;
-      expect(adapter.paths, ['POST /auth/logout']);
-      expect(await store.read(client.origin), isNull);
-      expect(client.user, isNull);
-      await client.dispose();
-    },
-  );
+  test('logout while a guest settles never restores the cached identity', () async {
+    final guest = Completer<void>();
+    final (client, adapter, store) = await _restore({
+      'id': 'alice',
+    }, credentialsReady: guest.future);
+    final logout = client.logout();
+    guest.complete();
+    await logout;
+    adapter.gate.complete();
+    await client.sessionValidated;
+    expect(adapter.paths, contains('POST /auth/logout'));
+    expect(await store.read(client.origin), isNull);
+    expect(client.user, isNull);
+    await client.dispose();
+  });
+
+  test('a failed guest signal cannot poison the session', () async {
+    final guest = Completer<void>();
+    final (client, adapter, store) = await _restore({
+      'id': 'alice',
+    }, credentialsReady: guest.future);
+    guest.completeError(const RaftApiException('Fixture guest unavailable'));
+    adapter.rotated = true;
+    await client.refresh();
+    expect(
+      (await store.read(client.origin))?.refreshToken,
+      'refreshed-fixture',
+    );
+    expect(client.user?.id, 'alice');
+    adapter.gate.complete();
+    await client.sessionValidated;
+    await client.dispose();
+  });
 
   test(
-    'ownership failure preserves cached identity without sending credentials',
+    'logout retires requests immediately and revokes the final guest record',
     () async {
-      final ownership = Completer<void>();
-      final (client, adapter, store) = await _restore({
-        'id': 'alice',
-      }, credentialsReady: ownership.future);
-      ownership.completeError(
-        const RaftApiException('Fixture owner unavailable'),
-      );
-      await client.sessionValidated;
-      expect(client.restoredOffline, isTrue);
-      expect(client.user?.id, 'alice');
-      expect(adapter.requests, isEmpty);
-      expect((await store.read(client.origin))?.cachedUser?['id'], 'alice');
-      await client.dispose();
-    },
-  );
-
-  test(
-    'logout retires requests immediately and revokes the final handoff record',
-    () async {
-      final ownership = Completer<void>(), revocation = Completer<Session?>();
+      final guest = Completer<void>(), revocation = Completer<Session?>();
       final (client, adapter, _) = await _restore({
         'id': 'alice',
-      }, credentialsReady: ownership.future);
-      final request = expectLater(
-        client.get('/servers'),
-        throwsA(isA<RaftApiException>()),
-      );
+      }, credentialsReady: guest.future);
       final logout = client.logout(revocationSession: revocation.future);
       expect(client.signedIn, false);
       expect(client.user, isNull);
-      ownership.complete();
+      guest.complete();
       revocation.complete(
         Session(
           accessToken: 'worker-fixture',
@@ -316,19 +331,16 @@ void main() {
         ),
       );
       await logout;
-      await request;
-      expect(adapter.requests.single.path, '/auth/logout');
-      expect(adapter.requests.single.data['refreshToken'], 'worker-fixture');
+      final out = adapter.requests.singleWhere((r) => r.path == '/auth/logout');
+      expect(out.data['refreshToken'], 'worker-fixture');
       await client.dispose();
     },
   );
 
-  test('socket connection waits for ownership, then can start without waiting for auth/me', () async {
+  test('socket connection starts at once without waiting for a guest', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final accepted = Completer<void>();
-    var connections = 0;
     final subscription = server.listen((request) async {
-      connections++;
       if (!accepted.isCompleted) accepted.complete();
       request.response.statusCode = 503;
       await request.response.close();
@@ -354,23 +366,17 @@ void main() {
       await server.close(force: true);
       await subscription.cancel();
     });
-    final ownership = Completer<void>();
+    final guest = Completer<void>();
     expect(
-      await client.restore(
-        cachedFirst: true,
-        credentialsReady: ownership.future,
-      ),
+      await client.restore(cachedFirst: true, credentialsReady: guest.future),
       true,
     );
     client.selectServer('server-a');
     client.connect();
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-    expect(connections, 0);
-    expect(adapter.requests, isEmpty);
-    ownership.complete();
     await accepted.future.timeout(const Duration(seconds: 2));
-    expect(adapter.gate.isCompleted, false);
+    expect(guest.isCompleted, false);
     adapter.gate.complete();
     await client.sessionValidated;
+    guest.complete();
   });
 }

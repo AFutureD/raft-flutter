@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/source_feedback_store.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/add_members_dialog.dart';
+import 'package:raft_flutter/features/agent_runtime_editor.dart';
 import 'package:raft_flutter/features/agent_avatar_dialog.dart';
 import 'package:raft_flutter/features/channel_settings.dart';
 import 'package:raft_flutter/features/community_join.dart';
@@ -20,8 +21,8 @@ import 'package:raft_flutter/features/forward_messages_dialog.dart';
 import 'package:raft_flutter/features/managed_agent_launcher.dart';
 import 'package:raft_flutter/features/message_presentation.dart';
 import 'package:raft_flutter/features/provider_edit_dialog.dart';
+import 'package:raft_flutter/features/report_issue.dart';
 import 'package:raft_flutter/features/source_feedback_view.dart';
-import 'package:raft_flutter/features/runtime_form_dialog.dart';
 import 'package:raft_flutter/features/provider_views.dart';
 import 'package:raft_flutter/features/server_views.dart';
 import 'package:raft_flutter/features/workspace_menu_invite.dart';
@@ -488,7 +489,7 @@ void main() {
         scrim: _corner,
       );
     },
-    'runtime-form-dialog': (t, size) async {
+    'agent-runtime-editor': (t, size) async {
       ignoreOverflow();
       await t.pumpWidget(const SizedBox.shrink());
       final (w, api) = await mountWorkspace(t, size);
@@ -508,7 +509,7 @@ void main() {
       await t.ensureVisible(find.byKey(const ValueKey('agent-edit-runtime')));
       await t.tap(find.byKey(const ValueKey('agent-edit-runtime')));
       await frames(t, 30);
-      final dialog = find.byType(RuntimeFormDialog);
+      final dialog = find.byType(AgentRuntimeEditor);
       return SurfaceProbe(
         isOpen: () => dialog.evaluate().isNotEmpty,
         x: find.descendant(of: dialog, matching: anyX),
@@ -596,6 +597,22 @@ void main() {
         x: find.descendant(of: dialog, matching: anyX),
         scrim: _corner,
       );
+    },
+    'report-issue-dialog': (t, size) async {
+      final probe = await inWorkspace(
+        t,
+        size,
+        RaftReportIssueDialog,
+        (context, w) => unawaited(
+          showReportIssueDialog(
+            context,
+            controller: w,
+            agent: const {'id': 'a1', 'name': 'cindy', 'displayName': 'Cindy'},
+            exportUrl: 'https://feedback.example.test',
+          ),
+        ),
+      );
+      return SurfaceProbe(isOpen: probe.isOpen, x: probe.x);
     },
     'avatar-discard-confirm': (t, size) async {
       ignoreOverflow();

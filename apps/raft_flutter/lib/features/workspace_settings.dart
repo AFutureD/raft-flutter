@@ -306,6 +306,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             RaftGlyph.messageSquare,
             (_) => SourceFeedbackView(
               controller: w,
+              initialTicketId: _feedbackTicketId(w.location.settingsPath),
               onUnreadChanged: (count) {
                 if (mounted && count != feedbackUnread) {
                   setState(() => feedbackUnread = count);
@@ -544,3 +545,9 @@ class _ReleaseNotesViewState extends State<ReleaseNotesView> {
     },
   );
 }
+
+/// `settings/feedback/ticket/<id>` -> `<id>`.
+String? _feedbackTicketId(List<String> path) =>
+    path.length == 3 && path[0] == 'feedback' && path[1] == 'ticket'
+    ? path[2]
+    : null;

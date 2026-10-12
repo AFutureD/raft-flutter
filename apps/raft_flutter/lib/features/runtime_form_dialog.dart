@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -31,6 +33,9 @@ class RuntimeFormController extends ChangeNotifier {
   Set<String> advanced = {};
   Map<String, Map<String, dynamic>> sources = {};
   Map<String, dynamic> values = {};
+
+  /// The values as loaded (edit): what "changed" is measured against.
+  Map<String, dynamic> initialValues = {};
   Map<String, String> validation = {};
   final mapProblems = <String, String>{};
   final editors = <String, TextEditingController>{};
@@ -115,6 +120,7 @@ class RuntimeFormController extends ChangeNotifier {
           );
         }
       }
+      initialValues = jsonDecode(jsonEncode(values)) as Map<String, dynamic>;
       loading = false;
       _notify();
     } catch (e) {
@@ -174,6 +180,13 @@ class RuntimeFormController extends ChangeNotifier {
       _notify();
     }
   }
+
+  /// Keys whose value differs from the loaded one.
+  Set<String> get changedKeys => {
+    for (final key in {...values.keys, ...initialValues.keys})
+      if (jsonEncode(values[key]) != jsonEncode(initialValues[key])) key,
+  };
+  bool get valuesChanged => changedKeys.isNotEmpty;
 
   /// Field problems (empty when submittable); stores them for display.
   Map<String, String> validate() {
