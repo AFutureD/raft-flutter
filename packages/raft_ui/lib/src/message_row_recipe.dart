@@ -87,6 +87,9 @@ class RaftMessageRowRecipe {
       ? 4
       : 6;
   double get attachmentGap => 4;
+  double get translationLine => tokens.brutal ? 20 : 21;
+  // Baseline alignment puts the status' centre just above the line's centre.
+  double get translationLift => tokens.brutal ? 1.9 : 1;
   double get footerGap =>
       6; // Mounted MessageItemFooter overrides generic Elegant desktop mt10.
   double get toolbarTop => tokens.brutal ? -14 : 4;
@@ -200,6 +203,58 @@ class RaftMessageBodyMargin extends InheritedWidget {
 
   @override
   bool updateShouldNotify(RaftMessageBodyMargin old) => gap != old.gap;
+}
+
+/// A last block that is a *sibling* of the Web message body (the quoted
+/// message card): the body's own bottom margin collapses into the block's
+/// `mt-*`, so nothing follows the block. Flutter pads the whole content, so
+/// the block bleeds into that bottom padding by the body margin.
+class RaftBodyTrailingBleed extends SingleChildRenderObjectWidget {
+  const RaftBodyTrailingBleed({super.key, super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTrailingBleed(_bleedOf(context));
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderTrailingBleed renderObject,
+  ) => renderObject.bleed = _bleedOf(context);
+
+  static double _bleedOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<RaftMessageBodyMargin>()?.gap ?? 0;
+}
+
+class _RenderTrailingBleed extends RenderProxyBox {
+  _RenderTrailingBleed(this._bleed);
+  double _bleed;
+  set bleed(double value) {
+    if (value == _bleed) return;
+    _bleed = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(constraints, parentUsesSize: true);
+    size = Size(
+      child.size.width,
+      (child.size.height - _bleed).clamp(0.0, child.size.height),
+    );
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      child?.hitTest(result, position: position) ?? false;
+
+  @override
+  bool hitTestSelf(Offset position) => false;
 }
 
 class RaftMessageRow extends StatefulWidget {
@@ -801,7 +856,22 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                                       ),
                                       child: widget.attachments!,
                                     ),
-                                  ?widget.translation,
+                                  // `div.mt-0` keeps the content column's line
+                                  // box (20px, Elegant leading-5.25 = 21px); the
+                                  // 11px inline-flex status sits on its baseline.
+                                  if (widget.translation != null)
+                                    SizedBox(
+                                      height: recipe.translationLine,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                            bottom: recipe.translationLift,
+                                          ),
+                                          child: widget.translation,
+                                        ),
+                                      ),
+                                    ),
                                   if (widget.footer != null)
                                     Padding(
                                       padding: EdgeInsets.only(
