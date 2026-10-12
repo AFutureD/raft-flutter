@@ -3312,9 +3312,7 @@ class WorkspaceController extends ChangeNotifier {
         final value = await client.request(
           'PATCH',
           '/servers/$id/sidebar-order',
-          data: sections
-              ? {...updates, 'sectionsVersion': ?version}
-              : updates,
+          data: sections ? {...updates, 'sectionsVersion': ?version} : updates,
         );
         if (!current()) return;
         final reply = value is Map
@@ -4077,11 +4075,13 @@ class WorkspaceController extends ChangeNotifier {
         autoRead &&
         navigate &&
         !retainContextUntilAccepted &&
-        (unread[next.id] ?? 0) != 0;
+        ((unread[next.id] ?? 0) != 0 || mentions.contains(next.id));
     final readPostsBefore = _readPosts[next.id] ?? 0;
     _scrolledAway.remove(next.id);
     if (optimisticRead) {
-      unread = {...unread, next.id: 0};
+      // Web `clearUnread`: the count and the mention flag clear together.
+      if ((unread[next.id] ?? 0) != 0) unread = {...unread, next.id: 0};
+      _clearMention(next.id);
       _persistUnread();
     }
     final window = ++channelGeneration;

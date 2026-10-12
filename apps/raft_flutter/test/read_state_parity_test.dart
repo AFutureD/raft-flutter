@@ -141,6 +141,24 @@ void main() {
     expect(w.unread['c'] ?? 0, 0);
   });
 
+  test('opening a conversation clears its mention marker with the count (Web clearUnread)', () async {
+    final c = _Client();
+    final w = await _mobile(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    w.mentions = {'c'};
+    c.pendingRead = Completer<dynamic>();
+    final open = w.selectChannel(w.channels.single);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(w.unread['c'], 0);
+    expect(w.mentions, isNot(contains('c')));
+    c.pendingRead!.complete({'maxReadSeq': 1, 'readStateVersion': 1});
+    await open;
+  });
+
   test('a successful receipt for a conversation the user already left clears the stale unread', () async {
     final c = _Client();
     final w = await _mobile(c);
@@ -228,8 +246,26 @@ void main() {
     },
   );
 
+  test('phone: a live append at the bottom is read with no pointer activity (owner decision 2026-10-12)', () async {
+    final c = _Client();
+    final w = await _mobile(c);
+    addTearDown(() async {
+      w.dispose();
+      await c.stream.close();
+    });
+    await w.selectChannel(w.channels.single);
+    final before = c.reads;
+    RaftUserActivity.forget();
+    expect(RaftUserActivity.recent, false);
+    c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(c.reads, before + 1);
+    expect(w.unread['c'] ?? 0, 0);
+  });
+
   test(
-    'phone: a live append at the bottom is read with no pointer activity (owner decision 2026-10-12)',
+    'phone: a live append while scrolled above the bottom stays unread',
     () async {
       final c = _Client();
       final w = await _mobile(c);
@@ -240,32 +276,14 @@ void main() {
       await w.selectChannel(w.channels.single);
       final before = c.reads;
       RaftUserActivity.forget();
-      expect(RaftUserActivity.recent, false);
+      w.setTimelineAtBottom('c', false);
       c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
-      expect(c.reads, before + 1);
-      expect(w.unread['c'] ?? 0, 0);
+      expect(c.reads, before);
+      expect(w.unread['c'], 1);
     },
   );
-
-  test('phone: a live append while scrolled above the bottom stays unread', () async {
-    final c = _Client();
-    final w = await _mobile(c);
-    addTearDown(() async {
-      w.dispose();
-      await c.stream.close();
-    });
-    await w.selectChannel(w.channels.single);
-    final before = c.reads;
-    RaftUserActivity.forget();
-    w.setTimelineAtBottom('c', false);
-    c.stream.add(RaftEvent('message:new', _Client.message('live', 2)));
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
-    expect(c.reads, before);
-    expect(w.unread['c'], 1);
-  });
 
   test('desktop: a live append without recent activity stays unread (Web 1 s gate)', () async {
     final c = _Client();
@@ -292,67 +310,68 @@ void main() {
     expect(c.reads, before + 1);
   });
 
-  testWidgets('phone timeline reports its bottom edge; live append reads only at the bottom', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final c = _Client();
-    final w = WorkspaceController(c, mobileNavigation: true);
-    addTearDown(() async {
-      w.dispose();
-      await c.stream.close();
-    });
-    w.server = RaftRecord({'id': 's', 'role': 'owner'});
-    w.channel = RaftChannel({'id': 'c', 'name': 'design', 'joined': true});
-    w.channels = [w.channel!];
-    w.setForeground(true);
-    w.ledger.switchServer('s');
-    final rows = [
-      for (final r in contextRows('row', count: 60)) {...r, 'channelId': 'c'},
-    ];
-    w.ledger.ingest(rows, expectedGeneration: w.ledger.generation);
-    w.visibleIds['c'] = rows.map((r) => r['id'] as String).toSet();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
-        home: Scaffold(body: RaftChatView(controller: w)),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final dynamic state = tester.state(find.byType(RaftChatView));
-    final ScrollController viewport = state.viewport;
-    RaftUserActivity.forget();
-    Future<void> arrive(String id, int seq) => tester.runAsync(() async {
-      c.stream.add(
-        RaftEvent('message:new', {
-          ..._Client.message(id, seq),
-          'senderId': 'bob',
-        }),
+  testWidgets(
+    'phone timeline reports its bottom edge; live append reads only at the bottom',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final c = _Client();
+      final w = WorkspaceController(c, mobileNavigation: true);
+      addTearDown(() async {
+        w.dispose();
+        await c.stream.close();
+      });
+      w.server = RaftRecord({'id': 's', 'role': 'owner'});
+      w.channel = RaftChannel({'id': 'c', 'name': 'design', 'joined': true});
+      w.channels = [w.channel!];
+      w.setForeground(true);
+      w.ledger.switchServer('s');
+      final rows = [
+        for (final r in contextRows('row', count: 60)) {...r, 'channelId': 'c'},
+      ];
+      w.ledger.ingest(rows, expectedGeneration: w.ledger.generation);
+      w.visibleIds['c'] = rows.map((r) => r['id'] as String).toSet();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(body: RaftChatView(controller: w)),
+        ),
       );
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-    });
-    await arrive('at-bottom', 998);
-    await tester.pump();
-    expect(c.reads, 1);
-    expect(w.unread['c'] ?? 0, 0);
-    viewport.jumpTo(viewport.offset - 2400);
-    await tester.pumpAndSettle();
-    expect(state.atBottom, false);
-    await arrive('above', 999);
-    await tester.pump();
-    expect(c.reads, 1);
-    expect(w.unread['c'], 1);
-    viewport.jumpTo(viewport.position.maxScrollExtent);
-    await tester.pumpAndSettle();
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    expect(c.reads, 2);
-    expect(w.unread['c'], 0);
-    await tester.pumpWidget(const SizedBox());
-  });
+      await tester.pumpAndSettle();
+      final dynamic state = tester.state(find.byType(RaftChatView));
+      final ScrollController viewport = state.viewport;
+      RaftUserActivity.forget();
+      Future<void> arrive(String id, int seq) => tester.runAsync(() async {
+        c.stream.add(
+          RaftEvent('message:new', {
+            ..._Client.message(id, seq),
+            'senderId': 'bob',
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+      });
+      await arrive('at-bottom', 998);
+      await tester.pump();
+      expect(c.reads, 1);
+      expect(w.unread['c'] ?? 0, 0);
+      viewport.jumpTo(viewport.offset - 2400);
+      await tester.pumpAndSettle();
+      expect(state.atBottom, false);
+      await arrive('above', 999);
+      await tester.pump();
+      expect(c.reads, 1);
+      expect(w.unread['c'], 1);
+      viewport.jumpTo(viewport.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      expect(c.reads, 2);
+      expect(w.unread['c'], 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   for (final (family, dark) in [(RaftFamily.elegant, false)]) {
     testWidgets(
