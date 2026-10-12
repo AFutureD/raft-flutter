@@ -239,6 +239,12 @@ class _ConversationPanelState extends State<ConversationPanel> {
     for (final id in RaftConversationTabId.values) {
       if (!order.contains(id)) order.add(id);
     }
+    final tokens = RaftTokens.of(context);
+    // ConversationPanelContent paints the card surface; Elegant dark tab pages
+    // (Tasks `dark:bg-transparent`, Files) show it rather than the canvas.
+    final surface = tokens.dark && !tokens.brutal
+        ? tokens.card
+        : tokens.card.withAlpha(0);
     return Column(
       children: [
         if (hasTabs && !widget.hideHeader)
@@ -259,7 +265,9 @@ class _ConversationPanelState extends State<ConversationPanel> {
             onChanged: selectTab,
           ),
         Expanded(
-          child: RaftSectionPager<RaftConversationTabId>(
+          child: ColoredBox(
+            color: surface,
+            child: RaftSectionPager<RaftConversationTabId>(
             key: ValueKey(currentScope),
             sections: hasTabs ? order : const [RaftConversationTabId.chat],
             value: tab,
@@ -320,6 +328,7 @@ class _ConversationPanelState extends State<ConversationPanel> {
                 ),
               },
             ),
+          ),
           ),
         ),
       ],

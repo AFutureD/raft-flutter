@@ -551,6 +551,7 @@ class RaftPrefixedInput extends StatefulWidget {
     this.inputFormatters,
     this.semanticLabel,
     this.leading,
+    this.autofocus = false,
     this.variant = RaftInputGroupRecipeVariant.container,
     this.maxLength,
   });
@@ -564,6 +565,9 @@ class RaftPrefixedInput extends StatefulWidget {
   final TextEditingController? controller;
   final String? initialValue, hintText, semanticLabel;
   final bool readOnly, enabled, invalid;
+
+  /// InputGroupInput `autoFocus`: the control takes focus when mounted.
+  final bool autofocus;
   final ValueChanged<String>? onChanged, onSubmitted;
   final FocusNode? focusNode;
   final List<TextInputFormatter>? inputFormatters;
@@ -645,6 +649,7 @@ class _RaftPrefixedInputState extends State<RaftPrefixedInput>
                     padding: g.control.padding,
                     child: TextField(
                       autofillHints: null,
+                      autofocus: widget.autofocus,
                       controller: controller,
                       focusNode: focus,
                       readOnly: widget.readOnly,

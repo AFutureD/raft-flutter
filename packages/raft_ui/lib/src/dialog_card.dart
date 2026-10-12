@@ -17,6 +17,7 @@ import 'system_inset.dart';
 
 import 'package:flutter/rendering.dart';
 
+import 'banner.dart' show RaftBanner;
 import 'control_typography.dart';
 import 'design_primitives.dart';
 import 'dismiss_scope.dart';
@@ -24,6 +25,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
+import 'recipes/banner.g.dart' show RaftBannerRecipeStatus;
 import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
 import 'recipes/field.g.dart' as field_recipe;
@@ -90,7 +92,11 @@ class RaftRecipeButton extends StatelessWidget {
     this.focusNode,
     this.glyphTrailing = false,
     this.focusRing = false,
+    this.disabledOpacity,
   });
+
+  /// Callsite `disabled:opacity-*` replacing the recipe's disabled opacity.
+  final double? disabledOpacity;
 
   /// Paints the focus-visible ring while focused even after a pointer press
   /// (Blink keeps `:focus-visible` on an element that script focused when a
@@ -217,8 +223,11 @@ class RaftRecipeButton extends StatelessWidget {
       child: Center(widthFactor: expand ? null : 1, child: content),
     );
     box = Transform.translate(offset: translate, child: box);
-    if (root.opacity != null && root.opacity! < 1) {
-      box = Opacity(opacity: root.opacity!, child: box);
+    final opacity = disabled && disabledOpacity != null
+        ? disabledOpacity
+        : root.opacity;
+    if (opacity != null && opacity < 1) {
+      box = Opacity(opacity: opacity, child: box);
     }
     return box;
   }
@@ -962,6 +971,14 @@ class RaftWarningBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // Product `<Banner intent="warning" className="font-bold">`: the public
+    // Banner recipe geometry; BannerDescription keeps its regular weight.
+    if (!small) {
+      return RaftBanner(
+        description: message,
+        status: RaftBannerRecipeStatus.warning,
+      );
+    }
     return Semantics(
       liveRegion: true,
       child: Container(

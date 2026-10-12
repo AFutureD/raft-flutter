@@ -200,6 +200,15 @@ keeps Web's 1 s activity gate. Everything else matches Web: opening clears the
 local unread, scrolling back to the bottom and returning to the foreground send
 the read receipt.
 
+## Phone task detail covers the bottom navigation: intended difference from Web (owner decision 2026-10-12)
+
+Owner decision 2026-10-12: on a phone the task detail is a full page that covers
+the bottom navigation bar (Home / Tasks / Members / Settings). Web keeps the bar
+visible below the task detail. Flutter keeps its own behaviour; the
+`taskdetail.mobile.*` geometry differences caused by the missing bar (composer
+and bar position, scroll state) are expected and not to be "fixed". Other
+`taskdetail.mobile.*` differences (for example text content) still follow Web.
+
 ## Activity master-detail threshold: intended difference from Web (owner decision 2026-10-12)
 
 Owner decision 2026-10-12: Activity master-detail (single tap = side preview,
