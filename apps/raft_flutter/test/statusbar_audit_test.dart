@@ -22,6 +22,7 @@ import 'package:raft_flutter/features/public_server_view.dart';
 import 'package:raft_flutter/platform/system_bars.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'edge_to_edge_audit_test.dart'
@@ -129,8 +130,9 @@ Future<void> checkTop(
     );
     final out = await recorder.endRecording().toImage(w, h);
     final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
-    File('${outDir(theme).path}/$name.png')
-        .writeAsBytesSync(bytes!.buffer.asUint8List());
+    File(
+      '${outDir(theme).path}/$name.png',
+    ).writeAsBytesSync(bytes!.buffer.asUint8List());
     image.dispose();
     out.dispose();
   });
@@ -159,6 +161,9 @@ void _zh(RootFixture f) {
     'displayLanguage': 'zh-cn',
   };
 }
+
+/// Shared with `statusbar_standard_test.dart`.
+void withDirectory(RootFixture f) => _withDirectory(f);
 
 void _withDirectory(RootFixture f) {
   f.overrides['GET /channels/dm'] = (_) => [
@@ -236,8 +241,13 @@ class Page {
     this.headerless = false,
     this.prepare,
     this.cropDp = 120,
+    this.phoneOnly = false,
   });
   final double cropDp;
+
+  /// Phone-only identity (`channelPage=`): at the wide layout it is dropped and
+  /// the same surface opens as a dialog, so there is no page to audit.
+  final bool phoneOnly;
   final String name, path;
   final void Function(RootFixture f)? prepare;
 
@@ -266,11 +276,20 @@ const pages = <Page>[
   Page('12-settings-bottom-bar', '/s/alpha/settings/bottom-bar'),
   Page('13-computers', '/s/alpha/computers'),
   Page('14-member-detail', '/s/alpha/human/bob'),
-  Page('15-channel-settings', '/s/alpha/channel/ca?channelPage=settings:ca'),
-  Page('16-channel-members', '/s/alpha/channel/ca?channelPage=members:ca'),
+  Page(
+    '15-channel-settings',
+    '/s/alpha/channel/ca?channelPage=settings:ca',
+    phoneOnly: true,
+  ),
+  Page(
+    '16-channel-members',
+    '/s/alpha/channel/ca?channelPage=members:ca',
+    phoneOnly: true,
+  ),
   Page(
     '17-channel-add-members',
     '/s/alpha/channel/ca?channelPage=members:ca&channelPageAdd=1',
+    phoneOnly: true,
   ),
   Page('46-dm-chat', '/s/alpha/dm/dm-peer', prepare: _withDirectory),
   Page('47-agent-detail', '/s/alpha/agent/agent-1', prepare: _withDirectory),
@@ -279,33 +298,32 @@ const pages = <Page>[
     '49-dm-settings',
     '/s/alpha/dm/dm-peer?channelPage=settings:dm-peer',
     prepare: _withDirectory,
+    phoneOnly: true,
   ),
   Page(
     '50-add-members-zh',
     '/s/alpha/channel/ca?channelPage=members:ca&channelPageAdd=1',
     prepare: _zh,
     cropDp: 915,
+    phoneOnly: true,
   ),
   Page('21-server-selector', '/'),
   Page('22-server-not-found', '/s/unknown', headerless: true),
   Page('23-agent-detail', '/s/alpha/agent/missing'),
   Page('24-computer-detail', '/s/alpha/computer/computer-1'),
-  Page('25-member-graph', '/s/alpha/member-graph'),
+  Page('25-member-graph', '/s/alpha/members/graph'),
   Page('26-settings-appearance', '/s/alpha/settings/appearance'),
   Page('27-settings-notifications', '/s/alpha/settings/notifications'),
-  Page('28-settings-language', '/s/alpha/settings/language'),
+  Page('28-settings-language', '/s/alpha/settings/language-region'),
   Page('29-settings-billing', '/s/alpha/settings/billing'),
   Page('30-settings-providers', '/s/alpha/settings/providers'),
   Page('31-settings-integrations', '/s/alpha/settings/integrations'),
   Page('32-settings-mcp', '/s/alpha/settings/mcp'),
   Page('33-settings-im-bridges', '/s/alpha/settings/im-bridges'),
-  Page('34-settings-joint-channels', '/s/alpha/settings/joint-channels'),
+  Page('34-settings-about', '/s/alpha/settings/about'),
   Page('35-settings-administration', '/s/alpha/settings/administration'),
-  Page(
-    '36-settings-workspace-settings',
-    '/s/alpha/settings/workspace-settings',
-  ),
-  Page('37-settings-sidebar', '/s/alpha/settings/sidebar-settings'),
+  Page('36-settings-feedback', '/s/alpha/settings/feedback'),
+  Page('37-settings-release-notes', '/s/alpha/settings/release-notes'),
   Page('38-release-notes', '/s/alpha/release-notes'),
   Page('18-task-detail', '/s/alpha/tasks', act: openTask, headerless: true),
   Page('19-attachment-preview', '/s/alpha', act: openAttachment),
@@ -313,8 +331,275 @@ const pages = <Page>[
   Page('20-forward-composer', '/s/alpha', act: openForward, headerless: true),
 ];
 
-void main() {
+// ---------------------------------------------------------------------------
+// Wide layouts (>= RaftLayoutMetrics.desktopBreakpoint): one full-width bar.
+// ---------------------------------------------------------------------------
+
+const _wideRoute = '/s/alpha/settings/appearance';
+
+/// Wide routes: settings (own sidebar), chat (shell sidebar + header), tasks,
+/// members and search.
+const _wideRoutes = {
+  'settings': _wideRoute,
+  'home': '/s/alpha',
+  'channel': '/s/alpha/channel/ca',
+  'tasks': '/s/alpha/tasks',
+  'members': '/s/alpha/members',
+  'activity': '/s/alpha/activity',
+  'computers': '/s/alpha/computers',
+};
+
+Future<RootFixture> _mountAt(
+  WidgetTester t,
+  String theme,
+  Size dp, {
+  String path = _wideRoute,
+}) async {
+  debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  await loadComputerPageFonts(t);
+  final f = richFixture();
+  await f.mount(t, theme, dp.width, uri: Uri.parse(path));
+  t.view.devicePixelRatio = _dpr;
+  t.view.physicalSize = dp * _dpr;
+  _insets(t);
+  addTearDown(() {
+    t.view.resetPadding();
+    t.view.resetViewPadding();
+    t.view.resetPhysicalSize();
+    t.view.resetDevicePixelRatio();
+  });
+  await f.flush(t);
+  await settle(t);
+  return f;
+}
+
+Future<void> _resize(WidgetTester t, Size dp) async {
+  t.view.physicalSize = dp * _dpr;
+  await settle(t);
+}
+
+/// The rendered window as RGBA, with a pixel reader in physical pixels.
+Future<({int Function(int x, int y) px, int width, int height})> _capture(
+  WidgetTester t, {
+  String? savePath,
+}) async {
+  final renderView = t.binding.renderViews.first;
+  final layer = renderView.debugLayer! as OffsetLayer;
+  late ({int Function(int x, int y) px, int width, int height}) out;
+  await t.runAsync(() async {
+    final image = await layer.toImage(
+      Offset.zero & (renderView.size * _dpr),
+      pixelRatio: 1,
+    );
+    final raw = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    if (savePath != null) {
+      final png = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+      File(savePath)
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(png.buffer.asUint8List());
+    }
+    out = (
+      px: (x, y) {
+        final o = (y * image.width + x) * 4;
+        return 0xFF000000 |
+            raw.getUint8(o) << 16 |
+            raw.getUint8(o + 1) << 8 |
+            raw.getUint8(o + 2);
+      },
+      width: image.width,
+      height: image.height,
+    );
+    image.dispose();
+  });
+  return out;
+}
+
+String _hex(int c) => '#${(c & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
+/// Wide: every column continues under the status bar, borders included. The
+/// strip row must equal the first rows of the headers directly below it across
+/// the whole width (rail, sidebar, content and their vertical dividers).
+Future<void> _expectColumnsContinue(
+  WidgetTester t,
+  String theme, {
+  bool contentHeader = true,
+}) async {
+  expect(find.byType(RaftWorkspaceRail), findsOneWidget);
+  final image = await _capture(t);
+  final strip = (_topDp / 2 * _dpr).round();
+  final below = (_topDp * _dpr).round() + 3;
+  // Rail, sidebar and their dividers always continue. The content column
+  // continues the colour of its own header when it has one flush at the top
+  // (pages that start with tabs or a card keep the canvas, like on phones).
+  var columnsRight = t.getRect(find.byType(RaftWorkspaceRail)).right;
+  for (final key in const [
+    Key('workspace-sidebar-panel'),
+    Key('settings-navigation'),
+  ]) {
+    final f = find.byKey(key);
+    if (f.evaluate().isNotEmpty) {
+      columnsRight = t.getRect(f.first).right;
+    }
+  }
+  final limit = contentHeader
+      ? image.width
+      : (columnsRight * _dpr).round().clamp(0, image.width);
+  // Runs of differing pixels, "x0-x1 strip/below".
+  final mismatches = <String>[];
+  for (var x = 0; x < limit;) {
+    final a = image.px(x, strip), b = image.px(x, below);
+    if (a == b) {
+      x++;
+      continue;
+    }
+    var end = x;
+    while (end + 1 < limit &&
+        image.px(end + 1, strip) == a &&
+        image.px(end + 1, below) == b) {
+      end++;
+    }
+    // A single pixel is anti-aliasing at a fractional divider position.
+    if (end > x) mismatches.add('x=$x-$end ${_hex(a)}/${_hex(b)}');
+    x = end + 1;
+  }
+  expect(
+    mismatches,
+    isEmpty,
+    reason: '$theme: status bar row differs from the columns below',
+  );
+  // More than one colour: the columns are not flattened into a single bar.
+  final colours = {for (var x = 0; x < image.width; x++) image.px(x, strip)};
+  expect(
+    colours.length,
+    greaterThan(1),
+    reason: '$theme: wide strip must follow the columns',
+  );
+  if (theme == 'brutal') {
+    expect(
+      colours,
+      contains(0xFF000000),
+      reason: 'brutal: the black column dividers reach the top edge',
+    );
+    expect(colours, contains(0xFFFFD441), reason: 'brutal: yellow rail');
+  }
+  final renderView = t.binding.renderViews.first;
+  final style = (renderView.debugLayer! as OffsetLayer)
+      .find<SystemUiOverlayStyle>(
+        Offset(renderView.size.width / 2, _topDp / 2),
+      );
+  expect(style, isNotNull);
+  expect(
+    style!.statusBarIconBrightness,
+    theme == 'elegant-dark' ? Brightness.light : Brightness.dark,
+    reason: '$theme: status bar icon brightness',
+  );
+}
+
+/// Phone: unchanged immersive strip (header colour, no rail).
+Future<void> _expectPhoneStrip(WidgetTester t, String theme) async {
+  expect(find.byType(RaftWorkspaceRail), findsNothing);
+  final strips = find.byType(RaftStatusBarStrip);
+  expect(strips, findsAtLeastNWidgets(1));
+  expect(
+    raftStatusBarResolution(t.renderObject(strips.last)).fromSource,
+    isTrue,
+    reason: '$theme: phone header colour',
+  );
+  final image = await _capture(t);
+  expect(
+    _hex(image.px(3, (_topDp / 2 * _dpr).round())),
+    _hex(image.px(3, (_topDp * _dpr).round() + 3)),
+    reason: '$theme: phone strip continues the header',
+  );
+}
+
+void _wideTests() {
+  const sizes = {
+    'fold 816': Size(816, 920),
+    'desktop 1280': Size(1280, 800),
+    'breakpoint 768': Size(768, 900),
+  };
   for (final theme in _themes) {
+    for (final route in _wideRoutes.entries) {
+      testWidgets('statusbar wide route ${route.key} $theme', (t) async {
+        try {
+          await _mountAt(t, theme, const Size(816, 900), path: route.value);
+          await _expectColumnsContinue(
+            t,
+            theme,
+            contentHeader: const {'settings', 'channel'}.contains(route.key),
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+    for (final entry in sizes.entries) {
+      testWidgets('statusbar wide ${entry.key} $theme', (t) async {
+        try {
+          await _mountAt(t, theme, entry.value);
+          await _expectColumnsContinue(t, theme);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+
+    testWidgets('statusbar resize across the breakpoint $theme', (t) async {
+      const wide = Size(816, 920), phone = Size(412, 915);
+      try {
+        await _mountAt(t, theme, wide);
+        await _expectColumnsContinue(t, theme);
+        await _resize(t, phone);
+        await _expectPhoneStrip(t, theme);
+        await _resize(t, wide);
+        await _expectColumnsContinue(t, theme);
+        await _resize(t, phone);
+        await _expectPhoneStrip(t, theme);
+        expect(t.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    // Just below the breakpoint stays the phone behaviour.
+    testWidgets('statusbar 767dp stays phone $theme', (t) async {
+      try {
+        await _mountAt(t, theme, const Size(767, 900));
+        await _expectPhoneStrip(t, theme);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  }
+
+  // Screenshot contact-sheet inputs (RAFT_WIDE_SHOTS=<dir>); no assertions.
+  final shots = Platform.environment['RAFT_WIDE_SHOTS'];
+  if (shots != null) {
+    const views = {
+      'fold-816x900': Size(816, 900),
+      'desktop-1280x800': Size(1280, 800),
+      'phone-390x844': Size(390, 844),
+    };
+    for (final theme in _themes) {
+      for (final v in views.entries) {
+        testWidgets('wide statusbar shot ${v.key} $theme', (t) async {
+          try {
+            final route = Platform.environment['RAFT_WIDE_ROUTE'] ?? 'settings';
+            await _mountAt(t, theme, v.value, path: _wideRoutes[route]!);
+            await _capture(t, savePath: '$shots/$route-${v.key}-$theme.png');
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    }
+  }
+}
+
+void main() {
+  _wideTests();
+  for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final p in pages) {
       testWidgets('statusbar ${p.name} $theme', (t) async {
         try {
@@ -370,7 +655,7 @@ void main() {
     '43-onboarding-shell': () =>
         const RaftOnboardingShell(child: Text('Create')),
   };
-  for (final theme in _themes) {
+  for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final entry in standalone.entries) {
       testWidgets('statusbar ${entry.key} $theme', (t) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;

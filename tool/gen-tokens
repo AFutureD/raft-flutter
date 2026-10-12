@@ -59,6 +59,7 @@ IMPORT_ORIGINS = {
     'web': ('raft-source', 'packages/web/src/index.css'),
 }
 ROLES = 'component-roles.css'  # authored in-repo, see its header
+CONTROL_TYPOGRAPHY = 'control-typography.json'  # authored in-repo, Flutter-only (no Web CSS counterpart)
 ROOT_FONT_SIZE = 16.0  # rem -> px (Web root font-size is the UA default)
 
 THEMES = ('brutal', 'elegantLight', 'elegantDark')
@@ -1182,6 +1183,24 @@ def emit_scale(m: Model):
     return lines
 
 
+def emit_typography():
+    src = json.loads((SRC / CONTROL_TYPOGRAPHY).read_text())['control']
+    lines = ['// GENERATED — do not edit. Regenerate with `tool/gen-tokens`.',
+             f'// Source: {CONTROL_TYPOGRAPHY} (authored in-repo; Flutter-only policy, no Web CSS counterpart)',
+             '// dart format off', '',
+             '/// Typography policy tokens for single-line control labels.',
+             '///',
+             '/// Flutter centres a font\'s line box, not the visible glyphs. The Android system',
+             '/// CJK fallback draws Chinese ink above that centre, so single-line control labels',
+             '/// (badges, chips, buttons, tabs, segments) use a taller, proportionally split line',
+             '/// there. See `RaftControlTypography` and docs/android-cjk-control-typography.md.',
+             'abstract final class RaftControlTypographyTokens {',
+             '  /// `control.androidChineseLineHeight`: `TextStyle.height` factor.',
+             f"  static const double androidChineseLineHeight = {fmt_double(float(src['androidChineseLineHeight']))};",
+             '}']
+    return '\n'.join(lines) + '\n'
+
+
 def emit_token_set():
     lines = [header(['foundation']).replace(SOURCES['foundation'], 'the generated tier files in this directory'),
              "import 'package:flutter/foundation.dart';", '',
@@ -1215,6 +1234,7 @@ def render():
         'component_colors.g.dart': emit_components(m),
         'shadows.g.dart': emit_shadows(m),
         'metrics.g.dart': emit_metrics(m),
+        'typography.g.dart': emit_typography(),
         'token_set.g.dart': emit_token_set(),
     }
 

@@ -212,7 +212,8 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
                 offset: const Offset(0, -1),
                 // `<Badge.Experimental>`: solid success variant, uppercase.
                 child: RaftRecipeBadge(
-                  raftText(context, 'Experimental'),
+                  // Web `Badge.Experimental` is untranslated English.
+                  'Experimental',
                   appearance: RaftBadgeRecipeAppearance.solid,
                   variant: RaftBadgeRecipeVariant.success,
                   uppercase: true,

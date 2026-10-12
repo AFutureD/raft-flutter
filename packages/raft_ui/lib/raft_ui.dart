@@ -3,6 +3,7 @@ library;
 export 'src/theme.dart';
 export 'src/system_inset.dart';
 export 'src/status_bar.dart';
+export 'src/desktop_title_bar.dart';
 export 'src/components.dart';
 
 export 'src/task.dart';
@@ -21,6 +22,7 @@ export 'src/secret_view.dart';
 export 'src/attachment_card.dart';
 
 export 'src/adaptive_workspace.dart';
+export 'src/panel_edge.dart';
 export 'src/localization.dart';
 export 'src/message_body.dart';
 export 'src/font_warm_up.dart';
@@ -34,6 +36,10 @@ export 'src/composer_suggestions.dart';
 export 'src/document_preview.dart';
 export 'src/html_preview.dart';
 export 'src/thread_replies.dart';
+export 'src/add_members_dialog_view.dart';
+export 'src/context_menu_content.dart';
+export 'src/joint_channel_dialog_view.dart';
+export 'src/emoji_picker.dart';
 export 'src/message_context_menu.dart';
 export 'src/composer_pending_mentions.dart';
 export 'src/forward_composer.dart';
@@ -43,6 +49,7 @@ export 'src/attachment_comments.dart';
 
 export 'src/design_primitives.dart';
 export 'src/recipe_surface.dart';
+export 'src/control_typography.dart';
 export 'src/indicators.dart';
 export 'src/live_agent_activity_bar.dart';
 export 'src/form_controls.dart';
@@ -71,6 +78,7 @@ export 'src/tokens/tokens.dart';
 export 'src/attachment_gallery.dart';
 export 'src/attachment_lightbox.dart';
 export 'src/attachment_preview_shell.dart';
+export 'src/attachment_transfer.dart';
 
 export 'src/switch.dart';
 
@@ -116,6 +124,7 @@ export 'src/report_issue_dialog.dart';
 export 'src/sos_dialog.dart';
 
 export 'src/avatar_content.dart';
+export 'src/sized_image.dart';
 
 export 'src/message_row_recipe.dart';
 export 'src/message_translation.dart';
@@ -137,6 +146,11 @@ export 'src/chat_composition.dart';
 export 'src/quick_reaction_picker.dart';
 
 export 'src/thread_composition.dart';
+export 'src/thread_followers.dart';
+export 'src/quoted_message_card.dart';
+export 'src/external_identity_panel.dart';
+export 'src/avatar_button.dart';
+export 'src/inline_media.dart';
 
 export 'src/attachment_tokens.dart';
 
@@ -155,6 +169,7 @@ export 'src/css_pixel_snap.dart';
 export 'src/agent_create_form.dart';
 export 'src/agent_profile.dart';
 export 'src/dialog_card.dart';
+export 'src/dismiss_scope.dart';
 export 'src/copyable_code.dart';
 export 'src/computer_surfaces.dart';
 export 'src/mobile_computer_list.dart';
@@ -206,3 +221,4 @@ export 'src/sidebar_indicators.dart';
 export 'src/mobile_page_header.dart';
 export 'src/product_empty_state.dart';
 export 'src/task_timeline.dart';
+export 'src/app_icon_choices.dart';

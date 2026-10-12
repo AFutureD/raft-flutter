@@ -10,6 +10,7 @@ import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_context_transition_test.dart' show row;
@@ -37,11 +38,11 @@ void main() {
   // Real product fonts matter at the supported320px minimum. Ahem substitutes
   // 12px square glyphs and falsely wraps the short Task# legacy subtitle.
   setUpAll(loadParityFonts);
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 800.0, 1280.0]) {
       for (final tasksRoute in [false, true]) {
         testWidgets(
@@ -402,7 +403,7 @@ void main() {
             case 'principal':
               w.client.user = RaftRecord({'id': 'other-user'});
             case 'permission':
-              w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+              w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
           }
           w.notifyListeners();
           await flush(t);
@@ -464,7 +465,7 @@ void main() {
             .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
             .owner;
         expect(find.byKey(const ValueKey('legacy-task-panel')), findsOneWidget);
-        w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+        w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
         w.notifyListeners();
         await flush(t);
         expect(owner.closed, isTrue);

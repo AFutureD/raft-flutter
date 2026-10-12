@@ -11,6 +11,7 @@ import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 class _Client extends RaftClient {
   _Client()
@@ -30,7 +31,11 @@ class _Files extends AttachmentFiles {
   final bytes = Completer<Uint8List>();
   int reads = 0;
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) {
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) {
     reads++;
     return bytes.future;
   }
@@ -111,11 +116,11 @@ Future<void> decodeWithoutPainting(WidgetTester tester) async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K11a] $family/$dark painted loading image accepts its first click',
       (tester) async {

@@ -9,7 +9,9 @@ import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_preview_files.dart';
 import '../platform/native_sharing.dart';
+import '../data/attachment_transfer.dart';
 import 'attachment_comments_view.dart';
+import 'attachment_transfer_view.dart';
 
 String? attachmentPreviewKind(Map<String, dynamic> metadata) {
   final name = '${metadata['filename'] ?? ''}'.toLowerCase();
@@ -134,6 +136,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     super.key,
     required this.controller,
     required this.metadata,
+    this.channelId,
     required this.authorized,
     required this.onClose,
     required this.onDownload,
@@ -144,6 +147,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
+  final String? channelId;
   final bool Function() authorized;
   final VoidCallback onClose;
   final Future<void> Function() onDownload;
@@ -167,7 +171,15 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   Uint8List? pageBytes;
   int page = 0, pageCount = 0, request = 0;
   bool loading = true, truncated = false, invalidated = false;
+
+  /// The file itself could not be fetched (as opposed to decoded or played):
+  /// the download panel offers a retry.
+  bool fetchFailed = false;
   String? error;
+
+  /// Bytes of the preview download, throttled; the panel's bar listens.
+  final transfer = AttachmentTransfer();
+  late final transferView = AttachmentTransferView(transfer);
   Future<void>? cleanup;
   String get kind => attachmentPreviewKind(widget.metadata) ?? 'unsupported';
   bool get current =>
@@ -183,7 +195,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   void scopeChanged() {
     if (!widget.authorized()) {
       invalidated = true;
-      if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+      if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
       setState(() {
         document = null;
         pageBytes = null;
@@ -200,6 +212,18 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     if (state != AppLifecycleState.resumed && player != null) {
       unawaited(action((p) => p.pause()));
     }
+  }
+
+  /// Fetch again after a failure; the same panel returns to progress.
+  void retry() {
+    if (!current) return;
+    transfer.value = null;
+    setState(() {
+      loading = true;
+      error = null;
+      fetchFailed = false;
+    });
+    load();
   }
 
   Future<void> load() async {
@@ -227,16 +251,17 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           truncated = value['truncated'] == true;
         });
       } else if (['pdf', 'audio', 'video'].contains(kind)) {
-        final value = await widget.controller.query(
-          '/attachments/${widget.metadata['id']}/url',
-          query: {'disposition': 'inline'},
+        final url = await widget.controller.attachmentUrl(
+          '${widget.metadata['id']}',
+          channelId: widget.channelId ?? widget.metadata['channelId'] as String?,
         );
         if (!current || ticket != request) return;
         final prepared = await (widget.files ?? AttachmentPreviewFiles()).load(
-          value['url'] as String,
+          url,
           '${widget.metadata['filename'] ?? 'attachment'}',
           cancel: cancel,
           authorized: () => current,
+          onProgress: transfer.report,
         );
         if (!current || ticket != request || prepared == null) {
           await prepared?.dispose();
@@ -266,9 +291,12 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       }
     } catch (_) {
       if (current && ticket == request) {
-        setState(
-          () => error = 'Preview unavailable. Download the original file.',
-        );
+        setState(() {
+          error = 'Preview unavailable. Download the original file.';
+          // Nothing was prepared: the bytes never arrived (or the preview
+          // service failed), so a retry can still help.
+          fetchFailed = lease == null && document == null;
+        });
       }
     } finally {
       if (current && ticket == request) setState(() => loading = false);
@@ -286,7 +314,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         authorized: () => current,
       );
       if (!current) return;
-      if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+      if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
       setState(() {
         page = next;
         pageBytes = value.bytes;
@@ -323,9 +351,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     invalidated = true;
     request++;
     cancel.cancel();
+    transfer.dispose();
     widget.controller.removeListener(scopeChanged);
     WidgetsBinding.instance.removeObserver(this);
-    if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+    if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
     pageBytes = null;
     unawaited(releaseInputs());
     super.dispose();
@@ -352,6 +381,30 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       'markdown' => '${data['markdown'] ?? ''}',
       _ => null,
     };
+  }
+
+  /// Initial fetch of the file or its preview data (not a PDF page turn).
+  bool get fetching => loading && lease == null && document == null;
+
+  /// File head, bar and `1.7 / 2.8 MB · 62%` with Cancel (leaving the
+  /// preview cancels the download), or the failed state with Retry.
+  Widget transferPanel(BuildContext context) {
+    final name = '${widget.metadata['filename'] ?? ''}';
+    final size = (widget.metadata['sizeBytes'] as num?)?.toInt();
+    final extension = name.contains('.')
+        ? name.split('.').last.toUpperCase()
+        : '${widget.metadata['mimeType'] ?? ''}';
+    return RaftFileTransferPanel(
+      filename: name,
+      meta: size == null || size <= 0
+          ? extension
+          : '$extension · ${RaftAttachmentCard.formatSize(size)}',
+      progress: transferView,
+      fallbackTotal: size,
+      failed: fetchFailed,
+      onCancel: widget.onClose,
+      onRetry: retry,
+    );
   }
 
   Widget pager() => Row(
@@ -403,6 +456,8 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         Expanded(
           child: !current
               ? const SizedBox.shrink()
+              : fetching || fetchFailed
+              ? Center(child: transferPanel(context))
               : loading
               ? const Center(child: RaftSpinner())
               : error != null
@@ -411,7 +466,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               ? RaftDocumentPreview(data: document!, truncated: truncated)
               : kind == 'pdf' && pageBytes != null
               ? InteractiveViewer(
-                  child: Image.memory(pageBytes!, fit: BoxFit.contain),
+                  child: RaftSizedImage.memory(
+                    pageBytes!,
+                    fit: BoxFit.contain,
+                    // The page stays sharp at the viewer's maximum zoom.
+                    zoom: raftZoomableImageScale,
+                    evictOnDispose: true,
+                  ),
                 )
               : kind == 'video' && player != null
               ? player!.video()

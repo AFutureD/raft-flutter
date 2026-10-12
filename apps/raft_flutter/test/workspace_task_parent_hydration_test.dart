@@ -12,6 +12,7 @@ import 'package:raft_flutter/data/raft_navigation_history.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_context_transition_test.dart' show row;
@@ -101,11 +102,11 @@ final realTask = {
 };
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
         '[K10b cold parent] real metadata precedes borrowed discussion and task facts $family/$dark/$width',
@@ -425,7 +426,7 @@ void main() {
             case 'server':
               w.client.selectServer('other-server');
             case 'role':
-              w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+              w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
             case 'removed':
               (w.client as ParentClient).eventStream.add(
                 const RaftEvent('channel:removed', {

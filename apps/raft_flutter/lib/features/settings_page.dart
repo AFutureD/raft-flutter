@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/navigation_registry.dart';
+
 /// SettingsPanel / Sidebar(mobileInline) SettingsSidebarList composition.
 /// Account transport and platform notification ownership are supplied by the
 /// caller, never by this UI shell.
@@ -123,8 +125,14 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
     ];
     final pages = available.where((d) => d.builder != null).toList();
     if (pages.isEmpty) return const SizedBox.shrink();
-    final active =
-        pages.where((d) => d.id == selected).firstOrNull ?? pages.first;
+    final shown = pages.where((d) => d.id == selected).firstOrNull;
+    // A tab the registry knows but this role, flag or layout hides resolves
+    // to the first page like Web's denied tab (SettingsPanel). A tab nobody
+    // registered is a broken link: loud in debug, the same fallback in release.
+    if (shown == null && !NavigationRegistry.knowsSettingsTab(selected)) {
+      NavigationRegistry.reportFallback('settings tab', selected);
+    }
+    final active = shown ?? pages.first;
     void open(RaftSettingsDestination destination) {
       if (destination.onOpen != null) {
         destination.onOpen!();

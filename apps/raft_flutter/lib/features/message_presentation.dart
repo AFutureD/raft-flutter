@@ -2,14 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../data/raft_location.dart';
+import '../data/raft_permalink.dart';
 import '../data/source_time_formatter.dart';
 
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
-import '../data/workspace_entity_directory.dart';
 import '../platform/attachment_files.dart';
+import '../platform/content_links.dart';
+import 'quoted_message_preview.dart';
 import 'message_action_card.dart';
 import 'attachment_view.dart';
 import 'fleet_views.dart';
@@ -156,7 +159,24 @@ class MessagePresentation extends StatelessWidget {
     this.knownTaskNumber,
     this.content,
     this.foregroundColor,
+    this.searchHighlight,
+    this.unavailablePermalink,
+    this.onOpenTask,
   });
+
+  /// Web `onOpenTaskRef`: an in-body `#N` / `task #N` reference opens the task
+  /// slot (the same surface as the footer task chip). A host with no task slot
+  /// (the exported image, previews) falls back to a read-only summary dialog.
+  final ValueChanged<Map<String, dynamic>>? onOpenTask;
+
+  /// The raw URL of the message permalink whose preview could not be read
+  /// (Web `unavailableQuotedPermalinkUrl`): its chip reads "Unavailable linked
+  /// message" and is inert.
+  final String? unavailablePermalink;
+
+  /// Web `threadSearchHighlightQuery`: the in-thread search query marked in
+  /// the active match's text.
+  final String? searchHighlight;
 
   /// Markdown shown instead of the message's own content (a translation, or
   /// the bilingual view's original under it).
@@ -391,6 +411,16 @@ class MessagePresentation extends StatelessWidget {
       return;
     }
     if (uri?.scheme != 'raft-ref') {
+      // Web handleOpenPermalink: a message link of this server opens in the
+      // app, any other link opens externally.
+      final link = parseRaftPermalink(href, hostnames: [permalinkHostname]);
+      if (link != null &&
+          localAuthority &&
+          !exportMode &&
+          link.serverSlug == controller.server?.string('slug')) {
+        await openRaftPermalink(controller, link);
+        return;
+      }
       onExternalLink(href);
       return;
     }
@@ -409,6 +439,16 @@ class MessagePresentation extends StatelessWidget {
       }
       if (uri.host == 'message' && parts.length == 2) {
         await w.jumpToMessage(parts[0], parts[1]);
+        return;
+      }
+      // Web MentionLink: the mention opens the member / agent profile panel.
+      if (uri.host == 'mention' &&
+          parts.length == 2 &&
+          ['agent', 'user'].contains(parts[0])) {
+        w.openProfile(
+          parts[0] == 'agent' ? RaftProfileKind.agent : RaftProfileKind.human,
+          parts[1],
+        );
         return;
       }
       if (uri.host == 'thread' && parts.length == 2) {
@@ -435,10 +475,6 @@ class MessagePresentation extends StatelessWidget {
       }
       Map<String, dynamic> data;
       String heading;
-      // A mention reads the shared, server-scoped directory: the dialog opens
-      // at once and follows in-place directory updates. Only an entity the
-      // directory does not hold (remote agent, unsettled list) is fetched.
-      Map<String, dynamic>? Function()? live;
       if (uri.host == 'task' &&
           parts.length == 1 &&
           message.channelId.isNotEmpty) {
@@ -449,64 +485,17 @@ class MessagePresentation extends StatelessWidget {
         final out = await w.query('/tasks/channel/$carrier/number/$number');
         data = Map<String, dynamic>.from(out['task']);
         heading = 'task #$number · ${data['title'] ?? ''}';
-      } else if (uri.host == 'mention' &&
-          parts.length == 2 &&
-          ['agent', 'user'].contains(parts[0])) {
-        // The selected entity supplies its ID; no directory guess changes it.
-        final directory = w.entityDirectory, id = parts[1];
-        if (parts[0] == 'agent') {
-          if (!w.can('viewAgents')) return;
-          live = () => directory.agent(id);
-          final cached = live();
-          if (cached != null) {
-            data = cached;
-          } else {
-            final out = await w.query('/agents/$id');
-            data = Map<String, dynamic>.from(
-              out['agent'] is Map ? out['agent'] : out,
-            );
-          }
-        } else {
-          if (!w.can('viewMembers')) return;
-          live = () => directory.member(id);
-          var cached = live();
-          if (cached == null &&
-              !directory.state(WorkspaceEntityKind.members).loaded) {
-            await directory.refresh(WorkspaceEntityKind.members);
-            if (!context.mounted || !current()) return;
-            cached = live();
-          }
-          if (cached == null) {
-            throw const RaftApiException('This member is no longer available.');
-          }
-          data = cached;
+        if (onOpenTask != null && context.mounted && current()) {
+          onOpenTask!(data);
+          return;
         }
-        heading = '${data['displayName'] ?? data['name'] ?? ''}';
       } else {
         return;
       }
       if (!context.mounted || !current()) return;
-      final opened = directoryAuthority(w), initial = data;
       await showDialog<void>(
         context: context,
-        builder: (ctx) => ListenableBuilder(
-          // The live entity row follows directory updates in place.
-          listenable: Listenable.merge([w, w.entityDirectory]),
-          builder: (ctx, _) {
-            if (live != null && directoryAuthority(w) != opened) {
-              // A server-level identity change revokes the projection.
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (ctx.mounted) Navigator.of(ctx).maybePop();
-              });
-              return const SizedBox.shrink();
-            }
-            final data = live?.call() ?? initial;
-            final title = live == null
-                ? heading
-                : '${data['displayName'] ?? data['name'] ?? ''}';
-            return mentionDialog(ctx, title, data, current);
-          },
-        ),
+        builder: (ctx) => mentionDialog(ctx, heading, data, current),
       );
     } catch (e) {
       if (current()) w.setError('$e');
@@ -674,6 +663,7 @@ class MessagePresentation extends StatelessWidget {
       compactSemantics: RaftMessageSemanticsScope.maybeOf(context) != null,
       content: text,
       foregroundColor: foregroundColor,
+      searchHighlight: searchHighlight,
       exportMode: exportMode,
       fontSize: fontSize,
       onExportDiagram: exportMode
@@ -692,6 +682,53 @@ class MessagePresentation extends StatelessWidget {
           knownTaskNumber ??
           (taskByNumber == null ? null : (n) => taskByNumber!(n) != null),
       referenceAppearance: appearance,
+      permalinkAppearance: (href) => permalinkAppearance(context, href),
+      permalinkKey: Object.hash(
+        unavailablePermalink,
+        controller.channels.length,
+        controller.dms.length,
+      ),
+    );
+  }
+
+  String get permalinkHostname =>
+      ContentLinks.originFor(controller.client.origin).host;
+
+  /// Web MessageItem markdown `a` renderer for Raft permalinks: a Link chip
+  /// labelled with the channel (or "linked message"), inert once unavailable.
+  RaftReferenceAppearance? permalinkAppearance(
+    BuildContext context,
+    String href,
+  ) {
+    if (exportMode || !localAuthority) return null;
+    final link = parseRaftPermalink(
+      href.replaceAll('&amp;', '&'),
+      hostnames: [permalinkHostname],
+    );
+    if (link == null) return null;
+    final raw = unavailablePermalink == null
+        ? null
+        : parseRaftPermalink(
+            unavailablePermalink!,
+            hostnames: [permalinkHostname],
+          );
+    if (raw != null && raw == link) {
+      return RaftReferenceAppearance(
+        RaftReferenceKind.permalinkUnavailable,
+        label: raftText(context, 'Unavailable linked message'),
+      );
+    }
+    final channel = [
+      ...controller.channels,
+      ...controller.dms,
+    ].where((c) => c.id == link.channelId).firstOrNull;
+    return RaftReferenceAppearance(
+      RaftReferenceKind.permalink,
+      label: channel == null
+          ? raftText(context, 'linked message')
+          : channel.type == 'dm'
+          ? '@${channel.string('peerDisplayName', channel.string('peerName', channel.name))}'
+          : '#${channel.name}',
     );
   }
 
@@ -719,6 +756,13 @@ class MessagePresentation extends StatelessWidget {
                   agent: parts[0] == 'agent',
                   id: parts[1],
                   fallbackLabel: handle,
+                  onOpenActivity: parts[0] == 'agent'
+                      ? (id) => controller.openProfile(
+                          RaftProfileKind.agent,
+                          id,
+                          agentTab: 'activity',
+                        )
+                      : null,
                 ),
         );
       case 'channel':

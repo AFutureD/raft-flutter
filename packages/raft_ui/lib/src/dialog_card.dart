@@ -17,7 +17,9 @@ import 'system_inset.dart';
 
 import 'package:flutter/rendering.dart';
 
+import 'control_typography.dart';
 import 'design_primitives.dart';
+import 'dismiss_scope.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart' show RaftCssText;
@@ -29,6 +31,7 @@ import 'recipes/label.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/token_binding.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// Tailwind v4 text steps used by the dialogs (`--text-*` and its
@@ -155,12 +158,15 @@ class RaftRecipeButton extends StatelessWidget {
     final base = root.textStyle(tokens);
     final color = foreground ?? base.color ?? t.ink;
     final step = textStep;
-    final text = base.copyWith(
-      color: color,
-      fontWeight: fontWeight ?? base.fontWeight,
-      fontSize: step?.$1 ?? base.fontSize,
-      height: step == null ? base.height : step.$2 / step.$1,
-      leadingDistribution: TextLeadingDistribution.even,
+    final text = RaftControlTypography.of(
+      context,
+      base.copyWith(
+        color: color,
+        fontWeight: fontWeight ?? base.fontWeight,
+        fontSize: step?.$1 ?? base.fontSize,
+        height: step == null ? base.height : step.$2 / step.$1,
+        leadingDistribution: TextLeadingDistribution.even,
+      ),
     );
     final svg = root.target("& svg:not([class*='size-'])");
     final iconSize = glyphSize ?? svg?.width ?? 16;
@@ -278,52 +284,59 @@ class RaftModalBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     // backdrop-blur-[2px]: CSS blur radius is the Gaussian standard deviation.
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-      child: ColoredBox(
-        color: t.brutal
-            ? Colors.black.withValues(alpha: .6)
-            : t.colors['layer-backdrop']!,
-        child: LayoutBuilder(
-          builder: (context, box) {
-            Widget content = _PixelCenter(child: child);
-            if (onBackdrop != null) {
-              // Presses inside [child] never reach the backdrop handler.
-              content = GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onBackdrop,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _PixelCenter(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {},
-                      excludeFromSemantics: true,
-                      child: child,
+    final scrim = t.brutal
+        ? Colors.black.withValues(alpha: .6)
+        : t.colors['layer-backdrop']!;
+    // The scrim dims the status bar band over its width too (see
+    // `status_bar.dart`: a modal inside the host's scope publishes it).
+    return RaftStatusBarSource(
+      color: scrim,
+      overlay: true,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+        child: ColoredBox(
+          color: scrim,
+          child: LayoutBuilder(
+            builder: (context, box) {
+              Widget content = _PixelCenter(child: child);
+              if (onBackdrop != null) {
+                // Presses inside [child] never reach the backdrop handler.
+                content = GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onBackdrop,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _PixelCenter(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        excludeFromSemantics: true,
+                        child: child,
+                      ),
                     ),
                   ),
+                );
+              } else {
+                content = Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: content,
+                );
+              }
+              // Edge to edge: the layer spans the window, so a dialog taller
+              // than the screen must scroll clear of the gesture / nav bar.
+              // The centring area shrinks by the same amount (0 on desktop).
+              final inset = raftBottomInset(context);
+              return SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: inset),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: math.max(0, box.maxHeight - inset),
+                  ),
+                  child: content,
                 ),
               );
-            } else {
-              content = Padding(
-                padding: const EdgeInsets.all(16),
-                child: content,
-              );
-            }
-            // Edge to edge: the layer spans the window, so a dialog taller
-            // than the screen must scroll clear of the gesture / nav bar.
-            // The centring area shrinks by the same amount (0 on desktop).
-            final inset = raftBottomInset(context);
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: inset),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: math.max(0, box.maxHeight - inset),
-                ),
-                child: content,
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
@@ -375,7 +388,9 @@ class _RenderPixelCenter extends RenderShiftedBox {
 }
 
 /// Opens [builder] the way the Web mounts `Modal`: a full-window layer whose
-/// backdrop is painted by [RaftModalBackdrop] (not a Material barrier).
+/// backdrop is painted by [RaftModalBackdrop] (not a Material barrier). Like
+/// Web (`closeOnEscape` defaults to true) Escape closes it ([RaftDismissScope]);
+/// a scrim tap does not (`closeOnBackdrop` is opt-in).
 Future<T?> showRaftModal<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -384,8 +399,9 @@ Future<T?> showRaftModal<T>(
   barrierDismissible: false,
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
-  pageBuilder: (context, _, _) =>
-      Material(type: MaterialType.transparency, child: builder(context)),
+  pageBuilder: (context, _, _) => RaftDismissScope(
+    child: Material(type: MaterialType.transparency, child: builder(context)),
+  ),
 );
 
 /// The route [showRaftModal] pushes, for hosts that open and close a modal
@@ -398,8 +414,9 @@ RawDialogRoute<T> raftModalRoute<T>({
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
   settings: settings,
-  pageBuilder: (context, _, _) =>
-      Material(type: MaterialType.transparency, child: builder(context)),
+  pageBuilder: (context, _, _) => RaftDismissScope(
+    child: Material(type: MaterialType.transparency, child: builder(context)),
+  ),
 );
 
 /// raft-ui `Card` root (`card.recipe.ts` slot `root`) with [padding].
@@ -409,10 +426,14 @@ class RaftRecipeCard extends StatelessWidget {
     required this.child,
     this.padding = EdgeInsets.zero,
     this.maxWidth,
+    this.background,
   });
   final Widget child;
   final EdgeInsets padding;
   final double? maxWidth;
+
+  /// Call-site `bg-*` override of the Card fill.
+  final Color? background;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -430,6 +451,9 @@ class RaftRecipeCard extends StatelessWidget {
         width: double.infinity,
         padding: padding,
         applyText: false,
+        decorationOverride: background == null
+            ? null
+            : (d) => d.copyWith(color: background),
         child: DefaultTextStyle.merge(
           style: root.textStyle(tokens),
           child: child,
@@ -451,30 +475,14 @@ class RaftDialogCard extends StatelessWidget {
     this.maxWidth = 448, // max-w-md = 28rem
     this.titleGlyph,
   });
-
-  /// `title` node of `<span className="flex items-center gap-2"><Bug size={18}
-  /// />…</span>`: a leading Lucide icon before the title text.
-  final RaftGlyph? titleGlyph;
   final String title;
+
+  /// A leading `<Icon size={18} />` in the title (`flex min-w-0 items-center
+  /// gap-2` + `truncate` title span).
+  final RaftGlyph? titleGlyph;
   final VoidCallback onClose;
   final Widget child;
   final double maxWidth;
-
-  Widget titleText(
-    BuildContext context,
-    RaftTokens t,
-    RaftSlotStyle titleSlot,
-  ) => Text(
-    // CardTitle has no `truncate`: a long title wraps.
-    raftText(context, title).toUpperCase(),
-    style: raftCssTextStyle(
-      family: titleSlot.fontFamily ?? t.headingFont,
-      step: RaftTextSteps.lg,
-      weight: FontWeight.w700,
-      color: t.ink,
-    ),
-  );
-
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -483,6 +491,12 @@ class RaftDialogCard extends StatelessWidget {
       theme: raftRecipeThemeOf(t),
       tokens: tokens,
     ).title;
+    final titleStyle = raftCssTextStyle(
+      family: titleSlot.fontFamily ?? t.headingFont,
+      step: RaftTextSteps.lg,
+      weight: FontWeight.w700,
+      color: t.ink,
+    );
     return RaftRecipeCard(
       maxWidth: maxWidth,
       padding: const EdgeInsets.all(24),
@@ -500,12 +514,23 @@ class RaftDialogCard extends StatelessWidget {
                   child: Semantics(
                     header: true,
                     child: titleGlyph == null
-                        ? titleText(context, t, titleSlot)
+                        ? Text(
+                            // CardTitle has no `truncate`: a long title wraps.
+                            raftText(context, title).toUpperCase(),
+                            style: titleStyle,
+                          )
                         : Row(
                             spacing: 8,
                             children: [
                               RaftIcon(titleGlyph!, size: 18, color: t.ink),
-                              Expanded(child: titleText(context, t, titleSlot)),
+                              Expanded(
+                                child: Text(
+                                  raftText(context, title).toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
+                                ),
+                              ),
                             ],
                           ),
                   ),
@@ -936,8 +961,11 @@ class RaftDialogTextInput extends StatelessWidget {
 
 /// Web `Banner intent="warning" className="font-bold"`.
 class RaftWarningBanner extends StatelessWidget {
-  const RaftWarningBanner(this.message, {super.key});
+  const RaftWarningBanner(this.message, {super.key, this.small = false});
   final String message;
+
+  /// Call-site `text-xs` (AddMembersDialog's error Banner).
+  final bool small;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -956,7 +984,7 @@ class RaftWarningBanner extends StatelessWidget {
           message,
           style: raftCssTextStyle(
             family: t.headingFont,
-            step: RaftTextSteps.sm,
+            step: small ? RaftTextSteps.xs : RaftTextSteps.sm,
             weight: FontWeight.w700,
             color: t.strong,
           ),

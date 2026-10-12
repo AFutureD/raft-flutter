@@ -4,6 +4,8 @@
 // components/member/HumanDetailPanel.tsx). Data loading stays in the app; the
 // widgets here take plain view data and callbacks. Values cite the Tailwind
 // classes / raft-ui recipes they come from.
+import 'dismiss_scope.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -26,6 +28,7 @@ import 'recipe_surface.dart'
     show RaftCssBoxDecoration, RaftRecipeBox, raftCssText;
 import 'theme.dart';
 import 'tooltip.dart';
+import 'status_bar.dart';
 
 /// Tailwind `bg-gray-400` (oklch(70.7% 0.022 261.325)), StatusDot default.
 const raftGray400 = Color(0xFF99A1AF);
@@ -58,7 +61,11 @@ class RaftPanelTextScope extends StatelessWidget {
             weight: FontWeight.w400,
           ).copyWith(color: t.ink),
         ),
-        child: ColoredBox(color: t.colors['layer-panel']!, child: child),
+        // The panel body is the column's surface under a transparent header.
+        child: RaftStatusBarSource(
+          color: t.colors['layer-panel']!,
+          child: ColoredBox(color: t.colors['layer-panel']!, child: child),
+        ),
       ),
     );
   }
@@ -133,6 +140,7 @@ class RaftRecipeBadge extends StatelessWidget {
       upper ? label.toUpperCase() : label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+      controlLabel: true,
       style: raftCssText.merge(
         RaftTypography.body(t, size: 10, line: 10)
             .merge(s.textStyle(rt))
@@ -2155,38 +2163,41 @@ class _RaftOverflowMenuButtonState extends State<RaftOverflowMenuButton> {
   @override
   Widget build(BuildContext context) => OverlayPortal(
     controller: menu,
-    overlayChildBuilder: (_) => CompositedTransformFollower(
-      link: anchor,
-      targetAnchor: Alignment.bottomRight,
-      followerAnchor: Alignment.topRight,
-      offset: const Offset(0, 4),
-      child: Align(
-        alignment: Alignment.topRight,
-        child: TapRegion(
-          groupId: anchor,
-          child: FocusScope(
-            autofocus: true,
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.escape): close,
-              },
-              child: Focus(
-                autofocus: !keyboardOpened,
-                child: RaftMenuPanel(
-                  onDismiss: close,
-                  children: [
-                    for (final (i, e) in widget.entries.indexed)
-                      RaftMenuItem(
-                        autofocus: keyboardOpened && i == 0,
-                        label: e.label ?? '',
-                        glyph: e.glyph,
-                        leading: e.leading,
-                        onPressed: () {
-                          close();
-                          e.onPressed?.call();
-                        },
-                      ),
-                  ],
+    overlayChildBuilder: raftBackDismissed(
+      close,
+      (_) => CompositedTransformFollower(
+        link: anchor,
+        targetAnchor: Alignment.bottomRight,
+        followerAnchor: Alignment.topRight,
+        offset: const Offset(0, 4),
+        child: Align(
+          alignment: Alignment.topRight,
+          child: TapRegion(
+            groupId: anchor,
+            child: FocusScope(
+              autofocus: true,
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.escape): close,
+                },
+                child: Focus(
+                  autofocus: !keyboardOpened,
+                  child: RaftMenuPanel(
+                    onDismiss: close,
+                    children: [
+                      for (final (i, e) in widget.entries.indexed)
+                        RaftMenuItem(
+                          autofocus: keyboardOpened && i == 0,
+                          label: e.label ?? '',
+                          glyph: e.glyph,
+                          leading: e.leading,
+                          onPressed: () {
+                            close();
+                            e.onPressed?.call();
+                          },
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

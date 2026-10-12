@@ -38,7 +38,7 @@ abstract final class RaftFontWarmUp {
 
   static final _done = <_FontKey>{};
   static final _queue = Queue<TextStyle>();
-  static final _themes = <(RaftFamily, bool, bool)>{};
+  static final _themes = <(RaftFamily, bool, bool, Locale?)>{};
   static final _positions = <WeakReference<ScrollPosition>>[];
   static final _watched = Expando<bool>('raftFontWarmUp');
   static Timer? _timer;
@@ -80,6 +80,7 @@ abstract final class RaftFontWarmUp {
       tokens?.family ?? RaftFamily.elegant,
       tokens?.dark ?? theme.brightness == Brightness.dark,
       tokens?.systemFonts ?? false,
+      tokens?.textLocale,
     ))) {
       return;
     }
@@ -132,6 +133,7 @@ abstract final class RaftFontWarmUp {
     final painter = TextPainter(
       text: TextSpan(text: 'Ag 中文 日本語 👍', style: style),
       textDirection: TextDirection.ltr,
+      locale: style.locale,
     )..layout();
     painter.dispose();
   }
@@ -230,12 +232,14 @@ class _FontKey {
       fallback = style.fontFamilyFallback,
       weight = style.fontWeight,
       slant = style.fontStyle,
-      variations = style.fontVariations;
+      variations = style.fontVariations,
+      locale = style.locale;
   final String? family;
   final List<String>? fallback;
   final FontWeight? weight;
   final FontStyle? slant;
   final List<FontVariation>? variations;
+  final Locale? locale;
   @override
   bool operator ==(Object other) =>
       other is _FontKey &&
@@ -243,6 +247,7 @@ class _FontKey {
       listEquals(other.fallback, fallback) &&
       other.weight == weight &&
       other.slant == slant &&
+      other.locale == locale &&
       listEquals(other.variations, variations);
   @override
   int get hashCode => Object.hash(
@@ -250,6 +255,7 @@ class _FontKey {
     fallback == null ? null : Object.hashAll(fallback!),
     weight,
     slant,
+    locale,
     variations == null ? null : Object.hashAll(variations!),
   );
 }

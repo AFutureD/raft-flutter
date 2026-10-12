@@ -308,6 +308,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
         actionSize: RaftButtonRecipeSize.xs,
         onConfirm: () => removeNow(kind, id),
       ),
+      // Web opens it from the members Modal: its scrim stacks on that one's.
+      overModal: true,
     );
   }
 

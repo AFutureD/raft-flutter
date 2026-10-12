@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import 'add_members_dialog.dart';
 import 'integrations_views.dart'
     show integrationScopeCopy, integrationVisibleScopes;
 import 'managed_agent_launcher.dart';
@@ -228,7 +230,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
     } catch (_) {
       if (current(authority)) {
         setState(
-          () => error = 'The resource was created, but the action card could not be updated.',
+          () => error =
+              'The resource was created, but the action card could not be updated.',
         );
       }
       await event('action_card.execute_fail');
@@ -260,9 +263,22 @@ class _MessageActionCardState extends State<MessageActionCard> {
     ];
   }
 
+  /// A product dialog on the Web `Modal` layer (it paints its own backdrop).
+  Future<bool?> modal(
+    String authority,
+    Widget Function(BuildContext) builder,
+  ) => showRaftModal<bool>(
+    context,
+    builder: (ctx) {
+      ownedDialog = ModalRoute.of(ctx);
+      return builder(ctx);
+    },
+  );
+
   Future<bool?> form(String authority, Widget Function(BuildContext) builder) =>
       showDialog<bool>(
         context: context,
+        barrierDismissible: false,
         builder: (ctx) {
           ownedDialog = ModalRoute.of(ctx);
           return builder(ctx);
@@ -319,19 +335,55 @@ class _MessageActionCardState extends State<MessageActionCard> {
         }
         return;
       }
+      if (type == 'channel:add_member') {
+        var submitted = false;
+        final accepted = await modal(
+          authority,
+          (ctx) => AddMembersDialog(
+            controller: w,
+            channelId: '${snapshot['channel']}',
+            prefilledHumanIds: [
+              ...(snapshot['humans'] as List? ?? const []).whereType<String>(),
+            ],
+            prefilledAgentIds: [
+              ...(snapshot['agents'] as List? ?? const []).whereType<String>(),
+            ],
+            actionCardMessageId: widget.message.id,
+            actionCardConfirmationVersion: version,
+            onSubmitStart: () async {
+              requireCurrent(authority);
+              await event('action_card.execute_attempt');
+              requireCurrent(authority);
+            },
+            onSubmitError: (_) => unawaited(event('action_card.execute_fail')),
+            onSubmitted: (result) async {
+              submitted = true;
+              if (!current(authority)) return;
+              await mark(
+                {
+                  'kind': 'channel-members',
+                  'channelId': result.channelId,
+                  'channelName': result.channelName,
+                  'addedHumanIds': result.addedHumanIds,
+                  'addedAgentIds': result.addedAgentIds,
+                },
+                authority,
+                version,
+              );
+              await w.refreshChannels();
+            },
+          ),
+        );
+        if (accepted != true && !submitted) await event('action_card.dismiss');
+        return;
+      }
       final candidates = await people();
       if (!mounted || !current(authority)) return;
       final users = <String>{
-        ...(snapshot[type == 'channel:create' ? 'initialHumans' : 'humans']
-                    as List? ??
-                [])
-            .whereType<String>(),
+        ...(snapshot['initialHumans'] as List? ?? []).whereType<String>(),
       };
       final agents = <String>{
-        ...(snapshot[type == 'channel:create' ? 'initialAgents' : 'agents']
-                    as List? ??
-                [])
-            .whereType<String>(),
+        ...(snapshot['initialAgents'] as List? ?? []).whereType<String>(),
       };
       // Only current visible directory identities can become submissions.
       users.removeWhere(
@@ -346,32 +398,30 @@ class _MessageActionCardState extends State<MessageActionCard> {
       final accepted = await form(
         authority,
         (ctx) => RaftFormDialog(
-          title: type == 'channel:create' ? 'Create channel' : 'Add members',
-          submitLabel: type == 'channel:create' ? 'Create' : 'Add',
+          title: 'Create channel',
+          submitLabel: 'Create',
           fields: [
-            if (type == 'channel:create') ...[
-              RaftFormField(
-                'name',
-                'Channel name',
-                initial: snapshot['name'],
-                required: true,
-              ),
-              RaftFormField(
-                'description',
-                'Description',
-                initial: snapshot['description'] ?? '',
-                multiline: true,
-              ),
-              RaftFormField(
-                'visibility',
-                'Visibility',
-                initial: snapshot['visibility'] ?? 'public',
-                choices: const {
-                  'public': 'Public channel',
-                  'private': 'Private channel',
-                },
-              ),
-            ],
+            RaftFormField(
+              'name',
+              'Channel name',
+              initial: snapshot['name'],
+              required: true,
+            ),
+            RaftFormField(
+              'description',
+              'Description',
+              initial: snapshot['description'] ?? '',
+              multiline: true,
+            ),
+            RaftFormField(
+              'visibility',
+              'Visibility',
+              initial: snapshot['visibility'] ?? 'public',
+              choices: const {
+                'public': 'Public channel',
+                'private': 'Private channel',
+              },
+            ),
           ],
           extra: StatefulBuilder(
             builder: (context, setLocal) => Column(
@@ -403,22 +453,15 @@ class _MessageActionCardState extends State<MessageActionCard> {
           ),
           onSubmit: (values) async {
             requireCurrent(authority);
-            if (type == 'channel:add_member' &&
-                users.isEmpty &&
-                agents.isEmpty) {
-              throw StateError('Select at least one member.');
-            }
             await event('action_card.execute_attempt');
             requireCurrent(authority);
             try {
               final result = await w.client.request(
                 'POST',
-                type == 'channel:create'
-                    ? '/channels'
-                    : '/channels/${snapshot['channel']}/members/batch',
+                '/channels',
                 data: {
-                  if (type == 'channel:create') ...values,
-                  if (type == 'channel:create') 'type': 'channel',
+                  ...values,
+                  'type': 'channel',
                   'userIds': users.toList(),
                   'agentIds': agents.toList(),
                   'actionCardMessageId': widget.message.id,
@@ -428,24 +471,11 @@ class _MessageActionCardState extends State<MessageActionCard> {
               submitted = true;
               if (current(authority)) {
                 await mark(
-                  type == 'channel:create'
-                      ? {
-                          'kind': 'channel',
-                          'id': result['id'],
-                          'name': result['name'],
-                        }
-                      : {
-                          'kind': 'channel-members',
-                          'channelId': snapshot['channel'],
-                          'channelName':
-                              w.channels
-                                  .where((c) => c.id == snapshot['channel'])
-                                  .firstOrNull
-                                  ?.name ??
-                              '',
-                          'addedHumanIds': users.toList(),
-                          'addedAgentIds': agents.toList(),
-                        },
+                  {
+                    'kind': 'channel',
+                    'id': result['id'],
+                    'name': result['name'],
+                  },
                   authority,
                   version,
                 );

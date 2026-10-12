@@ -315,7 +315,9 @@ class _RenderCollapsibleLayout extends RenderBox {
   Color? _fadeColor;
   set fadeColor(Color? value) {
     if (value == _fadeColor) return;
+    final masking = _fadeColor != null;
     _fadeColor = value;
+    if (masking != (value != null)) markNeedsCompositingBitsUpdate();
     markNeedsPaint();
     // Expanding or collapsing changes which children are announced.
     markNeedsSemanticsUpdate();
@@ -466,31 +468,55 @@ class _RenderCollapsibleLayout extends RenderBox {
     transform.translateByDouble(offset.dx, offset.dy, 0, 1);
   }
 
+  final _maskLayer = LayerHandle<ShaderMaskLayer>();
+
+  @override
+  bool get alwaysNeedsCompositing => _fadeColor != null;
+
+  @override
+  void dispose() {
+    _maskLayer.layer = null;
+    super.dispose();
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final content = _content!;
     final origin = offset + (content.parentData! as BoxParentData).offset;
-    context.paintChild(content, origin);
-    final fade = _fadeColor;
-    if (fade != null && _builtFor == true) {
-      // The source fade: an inert gradient over the clipped bottom edge.
-      final rect = Rect.fromLTWH(
-        origin.dx,
-        origin.dy +
-            content.size.height -
-            MessageContentPrimitive.collapseFadeHeight,
-        content.size.width,
-        MessageContentPrimitive.collapseFadeHeight,
+    if (_fadeColor != null && _builtFor == true) {
+      // The source fade (Web: a 48px gradient from the row background to
+      // transparent over the clipped bottom edge), painted as an alpha mask
+      // on the content instead of a coloured overlay: identical on the
+      // ordinary row background, and correct on any other one (highlighted
+      // or hovered rows), where a fixed-colour overlay shows as a band.
+      final size = content.size;
+      final fadeStart = math.max(
+        0.0,
+        (size.height - MessageContentPrimitive.collapseFadeHeight) /
+            size.height,
       );
-      context.canvas.drawRect(
-        rect,
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [fade, fade.withValues(alpha: 0)],
-          ).createShader(rect),
+      final layer = _maskLayer.layer ??= ShaderMaskLayer();
+      layer
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: const [
+            Color(0xFFFFFFFF),
+            Color(0xFFFFFFFF),
+            Color(0x00FFFFFF),
+          ],
+          stops: [0, fadeStart, 1],
+        ).createShader(Offset.zero & size)
+        ..maskRect = origin & size
+        ..blendMode = BlendMode.dstIn;
+      context.pushLayer(
+        layer,
+        (context, offset) => context.paintChild(content, offset),
+        origin,
       );
+    } else {
+      _maskLayer.layer = null;
+      context.paintChild(content, origin);
     }
     final toggle = _toggle;
     if (toggle != null) {

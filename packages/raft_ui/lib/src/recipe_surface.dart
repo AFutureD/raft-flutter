@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'control_typography.dart';
 import 'css_opacity.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
@@ -308,7 +309,12 @@ class RaftRecipeBox extends StatelessWidget {
     this.applyTransform = true,
     this.decorationOverride,
     this.overflowCenter = false,
+    this.controlLabel = false,
   });
+
+  /// The box is a single-line control label (badge, chip, button, tab,
+  /// segment): its text takes [RaftControlTypography] (Android + Chinese).
+  final bool controlLabel;
 
   /// Inline-flex controls with a fixed height (Button): content taller than
   /// the content box overflows centred instead of being squeezed.
@@ -330,7 +336,8 @@ class RaftRecipeBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inherited = DefaultTextStyle.of(context).style;
-    final textStyle = style.text(tokens, base: inherited);
+    var textStyle = style.text(tokens, base: inherited);
+    if (controlLabel) textStyle = RaftControlTypography.of(context, textStyle);
     final current = textStyle.color;
     final layers = style.cssShadows(tokens, currentColor: current);
     BoxDecoration decoration = RaftRecipeDecoration(

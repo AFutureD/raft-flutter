@@ -183,6 +183,8 @@ void main() {
         expect(writes, hasLength(1));
         expect(find.byType(RaftToast), findsOneWidget);
         expect(find.text('Copied Markdown'), findsWidgets);
+        // Web SELECTION_TOAST_OPTIONS (`dismissible: false`): no close button.
+        expect(t.widget<RaftToast>(find.byType(RaftToast)).onClose, isNull);
         expect(find.byType(SnackBar), findsNothing);
         expect(writes.single, contains('Public selected parent'));
         expect(
@@ -196,7 +198,7 @@ void main() {
           find.byType(RaftSelectionToolbar),
         );
         final before = a.calls.length;
-        w.server = RaftRecord({'id': 's1', 'role': 'guest'});
+        w.server = RaftRecord({'id': 's1', 'role': 'removed'});
         w.setError(null);
         await t.pumpAndSettle();
         expect(handle.active, isFalse);

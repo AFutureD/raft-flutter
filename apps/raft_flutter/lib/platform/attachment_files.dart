@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'attachment_http.dart';
+
 /// Attachment URLs are capabilities. They live only in an active transfer,
 /// never in preferences, logs, or the workspace database.
 class AttachmentFiles {
@@ -14,14 +16,7 @@ class AttachmentFiles {
     Dio? dio,
     this.pickDestination,
     Future<Directory> Function()? temporaryDirectory,
-  }) : _dio =
-           dio ??
-           Dio(
-             BaseOptions(
-               connectTimeout: const Duration(seconds: 15),
-               receiveTimeout: const Duration(seconds: 30),
-             ),
-           ),
+  }) : _dio = dio ?? AttachmentHttp.shared,
        _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
   final Dio _dio;
   final Future<String?> Function(String, String)? pickDestination;
@@ -48,11 +43,18 @@ class AttachmentFiles {
     return uri;
   }
 
-  Future<Uint8List> image(String url, {required CancelToken cancel}) async {
+  /// [onProgress] receives dio's `(received, total)`; `total` is -1 when the
+  /// server sends no length. The caller throttles; this is called per chunk.
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int received, int total)? onProgress,
+  }) async {
     final result = await _dio.get<List<int>>(
       attachmentUri(url).toString(),
       options: Options(responseType: ResponseType.bytes),
       cancelToken: cancel,
+      onReceiveProgress: onProgress,
     );
     return Uint8List.fromList(result.data!);
   }

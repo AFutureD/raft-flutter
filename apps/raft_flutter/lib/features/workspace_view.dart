@@ -17,6 +17,7 @@ import '../data/source_activity_unread_store.dart';
 import '../data/source_mobile_app_badge.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
+import '../data/navigation_registry.dart';
 import '../data/workspace_navigation.dart';
 import '../data/source_server_unread.dart';
 import 'workspace_menu_invite.dart';
@@ -32,6 +33,8 @@ import 'chat_agent_presentation.dart';
 import 'live_agent_activity_bar.dart';
 import 'chat_view.dart';
 import 'thread_actions.dart';
+import 'profile_side_panel.dart';
+import 'thread_agent_followers_view.dart';
 import 'computer_detail_view.dart';
 import 'community_join.dart';
 import 'conversation_panel.dart';
@@ -45,8 +48,10 @@ import 'page_layout.dart';
 import 'channel_settings.dart';
 import 'channel_members.dart';
 import 'create_channel_dialog.dart';
+import 'create_joint_channel_dialog.dart' show CreateJointChannelDialog;
 import 'workspace_settings.dart';
 import 'server_views.dart';
+import 'layout_hold.dart';
 import 'mobile_workspace_navigation.dart';
 import 'mobile_workspace_pages.dart';
 import 'desktop_navigation_policy.dart';
@@ -59,20 +64,13 @@ import 'quick_switcher_host.dart';
 import 'member_graph_view.dart';
 import 'member_profile_view.dart';
 import 'fleet_views.dart';
-import 'integrations_views.dart';
-import 'provider_views.dart';
-import 'billing_view.dart';
-import 'administration_view.dart';
 import 'private_route_guard.dart';
 import 'server_setup_gate.dart';
-import 'sidebar_preferences_view.dart';
 import 'sidebar_projection.dart';
 import 'sidebar_sort_menu.dart';
 import 'agent_avatar_projection.dart';
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
-import 'im_bridges_view.dart';
-import 'joint_channel_views.dart';
 import 'workspace_browser.dart';
 import 'management_support.dart' show managementLaunch;
 import 'sender_avatar_projection.dart';
@@ -152,8 +150,35 @@ class _WorkspaceViewState extends State<WorkspaceView>
   late SourceServerUnreadStore serverUnread;
   String? serverMenuScope;
   int serverOrderRequest = 0;
+  Timer? serverUnreadTimer;
+  bool serverUnreadBooted = false, serverUnreadLocal = false;
+  String? serverUnreadScope;
+
+  /// Sidebar.tsx / App boot: the cross-server summary loads once the member
+  /// and servers are known and again when local unread flips 0 <-> nonzero
+  /// (150 ms debounce), so the Activity count and the other-server dot are
+  /// painted without opening the server menu.
+  void syncServerUnreadLoad() {
+    if (w.client.user == null || w.servers.isEmpty) return;
+    final local = w.unread.values.any((count) => count > 0);
+    final scope = serverUnread.scope;
+    if (serverUnreadBooted &&
+        local == serverUnreadLocal &&
+        scope == serverUnreadScope) {
+      return;
+    }
+    serverUnreadBooted = true;
+    serverUnreadLocal = local;
+    serverUnreadScope = scope;
+    serverUnreadTimer?.cancel();
+    serverUnreadTimer = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) unawaited(serverUnread.refresh());
+    });
+  }
+
   void syncServerMenu() {
     serverUnread.synchronize();
+    syncServerUnreadLoad();
     if (serverMenuScope == mobileAuthority) return;
     serverMenuScope = mobileAuthority;
     serverMenu.close();
@@ -176,7 +201,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
   _MobileNavigationSelection? _mobileNavigationSelection;
   _MobileNavigationSelection get mobileNavigationSelection =>
       _mobileNavigationSelection ??= _MobileNavigationSelection(this);
-  bool? mobileLayout;
 
   _WorkspaceViewState? get mobileHost =>
       widget.mobileHost as _WorkspaceViewState?;
@@ -288,9 +312,118 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Width changes only the projection. They never rewrite route/history.
     w.mobileNavigation = !wide;
     w.bindNavigation();
+    ensureLayoutLocation();
+  }
+
+  bool? lastCompact, heldCompact;
+
+  void layoutHoldChanged() {
+    if (!mounted || LayoutHold.held) return;
+    ensureLayoutLocation();
+    setState(() {});
+  }
+
+  /// Width picks the projection of the one canonical location. Crossing the
+  /// breakpoint (or arriving by link in the other layout) translates the few
+  /// identities that only exist in one layout (`channelPage=` is phone-only,
+  /// `activity|search ?open=` is wide master/detail), closes full-page routes
+  /// that have no URL identity and keeps the dialogs. Silent: the build that
+  /// follows reads the translated location; listeners catch up after it.
+  void ensureLayoutLocation() {
+    if (widget.mobileRoutePage || !mounted || LayoutHold.held) return;
+    final compact = !wide;
+    final crossed = lastCompact != null && lastCompact != compact;
+    lastCompact = compact;
+    if (w.presentationSource != null || w.server == null) return;
+    if (crossed) {
+      w.navigation.collapseRepeatedEntries();
+      closeUrllessPages();
+    }
+    // A content slot opened on a phone (Search thread hits) is a phone page
+    // already; only a slot the wide layout made needs translating.
+    final translation = compact && !crossed
+        ? null
+        : w.navigation.translateForLayout(compact: compact);
+    if (crossed) {
+      w.navigation.markLayoutCrossing(translated: translation != null && compact);
+    }
+    if (translation == null && !crossed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      w.notifyListeners();
+      if (translation != null) hydrateTranslated(translation, compact);
+    });
+  }
+
+  /// Full pages pushed without a location (notification centre pages, forward
+  /// composer, fleet details) have no counterpart in the other layout: close
+  /// them. Dialogs, sheets and the attachment preview are layout independent
+  /// and stay open.
+  void closeUrllessPages() {
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).popUntil(
+        (candidate) =>
+            candidate == route ||
+            candidate.isFirst ||
+            // The attachment preview adapts to the width itself (dialog or
+            // page) and is contractually kept open across a resize.
+            candidate.settings.name == '/attachment-preview' ||
+            candidate is! MaterialPageRoute,
+      );
+    });
+  }
+
+  /// The translated location names a conversation the other layout had not
+  /// loaded as its main channel (Activity detail was a content slot), and wide
+  /// shows channel management as a dialog.
+  void hydrateTranslated(LayoutTranslation translation, bool compact) {
+    if (compact) {
+      final to = translation.to;
+      final id = to.entityId;
+      if (id == null || !{RaftRoute.channel, RaftRoute.dm}.contains(to.route)) {
+        return;
+      }
+      if (w.channel?.id == id && to.thread == null) return;
+      if (to.thread != null) {
+        unawaited(w.resolveConversationChannel(id, preserveThread: true));
+      } else {
+        unawaited(w.jumpToMessage(id, to.messageId, navigate: false));
+      }
+      return;
+    }
+    final page = translation.from.channelPage;
+    if (page == null) return;
+    final channel = [
+      ...w.channels,
+      ...w.dms,
+    ].where((channel) => channel.id == page.channelId).firstOrNull;
+    if (channel == null || !w.can('viewChannel', resource: channel)) return;
+    if (page.kind == RaftChannelPage.settings) {
+      unawaited(
+        ChannelSettings.show(
+          context,
+          controller: w,
+          channel: channel,
+          dmName: channel.type == 'dm'
+              ? dmPeer(channel, requestSize: 36).name
+              : null,
+        ),
+      );
+    } else {
+      unawaited(
+        ChannelMembers.show(
+          context,
+          controller: w,
+          channel: channel,
+          startInAdd: translation.from.query('channelPageAdd') == '1',
+        ),
+      );
+    }
   }
 
   void selectMobileTab(String tab, String scope) {
@@ -459,6 +592,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void initState() {
     super.initState();
+    LayoutHold.count.addListener(layoutHoldChanged);
     adoptHostSearchEntry();
     mobileAppBadge = SourceMobileAppBadge()..addListener(chatSelectionChanged);
     // Starts recording visits to conversations from the first frame.
@@ -751,6 +885,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       serverUnread.dispose();
       workspaceMode.dispose();
     }
+    serverUnreadTimer?.cancel();
     persistPanels?.cancel();
     w.releaseConversationPresentation(this);
     w.removeListener(syncChannelSearch);
@@ -773,7 +908,33 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncSidebarAgents);
     w.removeListener(syncBridgeFlag);
     bridgeRequest++;
+    LayoutHold.count.removeListener(layoutHoldChanged);
     super.dispose();
+  }
+
+  /// Escape for the content inside the shell's Scaffold. The Scaffold
+  /// registers its own `DismissIntent` action (close the drawer), and the
+  /// nearest registered action wins even while it is disabled, so a scope
+  /// above the Scaffold never sees Escape once a control inside it has focus.
+  Widget dismissInScaffold(VoidCallback? onEscape, Widget child) =>
+      RaftDismissScope(onDismiss: onEscape ?? escapePanel, child: child);
+
+  /// Escape: closes the topmost closable layer and nothing else (Web's
+  /// document listeners do not navigate Back from a plain page).
+  void escapePanel() {
+    final layer =
+        mobileHost != null ||
+        w.location.profile != null ||
+        w.location.task != null ||
+        w.location.legacyTask != null ||
+        w.location.channelPage != null ||
+        w.location.thread != null ||
+        wide && desktopNavigation.target != null ||
+        threadSelection.active ||
+        mainSelection.active ||
+        scaffold.currentState?.isDrawerOpen == true ||
+        w.threadParent != null && w.section == 'chat';
+    if (layer) dismissPanel();
   }
 
   void dismissPanel() {
@@ -798,7 +959,20 @@ class _WorkspaceViewState extends State<WorkspaceView>
       return;
     }
     if (wide && desktopNavigation.target != null) {
-      closeDesktopDetail();
+      // Column 4 (profile, then thread) closes before its column-3 detail.
+      final panels = DesktopNavigationPolicy.sidePanels(
+        route: w.section,
+        wide: wide,
+        location: w.location,
+        target: desktopNavigation.target?.kind,
+      );
+      if (panels.profile) {
+        w.closeProfile();
+      } else if (panels.thread) {
+        closeThreadPanel();
+      } else {
+        closeDesktopDetail();
+      }
       return;
     }
     if (w.threadParent != null &&
@@ -846,6 +1020,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
     String? searchQuery,
     bool restoreSavedSearch = false,
   }) {
+    if (!NavigationRegistry.knowsSection(section)) {
+      NavigationRegistry.reportFallback(
+        'section',
+        section,
+        NavigationRegistry.unsupportedSections[section],
+      );
+      return;
+    }
     final host = mobileHost;
     if (host != null) {
       // The covered page's projected location is stale after a section change;
@@ -987,13 +1169,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   @override
   Widget build(BuildContext context) {
-    final compact = RaftAdaptiveWorkspace.compactOf(context);
-    if (ModalRoute.isCurrentOf(context) ?? true) mobileLayout = compact;
+    final live = RaftAdaptiveWorkspace.compactOf(context);
+    final compact = LayoutHold.held ? heldCompact ?? live : live;
+    if (!LayoutHold.held) heldCompact = live;
     final Widget body;
-    if (!widget.mobileRoutePage && (mobileLayout ?? compact)) {
+    if (!widget.mobileRoutePage && compact) {
       body = ListenableBuilder(
         listenable: Listenable.merge([mobileNavigationSelection, mobileTabbar]),
         builder: (context, _) {
+          ensureLayoutLocation();
           updateChannelAuthority();
           if (RouteFrameDiagnostics.enabled) {
             RouteFrameDiagnostics.location(
@@ -1045,6 +1229,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       final buildStarted = RouteFrameDiagnostics.enabled
           ? RouteFrameDiagnostics.now()
           : 0;
+      ensureLayoutLocation();
       // Computers and Activity are tab roots only while the bar has them.
       w.navigation.mobileTabs = mobileTabIds.toSet();
       final attentionOwner = activityUnread;
@@ -1097,22 +1282,19 @@ class _WorkspaceViewState extends State<WorkspaceView>
         channelSearchAuthority = workspaceAuthority(w);
       }
       final t = RaftTokens.of(context);
-      final thread =
-          route == 'chat' &&
-          location.thread != null &&
-          !(wide &&
-              desktopNavigation.target?.kind == DesktopContentKind.thread);
+      final sidePanels = DesktopNavigationPolicy.sidePanels(
+        route: route,
+        wide: wide,
+        location: location,
+        target: desktopNavigation.target?.kind,
+      );
+      final thread = sidePanels.thread;
       final rootTab = w.navigation.mobileRootTabOf(location);
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
           : tr(switch (route) {
-              'workspace-settings' => 'Workspace settings',
               'activity' => 'Activity',
               'settings' => 'Settings',
-              'providers' => 'Provider connections',
-              'sidebar-settings' => 'Sidebar preferences',
-              'im-bridges' => 'IM bridges',
-              'joint-channels' => 'Joint channels',
               _ => route[0].toUpperCase() + route.substring(1),
             });
       Widget conversation() => ServerSetupGate(
@@ -1166,16 +1348,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 ),
               ),
             )
-          : route == 'workspace-settings'
-          ? ServerSettingsView(
-              key: ValueKey('settings-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'sidebar-settings'
-          ? SidebarPreferencesView(
-              key: ValueKey('sidebar-${w.server!.id}'),
-              controller: w,
-            )
           : route == 'members'
           ? DesktopDirectoryView(
               key: ValueKey('directory-$mobileAuthority'),
@@ -1183,58 +1355,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
               mobileRoot: !wide,
               selected: desktopNavigation.target,
               onSelected: selectDesktopDirectoryTarget,
-            )
-          : route == 'providers'
-          ? ProviderConnectionsView(
-              key: ValueKey('providers-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'administration'
-          ? AdministrationView(
-              key: ValueKey('administration-${w.server!.id}'),
-              controller: w,
-              standalone: true,
-            )
-          : route == 'billing'
-          ? ListView(
-              key: const PageStorageKey('workspace-billing'),
-              // PlanSection renders inside SettingsPanel's scrolling surface.
-              padding: raftScrollPadding(
-                context,
-                RaftSettingsPanelFrame.contentInset,
-              ),
-              children: [
-                BillingView(
-                  key: ValueKey('billing-${w.server!.id}'),
-                  controller: w,
-                ),
-              ],
-            )
-          : route == 'joint-channels'
-          ? JointChannelsView(
-              key: ValueKey('joint-channels-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'im-bridges'
-          ? IMBridgesView(
-              key: ValueKey('bridges-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'integrations'
-          ? ListView(
-              key: const PageStorageKey('workspace-integrations'),
-              // IntegrationsSection renders inside SettingsPanel's scrolling
-              // surface.
-              padding: raftScrollPadding(
-                context,
-                RaftSettingsPanelFrame.contentInset,
-              ),
-              children: [
-                IntegrationsView(
-                  key: ValueKey('integrations-${w.server!.id}'),
-                  controller: w,
-                ),
-              ],
             )
           : route == 'agents' || route == 'computers'
           ? wide
@@ -1400,6 +1520,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           master: content,
           detail: desktopContentDetail(),
           compact: thread,
+          masterEdge: route == 'search',
           wideWidth: masterWideWidth,
           compactWidth: masterCompactWidth,
           onWidthChanged: saveMasterPanel,
@@ -1438,11 +1559,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
       Widget workspace(
         double legacyDockWidth,
         VoidCallback? onLegacyEscape,
-      ) => CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape):
-              onLegacyEscape ?? dismissPanel,
-        },
+      ) => RaftDismissScope(
+        // Web closes panels from a document-level Escape listener; here the
+        // scope holds the shell's initial focus, so Escape reaches it even
+        // before anything inside was focused.
+        onDismiss: onLegacyEscape ?? escapePanel,
         child: PopScope(
           // Tasks/channel management own mobile MaterialPages. Their hidden
           // workspace must allow the platform page to pop; desktop panels and
@@ -1457,11 +1578,17 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   !mainSelection.active &&
                   !threadSelection.active &&
                   (!wide || !thread) &&
+                  // Wide layouts show a profile / directory detail beside the
+                  // list: Back closes it instead of leaving the route.
+                  (!wide ||
+                      w.location.profile == null &&
+                          desktopNavigation.target == null) &&
                   scaffold.currentState?.isDrawerOpen != true,
           onPopInvokedWithResult: (didPop, _) {
             // A channel page may consume Back internally (e.g. Add Members).
             // Its hidden workspace must not also advance the business history.
-            if (!didPop && w.location.channelPage == null) dismissPanel();
+            if (didPop || raftDismissTopPopup(context)) return;
+            if (w.location.channelPage == null) dismissPanel();
           },
           child: Scaffold(
             key: scaffold,
@@ -1471,7 +1598,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
             // No drawer: phones reach the sidebar through the Home tab (as Web
             // does). A drawer here would open from a left-edge swipe, racing
             // Android's back gesture, with nothing in the app opening it.
-            body: RaftSystemBarSurface(
+            body: dismissInScaffold(onLegacyEscape, RaftSystemBarSurface(
               statusBarFallback: t.canvas,
               child: SafeArea(
                 bottom: false,
@@ -1481,6 +1608,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       RaftMobileRootHeader(title: 'Computers')
                     else if (!wide &&
                         location.route != RaftRoute.computer &&
+                        // A profile overlay brings its own header.
+                        location.profile == null &&
                         (thread ||
                             ![
                               'home',
@@ -1507,232 +1636,251 @@ class _WorkspaceViewState extends State<WorkspaceView>
                         ],
                       ),
                     Expanded(
-                      child: RaftAdaptiveWorkspace(
-                        key: ValueKey('adaptive-workspace-$authority'),
-                        onPresentationChanged: (main, thread) =>
-                            w.setConversationPresentation(
-                              this,
-                              main: main && !gridActive,
-                              thread: thread && !gridActive,
-                            ),
-                        sidebarWidth: sidebarWidth,
-                        trailingExtent: legacyDockWidth,
-                        threadWidth: threadWidth,
-                        onPanelWidthsChanged: savePanels,
-                        sidebarResizeLabel: tr('Resize sidebar'),
-                        threadResizeLabel: tr('Resize thread'),
-                        sidebarVisible:
-                            gridActive ||
-                            DesktopNavigationPolicy.forSection(
-                              route,
-                            ).usesConversationSidebar,
-                        // Phones mount neither; only desktop widths consume them.
-                        sidebar: wide ? sidebar() : const SizedBox.shrink(),
-                        rail: wide ? workspaceRail() : const SizedBox.shrink(),
-                        mobileNavigationFloating: !t.brutal,
-                        mobileNavigationClearance: raftTabBarClearance(
-                          liveActivity: liveActivityVisible,
-                        ),
-                        mobileNavigation:
-                            w.navigation.mobileRootTabOf(location) == null ||
-                                w.server == null
-                            ? null
-                            : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  liveActivityBar(),
-                                  mobileNavigation(),
-                                ],
+                      child: ProfileOutsideTapDismiss(
+                        controller: w,
+                        panelKey: profilePanelKey,
+                        // Wide layouts only: a phone / folded profile is a page.
+                        enabled: wide && !gridActive,
+                        onDismiss: w.closeProfile,
+                        child: RaftAdaptiveWorkspace(
+                          key: ValueKey('adaptive-workspace-$authority'),
+                          onPresentationChanged: (main, thread) =>
+                              w.setConversationPresentation(
+                                this,
+                                main: main && !gridActive,
+                                thread: thread && !gridActive,
                               ),
-                        content: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Offstage(
-                              offstage: gridActive,
-                              child: ExcludeFocus(
-                                excluding: gridActive,
-                                child: TickerMode(
-                                  enabled: !gridActive,
+                          sidebarWidth: sidebarWidth,
+                          trailingExtent: legacyDockWidth,
+                          threadWidth: threadWidth,
+                          onPanelWidthsChanged: savePanels,
+                          sidebarResizeLabel: tr('Resize sidebar'),
+                          threadResizeLabel: tr('Resize thread'),
+                          sidebarVisible:
+                              gridActive ||
+                              DesktopNavigationPolicy.forSection(
+                                route,
+                              ).usesConversationSidebar,
+                          // Phones mount neither; only desktop widths consume them.
+                          sidebar: wide ? sidebar() : const SizedBox.shrink(),
+                          rail: wide
+                              ? workspaceRail()
+                              : const SizedBox.shrink(),
+                          mobileNavigationFloating: !t.brutal,
+                          mobileNavigationClearance: raftTabBarClearance(
+                            liveActivity: liveActivityVisible,
+                          ),
+                          mobileNavigation:
+                              w.navigation.mobileRootTabOf(location) == null ||
+                                  w.server == null
+                              ? null
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    liveActivityBar(),
+                                    mobileNavigation(),
+                                  ],
+                                ),
+                          content: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Offstage(
+                                offstage: gridActive,
+                                child: ExcludeFocus(
+                                  excluding: gridActive,
+                                  child: TickerMode(
+                                    enabled: !gridActive,
+                                    child: Column(
+                                      children: [
+                                        // Settings composes its own sidebar and
+                                        // content headers in the shared top row.
+                                        if (wide &&
+                                            !unresolvedChannelRoute &&
+                                            ![
+                                              'settings',
+                                              'home',
+                                              'tasks',
+                                              'saved',
+                                              'activity',
+                                              'search',
+                                              'members',
+                                              'computers',
+                                            ].contains(route))
+                                          route == 'chat' &&
+                                                  w.channel != null &&
+                                                  [
+                                                    'channel',
+                                                    'private',
+                                                    'joint',
+                                                  ].contains(w.channel!.type)
+                                              ? channelHeader()
+                                              : route == 'chat' &&
+                                                    w.channel?.type == 'dm'
+                                              ? dmHeader()
+                                              : RaftPageHeader(
+                                                  title: route == 'home'
+                                                      ? (w.channel?.name ??
+                                                            title)
+                                                      : title,
+                                                  height: raftPageHeaderHeight(
+                                                    context,
+                                                  ),
+                                                  icon: RaftIcon(
+                                                    sectionGlyph(route),
+                                                  ),
+                                                  subtitle: route == 'chat'
+                                                      ? w.channel?.string(
+                                                          'description',
+                                                        )
+                                                      : null,
+                                                  actions: [
+                                                    RaftTooltip(
+                                                      message: w.connected
+                                                          ? tr('Connected')
+                                                          : tr('Reconnecting'),
+                                                      child: Icon(
+                                                        Icons.circle,
+                                                        size: 8,
+                                                        color: w.connected
+                                                            ? t.colors['success']
+                                                            : t.muted,
+                                                      ),
+                                                    ),
+                                                    if (route == 'chat' &&
+                                                        w.channel != null)
+                                                      RaftIconButton(
+                                                        tooltip:
+                                                            'Channel settings',
+                                                        onPressed: () =>
+                                                            channelSettings(),
+                                                        glyph: RaftGlyph
+                                                            .slidersHorizontal,
+                                                      ),
+                                                    RaftIconButton(
+                                                      tooltip: 'Refresh',
+                                                      onPressed: () =>
+                                                          w.channel == null
+                                                          ? w.bootstrap()
+                                                          : w.selectChannel(
+                                                              w.channel!,
+                                                            ),
+                                                      glyph:
+                                                          RaftGlyph.refreshCw,
+                                                    ),
+                                                  ],
+                                                ),
+                                        Expanded(
+                                          child: KeyedSubtree(
+                                            key: ValueKey(
+                                              'classic-editor-$classicEditorRevision',
+                                            ),
+                                            child: content,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (gridEntered)
+                                Positioned.fill(
+                                  child: Offstage(
+                                    offstage: !gridActive,
+                                    child: ExcludeFocus(
+                                      excluding: !gridActive,
+                                      child: TickerMode(
+                                        enabled: gridActive,
+                                        child: LayoutBuilder(
+                                          builder: (context, bounds) {
+                                            if (gridActive) {
+                                              retainedGridSize = bounds.biggest;
+                                            }
+                                            final capturedAuthority =
+                                                workspaceMode.authority;
+                                            final size =
+                                                retainedGridSize ??
+                                                bounds.biggest;
+                                            // Hidden grid editors retain their last admitted
+                                            // layout; shrinking the classic mobile host must
+                                            // not lay out two desktop tabsets at phone width.
+                                            return OverflowBox(
+                                              alignment: Alignment.topLeft,
+                                              minWidth: size.width,
+                                              maxWidth: size.width,
+                                              minHeight: size.height,
+                                              maxHeight: size.height,
+                                              child: WorkspaceGridView(
+                                                key: gridKey,
+                                                controller: w,
+                                                onViewBilling: () =>
+                                                    select('billing'),
+                                                route: route,
+                                                routeBody: content,
+                                                active: gridActive,
+                                                onRouteSelected: (next) {
+                                                  if (!mounted ||
+                                                      !gridActive ||
+                                                      capturedAuthority !=
+                                                          workspaceMode
+                                                              .authority) {
+                                                    return;
+                                                  }
+                                                  select(next);
+                                                },
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          thread: thread && !gridActive
+                              ? RaftConversationSurface(
+                                  role: RaftConversationSurfaceRole
+                                      .threadTimeline,
                                   child: Column(
                                     children: [
-                                      // Settings composes its own sidebar and
-                                      // content headers in the shared top row.
-                                      if (wide &&
-                                          !unresolvedChannelRoute &&
-                                          ![
-                                            'settings',
-                                            'home',
-                                            'tasks',
-                                            'saved',
-                                            'activity',
-                                            'search',
-                                            'members',
-                                            'computers',
-                                          ].contains(route))
-                                        route == 'chat' &&
-                                                w.channel != null &&
-                                                [
-                                                  'channel',
-                                                  'private',
-                                                  'joint',
-                                                ].contains(w.channel!.type)
-                                            ? channelHeader()
-                                            : route == 'chat' &&
-                                                  w.channel?.type == 'dm'
-                                            ? dmHeader()
-                                            : RaftPageHeader(
-                                                title: route == 'home'
-                                                    ? (w.channel?.name ?? title)
-                                                    : title,
-                                                height: raftPageHeaderHeight(
-                                                  context,
-                                                ),
-                                                icon: RaftIcon(
-                                                  sectionGlyph(route),
-                                                ),
-                                                subtitle: route == 'chat'
-                                                    ? w.channel?.string(
-                                                        'description',
-                                                      )
-                                                    : null,
-                                                actions: [
-                                                  RaftTooltip(
-                                                    message: w.connected
-                                                        ? tr('Connected')
-                                                        : tr('Reconnecting'),
-                                                    child: Icon(
-                                                      Icons.circle,
-                                                      size: 8,
-                                                      color: w.connected
-                                                          ? t.colors['success']
-                                                          : t.muted,
-                                                    ),
-                                                  ),
-                                                  if (route == 'chat' &&
-                                                      w.channel != null)
-                                                    RaftIconButton(
-                                                      tooltip:
-                                                          'Channel settings',
-                                                      onPressed: () =>
-                                                          channelSettings(),
-                                                      glyph: RaftGlyph
-                                                          .slidersHorizontal,
-                                                    ),
-                                                  RaftIconButton(
-                                                    tooltip: 'Refresh',
-                                                    onPressed: () =>
-                                                        w.channel == null
-                                                        ? w.bootstrap()
-                                                        : w.selectChannel(
-                                                            w.channel!,
-                                                          ),
-                                                    glyph: RaftGlyph.refreshCw,
-                                                  ),
-                                                ],
-                                              ),
+                                      if (wide) sourceThreadHeader(),
                                       Expanded(
-                                        child: KeyedSubtree(
-                                          key: ValueKey(
-                                            'classic-editor-$classicEditorRevision',
+                                        child: ServerSetupGate(
+                                          controller: w,
+                                          onSwitchServer: showWorkspaceSwitcher,
+                                          child: RaftChatView(
+                                            controller: w,
+                                            thread: true,
+                                            viewportHandle: threadViewport,
+                                            selectionHandle: threadSelection,
+                                            onTask: openMessageTaskSurface,
+                                            onViewBilling: () =>
+                                                select('billing'),
                                           ),
-                                          child: content,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ),
-                            ),
-                            if (gridEntered)
-                              Positioned.fill(
-                                child: Offstage(
-                                  offstage: !gridActive,
-                                  child: ExcludeFocus(
-                                    excluding: !gridActive,
-                                    child: TickerMode(
-                                      enabled: gridActive,
-                                      child: LayoutBuilder(
-                                        builder: (context, bounds) {
-                                          if (gridActive) {
-                                            retainedGridSize = bounds.biggest;
-                                          }
-                                          final capturedAuthority =
-                                              workspaceMode.authority;
-                                          final size =
-                                              retainedGridSize ??
-                                              bounds.biggest;
-                                          // Hidden grid editors retain their last admitted
-                                          // layout; shrinking the classic mobile host must
-                                          // not lay out two desktop tabsets at phone width.
-                                          return OverflowBox(
-                                            alignment: Alignment.topLeft,
-                                            minWidth: size.width,
-                                            maxWidth: size.width,
-                                            minHeight: size.height,
-                                            maxHeight: size.height,
-                                            child: WorkspaceGridView(
-                                              key: gridKey,
-                                              controller: w,
-                                              route: route,
-                                              routeBody: content,
-                                              active: gridActive,
-                                              onRouteSelected: (next) {
-                                                if (!mounted ||
-                                                    !gridActive ||
-                                                    capturedAuthority !=
-                                                        workspaceMode
-                                                            .authority) {
-                                                  return;
-                                                }
-                                                select(next);
-                                              },
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+                                )
+                              : null,
+                          profile:
+                              sidePanels.profile && !gridActive
+                              ? profileSidePanel(location.profile!, page: !wide)
+                              : null,
                         ),
-                        thread: thread && !gridActive
-                            ? RaftConversationSurface(
-                                role:
-                                    RaftConversationSurfaceRole.threadTimeline,
-                                child: Column(
-                                  children: [
-                                    if (wide) sourceThreadHeader(),
-                                    Expanded(
-                                      child: ServerSetupGate(
-                                        controller: w,
-                                        onSwitchServer: showWorkspaceSwitcher,
-                                        child: RaftChatView(
-                                          controller: w,
-                                          thread: true,
-                                          viewportHandle: threadViewport,
-                                          selectionHandle: threadSelection,
-                                          onTask: openMessageTaskSurface,
-                                          onViewBilling: () =>
-                                              select('billing'),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : null,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            )),
           ),
         ),
       );
       final body = WorkspaceTaskHost(
         controller: w,
+        onTask: openMessageTaskSurface,
+        onViewBilling: () => select('billing'),
         seed: taskSeed ?? mobileHost?.taskSeed,
         // RightPanel handles content routes before its workspace guard.
         presented: !gridActive || route == 'search' || route == 'activity',
@@ -1764,6 +1912,39 @@ class _WorkspaceViewState extends State<WorkspaceView>
     },
   );
   final threadViewport = ChatViewportHandle();
+
+  /// A DM with the profiled member / agent (the panel's Message action).
+  Future<void> messageProfile(RaftProfileKind kind, String id) async {
+    final scope = desktopAuthority;
+    final revision = w.navigationRevision;
+    final value = await w.client.post(
+      '/channels/dm',
+      data: {kind == RaftProfileKind.agent ? 'agentId' : 'userId': id},
+    );
+    if (!mounted ||
+        scope != desktopAuthority ||
+        revision != w.navigationRevision) {
+      return;
+    }
+    if (value is Map && value['id'] is String) {
+      w.closeProfile();
+      await w.jumpToMessage(value['id'], null);
+    }
+  }
+
+  final profilePanelKey = GlobalKey();
+
+  Widget profileSidePanel(RaftProfileLocation profile, {bool page = false}) =>
+      ProfileSidePanel(
+        key: profilePanelKey,
+        controller: w,
+        profile: profile,
+        agentTab: w.location.agentTab,
+        onClose: w.closeProfile,
+        onBack: page ? dismissPanel : null,
+        onMessage: messageProfile,
+      );
+
   Widget sourceThreadHeader({bool mobile = false, VoidCallback? onClose}) {
     final unresolved =
         w.threadChannelId == null &&
@@ -1773,42 +1954,59 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final parentId = w.threadParentMessageId,
         parentChannelId = w.threadParentChannelId;
     final sourceChannel = w.threadSourceChannel;
-    return RaftThreadHeader(
-      key: Key(
-        mobile ? 'workspace-mobile-detail-header' : 'workspace-thread-header',
+    final threadId = w.threadChannelId;
+    return ListenableBuilder(
+      listenable: w.threadFollowers,
+      builder: (context, _) => RaftThreadHeader(
+        key: Key(
+          mobile ? 'workspace-mobile-detail-header' : 'workspace-thread-header',
+        ),
+        presentation: RaftThreadPresentation.side,
+        threadLabel: tr('Thread'),
+        jumpLabel: tr('Jump to beginning'),
+        backLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
+        closeLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
+        backKey: mobile
+            ? const Key('mobile-detail-back')
+            : const Key('thread-back'),
+        closeKey: const Key('thread-close'),
+        parentLabel: unresolved || sourceChannel == null
+            ? null
+            : '${sourceChannel.type == 'dm' ? '@' : '#'}${sourceChannel.name}',
+        interactiveTitle: !unresolved,
+        onBack: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
+        onClose: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
+        onJumpToStart: unresolved ? null : threadViewport.jumpToBeginning,
+        followers: threadId == null || unresolved
+            ? null
+            : ThreadAgentFollowersView(
+                key: ValueKey('thread-followers-$threadId'),
+                controller: w,
+                threadChannelId: threadId,
+                onOpenAgent: (id) => w.openProfile(RaftProfileKind.agent, id),
+              ),
+        followersVisible:
+            threadId != null &&
+            !unresolved &&
+            w.threadFollowers.visible(threadId),
+        actions: [
+          if (!unresolved && parentId != null && parentChannelId != null)
+            ThreadActions(
+              key: ValueKey('thread-menu-$parentId'),
+              controller: w,
+              parentMessageId: parentId,
+              menuMode: true,
+              // Web ThreadPanel openThreadSearch: the in-thread search bar.
+              onSearch: w.threadSearch.open,
+              onViewChannel: () {
+                w.closeThread(navigate: false);
+                // Web openThreadParentMessageRoute: desktop pushes, phone
+                // replaces the thread entry.
+                w.jumpToMessage(parentChannelId, parentId, replaceEntry: !wide);
+              },
+            ),
+        ],
       ),
-      presentation: RaftThreadPresentation.side,
-      threadLabel: tr('Thread'),
-      jumpLabel: tr('Jump to beginning'),
-      backLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
-      closeLabel: threadSelection.active ? 'Exit selection' : 'Close thread',
-      backKey: mobile
-          ? const Key('mobile-detail-back')
-          : const Key('thread-back'),
-      closeKey: const Key('thread-close'),
-      parentLabel: unresolved || sourceChannel == null
-          ? null
-          : '${sourceChannel.type == 'dm' ? '@' : '#'}${sourceChannel.name}',
-      interactiveTitle: !unresolved,
-      onBack: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
-      onClose: onClose ?? (mobile ? dismissPanel : closeThreadPanel),
-      onJumpToStart: unresolved ? null : threadViewport.jumpToBeginning,
-      actions: [
-        if (!unresolved && parentId != null && parentChannelId != null)
-          ThreadActions(
-            key: ValueKey('thread-menu-$parentId'),
-            controller: w,
-            parentMessageId: parentId,
-            menuMode: true,
-            onSearch: () => select('search'),
-            onViewChannel: () {
-              w.closeThread(navigate: false);
-              // Web openThreadParentMessageRoute: desktop pushes, phone
-              // replaces the thread entry.
-              w.jumpToMessage(parentChannelId, parentId, replaceEntry: !wide);
-            },
-          ),
-      ],
     );
   }
 
@@ -2255,12 +2453,24 @@ class _WorkspaceViewState extends State<WorkspaceView>
         onBack: closeDesktopDetail,
       );
     }
+    // Web `renderContentSlot` hands Search / Activity agent and human details
+    // `onBack=closeSlot` with `backButtonVisibility="always"`: Back at every
+    // width. A directory / route detail keeps Back below `md` only (the phone
+    // page), and nothing beside the list on wide layouts.
+    final slot = const {'search', 'activity'}.contains(
+      desktopNavigation.masterRoute,
+    );
     if (target.kind == DesktopContentKind.human) {
       return MemberProfileView(
         key: key,
         controller: w,
         userId: target.id,
         onClose: closeDesktopDetail,
+        onBack: !wide
+            ? dismissPanel
+            : slot
+            ? closeDesktopDetail
+            : null,
         showClose: false,
         onMessage: () => messageDesktopProfile(target),
       );
@@ -2279,6 +2489,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         onClose: !wide && target.kind == DesktopContentKind.computer
             ? dismissPanel
             : closeDesktopDetail,
+        backAlways: slot && target.kind == DesktopContentKind.agent,
         onOpenAgent: (id) => wide
             ? desktopNavigation.selectTarget(
                 DesktopContentTarget(DesktopContentKind.agent, id),
@@ -2431,6 +2642,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
             controller: w,
             mobile: false,
             onBilling: () => select('billing'),
+            onFeedback: () => openHelpSettings('feedback'),
           ),
           RaftWorkspaceHelpMenu(
             key: const Key('rail-help'),
@@ -2504,19 +2716,18 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final scope = mobileAuthority;
     return RaftServerSwitcher(
       mobile: mobile,
-      attention:
-          !mobile &&
-          w.servers.any(
-            (s) =>
-                s.id != w.server?.id &&
-                (serverUnread[s.id]?.activityUnreadCount ?? 0) > 0,
-          ),
+      attention: w.servers.any(
+        (s) =>
+            s.id != w.server?.id &&
+            (serverUnread[s.id]?.activityUnreadCount ?? 0) > 0,
+      ),
       headerActions: mobile
           ? [
               SystemNotificationBell(
                 key: const Key('mobile-home-notifications'),
                 controller: w,
                 onBilling: () => select('billing'),
+                onFeedback: () => openHelpSettings('feedback'),
               ),
             ]
           : const [],
@@ -2788,7 +2999,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       selectedId: w.navigation.mobileRootTabOf(w.location) ?? 'chat',
       tabs: mobileTabIds,
       activityUnread: activityUnread,
-      // Android's tab bar consumes this inset; other hosts retain shell padding.
+      // Native tab bars consume the system inset once, outside the nav recipe.
       bottomInset: 0,
       onSelected: (tab) => selectMobileTab(tab, scope),
     );
@@ -3098,6 +3309,18 @@ class _WorkspaceViewState extends State<WorkspaceView>
     return index < 0 ? null : index;
   }
 
+  /// Source `hasUnmutedUnread`: a collapsed section header shows an attention
+  /// dot when one of its rows has unread messages and is not Activity-muted.
+  bool groupHasUnread(Iterable<SidebarEntry> entries) => entries.any((e) {
+    final c = e.channel;
+    return c != null && !c.flag('activityMuted') && (w.unread[c.id] ?? 0) > 0;
+  });
+
+  Widget? groupAttention(SidebarGroup group, Iterable<SidebarEntry> entries) =>
+      sidebarDisclosure.collapsed[group.id] == true && groupHasUnread(entries)
+      ? const RaftAttentionDot(key: ValueKey('sidebar-section-unread-dot'))
+      : null;
+
   Widget sidebarGroupSliver(SidebarGroup group) {
     final entries = _shownEntries(group);
     return RaftChatSidebarGroup.sliver(
@@ -3122,6 +3345,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       },
       onExpandedChanged: (expanded) =>
           sidebarDisclosure.setExpanded(mobileAuthority, group.id, expanded),
+      attention: groupAttention(group, entries),
       actions: sidebarGroupActions(group),
       onContextMenu: (at) => openSectionMenu(at, group),
       itemBuilder: (context, index) =>
@@ -3239,6 +3463,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       joined: c.joined,
       activityMuted: c.flag('activityMuted'),
       hasDraft: (w.drafts[c.id] ?? '').isNotEmpty,
+      mention:
+          c.type != 'dm' &&
+          w.mentions.contains(c.id) &&
+          (w.unread[c.id] ?? 0) > 0,
       onTap: () => chooseChannel(c, expectedScope: scope),
     );
   }
@@ -3255,7 +3483,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final edgeToEdgeHome =
         mobileHome &&
         !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android;
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
     final recipe = RaftSidebarRecipe(
       RaftTokens.of(context),
       viewportWidth: MediaQuery.sizeOf(context).width,
@@ -3290,9 +3519,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 // Sidebar.tsx `sidebar-scroll-surface onContextMenu`: rows,
                 // sections and the Saved entry claim their own gestures first.
                 behavior: HitTestBehavior.translucent,
-                onSecondaryTapDown: mobileHome
-                    ? null
-                    : (d) => openSurfaceMenu(d.globalPosition),
+                // Web `contextmenu`: right click (also in a phone viewport) and
+                // the touch browsers' long press.
+                onSecondaryTapDown: (d) => openSurfaceMenu(d.globalPosition),
                 onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
                 child: RaftPullToRefresh(
                   enabled: mobileHome,
@@ -3344,10 +3573,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                   label: tr('Activity'),
                                   glyph: RaftGlyph.activity,
                                   selected: w.section == 'activity',
-                                  unread: w.unread.values.fold(
-                                    0,
-                                    (a, b) => a + b,
-                                  ),
+                                  // Sidebar.tsx: the server's own activityUnreadCount;
+                                  // an absent value is unknown, never the
+                                  // broader per-conversation sum.
+                                  unread:
+                                      serverUnread[w.server?.id ?? '']
+                                          ?.activityUnreadCount ??
+                                      0,
                                   onTap: () => select('activity'),
                                 ),
                               ),
@@ -3416,6 +3648,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
       label: label,
       expanded: id == null || sidebarDisclosure.collapsed[id] != true,
       count: group?.entries.length,
+      attention: group == null || !group.custom
+          ? null
+          : groupAttention(group, group.entries),
       onExpandedChanged: id == null
           ? null
           : (expanded) =>
@@ -3436,7 +3671,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         id == 'system:channels' && w.can('createChannels')
         ? createChannel
         : id == 'system:joint' && w.can('federateChannels')
-        ? () => select('joint-channels')
+        ? createJointChannel
         : null;
     return [
       if (sortable)
@@ -3562,6 +3797,12 @@ class _WorkspaceViewState extends State<WorkspaceView>
   }
 
   Future<void> createChannel() => CreateChannelDialog.show(
+    context,
+    controller: w,
+    onCreated: (channel) => chooseChannel(channel),
+  );
+
+  Future<void> createJointChannel() => CreateJointChannelDialog.show(
     context,
     controller: w,
     onCreated: (channel) => chooseChannel(channel),

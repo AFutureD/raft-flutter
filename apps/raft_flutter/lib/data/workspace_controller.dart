@@ -8,6 +8,8 @@ import 'package:raft_sync/raft_sync.dart';
 import 'announcement_store.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
+import 'thread_agent_followers.dart';
+import 'thread_search.dart';
 import 'panel_caches.dart';
 import 'source_channel_files_store.dart';
 import 'source_activity_unread_store.dart';
@@ -19,10 +21,13 @@ import 'workspace_entity_directory.dart';
 import 'followed_threads_store.dart';
 import 'raft_location.dart';
 import 'raft_navigation_history.dart';
+import 'navigation_registry.dart';
 import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
+import 'attachment_url_cache.dart';
+import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
 
 class WorkspaceAttachmentImageLease {
@@ -114,6 +119,16 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
 /// Why a jump target's message context could not be shown.
 enum MessageContextLoadError { notFound, beyondHistory }
 
+/// A message row and the distance of its top below the timeline's top edge.
+class ReadingAnchor {
+  ReadingAnchor(this.messageKey, this.top) : _saved = Stopwatch()..start();
+  final String messageKey;
+  final double top;
+  final Stopwatch _saved;
+  static const lifetime = Duration(seconds: 3);
+  bool get fresh => _saved.elapsed <= lifetime;
+}
+
 class WorkspaceController extends ChangeNotifier {
   void synchronizePagePresentation(
     WorkspaceController source, {
@@ -138,6 +153,7 @@ class WorkspaceController extends ChangeNotifier {
     channels = source.channels;
     dms = source.dms;
     unread = source.unread;
+    mentions = source.mentions;
     sidebarOrder = source.sidebarOrder;
     connected = source.connected;
     foreground = active && source.foreground;
@@ -232,7 +248,10 @@ class WorkspaceController extends ChangeNotifier {
     WorkspaceEntityDirectory? entityDirectory,
     FollowedThreadsStore? followedThreads,
     AttachmentImageByteStore? attachmentImageStore,
-  }) : _presentationAuthority = presentationSource?.navigationAuthority,
+    this.attachmentHostWarmer = AttachmentHttp.warmHost,
+    AttachmentUrlCache? attachmentUrls,
+  }) : _attachmentUrls = attachmentUrls ?? AttachmentUrlCache(),
+       _presentationAuthority = presentationSource?.navigationAuthority,
        attachmentImageStore =
            attachmentImageStore ?? AttachmentImageDiskCache.installed {
     _ownsFollowedThreads = followedThreads == null;
@@ -298,6 +317,19 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.translations ??
       (_translations ??= MessageTranslationStore(this));
   MessageTranslationStore? _translations;
+
+  /// Web ThreadPanel in-thread search state (bar, query, matches), created on
+  /// first use; a presentation mirror shares its source's.
+  ThreadSearch get threadSearch =>
+      presentationSource?.threadSearch ??
+      (_threadSearch ??= ThreadSearch(this));
+  ThreadSearch? _threadSearch;
+
+  /// Web `useThreadAgentFollowerStore`: the agents following each thread.
+  ThreadAgentFollowers get threadFollowers =>
+      presentationSource?.threadFollowers ??
+      (_threadFollowers ??= ThreadAgentFollowers(this));
+  ThreadAgentFollowers? _threadFollowers;
 
   /// Web `useAnnouncementStore`: the account-level announcement queue,
   /// living as long as this account session.
@@ -674,12 +706,14 @@ class WorkspaceController extends ChangeNotifier {
     AttachmentImageKey key, {
     required AttachmentImageLoader load,
     required bool Function() authorized,
+    bool foreground = false,
   }) {
     if (presentationSource != null) {
       return presentationSource!.acquireAttachmentImage(
         key,
         load: load,
         authorized: authorized,
+        foreground: foreground,
       );
     }
     final releaseAuthority = _registerImageAuthority(key, authorized);
@@ -691,7 +725,12 @@ class WorkspaceController extends ChangeNotifier {
       );
       repository.synchronize(attachmentImageScope);
       return WorkspaceAttachmentImageLease(
-        repository.acquire(key, load: load, authorized: authorized),
+        repository.acquire(
+          key,
+          load: load,
+          authorized: authorized,
+          foreground: foreground,
+        ),
         releaseAuthority,
       );
     } catch (_) {
@@ -1261,6 +1300,7 @@ class WorkspaceController extends ChangeNotifier {
       dms = [];
       server = null;
       unread = {};
+      mentions = {};
       _latestActivity.clear();
       sidebarOrder = {};
       threadParent = null;
@@ -1655,6 +1695,7 @@ class WorkspaceController extends ChangeNotifier {
   void notifyListeners() {
     _stateStamp++;
     _attachmentImages?.synchronize(attachmentImageScope);
+    _attachmentUrls.synchronize(attachmentImageScope);
     if (!_disposed) {
       _ensureSyncIdentity();
       super.notifyListeners();
@@ -2142,6 +2183,11 @@ class WorkspaceController extends ChangeNotifier {
   List<RaftRecord> servers = [];
   List<RaftChannel> channels = [], dms = [];
   Map<String, int> unread = {};
+
+  /// Source messageStore `mentionFlags`: conversations whose unread messages
+  /// mention the member (unread snapshot `hasMention`, a live `message:new`
+  /// that mentions the member). Cleared with the unread count.
+  Set<String> mentions = {};
   Map<String, dynamic> sidebarOrder = {};
   RaftRecord? server;
   bool can(String capability, {RaftChannel? resource}) => raftCan(
@@ -2693,6 +2739,7 @@ class WorkspaceController extends ChangeNotifier {
     threadChannelId = null;
     _summariesByChannel.clear();
     unread = {};
+    mentions = {};
     _latestActivity.clear();
     channelGeneration++;
     threadGeneration++;
@@ -2894,10 +2941,13 @@ class WorkspaceController extends ChangeNotifier {
     }
     // Source canAutoMarkLiveAppendRead: a live arrival in the open
     // conversation is read only if the user was just interacting; while the
-    // user is idle it stays unread (Activity keeps its indicator).
+    // user is idle it stays unread (Activity keeps its indicator). Phone
+    // (owner decision 2026-10-12, docs/parity.md): a foreground page whose
+    // timeline sits at the latest end reads it with no tap.
     if ((id == channel?.id || id == threadChannelId) &&
         _mayMarkRead(id) &&
-        RaftUserActivity.recent) {
+        (RaftUserActivity.recent ||
+            mobileNavigation && !_scrolledAway.contains(id))) {
       unawaited(markRead(id));
       return;
     }
@@ -2919,8 +2969,21 @@ class WorkspaceController extends ChangeNotifier {
       return;
     }
     unread = {...unread, id: (unread[id] ?? 0) + 1};
+    if (_mentionsMember(row)) mentions = {...mentions, id};
     _persistUnread();
     unawaited(prefetchLikelyChannels());
+  }
+
+  /// Source `mentionsCurrentUser`: a structured user mention of the member.
+  bool _mentionsMember(Map<String, dynamic> row) {
+    final me = client.user?.id, list = row['mentions'];
+    return me != null &&
+        list is List &&
+        list.any((m) => m is Map && m['type'] == 'user' && m['id'] == me);
+  }
+
+  void _clearMention(String id) {
+    if (mentions.contains(id)) mentions = {...mentions}..remove(id);
   }
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
@@ -2958,6 +3021,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (count == null || unread[id] == count) return;
     unread = {...unread, id: count};
+    if (count == 0) _clearMention(id);
   }
 
   Future<void> refreshUnread() async {
@@ -2974,6 +3038,7 @@ class WorkspaceController extends ChangeNotifier {
       final counts = value is Map ? value['channels'] ?? value : {};
       if (counts is Map) {
         final next = <String, int>{};
+        final nextMentions = <String>{};
         for (final e in counts.entries) {
           final id = e.key.toString(), entry = e.value;
           if (entry is num) {
@@ -3006,8 +3071,12 @@ class WorkspaceController extends ChangeNotifier {
               : outcome == 'corrupt'
               ? (unread[id] ?? 0)
               : ((entry['unreadCount'] ?? 0) as num).toInt();
+          if (entry['hasMention'] == true && next[id]! > 0) {
+            nextMentions.add(id);
+          }
         }
         unread = next;
+        mentions = nextMentions;
         _persistReadState();
       }
       notifyListeners();
@@ -3146,6 +3215,7 @@ class WorkspaceController extends ChangeNotifier {
       _attachmentImages
         ?..synchronize(attachmentImageScope)
         ..invalidateChannel(scope);
+      _attachmentUrls.invalidateChannel(scope);
       ledger.revokeChannel(scope);
       messageSync.revokeChannel(scope);
       threadRepliesSync.revokeChannel(scope);
@@ -3155,6 +3225,7 @@ class WorkspaceController extends ChangeNotifier {
       _diskOnlyWindows.remove(scope);
       _contextWindows.remove(scope);
       unread.remove(scope);
+      _clearMention(scope);
       _latestActivity.remove(scope);
       _summariesByChannel.remove(scope);
       _threadWindows.removeWhere(
@@ -3299,9 +3370,7 @@ class WorkspaceController extends ChangeNotifier {
         final value = await client.request(
           'PATCH',
           '/servers/$id/sidebar-order',
-          data: sections
-              ? {...updates, 'sectionsVersion': ?version}
-              : updates,
+          data: sections ? {...updates, 'sectionsVersion': ?version} : updates,
         );
         if (!current()) return;
         final reply = value is Map
@@ -3826,7 +3895,6 @@ class WorkspaceController extends ChangeNotifier {
       'providers': 'manageExternalAuth',
       'integrations': 'manageIntegrations',
       'im-bridges': 'manageIntegrations',
-      'joint-channels': 'federateChannels',
       'administration': 'viewServerSettings',
       'billing': 'viewBilling',
       'workspace-settings': 'viewServerSettings',
@@ -3840,7 +3908,6 @@ class WorkspaceController extends ChangeNotifier {
       'saved',
       'tasks',
       'settings',
-      'sidebar-settings',
     }.contains(name);
   }
 
@@ -4057,6 +4124,22 @@ class WorkspaceController extends ChangeNotifier {
     loadingOlder = false;
     channelLoading = true;
     error = null;
+    // Source messageStore selectChannel: opening a conversation clears its
+    // local unread at once; the read receipt follows the first page. A load
+    // that never sends the receipt reconciles with the server in `finally`.
+    final optimisticRead =
+        autoRead &&
+        navigate &&
+        !retainContextUntilAccepted &&
+        ((unread[next.id] ?? 0) != 0 || mentions.contains(next.id));
+    final readPostsBefore = _readPosts[next.id] ?? 0;
+    _scrolledAway.remove(next.id);
+    if (optimisticRead) {
+      // Web `clearUnread`: the count and the mention flag clear together.
+      if ((unread[next.id] ?? 0) != 0) unread = {...unread, next.id: 0};
+      _clearMention(next.id);
+      _persistUnread();
+    }
     final window = ++channelGeneration;
     final generation = ledger.generation;
     final authority = _windowAuthority();
@@ -4155,6 +4238,11 @@ class WorkspaceController extends ChangeNotifier {
       if (current()) {
         channelLoading = false;
         notifyListeners();
+      }
+      if (optimisticRead &&
+          !_disposed &&
+          (_readPosts[next.id] ?? 0) == readPostsBefore) {
+        unawaited(refreshUnread());
       }
     }
   }
@@ -4274,6 +4362,41 @@ class WorkspaceController extends ChangeNotifier {
   /// the unread count) until revalidated.
   final Set<String> _diskOnlyWindows = {};
 
+  /// Open conversations whose timeline is scrolled above the latest end
+  /// (reported by the chat view on the edge only, never per frame).
+  final Set<String> _scrolledAway = {};
+
+  void setTimelineAtBottom(String id, bool atBottom) {
+    if (atBottom) {
+      _scrolledAway.remove(id);
+    } else {
+      _scrolledAway.add(id);
+    }
+  }
+
+  final Map<String, ReadingAnchor> _readingAnchors = {};
+
+  /// Where the reader was in a conversation when its timeline is about to be
+  /// rebuilt for another layout (fold / unfold). The next timeline that
+  /// mounts for [conversationId] shortly after resumes there; an anchor that
+  /// is not claimed promptly is a stale position and is ignored.
+  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) {
+    final source = presentationSource;
+    if (source != null) return source.saveReadingAnchor(conversationId, anchor);
+    _readingAnchors[conversationId] = anchor;
+  }
+
+  ReadingAnchor? takeReadingAnchor(String conversationId) {
+    final source = presentationSource;
+    if (source != null) return source.takeReadingAnchor(conversationId);
+    final anchor = _readingAnchors.remove(conversationId);
+    return anchor != null && anchor.fresh ? anchor : null;
+  }
+
+  /// Read receipts sent per scope: lets an optimistic open-time clear know
+  /// whether the receipt that backs it was ever sent.
+  final Map<String, int> _readPosts = {};
+
   Future<void> markRead(String id) async {
     final source = presentationSource;
     if (source != null) {
@@ -4298,6 +4421,7 @@ class WorkspaceController extends ChangeNotifier {
         serverId = client.serverId,
         generation = ledger.generation;
     final window = id == threadChannelId ? threadGeneration : channelGeneration;
+    _readPosts[id] = (_readPosts[id] ?? 0) + 1;
     try {
       final receipt = await client.post(
         '/channels/$id/read',
@@ -4305,11 +4429,21 @@ class WorkspaceController extends ChangeNotifier {
       );
       if (client.origin != origin ||
           client.user?.id != principal ||
-          client.serverId != serverId ||
-          ledger.generation != generation ||
+          client.serverId != serverId) {
+        return;
+      }
+      if (ledger.generation != generation ||
           window !=
               (id == threadChannelId ? threadGeneration : channelGeneration) ||
           !_mayMarkRead(id)) {
+        // The user left (or the window was replaced) while the receipt was in
+        // flight. The server cursor still advanced: fold the accepted frontier
+        // in and clear only what it covers, so Home never keeps an indicator
+        // for a conversation that was read (Source clearUnread).
+        // A reset ledger or a revoked scope never accepts a late receipt.
+        if (ledger.generation == generation && !_revokedChannels.contains(id)) {
+          _acceptStaleReadReceipt(id, receipt);
+        }
         return;
       }
       if (receipt is Map && client.serverId != null && client.user != null) {
@@ -4326,9 +4460,42 @@ class WorkspaceController extends ChangeNotifier {
       }
       // Source clearUnread: the read tail is the latest; no snapshot GET.
       if ((unread[id] ?? 0) != 0) unread = {...unread, id: 0};
+      _clearMention(id);
       _persistReadState();
       notifyListeners();
-    } catch (_) {}
+    } catch (_) {
+      // The cursor did not advance: an optimistic clear must not hide it.
+      if (!_disposed &&
+          client.origin == origin &&
+          client.user?.id == principal &&
+          client.serverId == serverId) {
+        unawaited(refreshUnread());
+      }
+    }
+  }
+
+  void _acceptStaleReadReceipt(String id, dynamic receipt) {
+    final serverId = client.serverId, principal = client.user?.id;
+    if (_disposed || serverId == null || principal == null) return;
+    if (receipt is Map) {
+      readState.consumeUpdate(
+        {
+          'serverId': serverId,
+          'scopeId': id,
+          'maxReadSeq': receipt['maxReadSeq'],
+          'readStateVersion': receipt['readStateVersion'],
+        },
+        serverId: serverId,
+        principalId: principal,
+      );
+    }
+    final before = unread[id] ?? 0;
+    _projectReadState(id);
+    if ((unread[id] ?? 0) != before) {
+      _persistReadState();
+      notifyListeners();
+    }
+    if ((unread[id] ?? 0) != 0) unawaited(refreshUnread());
   }
 
   /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
@@ -4357,6 +4524,7 @@ class WorkspaceController extends ChangeNotifier {
     );
     if (outcome == 'corrupt') return false;
     if ((unread[scopeId] ?? 0) != 0) unread = {...unread, scopeId: 0};
+    _clearMention(scopeId);
     _persistReadState();
     notifyListeners();
     return true;
@@ -5283,7 +5451,7 @@ class WorkspaceController extends ChangeNotifier {
             channel?.id == channelId &&
             generation == ledger.generation &&
             authority == _windowAuthority()) {
-              contextLoadError = historyLimited
+          contextLoadError = historyLimited
               ? MessageContextLoadError.beyondHistory
               : MessageContextLoadError.notFound;
           notifyListeners();
@@ -5325,6 +5493,70 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
+  // Web profileStore: the profile side panel is a URL slot (`profile=`); an
+  // external author's frozen attribution payload lives beside it.
+  final Map<String, Map<String, dynamic>> _externalProfiles = {};
+
+  /// The provider attribution frozen when an external author's panel opened.
+  Map<String, dynamic>? externalProfile(String messageId) =>
+      presentationSource?.externalProfile(messageId) ??
+      _externalProfiles[messageId];
+
+  /// Web `openProfile` / `openExternalProfile`: a human or agent (optionally
+  /// landing on an agent [agentTab]) or an external message author
+  /// ([id] = message id, [channelId] its channel, [externalAuthor] the
+  /// attribution). Adding a panel pushes history; retargeting replaces.
+  void openProfile(
+    RaftProfileKind kind,
+    String id, {
+    String? agentTab,
+    String? channelId,
+    Map<String, dynamic>? externalAuthor,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      source.openProfile(
+        kind,
+        id,
+        agentTab: agentTab,
+        channelId: channelId,
+        externalAuthor: externalAuthor,
+      );
+      return;
+    }
+    if (id.trim().isEmpty ||
+        kind == RaftProfileKind.external && (channelId?.isEmpty ?? true)) {
+      return;
+    }
+    if (externalAuthor != null) _externalProfiles[id] = externalAuthor;
+    final next = location.withQuery({
+      'profile': RaftProfileLocation(kind, id, channelId: channelId).toString(),
+      'agentTab': kind == RaftProfileKind.agent ? agentTab : null,
+    });
+    if (next.uri == location.uri) return;
+    navigation.navigateProfile(
+      next,
+      kind: location.panelNavigationKindTo(next),
+    );
+    notifyListeners();
+  }
+
+  /// Web `closeProfile`: removing a slot replaces the history entry.
+  void closeProfile() {
+    final source = presentationSource;
+    if (source != null) {
+      source.closeProfile();
+      return;
+    }
+    if (location.profile == null) return;
+    final next = location.withQuery({'profile': null, 'agentTab': null});
+    navigation.navigateProfile(
+      next,
+      kind: location.panelNavigationKindTo(next),
+    );
+    notifyListeners();
+  }
+
   void closeThread({bool navigate = true}) {
     final source = presentationSource;
     if (source != null) {
@@ -5347,6 +5579,14 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   void setSection(String next) {
+    if (!NavigationRegistry.knowsSection(next)) {
+      NavigationRegistry.reportFallback(
+        'section',
+        next,
+        NavigationRegistry.unsupportedSections[next],
+      );
+      return;
+    }
     final source = presentationSource;
     if (source != null) {
       source.setSection(next);
@@ -5360,6 +5600,147 @@ class WorkspaceController extends ChangeNotifier {
   Future<dynamic> query(String path, {Map<String, dynamic>? query}) =>
       presentationSource?.sharedQuery(path, query: query) ??
       client.get(path, query: query);
+
+  // ---- Signed attachment URLs -------------------------------------------
+  // One cache and one resolve path for every attachment surface (list preview,
+  // lightbox, document/media preview, inline players, Files panel). Memory
+  // only; see [AttachmentUrlCache] for the lifetime rules.
+  final AttachmentUrlCache _attachmentUrls;
+
+  /// Opens the storage connection for a freshly prefetched URL (the app wires
+  /// `AttachmentHttp.warmHost` by default); null disables warming.
+  final void Function(String url)? attachmentHostWarmer;
+  int _attachmentUrlRequests = 0;
+
+  /// Number of `/attachments/<id>/url` + batch requests this controller sent.
+  @visibleForTesting
+  int get debugAttachmentUrlRequests =>
+      presentationSource?.debugAttachmentUrlRequests ?? _attachmentUrlRequests;
+  @visibleForTesting
+  AttachmentUrlCache get debugAttachmentUrls =>
+      presentationSource?.debugAttachmentUrls ?? _attachmentUrls;
+
+  /// The signed URL of attachment [id]. Reuses a fresh cached URL and joins a
+  /// request already in flight; otherwise asks the API once. [disposition]
+  /// null sends no disposition (server default). `attachment` URLs are
+  /// one-shot downloads and are never retained. [channelId] ties the entry to
+  /// its channel so revocation drops it.
+  Future<String> attachmentUrl(
+    String id, {
+    String? disposition = 'inline',
+    String? channelId,
+    bool refresh = false,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      return source.attachmentUrl(
+        id,
+        disposition: disposition,
+        channelId: channelId,
+        refresh: refresh,
+      );
+    }
+    final scope = attachmentImageScope;
+    Future<dynamic> fetch() {
+      _attachmentUrlRequests++;
+      return client.get(
+        '/attachments/${Uri.encodeComponent(id)}/url',
+        query: disposition == null ? null : {'disposition': disposition},
+      );
+    }
+
+    if (disposition == 'attachment' || _revokedChannels.contains(channelId)) {
+      return fetch().then(_urlOf);
+    }
+    if (refresh) _attachmentUrls.invalidate(id, disposition: disposition ?? '');
+    return _attachmentUrls.resolve(
+      id,
+      disposition: disposition ?? '',
+      scope: scope,
+      channelId: channelId,
+      fetch: fetch,
+    );
+  }
+
+  static String _urlOf(dynamic body) {
+    final url = body is Map ? body['url'] : null;
+    if (url is! String || url.isEmpty) {
+      throw const FormatException('Invalid attachment response.');
+    }
+    return url;
+  }
+
+  /// A transfer rejected [id]'s cached URL (expired): forget it.
+  void invalidateAttachmentUrl(String id) {
+    final source = presentationSource;
+    if (source != null) {
+      source.invalidateAttachmentUrl(id);
+    } else {
+      _attachmentUrls.invalidate(id);
+    }
+  }
+
+  /// Background-resolves [id]'s inline URL (and opens its storage connection)
+  /// so the next open starts at once. Batched, bounded and cancellable; call
+  /// the handle's `cancel` when the surface that asked goes away.
+  PrefetchHandle prefetchAttachmentUrl(String id, {String? channelId}) {
+    final source = presentationSource;
+    if (source != null) {
+      return source.prefetchAttachmentUrl(id, channelId: channelId);
+    }
+    if (_disposed || _revokedChannels.contains(channelId)) {
+      return PrefetchHandle.none();
+    }
+    return _attachmentUrls.prefetch(
+      id,
+      scope: attachmentImageScope,
+      channelId: channelId,
+      fetchMany: (ids) async {
+        _attachmentUrlRequests++;
+        final body = await client.post(
+          '/attachments/urls',
+          data: {'attachmentIds': ids},
+        );
+        final warm = attachmentHostWarmer;
+        if (warm != null && body is Map && body['urls'] is List) {
+          for (final entry in body['urls'] as List) {
+            if (entry is Map && entry['url'] is String) {
+              warm(entry['url'] as String);
+              break;
+            }
+          }
+        }
+        return body;
+      },
+    );
+  }
+
+  DateTime? _previewGateAt;
+  bool? _previewGate;
+  Object? _previewGateScope;
+
+  /// Whether document/media previews are enabled on the server. The flag is
+  /// per server, so a short per-scope memory removes a serial round trip from
+  /// every preview open; a failed read is never remembered.
+  Future<bool> attachmentPreviewEnabled() async {
+    final source = presentationSource;
+    if (source != null) return source.attachmentPreviewEnabled();
+    final scope = attachmentImageScope;
+    final at = _previewGateAt;
+    if (_previewGate != null &&
+        _previewGateScope == scope &&
+        at != null &&
+        DateTime.now().difference(at) < const Duration(minutes: 2)) {
+      return _previewGate!;
+    }
+    final gate = await client.get('/messages/attachment-preview/enabled');
+    final enabled = gate is Map && gate['enabled'] == true;
+    if (_disposed || scope != attachmentImageScope) return enabled;
+    _previewGate = enabled;
+    _previewGateScope = scope;
+    _previewGateAt = DateTime.now();
+    return enabled;
+  }
 
   final _sharedReads = <String, Future<dynamic>>{};
 
@@ -5860,10 +6241,13 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_ownsFollowedThreads) followedThreads.dispose();
     _translations?.dispose();
+    _threadSearch?.dispose();
+    _threadFollowers?.dispose();
     _announcements?.dispose();
     _announcementGate?.dispose();
     _imageAuthorities.clear();
     _attachmentImages?.dispose();
+    _attachmentUrls.dispose();
     _channelFilesStores.clear();
     for (final drafts in _uploads.values) {
       for (final draft in drafts) {

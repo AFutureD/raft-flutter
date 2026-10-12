@@ -4,15 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark departed senders retain history but cannot be mentioned',
       (t) async {
@@ -289,9 +290,20 @@ void main() {
           ),
           hasLength(1),
         );
+        // A bare timeline has no task slot: the chip is painted disabled
+        // instead of opening the thread (Web opens the task, never the side
+        // thread, from the footer chip).
+        expect(
+          t
+              .widget<RaftMountedMessageTaskChip>(
+                find.byType(RaftMountedMessageTaskChip),
+              )
+              .onOpen,
+          isNull,
+        );
         await t.tap(find.byType(RaftMountedMessageTaskChip));
         await t.pump();
-        expect(w.threadParent?.id, 'm1');
+        expect(w.threadParent, isNull);
         await t.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 20)),
         );

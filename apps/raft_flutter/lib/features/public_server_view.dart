@@ -568,6 +568,16 @@ class _PublicServerViewState extends State<PublicServerView> {
     bool parent = false,
     VoidCallback? onThread,
   }) {
+    // A main-timeline row with replies draws the badge: its caller must open
+    // the thread, or the badge is a dead tap.
+    assert(
+      parent ||
+          thread ||
+          m.threadId == null ||
+          m.replyCount <= 0 ||
+          onThread != null,
+      'public row ${m.id} has replies but no onThread',
+    );
     final formatter = timeFormatter;
     if (m.messageType == 'system') {
       return RaftSystemMessage(
@@ -612,7 +622,13 @@ class _PublicServerViewState extends State<PublicServerView> {
     if (parent == null) return null;
     final channel = channels.where((c) => c['id'] == selectedId).firstOrNull;
     final wide = MediaQuery.sizeOf(context).width >= 1024;
-    return RaftPublicThreadPanel(
+    // Web ThreadPanel: Escape closes it. Below the panel's own X breakpoint
+    // the system back gesture does too (the thread is not a route here).
+    return RaftBackDismiss(
+      onDismiss: closeThread,
+      child: RaftDismissScope(
+        onDismiss: closeThread,
+        child: RaftPublicThreadPanel(
       title: tr('Thread'),
       channelContext: raftFormat(context, ' — #{name}', {
         'name': channel?['name'],
@@ -627,6 +643,8 @@ class _PublicServerViewState extends State<PublicServerView> {
       emptyTitle: tr('No replies yet'),
       onLoadOlder: threadHasOlder ? loadOlderThread : null,
       loadOlderLabel: tr('Load older messages'),
+        ),
+      ),
     );
   }
 

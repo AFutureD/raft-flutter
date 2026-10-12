@@ -543,8 +543,10 @@ class _SelectorControl extends StatelessWidget {
             ),
             if (attention)
               Positioned(
-                top: -10,
-                right: -18,
+                // `-right-1 -top-1` of the padding-box anchor: 4px beyond it,
+                // that is 12 / 4px past the content box.
+                top: -8,
+                right: -16,
                 child: Semantics(
                   label: attentionLabel,
                   child: _AttentionDot(recipe.tokens),
@@ -586,18 +588,17 @@ class _SelectorPainter extends CustomPainter {
   final RaftMobileServerSelectorRecipe recipe;
   @override
   void paint(Canvas canvas, Size size) {
-    // SVG extends2px beyond the measured button, scales viewBox by4px extra.
+    // `.mobile-server-selector-vector-surface { inset: -2px }` is measured
+    // from the button's padding box (the button has a 2px transparent
+    // border), so the SVG covers exactly the button's border box and its
+    // viewBox maps 1:1.
     final inset = recipe.contentInset;
     final buttonSize = Size(
       size.width + inset.horizontal,
       size.height + inset.vertical,
     );
     canvas.save();
-    canvas.translate(-inset.left - 2, -inset.top - 2);
-    canvas.scale(
-      (buttonSize.width + 4) / buttonSize.width,
-      (buttonSize.height + 4) / buttonSize.height,
-    );
+    canvas.translate(-inset.left, -inset.top);
     Path path(double shadow) {
       final points = recipe.polygon(buttonSize, shadowOffset: shadow);
       return Path()..addPolygon(points, true);

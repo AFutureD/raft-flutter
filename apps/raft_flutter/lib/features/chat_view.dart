@@ -16,11 +16,16 @@ import 'message_timeline.dart';
 import 'row_extents.dart';
 
 import '../data/plan_history.dart';
+import '../data/raft_location.dart';
+import '../data/raft_permalink.dart';
+import '../data/thread_search.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
+import '../platform/content_links.dart';
 import '../data/personal_presentation.dart';
 import '../platform/file_selection.dart';
+import 'attachment_preview_dialog.dart' show attachmentPreviewKind;
 import 'attachment_view.dart';
 import 'message_presentation.dart';
 import 'message_preparation.dart';
@@ -43,6 +48,7 @@ import 'message_agent_presentation.dart';
 import 'agent_metadata_projection.dart';
 import 'agent_avatar_projection.dart';
 import 'profile_preview.dart';
+import 'quoted_message_preview.dart';
 import 'message_task_projection.dart';
 import 'saved_sidebar_entry.dart';
 
@@ -63,6 +69,11 @@ class ChatViewportHandle {
     }
   }
 }
+
+/// Opens a task from a message (footer chip, in-body `#N` reference) in the
+/// host's task slot; [refresh] re-reads the message's task facts afterwards.
+typedef ChatTaskOpener =
+    void Function(Map<String, dynamic> task, Future<void> Function() refresh);
 
 class RaftChatView extends StatefulWidget {
   const RaftChatView({
@@ -92,7 +103,7 @@ class RaftChatView extends StatefulWidget {
   final bool hideThreadParent;
   final ChatSelectionHandle? selectionHandle;
   final ChatViewportHandle? viewportHandle;
-  final void Function(Map<String, dynamic>, Future<void> Function())? onTask;
+  final ChatTaskOpener? onTask;
   @override
   State<RaftChatView> createState() => _RaftChatViewState();
 }
@@ -279,8 +290,40 @@ class _RaftChatViewState extends State<RaftChatView>
   RaftTimelineAlignment alignOn(String target, {double? leading}) =>
       RaftTimelineAlignment.row(
         find: () {
-          final box = focusAnchors[target]?.currentContext?.findRenderObject();
-          return box is RenderBox ? box : null;
+          final context = focusAnchors[target]?.currentContext;
+          if (context == null) return null;
+          try {
+            final box = context.findRenderObject();
+            return box is RenderBox && box.attached ? box : null;
+          } on FlutterError {
+            // The row's element went inactive while the timeline rebuilt.
+            return null;
+          }
+        },
+        leading: leading,
+      );
+
+  /// Aligns a built row found by its wrapper key (no highlight anchor).
+  RaftTimelineAlignment alignOnRow(String key, {double? leading}) =>
+      RaftTimelineAlignment.row(
+        find: () {
+          RenderBox? found;
+          void visit(Element element) {
+            if (found != null) return;
+            if (element.widget.key == ValueKey('message-wrapper-$key')) {
+              final box = element.renderObject;
+              if (box is RenderBox && box.attached) found = box;
+              return;
+            }
+            element.visitChildren(visit);
+          }
+
+          try {
+            (context as Element).visitChildren(visit);
+          } on FlutterError {
+            return null;
+          }
+          return found;
         },
         leading: leading,
       );
@@ -305,6 +348,75 @@ class _RaftChatViewState extends State<RaftChatView>
       }
       if (active) sync();
     }
+  }
+
+  // Web ThreadPanel in-thread search (thread view only): the bar's field and
+  // focus, bound to the controller's [ThreadSearch].
+  final searchInput = TextEditingController();
+  final searchFocus = FocusNode();
+  ThreadSearch? boundSearch;
+  String? searchActive;
+  int seenSearchFocus = 0;
+
+  void bindThreadSearch() {
+    boundSearch?.removeListener(threadSearchChanged);
+    boundSearch = widget.thread ? w.threadSearch : null;
+    boundSearch?.addListener(threadSearchChanged);
+    searchActive = boundSearch?.activeMessageId;
+    seenSearchFocus = boundSearch?.focusRequest ?? 0;
+  }
+
+  void threadSearchChanged() {
+    final search = boundSearch;
+    if (!mounted || search == null) return;
+    if (searchInput.text != search.query) {
+      searchInput.value = TextEditingValue(
+        text: search.query,
+        selection: TextSelection.collapsed(offset: search.query.length),
+      );
+    }
+    if (search.focusRequest != seenSearchFocus) {
+      seenSearchFocus = search.focusRequest;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !search.isOpen) return;
+        searchFocus.requestFocus();
+        searchInput.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: searchInput.text.length,
+        );
+      });
+    }
+    final active = search.activeMessageId;
+    final changed = active != searchActive;
+    searchActive = active;
+    if (presentationActive) setState(() {});
+    if (changed && active != null) revealSearchMatch(active);
+  }
+
+  /// Web `ensureThreadSearchMatchVisible` then `scrollToMessage(center)`: a
+  /// match outside the loaded window reloads the thread around it (the
+  /// timeline's focus reveal centers it); a loaded one is centered here.
+  Future<void> revealSearchMatch(String id) async {
+    final search = boundSearch;
+    if (search == null) return;
+    final loaded = await search.ensureVisible(id);
+    if (!loaded || !mounted || searchActive != id || !presentationActive) {
+      return;
+    }
+    if (w.presentedThreadParent?.id == id) {
+      jumpToBeginning();
+      return;
+    }
+    final target = adapter.messages
+        .where((m) => m.metadata?['id'] == id)
+        .firstOrNull;
+    if (target == null) return;
+    // Mount the row's anchor, then center it.
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || searchActive != id) return;
+      recenter(first: target.id, alignment: alignOn(id));
+    });
   }
 
   final focusAnchors = <String, GlobalKey>{};
@@ -349,6 +461,7 @@ class _RaftChatViewState extends State<RaftChatView>
     selection = MessageSelection(w, thread: widget.thread)
       ..addListener(selectionChanged);
     w.translations.addListener(referencesChanged);
+    bindThreadSearch();
     w.addListener(sync);
     sync();
   }
@@ -393,6 +506,7 @@ class _RaftChatViewState extends State<RaftChatView>
       }
       selection = MessageSelection(w, thread: widget.thread)
         ..addListener(selectionChanged);
+      bindThreadSearch();
       selectionError = null;
       copiedSelectionTimer?.cancel();
       copiedSelectionMarkdown = false;
@@ -480,7 +594,7 @@ class _RaftChatViewState extends State<RaftChatView>
           mounted &&
           authority == workspaceAuthority(w) &&
           revision == selection.revision) {
-        selectionToast.show(raftText(context, 'Copied'));
+        selectionToast.show(raftText(context, 'Copied'), dismissible: false);
       }
     } catch (_) {
       if (mounted &&
@@ -521,7 +635,10 @@ class _RaftChatViewState extends State<RaftChatView>
             setState(() => copiedSelectionMarkdown = false);
           }
         });
-        selectionToast.show(raftText(context, 'Copied Markdown'));
+        selectionToast.show(
+          raftText(context, 'Copied Markdown'),
+          dismissible: false,
+        );
       }
     } catch (_) {
       if (current()) {
@@ -624,6 +741,16 @@ class _RaftChatViewState extends State<RaftChatView>
     }
   }
 
+  /// Tells the controller whether this timeline sits at the latest end (the
+  /// phone reads a live append only there). Edge-only: callers gate on a change.
+  String? reportedBottomId;
+  void reportBottom(bool bottom) {
+    final id = widget.thread ? w.threadChannelId : w.channel?.id;
+    if (id == null) return;
+    reportedBottomId = bottom ? null : id;
+    w.setTimelineAtBottom(id, bottom);
+  }
+
   void timelineScrolled() {
     closePickerOnScroll();
     if (!mounted || viewport.positions.length != 1) return;
@@ -632,10 +759,20 @@ class _RaftChatViewState extends State<RaftChatView>
     // MessageTimeline.tsx AT_BOTTOM_THRESHOLD.
     final next = distanceFromLatest(position) <= 100;
     if (next != atBottom || (next && newMessageCount != 0)) {
+      final arrived = next && !atBottom;
+      if (next != atBottom) reportBottom(next);
       setState(() {
         atBottom = next;
         if (next) newMessageCount = 0;
       });
+      // Source setNearBottom(true) -> markCurrentChannelRead: scrolling back
+      // to the latest end reads what arrived while the reader was above it.
+      if (arrived) {
+        final id = widget.thread ? w.threadChannelId : w.channel?.id;
+        if (id != null && (w.unread[id] ?? 0) != 0) {
+          unawaited(w.markRead(id));
+        }
+      }
     }
   }
 
@@ -680,12 +817,63 @@ class _RaftChatViewState extends State<RaftChatView>
   @override
   void didChangeMetrics() {
     if (reactionPicker != null) closeReactionPicker();
+    saveReadingAnchor();
+  }
+
+  /// A fold/unfold rebuilds the timeline in the other layout: remember the
+  /// topmost visible row (by id, not pixels, which reflow) so the new one
+  /// resumes there. Only readers above the latest end need it.
+  void saveReadingAnchor() {
+    final id = widget.thread ? w.threadChannelId : w.channel?.id;
+    if (id == null ||
+        !mounted ||
+        atBottom ||
+        !viewport.hasClients ||
+        viewport.positions.length != 1) {
+      return;
+    }
+    ReadingAnchor? best;
+    double bestTop = double.infinity;
+    void visit(Element element) {
+      final key = element.widget.key;
+      if (key is ValueKey<String> && key.value.startsWith('message-wrapper-')) {
+        final row = element.renderObject;
+        final Object? clip = row == null
+            ? null
+            : RenderAbstractViewport.maybeOf(row);
+        if (row is RenderBox &&
+            clip is RenderBox &&
+            row.attached &&
+            row.hasSize &&
+            clip.hasSize) {
+          final top =
+              row.localToGlobal(Offset.zero).dy -
+              clip.localToGlobal(Offset.zero).dy;
+          if (top + row.size.height > 1 && top < bestTop) {
+            bestTop = top;
+            best = ReadingAnchor(
+              key.value.substring('message-wrapper-'.length),
+              top,
+            );
+          }
+        }
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (context as Element).visitChildren(visit);
+    if (best != null) w.saveReadingAnchor(id, best!);
   }
 
   @override
   void dispose() {
+    if (reportedBottomId case final id?) w.setTimelineAtBottom(id, true);
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
+    boundSearch?.removeListener(threadSearchChanged);
+    searchInput.dispose();
+    searchFocus.dispose();
     copiedSelectionTimer?.cancel();
     bodyPreparation.dispose();
     highlightTimer?.cancel();
@@ -724,6 +912,7 @@ class _RaftChatViewState extends State<RaftChatView>
     List<chat.Message> messages, {
     String? focus,
     double? focusTop,
+    ReadingAnchor? resume,
   }) {
     for (final timer in reactionFailureTimers.values) {
       timer.cancel();
@@ -737,14 +926,21 @@ class _RaftChatViewState extends State<RaftChatView>
     final target = focus == null
         ? null
         : messages.where((m) => m.metadata?['id'] == focus).firstOrNull;
-    centerFirst = target?.id;
-    centerAfter = target == null ? messages.lastOrNull?.id : null;
-    lastCenterIndex = target == null ? messages.length : 0;
+    final resumed = target != null || resume == null
+        ? null
+        : messages.where((m) => m.id == resume.messageKey).firstOrNull;
+    centerFirst = (target ?? resumed)?.id;
+    centerAfter = target == null && resumed == null
+        ? messages.lastOrNull?.id
+        : null;
+    lastCenterIndex = target == null && resumed == null ? messages.length : 0;
     centerEpoch++;
     viewport = RaftTimelineScrollController(
       bottomAnchored: bottomAnchored,
       initial: target != null
           ? alignOn(focus!, leading: focusTop)
+          : resumed != null
+          ? alignOnRow(resumed.id, leading: resume!.top)
           // An empty thread (e.g. a task's discussion) shows its head.
           : messages.isEmpty && !bottomAnchored
           ? RaftTimelineAlignment.start
@@ -954,14 +1150,25 @@ class _RaftChatViewState extends State<RaftChatView>
                   adapter.messages.isEmpty &&
                       projected.isNotEmpty &&
                       !optimisticOnly(projected)))) {
-        if (scope != id) {
+        final enteringScope = scope != id;
+        if (enteringScope) {
           alsoCreateTask = false;
           selectionToast.clear();
         }
         scope = id;
         // A context replacement has different scroll bounds and its own
         // center; ordinary diffs and history prepends never enter here.
-        replaceContext(projected, focus: pendingAcceptedMount ? null : target);
+        replaceContext(
+          projected,
+          focus: pendingAcceptedMount ? null : target,
+          resume:
+              enteringScope &&
+                  target == null &&
+                  !pendingAcceptedMount &&
+                  id != null
+              ? w.takeReadingAnchor(id)
+              : null,
+        );
         replaced = true;
         scrolledHighlight = null;
         // Acceptance of the pending response must still enter atomic staging,
@@ -1034,10 +1241,12 @@ class _RaftChatViewState extends State<RaftChatView>
         scrolledHighlight = target;
         scrolledWindow = window;
         final position = scroll.positions.length == 1 ? scroll.position : null;
-        atBottom =
+        final bottom =
             position == null ||
             !position.hasContentDimensions ||
             distanceFromLatest(position) <= 100;
+        if (bottom != atBottom) reportBottom(bottom);
+        atBottom = bottom;
       });
       if (preserving) return;
       highlightTimer?.cancel();
@@ -1120,18 +1329,33 @@ class _RaftChatViewState extends State<RaftChatView>
   Future<void> previewDraftImage(UploadDraft draft) async {
     final zoom = TransformationController();
     late final DialogRoute<void> route;
-    route = DialogRoute<void>(
+    final imageKey = GlobalKey();
+    void close() {
+      if (route.isActive) route.navigator?.removeRoute(route);
+    }
+
+    route = RaftFullBleedDialogRoute<void>(
       context: context,
       builder: (_) => RaftAttachmentLightbox(
         title: draft.filename,
         titleBold: true,
         onResetZoom: () => zoom.value = Matrix4.identity(),
-        onClose: () {
-          if (route.isActive) route.navigator?.removeRoute(route);
-        },
-        child: InteractiveViewer(
-          transformationController: zoom,
-          child: Center(child: Image.memory(draft.bytes, fit: BoxFit.contain)),
+        onClose: close,
+        child: RaftLightboxStageTap(
+          imageKey: imageKey,
+          onClose: close,
+          child: InteractiveViewer(
+            transformationController: zoom,
+            child: Center(
+              child: RaftSizedImage.memory(
+                draft.bytes,
+                key: imageKey,
+                fit: BoxFit.contain,
+                zoom: raftZoomableImageScale,
+                evictOnDispose: true,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -1582,56 +1806,62 @@ class _RaftChatViewState extends State<RaftChatView>
     }
 
     final images = all.where(raster).toList();
-    if (images.isEmpty) return null;
+    // Web MessageItem: images, then videos, then audio (each `space-y-2`),
+    // then every other attachment as a card.
+    final videos = [
+      for (final a in all)
+        if (!raster(a) && attachmentPreviewKind(a) == 'video') a,
+    ];
+    final audios = [
+      for (final a in all)
+        if (!raster(a) && attachmentPreviewKind(a) == 'audio') a,
+    ];
+    final others = [
+      for (final a in all)
+        if (!raster(a) && !videos.contains(a) && !audios.contains(a)) a,
+    ];
+    if (images.isEmpty && videos.isEmpty && audios.isEmpty) return null;
     final pending = WorkspaceController.isPendingSend(message);
     final messageId = pending ? null : message.id;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RaftAttachmentGallery(
-          dimensions: [
-            for (final a in images)
-              (
-                width: a['width'] is num
-                    ? (a['width'] as num).toDouble()
-                    : null,
-                height: a['height'] is num
-                    ? (a['height'] as num).toDouble()
-                    : null,
-              ),
-          ],
-          itemBuilder: (index, extent, fit) => sendStateAttachment(
-            pending,
-            AttachmentView(
-              key: ValueKey('attachment-${images[index]['id']}'),
-              controller: w,
-              metadata: images[index],
-              messageId: messageId,
-              imageExtent: extent,
-              imageFit: fit,
-            ),
-          ),
-        ),
-        if (all.any((a) => !raster(a))) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final a in all.where((a) => !raster(a)))
-                sendStateAttachment(
-                  pending,
-                  AttachmentView(
-                    key: ValueKey('attachment-${a['id']}'),
-                    controller: w,
-                    metadata: a,
-                    messageId: messageId,
+    Widget view(Map<String, dynamic> a) => sendStateAttachment(
+      pending,
+      AttachmentView(
+        key: ValueKey('attachment-${a['id']}'),
+        controller: w,
+        metadata: a,
+        messageId: messageId,
+      ),
+    );
+    return RaftAttachmentStack(
+      gallery: images.isEmpty
+          ? null
+          : RaftAttachmentGallery(
+              dimensions: [
+                for (final a in images)
+                  (
+                    width: a['width'] is num
+                        ? (a['width'] as num).toDouble()
+                        : null,
+                    height: a['height'] is num
+                        ? (a['height'] as num).toDouble()
+                        : null,
                   ),
+              ],
+              itemBuilder: (index, extent, fit) => sendStateAttachment(
+                pending,
+                AttachmentView(
+                  key: ValueKey('attachment-${images[index]['id']}'),
+                  controller: w,
+                  metadata: images[index],
+                  messageId: messageId,
+                  imageExtent: extent,
+                  imageFit: fit,
                 ),
-            ],
-          ),
-        ],
-      ],
+              ),
+            ),
+      videos: [for (final a in videos) view(a)],
+      audios: [for (final a in audios) view(a)],
+      others: [for (final a in others) view(a)],
     );
   }
 
@@ -1789,24 +2019,28 @@ class _RaftChatViewState extends State<RaftChatView>
       builder: (context) => Positioned(
         left: x,
         top: y,
-        child: TapRegion(
-          onTapOutside: (_) => closeReactionPicker(),
-          child: RaftQuickReactionPicker(
-            glyphBuilder: (emoji) => RaftReactionGlyph(emoji),
-            labelBuilder: (emoji) => emoji,
-            onSelect: (emoji) {
-              closeReactionPicker();
-              react(message, emoji);
-            },
-            onDismiss: closeReactionPicker,
-            onBoundaryEnter: () => pickerCloseTimer?.cancel(),
-            onBoundaryLeave: () {
-              pickerCloseTimer?.cancel();
-              pickerCloseTimer = Timer(
-                const Duration(milliseconds: 120),
-                closeReactionPicker,
-              );
-            },
+        child: RaftBackDismiss(
+          routeContext: this.context,
+          onDismiss: closeReactionPicker,
+          child: TapRegion(
+            onTapOutside: (_) => closeReactionPicker(),
+            child: RaftQuickReactionPicker(
+              glyphBuilder: (emoji) => RaftReactionGlyph(emoji),
+              labelBuilder: (emoji) => emoji,
+              onSelect: (emoji) {
+                closeReactionPicker();
+                react(message, emoji);
+              },
+              onDismiss: closeReactionPicker,
+              onBoundaryEnter: () => pickerCloseTimer?.cancel(),
+              onBoundaryLeave: () {
+                pickerCloseTimer?.cancel();
+                pickerCloseTimer = Timer(
+                  const Duration(milliseconds: 120),
+                  closeReactionPicker,
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -1983,15 +2217,70 @@ class _RaftChatViewState extends State<RaftChatView>
             listenable: presentation.presenceOf(message.senderId),
             builder: (context, _) => avatar(),
           );
-    // Web SenderAvatar PreviewCard (profile / external identity on hover).
+    // Web SenderAvatar `<button>` + PreviewCard (profile / external identity
+    // on hover): a click opens the profile side panel.
     return compact
         ? sender
         : senderProfileHoverCard(
             controller: w,
             message: message,
             content: avatarContent,
-            child: sender,
+            child: RaftAvatarButton(
+              key: ValueKey('sender-avatar-${w.messageKey(message)}'),
+              semanticLabel: message.author,
+              onPressed: senderProfileTarget(message) == null
+                  ? null
+                  : () => openSenderProfile(message),
+              child: sender,
+            ),
+            onOpenActivity: senderIsAgent(message)
+                ? (id) => w.openProfile(
+                    RaftProfileKind.agent,
+                    id,
+                    agentTab: 'activity',
+                  )
+                : null,
           );
+  }
+
+  bool senderIsAgent(RaftMessage m) => m.string('senderType') == 'agent';
+
+  /// Web MessageItem `handleNavigateAgent` / `Human` / `External`: the kind a
+  /// sender avatar opens, or null (system rows, another server's sender).
+  RaftProfileKind? senderProfileTarget(RaftMessage m) {
+    if (m.json['sourceServerId'] != null &&
+        m.json['sourceServerId'] != w.server?.id) {
+      return null;
+    }
+    if (m.string('senderType') == 'external_projection' ||
+        m.json['externalAuthor'] is Map) {
+      return m.json['externalAuthor'] is Map ? RaftProfileKind.external : null;
+    }
+    if (m.string('senderId').isEmpty) return null;
+    return switch (m.string('senderType')) {
+      'agent' => RaftProfileKind.agent,
+      'user' => RaftProfileKind.human,
+      _ => null,
+    };
+  }
+
+  void openSenderProfile(RaftMessage m) {
+    if (selection.active) return;
+    switch (senderProfileTarget(m)) {
+      case RaftProfileKind.external:
+        w.openProfile(
+          RaftProfileKind.external,
+          m.id,
+          channelId: m.channelId,
+          externalAuthor: Map<String, dynamic>.from(
+            m.json['externalAuthor'] as Map,
+          ),
+        );
+      case final kind?:
+        w.openProfile(kind, m.string('senderId'));
+      case null:
+        break;
+    }
   }
 
   Widget? taskReference(RaftMessage message) {
@@ -2041,28 +2330,42 @@ class _RaftChatViewState extends State<RaftChatView>
       // Inactive sections are gated by the pager. Keep the painted control
       // enabled so dragging the retained Chat back into view cannot dim its
       // task labels; recheck activity at invocation for stale callbacks.
-      onOpen: () {
-        if (!presentationActive) return;
-        // Open the accepted task current at tap time; a chip built from
-        // the message's own fields waits for the channel's task rows.
-        final current = taskProjection.taskFor(message);
-        if (authority == workspaceAuthority(w) &&
-            current != null &&
-            current['id'] == task['id']) {
-          // Source MessageItem3685–3700: the footer task chip opens the
-          // independent task slot; the replies action keeps side intent.
-          if (widget.onTask case final open?) {
-            open(current, () async {
-              if (mounted && authority == workspaceAuthority(w)) {
-                taskProjection.refresh();
+      // A host without a task slot (onTask null) paints the chip disabled
+      // instead of opening something Web does not open.
+      onOpen: widget.onTask == null
+          ? null
+          : () {
+              if (!presentationActive) return;
+              // Open the accepted task current at tap time; a chip built from
+              // the message's own fields waits for the channel's task rows.
+              final current = taskProjection.taskFor(message);
+              if (authority == workspaceAuthority(w) &&
+                  current != null &&
+                  current['id'] == task['id']) {
+                // Source MessageItem3685–3700: the footer task chip opens the
+                // independent task slot; the replies action keeps side intent.
+                widget.onTask!(current, () async {
+                  if (mounted && authority == workspaceAuthority(w)) {
+                    taskProjection.refresh();
+                  }
+                });
               }
-            });
-          } else {
-            w.openThread(message);
-          }
-        }
-      },
+            },
     );
+  }
+
+  /// Web `onOpenTaskRef`: an in-body `#N` reference opens the task slot like
+  /// the footer chip. Null when the host has no task slot (the reference then
+  /// falls back to its read-only summary dialog).
+  ValueChanged<Map<String, dynamic>>? get openTaskRef {
+    final open = widget.onTask;
+    if (open == null) return null;
+    final authority = workspaceAuthority(w);
+    return (task) => open(task, () async {
+      if (mounted && authority == workspaceAuthority(w)) {
+        taskProjection.refresh();
+      }
+    });
   }
 
   /// Web AttachmentChip `isOptimistic`: dimmed and inert until the message
@@ -2086,36 +2389,114 @@ class _RaftChatViewState extends State<RaftChatView>
         fontSize: fontSize,
       );
     }
+    final quoted = quotedPermalink(m);
     final body = MessagePresentation(
       controller: w,
       message: m,
+      unavailablePermalink: quoted == null ? null : unavailableQuoted[m.id],
       content: translation.translatedContent,
       taskByNumber: taskProjection.taskByNumber,
       onExternalLink: link,
+      onOpenTask: openTaskRef,
       directoryReferences: referenceDirectory.references,
       fontSize: fontSize,
+      searchHighlight: searchActive == m.id ? boundSearch?.query : null,
     );
-    if (!translation.bilingual) return body;
+    if (!translation.bilingual) return withQuotedPreview(m, quoted, body);
+    return withQuotedPreview(
+      m,
+      quoted,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          body,
+          RaftMessageTranslationOriginal(
+            key: ValueKey('message-translation-bilingual-original-${m.id}'),
+            label: raftText(context, 'Original'),
+            child: MessagePresentation(
+              controller: w,
+              message: m,
+              taskByNumber: taskProjection.taskByNumber,
+              onExternalLink: link,
+              onOpenTask: openTaskRef,
+              directoryReferences: referenceDirectory.references,
+              fontSize: fontSize,
+              foregroundColor: RaftMessageTranslationOriginal.foreground(
+                context,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Web MessageItem: the first Raft permalink of this server in the text.
+  ({String rawUrl, RaftPermalink parsed})? quotedPermalink(RaftMessage m) {
+    if (m.json['sourceServerId'] != null &&
+        m.json['sourceServerId'] != w.server?.id) {
+      return null;
+    }
+    return extractFirstQuotedPermalink(
+      m.content,
+      hostname: ContentLinks.originFor(w.client.origin).host,
+      serverSlug: w.server?.string('slug'),
+    );
+  }
+
+  /// Raw URL of a row's permalink whose preview could not be read.
+  final Map<String, String> unavailableQuoted = {};
+
+  Widget withQuotedPreview(
+    RaftMessage m,
+    ({String rawUrl, RaftPermalink parsed})? quoted,
+    Widget body,
+  ) {
+    if (quoted == null || unavailableQuoted[m.id] == quoted.rawUrl) return body;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         body,
-        RaftMessageTranslationOriginal(
-          key: ValueKey('message-translation-bilingual-original-${m.id}'),
-          label: raftText(context, 'Original'),
-          child: MessagePresentation(
+        RaftQuotedMessageSlot(
+          child: QuotedMessagePermalinkPreview(
+            key: ValueKey('quoted-${m.id}-${quoted.rawUrl}'),
             controller: w,
-            message: m,
-            taskByNumber: taskProjection.taskByNumber,
-            onExternalLink: link,
-            directoryReferences: referenceDirectory.references,
-            fontSize: fontSize,
-            foregroundColor: RaftMessageTranslationOriginal.foreground(context),
+            permalink: quoted.parsed,
+            avatar: (target) => senderAvatar(target, compact: true),
+            subtitle: senderSubtitle,
+            formatTimestamp: quotedTimestamp(),
+            onOpen: (link) => unawaited(openRaftPermalink(w, link)),
+            onUnavailable: () {
+              // Web: the chip reads "Unavailable linked message" and the card
+              // is dropped; the row repaints after the current frame.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && unavailableQuoted[m.id] != quoted.rawUrl) {
+                  setState(() => unavailableQuoted[m.id] = quoted.rawUrl);
+                }
+              });
+            },
           ),
         ),
       ],
     );
+  }
+
+  /// Web `formatShortDateTime` in the account's zone and hour cycle.
+  String Function(DateTime) quotedTimestamp() {
+    final user = w.client.user;
+    return SourceTimeFormatter(
+      locale: Localizations.localeOf(context).toLanguageTag(),
+      preferredTimezone:
+          user?.string('preferredTimezone') ?? user?.string('timezone'),
+      preferredTimeFormat: sourceTimeFormatPreference(
+        user?.string('preferredTimeFormat') ?? user?.string('timeFormat'),
+      ),
+      systemTimeFormat: MediaQuery.alwaysUse24HourFormatOf(context)
+          ? SourceTimeFormat.twentyFourHour
+          : null,
+    ).shortDateTime;
   }
 
   /// Web MessageItem `TranslationIndicator`.
@@ -2260,7 +2641,7 @@ class _RaftChatViewState extends State<RaftChatView>
       ),
       coarsePointer: RaftDensityScope.of(context) == RaftDensity.touch,
       popupOpen: pickerMessageId == m.id || menuMessageId == m.id,
-      highlighted: w.highlightedMessageId == m.id,
+      highlighted: w.highlightedMessageId == m.id || searchActive == m.id,
       collapseLongMessages:
           (m.json['actionMetadata'] is! Map ||
               m.json['actionMetadata']['kind'] != 'action-card') &&
@@ -2349,7 +2730,12 @@ class _RaftChatViewState extends State<RaftChatView>
         message: raftFormat(
           context,
           "This Joint Channel has more than 2 free servers and becomes read-only on {deadline}. To keep it writable, one server's admin needs to upgrade, or a free server needs to leave.",
-          {'deadline': timeFormatter.mediumDateTime(ends, followPreference: false)},
+          {
+            'deadline': timeFormatter.mediumDateTime(
+              ends,
+              followPreference: false,
+            ),
+          },
         ),
       );
     }
@@ -2358,13 +2744,16 @@ class _RaftChatViewState extends State<RaftChatView>
       null || ChannelFooterKind.composer => null,
       ChannelFooterKind.archived => RaftChannelArchivedFooter(
         message: 'This channel is archived.',
-        linkLabel: w.can('archiveChannels') ? 'Unarchive' : null,
+        linkLabel:
+            w.can('archiveChannels') && widget.onOpenChannelSettings != null
+            ? 'Unarchive'
+            : null,
         onLink: widget.onOpenChannelSettings,
       ),
       ChannelFooterKind.jointLocked => RaftChannelBannerFooter(
         message:
             "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
-        linkLabel: 'View Billing',
+        linkLabel: widget.onViewBilling == null ? null : 'View Billing',
         onLink: widget.onViewBilling,
       ),
       ChannelFooterKind.guestReadOnly => const RaftChannelBannerFooter(
@@ -2401,7 +2790,7 @@ class _RaftChatViewState extends State<RaftChatView>
       return RaftChannelBannerFooter(
         message:
             "This Joint Channel is read-only because it has more than 2 free servers. It becomes writable again when one server's admin upgrades or a free server leaves.",
-        linkLabel: 'View Billing',
+        linkLabel: widget.onViewBilling == null ? null : 'View Billing',
         onLink: widget.onViewBilling,
       );
     }
@@ -2429,8 +2818,10 @@ class _RaftChatViewState extends State<RaftChatView>
           'This message is older than the {days}-day history available on the {plan} plan. Upgrade to view it.',
           {'days': limit.days, 'plan': limit.plan},
         ),
-        linkLabel: raftText(context, 'View Billing'),
-        onLink: widget.onViewBilling ?? () {},
+        linkLabel: widget.onViewBilling == null
+            ? null
+            : raftText(context, 'View Billing'),
+        onLink: widget.onViewBilling,
       );
     }
     return RaftHistoryLimitBanner(
@@ -2449,8 +2840,10 @@ class _RaftChatViewState extends State<RaftChatView>
         'Message history is limited to {days} days on the {plan} plan.',
         {'days': limit.days, 'plan': limit.plan},
       ),
-      linkLabel: raftText(context, 'View Billing'),
-      onLink: widget.onViewBilling ?? () {},
+      linkLabel: widget.onViewBilling == null
+          ? null
+          : raftText(context, 'View Billing'),
+      onLink: widget.onViewBilling,
     );
   }
 
@@ -2535,7 +2928,9 @@ class _RaftChatViewState extends State<RaftChatView>
         id: key,
         child: Padding(
           key: ValueKey('message-wrapper-$key'),
-          padding: const RaftTimelineCompositionRecipe().messageInset,
+          padding: const RaftTimelineCompositionRecipe().messageInsetFor(
+            MediaQuery.sizeOf(context).width,
+          ),
           child: RaftSystemMessageGroup(
             toggleKey: const ValueKey('system-message-group-toggle'),
             summary: systemState.summary,
@@ -2588,7 +2983,9 @@ class _RaftChatViewState extends State<RaftChatView>
             ),
           Padding(
             key: ValueKey('message-wrapper-$key'),
-            padding: const RaftTimelineCompositionRecipe().messageInset,
+            padding: const RaftTimelineCompositionRecipe().messageInsetFor(
+              MediaQuery.sizeOf(context).width,
+            ),
             child: tile(
               message,
               captureFocus: captureFocus,
@@ -2700,7 +3097,9 @@ class _RaftChatViewState extends State<RaftChatView>
     final child =
         captureFocus &&
             !parent &&
-            (m.id == w.highlightedMessageId || m.id == scrolledHighlight)
+            (m.id == w.highlightedMessageId ||
+                m.id == scrolledHighlight ||
+                m.id == searchActive)
         ? KeyedSubtree(
             key: focusAnchors.putIfAbsent(m.id, GlobalKey.new),
             child: body,
@@ -2868,6 +3267,23 @@ class _RaftChatViewState extends State<RaftChatView>
 
   @override
   Widget build(BuildContext context) {
+    final search = boundSearch;
+    if (!widget.thread || search == null) return buildView(context);
+    final apple =
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    return CallbackShortcuts(
+      // Web ThreadPanel: Cmd/Ctrl+F opens the thread search while the thread
+      // surface has focus.
+      bindings: {
+        SingleActivator(LogicalKeyboardKey.keyF, control: !apple, meta: apple):
+            search.open,
+      },
+      child: buildView(context),
+    );
+  }
+
+  Widget buildView(BuildContext context) {
     scheduleBodyPreparation(context);
     if (widget.thread &&
         w.threadChannelId == null &&
@@ -2969,10 +3385,21 @@ class _RaftChatViewState extends State<RaftChatView>
         : channelFooterWidgets();
     // Rows read breakpoint bands, not the raw window width, so a resize
     // within a band does not rebuild every mounted message.
+    final search = boundSearch;
     return RaftViewportBreakpointScope(
       child: Column(
         children: [
           RaftToastPortal(controller: selectionToast),
+          if (widget.thread && search != null && search.isOpen)
+            RaftThreadSearchBar(
+              controller: searchInput,
+              focusNode: searchFocus,
+              countLabel: search.countLabel(raftText(context, 'Loading')),
+              canStep: search.matches.isNotEmpty,
+              onChanged: search.setQuery,
+              onStep: search.step,
+              onClose: search.close,
+            ),
           Expanded(
             child: Stack(
               fit: StackFit.expand,

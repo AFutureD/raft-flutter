@@ -13,6 +13,7 @@ import '../data/workspace_controller.dart';
 import '../data/message_task_cache.dart';
 import '../data/source_task_bucket.dart';
 import '../platform/system_bars.dart';
+import 'chat_view.dart' show ChatTaskOpener;
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
 import 'mobile_workspace_pages.dart';
@@ -50,6 +51,8 @@ class WorkspaceTaskHost extends StatefulWidget {
     super.key,
     required this.controller,
     required this.childBuilder,
+    required this.onTask,
+    required this.onViewBilling,
     this.leadingExtent = 0,
     this.seed,
     this.presented = true,
@@ -57,6 +60,11 @@ class WorkspaceTaskHost extends StatefulWidget {
   final WorkspaceController controller;
   final Widget Function(double legacyDockWidth, VoidCallback? onLegacyEscape)
   childBuilder;
+
+  /// The discussion's task references and plan banner act on the host
+  /// workspace: another task replaces this one, billing leaves the modal.
+  final ChatTaskOpener? onTask;
+  final VoidCallback? onViewBilling;
   final double leadingExtent;
   final TaskSurfaceSeed? seed;
 
@@ -173,8 +181,9 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
     // full read then revalidates it in place.
     final known = seeded || legacy || knownChannel == null
         ? null
-        : MessageTaskCache.of(w.client)
-              .tasks(w, anchor.channelId)?[anchor.itemId];
+        : MessageTaskCache.of(
+            w.client,
+          ).tasks(w, anchor.channelId)?[anchor.itemId];
     final accepted = seeded
         ? seed!.row
         : known == null
@@ -307,6 +316,8 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
                     owner: task,
                     page: true,
                     onClose: back,
+                    onTask: widget.onTask,
+                    onViewBilling: widget.onViewBilling,
                     onBack: back,
                     legacyPresentation: RaftLegacyTaskPresentation.mobileModal,
                   ),
@@ -351,13 +362,19 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
                       ? widget.leadingExtent
                       : 0
                 : 0,
-            child: SafeArea(
-              child: SourceTaskSurface(
-                key: ValueKey(identity),
-                owner: task,
-                onClose: close,
-                onBack: back,
-                legacyPresentation: presentation,
+            // The modal's scrim dims the status bar band too: this overlay sits
+            // above the workspace's own host, so it hosts a transparent strip.
+            child: RaftStatusBarHost.overlay(
+              child: SafeArea(
+                child: SourceTaskSurface(
+                  key: ValueKey(identity),
+                  owner: task,
+                  onClose: close,
+                  onTask: widget.onTask,
+                  onViewBilling: widget.onViewBilling,
+                  onBack: back,
+                  legacyPresentation: presentation,
+                ),
               ),
             ),
           ),

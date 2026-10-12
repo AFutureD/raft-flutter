@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/legacy_input_previews.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'agent_surface_cascade_test.dart' as cascade;
 
@@ -52,11 +53,11 @@ void main() {
     raster.dispose();
     expect(tester.takeException(), isNull);
   });
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark Source legacy input retains default and focus shadows',
       (tester) async {

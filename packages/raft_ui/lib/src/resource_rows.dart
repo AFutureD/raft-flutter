@@ -1,3 +1,4 @@
+import 'control_typography.dart';
 import 'recipe_surface.dart';
 
 import 'package:flutter/material.dart';
@@ -241,11 +242,14 @@ class RaftResourceBadge extends StatelessWidget {
       tokens: rt,
     ).root;
     final base = root.textStyle(rt);
-    final style = base.copyWith(
-      // Badge sets no family: it inherits the host `font-display`.
-      fontFamily: base.fontFamily ?? t.headingFont,
-      fontFamilyFallback: base.fontFamilyFallback ?? const ['sans-serif'],
-      color: base.color ?? t.strong,
+    final style = RaftControlTypography.of(
+      context,
+      base.copyWith(
+        // Badge sets no family: it inherits the host `font-display`.
+        fontFamily: base.fontFamily ?? t.headingFont,
+        fontFamilyFallback: base.fontFamilyFallback ?? const ['sans-serif'],
+        color: base.color ?? t.strong,
+      ),
     );
     return Container(
       height: root.height,

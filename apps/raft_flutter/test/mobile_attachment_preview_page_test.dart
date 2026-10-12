@@ -11,6 +11,7 @@ import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_source_location_contract_test.dart' show pageFixture;
 import 'message_context_transition_test.dart' show row;
@@ -37,7 +38,11 @@ class _Client extends RaftClient {
 
 class _Files extends AttachmentFiles {
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) async =>
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) async =>
       throw StateError('Fixture image unavailable');
 }
 
@@ -50,11 +55,11 @@ class _Routes extends NavigatorObserver {
 
 void main() {
   _narrowDesktopTests();
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final dm in [false, true]) {
       testWidgets(
         'Attachment predictive back preserves message history $family/$dark DM=$dm',

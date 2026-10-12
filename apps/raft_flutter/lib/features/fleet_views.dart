@@ -58,13 +58,16 @@ Future<T?> _fleetDialog<T>(
   BuildContext context,
   WorkspaceController w,
   bool Function() authorized,
-  WidgetBuilder builder,
-) async {
+  WidgetBuilder builder, {
+  bool dismissible = false,
+}) async {
   if (!context.mounted || !authorized()) return null;
   // Web `Dialog` layer: the recipe overlay (Brutal black/65, Elegant backdrop + blur).
   final navigator = Navigator.of(context, rootNavigator: true);
   final route = RaftDialogRoute<T>(
     builder: builder,
+    // Web `DialogCard` / `ConfirmDialog`: no scrim close, Escape closes.
+    dismissible: dismissible,
     capturedThemes: InheritedTheme.capture(
       from: context,
       to: navigator.context,
@@ -110,7 +113,8 @@ Future<void> showCredential(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              detail ?? 'This credential is shown once. Store it securely before closing.',
+              detail ??
+                  'This credential is shown once. Store it securely before closing.',
             ),
             const SizedBox(height: 16),
             RaftSecretView(
@@ -332,9 +336,17 @@ class _FleetViewState extends State<FleetView> {
       return RaftMobileComputerList(
         key: const PageStorageKey('fleet-computers'),
         loading: loading,
-        error: error == null
+        // Web MobileComputersPanel: a failed first load is the load-error
+        // state; a failed refresh that kept the saved list is a banner.
+        error: error == null || rows.isNotEmpty
             ? null
             : raftText(context, 'Directory could not be loaded.'),
+        refreshError: error != null && rows.isNotEmpty
+            ? raftText(
+                context,
+                "Couldn't refresh computers. Showing saved results.",
+              )
+            : null,
         emptyTitle: raftText(
           context,
           widget.attentionOnly
@@ -532,6 +544,8 @@ class FleetDetail extends StatefulWidget {
     required this.computers,
     required this.initial,
     this.onClose,
+    this.closeAction = false,
+    this.backAlways = false,
     this.initialTab = AgentDetailTab.profile,
     this.clock,
     this.initialTrajectoryLog = const [],
@@ -550,6 +564,14 @@ class FleetDetail extends StatefulWidget {
   final bool computers;
   final Map<String, dynamic> initial;
   final VoidCallback? onClose;
+
+  /// The agent header carries a close action at md+ (Web profile overlay
+  /// `onClose`); the Agents route detail column has none.
+  final bool closeAction;
+
+  /// The agent header keeps its Back at md+ too (a Search / Activity content
+  /// slot: Web `backButtonVisibility="always"`).
+  final bool backAlways;
 
   /// Web `?agentTab=` deep link (agents only).
   final AgentDetailTab initialTab;
@@ -864,6 +886,8 @@ class _FleetDetailState extends State<FleetDetail> {
           await load();
         },
       ),
+      // Web `Dialog`: an outside press runs `requestClose`.
+      dismissible: true,
     );
   }
 
@@ -1002,18 +1026,22 @@ class _FleetDetailState extends State<FleetDetail> {
         : 'issueAgentCredentials';
     require(cap);
     if (widget.computers) {
-      await confirm('Rotate computer key?', 'The old key will stop working. Reconnect this computer using the new key.', () async {
-        require(cap);
-        final result = await w.command('POST', '$base/rotate-key');
-        if (mounted && allowed(cap)) {
-          await showCredential(
-            context,
-            result['apiKey'],
-            controller: w,
-            authorized: () => allowed(cap),
-          );
-        }
-      });
+      await confirm(
+        'Rotate computer key?',
+        'The old key will stop working. Reconnect this computer using the new key.',
+        () async {
+          require(cap);
+          final result = await w.command('POST', '$base/rotate-key');
+          if (mounted && allowed(cap)) {
+            await showCredential(
+              context,
+              result['apiKey'],
+              controller: w,
+              authorized: () => allowed(cap),
+            );
+          }
+        },
+      );
     } else {
       final result = await w.command(
         'POST',
@@ -1195,7 +1223,9 @@ class _FleetDetailState extends State<FleetDetail> {
     final route = DialogRoute<void>(
       context: context,
       barrierColor: overlay.backgroundColor?.resolve(rt),
-      barrierDismissible: false,
+      // Web `Dialog`: an outside press runs `requestClose` (the PopScope in
+      // the dialog asks before discarding a staged change).
+      barrierDismissible: true,
       builder: (_) => AgentAvatarDialog(
         controller: w,
         agent: row,
@@ -1237,6 +1267,8 @@ class _FleetDetailState extends State<FleetDetail> {
     actions: AgentDetailActions(
       onEditAvatar: busy ? null : editAvatar,
       onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),
+      onClose: widget.closeAction ? widget.onClose : null,
+      backAlways: widget.backAlways,
       onEditName: busy ? null : () => editField('displayName'),
       onEditDescription: busy ? null : () => editField('description'),
       onEditRole: busy ? null : () => editField('role'),

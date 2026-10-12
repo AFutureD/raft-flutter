@@ -1,7 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'anchored_popup.dart';
 import 'dialog_card.dart';
+import 'dismiss_scope.dart';
+import 'emoji_picker.dart';
 import 'form_controls.dart';
+import 'popover_surface.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
@@ -39,6 +46,8 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
   late final controller = TextEditingController(text: widget.initialName)
     ..addListener(() => setState(() {}));
   late String emoji = widget.initialEmoji;
+  final emojiAnchor = GlobalKey(debugLabel: 'section-emoji-trigger');
+  final emojiPortal = OverlayPortalController();
 
   @override
   void dispose() {
@@ -51,6 +60,62 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
     if (name.isEmpty) return;
     final e = emoji.trim();
     widget.onSubmit(name, e.isEmpty ? null : e);
+  }
+
+  void chooseEmoji(String value) {
+    setState(() {
+      emoji = value;
+      emojiPortal.hide();
+    });
+  }
+
+  /// SidebarSectionEmojiPicker `PopoverContent align="start" p-0 z-[70]`: an
+  /// optional "No emoji" row, then the picker (`width: min(340px, 100vw - 48px)`,
+  /// `height: 360`), anchored below the trigger.
+  Widget emojiPopover(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final width = math.min(340.0, MediaQuery.sizeOf(context).width - 48);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => setState(emojiPortal.hide),
+          ),
+        ),
+        RaftAnchoredPopup(
+          anchorKey: emojiAnchor,
+          gap: 4,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.escape): () =>
+                  setState(emojiPortal.hide),
+            },
+            child: Semantics(
+              label: raftText(context, 'Choose section emoji'),
+              container: true,
+              child: SizedBox(
+                width: width,
+                child: RaftPopoverSurface(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (emoji.isNotEmpty)
+                        _NoEmojiRow(onPressed: () => chooseEmoji('')),
+                      RaftEmojiPicker(
+                        width: width - (t.brutal ? 4 : 0),
+                        onEmojiClick: chooseEmoji,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -114,10 +179,24 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
             hintText: raftText(context, 'My Project'),
             semanticLabel: raftText(context, 'Name'),
             onSubmitted: (_) => submit(),
-            leading: _EmojiButton(
-              key: widget.emojiButtonKey,
-              emoji: emoji,
-              onPressed: null,
+            leading: OverlayPortal(
+              controller: emojiPortal,
+              overlayChildBuilder: raftBackDismissed(
+                () => setState(emojiPortal.hide),
+                emojiPopover,
+              ),
+              child: KeyedSubtree(
+                key: emojiAnchor,
+                // The open popover keeps the trigger out of hover.
+                child: IgnorePointer(
+                  ignoring: emojiPortal.isShowing,
+                  child: _EmojiButton(
+                    key: widget.emojiButtonKey ?? sectionEmojiButtonKey,
+                    emoji: emoji,
+                    onPressed: () => setState(emojiPortal.toggle),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -151,6 +230,65 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Key of the section dialog's emoji trigger (the `Choose section emoji` button).
+const sectionEmojiButtonKey = ValueKey('sidebar-section-emoji');
+
+/// `flex h-9 w-full items-center justify-center gap-2 border-b border-line-muted
+/// bg-layer-panel px-3 text-xs font-bold hover:bg-fill-muted` clearing the emoji.
+class _NoEmojiRow extends StatefulWidget {
+  const _NoEmojiRow({required this.onPressed});
+  final VoidCallback onPressed;
+  @override
+  State<_NoEmojiRow> createState() => _NoEmojiRowState();
+}
+
+class _NoEmojiRowState extends State<_NoEmojiRow> {
+  bool hovered = false;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Semantics(
+      button: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => hovered = true),
+        onExit: (_) => setState(() => hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: Container(
+            key: const ValueKey('section-no-emoji'),
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: hovered ? t.colors['fill-muted'] : t.panel,
+              border: Border(
+                bottom: BorderSide(color: t.colors['line-muted']!),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                RaftIcon(RaftGlyph.x, size: 14, color: t.strong),
+                const SizedBox(width: 8),
+                Text(
+                  raftText(context, 'No emoji'),
+                  style: raftCssTextStyle(
+                    family: t.headingFont,
+                    step: RaftTextSteps.xs,
+                    weight: FontWeight.w700,
+                    color: t.strong,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -193,22 +331,24 @@ Future<void> showRaftSidebarSectionDialog(
   transitionDuration: Duration.zero,
   pageBuilder: (dialogContext, _, _) {
     void close() => Navigator.of(dialogContext).pop();
-    return Material(
-      type: MaterialType.transparency,
-      child: RaftModalBackdrop(
-        onBackdrop: close,
-        child: KeyedSubtree(
-          key: cardKey,
-          child: RaftSidebarSectionDialog(
-            title: title,
-            submitLabel: submitLabel,
-            initialName: initialName,
-            initialEmoji: initialEmoji,
-            onClose: close,
-            onSubmit: (name, emoji) {
-              close();
-              onSubmit(name, emoji);
-            },
+    return RaftDismissScope(
+      child: Material(
+        type: MaterialType.transparency,
+        child: RaftModalBackdrop(
+          onBackdrop: close,
+          child: KeyedSubtree(
+            key: cardKey,
+            child: RaftSidebarSectionDialog(
+              title: title,
+              submitLabel: submitLabel,
+              initialName: initialName,
+              initialEmoji: initialEmoji,
+              onClose: close,
+              onSubmit: (name, emoji) {
+                close();
+                onSubmit(name, emoji);
+              },
+            ),
           ),
         ),
       ),

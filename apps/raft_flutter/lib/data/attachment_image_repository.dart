@@ -9,8 +9,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'attachment_image_store.dart';
+import 'attachment_transfer.dart';
 
 export 'attachment_image_store.dart';
+export 'attachment_transfer.dart';
 
 /// No capability URL, bearer credential or disk path is retained in this identity.
 class AttachmentImageScope {
@@ -201,11 +203,10 @@ class DecodedAttachmentImage {
 }
 
 typedef AttachmentImageLoader = Future<Uint8List> Function(CancelToken cancel);
-typedef AttachmentImageDecoder =
-    Future<DecodedAttachmentImage> Function(
-      Uint8List bytes,
-      AttachmentDecodeTarget? target,
-    );
+typedef AttachmentImageDecoder = Future<DecodedAttachmentImage> Function(
+  Uint8List bytes,
+  AttachmentDecodeTarget? target,
+);
 
 /// Returns its owner-held completer even after Flutter's global LRU evicts its
 /// key. Keeping bytes or a MemoryImage alone would not prevent a new codec.
@@ -327,6 +328,16 @@ Future<DecodedAttachmentImage> decodeAttachmentImage(
     descriptor?.dispose();
     buffer.dispose();
   }
+  return _decodeAnimatedAttachmentImage(bytes, width, height);
+}
+
+/// Animated images keep their encoded bytes; kept out of [decodeAttachmentImage]
+/// so the still-image path's closures do not share a Context with `bytes`.
+Future<DecodedAttachmentImage> _decodeAnimatedAttachmentImage(
+  Uint8List bytes,
+  int width,
+  int height,
+) {
   final source = AttachmentMemoryImage(bytes);
   final provider = ResizeImage(
     source,
@@ -391,6 +402,12 @@ class AttachmentImageLease {
   /// True once the image was served from the persistent store (no network).
   bool get fromStore => _entry.fromStore;
 
+  /// Bytes of the network fetch behind this image, throttled. Null until the
+  /// entry goes to the network (it stays null for queued work and disk-cache
+  /// hits), so a cached image never shows a bar. Entries sharing one source
+  /// (list preview and lightbox) see the same numbers from one download.
+  ValueListenable<AttachmentTransferProgress?> get progress => _entry.transfer;
+
   void release() {
     if (_released) return;
     _released = true;
@@ -421,20 +438,35 @@ class _ImageEntry {
   final CancelToken cancel = CancelToken();
   final ready = Completer<DecodedAttachmentImage>();
   final Set<AttachmentImageLease> leases = {};
+
+  /// Mirror of the joined fetch's progress for this entry's consumers.
+  final transfer = ValueNotifier<AttachmentTransferProgress?>(null);
   DecodedAttachmentImage? value;
   _SourceFetch? fetch;
 
   /// The token handed to this entry's network loader; cancelled on drop.
   CancelToken? fetchCancel;
   bool retired = false, fromStore = false;
+
+  /// Requested by an explicit open rather than background list work.
+  bool foreground = false;
 }
 
 /// One network fetch of a source shared by every decode of it (list preview
 /// and lightbox). Cancelled once no waiting entry remains.
 class _SourceFetch {
-  _SourceFetch(this.key);
+  _SourceFetch(this.key) {
+    // One throttled sink per download, fanned out to every waiting entry.
+    cancel = AttachmentFetchToken(transfer.report);
+    transfer.addListener(() {
+      for (final waiter in waiters) {
+        waiter.transfer.value = transfer.value;
+      }
+    });
+  }
   final AttachmentImageKey key;
-  final CancelToken cancel = CancelToken();
+  final AttachmentTransfer transfer = AttachmentTransfer();
+  late final AttachmentFetchToken cancel;
   final Set<_ImageEntry> waiters = {};
   late final Future<Uint8List> bytes;
   bool persisted = false;
@@ -455,6 +487,7 @@ class AttachmentImageRepository {
     this.maxEncodedBytes = 64 * 1024 * 1024,
     this.maxDecodedBytes = 96 * 1024 * 1024,
     this.maxConcurrentLoads = 4,
+    this.foregroundExtra = 2,
   }) : _decoder =
            decoder ??
            ((bytes, target) => decodeAttachmentImage(
@@ -477,6 +510,9 @@ class AttachmentImageRepository {
   /// pass [canRead] and an active lease, written only after a good decode.
   final AttachmentImageByteStore? store;
   final int maxEntries, maxEncodedBytes, maxDecodedBytes, maxConcurrentLoads;
+
+  /// Extra concurrent loads granted to foreground (explicitly opened) images.
+  final int foregroundExtra;
   final LinkedHashMap<AttachmentImageKey, _ImageEntry> _entries =
       LinkedHashMap();
   final Map<AttachmentImageKey, _SourceFetch> _fetches = {};
@@ -510,6 +546,7 @@ class AttachmentImageRepository {
     AttachmentImageKey key, {
     required AttachmentImageLoader load,
     required bool Function() authorized,
+    bool foreground = false,
   }) {
     if (!canRead(key) || !authorized()) throw const StaleAttachmentImage();
     // A same attachment/message slot with a changed projected revision retires
@@ -533,9 +570,19 @@ class AttachmentImageRepository {
       _makeRoom(entries: 1);
       e = _ImageEntry(key, load);
       _entries[key] = e;
-      _queue.add(e);
+      if (foreground) {
+        e.foreground = true;
+        _queue.addFirst(e);
+      } else {
+        _queue.add(e);
+      }
     } else {
       _entries[key] = e;
+      // An explicit open outranks background list work still waiting.
+      if (foreground && !e.foreground && _queue.remove(e)) {
+        e.foreground = true;
+        _queue.addFirst(e);
+      }
     }
     final lease = AttachmentImageLease._(this, e, authorized);
     e.leases.add(lease);
@@ -575,7 +622,13 @@ class AttachmentImageRepository {
   }
 
   void _pump() {
-    while (!_disposed && _running < maxConcurrentLoads && _queue.isNotEmpty) {
+    while (!_disposed && _queue.isNotEmpty) {
+      // A user-opened image does not wait behind list thumbnails: it may use
+      // [foregroundExtra] slots beyond the background limit.
+      final limit = _queue.first.foreground
+          ? maxConcurrentLoads + foregroundExtra
+          : maxConcurrentLoads;
+      if (_running >= limit) break;
       final e = _queue.removeFirst();
       if (!_live(e) || !e.leases.any((lease) => lease.active)) {
         _drop(e);
@@ -613,9 +666,15 @@ class AttachmentImageRepository {
         fetch = _join(e);
         try {
           bytes = await fetch.bytes;
+          // Complete: hold the bar full while decoding; a loader that never
+          // reported has nothing to show.
+          e.transfer.value = fetch.transfer.value == null
+              ? null
+              : AttachmentTransferProgress(bytes.length, bytes.length);
         } finally {
           fetch.waiters.remove(e);
           e.fetch = null;
+          e.fetchCancel = null;
         }
       }
       e.load = null; // Idle cached bytes do not retain a retired row callback.
@@ -661,12 +720,17 @@ class AttachmentImageRepository {
       final next = fetch = _SourceFetch(source);
       _fetches[source] = next;
       next.bytes = loader(next.cancel).whenComplete(() {
+        next.transfer
+          ..flush()
+          ..close();
         if (identical(_fetches[source], next)) _fetches.remove(source);
       });
       // Abandoned fetches may fail after every waiter left.
       unawaited(next.bytes.then<void>((_) {}, onError: (Object _) {}));
     }
     fetch.waiters.add(e);
+    e.transfer.value =
+        fetch.transfer.value ?? AttachmentTransferProgress.connecting;
     e.fetch = fetch;
     e.fetchCancel = fetch.cancel;
     return fetch;

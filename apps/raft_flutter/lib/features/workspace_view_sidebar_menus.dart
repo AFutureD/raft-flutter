@@ -305,7 +305,15 @@ extension _SidebarContextMenus on _WorkspaceViewState {
     final update = _patchOrder({
       'hiddenDmIds': [...hidden, id],
     });
-    if (open && wide) dismissPanel();
+    if (open) {
+      // Sidebar.tsx closeDm `navigate('/s/<slug>')`: wide layouts close the
+      // detail pane, a phone returns to the Home list.
+      if (wide) {
+        dismissPanel();
+      } else {
+        select('home');
+      }
+    }
     await update;
   }
 
@@ -547,9 +555,8 @@ extension _SidebarContextMenus on _WorkspaceViewState {
     // pinned or placed as an agent, else its DM channel.
     final movable =
         pinned ||
-            _maps(
-              _order['sectionPlacements'],
-            ).any((p) => _samePlacement(p, 'agent', id)) ||
+            _maps(_order['sectionPlacements'])
+                .any((p) => _samePlacement(p, 'agent', id)) ||
             dm == null
         ? ('agent', id)
         : ('channel', dm.id);
@@ -610,7 +617,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
             'Create Joint Channel',
             RaftGlyph.gitBranch,
             close,
-            () => select('joint-channels'),
+            createJointChannel,
           ),
           const RaftSidebarMenuDivider(),
         ],
@@ -709,7 +716,7 @@ extension _SidebarContextMenus on _WorkspaceViewState {
           'Create Joint Channel',
           RaftGlyph.gitBranch,
           close,
-          () => select('joint-channels'),
+          createJointChannel,
         ),
       if (w.can('editServerSettings') || w.can('federateChannels'))
         const RaftSidebarMenuDivider(),

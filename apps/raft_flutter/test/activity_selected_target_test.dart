@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/desktop_navigation_policy.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'activity_incremental_refresh_test.dart'
     show ActivityClient, ActivityWorkspace, activityFixture, channelRow;
@@ -10,11 +11,11 @@ import 'activity_incremental_refresh_test.dart'
 /// Which Activity row the open preview target selects: identity is the
 /// content id (thread channel / channel), not the focused message.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     late ActivityClient client;
     late ActivityWorkspace w;
     setUp(() {

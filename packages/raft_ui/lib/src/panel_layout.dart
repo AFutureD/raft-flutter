@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/rendering.dart';
 
+import 'control_typography.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
 import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
@@ -702,7 +703,12 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
                             color: iconColor,
                           ),
                       const SizedBox(width: 6),
-                      RaftCssText(tab.label, style: label, maxLines: 1),
+                      RaftCssText(
+                        tab.label,
+                        style: label,
+                        maxLines: 1,
+                        controlLabel: true,
+                      ),
                     ],
                   ),
                 ),
@@ -798,7 +804,12 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
                       color: iconColor,
                     ),
                 SizedBox(width: s.columnGap ?? s.length('gap') ?? 6),
-                RaftCssText(tab.label, style: label, maxLines: 1),
+                RaftCssText(
+                  tab.label,
+                  style: label,
+                  maxLines: 1,
+                  controlLabel: true,
+                ),
               ],
             ),
           ),
@@ -985,6 +996,7 @@ class RaftCssText extends StatelessWidget {
     this.textAlign,
     this.softWrap,
     this.strutStyle,
+    this.controlLabel = false,
   }) : span = null;
 
   const RaftCssText.rich(
@@ -996,6 +1008,7 @@ class RaftCssText extends StatelessWidget {
     this.textAlign,
     this.softWrap,
     this.strutStyle,
+    this.controlLabel = false,
   }) : data = null;
 
   final String? data;
@@ -1007,8 +1020,20 @@ class RaftCssText extends StatelessWidget {
   final bool? softWrap;
   final StrutStyle? strutStyle;
 
+  /// A single-line control label: on Android + Chinese it takes
+  /// [RaftControlTypography], and its optical line box replaces the CSS
+  /// baseline snap (which would undo the correction).
+  final bool controlLabel;
+
   @override
   Widget build(BuildContext context) {
+    var style = this.style;
+    if (controlLabel && RaftControlTypography.appliesIn(context)) {
+      style = RaftControlTypography.of(
+        context,
+        DefaultTextStyle.of(context).style.merge(style),
+      );
+    }
     final effective = DefaultTextStyle.of(context).style.merge(style);
     final text = span == null
         ? Text(
@@ -1120,6 +1145,11 @@ class _RenderCssLineBox extends RenderProxyBox {
 
   _BlinkMetrics get _metrics => _BlinkMetrics.of(_style, _textScaler);
 
+  /// A control label on the Android Chinese profile keeps Flutter's own
+  /// proportional baseline: the Blink even-leading baseline (and its snap)
+  /// would move the ink back to where the font draws it too high.
+  bool get _optical => RaftControlTypography.isControlStyle(_style);
+
   int get _lines {
     final c = child;
     if (c == null || !c.hasSize) return 1;
@@ -1145,15 +1175,18 @@ class _RenderCssLineBox extends RenderProxyBox {
 
   @override
   double? computeDistanceToActualBaseline(TextBaseline baseline) =>
-      _metrics.baseline;
+      _optical ? child?.getDistanceToBaseline(baseline) : _metrics.baseline;
 
   @override
   double? computeDryBaseline(
     BoxConstraints constraints,
     TextBaseline baseline,
-  ) => _metrics.baseline;
+  ) => _optical
+      ? child?.getDryBaseline(constraints.loosen(), baseline)
+      : _metrics.baseline;
 
   double get _shift {
+    if (_optical) return 0;
     final flutter = _flutterBaseline;
     final top = _laidOutGlobalTop(this);
     // Kept-alive sliver children can paint their own repaint boundary while

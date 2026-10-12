@@ -91,15 +91,12 @@ class SourceChannelFilesActions {
     bool download = false,
   }) async {
     if (!current(file)) return null;
-    final data = await controller.client.get(
-      '/attachments/${Uri.encodeComponent(file.id)}/url',
-      query: download ? {'disposition': 'attachment'} : null,
+    final value = await controller.attachmentUrl(
+      file.id,
+      disposition: download ? 'attachment' : null,
+      channelId: file.channelId,
     );
     if (!current(file)) return null;
-    if (data is! Map || data['url'] is! String) {
-      throw const FormatException('Invalid attachment response.');
-    }
-    final value = data['url'] as String;
     AttachmentFiles.attachmentUri(value); // HTTP(S), no user-info.
     return value; // Capability is confined to the active action.
   }
@@ -170,7 +167,7 @@ class SourceChannelFilesActions {
         }
         if (!current(file)) return;
         late DialogRoute<void> route;
-        route = DialogRoute<void>(
+        route = RaftFullBleedDialogRoute<void>(
           context: context(),
           builder: (_) => html
               ? HtmlAttachmentPreviewDialog(
@@ -206,7 +203,8 @@ class SourceChannelFilesActions {
           try {
             if (!current(file)) return;
             late DialogRoute<void> route;
-            route = DialogRoute<void>(
+            final imageKey = GlobalKey();
+            route = RaftFullBleedDialogRoute<void>(
               context: context(),
               builder: (_) => RaftAttachmentLightbox(
                 title: file.filename,
@@ -217,9 +215,17 @@ class SourceChannelFilesActions {
                   glyph: RaftGlyph.download,
                   onPressed: () => download(file),
                 ),
-                child: Center(
-                  child: InteractiveViewer(
-                    child: Image(image: lease.provider, fit: BoxFit.contain),
+                child: RaftLightboxStageTap(
+                  imageKey: imageKey,
+                  onClose: () => _close(route),
+                  child: Center(
+                    child: InteractiveViewer(
+                      child: Image(
+                        image: lease.provider,
+                        key: imageKey,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -233,7 +239,6 @@ class SourceChannelFilesActions {
         final cancel = CancelToken();
         _transfers[cancel] = file;
         Uint8List? image;
-        MemoryImage? provider;
         try {
           final url = svgRaster
               ? file.metadata['thumbnailUrl'] as String
@@ -245,9 +250,10 @@ class SourceChannelFilesActions {
               image.length > 50 * 1024 * 1024) {
             return;
           }
-          provider = MemoryImage(image);
+          final bytes = image;
           late DialogRoute<void> route;
-          route = DialogRoute<void>(
+          final imageKey = GlobalKey();
+          route = RaftFullBleedDialogRoute<void>(
             context: context(),
             builder: (_) => RaftAttachmentLightbox(
               title: file.filename,
@@ -258,15 +264,22 @@ class SourceChannelFilesActions {
                 glyph: RaftGlyph.download,
                 onPressed: () => download(file),
               ),
-              child: Center(
-                child: InteractiveViewer(
-                  child: Image(
-                    image: provider!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => Text(
-                      raftText(
-                        context(),
-                        'Preview unavailable. Download the original file.',
+              child: RaftLightboxStageTap(
+                imageKey: imageKey,
+                onClose: () => _close(route),
+                child: Center(
+                  child: InteractiveViewer(
+                    child: RaftSizedImage.memory(
+                      bytes,
+                      key: imageKey,
+                      fit: BoxFit.contain,
+                      zoom: raftZoomableImageScale,
+                      evictOnDispose: true,
+                      errorBuilder: (_, _, _) => Text(
+                        raftText(
+                          context(),
+                          'Preview unavailable. Download the original file.',
+                        ),
                       ),
                     ),
                   ),
@@ -277,7 +290,7 @@ class SourceChannelFilesActions {
           await _show(route, file);
         } finally {
           _transfers.remove(cancel);
-          if (provider != null) await provider.evict();
+          if (image != null) await raftEvictMemoryImage(image);
           image = null;
         }
         return;

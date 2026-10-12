@@ -1,3 +1,4 @@
+import '../data/navigation_registry.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
 import '../data/workspace_navigation.dart';
@@ -52,11 +53,49 @@ class DesktopNavigationPolicy {
       DesktopSidebarKind.settings,
     ),
     // Saved belongs to the regular Chat rail; it is not a classic rail mode.
-    _ => const DesktopNavigationPolicy._(
+    'home' || 'chat' || 'saved' => const DesktopNavigationPolicy._(
       'chat',
       DesktopSidebarKind.conversation,
     ),
+    _ => _unregistered(section),
   };
+
+  /// Which location-driven side panels (`?thread=`, `?profile=`) a route hosts
+  /// beside its content. Every message timeline writes these queries (reply
+  /// card, avatar, @mention); a host that does not render the panel turns the
+  /// tap into a silent no-op, so the workspace derives its slots only from this
+  /// table and `test/tap_target_matrix_test.dart` taps each container.
+  ///
+  /// Web `RightPanel`: chat routes host both; the Activity / Search content
+  /// routes host the Thread panel in column 4 beside a channel / DM detail
+  /// (a thread detail IS column 3 and never gets a second one) and the Profile
+  /// panel beside any detail. Other routes host neither.
+  static ({bool thread, bool profile}) sidePanels({
+    required String route,
+    required bool wide,
+    required RaftLocation location,
+    DesktopContentKind? target,
+  }) {
+    final chat = route == 'chat' || route == 'home';
+    final content = wide && (route == 'activity' || route == 'search');
+    final threadIsDetail = wide && target == DesktopContentKind.thread;
+    return (
+      thread:
+          location.thread != null &&
+          !threadIsDetail &&
+          (route == 'chat' || content && target != null),
+      profile: location.profile != null && (chat || content),
+    );
+  }
+
+  /// A section with no rail mode would silently show the Chat rail.
+  static DesktopNavigationPolicy _unregistered(String section) {
+    NavigationRegistry.reportFallback('desktop rail mode', section);
+    return const DesktopNavigationPolicy._(
+      'chat',
+      DesktopSidebarKind.conversation,
+    );
+  }
 }
 
 /// Identifiers only. Private entity payloads remain owned by authorized loaders.

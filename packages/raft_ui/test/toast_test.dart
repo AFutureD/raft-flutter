@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/src/recipes/toast_styles.g.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('$family/$dark title-only source recipe and bounded portal', (
       t,
     ) async {
@@ -36,7 +37,7 @@ void main() {
       );
       focus.requestFocus();
       await t.pump();
-      controller.show('Copied');
+      controller.show('Copied', dismissible: false);
       await t.pump();
       expect(
         focus.hasFocus,
@@ -125,4 +126,40 @@ void main() {
       await mouse.removePointer();
     },
   );
+
+  testWidgets('a dismissible toast shows the icon and a close that clears it', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(320, 720);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final controller = RaftToastController();
+    addTearDown(controller.dispose);
+    var undone = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: Scaffold(body: RaftToastPortal(controller: controller)),
+      ),
+    );
+    controller.show('Removed', actionLabel: 'Undo', onAction: () => undone++);
+    await t.pump();
+    expect(find.byKey(const Key('toast-close')), findsOneWidget);
+    expect(find.byKey(const Key('toast-action')), findsOneWidget);
+    expect(t.getRect(find.byType(RaftToast)).right, lessThanOrEqualTo(304));
+    await t.tap(find.byKey(const Key('toast-action')));
+    await t.pump();
+    expect(undone, 1);
+    expect(find.byType(RaftToast), findsNothing);
+    controller.show('Saved');
+    await t.pump();
+    await t.tap(find.byKey(const Key('toast-close')));
+    await t.pump();
+    expect(find.byType(RaftToast), findsNothing);
+    controller.show('Copied', dismissible: false);
+    await t.pump();
+    expect(find.byKey(const Key('toast-close')), findsNothing);
+    controller.clear();
+  });
 }

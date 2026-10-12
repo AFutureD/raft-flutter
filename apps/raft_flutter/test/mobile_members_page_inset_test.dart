@@ -19,83 +19,96 @@ void main() {
   for (final (family, dark) in [
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
+    (RaftFamily.elegant, true),
   ]) {
-    testWidgets('members page clears the gesture bar $family/$dark', (t) async {
-      t.view.physicalSize = const Size(1081, 2402);
-      t.view.devicePixelRatio = _dpr;
-      t.view.viewPadding = const FakeViewPadding(top: 100, bottom: _gesturePx);
-      t.view.padding = const FakeViewPadding(top: 100, bottom: _gesturePx);
-      addTearDown(() {
-        t.view.reset();
-        t.view.resetPadding();
-        t.view.resetViewPadding();
-      });
-      final (w, api) = await settingsFixture(t);
-      w.channel = RaftChannel({
-        ...w.channel!.json,
-        'channelCapabilities': {
-          ...w.channel!.json['channelCapabilities'] as Map,
-          'addChannelMembers': true,
-        },
-      });
-      w.channels = [w.channel!];
-      api.routes['GET /channels'] = (_) => [w.channel!.json];
-      api.routes['GET /agents'] = (_) => [];
-      api.routes['GET /servers/s1/members'] = (_) => [
-        {'userId': 'alice', 'name': 'Alice'},
-        {'userId': 'bob', 'name': 'Bob'},
-      ];
-      await t.pumpWidget(
-        MaterialApp(
-          theme: raftTheme(family, dark: dark),
-          navigatorObservers: [PrivateRouteGuard()],
-          home: WorkspaceView(
-            controller: w,
-            appearance: RaftAppearance(light: family),
-            onAppearance: (_) async {},
-            onLogout: () async {},
+    testWidgets(
+      'members page clears the gesture bar $family/$dark',
+      (t) async {
+        t.view.physicalSize = const Size(1081, 2402);
+        t.view.devicePixelRatio = _dpr;
+        t.view.viewPadding = const FakeViewPadding(
+          top: 100,
+          bottom: _gesturePx,
+        );
+        t.view.padding = const FakeViewPadding(top: 100, bottom: _gesturePx);
+        addTearDown(() {
+          t.view.reset();
+          t.view.resetPadding();
+          t.view.resetViewPadding();
+        });
+        final (w, api) = await settingsFixture(t);
+        w.channel = RaftChannel({
+          ...w.channel!.json,
+          'channelCapabilities': {
+            ...w.channel!.json['channelCapabilities'] as Map,
+            'addChannelMembers': true,
+          },
+        });
+        w.channels = [w.channel!];
+        api.routes['GET /channels'] = (_) => [w.channel!.json];
+        api.routes['GET /agents'] = (_) => [];
+        api.routes['GET /servers/s1/members'] = (_) => [
+          {'userId': 'alice', 'name': 'Alice'},
+          {'userId': 'bob', 'name': 'Bob'},
+        ];
+        await t.pumpWidget(
+          MaterialApp(
+            theme: raftTheme(family, dark: dark),
+            navigatorObservers: [PrivateRouteGuard()],
+            home: WorkspaceView(
+              controller: w,
+              appearance: RaftAppearance(light: family),
+              onAppearance: (_) async {},
+              onLogout: () async {},
+            ),
           ),
-        ),
-      );
-      await flush(t);
-      await t.pumpAndSettle();
-      await t.tap(find.byTooltip('Channel details and settings'));
-      await flush(t);
-      await t.pumpAndSettle();
-      await t.tap(find.byKey(const ValueKey('channel-overflow-members-entry')));
-      await flush(t);
-      await t.pumpAndSettle();
-      expect(find.byType(ChannelMembers), findsOneWidget);
+        );
+        await flush(t);
+        await t.pumpAndSettle();
+        await t.tap(find.byTooltip('Channel details and settings'));
+        await flush(t);
+        await t.pumpAndSettle();
+        await t.tap(
+          find.byKey(const ValueKey('channel-overflow-members-entry')),
+        );
+        await flush(t);
+        await t.pumpAndSettle();
+        expect(find.byType(ChannelMembers), findsOneWidget);
 
-      final screenH = t.view.physicalSize.height / _dpr;
-      final inset = _gesturePx / _dpr;
-      // p-3 footer around the button: the button must end `12 + inset` above
-      // the screen bottom, i.e. fully above the gesture pill.
-      double bottomGap(String key) =>
-          screenH - t.getRect(find.byKey(ValueKey(key))).bottom;
-      expect(
-        bottomGap('add-member-open'),
-        greaterThanOrEqualTo(12 + inset - .5),
-        reason: 'Add member button sits under the gesture bar',
-      );
-      // The footer's own background and rule still reach the screen edge.
-      final footer = find.ancestor(
-        of: find.byKey(const ValueKey('add-member-open')),
-        matching: find.byType(Container),
-      );
-      expect(
-        t.getRect(footer.first).bottom,
-        closeTo(screenH, .5),
-        reason: 'footer must paint to the screen bottom',
-      );
+        final screenH = t.view.physicalSize.height / _dpr;
+        final inset = _gesturePx / _dpr;
+        // p-3 footer around the button: the button must end `12 + inset` above
+        // the screen bottom, i.e. fully above the gesture pill.
+        double bottomGap(String key) =>
+            screenH - t.getRect(find.byKey(ValueKey(key))).bottom;
+        expect(
+          bottomGap('add-member-open'),
+          greaterThanOrEqualTo(12 + inset - .5),
+          reason: 'Add member button sits under the gesture bar',
+        );
+        // The footer's own background and rule still reach the screen edge.
+        final footer = find.ancestor(
+          of: find.byKey(const ValueKey('add-member-open')),
+          matching: find.byType(Container),
+        );
+        expect(
+          t.getRect(footer.first).bottom,
+          closeTo(screenH, .5),
+          reason: 'footer must paint to the screen bottom',
+        );
 
-      await t.tap(find.byKey(const ValueKey('add-member-open')));
-      await t.pumpAndSettle();
-      expect(
-        bottomGap('add-member-confirm'),
-        greaterThanOrEqualTo(12 + inset - .5),
-        reason: 'Add selected button sits under the gesture bar',
-      );
-    });
+        await t.tap(find.byKey(const ValueKey('add-member-open')));
+        await t.pumpAndSettle();
+        expect(
+          bottomGap('add-member-confirm'),
+          greaterThanOrEqualTo(12 + inset - .5),
+          reason: 'Add selected button sits under the gesture bar',
+        );
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
   }
 }

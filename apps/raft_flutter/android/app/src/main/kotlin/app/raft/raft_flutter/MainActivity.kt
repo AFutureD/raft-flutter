@@ -14,6 +14,9 @@ import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import java.io.File
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : FlutterActivity() {
     private var shareReceiverReady = false
@@ -23,6 +26,11 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         prepareSharedUris(intent)
         super.onCreate(savedInstanceState)
+        // Flutter switches to NormalTheme before first paint. Give the window
+        // the stored theme's canvas for that startup interval, and persist the
+        // splash theme (stored appearance + enabled icon) for the next launch.
+        window.setBackgroundDrawable(LaunchTheme.background(this))
+        LaunchTheme.apply(this)
         consumeShare(intent)
     }
 
@@ -79,7 +87,12 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         sharing = NativeSharingBridge(this, flutterEngine, ::shareReceiverAttached)
         systemFonts = NativeSystemFontsBridge(this, flutterEngine)
+        LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/ime")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "visible") result.success(imeVisible()) else result.notImplemented()
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/local-network")
             .setMethodCallHandler { call, result ->
                 if (call.method != "ensure") {
@@ -153,6 +166,43 @@ class MainActivity : FlutterActivity() {
                 }
             }
     }
+
+    // The IME closes with the window when the app is backgrounded. Back in the
+    // foreground the system runs an IME animation that changes nothing, and at its
+    // end Flutter's ImeSyncDeferringInsetsCallback re-dispatches the WindowInsets it
+    // cached at the last keyboard show, so the engine reports the old
+    // viewInsets.bottom although the IME is hidden (flutter#118761, device log in
+    // docs/keyboard-repro.md). Re-dispatch the real insets right after every IME
+    // animation ends (a callback on the decor view runs before the one Flutter
+    // installed on FlutterView, hence post). Dart's KeyboardInsetGuard is the net.
+    override fun onResume() {
+        super.onResume()
+        if (!imeAnimationObserved) {
+            imeAnimationObserved = true
+            ViewCompat.setWindowInsetsAnimationCallback(
+                window.decorView,
+                object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                    override fun onProgress(
+                        insets: WindowInsetsCompat,
+                        runningAnimations: MutableList<WindowInsetsAnimationCompat>,
+                    ) = insets
+
+                    override fun onEnd(animation: WindowInsetsAnimationCompat) {
+                        if (animation.typeMask and WindowInsetsCompat.Type.ime() == 0) return
+                        val decor = window.decorView
+                        decor.post { decor.rootWindowInsets?.let { decor.dispatchApplyWindowInsets(it) } }
+                    }
+                },
+            )
+        }
+        ViewCompat.requestApplyInsets(window.decorView)
+    }
+
+    private var imeAnimationObserved = false
+
+    // null when the insets are not attached yet: Dart then trusts the engine.
+    private fun imeVisible(): Boolean? =
+        ViewCompat.getRootWindowInsets(window.decorView)?.isVisible(WindowInsetsCompat.Type.ime())
 
     override fun onNewIntent(intent: Intent) {
         prepareSharedUris(intent)

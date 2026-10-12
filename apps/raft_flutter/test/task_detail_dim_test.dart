@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/raft_navigation_history.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'task_surface_test.dart' show modernTask, taskRoutes, flush;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
@@ -17,11 +18,11 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 /// the modal looked dimmed under its own backdrop. The surface must show the
 /// theme panel colour exactly, with the scrim only behind it.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'task modal surface paints the theme panel colour, no scrim above it $family/$dark',
       (t) async {

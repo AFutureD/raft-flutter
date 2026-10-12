@@ -12,6 +12,7 @@ import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/desktop_directory_view.dart';
 import 'package:raft_flutter/features/member_profile_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Client extends RaftClient {
@@ -135,11 +136,11 @@ class _Client extends RaftClient {
 }
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (name: 'Brutal', family: RaftFamily.brutal, dark: false),
     (name: 'Elegant', family: RaftFamily.elegant, dark: false),
     (name: 'Elegant dark', family: RaftFamily.elegant, dark: true),
-  ]) {
+  ])) {
     testWidgets(
       '${theme.name} settings retains one conversation and retires hidden authority',
       (t) async {
@@ -417,11 +418,11 @@ void main() {
           const Size(1024, 900),
           const Size(1023, 900),
           const Size(768, 900),
-          const Size(767, 900),
           const Size(900, 390),
-          const Size(390, 900),
           const Size(1280, 900),
         ]) {
+          // Below 768 the wide Activity slot becomes the phone conversation
+          // page above the list (foldable_layout_routing_test R2c).
           t.view.physicalSize = size;
           await t.pumpAndSettle();
           expect(w.location, uri, reason: '$size must preserve URI');

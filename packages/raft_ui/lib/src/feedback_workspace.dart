@@ -6,6 +6,7 @@
 // SegmentedControl, MessageReferenceChip, DropdownMenu, AlertDialog, Banner,
 // TextareaCounter). The app owns the store and the transport; every value
 // shown here arrives as data.
+import 'dismiss_scope.dart';
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
@@ -35,6 +36,7 @@ import 'recipes/textarea_counter.g.dart';
 import 'system_inset.dart';
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
+import 'sized_image.dart';
 
 /// Reporter close reasons (`completed` / `no_longer_needed`).
 enum RaftFeedbackCloseReason { completed, noLongerNeeded }
@@ -566,7 +568,11 @@ class _PendingAttachment extends StatelessWidget {
         ),
       ),
       child: image
-          ? Image.memory(file.bytes!, fit: BoxFit.cover, gaplessPlayback: true)
+          ? RaftSizedImage.memory(
+              file.bytes!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+            )
           : Center(
               child: RaftIcon(
                 RaftGlyph.paperclip,
@@ -1196,7 +1202,10 @@ class _RaftFeedbackCloseSplitState extends State<RaftFeedbackCloseSplit> {
     final theme = Theme.of(context);
     final text = DefaultTextStyle.of(context).style;
     menu = OverlayEntry(
-      builder: (_) => Theme(
+      builder: (_) => RaftBackDismiss(
+        routeContext: this.context,
+        onDismiss: _closeMenu,
+        child: Theme(
         data: theme,
         child: RaftFeedbackPortalTheme(
           child: Stack(
@@ -1227,6 +1236,7 @@ class _RaftFeedbackCloseSplitState extends State<RaftFeedbackCloseSplit> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

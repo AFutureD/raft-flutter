@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'desktop_footer_sidebar_page_test.dart' show shellFonts;
 import 'workspace_shell_contract_test.dart' show mountShell, retire;
@@ -11,11 +12,11 @@ import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
 // DOM observations: Brutal Activity footer x11.5/w40; other Brutal routes
 // x11/w40. Elegant keeps its independent x8/w40 geometry in both routes.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark actual Activity caller supplies its thin rail divider',
       (t) async {

@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture;
@@ -37,11 +38,11 @@ Map<String, dynamic> flag(bool enabled) => {
 };
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[N24h] $family/$dark flag-enabled ACK survives Saved facets and cached All return',
       (tester) async {
@@ -83,7 +84,7 @@ void main() {
           buttons: kSecondaryMouseButton,
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(RaftMenuItem, 'Unfollow'));
+        await tester.tap(find.widgetWithText(RaftMenuButtonItem, 'Unfollow'));
         await tester.pumpAndSettle();
         final dynamic state = tester.state(find.byType(ResourceView));
         expect((state.rows.single as Map)['isFollowing'], false);
@@ -392,8 +393,7 @@ void main() {
             expect(
               find.byType(RaftActivityScopeToolbar),
               findsOneWidget,
-              reason:
-                  'The accepted server flag must mount Source enabled controls.',
+              reason: 'The accepted server flag must mount Source enabled controls.',
             );
             final toolbar = tester.widget<RaftActivityScopeToolbar>(
               find.byType(RaftActivityScopeToolbar),

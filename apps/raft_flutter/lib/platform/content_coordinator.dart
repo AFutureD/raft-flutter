@@ -20,6 +20,8 @@ import 'native_notifications.dart';
 import 'background_inbox.dart';
 import 'background_notifications.dart';
 import 'desktop_inbox_notifications.dart';
+import 'macos_dock_unread.dart';
+import 'native_sharing.dart';
 
 /// Binds platform links and notification clicks to the currently signed-in
 /// principal. Every navigation rechecks server membership and visible context.
@@ -27,9 +29,16 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   NativeContentCoordinator({
     NativeNotificationService? notifications,
     this.links,
-  }) : notifications = notifications ?? NativeNotificationService();
+    this.onIncomingShare,
+    MacOSDockUnread? dockUnread,
+  }) : _providedDockUnread = dockUnread,
+       notifications = notifications ?? NativeNotificationService();
   final NativeNotificationService notifications;
+  final MacOSDockUnread? _providedDockUnread;
+  late final dockUnread =
+      _providedDockUnread ?? MacOSDockUnread(platform: notifications.platform);
   final Stream<Uri>? links;
+  void Function()? onIncomingShare;
   final background = BackgroundNotificationScheduler();
   DesktopInboxNotifications? desktop;
   bool? _appForeground;
@@ -51,6 +60,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         ? null
         : WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
+    dockUnread.bind(_workspace);
     notifications.onTap = _tap;
     notifications.deliveryAllowed = () =>
         !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
@@ -86,6 +96,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _events?.cancel();
     _workspace = workspace;
     desktop?.bind(workspace);
+    dockUnread.bind(workspace);
     workspace?.addListener(_changed);
     _events = workspace?.client.events.listen(_event);
     _changed();
@@ -177,6 +188,10 @@ class NativeContentCoordinator with WidgetsBindingObserver {
 
   void receiveLink(Uri uri) {
     if (_closed || uri.scheme == 'raft' && uri.host == 'oauth') return;
+    if (NativeSharing.isIncomingShareLink(uri)) {
+      onIncomingShare?.call();
+      return;
+    }
     if (notifications.receiveWindowsActivation(uri)) return;
     // raft://v1/join/<token>: an invite opens the invite page, signed in or not.
     if (uri.scheme == 'raft' && uri.host == 'v1') {
@@ -570,6 +585,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _closed = true;
     WidgetsBinding.instance.removeObserver(this);
     desktop?.dispose();
+    await dockUnread.dispose();
     _epoch++;
     _navigation++;
     _workspace?.removeListener(_changed);

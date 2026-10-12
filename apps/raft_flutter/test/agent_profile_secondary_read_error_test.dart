@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_detail_view.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _agent = <String, dynamic>{
@@ -61,11 +62,11 @@ class _Workspace extends WorkspaceController {
 /// Retry) and Web's profile fallback swallows a failed `/agents/:id`; neither
 /// secondary read may put a page-level error above the profile.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final (label, failSkills, failDetail) in [
       ('skills 500', true, false),
       ('detail 500', false, true),

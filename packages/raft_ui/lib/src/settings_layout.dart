@@ -5,6 +5,8 @@ export 'panel_layout.dart' show raftRecipeTheme;
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
+import 'panel_edge.dart';
+import 'control_typography.dart';
 import 'icons.dart';
 import 'indicators.dart';
 import 'localization.dart';
@@ -187,11 +189,16 @@ class _RaftSettingsSidebarItemState extends State<RaftSettingsSidebarItem> {
                     // paragraph height, sets the row height.
                     child: SizedBox(
                       height: text.fontSize! * text.height!,
-                      child: Text(
-                        raftText(context, widget.entry.label),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text,
+                      // The control profile changes the line height inside
+                      // that fixed box; keep the label centred in it.
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          raftText(context, widget.entry.label),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RaftControlTypography.of(context, text),
+                        ),
                       ),
                     ),
                   ),
@@ -338,48 +345,51 @@ class RaftSettingsPanelFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final edge = t.brutal ? Colors.black : t.colors['line-muted']!;
+    // `Panel edge="attached"`: the shared rule (RaftPanelEdge) decides, the
+    // phone page is the only presentation without the line.
+    final edgeBorder = attached ? RaftPanelEdge.left(context) : null;
     return Material(
       // SettingsPanel's Panel supplies bg-layer-canvas-muted to the transparent
       // desktop Elegant header. Its content div owns bg-layer-panel separately.
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
-      child: Container(
-        // Owner decision 2026-10-12: the recipe's `border-l-2 border-black` /
-        // `border-l border-line-muted` edge is desktop-only; phone pages draw
-        // no left edge line (intended difference from Web).
-        decoration:
-            attached &&
-                MediaQuery.sizeOf(context).width >=
-                    RaftLayoutMetrics.desktopBreakpoint
-            ? BoxDecoration(
-                border: Border(
-                  left: BorderSide(color: edge, width: t.brutal ? 2 : 1),
-                ),
-              )
-            : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Panel edge="attached": `*:data-panel-frame-header:border-b`
-            // (Elegant 1px line-muted inside the header box; Brutal's header
-            // recipe already draws border-b-2 black).
-            if (header != null)
-              if (t.brutal || !attached)
-                header!
-              else
-                Container(
-                  foregroundDecoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: edge)),
+      // The left edge continues up under the status bar on wide layouts; the
+      // header (when flush) publishes the colour over the panel.
+      child: RaftStatusBarSource(
+        color: t.brutal ? Colors.white : t.sidebar,
+        border: edgeBorder,
+        child: Container(
+          decoration: edgeBorder == null
+              ? null
+              : BoxDecoration(border: edgeBorder),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Panel edge="attached": `*:data-panel-frame-header:border-b`
+              // (Elegant 1px line-muted inside the header box; Brutal's header
+              // recipe already draws border-b-2 black).
+              if (header != null)
+                if (t.brutal || !attached)
+                  header!
+                else
+                  Container(
+                    foregroundDecoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: edge)),
+                    ),
+                    child: header,
                   ),
-                  child: header,
+              Expanded(
+                // Without a frame header the content surface is the top one.
+                child: RaftStatusBarSource(
+                  color: contentColor ?? (t.brutal ? Colors.white : t.panel),
+                  child: Material(
+                    color: contentColor ?? (t.brutal ? Colors.white : t.panel),
+                    child: child,
+                  ),
                 ),
-            Expanded(
-              child: Material(
-                color: contentColor ?? (t.brutal ? Colors.white : t.panel),
-                child: child,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -78,6 +78,8 @@ enum AgentDetailTab { profile, activity, chat, reminders, workspace, apps, mcp }
 class AgentDetailActions {
   const AgentDetailActions({
     this.onBack,
+    this.onClose,
+    this.backAlways = false,
     this.onEditName,
     this.onEditDescription,
     this.onEditRole,
@@ -91,7 +93,10 @@ class AgentDetailActions {
     this.onPermissions,
     this.onReportIssue,
   });
+  /// Keep the Back chevron at md+ (`backButtonVisibility="always"`).
+  final bool backAlways;
   final VoidCallback? onBack,
+      onClose,
       onEditName,
       onEditDescription,
       onEditRole,
@@ -392,7 +397,9 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             profileBody: true,
             iconAlwaysVisible: true,
             // `useMobileBack` renders the chevron below `md` only.
-            onBack: MediaQuery.sizeOf(context).width >= 768
+            onBack:
+                MediaQuery.sizeOf(context).width >= 768 &&
+                    !widget.actions.backAlways
                 ? null
                 : widget.actions.onBack,
             backTooltip: raftText(context, 'Back'),
@@ -417,6 +424,15 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                     entries: menu,
                     tooltip: raftText(context, 'More actions'),
                   ),
+              // AgentDetailHeader `onClose` (`hidden md:flex`): the profile
+              // overlay's close action once the back chevron is gone.
+              if (widget.actions.onClose != null &&
+                  MediaQuery.sizeOf(context).width >= 768)
+                RaftPanelIconButton(
+                  glyph: RaftGlyph.x,
+                  tooltip: raftText(context, 'Close profile'),
+                  onPressed: widget.actions.onClose,
+                ),
             ],
           ),
           RaftPanelTabBar<AgentDetailTab>(
@@ -574,8 +590,9 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     final raw = a['createdAt'];
     final date = raw is String ? DateTime.tryParse(raw) : null;
     if (date == null) return '';
-    return DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
-        .format(agentTimeFormatter(context, widget.controller).wallTime(date));
+    return DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(agentTimeFormatter(context, widget.controller).wallTime(date));
   }
 
   /// EXTERNAL_AGENT_ONLINE_WINDOW_MS (store/presenceClock.ts).
@@ -993,10 +1010,12 @@ class _AgentSkillsSectionState extends State<AgentSkillsSection>
   @override
   WorkspaceController get w => widget.controller;
   late _SkillsSnapshot snapshot = _snapshot();
-  _SkillsSnapshot _snapshot() => w.agentTabCache.putIfAbsent(
-    'skills/${widget.agentId}',
-    _SkillsSnapshot.new,
-  ) as _SkillsSnapshot;
+  _SkillsSnapshot _snapshot() =>
+      w.agentTabCache.putIfAbsent(
+            'skills/${widget.agentId}',
+            _SkillsSnapshot.new,
+          )
+          as _SkillsSnapshot;
   @override
   bool get hasContent => snapshot.loaded;
 
@@ -1169,10 +1188,12 @@ class _AgentActivityTabState extends State<AgentActivityTab>
   void initState() {
     super.initState();
     openingScope = scope;
-    snapshot = w.agentTabCache.putIfAbsent(
-      'activity/${widget.agentId}',
-      _ActivitySnapshot.new,
-    ) as _ActivitySnapshot;
+    snapshot =
+        w.agentTabCache.putIfAbsent(
+              'activity/${widget.agentId}',
+              _ActivitySnapshot.new,
+            )
+            as _ActivitySnapshot;
     entries = mergeAgentTrajectoryLog(
       snapshot.entries,
       admittedAgentTrajectoryRows(widget.initialEntries),
@@ -1241,10 +1262,12 @@ class _AgentActivityTabState extends State<AgentActivityTab>
     openingScope = scope;
     readRevision++;
     reloadTimer?.cancel();
-    snapshot = w.agentTabCache.putIfAbsent(
-      'activity/${widget.agentId}',
-      _ActivitySnapshot.new,
-    ) as _ActivitySnapshot;
+    snapshot =
+        w.agentTabCache.putIfAbsent(
+              'activity/${widget.agentId}',
+              _ActivitySnapshot.new,
+            )
+            as _ActivitySnapshot;
     setState(() => entries = snapshot.entries);
     reload();
   }
@@ -1260,10 +1283,12 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       openingScope = scope;
       readRevision++;
       reloadTimer?.cancel();
-      snapshot = w.agentTabCache.putIfAbsent(
-        'activity/${widget.agentId}',
-        _ActivitySnapshot.new,
-      ) as _ActivitySnapshot;
+      snapshot =
+          w.agentTabCache.putIfAbsent(
+                'activity/${widget.agentId}',
+                _ActivitySnapshot.new,
+              )
+              as _ActivitySnapshot;
       entries = snapshot.entries;
       listenEvents();
       reload();
@@ -1369,8 +1394,9 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       emptyLabel: loading ? raftText(context, 'Loading…') : loadError,
       onCopy: () => Clipboard.setData(
         ClipboardData(
-          text: [for (final e in entries) '${e['timestamp']} ${e['entry']}']
-              .join('\n'),
+          text: [
+            for (final e in entries) '${e['timestamp']} ${e['entry']}',
+          ].join('\n'),
         ),
       ),
     );
@@ -1396,10 +1422,9 @@ class AgentChatTab extends StatefulWidget {
 class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _ChatSnapshot snapshot = w.agentTabCache.putIfAbsent(
-    'chat/${widget.agentId}',
-    _ChatSnapshot.new,
-  ) as _ChatSnapshot;
+  late final _ChatSnapshot snapshot =
+      w.agentTabCache.putIfAbsent('chat/${widget.agentId}', _ChatSnapshot.new)
+          as _ChatSnapshot;
   List<Map<String, dynamic>> get channels => snapshot.channels;
   List<Map<String, dynamic>> get dms => snapshot.dms;
   @override
@@ -1510,10 +1535,12 @@ class _AgentRemindersTabState extends State<AgentRemindersTab>
     with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _RemindersSnapshot snapshot = w.agentTabCache.putIfAbsent(
-    'reminders/${widget.agentId}',
-    _RemindersSnapshot.new,
-  ) as _RemindersSnapshot;
+  late final _RemindersSnapshot snapshot =
+      w.agentTabCache.putIfAbsent(
+            'reminders/${widget.agentId}',
+            _RemindersSnapshot.new,
+          )
+          as _RemindersSnapshot;
   List<Map<String, dynamic>> get reminders => snapshot.reminders;
   set reminders(List<Map<String, dynamic>> value) => snapshot.reminders = value;
   @override
@@ -1633,10 +1660,12 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     with _AgentTabLoader {
   @override
   WorkspaceController get w => widget.controller;
-  late final _WorkspaceSnapshot snapshot = w.agentTabCache.putIfAbsent(
-    'workspace/${widget.agentId}',
-    _WorkspaceSnapshot.new,
-  ) as _WorkspaceSnapshot;
+  late final _WorkspaceSnapshot snapshot =
+      w.agentTabCache.putIfAbsent(
+            'workspace/${widget.agentId}',
+            _WorkspaceSnapshot.new,
+          )
+          as _WorkspaceSnapshot;
   Map<String, List<Map<String, dynamic>>> get children => snapshot.children;
   Set<String> get expanded => snapshot.expanded;
   bool get showHidden => snapshot.showHidden;

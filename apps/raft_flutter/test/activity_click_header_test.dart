@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture;
@@ -17,11 +18,11 @@ import 'workspace_activity_activation_test.dart'
 /// beside the Activity list; the page never gains a full-width channel header
 /// on top (workspace-channel-header belongs to the channel route only).
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final scenario in ['channel', 'dm', 'thread']) {
       testWidgets(
         '[K02] $family/$dark clicking an Activity $scenario entry adds no full-width channel header',

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/agent_surface_previews.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'selection_popover_surface_test.dart' as selection;
 
@@ -30,11 +31,11 @@ Widget host(ThemeData theme, Widget child) => MaterialApp(
 );
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('$family/$dark Source portal font and label cascade', (
       tester,
     ) async {
@@ -59,9 +60,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        DefaultTextStyle.of(
-          tester.element(find.byType(RaftStableField)),
-        ).style.fontFamily,
+        DefaultTextStyle.of(tester.element(find.byType(RaftStableField)))
+            .style
+            .fontFamily,
         tokens.bodyFont,
       );
       expect(
@@ -279,9 +280,9 @@ void main() {
         );
         await tester.pumpWidget(buttons(false));
         await tester.pumpAndSettle();
-        final before = DefaultTextStyle.of(
-          tester.element(find.text('Create')),
-        ).style.color;
+        final before = DefaultTextStyle.of(tester.element(find.text('Create')))
+            .style
+            .color;
         await tester.pumpWidget(buttons(true));
         await tester.pumpAndSettle();
         expect(

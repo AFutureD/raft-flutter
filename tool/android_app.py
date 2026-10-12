@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = 'app.raft.raft_flutter'
@@ -91,24 +92,88 @@ def sdk_tools():
     return adb, tools / 'aapt', tools / 'apksigner'
 
 
+def manifest_launch_activity(text, package):
+    """Read compiled aapt xmltree, including launcher aliases omitted by badging."""
+    root = ET.Element('dump')
+    stack = []
+    for line in text.splitlines():
+        element = re.match(r'^(\s*)E: ([\w-]+)(?:\s|$)', line)
+        if element:
+            indent = len(element[1])
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            node = ET.SubElement(stack[-1][1] if stack else root, element[2])
+            stack.append((indent, node))
+        elif stack:
+            attribute = re.match(r'^\s*A: ([\w:]+)(?:\([^)]*\))?=(.*)$', line)
+            if not attribute:
+                continue
+            value = attribute[2]
+            quoted = re.match(r'^"([^"]*)"', value)
+            boolean = re.fullmatch(r'\(type 0x12\)0x([\da-fA-F]+)', value)
+            stack[-1][1].set(attribute[1], quoted[1] if quoted else
+                            str(int(boolean[1], 16) != 0).lower() if boolean else value)
+    manifests = root.findall('manifest')
+    if len(manifests) != 1 or manifests[0].get('package') != package:
+        raise SafetyError('Compiled Manifest package is missing or inconsistent.')
+    applications = manifests[0].findall('application')
+    if len(applications) != 1 or applications[0].get('android:enabled', 'true') != 'true':
+        raise SafetyError('Compiled Manifest has no enabled application.')
+    app = applications[0]
+
+    def name(value):
+        if not value:
+            return None
+        return package + value if value.startswith('.') else package + '.' + value if '.' not in value else value
+
+    def accepts(node, category):
+        return any(any(child.get('android:name') == 'android.intent.action.MAIN'
+                       for child in intent.findall('action')) and
+                   any(child.get('android:name') == category for child in intent.findall('category'))
+                   for intent in node.findall('intent-filter'))
+
+    activities = {name(node.get('android:name')): node for node in app.findall('activity')}
+    launchers, info = [], []
+    for node in app:
+        if node.tag not in ('activity', 'activity-alias'):
+            continue
+        component = name(node.get('android:name'))
+        if not component or node.get('android:enabled', 'true') != 'true' or node.get('android:exported') != 'true':
+            continue
+        if node.tag == 'activity-alias':
+            target = activities.get(name(node.get('android:targetActivity')))
+            if target is None or target.get('android:enabled', 'true') != 'true':
+                continue
+        if accepts(node, 'android.intent.category.LAUNCHER'):
+            launchers.append(component)
+        if accepts(node, 'android.intent.category.INFO'):
+            info.append(component)
+    if len(launchers) != 1 or len(info) > 1:
+        raise SafetyError('Expected one enabled exported launcher and at most one INFO entry.')
+    # Match Android getLaunchIntentForPackage: prefer the permanent INFO owner.
+    return info[0] if info else launchers[0]
+
+
 def apk_metadata(apk, aapt, run=call):
     text = run([aapt, 'dump', 'badging', apk])
     package = re.search(r"^package: name='([^']+)' versionCode='(\d+)'", text, re.M)
     target = re.search(r"^targetSdkVersion:'(\d+)'", text, re.M)
     activity = re.search(r"^launchable-activity: name='([^']+)'", text, re.M)
-    if not package or not target or not activity:
-        raise SafetyError('APK identity, target SDK or launch activity is missing.')
+    if not package or not target:
+        raise SafetyError('APK identity or target SDK is missing.')
+    launch_activity = activity[1] if activity else manifest_launch_activity(
+        run([aapt, 'dump', 'xmltree', apk, 'AndroidManifest.xml']), package[1])
     try:
         with zipfile.ZipFile(apk) as archive:
             abis = sorted({name.split('/')[1] for name in archive.namelist() if name.startswith('lib/') and name.endswith('.so')})
     except zipfile.BadZipFile as error:
         raise SafetyError('Invalid APK archive.') from error
-    return dict(package=package[1], version=int(package[2]), target=int(target[1]), activity=activity[1], abis=abis)
+    return dict(package=package[1], version=int(package[2]), target=int(target[1]), activity=launch_activity, abis=abis)
 
 
 def certificate(apk, apksigner, run=call):
     text = run([apksigner, 'verify', '--print-certs', apk])
-    certificates = sorted(set(re.findall(r'^(?:Signer #\d+|V[234](?:\.1)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', text, re.M)))
+    certificates = sorted(set(re.findall(r'^(?:Signer #\d+|V[234](?:\.\d+)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', text, re.M)))
     if not certificates:
         raise SafetyError('APK signing certificate could not be verified.')
     return [value.lower() for value in certificates]

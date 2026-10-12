@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_shell_contract_test.dart' show mountShell, retire;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
@@ -9,11 +10,11 @@ import 'workspace_source_location_contract_test.dart' show pageFixture;
 // Source Sidebar.tsx987–1001 and AvatarSlot.tsx90–95/126/229–230.
 // The avatar's occupied box and its placeholder glyph are separate sizes.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K08g] $family/$dark actual mobile human DM keeps Source 18px avatar and 10px placeholder',
       (t) async {

@@ -9,6 +9,7 @@ import 'package:raft_flutter/features/create_agent_dialog.dart';
 import 'package:raft_flutter/features/runtime_form_dialog.dart';
 import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'parity/cases/members_settings/runtime_forms.dart';
 
@@ -147,17 +148,22 @@ void main() {
     of: find.text('Create Cindy'),
     matching: find.byType(RaftButton),
   );
-  testWidgets('setup admits array machine catalog and real workspace switch', (t) async {
+  testWidgets('setup admits array machine catalog and real workspace switch', (
+    t,
+  ) async {
     final original = c.getFn;
     c.getFn = (path) => path == '/servers/s/machines'
         ? Future.value([_machine])
         : original(path);
     var switches = 0;
-    await host(t, ServerSetupGate(
-      controller: w,
-      onSwitchServer: () => switches++,
-      child: const Text('Conversation'),
-    ));
+    await host(
+      t,
+      ServerSetupGate(
+        controller: w,
+        onSwitchServer: () => switches++,
+        child: const Text('Conversation'),
+      ),
+    );
     final form = t.widget<CreateAgentDialog>(find.byType(CreateAgentDialog));
     expect(form.machines.single['id'], 'm');
     await t.ensureVisible(find.text('Switch server'));
@@ -261,11 +267,11 @@ void main() {
       await t.pumpWidget(const SizedBox.shrink());
     },
   );
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'setup session link actual Tab focus and keyboard activation $family/$dark',
       (t) async {
@@ -434,11 +440,11 @@ void main() {
     expect(w.commands, isEmpty);
     expect(c.user!.id, 'viewer');
   });
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('responsive same-source shell ${family.name} dark=$dark', (
       t,
     ) async {

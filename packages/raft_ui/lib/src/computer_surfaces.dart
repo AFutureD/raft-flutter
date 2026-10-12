@@ -99,6 +99,7 @@ class RaftRuntimeChip extends StatelessWidget {
     final text = RaftCssText(
       label,
       maxLines: 1,
+      controlLabel: true,
       style: raftCssText.merge(
         RaftTypography.body(
           t,
@@ -857,33 +858,6 @@ class RaftComputerSidebarList extends StatelessWidget {
                   child: Text(emptyText, style: description),
                 ),
       ],
-    );
-  }
-}
-
-/// Desktop SidebarRoot edge: `border-r border-line-muted
-/// theme-brutal:border-r-2 theme-brutal:border-black` inside the column.
-class RaftSidebarColumnEdge extends StatelessWidget {
-  const RaftSidebarColumnEdge({super.key, required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    final width = t.brutal ? 2.0 : 1.0;
-    return DecoratedBox(
-      position: DecorationPosition.foreground,
-      decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-            width: width,
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(right: width),
-        child: child,
-      ),
     );
   }
 }

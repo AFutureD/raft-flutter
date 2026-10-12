@@ -1,4 +1,5 @@
 import 'anchored_popup.dart';
+import 'dismiss_scope.dart';
 import 'tooltip.dart';
 import 'search_result_surface.dart';
 import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
@@ -19,6 +20,7 @@ import 'localization.dart';
 import 'theme.dart';
 import 'primitive_tokens.dart';
 import 'tokens/tokens.dart';
+import 'control_typography.dart';
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
@@ -319,6 +321,7 @@ abstract final class RaftTypography {
     FontWeight weight = FontWeight.w700,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: t.headingFont,
     fontVariations: t.brutal || t.systemFonts
         ? null
@@ -382,6 +385,7 @@ abstract final class RaftTypography {
     FontWeight weight = FontWeight.w400,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: t.bodyFont,
     fontFamilyFallback: t.fontFallback,
     fontSize: size,
@@ -413,6 +417,7 @@ abstract final class RaftTypography {
     double line = 16,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: t.monoFont,
     fontSize: size,
     height: line / size,
@@ -640,6 +645,7 @@ class RaftControlRecipe {
       ? 14
       : 16;
   TextStyle get textStyle => TextStyle(
+    locale: tokens.textLocale,
     fontFamily: tokens.brutal ? tokens.headingFont : tokens.bodyFont,
     fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
     fontSize: kind == RaftControlKind.segmentedButton
@@ -1212,12 +1218,15 @@ class _RaftControlState extends State<RaftControl> {
                               size: recipe.iconSize,
                             ),
                             child: DefaultTextStyle(
-                              style: recipe.textStyle.copyWith(
-                                color:
-                                    widget.kind == RaftControlKind.textLink &&
-                                        hovered
-                                    ? t.strong
-                                    : recipe.foregroundFor(hovered: hovered),
+                              style: RaftControlTypography.of(
+                                context,
+                                recipe.textStyle.copyWith(
+                                  color:
+                                      widget.kind == RaftControlKind.textLink &&
+                                          hovered
+                                      ? t.strong
+                                      : recipe.foregroundFor(hovered: hovered),
+                                ),
                               ),
                               child: Center(
                                 widthFactor: 1,
@@ -2097,96 +2106,100 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
     final movement = Scrollable.maybeOf(context)?.position;
     return OverlayPortal(
       controller: portal,
-      overlayChildBuilder: (context) => !triggerEnabled
-          ? const SizedBox.shrink()
-          : Stack(
-              children: [
-                if (!widget.openOnHover)
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => close(),
-                      child: const SizedBox.expand(),
+      overlayChildBuilder: raftBackDismissed(
+        () => close(),
+        (context) => !triggerEnabled
+            ? const SizedBox.shrink()
+            : Stack(
+                children: [
+                  if (!widget.openOnHover)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => close(),
+                        child: const SizedBox.expand(),
+                      ),
                     ),
-                  ),
-                Positioned.fill(
-                  child: RaftAnchoredPopup(
-                    anchorKey: anchorKey,
-                    movement: movement,
-                    above: top,
-                    toRight: widget.side == RaftDropdownSide.right,
-                    alignRight: right,
-                    gap: gap,
-                    child: MouseRegion(
-                      onEnter: (_) => hoverClose?.cancel(),
-                      onExit: (_) => hoverExit(),
-                      child: TapRegion(
-                        groupId: this,
-                        enabled: widget.openOnHover,
-                        child: FocusScope(
-                          node: popup,
-                          child: CallbackShortcuts(
-                            bindings: {
-                              const SingleActivator(
-                                LogicalKeyboardKey.escape,
-                              ): () =>
-                                  close(),
-                              const SingleActivator(
-                                LogicalKeyboardKey.arrowDown,
-                              ): () =>
-                                  move(1),
-                              const SingleActivator(
-                                LogicalKeyboardKey.arrowUp,
-                              ): () =>
-                                  move(-1),
-                              const SingleActivator(
-                                LogicalKeyboardKey.home,
-                              ): () =>
-                                  _edge(1),
-                              const SingleActivator(
-                                LogicalKeyboardKey.end,
-                              ): () =>
-                                  _edge(-1),
-                            },
-                            child: Focus(
-                              focusNode: menuFocus,
-                              child: RaftMenuPanel(
-                                width: widget.width,
-                                padding: widget.panelInset,
-                                onDismiss: () => close(),
-                                children: [
-                                  if (widget.header != null) widget.header!,
-                                  for (
-                                    var i = 0;
-                                    i < widget.entries.length;
-                                    i++
-                                  )
-                                    if (widget.entries[i].label == null)
-                                      SizedBox(
-                                        height: t.brutal ? 2 : 9,
-                                        child: Center(
-                                          child: Container(
-                                            height: t.brutal ? 2 : .5,
-                                            color: t.brutal
-                                                ? Colors.black
-                                                : t.colors['line-hairline'],
+                  Positioned.fill(
+                    child: RaftAnchoredPopup(
+                      anchorKey: anchorKey,
+                      movement: movement,
+                      above: top,
+                      toRight: widget.side == RaftDropdownSide.right,
+                      alignRight: right,
+                      gap: gap,
+                      child: MouseRegion(
+                        onEnter: (_) => hoverClose?.cancel(),
+                        onExit: (_) => hoverExit(),
+                        child: TapRegion(
+                          groupId: this,
+                          enabled: widget.openOnHover,
+                          child: FocusScope(
+                            node: popup,
+                            child: CallbackShortcuts(
+                              bindings: {
+                                const SingleActivator(
+                                  LogicalKeyboardKey.escape,
+                                ): () =>
+                                    close(),
+                                const SingleActivator(
+                                  LogicalKeyboardKey.arrowDown,
+                                ): () =>
+                                    move(1),
+                                const SingleActivator(
+                                  LogicalKeyboardKey.arrowUp,
+                                ): () =>
+                                    move(-1),
+                                const SingleActivator(
+                                  LogicalKeyboardKey.home,
+                                ): () =>
+                                    _edge(1),
+                                const SingleActivator(
+                                  LogicalKeyboardKey.end,
+                                ): () =>
+                                    _edge(-1),
+                              },
+                              child: Focus(
+                                focusNode: menuFocus,
+                                child: RaftMenuPanel(
+                                  width: widget.width,
+                                  padding: widget.panelInset,
+                                  onDismiss: () => close(),
+                                  children: [
+                                    if (widget.header != null) widget.header!,
+                                    for (
+                                      var i = 0;
+                                      i < widget.entries.length;
+                                      i++
+                                    )
+                                      if (widget.entries[i].label == null)
+                                        SizedBox(
+                                          height: t.brutal ? 2 : 9,
+                                          child: Center(
+                                            child: Container(
+                                              height: t.brutal ? 2 : .5,
+                                              color: t.brutal
+                                                  ? Colors.black
+                                                  : t.colors['line-hairline'],
+                                            ),
                                           ),
+                                        )
+                                      else
+                                        RaftMenuItem(
+                                          label: widget.entries[i].label!,
+                                          glyph: widget.entries[i].glyph,
+                                          leading: widget.entries[i].leading,
+                                          trailing: widget.entries[i].trailing,
+                                          focusNode: nodes[i],
+                                          onMove: move,
+                                          onPressed:
+                                              widget.entries[i].onPressed ==
+                                                  null
+                                              ? null
+                                              : () => activateEntry(i),
                                         ),
-                                      )
-                                    else
-                                      RaftMenuItem(
-                                        label: widget.entries[i].label!,
-                                        glyph: widget.entries[i].glyph,
-                                        leading: widget.entries[i].leading,
-                                        trailing: widget.entries[i].trailing,
-                                        focusNode: nodes[i],
-                                        onMove: move,
-                                        onPressed:
-                                            widget.entries[i].onPressed == null
-                                            ? null
-                                            : () => activateEntry(i),
-                                      ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -2194,9 +2207,9 @@ class _RaftDropdownMenuState extends State<RaftDropdownMenu> {
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
       child: MouseRegion(
         onEnter: (_) => hoverEnter(),
         onExit: (_) => hoverExit(),
@@ -2531,18 +2544,21 @@ class _RaftMenuItemState extends State<RaftMenuItem> {
                         widget.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: recipe.label.copyWith(
-                          fontWeight:
-                              widget.selected ||
-                                  widget.kind == RaftMenuKind.selectionPopover
-                              ? FontWeight.w700
-                              : recipe.label.fontWeight,
-                          fontStyle: widget.italic ? FontStyle.italic : null,
-                          color: widget.italic
-                              ? (t.brutal
-                                    ? Colors.black.withValues(alpha: .7)
-                                    : t.muted)
-                              : null,
+                        style: RaftControlTypography.of(
+                          context,
+                          recipe.label.copyWith(
+                            fontWeight:
+                                widget.selected ||
+                                    widget.kind == RaftMenuKind.selectionPopover
+                                ? FontWeight.w700
+                                : recipe.label.fontWeight,
+                            fontStyle: widget.italic ? FontStyle.italic : null,
+                            color: widget.italic
+                                ? (t.brutal
+                                      ? Colors.black.withValues(alpha: .7)
+                                      : t.muted)
+                                : null,
+                          ),
                         ),
                       ),
                     ),
@@ -2695,6 +2711,7 @@ class RaftTaskSectionRecipe {
 
   /// MainLayout.tsx2255 AppShellRoot font-display, inherited by task cards.
   TextStyle get documentStyle => TextStyle(
+    locale: tokens.textLocale,
     fontFamily: tokens.headingFont,
     fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
     fontSize: 16,
@@ -3325,6 +3342,7 @@ class _SegmentedItem<T> extends StatelessWidget {
         return RaftRecipeBox(
           style: s.item,
           tokens: rt,
+          controlLabel: true,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3343,9 +3361,16 @@ class _SegmentedItem<T> extends StatelessWidget {
                 child: Builder(
                   builder: (context) {
                     final inherited = RaftInheritedFontScope.active(context);
-                    final label = s.label
-                        .text(rt, base: DefaultTextStyle.of(context).style)
-                        .copyWith(fontFamily: inherited ? t.headingFont : null);
+                    // The label restates its own style, so the box's control
+                    // profile reaches it only through this resolve.
+                    final label = RaftControlTypography.of(
+                      context,
+                      s.label
+                          .text(rt, base: DefaultTextStyle.of(context).style)
+                          .copyWith(
+                            fontFamily: inherited ? t.headingFont : null,
+                          ),
+                    );
                     final text = Text(
                       option.label,
                       maxLines: 1,
@@ -3380,9 +3405,12 @@ class _SegmentedItem<T> extends StatelessWidget {
                 Builder(
                   builder: (context) => Text(
                     option.count!,
-                    style: s.count.text(
-                      rt,
-                      base: DefaultTextStyle.of(context).style,
+                    style: RaftControlTypography.of(
+                      context,
+                      s.count.text(
+                        rt,
+                        base: DefaultTextStyle.of(context).style,
+                      ),
                     ),
                   ),
                 ),

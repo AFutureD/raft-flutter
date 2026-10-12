@@ -8,6 +8,7 @@ import 'dart:ui' show ImageFilter, SemanticsRole;
 import 'package:flutter/material.dart';
 
 import '../design_primitives.dart';
+import '../dismiss_scope.dart';
 import '../icons.dart';
 import '../localization.dart';
 import '../recipe_surface.dart';
@@ -513,6 +514,7 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
     required this.capturedThemes,
     this.dismissible = true,
     this.label,
+    this.overModal = false,
     super.settings,
   }) : super(traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop);
 
@@ -520,6 +522,9 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
   final CapturedThemes capturedThemes;
   final bool dismissible;
   final String? label;
+
+  /// Opened over another Modal's black/60 scrim (see [_DialogBarrier]).
+  final bool overModal;
 
   @override
   Color? get barrierColor => null;
@@ -536,6 +541,7 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
     dismissible: dismissible,
     label: barrierLabel,
     capturedThemes: capturedThemes,
+    overModal: overModal,
   );
 
   @override
@@ -543,7 +549,13 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => capturedThemes.wrap(SafeArea(child: Builder(builder: builder)));
+  ) => capturedThemes.wrap(
+    // Web Dialog / AlertDialog close on Escape even where the scrim tap is
+    // off (`disablePointerDismissal`, confirm dialogs).
+    RaftDismissScope(
+      child: SafeArea(child: Builder(builder: builder)),
+    ),
+  );
 
   @override
   Widget buildTransitions(
@@ -569,7 +581,9 @@ class _DialogBarrier extends StatelessWidget {
     required this.dismissible,
     required this.label,
     required this.capturedThemes,
+    this.overModal = false,
   });
+  final bool overModal;
   final Animation<double> animation;
   final bool dismissible;
   final String? label;
@@ -581,9 +595,18 @@ class _DialogBarrier extends StatelessWidget {
       builder: (context) {
         final t = RaftTokens.of(context);
         final s = RaftDialogSlots.of(context).overlay;
-        final color =
+        var color =
             s.backgroundColor?.resolve(t.recipeTokens) ??
             t.semantic.layerBackdrop;
+        // Brutal `--layer-backdrop` is black at alpha 0.650858 (its 0.0007
+        // channel tint quantizes to 0 in Chromium). Over another Modal's
+        // black/60 scrim (102) Chromium lands on 35 where Skia's float blend
+        // rounds 35.6 up to 36 and the tint tips two channels: pure black at
+        // 0.6525 gives 35 there. Only for dialogs stacked on a Modal; over a
+        // page the tinted token already matches.
+        if (overModal && t.brutal && (color.a - 0.650858).abs() < .001) {
+          color = Colors.black.withValues(alpha: .6525);
+        }
         final blur = t.brutal ? 0.0 : 2.0;
         Widget layer = ColoredBox(color: color, child: const SizedBox.expand());
         if (blur > 0) {
@@ -620,6 +643,7 @@ Future<T?> showRaftDialog<T>({
   bool useRootNavigator = true,
   String? barrierLabel,
   RouteSettings? routeSettings,
+  bool overModal = false,
 }) {
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   return navigator.push(
@@ -627,6 +651,7 @@ Future<T?> showRaftDialog<T>({
       builder: builder,
       dismissible: barrierDismissible,
       label: barrierLabel,
+      overModal: overModal,
       settings: routeSettings,
       capturedThemes: InheritedTheme.capture(
         from: context,
