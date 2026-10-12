@@ -170,8 +170,9 @@ including its PDF helper dependencies (see `docs/linux-media-runtime.md`).
 The `linux-flatpak-smoke` CI artifact includes the unscaled PNG captured at actual
 `GDK_SCALE=2`, launch log, installed runtime information and source-bound screenshot
 metadata. This proves a fresh production window opens, not login, messaging,
-portal file selection or real desktop notification acceptance. Runtime errors
-and screenshots are retained even when smoke testing fails.
+portal file selection or real desktop notification acceptance. The disposable desktop supplies its own unlocked Secret Service keyring; no
+user profile or account is imported. Runtime errors, packages and screenshots
+are retained even when smoke testing fails.
 
 References: [Flatpak manifests](https://docs.flatpak.org/en/latest/manifests.html),
 [bundle distribution](https://docs.flatpak.org/en/latest/single-file-bundles.html),

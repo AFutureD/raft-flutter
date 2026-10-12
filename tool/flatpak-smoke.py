@@ -18,6 +18,10 @@ def capture(args):
 def main():
     if os.environ.get('GITHUB_ACTIONS') != 'true':
         raise ValueError('Smoke installation is limited to the disposable GitHub runner')
+    # A normal Linux desktop supplies Secret Service. Provide a fresh unlocked
+    # keyring in this disposable session; never use or copy a user's profile.
+    subprocess.run(['gnome-keyring-daemon', '--unlock', '--components=secrets'],
+                   input='', text=True, capture_output=True, check=True)
     artifacts = list((ROOT / 'build/release').glob('*.flatpak'))
     if len(artifacts) != 1:
         raise ValueError('Expected exactly one Flatpak bundle')
@@ -53,6 +57,9 @@ def main():
             time.sleep(5)
             if process.poll() is not None:
                 raise ValueError('Flatpak exited after creating its window')
+            log.flush()
+            if 'libsecret_error:' in (out / 'launch.log').read_text():
+                raise ValueError('Secure storage is unavailable in the smoke desktop')
             png = out / 'raft-linux-flatpak-hidpi.png'
             subprocess.run(['import', '-window', window, png], check=True)
             dimensions = capture(['identify', '-format', '%w %h %k', png]).split()

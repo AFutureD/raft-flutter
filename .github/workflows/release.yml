@@ -110,7 +110,7 @@ jobs:
       - name: Install Flatpak runtime and packaging tools
         if: matrix.platform == 'flatpak'
         run: |
-          sudo apt-get install -y flatpak flatpak-builder xvfb x11-utils imagemagick desktop-file-utils
+          sudo apt-get install -y flatpak flatpak-builder xvfb x11-utils imagemagick desktop-file-utils gnome-keyring at-spi2-core
           # Hosted Ubuntu restricts unprivileged bubblewrap without this CI-only setting.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
@@ -142,6 +142,7 @@ jobs:
       - name: Ensure tracked dependencies stayed locked
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
+        if: success() || (failure() && matrix.platform == 'flatpak')
         with:
           name: release-${{ matrix.platform }}-${{ matrix.arch }}
           path: build/release/*
