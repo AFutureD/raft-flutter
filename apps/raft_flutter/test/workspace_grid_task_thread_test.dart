@@ -10,6 +10,7 @@ import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_flutter/features/workspace_grid_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'message_context_transition_test.dart' show row;
 import 'task_surface_test.dart' show modernTask, taskRoutes, flush;
@@ -93,11 +94,11 @@ Future<WorkspaceGridViewState> mountGrid(
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K10b grid footer] accepted Source summary opens real replies immediately without lookup $family/$dark',
       (t) async {

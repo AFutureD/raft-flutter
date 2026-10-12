@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_focus_receipt_test.dart' show paintedMessage;
@@ -82,11 +83,11 @@ void main() {
     });
   }
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[N24g] $family/$dark canonical thread Back then channel double-click retains accepted destination every pending frame',
       (tester) async {

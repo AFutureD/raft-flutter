@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'activity_follow_ack_test.dart' show Client, Workspace, thread;
 
@@ -21,11 +22,11 @@ Map<String, dynamic> doneThread({String authoritySeq = '12'}) => {
 };
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     late Client client;
     late Workspace workspace;
     setUp(() {

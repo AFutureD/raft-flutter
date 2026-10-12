@@ -8,6 +8,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/recipes.dart';
 
+// Full theme matrix on purpose (theme/token/recipe test): never sampled, see
+// package:raft_ui/test_themes.dart.
 void main() {
   final files = [
     File('test/recipes/recipe_parity_cases.g.json'),

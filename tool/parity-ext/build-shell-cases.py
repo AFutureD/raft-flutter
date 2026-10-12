@@ -208,8 +208,11 @@ def hover(selector):
     return {'type': 'hover', 'target': selector}
 
 
-def tap(key):
-    return {'type': 'tap', 'key': key}
+def tap(key, scroll=True):
+    step = {'type': 'tap', 'key': key}
+    if not scroll:
+        step['scroll'] = False  # already on screen: Playwright does not scroll, ensureVisible would
+    return step
 
 
 def secondary(key, x=None, y=None):
@@ -318,7 +321,7 @@ SPECS += [
     spec('mobile', 'menu.channel', preset='mobile', region=MOBILE_HOME, title='Mobile channel row context menu',
          interactions=[rightclick(row('shell-general'))], android=[secondary('sidebar-channel-shell-general')]),
     spec('mobile', 'sidebar.sort-menu', preset='mobile', region=MOBILE_HOME, title='Mobile section sort menu',
-         interactions=[click('[data-sort-section="channels"]')], android=[tap('sidebar-sort-system:channels')]),
+         interactions=[click('[data-sort-section="channels"]')], android=[tap('sidebar-sort-system:channels', scroll=False)]),
 ]
 SPECS += [
     spec('desktop', 'activity.frame', preset='mobile', region='shell-activity-frame', props={'route': 'activity'},

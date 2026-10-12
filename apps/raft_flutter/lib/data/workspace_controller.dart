@@ -140,6 +140,7 @@ class WorkspaceController extends ChangeNotifier {
     channels = source.channels;
     dms = source.dms;
     unread = source.unread;
+    mentions = source.mentions;
     sidebarOrder = source.sidebarOrder;
     connected = source.connected;
     foreground = active && source.foreground;
@@ -1243,6 +1244,7 @@ class WorkspaceController extends ChangeNotifier {
       dms = [];
       server = null;
       unread = {};
+      mentions = {};
       _latestActivity.clear();
       sidebarOrder = {};
       threadParent = null;
@@ -2124,6 +2126,11 @@ class WorkspaceController extends ChangeNotifier {
   List<RaftRecord> servers = [];
   List<RaftChannel> channels = [], dms = [];
   Map<String, int> unread = {};
+
+  /// Source messageStore `mentionFlags`: conversations whose unread messages
+  /// mention the member (unread snapshot `hasMention`, a live `message:new`
+  /// that mentions the member). Cleared with the unread count.
+  Set<String> mentions = {};
   Map<String, dynamic> sidebarOrder = {};
   RaftRecord? server;
   bool can(String capability, {RaftChannel? resource}) => raftCan(
@@ -2675,6 +2682,7 @@ class WorkspaceController extends ChangeNotifier {
     threadChannelId = null;
     _summariesByChannel.clear();
     unread = {};
+    mentions = {};
     _latestActivity.clear();
     channelGeneration++;
     threadGeneration++;
@@ -2876,10 +2884,13 @@ class WorkspaceController extends ChangeNotifier {
     }
     // Source canAutoMarkLiveAppendRead: a live arrival in the open
     // conversation is read only if the user was just interacting; while the
-    // user is idle it stays unread (Activity keeps its indicator).
+    // user is idle it stays unread (Activity keeps its indicator). Phone
+    // (owner decision 2026-10-12, docs/parity.md): a foreground page whose
+    // timeline sits at the latest end reads it with no tap.
     if ((id == channel?.id || id == threadChannelId) &&
         _mayMarkRead(id) &&
-        RaftUserActivity.recent) {
+        (RaftUserActivity.recent ||
+            mobileNavigation && !_scrolledAway.contains(id))) {
       unawaited(markRead(id));
       return;
     }
@@ -2901,8 +2912,21 @@ class WorkspaceController extends ChangeNotifier {
       return;
     }
     unread = {...unread, id: (unread[id] ?? 0) + 1};
+    if (_mentionsMember(row)) mentions = {...mentions, id};
     _persistUnread();
     unawaited(prefetchLikelyChannels());
+  }
+
+  /// Source `mentionsCurrentUser`: a structured user mention of the member.
+  bool _mentionsMember(Map<String, dynamic> row) {
+    final me = client.user?.id, list = row['mentions'];
+    return me != null &&
+        list is List &&
+        list.any((m) => m is Map && m['type'] == 'user' && m['id'] == me);
+  }
+
+  void _clearMention(String id) {
+    if (mentions.contains(id)) mentions = {...mentions}..remove(id);
   }
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
@@ -2940,6 +2964,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (count == null || unread[id] == count) return;
     unread = {...unread, id: count};
+    if (count == 0) _clearMention(id);
   }
 
   Future<void> refreshUnread() async {
@@ -2956,6 +2981,7 @@ class WorkspaceController extends ChangeNotifier {
       final counts = value is Map ? value['channels'] ?? value : {};
       if (counts is Map) {
         final next = <String, int>{};
+        final nextMentions = <String>{};
         for (final e in counts.entries) {
           final id = e.key.toString(), entry = e.value;
           if (entry is num) {
@@ -2988,8 +3014,12 @@ class WorkspaceController extends ChangeNotifier {
               : outcome == 'corrupt'
               ? (unread[id] ?? 0)
               : ((entry['unreadCount'] ?? 0) as num).toInt();
+          if (entry['hasMention'] == true && next[id]! > 0) {
+            nextMentions.add(id);
+          }
         }
         unread = next;
+        mentions = nextMentions;
         _persistReadState();
       }
       notifyListeners();
@@ -3137,6 +3167,7 @@ class WorkspaceController extends ChangeNotifier {
       _diskOnlyWindows.remove(scope);
       _contextWindows.remove(scope);
       unread.remove(scope);
+      _clearMention(scope);
       _latestActivity.remove(scope);
       _summariesByChannel.remove(scope);
       _threadWindows.removeWhere(
@@ -3281,9 +3312,7 @@ class WorkspaceController extends ChangeNotifier {
         final value = await client.request(
           'PATCH',
           '/servers/$id/sidebar-order',
-          data: sections
-              ? {...updates, 'sectionsVersion': ?version}
-              : updates,
+          data: sections ? {...updates, 'sectionsVersion': ?version} : updates,
         );
         if (!current()) return;
         final reply = value is Map
@@ -4039,6 +4068,22 @@ class WorkspaceController extends ChangeNotifier {
     loadingOlder = false;
     channelLoading = true;
     error = null;
+    // Source messageStore selectChannel: opening a conversation clears its
+    // local unread at once; the read receipt follows the first page. A load
+    // that never sends the receipt reconciles with the server in `finally`.
+    final optimisticRead =
+        autoRead &&
+        navigate &&
+        !retainContextUntilAccepted &&
+        ((unread[next.id] ?? 0) != 0 || mentions.contains(next.id));
+    final readPostsBefore = _readPosts[next.id] ?? 0;
+    _scrolledAway.remove(next.id);
+    if (optimisticRead) {
+      // Web `clearUnread`: the count and the mention flag clear together.
+      if ((unread[next.id] ?? 0) != 0) unread = {...unread, next.id: 0};
+      _clearMention(next.id);
+      _persistUnread();
+    }
     final window = ++channelGeneration;
     final generation = ledger.generation;
     final authority = _windowAuthority();
@@ -4137,6 +4182,11 @@ class WorkspaceController extends ChangeNotifier {
       if (current()) {
         channelLoading = false;
         notifyListeners();
+      }
+      if (optimisticRead &&
+          !_disposed &&
+          (_readPosts[next.id] ?? 0) == readPostsBefore) {
+        unawaited(refreshUnread());
       }
     }
   }
@@ -4256,6 +4306,22 @@ class WorkspaceController extends ChangeNotifier {
   /// the unread count) until revalidated.
   final Set<String> _diskOnlyWindows = {};
 
+  /// Open conversations whose timeline is scrolled above the latest end
+  /// (reported by the chat view on the edge only, never per frame).
+  final Set<String> _scrolledAway = {};
+
+  void setTimelineAtBottom(String id, bool atBottom) {
+    if (atBottom) {
+      _scrolledAway.remove(id);
+    } else {
+      _scrolledAway.add(id);
+    }
+  }
+
+  /// Read receipts sent per scope: lets an optimistic open-time clear know
+  /// whether the receipt that backs it was ever sent.
+  final Map<String, int> _readPosts = {};
+
   Future<void> markRead(String id) async {
     final source = presentationSource;
     if (source != null) {
@@ -4280,6 +4346,7 @@ class WorkspaceController extends ChangeNotifier {
         serverId = client.serverId,
         generation = ledger.generation;
     final window = id == threadChannelId ? threadGeneration : channelGeneration;
+    _readPosts[id] = (_readPosts[id] ?? 0) + 1;
     try {
       final receipt = await client.post(
         '/channels/$id/read',
@@ -4287,11 +4354,21 @@ class WorkspaceController extends ChangeNotifier {
       );
       if (client.origin != origin ||
           client.user?.id != principal ||
-          client.serverId != serverId ||
-          ledger.generation != generation ||
+          client.serverId != serverId) {
+        return;
+      }
+      if (ledger.generation != generation ||
           window !=
               (id == threadChannelId ? threadGeneration : channelGeneration) ||
           !_mayMarkRead(id)) {
+        // The user left (or the window was replaced) while the receipt was in
+        // flight. The server cursor still advanced: fold the accepted frontier
+        // in and clear only what it covers, so Home never keeps an indicator
+        // for a conversation that was read (Source clearUnread).
+        // A reset ledger or a revoked scope never accepts a late receipt.
+        if (ledger.generation == generation && !_revokedChannels.contains(id)) {
+          _acceptStaleReadReceipt(id, receipt);
+        }
         return;
       }
       if (receipt is Map && client.serverId != null && client.user != null) {
@@ -4308,9 +4385,42 @@ class WorkspaceController extends ChangeNotifier {
       }
       // Source clearUnread: the read tail is the latest; no snapshot GET.
       if ((unread[id] ?? 0) != 0) unread = {...unread, id: 0};
+      _clearMention(id);
       _persistReadState();
       notifyListeners();
-    } catch (_) {}
+    } catch (_) {
+      // The cursor did not advance: an optimistic clear must not hide it.
+      if (!_disposed &&
+          client.origin == origin &&
+          client.user?.id == principal &&
+          client.serverId == serverId) {
+        unawaited(refreshUnread());
+      }
+    }
+  }
+
+  void _acceptStaleReadReceipt(String id, dynamic receipt) {
+    final serverId = client.serverId, principal = client.user?.id;
+    if (_disposed || serverId == null || principal == null) return;
+    if (receipt is Map) {
+      readState.consumeUpdate(
+        {
+          'serverId': serverId,
+          'scopeId': id,
+          'maxReadSeq': receipt['maxReadSeq'],
+          'readStateVersion': receipt['readStateVersion'],
+        },
+        serverId: serverId,
+        principalId: principal,
+      );
+    }
+    final before = unread[id] ?? 0;
+    _projectReadState(id);
+    if ((unread[id] ?? 0) != before) {
+      _persistReadState();
+      notifyListeners();
+    }
+    if ((unread[id] ?? 0) != 0) unawaited(refreshUnread());
   }
 
   /// Source acceptActivityReadAllAck: an Activity row's persisted read-all
@@ -4339,6 +4449,7 @@ class WorkspaceController extends ChangeNotifier {
     );
     if (outcome == 'corrupt') return false;
     if ((unread[scopeId] ?? 0) != 0) unread = {...unread, scopeId: 0};
+    _clearMention(scopeId);
     _persistReadState();
     notifyListeners();
     return true;

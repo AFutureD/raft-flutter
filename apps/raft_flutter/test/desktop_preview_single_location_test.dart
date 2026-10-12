@@ -11,6 +11,7 @@ import 'package:raft_flutter/features/quick_switcher.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Activity/Search channel preview contract: one location owns the detail
@@ -201,11 +202,11 @@ Future<void> _rail(WidgetTester t, String id) async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[N27] $family/$dark Activity/Search channel preview: title, rail, master, detail and Back follow one location; hidden channel stays unread',
       (t) async {

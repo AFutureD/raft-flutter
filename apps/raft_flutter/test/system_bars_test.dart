@@ -9,6 +9,8 @@ import 'package:raft_flutter/platform/system_bars.dart';
 import 'package:raft_flutter/features/auth_view.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+// Full theme matrix on purpose (theme/token/recipe test): never sampled, see
+// package:raft_ui/test_themes.dart.
 void main() {
   testWidgets('Android auth paints header color over opaque page safe area', (
     tester,

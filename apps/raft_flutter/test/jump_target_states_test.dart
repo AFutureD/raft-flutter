@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_focus_receipt_test.dart' show paintedMessage;
@@ -18,11 +19,11 @@ import 'workspace_activity_activation_test.dart' show channelRow, message;
 /// never shows the previous conversation under the new slot, the destination's
 /// stale cached tail, an empty-channel state, or a stage that goes backwards.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final source in ['search', 'activity']) {
       for (final known in [true, false]) {
         testWidgets(

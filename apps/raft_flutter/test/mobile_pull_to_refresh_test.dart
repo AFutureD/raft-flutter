@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/desktop_directory_view.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'activity_incremental_refresh_test.dart'
@@ -82,11 +83,11 @@ Future<void> pull(WidgetTester t) async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark Home pull refreshes channels, DMs and unread without bootstrap or losing drafts',
       (t) async {

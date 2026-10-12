@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/recent_conversations.dart';
 import 'package:raft_flutter/features/quick_switcher.dart';
 import 'package:raft_flutter/features/quick_switcher_model.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Map<String, dynamic> channel(
   String id,
@@ -162,11 +163,11 @@ void main() {
     addTearDown(t.view.resetDevicePixelRatio);
   }
 
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (name: 'Brutal', family: RaftFamily.brutal, dark: false),
     (name: 'Elegant', family: RaftFamily.elegant, dark: false),
     (name: 'Elegant dark', family: RaftFamily.elegant, dark: true),
-  ]) {
+  ])) {
     testWidgets(
       '[N26] ${theme.name} recent conversations are in the first frame, newest visit first, current excluded',
       (t) async {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 // Pinned Source SurfaceListItem.tsx 17–39, ProgressBar.tsx 47–66,
 // raft-ui 0.5.27 input/progress recipes. Actual SDK components; these do not
@@ -18,11 +19,11 @@ Widget host(ThemeData theme, Widget child) => MaterialApp(
 );
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark real surface preserves caller text, selection and hover',
       (tester) async {

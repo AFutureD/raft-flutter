@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/src/design_primitives.dart';
 import 'package:raft_ui/src/quick_reaction_picker.dart';
 import 'package:raft_ui/src/theme.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Widget host({
   RaftFamily family = RaftFamily.elegant,
@@ -94,11 +95,11 @@ void main() {
     },
   );
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'seven source buttons preserve order and mounted dimensions $family/$dark',
       (tester) async {

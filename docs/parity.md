@@ -187,6 +187,19 @@ size and `RaftTouchTargetExpander` extends the hit area to 48px.
 Elegant `panelHeader` draws no bottom border (`border-b-0`); the conversation
 and thread headers keep the 1px `line-muted` rule Source's mounted panel adds.
 
+## Phone live-append read: intended difference from Web (owner decision 2026-10-12)
+
+Web marks a live message in the open conversation read only when the user
+interacted in the last second (`canAutoMarkLiveAppendRead`, pointer/key). On
+the phone layout (`mobileNavigation`) Flutter drops that 1 s requirement: a live
+message counts as read when the conversation page is presented in the
+foreground (app resumed, page is the top route, `_mayMarkRead`) and its timeline
+is at the latest end (`!hasNewer` and not scrolled above the bottom; the chat
+view reports the edge through `setTimelineAtBottom`). No tap is needed. Desktop
+keeps Web's 1 s activity gate. Everything else matches Web: opening clears the
+local unread, scrolling back to the bottom and returning to the foreground send
+the read receipt.
+
 ## One command
 
 ```bash

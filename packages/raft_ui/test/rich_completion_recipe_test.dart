@@ -3,13 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/src/message_list_marker.dart';
 import 'package:raft_ui/src/rich_card_tokens.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ], full: true)) {
     testWidgets(
       'forwarded outer inherits card surface while body retains panel $family/$dark',
       (tester) async {

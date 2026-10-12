@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 /// Measured on the Web DOM (components.shell.* extension cases).
 void main() {
@@ -18,11 +19,11 @@ void main() {
     ),
   );
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('Banner title/description gap and action wrap $family/$dark', (
       tester,
     ) async {

@@ -24,6 +24,7 @@ import 'package:raft_flutter/features/incoming_share_picker.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/system_bars.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'incoming_share_review_test.dart' show PickerClient;
@@ -713,7 +714,11 @@ void main() {
     File('${outDir().path}/metrics.json')
         .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(metrics));
   });
-  for (final theme in const ['brutal', 'elegant-light', 'elegant-dark']) {
+  for (final theme in raftThemeMatrix([
+    'brutal',
+    'elegant-light',
+    'elegant-dark',
+  ], full: true)) {
     final dark = theme == 'elegant-dark';
     for (final s in scenarios) {
       if (dark && (!s.dark || s.nav != Nav.gesture)) continue;

@@ -708,6 +708,16 @@ class _RaftChatViewState extends State<RaftChatView>
     }
   }
 
+  /// Tells the controller whether this timeline sits at the latest end (the
+  /// phone reads a live append only there). Edge-only: callers gate on a change.
+  String? reportedBottomId;
+  void reportBottom(bool bottom) {
+    final id = widget.thread ? w.threadChannelId : w.channel?.id;
+    if (id == null) return;
+    reportedBottomId = bottom ? null : id;
+    w.setTimelineAtBottom(id, bottom);
+  }
+
   void timelineScrolled() {
     closePickerOnScroll();
     if (!mounted || viewport.positions.length != 1) return;
@@ -716,10 +726,20 @@ class _RaftChatViewState extends State<RaftChatView>
     // MessageTimeline.tsx AT_BOTTOM_THRESHOLD.
     final next = distanceFromLatest(position) <= 100;
     if (next != atBottom || (next && newMessageCount != 0)) {
+      final arrived = next && !atBottom;
+      if (next != atBottom) reportBottom(next);
       setState(() {
         atBottom = next;
         if (next) newMessageCount = 0;
       });
+      // Source setNearBottom(true) -> markCurrentChannelRead: scrolling back
+      // to the latest end reads what arrived while the reader was above it.
+      if (arrived) {
+        final id = widget.thread ? w.threadChannelId : w.channel?.id;
+        if (id != null && (w.unread[id] ?? 0) != 0) {
+          unawaited(w.markRead(id));
+        }
+      }
     }
   }
 
@@ -768,6 +788,7 @@ class _RaftChatViewState extends State<RaftChatView>
 
   @override
   void dispose() {
+    if (reportedBottomId case final id?) w.setTimelineAtBottom(id, true);
     WidgetsBinding.instance.removeObserver(this);
     widget.viewportHandle?.release(this);
     boundSearch?.removeListener(threadSearchChanged);
@@ -1121,10 +1142,12 @@ class _RaftChatViewState extends State<RaftChatView>
         scrolledHighlight = target;
         scrolledWindow = window;
         final position = scroll.positions.length == 1 ? scroll.position : null;
-        atBottom =
+        final bottom =
             position == null ||
             !position.hasContentDimensions ||
             distanceFromLatest(position) <= 100;
+        if (bottom != atBottom) reportBottom(bottom);
+        atBottom = bottom;
       });
       if (preserving) return;
       highlightTimer?.cancel();

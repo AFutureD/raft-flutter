@@ -8,16 +8,17 @@ import 'package:raft_flutter/features/mobile_workspace_pages.dart';
 import 'package:raft_flutter/features/private_route_guard.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_channel_settings_identity_test.dart' show settingsFixture;
 import 'task_surface_test.dart' show flush;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'Mobile channel pages share current settings content, preserve history and keyboard focus $family/$dark',
       (t) async {

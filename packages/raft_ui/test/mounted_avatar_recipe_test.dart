@@ -5,6 +5,7 @@ import 'package:raft_ui/src/icons.dart';
 import 'package:raft_ui/src/mounted_avatar_recipe.dart';
 import 'package:raft_ui/src/theme.dart';
 import 'package:raft_ui/src/tooltip.dart';
+import 'package:raft_ui/test_themes.dart';
 
 const busy = RaftAvatarPresence(activity: RaftAvatarActivity.working);
 Widget host(Widget child, RaftFamily family, bool dark) => MaterialApp(
@@ -15,11 +16,11 @@ Widget host(Widget child, RaftFamily family, bool dark) => MaterialApp(
 );
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ], full: true)) {
     for (final (context, extent, inner) in [
       (RaftMountedAvatarContext.panelHeader, 36.0, 32.0),
       (RaftMountedAvatarContext.compactList, 20.0, 18.0),

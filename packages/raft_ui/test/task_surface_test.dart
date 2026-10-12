@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/task_surface_previews.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Widget host(Widget child, RaftFamily family, bool dark) => MaterialApp(
   theme: raftTheme(family, dark: dark),
@@ -13,11 +14,11 @@ Widget host(Widget child, RaftFamily family, bool dark) => MaterialApp(
 );
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final legacy in [false, true]) {
       testWidgets(
         'Task page uses shared header, semantics and keyboard Back $family/$dark/$legacy',

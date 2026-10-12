@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('source mute form keyboard and disabled/save semantics $theme', (
       t,
     ) async {
@@ -31,8 +32,7 @@ void main() {
                     status: 'Unavailable',
                     actionLabel: 'Enable notifications',
                     muted: muted,
-                    muteDescription:
-                        'Stops notifications from Fixture for your account. Other servers are unchanged.',
+                    muteDescription: 'Stops notifications from Fixture for your account. Other servers are unchanged.',
                     onMutedChanged: (v) => setState(() => muted = v),
                     onSave: muted == saved
                         ? null

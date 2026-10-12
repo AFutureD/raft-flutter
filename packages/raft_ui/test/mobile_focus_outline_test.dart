@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 const navItems = [
   RaftMobileNavItem(
@@ -32,11 +33,11 @@ const navItems = [
 ];
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final density in RaftDensity.values) {
       testWidgets(
         'pointer selected shadow survives; keyboard separate outline recipe is2px+2px: $family/$dark/$density',
@@ -139,10 +140,7 @@ void main() {
               final capsule = tester.getSize(
                 find.byKey(const ValueKey('mobile-nav-source-capsule')),
               );
-              expect(
-                capsule,
-                const Size(208, 52),
-              ); // Source face geometry independent of transparent touch48 target.
+              expect(capsule, const Size(208, 52)); // Source face geometry independent of transparent touch48 target.
             }
             await tester.tap(find.byKey(const ValueKey('focus-tab-home')));
             await tester.pump(const Duration(milliseconds: 200));

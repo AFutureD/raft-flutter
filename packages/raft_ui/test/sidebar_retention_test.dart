@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 class _Lifetime {
   int mounts = 0, disposals = 0;
@@ -152,11 +153,11 @@ void main() {
     },
   );
 
-  for (final variant in [
+  for (final variant in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     final family = variant.$1;
     final dark = variant.$2;
     testWidgets(

@@ -38,6 +38,7 @@ void main() {
       api.routes['GET /channels/inbox'] = (_) => {'items': []};
       api.routes['GET /channels/public'] = (_) => [];
       api.routes['GET /announcements/active'] = (_) => {'announcements': []};
+      api.routes['GET /servers/unread-summary'] = (_) => [];
       api.routes['GET /product-feedback/tickets'] = (_) => {
         'unread_total': 0,
         'tickets': [],

@@ -2,13 +2,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'scroll retires only the hovered row and leaves idle rows untouched $family/$dark',
       (t) async {
@@ -101,8 +102,7 @@ void main() {
         expect(
           find.byType(RaftMessageToolbar),
           findsNothing,
-          reason:
-              'Content moving under a stationary pointer cannot reopen a toolbar.',
+          reason: 'Content moving under a stationary pointer cannot reopen a toolbar.',
         );
         await mouse.moveTo(
           t.getCenter(find.text('Message 2')) + const Offset(1, 0),

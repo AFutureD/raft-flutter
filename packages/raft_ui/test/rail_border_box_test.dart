@@ -5,16 +5,17 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 // Actual Source LeftRail.tsx567–630 + AppRailRoot, DPR1 DOM:
 // Brutal width64/border-right2 => child width62, 40px button x11.
 // Elegant width56/no border => child width56, 40px button x8.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('$family/$dark rail content honors its real CSS border box', (
       t,
     ) async {

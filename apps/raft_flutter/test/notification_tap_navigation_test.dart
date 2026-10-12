@@ -8,6 +8,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'chat_focus_receipt_test.dart' show paintedMessage;
 import 'message_presentation_test.dart' show MessageAdapter;
@@ -92,11 +93,11 @@ Future<void> _settle(WidgetTester t, bool Function() done) async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('$family/$dark invalid notification payloads never navigate', (
       t,
     ) async {

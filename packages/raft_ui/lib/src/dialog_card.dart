@@ -406,10 +406,14 @@ class RaftRecipeCard extends StatelessWidget {
     required this.child,
     this.padding = EdgeInsets.zero,
     this.maxWidth,
+    this.background,
   });
   final Widget child;
   final EdgeInsets padding;
   final double? maxWidth;
+
+  /// Call-site `bg-*` override of the Card fill.
+  final Color? background;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -427,6 +431,9 @@ class RaftRecipeCard extends StatelessWidget {
         width: double.infinity,
         padding: padding,
         applyText: false,
+        decorationOverride: background == null
+            ? null
+            : (d) => d.copyWith(color: background),
         child: DefaultTextStyle.merge(
           style: root.textStyle(tokens),
           child: child,
@@ -446,8 +453,13 @@ class RaftDialogCard extends StatelessWidget {
     required this.onClose,
     required this.child,
     this.maxWidth = 448, // max-w-md = 28rem
+    this.titleGlyph,
   });
   final String title;
+
+  /// A leading `<Icon size={18} />` in the title (`flex min-w-0 items-center
+  /// gap-2` + `truncate` title span).
+  final RaftGlyph? titleGlyph;
   final VoidCallback onClose;
   final Widget child;
   final double maxWidth;
@@ -459,6 +471,12 @@ class RaftDialogCard extends StatelessWidget {
       theme: raftRecipeThemeOf(t),
       tokens: tokens,
     ).title;
+    final titleStyle = raftCssTextStyle(
+      family: titleSlot.fontFamily ?? t.headingFont,
+      step: RaftTextSteps.lg,
+      weight: FontWeight.w700,
+      color: t.ink,
+    );
     return RaftRecipeCard(
       maxWidth: maxWidth,
       padding: const EdgeInsets.all(24),
@@ -475,16 +493,26 @@ class RaftDialogCard extends StatelessWidget {
                 Expanded(
                   child: Semantics(
                     header: true,
-                    child: Text(
-                      // CardTitle has no `truncate`: a long title wraps.
-                      raftText(context, title).toUpperCase(),
-                      style: raftCssTextStyle(
-                        family: titleSlot.fontFamily ?? t.headingFont,
-                        step: RaftTextSteps.lg,
-                        weight: FontWeight.w700,
-                        color: t.ink,
-                      ),
-                    ),
+                    child: titleGlyph == null
+                        ? Text(
+                            // CardTitle has no `truncate`: a long title wraps.
+                            raftText(context, title).toUpperCase(),
+                            style: titleStyle,
+                          )
+                        : Row(
+                            spacing: 8,
+                            children: [
+                              RaftIcon(titleGlyph!, size: 18, color: t.ink),
+                              Expanded(
+                                child: Text(
+                                  raftText(context, title).toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
                 RaftCloseButton(onPressed: onClose),
@@ -913,8 +941,11 @@ class RaftDialogTextInput extends StatelessWidget {
 
 /// Web `Banner intent="warning" className="font-bold"`.
 class RaftWarningBanner extends StatelessWidget {
-  const RaftWarningBanner(this.message, {super.key});
+  const RaftWarningBanner(this.message, {super.key, this.small = false});
   final String message;
+
+  /// Call-site `text-xs` (AddMembersDialog's error Banner).
+  final bool small;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -933,7 +964,7 @@ class RaftWarningBanner extends StatelessWidget {
           message,
           style: raftCssTextStyle(
             family: t.headingFont,
-            step: RaftTextSteps.sm,
+            step: small ? RaftTextSteps.xs : RaftTextSteps.sm,
             weight: FontWeight.w700,
             color: t.strong,
           ),

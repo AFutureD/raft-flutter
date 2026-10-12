@@ -8,6 +8,7 @@ import 'package:raft_flutter/data/source_activity_unread_store.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'activity_done_lifecycle_test.dart' show doneThread;
 import 'message_presentation_test.dart' show fixture, MessageAdapter;
@@ -108,11 +109,11 @@ class _MountedDone {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[Activity thread Done persisted read] $family/$dark ACK starts bodyless read-all independently of one owned inbox refresh',
       (tester) async {
