@@ -8,13 +8,13 @@ A native Flutter client for [Raft](https://github.com/botiverse/raft-source), a 
 
 Native desktop windows on Windows, Linux and macOS. Click a screenshot to view the original at full resolution.
 
-<!-- Keep screenshot links pointed at the original files. Add the Linux capture
-     as a third column when available, with its platform, architecture and theme. -->
+<!-- Screenshot links point to original, unedited captures. -->
 <table>
   <thead>
     <tr>
-      <th width="50%">Windows · x64</th>
-      <th width="50%">macOS · Apple Silicon</th>
+      <th width="33%">Windows · x64</th>
+      <th width="33%">macOS · Apple Silicon</th>
+      <th width="33%">Linux · x64</th>
     </tr>
   </thead>
   <tbody>
@@ -29,13 +29,16 @@ Native desktop windows on Windows, Linux and macOS. Click a screenshot to view t
           <img src="screenshots/raft-macos-2026-10-12.png" alt="Raft on macOS, showing a workspace chat and an Agent card in the yellow Brutal theme" width="400">
         </a>
       </td>
+      <td valign="top">
+        <a href="screenshots/raft-linux-fedora-kde-2026-10-12.png">
+          <img src="screenshots/raft-linux-fedora-kde-2026-10-12.png" alt="Raft AppImage on Fedora KDE Wayland, showing a workspace chat and a completed Agent creation card in the yellow Brutal theme" width="400">
+        </a>
+      </td>
     </tr>
     <tr>
       <td>Elegent light · October 12, 2026<br><a href="https://github.com/kevinzhow/raft-flutter/releases">Download releases</a> · <a href="docs/development.md#windows">Windows setup</a></td>
       <td>Brutal light · October 12, 2026<br><a href="docs/macos-evidence.md">Local build and signing</a></td>
-    </tr>
-    <tr>
-      <td colspan="2" align="center"><strong>Linux · x64</strong><br>Screenshot coming soon.<br><a href="docs/deployment.md">Build and install</a> · <a href="docs/linux-media-runtime.md">Linux runtime setup</a></td>
+      <td>Fedora KDE Wayland · Brutal light · October 12, 2026<br><a href="docs/release-ci.md">AppImage releases</a> · <a href="screenshots/raft-linux-fedora-kde-2026-10-12.json">Capture provenance</a></td>
     </tr>
   </tbody>
 </table>

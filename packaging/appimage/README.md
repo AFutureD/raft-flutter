@@ -14,3 +14,9 @@ on the host and bundles the remaining GTK and media dependencies together.
 The shipped runtime's MIT license and source snapshot metadata accompany the
 payload. All copied distribution libraries and PDF commands carry their own
 copyright notices, source package versions and digests in data/notices/raft-media.
+
+The matching Ubuntu GLib desktop launcher is included under raft/bin and
+AppRun selects it through GIO_LAUNCH_DESKTOP using the current AppImage mount
+path. An explicitly supplied override remains supported. This removes the
+Ubuntu-only build-time helper path that failed on Fedora KDE. The helper has
+its own package source, copyright and digest receipt like the PDF commands.

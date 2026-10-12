@@ -142,10 +142,14 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     helpers = stage / 'bin'
     helpers.mkdir()
     commands = []
-    for name in ('pdfinfo', 'pdftoppm'):
-        source = Path(shutil.which(name) or '')
-        if not source.is_file():
-            raise ValueError(f'Missing PDF helper {name}')
+    for name in ('pdfinfo', 'pdftoppm', 'gio-launch-desktop'):
+        # Bundled GLib otherwise calls its Ubuntu build-time libexec path,
+        # which does not exist on Fedora/KDE. Its tiny launch helper uses libc
+        # only, so ship the matching distribution helper with provenance.
+        source = (Path('/usr/lib/x86_64-linux-gnu/glib-2.0/gio-launch-desktop')
+                  if name == 'gio-launch-desktop' else Path(shutil.which(name) or ''))
+        if not source.is_file() or not os.access(source, os.X_OK):
+            raise ValueError(f'Missing desktop/PDF helper {name}')
         row = provenance(name, source, notices)
         row['name'] = row.pop('library')
         commands.append(row)
@@ -187,6 +191,7 @@ export PATH="$app_dir/raft/bin:$PATH"
 export LD_LIBRARY_PATH="$app_dir/raft/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export GIO_MODULE_DIR="$app_dir/raft/lib/gio/modules"
 export GSETTINGS_SCHEMA_DIR="$app_dir/usr/share/glib-2.0/schemas"
+export GIO_LAUNCH_DESKTOP="${GIO_LAUNCH_DESKTOP:-$app_dir/raft/bin/gio-launch-desktop}"
 exec "$app_dir/raft/raft_flutter" "$@"
 ''')
     launcher.chmod(0o755)
@@ -222,4 +227,5 @@ exec "$app_dir/raft/raft_flutter" "$@"
             'maximumGlibcRequired': '.'.join(map(str, needed_glibc)),
             'elfFilesChecked': len(files), 'hostProvidedLibraries': sorted(host_libraries),
             'pdfHelpers': ['pdfinfo', 'pdftoppm'],
+            'desktopLauncher': 'gio-launch-desktop (bundled, relocatable)',
             'launchModes': ['direct (static FUSE 3 library)', '--appimage-extract-and-run (no FUSE)']}
