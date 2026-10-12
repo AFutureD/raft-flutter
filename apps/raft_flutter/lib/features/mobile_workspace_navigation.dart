@@ -82,7 +82,10 @@ class WorkspaceMobileTabBar extends StatelessWidget {
   Widget bar(BuildContext context) {
     String tr(String s) => raftText(context, s);
     final w = controller;
-    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    final nativeMobile =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
     final t = RaftTokens.of(context);
     final tabIds =
         tabs ??
@@ -138,7 +141,7 @@ class WorkspaceMobileTabBar extends StatelessWidget {
         ),
       ],
     );
-    if (android) {
+    if (nativeMobile) {
       // The bar is the only consumer of the bottom system inset on tab roots.
       // It reads the stable system bar height (viewPadding), never the
       // keyboard-aware padding, so it cannot follow or outlive the keyboard.
@@ -146,7 +149,7 @@ class WorkspaceMobileTabBar extends StatelessWidget {
         padding: EdgeInsets.only(bottom: raftSystemBottomInset(context)),
         child: navigation,
       );
-      // The in-flow bar paints beneath Android's transparent navigation bar;
+      // The in-flow bar paints beneath the system navigation / home indicator;
       // the floating capsule has no strip fill.
       if (t.brutal) {
         navigation = ColoredBox(
