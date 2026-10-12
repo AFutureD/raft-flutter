@@ -175,6 +175,9 @@ const _allow = <String, Map<String, _Allow>>{
   'packages/raft_ui/lib/src/design_primitives.dart': {
     '.repeat(': (count: 2, reason: _vsyncState),
   },
+  'packages/raft_ui/lib/src/member_graph.dart': {
+    '.repeat(': (count: 2, reason: _vsyncState),
+  },
   'packages/raft_ui/lib/src/indicators.dart': {
     '.repeat(': (count: 1, reason: _vsyncState),
   },
