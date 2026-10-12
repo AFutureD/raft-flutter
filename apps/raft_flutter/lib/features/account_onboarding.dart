@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../platform/file_selection.dart';
+
 import 'auth_view.dart' show authLinkToken;
 
 bool accountNeedsProfile(RaftRecord? user) =>
@@ -34,14 +36,13 @@ String? accountUsernameError(String value) {
 class AccountMediaActions {
   static Future<void> uploadAvatar(RaftClient client) async {
     final generation = client.generation;
-    final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(
-          label: 'Avatar image',
-          extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-          mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-        ),
-      ],
+    final file = await selectImage(
+      typeGroup: const XTypeGroup(
+        label: 'Avatar image',
+        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        mimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+        uniformTypeIdentifiers: ['public.image'],
+      ),
     );
     if (file == null) return;
     if (client.generation != generation) {
