@@ -65,6 +65,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
     RaftTokenSet? tokens,
     this.systemFonts = false,
     this.systemFontFamilies = const RaftFontFamilies(),
+    this.textLocale,
   }) : _tokens = tokens;
 
   /// Tokens generated from raft-ui CSS for a theme (dark forces elegant).
@@ -73,6 +74,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
     bool dark = false,
     bool systemFonts = false,
     RaftFontFamilies systemFontFamilies = const RaftFontFamilies(),
+    Locale? textLocale,
   }) {
     final set = RaftTokenSet.of(raftThemeId(family, dark: dark));
     return RaftTokens(
@@ -82,12 +84,16 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
       tokens: set,
       systemFonts: systemFonts,
       systemFontFamilies: systemFontFamilies,
+      textLocale: textLocale,
     );
   }
   final RaftFamily family;
   final bool dark;
   final bool systemFonts;
   final RaftFontFamilies systemFontFamilies;
+
+  /// Locale for regional glyphs, independently of the UI translation locale.
+  final Locale? textLocale;
   final Map<String, Color> colors;
   final RaftTokenSet? _tokens;
 
@@ -123,11 +129,35 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
       systemFonts ? systemFontFamilies.mono : metrics.monoFont;
   List<String> get fontFallback => systemFonts
       ? systemFontFamilies.fallback
-      : const ['Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'];
+      : switch (textLocale?.languageCode) {
+          'zh'
+              when textLocale?.scriptCode == 'Hant' ||
+                  textLocale?.scriptCode != 'Hans' &&
+                      const [
+                        'TW',
+                        'HK',
+                        'MO',
+                      ].contains(textLocale?.countryCode) =>
+            const [
+              'Noto Sans CJK TC',
+              'Noto Sans CJK SC',
+              'Noto Sans CJK JP',
+              'sans-serif',
+            ],
+          'zh' => const ['Noto Sans CJK SC', 'Noto Sans CJK JP', 'sans-serif'],
+          'ko' => const [
+            'Noto Sans CJK KR',
+            'Noto Sans CJK JP',
+            'Noto Sans CJK SC',
+            'sans-serif',
+          ],
+          _ => const ['Noto Sans CJK JP', 'Noto Sans CJK SC', 'sans-serif'],
+        };
   double get radius => brutal ? 0 : 8;
   double get fieldRadius => brutal ? 0 : 6;
   double get border => brutal ? 2 : 1;
   TextStyle get fieldStyle => TextStyle(
+    locale: textLocale,
     fontFamily: headingFont,
     fontVariations: brutal || systemFonts
         ? null
@@ -162,6 +192,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
     RaftFamily? family,
     bool? dark,
     Map<String, Color>? colors,
+    Locale? textLocale,
   }) => family == null && dark == null
       ? RaftTokens(
           this.family,
@@ -170,6 +201,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
           tokens: _tokens,
           systemFonts: systemFonts,
           systemFontFamilies: systemFontFamilies,
+          textLocale: textLocale ?? this.textLocale,
         )
       : RaftTokens(
           family ?? this.family,
@@ -182,6 +214,7 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
               ),
           systemFonts: systemFonts,
           systemFontFamilies: systemFontFamilies,
+          textLocale: textLocale ?? this.textLocale,
         );
   @override
   RaftTokens lerp(covariant RaftTokens? other, double t) =>
@@ -373,6 +406,10 @@ ThemeData raftTheme(
   /// Material control families (buttons, chips, segments, menus, nav labels);
   /// without it the theme keeps the Web line boxes.
   Locale? locale,
+
+  /// Locale for font selection and CJK glyphs; the app supplies the device's
+  /// locale without changing [locale], which controls UI copy and line boxes.
+  Locale? textLocale,
   TargetPlatform? platform,
 }) {
   if (dark) family = RaftFamily.elegant;
@@ -381,6 +418,7 @@ ThemeData raftTheme(
     dark: dark,
     systemFonts: systemFonts,
     systemFontFamilies: systemFontFamilies,
+    textLocale: textLocale,
   );
   RoundedRectangleBorder shape(
     double radius, {
@@ -433,6 +471,7 @@ ThemeData raftTheme(
     bool heading = false,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: heading ? t.headingFont : t.bodyFont,
     fontVariations: heading && !t.brutal && !t.systemFonts
         ? [FontVariation('opsz', size.clamp(14.0, 32.0).toDouble())]
@@ -549,9 +588,9 @@ ThemeData raftTheme(
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: WidgetStateColor.resolveWith(
-        (states) => RaftFieldRecipe(
-          t,
-        ).fill(disabled: states.contains(WidgetState.disabled)),
+        (states) =>
+            RaftFieldRecipe(t)
+                .fill(disabled: states.contains(WidgetState.disabled)),
       ),
       isDense: true,
       // CSS field outer height includes borders; Material outlines paint inside.
@@ -561,9 +600,8 @@ ThemeData raftTheme(
       ),
       hintStyle: WidgetStateTextStyle.resolveWith(
         (states) => t.fieldStyle.copyWith(
-          color: RaftFieldRecipe(
-            t,
-          ).placeholder(disabled: states.contains(WidgetState.disabled)),
+          color: RaftFieldRecipe(t)
+              .placeholder(disabled: states.contains(WidgetState.disabled)),
         ),
       ),
       labelStyle: textTheme.bodySmall,

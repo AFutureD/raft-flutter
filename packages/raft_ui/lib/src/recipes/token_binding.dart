@@ -14,6 +14,9 @@ class RaftRecipeTokens extends RaftTokenResolver {
 
   final RaftTokens tokens;
 
+  @override
+  Locale? get textLocale => tokens.textLocale;
+
   static final _cssNames = <String, String>{};
 
   static String cssName(String camel) => _cssNames.putIfAbsent(

@@ -1737,6 +1737,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
     finishStartup();
     InviteRequests.instance.removeListener(inviteRequested);
@@ -1781,6 +1786,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       domain: 'account',
     );
     final locale = displayLocale(client?.user?.string('displayLanguage'));
+    final textLocale = WidgetsBinding.instance.platformDispatcher.locale;
     return MaterialApp.router(
       title: 'Raft',
       routerDelegate: appRouter,
@@ -1814,6 +1820,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
         systemFontFamilies: NativeSystemFonts.instance.value,
         locale: locale,
+        textLocale: textLocale,
       ),
       darkTheme: raftTheme(
         RaftFamily.elegant,
@@ -1821,6 +1828,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
         systemFontFamilies: NativeSystemFonts.instance.value,
         locale: locale,
+        textLocale: textLocale,
       ),
       themeMode: appearance.mode,
     );

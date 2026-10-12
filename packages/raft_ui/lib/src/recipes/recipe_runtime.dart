@@ -357,6 +357,9 @@ abstract class RaftTokenResolver {
 
   /// Font family token (e.g. `headingFont`): the primary family name.
   String? fontFamily(String name) => null;
+
+  /// Regional glyph locale, independent of translated UI copy.
+  Locale? get textLocale => null;
 }
 
 /// A colour that may depend on foundation tokens.
@@ -1349,6 +1352,7 @@ class RaftSlotStyle {
   /// Text style from font/colour properties (unset values are inherited).
   TextStyle textStyle(RaftTokenResolver tokens, {Color? currentColor}) =>
       TextStyle(
+        locale: tokens.textLocale,
         color: color?.resolve(tokens, currentColor: currentColor),
         fontFamily: fontFamily,
         fontFamilyFallback: fontFamilyFallback?.skip(1).toList(),

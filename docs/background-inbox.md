@@ -6,6 +6,16 @@ The shared code is in `apps/raft_flutter/lib/platform/background_inbox.dart` and
 
 A wake fetches up to 100 latest unread conversations and delivers up to five latest-activity alerts. It does not mark messages read. Account/workspace changes, local opt-out, OS permission, server push preferences, mute/Done/follow projection and current channel/message authority fence delivery. Activation time prevents old-backlog notifications. A bounded persistent ledger and stable OS notification IDs deduplicate Socket and fetch delivery. Disabling notifications or logging out clears the selected background scope and cancels the job.
 
+Desktop and mobile use the same notification copy. A channel alert is headed
+`#channel` with `Sender: message preview` below it; a DM uses the latest
+sender's display name, falling back to the conversation name. A thread uses
+`#parent-channel · Thread` and the reply sender. Names come from the mounted
+`/channels/inbox` projection, without extra directory queries. Missing names
+use generic conversation labels, never raw IDs. Titles and bodies are bounded
+without splitting Unicode surrogate pairs. Diagnostic notifications are
+explicitly titled `Test notification`; the operating system's app identity
+remains Raft.
+
 For mentions-only server preferences, a notification requires the projected first personal-mention ID to identify the latest activity. Some current server projections omit that ID. Those ambiguous rows are skipped; this fallback does not claim complete mentions-only delivery.
 
 Android requests a 15-minute interval with a network constraint. Doze, battery policies and explicit force-stop can delay or suspend work. iOS controls BGAppRefresh timing and may wake infrequently. Neither interval is a promise of notification latency.
