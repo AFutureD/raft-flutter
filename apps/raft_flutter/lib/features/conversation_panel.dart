@@ -244,7 +244,7 @@ class _ConversationPanelState extends State<ConversationPanel> {
     // (Tasks `dark:bg-transparent`, Files) show it rather than the canvas.
     final surface = tokens.dark && !tokens.brutal
         ? tokens.card
-        : const Color(0x00000000);
+        : tokens.card.withAlpha(0);
     return Column(
       children: [
         if (hasTabs && !widget.hideHeader)
