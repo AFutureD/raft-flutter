@@ -109,6 +109,33 @@ as recorded differences or gaps: system notice computer pages, channel
 settings / members phone pages, Create Channel and Add computer limit banners,
 unknown external routes.
 
+## Why this audit missed the Activity reply-card no-op
+
+Kevin's report (2026-10-12): in the Activity preview, clicking the "1 reply"
+card under a message did nothing. Both audits above passed, because they check
+a different thing:
+
+* This audit walks *entry points that name a target* (`select('x')`,
+  `setSection`, settings rows) and proves the target exists and lands on the
+  right route / page in a phone and a wide `WorkspaceView`. The reply card does
+  not name a target. It calls `openThread`, which writes the `?thread=` slot of
+  the current location; the destination ("thread") was registered and correct.
+* The registry cannot see a *container*. Whether `?thread=` or `?profile=` is
+  rendered depends on which route the timeline sits in, and only the Chat route
+  had a thread / profile column. The Activity / Search master-detail preview,
+  added later (single tap = preview, docs/parity.md "Activity master-detail
+  threshold"), mounts the same message timeline without that column. The
+  handler ran, the location changed, nothing on screen did.
+* Existing Activity tests asserted the location and the preview body, never that
+  a tap *inside* the preview produced something visible.
+
+The class is therefore "tap writes a target the container does not render", not
+"unknown target". `docs/tap-targets.md` holds the second guard: a registry of
+every message container, a matrix test that taps each element in each container
+and fails on a silent no-op, and a static check that new containers state their
+handlers. The two audits are complementary: this one checks that targets exist,
+the matrix checks that every container shows them.
+
 ## Stale device flows
 
 `integration_test/joint_channel_flow.dart` and `integration_test/sidebar_flow.dart`

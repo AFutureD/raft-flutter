@@ -173,7 +173,7 @@ def apk_metadata(apk, aapt, run=call):
 
 def certificate(apk, apksigner, run=call):
     text = run([apksigner, 'verify', '--print-certs', apk])
-    certificates = sorted(set(re.findall(r'^(?:Signer #\d+|V[234](?:\.1)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', text, re.M)))
+    certificates = sorted(set(re.findall(r'^(?:Signer #\d+|V[234](?:\.\d+)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', text, re.M)))
     if not certificates:
         raise SafetyError('APK signing certificate could not be verified.')
     return [value.lower() for value in certificates]

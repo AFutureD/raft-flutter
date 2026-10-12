@@ -195,7 +195,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   void scopeChanged() {
     if (!widget.authorized()) {
       invalidated = true;
-      if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+      if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
       setState(() {
         document = null;
         pageBytes = null;
@@ -314,7 +314,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         authorized: () => current,
       );
       if (!current) return;
-      if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+      if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
       setState(() {
         page = next;
         pageBytes = value.bytes;
@@ -354,7 +354,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     transfer.dispose();
     widget.controller.removeListener(scopeChanged);
     WidgetsBinding.instance.removeObserver(this);
-    if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
+    if (pageBytes != null) unawaited(raftEvictMemoryImage(pageBytes!));
     pageBytes = null;
     unawaited(releaseInputs());
     super.dispose();
@@ -466,7 +466,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               ? RaftDocumentPreview(data: document!, truncated: truncated)
               : kind == 'pdf' && pageBytes != null
               ? InteractiveViewer(
-                  child: Image.memory(pageBytes!, fit: BoxFit.contain),
+                  child: RaftSizedImage.memory(
+                    pageBytes!,
+                    fit: BoxFit.contain,
+                    // The page stays sharp at the viewer's maximum zoom.
+                    zoom: raftZoomableImageScale,
+                    evictOnDispose: true,
+                  ),
                 )
               : kind == 'video' && player != null
               ? player!.video()

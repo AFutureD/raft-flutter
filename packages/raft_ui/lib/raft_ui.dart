@@ -120,6 +120,7 @@ export 'src/composer_drop_overlay.dart';
 export 'src/sos_dialog.dart';
 
 export 'src/avatar_content.dart';
+export 'src/sized_image.dart';
 
 export 'src/message_row_recipe.dart';
 export 'src/message_translation.dart';
