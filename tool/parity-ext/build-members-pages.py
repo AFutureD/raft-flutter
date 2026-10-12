@@ -51,6 +51,15 @@ EXTERNAL['external'] = True
 FIXTURE['rosters']['external'] = FIXTURE['rosters']['default'] + [EXTERNAL]
 ROUTE_SETS['roster-external'] = {'GET /agents': FIXTURE['rosters']['external']}
 ROUTES[f'GET /agents/{EXTERNAL["id"]}'] = EXTERNAL
+# A Codex agent saved in Fast mode: the server stores it ONLY in runtimeConfig.mode ({kind: "fast"}); there is no flat
+# fastMode column, so the profile's Mode row must read the structured config (Web hydrateRuntimeConfigForm).
+FAST = base.agent('agent-fast-mode', 'Fast-Codex', 'Fast Codex', 'Runs Codex in Fast mode.', 'mbp', activity='online')
+FAST['reasoningEffort'] = 'high'
+FAST['runtimeConfig'] = {'version': 1, 'runtime': 'codex', 'model': {'kind': 'preset', 'id': 'gpt-5-codex'},
+                         'mode': {'kind': 'fast'}, 'reasoningEffort': 'high', 'envVars': FAST['envVars']}
+FIXTURE['rosters']['fast'] = FIXTURE['rosters']['default'] + [FAST]
+ROUTE_SETS['roster-fast'] = {'GET /agents': FIXTURE['rosters']['fast']}
+ROUTES[f'GET /agents/{FAST["id"]}'] = FAST
 ROUTES[f'GET /agents/{EXTERNAL["id"]}/credentials'] = {
     'agentId': EXTERNAL['id'],
     'credentials': [{'id': 'cred-1234abcd', 'maskedToken': 'sk_agent_ab12***9f3e', 'name': None,
@@ -95,7 +104,7 @@ SKILLS = {
     'workspace': [{'name': 'feature-map', 'displayName': 'feature-map', 'description': 'React/KMP parity maps',
                    'sourcePath': 'notes/product', 'userInvocable': False}],
 }
-for _a in FIXTURE['rosters']['external']:
+for _a in FIXTURE['rosters']['external'] + [FAST]:
     ROUTES[f'GET /agents/{_a["id"]}/skills'] = SKILLS
 
 # Phone/desktop "delete agent" and "stop agent" mutations answer an empty body.
@@ -251,6 +260,10 @@ for platform in ('desktop', 'phone'):
     # ---- 7.23 external agent setup
     agent_main(platform, 'agent.external', 'External agent profile: setup, token manager and Hermes steps',
                agent=EXTERNAL['id'], props={'roster': 'external'}, route_set='roster-external')
+
+    # ---- profile runtime rows read the structured runtimeConfig (Fast mode)
+    agent_main(platform, 'agent.profile-fast-mode', 'Agent profile: Runtime Config rows with Fast mode (runtimeConfig.mode)',
+               agent=FAST['id'], props={'roster': 'fast'}, route_set='roster-fast')
 
     # ---- 7.25 member graph
     add(platform, 'graph', 'Member graph (/members/graph)', 'main', selector=MAIN if not phone else VIEW,

@@ -22,14 +22,37 @@ void main() {
         'runtime': 'codex',
         'model': 'gpt-5-codex',
         'reasoningEffort': 'medium',
-        'fastMode': true,
         'envVars': {'A': '1'},
       });
       expect(d.runtime, 'codex');
       expect(d.model, 'gpt-5-codex');
       expect(d.reasoning, 'medium');
-      expect(d.fastMode, isTrue);
+      expect(d.fastMode, isFalse);
       expect(d.envVarMap, {'A': '1'});
+    });
+
+    test('fast mode only comes from runtimeConfig.mode, not a flat flag', () {
+      expect(
+        RuntimeDraft.hydrate({
+          'runtime': 'codex',
+          'model': 'gpt-5-codex',
+          'fastMode': true,
+        }).fastMode,
+        isFalse,
+      );
+      expect(
+        RuntimeDraft.hydrate({
+          'runtime': 'codex',
+          'model': 'gpt-5-codex',
+          'runtimeConfig': {
+            'version': 1,
+            'runtime': 'codex',
+            'model': {'kind': 'preset', 'id': 'gpt-5-codex'},
+            'mode': {'kind': 'fast'},
+          },
+        }).fastMode,
+        isTrue,
+      );
     });
 
     test('a structured runtimeConfig wins', () {
@@ -37,6 +60,7 @@ void main() {
         'runtime': 'claude',
         'model': 'old',
         'runtimeConfig': {
+          'version': 1,
           'runtime': 'claude',
           'model': {'kind': 'custom', 'name': 'my-model'},
           'provider': {
