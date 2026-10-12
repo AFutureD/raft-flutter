@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/runtime_config.dart';
 import '../data/source_time_formatter.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
@@ -22,6 +23,7 @@ import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 import 'agent_trajectory_log.dart';
 import 'runtime_usage_chip.dart';
 import 'agent_metadata_catalog.dart';
+import 'agent_runtime_catalog.dart' show reasoningEfforts;
 import 'mcp_views.dart';
 import 'agent_avatar_dialog.dart' show agentProfileAvatarUrl;
 import 'resource_cards.dart' show resourceRelativeTime;
@@ -129,23 +131,10 @@ const sourceRuntimeDisplayNames = <String, String>{
   'pi': 'Pi',
 };
 
-/// shared/src/index.ts REASONING_EFFORT_RUNTIMES / RUNTIME_FAST_MODE_RUNTIMES.
-const _reasoningRuntimes = {
-  'builtin',
-  'claude',
-  'codex',
-  'grok',
-  'copilot',
-  'pi',
-  'kimi-sdk',
-};
-const _fastModeRuntimes = {'claude', 'codex'};
-const _reasoningLabels = {
-  'low': 'Low',
-  'medium': 'Medium',
-  'high': 'High',
-  'xhigh': 'Extra High',
-};
+/// Web `reasoningEffortLabelId`: the ladder label, else Default.
+String _reasoningEffortLabel(String? effort) =>
+    reasoningEfforts.where((e) => e.$1 == effort).firstOrNull?.$2 ?? 'Default';
+
 const _activityLabels = {
   'online': 'Online',
   'thinking': 'Thinking',
@@ -659,8 +648,12 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         a['machineId'] is String && widget.machines == null && !external;
     final m = machine;
     final creator = a['creator'];
-    final runtime = '${a['runtime'] ?? ''}';
-    final model = '${a['model'] ?? ''}';
+    // Web `currentRuntimeConfig = hydrateRuntimeConfigForm(agent)`: the
+    // structured runtimeConfig (mode, reasoning, model), flat columns as the
+    // fallback. Never read the flat columns directly for these rows.
+    final config = RuntimeConfig.fromAgent(a);
+    final runtime = config.runtime;
+    final model = config.model;
     final env = {
       if (a['envVars'] is Map)
         for (final e in (a['envVars'] as Map).entries) '${e.key}': '${e.value}',
@@ -904,27 +897,27 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   ),
                 ),
               ),
-              if (_reasoningRuntimes.contains(runtime))
+              if (config.supportsReasoning)
                 RaftInfoRow(
                   label: raftText(context, 'Reasoning'),
                   child: RaftInlineBadge(
                     badge: RaftRecipeBadge(
                       raftText(
                         context,
-                        _reasoningLabels[a['reasoningEffort']] ?? 'Default',
+                        _reasoningEffortLabel(config.reasoningEffort),
                       ),
                       variant: RaftBadgeRecipeVariant.primary,
                     ),
                   ),
                 ),
-              if (_fastModeRuntimes.contains(runtime))
+              if (config.supportsFastMode)
                 RaftInfoRow(
                   label: raftText(context, 'Mode'),
                   child: RaftInlineBadge(
                     badge: RaftRecipeBadge(
                       raftText(
                         context,
-                        a['fastMode'] == true ? 'Fast mode' : 'Default',
+                        config.fastMode ? 'Fast mode' : 'Default',
                       ),
                       variant: RaftBadgeRecipeVariant.warning,
                     ),

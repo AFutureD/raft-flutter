@@ -597,6 +597,338 @@
     "activityDetail": null,
     "external": true
    }
+  ],
+  "fast": [
+   {
+    "id": "agent-product-ux",
+    "serverId": "visual-server",
+    "name": "Product-UX-Designer",
+    "displayName": "Product UX Designer",
+    "avatarUrl": "pixel:robot",
+    "description": "Turns product feedback, screenshots, and release notes into actionable UX specs.",
+    "status": "active",
+    "serverRole": "member",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-mbp",
+    "sessionId": "session-agent-product-ux",
+    "runtimeProfile": {
+     "migrationStatus": "stable",
+     "current": {
+      "daemonVersion": "0.65.0",
+      "machineId": "computer-mbp",
+      "machineName": "Jiachengs-MacBook-Pro",
+      "runtime": "codex",
+      "model": "gpt-5-codex",
+      "reasoningEffort": "medium",
+      "executionMode": "byoc",
+      "workspaceRef": {
+       "label": "AndroidStudioProjects/Slock",
+       "path": "/Users/artin/AndroidStudioProjects/Slock",
+       "reachable": true
+      },
+      "observedAt": "2026-06-19T12:28:00.000Z"
+     }
+    },
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [
+     {
+      "id": "agent-visual-qa",
+      "name": "visual-qa",
+      "displayName": "Visual QA",
+      "avatarUrl": null,
+      "runtime": "codex",
+      "status": "inactive"
+     }
+    ],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "working",
+    "activityDetail": "Capturing deterministic Activity tab state"
+   },
+   {
+    "id": "agent-cindy",
+    "serverId": "visual-server",
+    "name": "Cindy",
+    "displayName": "Cindy",
+    "avatarUrl": "pixel:robot",
+    "description": "Keeps visual testing release notes aligned.",
+    "status": "active",
+    "serverRole": "member",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-mbp",
+    "sessionId": "session-agent-cindy",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "working",
+    "activityDetail": "Capturing visual testing baselines"
+   },
+   {
+    "id": "agent-android-dev-4",
+    "serverId": "visual-server",
+    "name": "Android-Developer-4",
+    "displayName": "Android Developer 4",
+    "avatarUrl": "pixel:robot",
+    "description": "Implements shared Android/KMP UI fixes.",
+    "status": "active",
+    "serverRole": "member",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-mbp",
+    "sessionId": "session-agent-android-dev-4",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "online",
+    "activityDetail": "Reviewing shared state"
+   },
+   {
+    "id": "agent-cc-wow",
+    "serverId": "visual-server",
+    "name": "CC-Wow",
+    "displayName": "CC-Wow",
+    "avatarUrl": "pixel:robot",
+    "description": "Visual testing analysis and fixes.",
+    "status": "active",
+    "serverRole": "member",
+    "model": "claude-sonnet-5",
+    "runtime": "claude",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-studio",
+    "sessionId": "session-agent-cc-wow",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "offline",
+    "activityDetail": null
+   },
+   {
+    "id": "agent-kmp-expert",
+    "serverId": "visual-server",
+    "name": "KMP-专家",
+    "displayName": "KMP-专家",
+    "avatarUrl": "pixel:robot",
+    "description": "Shared KMP architecture and runtime adaptation.",
+    "status": "active",
+    "serverRole": "member",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-studio",
+    "sessionId": "session-agent-kmp-expert",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "online",
+    "activityDetail": null
+   },
+   {
+    "id": "agent-builder",
+    "serverId": "visual-server",
+    "name": "Builder",
+    "displayName": "Builder",
+    "avatarUrl": "pixel:robot",
+    "description": "File and repo automation",
+    "status": "active",
+    "serverRole": "admin",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-daemon-only",
+    "sessionId": "session-agent-builder",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "working",
+    "activityDetail": "Automating file workflows"
+   },
+   {
+    "id": "agent-no-computer",
+    "serverId": "visual-server",
+    "name": "No-Computer-Probe",
+    "displayName": "No Computer Probe",
+    "avatarUrl": "pixel:robot",
+    "description": null,
+    "status": "active",
+    "serverRole": "member",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "medium",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": null,
+    "sessionId": "session-agent-no-computer",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "offline",
+    "activityDetail": null
+   },
+   {
+    "id": "agent-fast-mode",
+    "serverId": "visual-server",
+    "name": "Fast-Codex",
+    "displayName": "Fast Codex",
+    "avatarUrl": "pixel:robot",
+    "description": "Runs Codex in Fast mode.",
+    "status": "active",
+    "serverRole": "member",
+    "model": "gpt-5-codex",
+    "runtime": "codex",
+    "reasoningEffort": "high",
+    "executionMode": "byoc",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    },
+    "machineId": "computer-mbp",
+    "sessionId": "session-agent-fast-mode",
+    "runtimeProfile": null,
+    "creatorType": "user",
+    "creatorId": "visual-user",
+    "creator": {
+     "type": "human",
+     "id": "visual-user",
+     "name": "artin",
+     "displayName": "artin",
+     "avatarUrl": null,
+     "gravatarHash": ""
+    },
+    "createdAgents": [],
+    "deletedAt": null,
+    "createdAt": "2026-06-18T00:00:00.000Z",
+    "activity": "online",
+    "activityDetail": null,
+    "runtimeConfig": {
+     "version": 1,
+     "runtime": "codex",
+     "model": {
+      "kind": "preset",
+      "id": "gpt-5-codex"
+     },
+     "mode": {
+      "kind": "fast"
+     },
+     "reasoningEffort": "high",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     }
+    }
+   }
   ]
  },
  "humans": [
@@ -1819,6 +2151,58 @@
    "activityDetail": null,
    "external": true
   },
+  "GET /agents/agent-fast-mode": {
+   "id": "agent-fast-mode",
+   "serverId": "visual-server",
+   "name": "Fast-Codex",
+   "displayName": "Fast Codex",
+   "avatarUrl": "pixel:robot",
+   "description": "Runs Codex in Fast mode.",
+   "status": "active",
+   "serverRole": "member",
+   "model": "gpt-5-codex",
+   "runtime": "codex",
+   "reasoningEffort": "high",
+   "executionMode": "byoc",
+   "envVars": {
+    "RAFT_PROFILE": "product-ux",
+    "SLOCK_VISUAL_PROVIDER": "react"
+   },
+   "machineId": "computer-mbp",
+   "sessionId": "session-agent-fast-mode",
+   "runtimeProfile": null,
+   "creatorType": "user",
+   "creatorId": "visual-user",
+   "creator": {
+    "type": "human",
+    "id": "visual-user",
+    "name": "artin",
+    "displayName": "artin",
+    "avatarUrl": null,
+    "gravatarHash": ""
+   },
+   "createdAgents": [],
+   "deletedAt": null,
+   "createdAt": "2026-06-18T00:00:00.000Z",
+   "activity": "online",
+   "activityDetail": null,
+   "runtimeConfig": {
+    "version": 1,
+    "runtime": "codex",
+    "model": {
+     "kind": "preset",
+     "id": "gpt-5-codex"
+    },
+    "mode": {
+     "kind": "fast"
+    },
+    "reasoningEffort": "high",
+    "envVars": {
+     "RAFT_PROFILE": "product-ux",
+     "SLOCK_VISUAL_PROVIDER": "react"
+    }
+   }
+  },
   "GET /agents/agent-external/credentials": {
    "agentId": "agent-external",
    "credentials": [
@@ -2186,6 +2570,26 @@
    ]
   },
   "GET /agents/agent-external/skills": {
+   "global": [
+    {
+     "name": "visual-testing",
+     "displayName": "visual-testing",
+     "description": "Cross-platform fixture ownership",
+     "sourcePath": "notes/product",
+     "userInvocable": false
+    }
+   ],
+   "workspace": [
+    {
+     "name": "feature-map",
+     "displayName": "feature-map",
+     "description": "React/KMP parity maps",
+     "sourcePath": "notes/product",
+     "userInvocable": false
+    }
+   ]
+  },
+  "GET /agents/agent-fast-mode/skills": {
    "global": [
     {
      "name": "visual-testing",
@@ -2739,6 +3143,340 @@
      "activity": "offline",
      "activityDetail": null,
      "external": true
+    }
+   ]
+  },
+  "roster-fast": {
+   "GET /agents": [
+    {
+     "id": "agent-product-ux",
+     "serverId": "visual-server",
+     "name": "Product-UX-Designer",
+     "displayName": "Product UX Designer",
+     "avatarUrl": "pixel:robot",
+     "description": "Turns product feedback, screenshots, and release notes into actionable UX specs.",
+     "status": "active",
+     "serverRole": "member",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-mbp",
+     "sessionId": "session-agent-product-ux",
+     "runtimeProfile": {
+      "migrationStatus": "stable",
+      "current": {
+       "daemonVersion": "0.65.0",
+       "machineId": "computer-mbp",
+       "machineName": "Jiachengs-MacBook-Pro",
+       "runtime": "codex",
+       "model": "gpt-5-codex",
+       "reasoningEffort": "medium",
+       "executionMode": "byoc",
+       "workspaceRef": {
+        "label": "AndroidStudioProjects/Slock",
+        "path": "/Users/artin/AndroidStudioProjects/Slock",
+        "reachable": true
+       },
+       "observedAt": "2026-06-19T12:28:00.000Z"
+      }
+     },
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [
+      {
+       "id": "agent-visual-qa",
+       "name": "visual-qa",
+       "displayName": "Visual QA",
+       "avatarUrl": null,
+       "runtime": "codex",
+       "status": "inactive"
+      }
+     ],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "working",
+     "activityDetail": "Capturing deterministic Activity tab state"
+    },
+    {
+     "id": "agent-cindy",
+     "serverId": "visual-server",
+     "name": "Cindy",
+     "displayName": "Cindy",
+     "avatarUrl": "pixel:robot",
+     "description": "Keeps visual testing release notes aligned.",
+     "status": "active",
+     "serverRole": "member",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-mbp",
+     "sessionId": "session-agent-cindy",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "working",
+     "activityDetail": "Capturing visual testing baselines"
+    },
+    {
+     "id": "agent-android-dev-4",
+     "serverId": "visual-server",
+     "name": "Android-Developer-4",
+     "displayName": "Android Developer 4",
+     "avatarUrl": "pixel:robot",
+     "description": "Implements shared Android/KMP UI fixes.",
+     "status": "active",
+     "serverRole": "member",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-mbp",
+     "sessionId": "session-agent-android-dev-4",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "online",
+     "activityDetail": "Reviewing shared state"
+    },
+    {
+     "id": "agent-cc-wow",
+     "serverId": "visual-server",
+     "name": "CC-Wow",
+     "displayName": "CC-Wow",
+     "avatarUrl": "pixel:robot",
+     "description": "Visual testing analysis and fixes.",
+     "status": "active",
+     "serverRole": "member",
+     "model": "claude-sonnet-5",
+     "runtime": "claude",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-studio",
+     "sessionId": "session-agent-cc-wow",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "offline",
+     "activityDetail": null
+    },
+    {
+     "id": "agent-kmp-expert",
+     "serverId": "visual-server",
+     "name": "KMP-专家",
+     "displayName": "KMP-专家",
+     "avatarUrl": "pixel:robot",
+     "description": "Shared KMP architecture and runtime adaptation.",
+     "status": "active",
+     "serverRole": "member",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-studio",
+     "sessionId": "session-agent-kmp-expert",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "online",
+     "activityDetail": null
+    },
+    {
+     "id": "agent-builder",
+     "serverId": "visual-server",
+     "name": "Builder",
+     "displayName": "Builder",
+     "avatarUrl": "pixel:robot",
+     "description": "File and repo automation",
+     "status": "active",
+     "serverRole": "admin",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-daemon-only",
+     "sessionId": "session-agent-builder",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "working",
+     "activityDetail": "Automating file workflows"
+    },
+    {
+     "id": "agent-no-computer",
+     "serverId": "visual-server",
+     "name": "No-Computer-Probe",
+     "displayName": "No Computer Probe",
+     "avatarUrl": "pixel:robot",
+     "description": null,
+     "status": "active",
+     "serverRole": "member",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "medium",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": null,
+     "sessionId": "session-agent-no-computer",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "offline",
+     "activityDetail": null
+    },
+    {
+     "id": "agent-fast-mode",
+     "serverId": "visual-server",
+     "name": "Fast-Codex",
+     "displayName": "Fast Codex",
+     "avatarUrl": "pixel:robot",
+     "description": "Runs Codex in Fast mode.",
+     "status": "active",
+     "serverRole": "member",
+     "model": "gpt-5-codex",
+     "runtime": "codex",
+     "reasoningEffort": "high",
+     "executionMode": "byoc",
+     "envVars": {
+      "RAFT_PROFILE": "product-ux",
+      "SLOCK_VISUAL_PROVIDER": "react"
+     },
+     "machineId": "computer-mbp",
+     "sessionId": "session-agent-fast-mode",
+     "runtimeProfile": null,
+     "creatorType": "user",
+     "creatorId": "visual-user",
+     "creator": {
+      "type": "human",
+      "id": "visual-user",
+      "name": "artin",
+      "displayName": "artin",
+      "avatarUrl": null,
+      "gravatarHash": ""
+     },
+     "createdAgents": [],
+     "deletedAt": null,
+     "createdAt": "2026-06-18T00:00:00.000Z",
+     "activity": "online",
+     "activityDetail": null,
+     "runtimeConfig": {
+      "version": 1,
+      "runtime": "codex",
+      "model": {
+       "kind": "preset",
+       "id": "gpt-5-codex"
+      },
+      "mode": {
+       "kind": "fast"
+      },
+      "reasoningEffort": "high",
+      "envVars": {
+       "RAFT_PROFILE": "product-ux",
+       "SLOCK_VISUAL_PROVIDER": "react"
+      }
+     }
     }
    ]
   },
