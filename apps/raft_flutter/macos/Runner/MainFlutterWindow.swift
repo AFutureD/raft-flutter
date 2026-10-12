@@ -1,9 +1,11 @@
 import Cocoa
 import FlutterMacOS
+import CFNetwork
 
 class MainFlutterWindow: NSWindow {
   private var interactionChannel: FlutterMethodChannel?
   private var titleBar: RaftTitleBar?
+  private var proxyChannel: FlutterMethodChannel?
   override func awakeFromNib() {
     // Do not restore an old fullscreen/Space state during background launch.
     isRestorable = false
@@ -25,6 +27,24 @@ class MainFlutterWindow: NSWindow {
       if call.method == "doubleClickInterval" {
         result(NSEvent.doubleClickInterval)
       } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
+    proxyChannel = FlutterMethodChannel(
+      name: "app.raft/system-proxy",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    proxyChannel?.setMethodCallHandler { call, result in
+      switch call.method {
+      case "snapshot":
+        result(RaftSystemProxy.snapshot())
+      case "resolve":
+        guard let url = (call.arguments as? [String: Any])?["url"] as? String else {
+          result(FlutterError(code: "invalid", message: "Missing URL.", details: nil))
+          return
+        }
+        RaftSystemProxy.resolve(url) { result($0) }
+      default:
         result(FlutterMethodNotImplemented)
       }
     }
@@ -172,6 +192,107 @@ final class RaftTitleBar: NSObject {
     } else {
       frameBeforeFill = window.frame
       window.setFrame(visible, display: true, animate: true)
+    }
+  }
+}
+
+// MARK: - System proxy (shared by iOS and macOS; keep both copies identical)
+
+/// Reads the system HTTP proxy configuration with CFNetwork and answers
+/// per-URL proxy lookups, running PAC scripts (`CFNetworkExecuteProxyAutoConfigurationURL`)
+/// when the system uses one. Dart caches every answer; nothing here blocks a
+/// request. WPAD auto-discovery is not executed (CFNetwork exposes no API for it
+/// without the script text), so it is reported as `autoDetect` only.
+final class RaftSystemProxy {
+  private final class PacRun {
+    var source: CFRunLoopSource?
+    var finished = false
+    let done: ([String]) -> Void
+    init(done: @escaping ([String]) -> Void) { self.done = done }
+    func finish(_ answer: [String]) {
+      if finished { return }
+      finished = true
+      if let source = source {
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        CFRunLoopSourceInvalidate(source)
+      }
+      done(answer)
+    }
+  }
+
+  static func settings() -> [String: Any] {
+    (CFNetworkCopySystemProxySettings()?.takeRetainedValue() as? [String: Any]) ?? [:]
+  }
+
+  /// The static part of the configuration, independent of any URL.
+  static func snapshot() -> [String: Any] {
+    let s = settings()
+    func flag(_ key: String) -> Bool { (s[key] as? NSNumber)?.boolValue ?? false }
+    func hostPort(_ enable: String, _ host: String, _ port: String, fallback: Int) -> String? {
+      guard flag(enable), let h = s[host] as? String, !h.isEmpty else { return nil }
+      let p = (s[port] as? NSNumber)?.intValue ?? fallback
+      return "\(h):\(p)"
+    }
+    var out: [String: Any] = [:]
+    if let v = hostPort("HTTPEnable", "HTTPProxy", "HTTPPort", fallback: 80) { out["http"] = v }
+    if let v = hostPort("HTTPSEnable", "HTTPSProxy", "HTTPSPort", fallback: 80) { out["https"] = v }
+    if let v = hostPort("SOCKSEnable", "SOCKSProxy", "SOCKSPort", fallback: 1080) { out["socks"] = v }
+    if flag("ProxyAutoConfigEnable"), let pac = s["ProxyAutoConfigURLString"] as? String, !pac.isEmpty {
+      out["pacUrl"] = pac
+    }
+    out["autoDetect"] = flag("ProxyAutoDiscoveryEnable")
+    out["bypass"] = (s["ExceptionsList"] as? [String]) ?? []
+    out["excludeSimple"] = flag("ExcludeSimpleHostnames")
+    return out
+  }
+
+  static func lines(_ proxies: [[String: Any]]) -> [String] {
+    let none = kCFProxyTypeNone as String
+    let http = kCFProxyTypeHTTP as String
+    let https = kCFProxyTypeHTTPS as String
+    let socks = kCFProxyTypeSOCKS as String
+    return proxies.compactMap { entry -> String? in
+      guard let type = entry[kCFProxyTypeKey as String] as? String else { return nil }
+      let host = entry[kCFProxyHostNameKey as String] as? String
+      let port = (entry[kCFProxyPortNumberKey as String] as? NSNumber)?.intValue
+      if type == none { return "DIRECT" }
+      guard let host = host, let port = port else { return nil }
+      // Apple's "HTTPS" proxy is an HTTP proxy used for https URLs (CONNECT).
+      if type == http || type == https { return "PROXY \(host):\(port)" }
+      if type == socks { return "SOCKS \(host):\(port)" }
+      return nil
+    }
+  }
+
+  /// The system's decision for one URL, PAC evaluated. `done` runs on the main thread.
+  static func resolve(_ urlString: String, done: @escaping ([String]) -> Void) {
+    guard let url = URL(string: urlString) else { done([]); return }
+    let cfProxies = CFNetworkCopyProxiesForURL(url as CFURL, settings() as CFDictionary).takeRetainedValue()
+    let proxies = ((cfProxies as [AnyObject]) as? [[String: Any]]) ?? []
+    let pacType = kCFProxyTypeAutoConfigurationURL as String
+    guard let pac = proxies.first(where: { ($0[kCFProxyTypeKey as String] as? String) == pacType }),
+      let pacURL = pac[kCFProxyAutoConfigurationURLKey as String] as? URL
+    else {
+      done(lines(proxies))
+      return
+    }
+    let pending = PacRun(done: done)
+    let retained = Unmanaged.passRetained(pending)
+    var context = CFStreamClientContext(
+      version: 0, info: retained.toOpaque(), retain: nil, release: nil, copyDescription: nil)
+    let source = CFNetworkExecuteProxyAutoConfigurationURL(
+      pacURL as CFURL, url as CFURL,
+      { info, result, _ in
+        let run = Unmanaged<PacRun>.fromOpaque(info).takeUnretainedValue()
+        let list = ((result as [AnyObject]) as? [[String: Any]]) ?? []
+        run.finish(RaftSystemProxy.lines(list))
+      }, &context)
+    pending.source = source
+    CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+    // A PAC host that never answers must not leave the lookup open.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+      pending.finish([])
+      retained.release()
     }
   }
 }

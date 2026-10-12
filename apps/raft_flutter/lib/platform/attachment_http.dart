@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
+import 'package:raft_client/system_proxy.dart';
 
 /// The app-wide HTTP client for attachment storage hosts.
 ///
@@ -10,7 +10,7 @@ import 'package:dio/io.dart';
 /// One long-lived client keeps those connections alive between opens (and
 /// between the list preview and the lightbox of the same host).
 ///
-/// It is deliberately separate from the Raft API client: no interceptors, no
+/// It is deliberately separate from the Raft API client: no auth interceptors, no
 /// default headers, no cookies. A signed storage URL is the only credential it
 /// ever carries, so API tokens can never reach a storage host through it.
 class AttachmentHttp {
@@ -31,22 +31,20 @@ class AttachmentHttp {
   /// call this directly (with [configure] for a test certificate); production
   /// code uses [shared].
   static Dio create({void Function(HttpClient)? configure}) {
-    final dio = Dio(
+    // Built through the proxy hook: a signed storage URL follows the system
+    // (or manual) proxy like every other request, and carries no API token.
+    return createProxiedDio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 30),
       ),
-    );
-    dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient()
+      configure: (client) {
+        client
           ..idleTimeout = idleTimeout
           ..maxConnectionsPerHost = maxConnectionsPerHost;
         configure?.call(client);
-        return client;
       },
     );
-    return dio;
   }
 
   /// Opens (and pools) a connection to the storage host of [url] before the

@@ -68,8 +68,12 @@ void main() {
     final headers = seen.single.headers;
     expect(headers.containsKey('authorization'), isFalse);
     expect(headers.containsKey('cookie'), isFalse);
-    expect(AttachmentHttp.shared.interceptors.whereType<Interceptor>().length, 1,
-        reason: 'only dio\'s own import interceptor');
+    // Dio's own import interceptor plus the proxy-ready wait; nothing that
+    // could attach a credential.
+    expect(
+      AttachmentHttp.shared.interceptors.map((i) => i.runtimeType.toString()),
+      ['ImplyContentTypeInterceptor', 'ProxyReadyInterceptor'],
+    );
     expect(AttachmentHttp.shared.options.headers.keys.map((k) => k.toLowerCase()),
         isNot(contains('authorization')));
   });

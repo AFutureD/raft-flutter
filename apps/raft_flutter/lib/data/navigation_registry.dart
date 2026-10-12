@@ -124,6 +124,12 @@ abstract final class NavigationRegistry {
     ),
     NavigationSettingsTab('about'),
     NavigationSettingsTab(
+      'network',
+      reason:
+          'Native-only (no Web counterpart): system / manual HTTP proxy. '
+          'Web uses the browser network stack.',
+    ),
+    NavigationSettingsTab(
       'documentation',
       page: false,
       reason: 'Settings row that opens docs.raft.build externally.',

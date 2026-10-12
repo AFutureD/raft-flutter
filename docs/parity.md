@@ -1686,6 +1686,8 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
   navigates to `/computer/:id` and `/computers?filter=attention`.
 * Channel settings and Channel members open as full-width pages on a phone (Web: phone drawer) and
   as dialogs / modals on wide layouts.
+* Settings > Resources > Network (system / manual HTTP proxy, test connection) is a native-only page with no Web
+  counterpart (the browser owns proxying). Design and platform notes: `docs/system-proxy.md`.
 * Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
   in debug and test.
 

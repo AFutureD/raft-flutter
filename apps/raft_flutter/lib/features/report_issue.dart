@@ -15,6 +15,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_client/system_proxy.dart' show createProxiedDio;
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/raft_location.dart';
@@ -67,7 +68,7 @@ abstract class ReportIssueTransport {
 }
 
 class _DioReportIssueTransport implements ReportIssueTransport {
-  final _dio = Dio(BaseOptions(validateStatus: (_) => true));
+  final _dio = createProxiedDio(BaseOptions(validateStatus: (_) => true));
   @override
   Future<ReportIssueHttpResponse> send(
     String method,

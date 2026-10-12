@@ -13,6 +13,7 @@ import 'background_inbox.dart';
 import 'content_coordinator.dart';
 import 'content_target.dart';
 import 'session_owner.dart';
+import 'system_proxy_bootstrap.dart';
 import 'session_store.dart';
 
 export 'session_owner.dart';
@@ -101,6 +102,11 @@ Future<bool> _runBackgroundInbox({
         !await notificationPermission(plugin)) {
       return true;
     }
+    if (preempted) return true;
+    // This isolate has its own proxy state. The platform bridge is not
+    // registered in a worker engine, so the saved manual / direct choice and
+    // the environment apply here; the OS proxy is the foreground's.
+    await startSystemProxy(origins: [fields[0]]);
     if (preempted) return true;
     client = RaftClient(
       origin: fields[0],

@@ -78,6 +78,7 @@ class MainActivity : FlutterActivity() {
         consumeShare(intent)
     }
     private var systemFonts: NativeSystemFontsBridge? = null
+    private var systemProxy: NativeProxyBridge? = null
     private var saveResult: MethodChannel.Result? = null
     private val saveRequest = 45071
     private val localNetworkRequest = 45072
@@ -87,6 +88,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         sharing = NativeSharingBridge(this, flutterEngine, ::shareReceiverAttached)
         systemFonts = NativeSystemFontsBridge(this, flutterEngine)
+        systemProxy = NativeProxyBridge(this, flutterEngine)
         LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/ime")
@@ -232,6 +234,7 @@ class MainActivity : FlutterActivity() {
         earlyShares.clear()
         sharing?.dispose()
         systemFonts?.dispose()
+        systemProxy?.dispose()
         localNetworkResults.forEach { it.success(false) }
         localNetworkResults.clear()
         super.onDestroy()

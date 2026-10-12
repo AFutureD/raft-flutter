@@ -80,7 +80,7 @@ difference), GAP (Web has it, Flutter does not; not a fallback).
 | Help menu Mobile App / Feedback (`openHelpSettings`, :2470, :2476) | settings `about`, `feedback` | n/a (rail only) | Settings tab | toSettings | OK | lint |
 | Help menu Documentation / Join Community | external / server | n/a | external / `setSection('home')` | same | OK | registry |
 | Server menu Switch or Create Server, Invite human | callbacks / dialog | same | same | same | OK | n/a |
-| Settings rows (`workspace_settings.dart`) | account, language-region, appearance, bottom-bar, notifications, server, billing, administration, im-bridges, integrations, labs, mcp, providers, about, feedback, release-notes | tab page via `onMobileLocationChanged` (:3662) | in-panel tab | SettingsNavList | OK | tested row by row |
+| Settings rows (`workspace_settings.dart`) | account, language-region, appearance, bottom-bar, notifications, server, billing, administration, im-bridges, integrations, labs, mcp, providers, about, network (native-only), feedback, release-notes | tab page via `onMobileLocationChanged` (:3662) | in-panel tab | SettingsNavList | OK | tested row by row |
 | Settings row Computers (`workspace_settings.dart:275`) | `selectSection('computers')` | Computers route | row hidden (Computers rail) | navigate(/computers) | OK | declared `wide: false` |
 | Settings row Documentation | external URL | opens browser | opens browser | link | OK | declared `page: false` |
 | Settings row Bottom bar | `bottom-bar` | page | hidden | none | DIFF (phone-only device preference) | declared `wide: false` |

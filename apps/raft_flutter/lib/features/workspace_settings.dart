@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,6 +20,7 @@ import 'mobile_tabbar_settings_page.dart';
 import 'management_support.dart'
     show pageIdentity, readPageSnapshot, writePageSnapshot;
 import 'mcp_views.dart';
+import 'network_settings.dart';
 import 'notification_settings_view.dart';
 import 'provider_views.dart';
 import 'server_views.dart';
@@ -289,6 +291,15 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           ),
           group: WorkspaceSettings.resources,
         ),
+        // Native-only (no Web counterpart): Web uses the browser's proxy.
+        if (!kIsWeb)
+          RaftSettingsDestination(
+            'network',
+            'Network',
+            RaftGlyph.network,
+            (_) => NetworkSettingsPage(origin: w.client.origin),
+            group: WorkspaceSettings.resources,
+          ),
         RaftSettingsDestination.action(
           'documentation',
           'Documentation',

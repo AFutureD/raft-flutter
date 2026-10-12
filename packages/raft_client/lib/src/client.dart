@@ -8,6 +8,8 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:uuid/uuid.dart';
 
 import 'models.dart';
+import 'proxy/transport_stub.dart'
+    if (dart.library.io) 'proxy/transport_io.dart';
 import 'session_policy.dart';
 
 abstract interface class SessionStore {
@@ -168,7 +170,7 @@ class RaftClient {
   }) : origin = origin.replaceFirst(RegExp(r'/$'), ''),
        http =
            transport ??
-           Dio(
+           createProxiedDio(
              BaseOptions(
                connectTimeout: const Duration(seconds: 15),
                receiveTimeout: const Duration(seconds: 30),
@@ -1130,8 +1132,7 @@ class RaftClient {
     final epoch = _generation;
     final socket = io.io(
       origin,
-      io.OptionBuilder()
-          .setTransports(['websocket'])
+      applyProxyTransport(io.OptionBuilder().setTransports(['websocket']))
           .disableAutoConnect()
           .enableForceNew()
           .setAuthFn(_authenticateSocket)

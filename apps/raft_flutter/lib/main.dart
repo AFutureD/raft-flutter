@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_client/system_proxy.dart' show SystemProxy;
 import 'package:path_provider/path_provider.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +40,7 @@ import 'platform/launch_theme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/attachment_http.dart';
+import 'platform/system_proxy_bootstrap.dart';
 import 'platform/native_sharing.dart';
 import 'platform/ios_share_session.dart';
 import 'platform/incoming_share_staging.dart';
@@ -58,6 +60,18 @@ Future<void> main([List<String> args = const []]) async {
   await initializeSourceTimeFormatting();
   // First frames read saved layout choices synchronously from this.
   await DevicePreferences.load();
+  // Every network path (API, realtime, attachments, avatars) asks one service
+  // for the OS / manual proxy decision; see docs/system-proxy.md.
+  await startSystemProxy(
+    preferences: DevicePreferences.current,
+    origins: [
+      DevicePreferences.current?.getString('raft.origin') ??
+          const String.fromEnvironment(
+            'RAFT_ORIGIN',
+            defaultValue: 'https://api.raft.build',
+          ),
+    ],
+  );
   // Inline image previews survive restarts; reads stay authority-gated.
   AttachmentImageDiskCache.installed ??= AttachmentImageDiskCache(
     getApplicationCacheDirectory,
@@ -1998,6 +2012,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
       unawaited(sharing.resume());
       unawaited(NativeSystemFonts.instance.refresh());
+      // The network (and its proxy) often changed while the app was away.
+      unawaited(SystemProxy.instance.refresh());
       unawaited(content.notifications.refreshPermission());
       final w = workspace;
       if (w == null) return;
