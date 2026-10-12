@@ -225,8 +225,10 @@ class RaftClient {
   /// session ends with `session:ended`, and an unreachable server leaves the
   /// session in [restoredOffline].
   ///
-  /// [credentialsReady] transfers ownership from another engine. Local display
-  /// can precede it, but requests wait and reload its final credential record.
+  /// [credentialsReady] settles when a background guest holding the session
+  /// has stopped (it never throws and is bounded by the caller). Display,
+  /// requests and the socket do not wait for it. Credential rotation and
+  /// stored-session writes do, and then continue from the latest stored record.
   /// [onLocalSession] reports whether an accepted local account is available,
   /// before waiting for ownership or the network.
   Future<bool> restore({
@@ -249,7 +251,6 @@ class RaftClient {
       _sessionValidated = _validateRestoredSession(authentication);
       return true;
     }
-    if (_credentialsReady != null) await _credentialsReady;
     if (authentication != _authenticationGeneration ||
         _closed ||
         _session == null) {
@@ -257,7 +258,13 @@ class RaftClient {
     }
     try {
       user = RaftRecord(Map<String, dynamic>.from(await get('/auth/me')));
-      final s = _session!;
+      // A guest handoff may have replaced or removed the stored session.
+      final s = _session;
+      if (s == null ||
+          _closed ||
+          authentication != _authenticationGeneration) {
+        return false;
+      }
       _session = Session(
         accessToken: s.accessToken,
         refreshToken: s.refreshToken,
@@ -265,7 +272,13 @@ class RaftClient {
         refreshAttemptId: s.refreshAttemptId,
         cachedUser: user!.json,
       );
-      await _persist(_session);
+      final saved = _persist(_session);
+      if (_credentialsReady == null) {
+        await saved;
+      } else {
+        // The write waits for the guest to stop; restore must not.
+        unawaited(saved.catchError((Object _) {}));
+      }
     } on RaftApiException catch (e) {
       if (_session?.cachedUser == null || e.status != null && e.status! < 500)
         rethrow;
@@ -275,15 +288,21 @@ class RaftClient {
     return true;
   }
 
-  // A headless owner may rotate or reject the stored session while the UI
-  // paints its cache. Never send a request or write the initial snapshot until
-  // ownership transfers and the latest complete credential record is read.
+  // A background guest may rotate or reject the stored session while the UI
+  // paints its cache and sends requests. Never rotate credentials or write the
+  // initial snapshot until the guest has stopped and the latest complete
+  // credential record is read.
   Future<void> _reloadOwnedCredentials(
     Future<void> ready,
     int authentication,
     Session? snapshot,
   ) async {
-    await ready;
+    try {
+      await ready;
+    } catch (_) {
+      // A failed handoff signal must not poison the session: carry on from
+      // the stored record, which the fenced guest can no longer change.
+    }
     if (_closed || authentication != _authenticationGeneration) return;
     final latest = await sessionStore.read(origin);
     if (_closed || authentication != _authenticationGeneration) return;
@@ -311,7 +330,6 @@ class RaftClient {
   Future<void> _validateRestoredSession(int authentication) async {
     bool current() => !_closed && authentication == _authenticationGeneration;
     try {
-      if (_credentialsReady != null) await _credentialsReady;
       if (!current() || _session == null) return;
       final next = RaftRecord(
         Map<String, dynamic>.from(await _accountRequest('GET', '/auth/me')),
@@ -328,7 +346,10 @@ class RaftClient {
         refreshAttemptId: s.refreshAttemptId,
         cachedUser: next.json,
       );
-      await _persist(_session);
+      // Validation (and what waits on it) must not wait for a guest to stop:
+      // the write is applied once the handoff has settled.
+      final saved = _persist(_session).catchError((Object _) {});
+      if (_credentialsReady == null) await saved;
       if (changed && current()) {
         _emit(const RaftEvent('account:updated', null));
       }
@@ -576,7 +597,8 @@ class RaftClient {
         (method == 'DELETE' && path == '/servers/$serverId' ||
             method == 'POST' && path == '/servers/$serverId/leave');
     if (authorized) {
-      if (_credentialsReady != null) await _credentialsReady;
+      // Never waits for another engine: the foreground owns the session. A
+      // guest handoff only gates credential rotation (see [refresh]).
       if (_closed ||
           authentication != _authenticationGeneration ||
           requestGeneration != generation()) {
@@ -659,9 +681,22 @@ class RaftClient {
 
   Future<void> refresh() async {
     final authentication = _authenticationGeneration;
+    final before = _session;
+    // Rotation is the only step that must not overlap a guest's rotation:
+    // wait (bounded by the owner) until the guest has stopped, then continue
+    // from the latest stored credentials and its pending refresh attempt.
     if (_credentialsReady != null) await _credentialsReady;
     if (_closed || authentication != _authenticationGeneration) {
       throw const RaftApiException('The account changed.');
+    }
+    final adopted = _session;
+    if (before != null &&
+        adopted != null &&
+        adopted.accessToken != before.accessToken &&
+        adopted.refreshAttemptId == null &&
+        !_accessNeedsRefresh) {
+      // The guest already rotated; the caller retries with its credentials.
+      return;
     }
     await (_refreshing ??= _rotate().whenComplete(() => _refreshing = null));
   }
@@ -745,19 +780,7 @@ class RaftClient {
     if (_session != null && generation == _generation) callback(_socketAuth);
   }
 
-  void connect() {
-    final ready = _credentialsReady;
-    if (ready != null) {
-      final epoch = _generation;
-      unawaited(
-        ready.then<void>((_) {
-          if (!_closed && epoch == _generation) _connectOwned();
-        }, onError: (Object _, StackTrace _) {}),
-      );
-      return;
-    }
-    _connectOwned();
-  }
+  void connect() => _connectOwned();
 
   void _connectOwned() {
     if (_closed || _session == null || serverId == null) return;

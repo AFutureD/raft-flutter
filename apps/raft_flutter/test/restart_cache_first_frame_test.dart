@@ -73,14 +73,18 @@ Future<void> _release(WidgetTester t, RootFixture f, [String? only]) async {
 
 void main() {
   testWidgets(
-    'logout during worker handoff revokes its rotation without erasing a concurrent new login',
+    'logout while a guest settles revokes its rotation without erasing a concurrent new login',
     (t) async {
       final (cache, _) = await _firstProcess(t);
-      final worker = NativeSessionOwner(supported: true),
-          ui = NativeSessionOwner(supported: true);
+      final drained = Completer<void>();
+      final worker = NativeSessionOwner(
+        supported: true,
+        onPreempt: () => drained.future,
+      );
+      final ui = NativeSessionOwner(supported: true);
       addTearDown(worker.release);
       addTearDown(ui.release);
-      await worker.acquire();
+      worker.registerGuest();
       final f = RootFixture(cache: cache, sessionOwner: ui);
       await f.mount(
         t,
@@ -116,7 +120,7 @@ void main() {
           cachedUser: {'id': 'alice', 'emailVerified': true},
         ),
       );
-      worker.release();
+      drained.complete();
       await f.flush(t);
       await logout;
       await login;
@@ -136,20 +140,22 @@ void main() {
   );
 
   testWidgets(
-    'Android cached startup releases its first frame before worker handoff or any network response',
+    'a busy background guest never delays the first frame or any startup read',
     (t) async {
       final (cache, _) = await _firstProcess(t);
       final asked = Completer<void>();
+      final stuck = Completer<void>(); // a guest that never stops by itself
       final worker = NativeSessionOwner(
         supported: true,
-        onYield: () async {
+        onPreempt: () {
           asked.complete();
+          return stuck.future;
         },
       );
       final ui = NativeSessionOwner(supported: true);
       addTearDown(worker.release);
       addTearDown(ui.release);
-      await worker.acquire();
+      worker.registerGuest();
       var ready = 0;
       final f = RootFixture(
         cache: cache,
@@ -166,7 +172,7 @@ void main() {
         cachedSession: true,
         preferences: {'$_memory.last': 'alpha', '$_memory.a': '/s/alpha'},
       );
-      expect(asked.isCompleted, isTrue);
+      expect(asked.isCompleted, isTrue, reason: 'the guest was preempted');
       expect(ready, 1);
       expect(find.byType(WorkspaceView), findsOneWidget);
       expect(find.text('Restoring session…'), findsNothing);
@@ -174,32 +180,20 @@ void main() {
       expect(f.surfaces, everyElement('workspace'));
       expect(
         f.adapter.calls,
-        isEmpty,
-        reason: 'only cached display may bypass the credential owner',
+        isNotEmpty,
+        reason: 'startup reads are sent while the guest is still unsettled',
       );
       final w = f.workspace(t);
       expect(w.channels.single.name, 'general-a');
       await t.tap(find.text('general-a').first);
       await f.flush(t);
       expect(find.text('Accepted a'), findsOneWidget);
-      expect(f.adapter.calls, isEmpty);
-      // Credentials may change while local pages are already interactive.
-      await f.sessions.write(
-        _origin,
-        Session(
-          accessToken: 'rotated-fixture',
-          refreshToken: 'rotated-fixture',
-          cachedUser: {'id': 'alice', 'emailVerified': true},
-        ),
-      );
-      worker.release();
-      await f.flush(t);
       await _release(t, f);
       expect(
         f.adapter.calls.where(
           (r) => r.headers['Authorization'] == 'Bearer fixture-only',
         ),
-        isEmpty,
+        isNotEmpty,
       );
       expect(find.text('Accepted a'), findsOneWidget);
       await f.close(t);

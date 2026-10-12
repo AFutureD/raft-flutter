@@ -36,7 +36,7 @@ ACTION_SEND/MULTIPLE 是原生接收入口；Flutter 当前的确认弹窗只覆
 
 主 Activity 的 `singleTop` 加空 `taskAffinity` 允许来自其他任务的分享创建第二个 Flutter engine。第一 UI engine 持有进程级 NativeSessionOwner，第二个在 restore 的 acquire 等待 30 秒后超时，catch 统一显示登录表单。该错误路径没有读取或清除已保存的会话。
 
-修复为 `singleTask`，恢复应用默认 task affinity；外部 SEND/MULTIPLE、OAuth 与通知入口复用同一个主 Activity，通过现有 onNewIntent / 插件传入业务逻辑。保留会话互斥和后台 worker 等待机制，避免两个 UI 客户端同时刷新凭据。宿主回归约束同时检查启动模式、affinity、分享/链接/launcher 入口和 Flutter 自动深链关闭状态。
+修复为 `singleTask`，恢复应用默认 task affinity；外部 SEND/MULTIPLE、OAuth 与通知入口复用同一个主 Activity，通过现有 onNewIntent / 插件传入业务逻辑。会话所有权规则见 session-ownership.md（2026-10-12 起前台不再等待后台）。宿主回归约束同时检查启动模式、affinity、分享/链接/launcher 入口和 Flutter 自动深链关闭状态。
 
 Android 启动模式依据：[Tasks and the back stack](https://developer.android.com/guide/components/activities/tasks-and-back-stack)。原始 Activity 状态和截图只保存在忽略的 `.local/android-share-spinner`，不纳入仓库。
 
