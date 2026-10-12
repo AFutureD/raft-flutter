@@ -32,11 +32,19 @@ class RootAdapter extends MessageAdapter {
     calls.add(options);
     final key = '${options.method} ${options.path}',
         route = routes['${options.method} ${options.path}'];
+    final status = route == null ? 404 : statuses[key] ?? 200;
+    var body = route == null
+        ? {'error': 'Unexpected endpoint'}
+        : await route(options);
+    // The server answers every rejected credential with its JSON error
+    // (routes/auth.ts respondInvalidOrExpiredToken); only that body makes a
+    // 401 a definitive rejection for the client.
+    if (status == 401 && !(body is Map && body['error'] is String)) {
+      body = {'error': 'Invalid or expired token', 'code': 'auth_required'};
+    }
     return ResponseBody.fromString(
-      jsonEncode(
-        route == null ? {'error': 'Unexpected endpoint'} : await route(options),
-      ),
-      route == null ? 404 : statuses[key] ?? 200,
+      jsonEncode(body),
+      status,
       headers: {
         Headers.contentTypeHeader: ['application/json'],
       },
@@ -199,7 +207,9 @@ class RootFixture {
     this.sessionOwner,
     this.onStartupReady,
     this.contentOverride,
-  }) : cache = cache ?? RootCache();
+    MemorySessionStore? sessionStore,
+  }) : cache = cache ?? RootCache(),
+       sessions = sessionStore ?? MemorySessionStore();
 
   /// A real coordinator (notification/link handling) instead of [content].
   final NativeContentCoordinator? contentOverride;
@@ -208,9 +218,8 @@ class RootFixture {
   final VoidCallback? onStartupReady;
   final RootCache cache;
   final engineRoutes = <Map<dynamic, dynamic>>[];
-  final adapter = RootAdapter(),
-      content = RootContent(),
-      sessions = MemorySessionStore();
+  final MemorySessionStore sessions;
+  final adapter = RootAdapter(), content = RootContent();
   late RootClient client;
   final servers = <Map<String, dynamic>>[
     {'id': 'a', 'name': 'Alpha', 'slug': 'alpha', 'role': 'owner'},
@@ -282,6 +291,12 @@ class RootFixture {
       'email': '$principal@example.invalid',
       'emailVerified': true,
     };
+    // A rejected stored session meets the real refresh answer for a dead
+    // token (routes/auth.ts): 401 with the JSON error.
+    adapter.routes['POST /auth/refresh'] = (_) => {
+      'error': 'Invalid or expired refresh token',
+    };
+    adapter.statuses['POST /auth/refresh'] = 401;
     if (offlineRestore) adapter.statuses['GET /auth/me'] = 503;
     adapter.routes['GET /servers'] = (_) => serverDirectory?.call() ?? servers;
     adapter.routes['GET /channels'] = (o) {

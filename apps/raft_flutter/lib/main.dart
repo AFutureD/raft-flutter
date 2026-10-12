@@ -28,9 +28,11 @@ import 'features/global_server_selector.dart';
 import 'features/public_server_view.dart';
 import 'features/workspace_view.dart';
 import 'features/auth_view.dart';
+import 'features/session_recovery_view.dart';
 import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
+import 'platform/auth_audit_log.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
 import 'platform/launch_theme.dart';
@@ -196,6 +198,21 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   RaftClient? client;
   WorkspaceController? workspace;
   WorkspaceCache? cache;
+
+  /// Set when stored credentials may exist but the session could not be
+  /// confirmed. The app shows a recovery state (never the login form) and
+  /// retries; [signInInstead] is the user's explicit choice to give up.
+  SessionRestoreException? restoreFailure;
+  bool restoreRetrying = false, signInInstead = false;
+  Timer? restoreRetry;
+  int restoreAttempt = 0;
+  static const restoreBackoff = <Duration>[
+    Duration(seconds: 3),
+    Duration(seconds: 6),
+    Duration(seconds: 12),
+    Duration(seconds: 30),
+    Duration(seconds: 60),
+  ];
   StreamSubscription<RaftEvent>? sessionEvents;
   // Known before the first build: the deferred first frame is not the only
   // guard against painting the default family before the stored one.
@@ -512,6 +529,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     // The foreground owns the session from its first instruction: this is
     // synchronous and never waits for or fails because of a background guest.
     final guestSettled = sessionOwner.claim();
+    restoreRetry?.cancel();
+    restoreRetry = null;
+    var restored = false;
     try {
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
@@ -519,43 +539,131 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       appearance = storedAppearance(p);
       // Heals the native splash theme (app update, restored preferences).
       unawaited(NativeLaunchTheme.instance.set(appearance));
-      cache =
-          await (widget.openWorkspaceCache?.call() ??
-              DriftWorkspaceCache.open());
+      try {
+        cache ??=
+            await (widget.openWorkspaceCache?.call() ??
+                DriftWorkspaceCache.open());
+      } catch (e) {
+        // The on-device cache is an accelerator; losing it must never look
+        // like losing the session.
+        AuthAuditLog.shared.note(
+          'restore_failed',
+          'cache_unavailable',
+          detail: e.runtimeType.toString(),
+        );
+      }
       if (!mounted) {
         await cache?.close();
         return;
       }
-      late final RaftClient c;
-      c = makeClient(
+      late final RaftClient created;
+      created = makeClient(
         origin,
-        sessionPersistence.guarded(() => mounted && identical(client, c)),
+        sessionPersistence.guarded(() => mounted && identical(client, created)),
       );
-      client = c;
+      final previous = client;
+      client = created;
+      if (previous != null && !identical(previous, created)) {
+        unawaited(previous.dispose());
+      }
       // Cache-first: a stored account record paints the on-device workspace
       // at once; the session is revalidated in the background and a
       // rejected or replaced account ends through the session events below.
-      if (await c.restore(
+      restored = await created.restore(
         cachedFirst: true,
         credentialsReady: guestSettled,
         onLocalSession: (cached) {
           if (!cached) finishStartup();
         },
-      )) {
-        if (!mounted) {
-          await c.dispose();
-          return;
+      );
+      if (!mounted) {
+        await created.dispose();
+        return;
+      }
+      restoreFailure = null;
+      restoreAttempt = 0;
+      if (!restored) {
+        // Either nothing is stored, or the server said the credentials are
+        // dead (already recorded by the client). Only these show the form.
+        final ended = created.lastEndReason;
+        if (ended != null) {
+          bootError = 'Your session has expired. Sign in again.';
         }
-        watchSession(c);
-        setState(() => restoring = false);
-        await finishOnboarding(c);
+        client = null;
+        unawaited(created.dispose());
       }
     } catch (e) {
-      bootError = 'Could not restore the session. Sign in to reconnect.';
+      if (!mounted) return;
+      enterRestoreRecovery(
+        e is SessionRestoreException
+            ? e
+            : SessionRestoreException(
+                SessionRestoreFailureKind.unexpected,
+                cause: e,
+              ),
+      );
+      return;
     } finally {
-      if (mounted) setState(() => restoring = false);
+      if (mounted && restoreFailure == null) {
+        setState(() {
+          restoring = false;
+          restoreRetrying = false;
+        });
+      }
       finishStartup();
     }
+    final c = client;
+    if (restored && c != null) {
+      watchSession(c);
+      setState(() => restoring = false);
+      try {
+        await finishOnboarding(c);
+      } catch (e) {
+        AuthAuditLog.shared.note(
+          'startup_error',
+          'onboarding',
+          detail: e.runtimeType.toString(),
+        );
+      }
+    }
+  }
+
+  /// Credentials may exist but the session is unconfirmed: keep them, show the
+  /// recovery state, retry with backoff and on resume.
+  void enterRestoreRecovery(SessionRestoreException failure) {
+    final failed = client;
+    client = null;
+    if (failed != null) unawaited(failed.dispose());
+    AuthAuditLog.shared.note(
+      'restore_failed',
+      failure.kind.name,
+      detail: failure.status == null
+          ? failure.cause?.runtimeType.toString()
+          : 'status=${failure.status}',
+    );
+    restoreFailure = failure;
+    restoreRetrying = false;
+    restoring = false;
+    final delay = restoreBackoff[restoreAttempt.clamp(
+      0,
+      restoreBackoff.length - 1,
+    )];
+    restoreAttempt++;
+    restoreRetry?.cancel();
+    restoreRetry = Timer(delay, retryRestore);
+    setState(() {});
+    finishStartup();
+  }
+
+  void retryRestore() {
+    if (!mounted || restoreFailure == null || restoreRetrying) return;
+    restoreRetry?.cancel();
+    restoreRetry = null;
+    setState(() {
+      restoreRetrying = true;
+      signInInstead = false;
+    });
+    unawaited(restore());
   }
 
   RaftClient authClient(String base, int attempt) {
@@ -579,7 +687,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? 'mobile'
         : 'desktop';
     return widget.createClient?.call(base, store, kind) ??
-        RaftClient(origin: base, sessionStore: store, clientKind: kind);
+        RaftClient(
+          origin: base,
+          sessionStore: store,
+          clientKind: kind,
+          auditSink: AuthAuditLog.shared,
+        );
   }
 
   Future<void> authenticate(
@@ -635,6 +748,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       client = c;
       origin = base.trim();
       bootError = null;
+      restoreRetry?.cancel();
+      restoreFailure = null;
+      signInInstead = false;
       watchSession(c);
       if (mounted) setState(() {});
       final prefs = await SharedPreferences.getInstance();
@@ -1467,6 +1583,19 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   Widget sessionHome() {
     scheduleShares();
     final active = client;
+    if (restoreFailure != null && !signInInstead && active?.user == null) {
+      workspaceRootInputs = null;
+      return SessionRecoveryView(
+        failure: restoreFailure!,
+        busy: restoreRetrying,
+        onRetry: retryRestore,
+        onSignInAgain: () {
+          // The stored credentials stay until a new sign-in replaces them.
+          restoreRetry?.cancel();
+          setState(() => signInInstead = true);
+        },
+      );
+    }
     if (active?.user == null) {
       workspaceRootInputs = null;
       if (invite != null) return inviteHome(false);
@@ -1601,7 +1730,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         if (c.user?.id != principal) {
           // An account record cannot transfer the old workspace's private
           // projections to another principal, even on the same client object.
-          unawaited(logout(previousPrincipal: principal));
+          unawaited(
+            logout(
+              previousPrincipal: principal,
+              reason: SessionEndReason.principalChanged,
+            ),
+          );
           return;
         }
         if (accountNeedsOnboarding(c.user)) {
@@ -1629,6 +1763,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         setState(() {});
       }
       if (e.name == 'session:ended' && mounted && identical(c, client)) {
+        // Say why the form appeared when the server (not the user) ended it.
+        final reason = c.lastEndReason;
+        if (reason != null && reason != SessionEndReason.userRequested) {
+          bootError = 'Your session has expired. Sign in again.';
+        }
         shareSession.bind(null);
         authAttempt++;
         rootRequest++;
@@ -1660,7 +1799,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> logout({String? previousPrincipal}) async {
+  Future<void> logout({
+    String? previousPrincipal,
+    SessionEndReason reason = SessionEndReason.userRequested,
+  }) async {
     shareSession.bind(null);
     authAttempt++;
     rootRequest++;
@@ -1690,7 +1832,10 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     sessionEvents?.cancel();
     // Retire requests and socket authentication synchronously, even while a
     // background owner is still finishing the credential record to revoke.
-    final loggingOut = c?.logout(revocationSession: clearSession);
+    final loggingOut = c?.logout(
+      revocationSession: clearSession,
+      reason: reason,
+    );
     if (mounted) setState(() {});
     // Late writes (debounced directory saves, socket-driven windows) must not
     // land after the account's device data is cleared.
@@ -1726,6 +1871,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           serverSwitchLocation == null,
     );
     if (state == AppLifecycleState.resumed) {
+      // A session the server could not confirm is asked again at once; the
+      // network is often back exactly when the app returns to the foreground.
+      if (restoreFailure != null) retryRestore();
+      final held = client;
+      if (held != null && (held.sessionDegraded || held.restoredOffline)) {
+        unawaited(held.retrySession());
+      }
       unawaited(sharing.resume());
       unawaited(NativeSystemFonts.instance.refresh());
       unawaited(content.notifications.refreshPermission());
@@ -1746,6 +1898,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    restoreRetry?.cancel();
     finishStartup();
     InviteRequests.instance.removeListener(inviteRequested);
     unawaited(inviteClient?.dispose());
