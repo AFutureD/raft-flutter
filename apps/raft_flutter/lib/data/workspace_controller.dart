@@ -4069,6 +4069,7 @@ class WorkspaceController extends ChangeNotifier {
     bool navigate = true,
     bool retainContextUntilAccepted = false,
     bool preserveThread = false,
+    VoidCallback? onDraftRestored,
   }) async {
     final source = presentationSource;
     if (source != null) {
@@ -4078,6 +4079,7 @@ class WorkspaceController extends ChangeNotifier {
         navigate: navigate,
         retainContextUntilAccepted: retainContextUntilAccepted,
         preserveThread: preserveThread,
+        onDraftRestored: onDraftRestored,
       );
     }
     final retainThread =
@@ -4159,6 +4161,9 @@ class WorkspaceController extends ChangeNotifier {
     // bucket read now so the chips are cached when the rows first render.
     unawaited(MessageTaskCache.of(client).warm(this, next.id));
     await _restoreDraft(next.id);
+    // The composer can take staged content from here on; the message page
+    // below is still loading.
+    onDraftRestored?.call();
     if (!current()) return;
     try {
       final page = retainContextUntilAccepted

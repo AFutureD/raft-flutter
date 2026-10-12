@@ -260,11 +260,12 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       return;
     }
     final staging = IncomingShareStaging(raw);
-    staging.start((progress) async {
+    staging.start((progress, bytes) async {
       final share = await sharing.inbox.stage(
         raw,
         current: () => mounted && epoch == shareEpoch && !staging.cancelled,
         onProgress: progress,
+        onBytes: bytes,
       );
       if (!mounted || epoch != shareEpoch || staging.cancelled) {
         throw const FormatException('Cancelled');
@@ -362,10 +363,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     sharePickerOpen = true;
     var handedOff = false;
     try {
-      if (staging.failed) {
-        if (valid()) showShareError();
-        return;
-      }
       // Bind the copied files to this account as soon as they are staged, in
       // the background, so Continue finds the claim already done.
       final owned = staging.result.then((share) async {
@@ -389,14 +386,37 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             staging: staging,
             cachedTargets: (server) => cachedShareTargets(w, server),
             onContinue: (server, target) async {
-              final share = await owned;
-              if (!valid()) {
-                throw const RaftApiException('The conversation changed.');
-              }
-              final freshServers = await c.servers();
-              if (!valid() || !freshServers.any((s) => s.id == server.id)) {
+              // Cancel (or leaving the page) ends the hand-off: nothing below
+              // changes the workspace once the user has backed out.
+              bool live() => valid() && !staging.cancelled;
+              // Everything that only reads runs at once: the copy (already
+              // going since the share arrived), membership, and the row of a
+              // destination that exists and is joined. A new DM or a join
+              // changes the server first, so those resolve afterwards.
+              final readyChannelId =
+                  target.channel != null && !target.requiresJoin
+                  ? target.channel!.id
+                  : null;
+              final reads = await Future.wait<dynamic>([
+                owned,
+                c.servers(),
+                if (readyChannelId != null)
+                  c.getForServer(server.id, '/channels/$readyChannelId'),
+              ]);
+              final share = reads[0] as IncomingShare,
+                  freshServers = reads[1] as List<RaftRecord>;
+              if (!live() || !freshServers.any((s) => s.id == server.id)) {
                 throw const RaftApiException('Server membership changed.');
               }
+              // The queued files are opened while the workspace switches.
+              final restoring = Future.wait([
+                for (final source in share.files)
+                  sharing.inbox.restore(
+                    {'token': share.token, 'file': source.uri},
+                    c.origin,
+                    principal,
+                  ),
+              ]);
               w.applyMembershipRole({
                 'serverId': server.id,
                 'userId': principal,
@@ -408,14 +428,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               await chooseServer(
                 freshServers.firstWhere((s) => s.id == server.id),
               );
-              if (!valid() || c.serverId != server.id) {
+              if (!live() || c.serverId != server.id) {
                 throw const RaftApiException('The conversation changed.');
               }
               final generation = c.generation, role = w.server?.string('role');
               int? channelWindow;
               String? targetChannelId;
               bool destinationCurrent() =>
-                  valid() &&
+                  live() &&
                   c.serverId == server.id &&
                   c.generation == generation &&
                   w.server?.string('role') == role &&
@@ -442,7 +462,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
                   throw const RaftApiException('The conversation changed.');
                 }
               }
-              final row = await c.get('/channels/$id');
+              final row = readyChannelId == null
+                  ? await c.get('/channels/$id')
+                  : reads[2];
               if (!destinationCurrent() ||
                   row is! Map ||
                   row['id'] != id ||
@@ -455,22 +477,31 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
                   'This conversation cannot receive shared content.',
                 );
               }
-              final selectingChannel = w.selectChannel(channel);
+              // The composer needs the conversation's saved draft, not its
+              // message page: the page keeps loading (or paints from the
+              // device) behind the composer like any other channel opening.
+              final draftRestored = Completer<void>();
+              final selectingChannel = w.selectChannel(
+                channel,
+                onDraftRestored: () {
+                  if (!draftRestored.isCompleted) draftRestored.complete();
+                },
+              );
+              unawaited(
+                selectingChannel.whenComplete(() {
+                  if (!draftRestored.isCompleted) draftRestored.complete();
+                }),
+              );
               channelWindow = w.channelGeneration;
               targetChannelId = id;
-              await selectingChannel;
+              await draftRestored.future;
               if (!destinationCurrent() || w.channel?.id != id) {
                 throw const RaftApiException('The conversation changed.');
               }
               w.closeThread();
               w.setSection('chat');
               final files = <SharedDraftAttachment>[];
-              for (final source in share.files) {
-                final file = await sharing.inbox.restore(
-                  {'token': share.token, 'file': source.uri},
-                  c.origin,
-                  principal,
-                );
+              for (final file in await restoring) {
                 if (file == null || !destinationCurrent()) {
                   throw const RaftApiException('Shared file unavailable.');
                 }
@@ -491,7 +522,6 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           ),
         ),
       );
-      if (!handedOff && staging.failed && valid()) showShareError();
     } catch (_) {
       if (valid()) showShareError();
     } finally {

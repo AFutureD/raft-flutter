@@ -5,9 +5,26 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/incoming_share_targets.dart';
+import '../platform/incoming_share_inbox.dart' show IncomingShareFailureReason;
 import '../platform/incoming_share_staging.dart';
 import '../platform/native_sharing.dart' show IncomingSharedFile;
 import 'forward_composer_page.dart' show forwardTargetIcon;
+
+/// How the page shows a copy that is still running when the user is ready.
+///
+/// Both styles turn Continue into a progress block with Cancel when it is
+/// pressed before the copy finished; they differ in what the file card shows
+/// before that. One constant so the other option is a one-word change.
+enum IncomingShareWaitStyle {
+  /// Option B: each file chip of "Add shared content" carries its own progress
+  /// bar and error, and Continue stays available.
+  card,
+
+  /// Option A: chips stay plain; only Continue shows progress.
+  button,
+}
+
+const incomingShareWaitStyle = IncomingShareWaitStyle.card;
 
 class IncomingSharePicker extends StatefulWidget {
   const IncomingSharePicker({
@@ -93,11 +110,16 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
 
   void stagingChanged() {
     if (!mounted) return;
-    if (widget.staging?.failed == true && !busy) {
-      Navigator.of(context).maybePop(false);
-      return;
-    }
+    // A failed copy stays on the page: the file that failed shows why, and
+    // Continue is unavailable until the user leaves.
     setState(() {});
+  }
+
+  /// Leaves the page and abandons a hand-off that is still waiting; the host
+  /// stops the copy, checks nothing further and removes the staged files.
+  void cancel() {
+    widget.staging?.cancel();
+    Navigator.of(context).pop(false);
   }
 
   /// Runs [body] as one pending check: hand-off waits for all of them.
@@ -247,7 +269,13 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
   }
 
   Future<void> proceed() async {
-    if (selected == null || server == null || busy || !widget.valid()) return;
+    if (selected == null ||
+        server == null ||
+        busy ||
+        widget.staging?.failed == true ||
+        !widget.valid()) {
+      return;
+    }
     // A device-cached or authority-stale row authorizes nothing: wait for the
     // fresh directory (it may drop the row) before joining or adding.
     for (var wait = 0; revalidating && wait < 3; wait++) {
@@ -349,14 +377,114 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     );
   }
 
-  Widget progress(BuildContext context) => RaftProgressBar(
-    key: const Key('incoming-share-preparing'),
-    label: raftFormat(context, 'Preparing {done} of {total} files', {
-      'done': widget.staging!.copied,
-      'total': widget.staging!.total,
-    }),
-    value: 100 * widget.staging!.copied / widget.staging!.total,
+  /// Compact copy progress of the targets page (the file card is not visible
+  /// there): `Preparing 1 of 3 files · 4.2 / 30.1 MB`, by bytes.
+  Widget progress(BuildContext context) => ValueListenableBuilder(
+    valueListenable: widget.staging!.overall,
+    builder: (context, bytes, _) => RaftProgressBar(
+      key: const Key('incoming-share-preparing'),
+      label:
+          '${raftFormat(context, 'Preparing {done} of {total} files', {'done': widget.staging!.copied, 'total': widget.staging!.total})}'
+          '${bytes == null || bytes.waiting ? '' : ' · ${bytes.sizeLabel}'}',
+      value: bytes?.fraction == null
+          ? 100 * widget.staging!.copied / widget.staging!.total
+          : 100 * bytes!.fraction!,
+    ),
   );
+
+  /// What the user reads when the copy failed: the file and the reason.
+  String? stagingError(BuildContext context) {
+    final staging = widget.staging;
+    if (staging == null || !staging.failed) return null;
+    final failure = staging.failure;
+    final index = failure?.index;
+    final name = index != null && index < staging.files.length
+        ? staging.files[index].file.filename
+        : '';
+    return switch (failure?.reason) {
+      IncomingShareFailureReason.tooLarge => raftFormat(
+        context,
+        '{name} is larger than 25 MB and cannot be added.',
+        {'name': name},
+      ),
+      IncomingShareFailureReason.tooMany => raftText(
+        context,
+        'Up to 9 files can be shared at once.',
+      ),
+      IncomingShareFailureReason.totalTooLarge => raftText(
+        context,
+        'These files are larger than 100 MB together.',
+      ),
+      IncomingShareFailureReason.unreadable => raftFormat(
+        context,
+        '{name} could not be read.',
+        {'name': name},
+      ),
+      IncomingShareFailureReason.permission => raftFormat(
+        context,
+        'Raft can no longer read {name}.',
+        {'name': name},
+      ),
+      IncomingShareFailureReason.empty => raftFormat(
+        context,
+        '{name} is empty.',
+        {'name': name},
+      ),
+      _ => raftText(context, 'The shared content could not be added.'),
+    };
+  }
+
+  /// Short reason under a failed chip.
+  String fileError(BuildContext context, IncomingShareFileProgress file) =>
+      switch (file.failure) {
+        IncomingShareFailureReason.tooLarge => raftText(
+          context,
+          'Larger than 25 MB',
+        ),
+        IncomingShareFailureReason.permission => raftText(
+          context,
+          'Permission revoked',
+        ),
+        IncomingShareFailureReason.empty => raftText(context, 'Empty file'),
+        IncomingShareFailureReason.totalTooLarge => raftText(
+          context,
+          'Over the 100 MB total',
+        ),
+        _ => raftText(context, 'Could not be read'),
+      };
+
+  RaftForwardShareFileState chipState(IncomingShareFileState state) =>
+      incomingShareWaitStyle == IncomingShareWaitStyle.button &&
+          state != IncomingShareFileState.failed
+      ? RaftForwardShareFileState.ready
+      : switch (state) {
+          IncomingShareFileState.waiting => RaftForwardShareFileState.waiting,
+          IncomingShareFileState.copying => RaftForwardShareFileState.copying,
+          IncomingShareFileState.ready ||
+          IncomingShareFileState.stopped => RaftForwardShareFileState.ready,
+          IncomingShareFileState.failed => RaftForwardShareFileState.failed,
+        };
+
+  /// The block above Continue while it waits: the copy first (by bytes), then
+  /// the checks and the hand-off. Null when nothing is pending.
+  RaftForwardWait? wait(BuildContext context) {
+    final staging = widget.staging;
+    if (!busy) return null;
+    if (staging != null && staging.preparing && staging.total > 0) {
+      return RaftForwardWait(
+        label: raftFormat(context, 'Preparing {done} of {total} files', {
+          'done': staging.copied,
+          'total': staging.total,
+        }),
+        progress: staging.overall,
+        onCancel: cancel,
+      );
+    }
+    return RaftForwardWait(
+      label: raftText(context, 'Adding to the conversation'),
+      onCancel: cancel,
+    );
+  }
 
   bool get preparing =>
       widget.staging?.preparing == true && widget.staging!.total > 0;
@@ -366,9 +494,15 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     final target = selected;
     final second = review && target != null;
     return PopScope(
-      canPop: !busy && !second,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && second && !busy) setState(() => review = false);
+      canPop: !second || busy,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          // Leaving while a hand-off waits abandons it (a finished hand-off
+          // pops with true).
+          if (busy && result != true) widget.staging?.cancel();
+        } else if (second) {
+          setState(() => review = false);
+        }
       },
       child: RaftForwardPage(
         child: Column(
@@ -392,7 +526,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
         leading: RaftForwardIconAction(
           glyph: RaftGlyph.arrowLeft,
           tooltip: raftText(context, 'Back'),
-          onPressed: busy ? null : () => Navigator.of(context).pop(false),
+          onPressed: busy ? cancel : () => Navigator.of(context).pop(false),
         ),
         title: raftText(context, 'Select destinations'),
         subtitle: summary(context),
@@ -400,7 +534,15 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       Expanded(
         child: RaftForwardTargetsBody(
           leading: [
-            if (preparing) progress(context),
+            if (stagingError(context) case final message?)
+              RaftBanner(
+                key: const Key('incoming-share-error'),
+                status: RaftBannerRecipeStatus.warning,
+                description: message,
+                descriptionWeight: FontWeight.w700,
+              )
+            else if (preparing)
+              progress(context),
             if (servers.length > 1)
               RaftForwardServerChips(
                 semanticLabel: raftText(context, 'Server'),
@@ -510,7 +652,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
         leading: RaftForwardIconAction(
           glyph: RaftGlyph.arrowLeft,
           tooltip: raftText(context, 'Back to destinations'),
-          onPressed: busy ? null : () => setState(() => review = false),
+          onPressed: busy ? cancel : () => setState(() => review = false),
         ),
         title: raftText(context, 'Add shared content'),
         subtitle: raftFormat(context, 'Add to {target}', {
@@ -519,8 +661,10 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       ),
       Expanded(
         child: RaftForwardPreviewStep(
-          warnings: [if (preparing) progress(context)],
-          error: handoffError == null ? null : raftText(context, handoffError!),
+          warnings: const [],
+          error:
+              stagingError(context) ??
+              (handoffError == null ? null : raftText(context, handoffError!)),
           previewLabel: raftText(context, 'Shared content'),
           preview: RaftForwardSharePreview(
             header: raftText(context, 'Shared'),
@@ -533,11 +677,21 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
                   ),
             text: raw?.text,
             files: [
-              for (final f in files)
+              for (final (i, f) in files.indexed)
                 RaftForwardShareFile(
                   filename: f.filename,
                   mimeType: f.mimeType,
                   sizeBytes: f.sizeBytes,
+                  state: chipState(
+                    widget.staging?.files[i].state ??
+                        IncomingShareFileState.ready,
+                  ),
+                  transfer: widget.staging?.files[i].progress,
+                  error:
+                      widget.staging?.files[i].state ==
+                          IncomingShareFileState.failed
+                      ? fileError(context, widget.staging!.files[i])
+                      : null,
                 ),
             ],
           ),
@@ -551,7 +705,14 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
             key: const Key('incoming-share-continue'),
             label: raftText(context, 'Continue'),
             busy: busy,
-            onPressed: busy || loading ? null : proceed,
+            busyLabel: raftText(
+              context,
+              preparing ? 'Preparing files' : 'Adding…',
+            ),
+            wait: wait(context),
+            onPressed: busy || loading || widget.staging?.failed == true
+                ? null
+                : proceed,
           ),
         ),
       ),

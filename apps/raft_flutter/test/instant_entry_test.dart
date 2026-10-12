@@ -452,7 +452,7 @@ void main() {
     },
   );
 
-  testWidgets('share: a failed copy closes the picker and reports the error', (
+  testWidgets('share: a failed copy keeps the picker and names the file', (
     t,
   ) async {
     final copy = Gate();
@@ -470,9 +470,16 @@ void main() {
     expect(await framesUntil(t, pickerVisible), inInclusiveRange(0, 2));
     copy.open();
     await settle(t, s, 6);
-    expect(pickerVisible(), isFalse);
-    expect(s.w.error, 'The shared content could not be added.');
+    // The page stays and says which file failed and why; nothing is toasted
+    // behind it, and nothing is left in the private inbox.
+    expect(pickerVisible(), isTrue);
+    expect(find.text('photo.jpg could not be read.'), findsOneWidget);
+    expect(s.w.error, isNull);
     expect(dir.listSync(), isEmpty);
+    await t.pageBack();
+    await settle(t, s, 3);
+    expect(pickerVisible(), isFalse);
+    expect(s.w.error, isNull);
     await s.f.close(t);
   });
 

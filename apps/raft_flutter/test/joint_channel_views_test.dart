@@ -65,6 +65,7 @@ class _Workspace extends WorkspaceController {
     bool navigate = true,
     bool retainContextUntilAccepted = false,
     bool preserveThread = false,
+    VoidCallback? onDraftRestored,
   }) async {
     selected = next.id;
   }

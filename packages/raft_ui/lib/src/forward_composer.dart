@@ -1,15 +1,18 @@
 // Presentational pieces of Web ForwardComposerMobile
 // (packages/web/src/components/message/ForwardComposerMobile.tsx,
 // ForwardComposerTargetList.tsx). The app owns targets, search and sending.
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'attachment_card.dart';
+import 'attachment_transfer.dart';
 import 'avatar_content.dart';
 import 'banner.dart';
 import 'components.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'indicators.dart' show RaftCheckbox;
+import 'localization.dart';
 import 'message_body.dart';
 import 'mounted_avatar_recipe.dart';
 import 'recipes/input.g.dart';
@@ -482,15 +485,14 @@ class RaftForwardPreviewStep extends StatelessWidget {
               if (error != null)
                 // Web reports a failed forward in a toast; the page keeps it
                 // as a warning banner (`mb-3 text-xs font-bold`) above the preview.
-                Semantics(
-                  liveRegion: true,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: RaftBanner(
-                      status: RaftBannerRecipeStatus.warning,
-                      description: error!,
-                      descriptionWeight: FontWeight.w700,
-                    ),
+                // The banner is already an alert; a live region on top of it
+                // is an assertion with semantics on.
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: RaftBanner(
+                    status: RaftBannerRecipeStatus.warning,
+                    description: error!,
+                    descriptionWeight: FontWeight.w700,
                   ),
                 ),
               // `mb-2`, less the 4px the bundle / share card keeps above itself.
@@ -826,15 +828,125 @@ class RaftForwardServerChips extends StatelessWidget {
   );
 }
 
+/// Where one shared file is in the copy into the app's private inbox.
+enum RaftForwardShareFileState {
+  /// Copied (or nothing to wait for): the plain chip.
+  ready,
+
+  /// Queued behind an earlier file.
+  waiting,
+
+  /// Bytes are being copied; [RaftForwardShareFile.transfer] carries them.
+  copying,
+
+  /// The file cannot be added; [RaftForwardShareFile.error] says why.
+  failed,
+}
+
 /// One shared file in [RaftForwardSharePreview].
 class RaftForwardShareFile {
   const RaftForwardShareFile({
     required this.filename,
     required this.mimeType,
     this.sizeBytes,
+    this.state = RaftForwardShareFileState.ready,
+    this.transfer,
+    this.error,
   });
   final String filename, mimeType;
   final int? sizeBytes;
+  final RaftForwardShareFileState state;
+
+  /// Copied bytes of this file. The status line listens to it itself, so the
+  /// card is not rebuilt per update.
+  final ValueListenable<RaftTransferProgress?>? transfer;
+
+  /// Reason shown under a [RaftForwardShareFileState.failed] chip.
+  final String? error;
+}
+
+/// Status under one shared file's chip while it is copied: the inline transfer
+/// bar of the attachment download design (Option A) with `1.2 / 3.4 MB · 36%`,
+/// a quiet "Waiting" line for a queued file, or the red bar and the reason.
+class RaftForwardShareFileStatus extends StatelessWidget {
+  const RaftForwardShareFileStatus({super.key, required this.file});
+  final RaftForwardShareFile file;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final recipe = RaftTransferRecipe(t);
+    final mono = RaftTypography.mono(t, size: 11, line: 14, color: t.muted);
+    Widget line(String text, {Color? color}) => Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: color == null ? mono : mono.copyWith(color: color),
+    );
+    switch (file.state) {
+      case RaftForwardShareFileState.ready:
+        return const SizedBox.shrink();
+      case RaftForwardShareFileState.waiting:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const RaftTransferBar(value: 0, style: RaftTransferBarStyle.inline),
+            const SizedBox(height: 4),
+            line(raftText(context, 'Waiting')),
+          ],
+        );
+      case RaftForwardShareFileState.copying:
+        final transfer = file.transfer;
+        Widget bar(RaftTransferProgress? value) => RaftTransferBar(
+          value: (value ?? RaftTransferProgress.connecting)
+              .withFallbackTotal(file.sizeBytes)
+              .fraction,
+          style: RaftTransferBarStyle.inline,
+        );
+        String label(RaftTransferProgress? value) {
+          final resolved = (value ?? RaftTransferProgress.connecting)
+              .withFallbackTotal(file.sizeBytes);
+          final fraction = resolved.fraction;
+          return resolved.waiting
+              ? raftText(context, 'Preparing…')
+              : fraction == null
+              ? resolved.sizeLabel
+              : '${resolved.sizeLabel} · ${(fraction * 100).floor()}%';
+        }
+
+        if (transfer == null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [bar(null), const SizedBox(height: 4), line(label(null))],
+          );
+        }
+        return ValueListenableBuilder<RaftTransferProgress?>(
+          valueListenable: transfer,
+          builder: (context, value, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              bar(value),
+              const SizedBox(height: 4),
+              line(label(value)),
+            ],
+          ),
+        );
+      case RaftForwardShareFileState.failed:
+        return Semantics(
+          liveRegion: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const RaftTransferBar(
+                failed: true,
+                style: RaftTransferBarStyle.inline,
+              ),
+              const SizedBox(height: 4),
+              line(file.error ?? '', color: recipe.dangerText),
+            ],
+          ),
+        );
+    }
+  }
 }
 
 /// Share mode: what is being added, in the frame of Web's `ForwardedBundleCard`
@@ -929,17 +1041,34 @@ class RaftForwardSharePreview extends StatelessWidget {
                             runSpacing: 6,
                             children: [
                               for (final file in files)
-                                RaftAttachmentCard(
-                                  onOpen: null,
-                                  filename: file.filename,
-                                  // A shared image is not readable here until it is
-                                  // staged, so it is listed as a file chip rather
-                                  // than as an empty image box.
-                                  mimeType: file.mimeType.startsWith('image/')
-                                      ? 'application/octet-stream'
-                                      : file.mimeType,
-                                  sizeBytes: file.sizeBytes,
-                                  exportMode: true,
+                                SizedBox(
+                                  width: RaftAttachmentRecipe(t).size.width,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      RaftAttachmentCard(
+                                        onOpen: null,
+                                        filename: file.filename,
+                                        // A shared image is not readable here
+                                        // until it is staged, so it is listed
+                                        // as a file chip rather than as an
+                                        // empty image box.
+                                        mimeType:
+                                            file.mimeType.startsWith('image/')
+                                            ? 'application/octet-stream'
+                                            : file.mimeType,
+                                        sizeBytes: file.sizeBytes,
+                                        exportMode: true,
+                                      ),
+                                      if (file.state !=
+                                          RaftForwardShareFileState.ready) ...[
+                                        const SizedBox(height: 4),
+                                        RaftForwardShareFileStatus(file: file),
+                                      ],
+                                    ],
+                                  ),
                                 ),
                             ],
                           ),
@@ -956,26 +1085,134 @@ class RaftForwardSharePreview extends StatelessWidget {
   }
 }
 
+/// What Continue is waiting for, shown above the button (Option A): the inline
+/// transfer bar, a `Preparing 2 of 3 files · 12.3 / 30.1 MB` line and Cancel,
+/// the same bar / size line / Cancel arrangement as the file download panel.
+class RaftForwardWait {
+  const RaftForwardWait({
+    required this.label,
+    this.progress,
+    this.onCancel,
+    this.failed = false,
+  });
+
+  /// Localized status line, e.g. "Preparing 2 of 3 files".
+  final String label;
+
+  /// Bytes copied so far; null draws the indeterminate sweep (a check or the
+  /// hand-off itself is the wait, not a copy).
+  final ValueListenable<RaftTransferProgress?>? progress;
+  final VoidCallback? onCancel;
+  final bool failed;
+}
+
 /// Share mode: the note page's send action as one full-width accent button
 /// (Web's send is the accent `Button`; its label here is "Continue").
+///
+/// While [busy] the button keeps its size and shows a spinner with
+/// [busyLabel] instead of looking untouched; [wait] adds the progress block
+/// above it.
 class RaftForwardContinueAction extends StatelessWidget {
   const RaftForwardContinueAction({
     super.key,
     required this.label,
     required this.onPressed,
     this.busy = false,
+    this.busyLabel,
+    this.wait,
   });
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
+  final String? busyLabel;
+  final RaftForwardWait? wait;
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => RaftControl(
-      variant: RaftControlVariant.accent,
-      visualWidth: box.maxWidth,
-      busy: busy,
-      onPressed: onPressed,
-      child: Text(label),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final control = LayoutBuilder(
+      builder: (context, box) => RaftControl(
+        variant: RaftControlVariant.accent,
+        visualWidth: box.maxWidth,
+        busy: busy,
+        onPressed: onPressed,
+        semanticLabel: busy ? busyLabel ?? label : null,
+        child: busy
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const RaftSpinner(),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      busyLabel ?? label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            : Text(label),
+      ),
+    );
+    final wait = this.wait;
+    if (wait == null) return control;
+    final t = RaftTokens.of(context);
+    final recipe = RaftTransferRecipe(t);
+    final mono = RaftTypography.mono(
+      t,
+      size: 12,
+      line: 16,
+      color: wait.failed ? recipe.dangerText : t.muted,
+    );
+    Widget bar(RaftTransferProgress? value) => RaftTransferBar(
+      failed: wait.failed,
+      value: value?.fraction,
+      style: RaftTransferBarStyle.inline,
+    );
+    Widget text(RaftTransferProgress? value) => Text(
+      value == null || value.waiting
+          ? wait.label
+          : '${wait.label} · ${value.sizeLabel}',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: mono,
+    );
+    final progress = wait.progress;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          liveRegion: true,
+          child: progress == null
+              ? bar(null)
+              : ValueListenableBuilder<RaftTransferProgress?>(
+                  valueListenable: progress,
+                  builder: (context, value, _) => bar(value),
+                ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: progress == null
+                  ? text(null)
+                  : ValueListenableBuilder<RaftTransferProgress?>(
+                      valueListenable: progress,
+                      builder: (context, value, _) => text(value),
+                    ),
+            ),
+            if (wait.onCancel != null)
+              RaftTextButton(
+                label: raftText(context, 'Cancel'),
+                glyph: RaftGlyph.x,
+                onPressed: wait.onCancel,
+                visualHeight: 32,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        control,
+      ],
+    );
+  }
 }
