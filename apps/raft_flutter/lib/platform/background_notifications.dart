@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'auth_audit_log.dart';
 import 'background_inbox.dart';
 import 'content_coordinator.dart';
 import 'content_target.dart';
@@ -105,6 +106,12 @@ Future<bool> _runBackgroundInbox({
       origin: fields[0],
       sessionStore: guestStore,
       clientKind: 'mobile',
+      // A guest never signs the account out: if the server rejects the
+      // credentials it just stops, and the foreground meets the same
+      // rejection with the user in front of it (and the right message).
+      allowSessionEnd: false,
+      auditSink: AuthAuditLog.shared,
+      recoveryBackoff: const [],
     );
     client.http.options.connectTimeout = const Duration(seconds: 3);
     client.http.options.receiveTimeout = const Duration(seconds: 5);

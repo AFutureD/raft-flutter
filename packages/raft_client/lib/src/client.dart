@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:uuid/uuid.dart';
 
 import 'models.dart';
+import 'session_policy.dart';
 
 abstract interface class SessionStore {
   Future<Session?> read(String origin);
@@ -28,9 +30,17 @@ class MemorySessionStore implements SessionStore {
 }
 
 class RaftApiException implements Exception {
-  const RaftApiException(this.message, {this.status}) : details = const {};
+  const RaftApiException(this.message, {this.status})
+    : details = const {},
+      structured = false;
   RaftApiException.response(this.message, {this.status, Map? body})
-    : details = _errorDetails(body);
+    : details = _errorDetails(body),
+      structured = body != null && body['error'] is String;
+
+  /// The response carried the Raft server's JSON error object. A status with
+  /// no such body (an HTML page, an empty reply) came from a proxy, a WAF or a
+  /// captive portal, not from the server's auth layer.
+  final bool structured;
 
   /// Allow-listed structured receipts; never part of the printable error.
   final Map<String, dynamic> details;
@@ -152,6 +162,9 @@ class RaftClient {
     required this.sessionStore,
     this.clientKind = 'web',
     Dio? transport,
+    this.auditSink,
+    this.allowSessionEnd = true,
+    this.recoveryBackoff = defaultRecoveryBackoff,
   }) : origin = origin.replaceFirst(RegExp(r'/$'), ''),
        http =
            transport ??
@@ -163,9 +176,32 @@ class RaftClient {
            ) {
     http.options.baseUrl = '${this.origin}/api';
   }
+  /// Waits between background attempts to confirm a session the server could
+  /// not be asked about (network down, 5xx, a proxy's 4xx). The last entry
+  /// repeats. An empty list disables automatic retries.
+  static const defaultRecoveryBackoff = <Duration>[
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+    Duration(seconds: 60),
+  ];
+  static const _refreshCooldown = Duration(seconds: 3);
+  static const _proactiveRefreshSpacing = Duration(seconds: 60);
+
   final String origin;
   final String clientKind;
   final SessionStore sessionStore;
+
+  /// Receives a structured, token-free record of every sign-out and every
+  /// credential failure that kept the session.
+  final SessionAuditSink? auditSink;
+
+  /// A background guest must never sign the account out: when the server
+  /// rejects its credentials it only stops; the foreground meets the same
+  /// rejection on its own and ends the session with the user in front of it.
+  final bool allowSessionEnd;
+  final List<Duration> recoveryBackoff;
   final Dio http;
   Session? _session;
   RaftRecord? user;
@@ -191,6 +227,40 @@ class RaftClient {
   Stream<RaftEvent> get events => _events.stream;
   bool get connected => _socket?.connected ?? false;
   bool restoredOffline = false;
+
+  /// The session is kept but the server has not confirmed it recently
+  /// (transient refresh/account-check failure). Cleared when it does.
+  bool sessionDegraded = false;
+
+  /// Why the last session ended, or null if none ended since [restore].
+  SessionEndReason? lastEndReason;
+  Timer? _recoveryTimer;
+  int _recoveryAttempt = 0;
+  int _socketRetries = 0;
+  DateTime? _lastRotatedAt;
+  ({DateTime at, RaftApiException error})? _refreshFailure;
+
+  void _audit(
+    String kind,
+    String reason, {
+    int? status,
+    String? endpoint,
+    String? detail,
+  }) {
+    try {
+      auditSink?.record(
+        SessionAuditEvent(
+          kind,
+          reason,
+          status: status,
+          endpoint: endpoint,
+          detail: detail == null ? null : sanitizeAuditDetail(detail),
+        ),
+      );
+    } catch (_) {
+      // Diagnostics must never affect authentication.
+    }
+  }
 
   void _emit(RaftEvent event) {
     if (!_closed) _events.add(event);
@@ -238,7 +308,23 @@ class RaftClient {
   }) async {
     final authentication = ++_authenticationGeneration;
     _generation++;
-    final stored = await sessionStore.read(origin);
+    lastEndReason = null;
+    final Session? stored;
+    try {
+      stored = await sessionStore.read(origin);
+    } catch (e) {
+      // Not "no stored credentials": the Keystore/Keychain failed or the
+      // record is unreadable. Nothing is deleted; the caller retries.
+      _audit(
+        'restore_failed',
+        'storage_read',
+        detail: e.runtimeType.toString(),
+      );
+      throw SessionRestoreException(
+        SessionRestoreFailureKind.storage,
+        cause: e,
+      );
+    }
     if (authentication != _authenticationGeneration || _closed) return false;
     _session = stored;
     _credentialsReady = credentialsReady == null
@@ -272,18 +358,57 @@ class RaftClient {
         refreshAttemptId: s.refreshAttemptId,
         cachedUser: user!.json,
       );
-      final saved = _persist(_session);
+      // The credentials are accepted; a failed write only loses the cached
+      // account record, never the session.
+      final saved = _persist(_session).catchError((Object e) {
+        _audit('store_error', 'write_failed', detail: e.runtimeType.toString());
+      });
       if (_credentialsReady == null) {
         await saved;
       } else {
         // The write waits for the guest to stop; restore must not.
-        unawaited(saved.catchError((Object _) {}));
+        unawaited(saved);
       }
-    } on RaftApiException catch (e) {
-      if (_session?.cachedUser == null || e.status != null && e.status! < 500)
-        rethrow;
-      user = RaftRecord(_session!.cachedUser!);
-      restoredOffline = true;
+    } catch (e) {
+      final s = _session;
+      if (s == null || _closed || authentication != _authenticationGeneration) {
+        // Ended (a definitive rejection already signed out) or superseded.
+        return false;
+      }
+      if (e is RaftApiException && credentialVerdict(e) == SessionVerdict.endSession) {
+        await _endSession(
+          SessionEndReason.accountRejected,
+          e,
+          endpoint: '/auth/me',
+        );
+        return false;
+      }
+      final status = e is RaftApiException ? e.status : null;
+      _audit(
+        'restore_failed',
+        'account_check_failed',
+        status: status,
+        endpoint: '/auth/me',
+        detail: e is RaftApiException ? null : e.runtimeType.toString(),
+      );
+      if (s.cachedUser != null) {
+        user = RaftRecord(Map<String, dynamic>.from(s.cachedUser!));
+        restoredOffline = true;
+        _markDegraded();
+        _scheduleRecovery();
+        return true;
+      }
+      throw SessionRestoreException(
+        e is RaftApiException &&
+                (status == null ||
+                    status >= 500 ||
+                    status == 408 ||
+                    status == 429)
+            ? SessionRestoreFailureKind.network
+            : SessionRestoreFailureKind.unexpected,
+        status: status,
+        cause: e,
+      );
     }
     return true;
   }
@@ -319,6 +444,11 @@ class RaftClient {
       _generation++;
       _socket?.dispose();
       _socket = null;
+      final reason = latest == null
+          ? SessionEndReason.storeCleared
+          : SessionEndReason.principalChanged;
+      lastEndReason = reason;
+      _audit('session_end', reason.code, endpoint: 'handoff');
       // Do not overwrite a different principal's newly stored session.
       _emit(const RaftEvent('session:ended', null));
       return;
@@ -328,17 +458,27 @@ class RaftClient {
   }
 
   Future<void> _validateRestoredSession(int authentication) async {
+    await _validateOnce(authentication);
+  }
+
+  /// One `/auth/me` check of the held session. True when the question is
+  /// settled (accepted, or definitively rejected and signed out); false when
+  /// the server could not answer, in which case the session is kept and a
+  /// retry is scheduled.
+  Future<bool> _validateOnce(int authentication) async {
     bool current() => !_closed && authentication == _authenticationGeneration;
     try {
-      if (!current() || _session == null) return;
+      if (!current() || _session == null) return true;
       final next = RaftRecord(
         Map<String, dynamic>.from(await _accountRequest('GET', '/auth/me')),
       );
       final s = _session;
-      if (!current() || s == null) return;
+      if (!current() || s == null) return true;
       final changed = jsonEncode(next.json) != jsonEncode(user?.json);
       user = next;
+      final recovered = restoredOffline || sessionDegraded;
       restoredOffline = false;
+      _markHealthy();
       _session = Session(
         accessToken: s.accessToken,
         refreshToken: s.refreshToken,
@@ -353,22 +493,81 @@ class RaftClient {
       if (changed && current()) {
         _emit(const RaftEvent('account:updated', null));
       }
-    } on RaftApiException catch (e) {
-      if (!current() || _session == null) return;
-      if (e.status != 401 && e.status != 403) {
-        // A failed validation is not proof that credentials were revoked.
-        // In particular, rate limiting must not erase a valid local session
-        // and revoke it through /auth/logout. Keep the cached account offline
-        // until the server can validate it again.
-        restoredOffline = true;
-        return;
+      if (recovered && current()) {
+        _audit('recovered', 'account_confirmed');
+        _emit(const RaftEvent('session:recovered', null));
       }
-      // The server rejected the stored session (a failed refresh already
-      // logged out above). Never keep presenting its account.
-      await logout();
-    } catch (_) {
-      if (current()) restoredOffline = true;
+      return true;
+    } catch (e) {
+      if (!current() || _session == null) return true;
+      if (e is RaftApiException &&
+          credentialVerdict(e) == SessionVerdict.endSession) {
+        // The server said the account or session is gone (a failed refresh
+        // already signed out above).
+        await _endSession(
+          SessionEndReason.accountRejected,
+          e,
+          endpoint: '/auth/me',
+        );
+        return true;
+      }
+      // Offline, 5xx, 429, a proxy's 4xx, a body that is not an account:
+      // keep the cached account and its credentials, try again later.
+      _audit(
+        'session_kept',
+        'account_check_failed',
+        status: e is RaftApiException ? e.status : null,
+        endpoint: '/auth/me',
+        detail: e is RaftApiException ? null : e.runtimeType.toString(),
+      );
+      restoredOffline = true;
+      _markDegraded();
+      _scheduleRecovery();
+      return false;
     }
+  }
+
+  void _markDegraded() {
+    if (sessionDegraded) return;
+    sessionDegraded = true;
+    _emit(const RaftEvent('session:degraded', null));
+  }
+
+  void _markHealthy() {
+    sessionDegraded = false;
+    _recoveryAttempt = 0;
+    _refreshFailure = null;
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
+  }
+
+  void _scheduleRecovery() {
+    if (_closed ||
+        _session == null ||
+        recoveryBackoff.isEmpty ||
+        _recoveryTimer != null) {
+      return;
+    }
+    final delay =
+        recoveryBackoff[math.min(_recoveryAttempt, recoveryBackoff.length - 1)];
+    _recoveryAttempt++;
+    final authentication = _authenticationGeneration;
+    _recoveryTimer = Timer(delay, () {
+      _recoveryTimer = null;
+      if (_closed || authentication != _authenticationGeneration) return;
+      unawaited(_validateOnce(authentication));
+    });
+  }
+
+  /// Asks the server about a kept-but-unconfirmed session now (the app calls
+  /// this on resume and from a manual retry). Settles true when confirmed or
+  /// definitively rejected, false when the server still cannot answer.
+  Future<bool> retrySession() async {
+    if (_closed || _session == null) return true;
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
+    _refreshFailure = null;
+    return _validateOnce(_authenticationGeneration);
   }
 
   Future<void> login(String email, String password) async {
@@ -454,8 +653,51 @@ class RaftClient {
     await _persist(_session);
   }
 
-  Future<void> logout({Future<Session?>? revocationSession}) async {
+  /// Signs out on the user's behalf and revokes the refresh token on the
+  /// server. Involuntary sign-outs go through [_endSession] instead and never
+  /// revoke: the server already said the credentials are dead, and revoking
+  /// with a stale token would revoke the family a newer owner is using.
+  Future<void> logout({
+    Future<Session?>? revocationSession,
+    SessionEndReason reason = SessionEndReason.userRequested,
+  }) {
+    lastEndReason = reason;
+    _audit('session_end', reason.code);
+    return _signOut(revocationSession: revocationSession, revoke: true);
+  }
+
+  Future<void> _endSession(
+    SessionEndReason reason,
+    Object? cause, {
+    String? endpoint,
+  }) async {
+    final status = cause is RaftApiException ? cause.status : null;
+    if (!allowSessionEnd) {
+      _audit(
+        'session_end_suppressed',
+        reason.code,
+        status: status,
+        endpoint: endpoint,
+      );
+      return;
+    }
+    lastEndReason = reason;
+    _audit('session_end', reason.code, status: status, endpoint: endpoint);
+    await _signOut(revoke: false);
+  }
+
+  Future<void> _signOut({
+    Future<Session?>? revocationSession,
+    required bool revoke,
+  }) async {
     final old = _session;
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
+    _authRetry?.cancel();
+    sessionDegraded = false;
+    restoredOffline = false;
+    _recoveryAttempt = 0;
+    _refreshFailure = null;
     _authenticationGeneration++;
     _session = null;
     user = null;
@@ -465,7 +707,15 @@ class RaftClient {
     _socket = null;
     Session? revoked = old;
     if (revocationSession == null) {
-      await _persist(null);
+      if (revoke) {
+        await _persist(null);
+      } else {
+        // The credentials are already dead; a storage failure must not keep
+        // the signed-out state from reaching the app.
+        await _persist(null).catchError((Object e) {
+          _audit('store_error', 'clear_failed', detail: e.runtimeType.toString());
+        });
+      }
     } else {
       // Attach both waits immediately: a failed handoff must not leave an
       // unobserved persistence or revocation-record failure.
@@ -475,7 +725,7 @@ class RaftClient {
       ])).first;
     }
     Future<dynamic>? revocation;
-    if (revoked != null) {
+    if (revoke && revoked != null) {
       revocation = request(
         'POST',
         '/auth/logout',
@@ -609,6 +859,7 @@ class RaftClient {
         throw const RaftApiException('The account or workspace changed.');
       }
     }
+    final sentAccessToken = authorized ? _session?.accessToken : null;
     try {
       final response = await http.request<dynamic>(
         path,
@@ -652,7 +903,18 @@ class RaftClient {
             authentication != _authenticationGeneration) {
           throw const RaftApiException('The account or workspace changed.');
         }
-        await refresh();
+        // Another caller may already have rotated the credentials while this
+        // request was in flight: retry with them instead of rotating again.
+        if (_session?.accessToken == sentAccessToken) {
+          final recent = _refreshFailure;
+          if (recent != null &&
+              DateTime.now().difference(recent.at) < _refreshCooldown) {
+            // The server just failed to answer a refresh: do not hammer it
+            // with every request that meets an expired access token.
+            throw recent.error;
+          }
+          await refresh();
+        }
         if (requestGeneration != generation() ||
             authentication != _authenticationGeneration)
           throw const RaftApiException('The account or workspace changed.');
@@ -707,8 +969,9 @@ class RaftClient {
 
   Future<void> _rotate() async {
     var old = _session;
-    if (old == null)
+    if (old == null) {
       throw const RaftApiException('Please sign in again.', status: 401);
+    }
     try {
       if (old.refreshAttemptId == null) {
         old = old.withAttempt(
@@ -729,13 +992,27 @@ class RaftClient {
         },
       );
       if (_session != old) return;
+      final access = value is Map ? value['accessToken'] : null;
+      final refresh = value is Map ? value['refreshToken'] : null;
+      if (access is! String ||
+          access.isEmpty ||
+          refresh is! String ||
+          refresh.isEmpty) {
+        // A 200 that is not a token pair (captive portal, proxy page).
+        throw const RaftApiException(
+          'The refresh response was not recognized.',
+        );
+      }
       final refreshed = Session(
-        accessToken: value['accessToken'],
-        refreshToken: value['refreshToken'],
+        accessToken: access,
+        refreshToken: refresh,
         installationId: old.installationId,
         cachedUser: old.cachedUser,
       );
       _session = refreshed;
+      _lastRotatedAt = DateTime.now();
+      _refreshFailure = null;
+      if (sessionDegraded && !restoredOffline) _markHealthy();
       await _persist(refreshed);
       if (_session == refreshed && !_closed) {
         _socket?.auth = _authenticateSocket;
@@ -746,10 +1023,65 @@ class RaftClient {
         }
       }
     } on RaftApiException catch (e) {
-      if (_session == old && (e.status == 401 || e.status == 403))
-        await logout();
+      if (_session != old) rethrow;
+      if (credentialVerdict(e) == SessionVerdict.endSession) {
+        // Another owner may have rotated the token first (single-use
+        // rotation): adopt its record instead of treating that as rejection.
+        if (await _adoptRotatedElsewhere(old!)) return;
+        await _endSession(
+          SessionEndReason.refreshRejected,
+          e,
+          endpoint: '/auth/refresh',
+        );
+      } else {
+        _refreshFailure = (at: DateTime.now(), error: e);
+        _audit(
+          'session_kept',
+          'refresh_failed',
+          status: e.status,
+          endpoint: '/auth/refresh',
+          detail: e.status == null ? e.message : null,
+        );
+        _markDegraded();
+        _scheduleRecovery();
+      }
+      rethrow;
+    } catch (e) {
+      // Storage or decoding failures while rotating never sign out.
+      _audit(
+        'session_kept',
+        'refresh_local_error',
+        endpoint: '/auth/refresh',
+        detail: e.runtimeType.toString(),
+      );
       rethrow;
     }
+  }
+
+  Future<bool> _adoptRotatedElsewhere(Session old) async {
+    final Session? latest;
+    try {
+      latest = await sessionStore.read(origin);
+    } catch (_) {
+      return false;
+    }
+    if (_closed || _session != old) return false;
+    if (latest == null || latest.refreshToken == old.refreshToken) {
+      return false;
+    }
+    final principal = old.cachedUser?['id'];
+    final stored = latest.cachedUser?['id'];
+    if (principal != null && stored != null && principal != stored) {
+      return false;
+    }
+    _session = latest;
+    _audit(
+      'session_kept',
+      'adopted_rotated_credentials',
+      endpoint: '/auth/refresh',
+    );
+    _emit(const RaftEvent('session:credentials-updated', null));
+    return true;
   }
 
   Map<String, dynamic> get _socketAuth => {
@@ -777,7 +1109,13 @@ class RaftClient {
   void _authenticateSocket(void Function(Map) callback) async {
     final generation = _generation;
     try {
-      if (_accessNeedsRefresh) await refresh();
+      // A device clock that is ahead makes every token look expired: do not
+      // rotate on each socket handshake because of it.
+      final last = _lastRotatedAt;
+      final recentlyRotated =
+          last != null &&
+          DateTime.now().difference(last) < _proactiveRefreshSpacing;
+      if (_accessNeedsRefresh && !recentlyRotated) await refresh();
     } catch (_) {
       /* Retry policy keeps transient failures distinct from logout. */
     }
@@ -804,41 +1142,74 @@ class RaftClient {
       if (epoch == _generation) _emit(RaftEvent(event, payload));
     });
     socket.onConnect((_) {
-      if (epoch == _generation) _emit(const RaftEvent('connected', null));
+      if (epoch != _generation) return;
+      _socketRetries = 0;
+      _emit(const RaftEvent('connected', null));
     });
-    socket.onDisconnect((_) {
-      if (epoch == _generation) _emit(const RaftEvent('disconnected', null));
+    socket.onDisconnect((reason) {
+      if (epoch != _generation) return;
+      _emit(const RaftEvent('disconnected', null));
+      // The server ended the connection (sign-out elsewhere, membership
+      // change, restart): socket.io does not reconnect by itself. Connect
+      // again; a revoked session is then told apart by the handshake, which
+      // asks the refresh endpoint, not by this event.
+      if (reason == 'io server disconnect' && _session != null) {
+        _scheduleSocketRetry(socket, epoch);
+      }
     });
     socket.onConnectError((error) async {
       if (epoch != _generation) return;
+      final text = error.toString();
       _emit(
         RaftEvent('connection:error', {
-          'notServerMember': error.toString().contains(
-            'Not a member of this server',
-          ),
+          'notServerMember': text.contains('Not a member of this server'),
         }),
       );
-      if (error.toString().toLowerCase().contains('token')) {
+      final lower = text.toLowerCase();
+      if (lower.contains('token')) {
+        // "Invalid or expired token" / "Invalid token type": ask the refresh
+        // endpoint. Only its definitive answer can end the session.
+        _audit('socket_auth', 'token_rejected', detail: text);
         try {
           await refresh();
-          if (epoch == _generation) {
+          if (epoch == _generation && _session != null) {
             socket.auth = _authenticateSocket;
-            socket.connect();
+            if (_socketRetries == 0) {
+              _socketRetries++;
+              socket.connect();
+            } else {
+              _scheduleSocketRetry(socket, epoch);
+            }
           }
         } catch (_) {
           if (_session != null && epoch == _generation) {
-            _authRetry?.cancel();
-            _authRetry = Timer(const Duration(seconds: 2), () {
-              if (epoch == _generation) socket.connect();
-            });
+            _scheduleSocketRetry(socket, epoch);
           }
         }
+      } else if (lower.contains('authentication')) {
+        // "Authentication changed; reconnect required" / "Authentication
+        // required": a reconnect re-reads the credentials.
+        _audit('socket_auth', 'reconnect_required', detail: text);
+        if (_session != null) _scheduleSocketRetry(socket, epoch);
       }
     });
     socket.io.on('reconnect_attempt', (_) {
       socket.auth = _authenticateSocket;
     });
     socket.connect();
+  }
+
+  void _scheduleSocketRetry(io.Socket socket, int epoch) {
+    _authRetry?.cancel();
+    final delay = recoveryBackoff.isEmpty
+        ? const Duration(seconds: 2)
+        : recoveryBackoff[math.min(_socketRetries, recoveryBackoff.length - 1)];
+    _socketRetries++;
+    _authRetry = Timer(delay, () {
+      if (_closed || epoch != _generation || _session == null) return;
+      socket.auth = _authenticateSocket;
+      socket.connect();
+    });
   }
 
   void resume(BigInt seq) {
@@ -1001,6 +1372,8 @@ class RaftClient {
     _session = null;
     user = null;
     _authRetry?.cancel();
+    _recoveryTimer?.cancel();
+    _recoveryTimer = null;
     _socket?.dispose();
     http.close(force: true);
     if (_persisting > 0) await _persistence.catchError((Object _) {});

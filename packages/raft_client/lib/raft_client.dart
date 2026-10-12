@@ -4,6 +4,7 @@ export 'src/client.dart';
 export 'src/models.dart';
 export 'src/permissions.dart';
 export 'src/runtime_form.dart';
+export 'src/session_policy.dart';
 
 export 'src/provider_probe.dart';
 
