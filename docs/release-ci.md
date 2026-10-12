@@ -62,7 +62,7 @@ requires adjusting the corresponding native build and packaging implementation.
 | Windows x64 | `windows-2022` | Complete portable ZIP | No Authenticode signature or installer. Requires Windows App Runtime 1.7 x64. Keep all DLLs and `data/`; `RUN.txt` explains explicit notification registration. Fresh-machine and cold-click acceptance is still pending. |
 | Android ARM64 | `ubuntu-24.04` | Signed split APK | SDK 37 / build tools 37.0.0, Java 17. Requires all signing secrets below; missing secrets fail instead of producing a debug-signed release. No Play Store/AAB upload. |
 | Linux x64 | `ubuntu-26.04` | Relocatable `.tar.gz` | Uses existing pinned Ubuntu Resolute media preparation; package/hash drift fails. Bundles library notices/provenance and verifies ELF lookup. Ubuntu 26.04 glibc/GTK/drivers required; other distributions are unverified. Review media GPL terms and supply matching source before enabling distribution. |
-| Linux x64 Flatpak | `ubuntu-26.04` | `.flatpak` | GNOME 51 runtime; checks every bundled ELF inside the runtime, includes PDF helpers and library notices, then installs and starts the production app in a fresh CI sandbox at 2x scale. |
+| Linux x64 AppImage | `ubuntu-24.04` | `.AppImage` | Bundled GTK/media/PDF tools; latest reviewed static AppImage runtime, glibc ≤ 2.39, direct and no-FUSE startup checks, plus Fedora KDE Wayland compatibility checks. |
 | macOS ARM64 | `macos-15` | `.app` ZIP via `ditto` | Existing ad-hoc signing. No Developer ID/notarization; Gatekeeper distribution acceptance is pending. No Intel build. |
 
 Android repository **Actions secrets**:
@@ -150,43 +150,53 @@ SDK setup: [setup-android](https://github.com/android-actions/setup-android).
 Signature verification: [Android apksigner](https://developer.android.com/tools/apksigner).
 Compilation, signatures and asset publication do not establish device functional acceptance.
 
-## Linux Flatpak
+## Linux AppImage
 
-`python tool/release.py build flatpak` reuses the pinned Linux build/media preparation,
-then packages the complete bundle with GNOME 51. The native Ubuntu build is never
-assumed compatible: libraries supplied by the GNOME runtime (including graphics
-and font libraries) are removed from the app bundle to avoid conflicts with
-runtime driver extensions; every remaining ELF is checked with `flatpak build --runtime` (not the
-SDK), and both bundled Poppler commands must execute successfully. A mismatch
-stops publication. The manifest grants network, Wayland/X11, GPU/audio, keyring
-and notification services; file selection uses the GTK portal without granting
-host home-directory or whole-session-bus access.
+`python tool/release.py build appimage` builds the production Linux entry on
+Ubuntu 24.04. `tool/prepare-media-appimage` prepares that distribution's media
+libraries separately from the Ubuntu 26.04 development pins. GTK, Secret Service
+client libraries, media codecs and PDF helpers are included with SHA-256/source
+package provenance and copyright notices. The host provides glibc, desktop
+services and graphics drivers; the vendored official AppImage exclusion list
+prevents bundling incompatible device libraries. Every ELF is checked for missing
+libraries and a maximum glibc requirement of 2.39 before packaging.
 
-PR and manual runs compile, package and retain artifacts without publishing.
-A version-tag release includes `raft-flutter-VERSION-flatpak-x64.flatpak` in the
-same verified release inventory as Windows and Android. This creates a GitHub
-release asset; publication to Flathub requires a separate submission.
+The latest reviewed official appimagetool and type2-runtime snapshots are recorded
+in `packaging/appimage/tools.json` with source commits and verified SHA-256.
+The runtime statically includes FUSE 3, so users do not need `libfuse2`. The normal
+launch uses the kernel FUSE device when available; extract-and-run uses no FUSE
+at all. Changed upstream downloads fail the hash check instead of silently
+changing the executable. Update the reviewed lock to adopt a newer snapshot.
+
+A version-tag release includes `raft-flutter-VERSION-appimage-x64.AppImage` in the
+verified Windows/Android/Linux release inventory. Flatpak is no longer a supported
+release target, including manual platform selections. PR/manual builds retain
+artifacts without publishing.
 
 ```sh
-flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./raft-flutter-VERSION-flatpak-x64.flatpak
-flatpak run app.raft.raft_flutter
+chmod +x raft-flutter-VERSION-appimage-x64.AppImage
+./raft-flutter-VERSION-appimage-x64.AppImage
+# Optional when FUSE is disabled, unavailable, or forbidden in a container:
+./raft-flutter-VERSION-appimage-x64.AppImage --appimage-extract-and-run
 ```
 
-Flatpak keeps application data in its own sandbox; the existing native profile
-is not copied or modified. Sign in separately. The bundle is unsigned; verify
-its published SHA-256 before installing. GNOME runtime updates come from Flathub.
-Media source package/version URLs and distribution notices travel with the app,
-including its PDF helper dependencies (see `docs/linux-media-runtime.md`).
+Verify the release SHA-256 before execution. AppImage is unsigned and has no
+Flatpak sandbox; it uses the native application's normal data locations and
+host Secret Service, notification and display services. Packaging does not
+import, migrate or delete an existing profile. Ubuntu 24.04's ABI baseline permits
+many newer desktop distributions, but does not establish compatibility with older
+systems, every GPU, or all desktop configurations.
 
-The `linux-flatpak-smoke` CI artifact includes the unscaled PNG captured at actual
-`GDK_SCALE=2`, launch log, installed runtime information and source-bound screenshot
-metadata. This proves a fresh production window opens, not login, messaging,
-portal file selection or real desktop notification acceptance. The disposable desktop supplies its own unlocked Secret Service keyring; no
-user profile or account is imported. Runtime errors, packages and screenshots
-are retained even when smoke testing fails.
+CI runs the actual release file directly and in extract-and-run mode at 2× scale.
+A Fedora 44 container without `/dev/fuse` additionally runs the downloaded artifact
+in X11 and under KDE's KWin native Wayland compositor. Source/OS/mode, startup logs,
+original PNGs and Wayland buffer-commit evidence are retained. These are production
+startup checks, not login or full feature acceptance. The disposable tests use a
+fresh Secret Service keyring; the Fedora headless Wayland check uses software
+rendering and does not establish compatibility with the user's physical GPU.
 
-References: [Flatpak manifests](https://docs.flatpak.org/en/latest/manifests.html),
-[bundle distribution](https://docs.flatpak.org/en/latest/single-file-bundles.html),
-[Flatpak build commands](https://docs.flatpak.org/en/latest/flatpak-command-reference.html).
+References: [AppImage concepts](https://docs.appimage.org/introduction/concepts.html),
+[compatibility requirements](https://docs.appimage.org/reference/best-practices.html),
+[current static runtime](https://github.com/AppImage/type2-runtime),
+[official FUSE guidance](https://github.com/AppImage/AppImageKit/wiki/FUSE).
 Build counter semantics: [GitHub default variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables).

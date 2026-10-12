@@ -22,14 +22,14 @@ class ReleaseTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
-    def test_default_enables_windows_android_and_flatpak(self):
+    def test_default_enables_windows_android_and_appimage(self):
         result = release.release_plan(self.config, '')
-        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android', 'flatpak'])
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android', 'appimage'])
         self.assertEqual(result['include'][1]['arch'], 'arm64')
 
     def test_pull_requests_do_not_build_with_android_signing_secrets(self):
         result = release.release_plan(self.config, '', event='pull_request')
-        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'flatpak'])
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'appimage'])
 
 
     def test_manual_can_test_future_platforms(self):
@@ -37,7 +37,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(len(result['include']), 4)
 
     def test_invalid_or_duplicate_platform_is_rejected(self):
-        for selection in ['windows,windows', 'windows,ios', 'windows,', ',']:
+        for selection in ['windows,windows', 'windows,ios', 'flatpak', 'windows,flatpak', 'windows,', ',']:
             with self.subTest(selection=selection), self.assertRaises(ValueError):
                 release.release_plan(self.config, selection)
 
@@ -139,14 +139,14 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn(f'--build-number={number}', command)
                 self.assertNotIn('DART_DEFINES', commands.call_args.kwargs['env'])
 
-    def test_flatpak_compiles_linux_without_android_keys(self):
+    def test_appimage_compiles_linux_without_android_keys(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
                 patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands:
             with self.assertRaisesRegex(RuntimeError, 'captured'):
-                release.build('flatpak')
+                release.build('appimage')
             command = commands.call_args.args[0]
             self.assertIn('linux', command)
-            self.assertNotIn('flatpak', command)
+            self.assertNotIn('appimage', command)
             self.assertIn('--target=lib/main.dart', command)
 
     def test_android_missing_secrets_never_invokes_flutter(self):
