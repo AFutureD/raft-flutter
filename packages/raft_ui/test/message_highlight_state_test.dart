@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
   const code = 'flowchart LR\n  A[中文输入] --> B[日本語確認]';
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [411.0, 1280.0]) {
       testWidgets(
         '[K13a][K13c] highlight expiry preserves Mermaid source and selected text $family/$dark/$width',
@@ -66,16 +67,14 @@ void main() {
           expect(
             selection.isCollapsed,
             isFalse,
-            reason:
-                'A real source text selection must exist before highlight expiry.',
+            reason: 'A real source text selection must exist before highlight expiry.',
           );
           highlighted.value = false;
           await tester.pumpAndSettle();
           expect(
             find.text(code),
             findsOneWidget,
-            reason:
-                'Highlight paint expiry must not replace the selected code view.',
+            reason: 'Highlight paint expiry must not replace the selected code view.',
           );
           expect(tester.getRect(find.byType(RaftMermaidBlock)), sourceRect);
           expect(

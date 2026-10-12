@@ -4,15 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/features/chat_view.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark actual tab bodies preserve draft/cursor and reject hidden reads',
       (t) async {

@@ -75,6 +75,8 @@ WorkspaceController shellWorkspace(
     routes: {
       'GET /agents': [agentWire(cindy), agentWire(productUx)],
       'GET /servers/visual-server/sidebar-order': order,
+      // The Saved row count (Web savedStore `total`, shared visual fixture).
+      'GET /channels/saved': ctx.fixtures['savedMessagesFixture'],
       'GET /servers/unread-summary': [
         for (final e in (fx['serverUnread'] as Map).entries)
           {'serverId': e.key, ...Map<String, dynamic>.from(e.value as Map)},
@@ -134,6 +136,10 @@ WorkspaceController shellWorkspace(
     ..unread = {
       for (final e in (preset['unread'] as Map).entries)
         if (e.key != selected) e.key as String: e.value as int,
+    }
+    ..mentions = {
+      for (final id in preset['mentions'] as List)
+        if (id != selected) id as String,
     };
   for (final e in (preset['drafts'] as Map).entries) {
     w.drafts['${e.key}'] = '${e.value}';

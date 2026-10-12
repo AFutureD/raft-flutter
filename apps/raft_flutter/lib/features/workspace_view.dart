@@ -153,8 +153,35 @@ class _WorkspaceViewState extends State<WorkspaceView>
   late SourceServerUnreadStore serverUnread;
   String? serverMenuScope;
   int serverOrderRequest = 0;
+  Timer? serverUnreadTimer;
+  bool serverUnreadBooted = false, serverUnreadLocal = false;
+  String? serverUnreadScope;
+
+  /// Sidebar.tsx / App boot: the cross-server summary loads once the member
+  /// and servers are known and again when local unread flips 0 <-> nonzero
+  /// (150 ms debounce), so the Activity count and the other-server dot are
+  /// painted without opening the server menu.
+  void syncServerUnreadLoad() {
+    if (w.client.user == null || w.servers.isEmpty) return;
+    final local = w.unread.values.any((count) => count > 0);
+    final scope = serverUnread.scope;
+    if (serverUnreadBooted &&
+        local == serverUnreadLocal &&
+        scope == serverUnreadScope) {
+      return;
+    }
+    serverUnreadBooted = true;
+    serverUnreadLocal = local;
+    serverUnreadScope = scope;
+    serverUnreadTimer?.cancel();
+    serverUnreadTimer = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) unawaited(serverUnread.refresh());
+    });
+  }
+
   void syncServerMenu() {
     serverUnread.synchronize();
+    syncServerUnreadLoad();
     if (serverMenuScope == mobileAuthority) return;
     serverMenuScope = mobileAuthority;
     serverMenu.close();
@@ -752,6 +779,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       serverUnread.dispose();
       workspaceMode.dispose();
     }
+    serverUnreadTimer?.cancel();
     persistPanels?.cancel();
     w.releaseConversationPresentation(this);
     w.removeListener(syncChannelSearch);
@@ -2551,7 +2579,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
     return RaftServerSwitcher(
       mobile: mobile,
       attention:
-          !mobile &&
           w.servers.any(
             (s) =>
                 s.id != w.server?.id &&
@@ -3144,6 +3171,18 @@ class _WorkspaceViewState extends State<WorkspaceView>
     return index < 0 ? null : index;
   }
 
+  /// Source `hasUnmutedUnread`: a collapsed section header shows an attention
+  /// dot when one of its rows has unread messages and is not Activity-muted.
+  bool groupHasUnread(Iterable<SidebarEntry> entries) => entries.any((e) {
+    final c = e.channel;
+    return c != null && !c.flag('activityMuted') && (w.unread[c.id] ?? 0) > 0;
+  });
+
+  Widget? groupAttention(SidebarGroup group, Iterable<SidebarEntry> entries) =>
+      sidebarDisclosure.collapsed[group.id] == true && groupHasUnread(entries)
+      ? const RaftAttentionDot(key: ValueKey('sidebar-section-unread-dot'))
+      : null;
+
   Widget sidebarGroupSliver(SidebarGroup group) {
     final entries = _shownEntries(group);
     return RaftChatSidebarGroup.sliver(
@@ -3168,6 +3207,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       },
       onExpandedChanged: (expanded) =>
           sidebarDisclosure.setExpanded(mobileAuthority, group.id, expanded),
+      attention: groupAttention(group, entries),
       actions: sidebarGroupActions(group),
       onContextMenu: (at) => openSectionMenu(at, group),
       itemBuilder: (context, index) =>
@@ -3285,6 +3325,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
       joined: c.joined,
       activityMuted: c.flag('activityMuted'),
       hasDraft: (w.drafts[c.id] ?? '').isNotEmpty,
+      mention:
+          c.type != 'dm' &&
+          w.mentions.contains(c.id) &&
+          (w.unread[c.id] ?? 0) > 0,
       onTap: () => chooseChannel(c, expectedScope: scope),
     );
   }
@@ -3336,9 +3380,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 // Sidebar.tsx `sidebar-scroll-surface onContextMenu`: rows,
                 // sections and the Saved entry claim their own gestures first.
                 behavior: HitTestBehavior.translucent,
-                onSecondaryTapDown: mobileHome
-                    ? null
-                    : (d) => openSurfaceMenu(d.globalPosition),
+                // Web `contextmenu`: right click (also in a phone viewport) and
+                // the touch browsers' long press.
+                onSecondaryTapDown: (d) => openSurfaceMenu(d.globalPosition),
                 onLongPressStart: (d) => openSurfaceMenu(d.globalPosition),
                 child: RaftPullToRefresh(
                   enabled: mobileHome,
@@ -3388,10 +3432,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                   label: tr('Activity'),
                                   glyph: RaftGlyph.activity,
                                   selected: w.section == 'activity',
-                                  unread: w.unread.values.fold(
-                                    0,
-                                    (a, b) => a + b,
-                                  ),
+                                  // Sidebar.tsx: the server's own activityUnreadCount;
+                                  // an absent value is unknown, never the
+                                  // broader per-conversation sum.
+                                  unread:
+                                      serverUnread[w.server?.id ?? '']
+                                          ?.activityUnreadCount ??
+                                      0,
                                   onTap: () => select('activity'),
                                 ),
                               ),
@@ -3460,6 +3507,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
       label: label,
       expanded: id == null || sidebarDisclosure.collapsed[id] != true,
       count: group?.entries.length,
+      attention: group == null || !group.custom
+          ? null
+          : groupAttention(group, group.entries),
       onExpandedChanged: id == null
           ? null
           : (expanded) =>

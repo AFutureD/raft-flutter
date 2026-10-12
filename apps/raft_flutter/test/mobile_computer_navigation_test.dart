@@ -9,6 +9,7 @@ import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/features/mobile_workspace_pages.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'mobile_back_history_test.dart' show watchAppExit;
@@ -148,7 +149,11 @@ void main() {
     await f.close(t);
   });
 
-  for (final theme in ['brutal', 'elegant-light', 'elegant-dark']) {
+  for (final theme in raftThemeMatrix([
+    'brutal',
+    'elegant-light',
+    'elegant-dark',
+  ])) {
     testWidgets(
       '$theme Settings → Computers → detail uses one URL-owned stack',
       (t) async {

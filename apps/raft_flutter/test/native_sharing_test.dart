@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -15,6 +16,102 @@ class _RealHttp extends HttpOverrides {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final slowRecovery in [true, false]) {
+    test(
+      slowRecovery
+          ? 'Android launch receives while old inbox recovery remains pending'
+          : 'Android launch precedes old shares even when recovery finishes first',
+      () async {
+        final root = await Directory.systemTemp.createTemp('raft-cold-share-');
+        final old = await Directory('${root.path}/${'a' * 32}').create();
+        await File('${old.path}/envelope.json').writeAsString(
+          jsonEncode({
+            'token': 'a' * 32,
+            'created': DateTime.now().millisecondsSinceEpoch,
+            'pending': true,
+            'text': 'old saved share',
+            'files': [],
+          }),
+        );
+        const plugin = MethodChannel('receive_intent');
+        const bridge = MethodChannel('test.raft.cold-share');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        final launch = Completer<Map<String, dynamic>>();
+        final directory = Completer<Directory>();
+        final recovering = Completer<void>();
+        final receivedLaunch = Completer<void>();
+        final launchIntent = {
+          'action': 'android.intent.action.SEND',
+          'extra': jsonEncode({
+            'android.intent.extra.TEXT': 'new launch share',
+          }),
+        };
+        final calls = <String>[];
+        messenger.setMockMethodCallHandler(plugin, (_) => launch.future);
+        messenger.setMockMethodCallHandler(bridge, (call) async {
+          calls.add(call.method);
+          return null;
+        });
+        final original = intents.ReceiveIntent.receivedIntentStream;
+        intents.ReceiveIntent.receivedIntentStream = const Stream.empty();
+        final service = NativeSharing(
+          channel: bridge,
+          supported: true,
+          ios: false,
+          incomingDirectory: () {
+            if (!recovering.isCompleted) recovering.complete();
+            return directory.future;
+          },
+        );
+        final received = <IncomingShare>[];
+        service.registerReceiver((share) {
+          received.add(share);
+          if (share.text == 'new launch share') receivedLaunch.complete();
+        });
+        if (!slowRecovery) directory.complete(root);
+        final initialization = service.init();
+        addTearDown(() async {
+          if (!launch.isCompleted) launch.complete(launchIntent);
+          if (!directory.isCompleted) directory.complete(root);
+          await initialization;
+          await service.dispose();
+          intents.ReceiveIntent.receivedIntentStream = original;
+          messenger.setMockMethodCallHandler(plugin, null);
+          messenger.setMockMethodCallHandler(bridge, null);
+          await root.delete(recursive: true);
+        });
+        await recovering.future.timeout(const Duration(seconds: 2));
+        if (slowRecovery) {
+          launch.complete(launchIntent);
+          await receivedLaunch.future.timeout(const Duration(seconds: 2));
+          expect(directory.isCompleted, isFalse);
+          expect(received.map((s) => s.text), ['new launch share']);
+          expect(calls, isNot(contains('sharingReady')));
+          directory.complete(root);
+        } else {
+          // This read is queued after recovery's scan, so its completion proves
+          // the old envelope is already available while the initial intent waits.
+          expect(
+            (await service.inbox.pending()).single.text,
+            'old saved share',
+          );
+          expect(received, isEmpty);
+          launch.complete(launchIntent);
+        }
+        await initialization;
+        expect(received.map((s) => s.text), [
+          'new launch share',
+          'old saved share',
+        ]);
+        expect(received.last.token, 'a' * 32);
+        expect(calls, ['sharingReady']);
+        await service.init();
+        expect(received.length, 2, reason: 'initialization stays idempotent');
+      },
+    );
+  }
+
   test(
     'incoming content grants are bounded and filenames cannot escape staging',
     () {

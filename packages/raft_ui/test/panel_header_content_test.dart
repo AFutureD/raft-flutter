@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Future<void> fonts(WidgetTester t) => t.runAsync(() async {
   for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
@@ -30,11 +31,11 @@ double baseline(WidgetTester t, Finder finder) {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
         '$family/$dark width$width actual shared headers consume Source title/meta flow',
@@ -121,11 +122,11 @@ void main() {
     }
   }
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark constrained desktop title keeps real caller actions reachable',
       (t) async {
@@ -140,8 +141,7 @@ void main() {
               body: SizedBox(
                 width: 260,
                 child: RaftChannelHeader(
-                  name:
-                      'A very long channel title within a constrained desktop panel',
+                  name: 'A very long channel title within a constrained desktop panel',
                   description: 'Accepted channel description',
                   onSearch: () => searches++,
                   onSettings: () {},

@@ -5,13 +5,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final density in RaftDensity.values) {
       testWidgets(
         '$family/$dark/$density channel slot and count stay source-specific',
@@ -115,8 +116,7 @@ void main() {
           expect(
             tester.getRect(dm).top - tester.getRect(control).bottom,
             tokens.brutal ? 4 : 2,
-            reason:
-                'Mounted SidebarItem bottom margin is separate from the row box.',
+            reason: 'Mounted SidebarItem bottom margin is separate from the row box.',
           );
           final badge = find.descendant(
             of: channel,
@@ -235,11 +235,11 @@ void main() {
     );
   }
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark selected channel does not manufacture unread emphasis',
       (tester) async {
@@ -300,11 +300,11 @@ void main() {
 
   // Actual compiled source CSS measurements, not inferred utility order:
   // short mobile, tall mobile, and wide desktop vary independently.
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final viewport in [
       const Size(390, 480),
       const Size(390, 720),

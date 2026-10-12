@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Map<String, dynamic> thread({bool following = true, int unread = 3}) => {
   'kind': 'thread',
@@ -80,11 +81,11 @@ class Workspace extends WorkspaceController {
 }
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     late Client client;
     late Workspace workspace;
     final acceptedWindows = <Map?>[];

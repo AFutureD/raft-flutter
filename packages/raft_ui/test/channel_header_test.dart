@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in const [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family dark=$dark mobile channel retains identity description and scoped actions',
       (t) async {
@@ -26,8 +27,7 @@ void main() {
                   RaftChannelHeader(
                     name: '首页专修',
                     kind: 'private',
-                    description:
-                        'Public description across more than one line and still inside the identity header.',
+                    description: 'Public description across more than one line and still inside the identity header.',
                     onBack: () => ++backs,
                     onSearch: () => ++searches,
                     onSettings: () => ++settings,

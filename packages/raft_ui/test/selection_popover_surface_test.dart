@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/selection_popover_previews.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Future<void> loadFonts(WidgetTester tester) => tester.runAsync(() async {
   for (final name in ['HankenGrotesk', 'Inter', 'GeistMono']) {
@@ -34,11 +35,11 @@ Widget host(ThemeData theme, Widget child) => MaterialApp(
   ),
 );
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark Source default and caller retain distinct surface and actual inline-input geometry',
       (tester) async {

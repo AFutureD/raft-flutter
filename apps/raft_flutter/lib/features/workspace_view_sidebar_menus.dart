@@ -305,7 +305,15 @@ extension _SidebarContextMenus on _WorkspaceViewState {
     final update = _patchOrder({
       'hiddenDmIds': [...hidden, id],
     });
-    if (open && wide) dismissPanel();
+    if (open) {
+      // Sidebar.tsx closeDm `navigate('/s/<slug>')`: wide layouts close the
+      // detail pane, a phone returns to the Home list.
+      if (wide) {
+        dismissPanel();
+      } else {
+        select('home');
+      }
+    }
     await update;
   }
 

@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from android_app import SafetyError, flutter_guard
+import gen_l10n_index
 import parity_case_map
 
 try:
@@ -16,6 +17,8 @@ except SafetyError as error:
 
 # test/parity/case_map.g.dart (git-ignored) is generated from the case files; analyze/test need it.
 parity_case_map.write()
+# packages/raft_ui/lib/src/l10n/zh_index.g.dart (git-ignored) merges the zh catalog files.
+gen_l10n_index.write()
 
 root = Path(__file__).resolve().parent.parent
 version = json.loads((root / '.fvmrc').read_text())['flutter']

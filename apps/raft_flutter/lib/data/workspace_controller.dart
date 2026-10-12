@@ -140,6 +140,7 @@ class WorkspaceController extends ChangeNotifier {
     channels = source.channels;
     dms = source.dms;
     unread = source.unread;
+    mentions = source.mentions;
     sidebarOrder = source.sidebarOrder;
     connected = source.connected;
     foreground = active && source.foreground;
@@ -1243,6 +1244,7 @@ class WorkspaceController extends ChangeNotifier {
       dms = [];
       server = null;
       unread = {};
+      mentions = {};
       _latestActivity.clear();
       sidebarOrder = {};
       threadParent = null;
@@ -2124,6 +2126,11 @@ class WorkspaceController extends ChangeNotifier {
   List<RaftRecord> servers = [];
   List<RaftChannel> channels = [], dms = [];
   Map<String, int> unread = {};
+
+  /// Source messageStore `mentionFlags`: conversations whose unread messages
+  /// mention the member (unread snapshot `hasMention`, a live `message:new`
+  /// that mentions the member). Cleared with the unread count.
+  Set<String> mentions = {};
   Map<String, dynamic> sidebarOrder = {};
   RaftRecord? server;
   bool can(String capability, {RaftChannel? resource}) => raftCan(
@@ -2675,6 +2682,7 @@ class WorkspaceController extends ChangeNotifier {
     threadChannelId = null;
     _summariesByChannel.clear();
     unread = {};
+    mentions = {};
     _latestActivity.clear();
     channelGeneration++;
     threadGeneration++;
@@ -2901,8 +2909,21 @@ class WorkspaceController extends ChangeNotifier {
       return;
     }
     unread = {...unread, id: (unread[id] ?? 0) + 1};
+    if (_mentionsMember(row)) mentions = {...mentions, id};
     _persistUnread();
     unawaited(prefetchLikelyChannels());
+  }
+
+  /// Source `mentionsCurrentUser`: a structured user mention of the member.
+  bool _mentionsMember(Map<String, dynamic> row) {
+    final me = client.user?.id, list = row['mentions'];
+    return me != null &&
+        list is List &&
+        list.any((m) => m is Map && m['type'] == 'user' && m['id'] == me);
+  }
+
+  void _clearMention(String id) {
+    if (mentions.contains(id)) mentions = {...mentions}..remove(id);
   }
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
@@ -2940,6 +2961,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (count == null || unread[id] == count) return;
     unread = {...unread, id: count};
+    if (count == 0) _clearMention(id);
   }
 
   Future<void> refreshUnread() async {
@@ -2956,6 +2978,7 @@ class WorkspaceController extends ChangeNotifier {
       final counts = value is Map ? value['channels'] ?? value : {};
       if (counts is Map) {
         final next = <String, int>{};
+        final nextMentions = <String>{};
         for (final e in counts.entries) {
           final id = e.key.toString(), entry = e.value;
           if (entry is num) {
@@ -2988,8 +3011,12 @@ class WorkspaceController extends ChangeNotifier {
               : outcome == 'corrupt'
               ? (unread[id] ?? 0)
               : ((entry['unreadCount'] ?? 0) as num).toInt();
+          if (entry['hasMention'] == true && next[id]! > 0) {
+            nextMentions.add(id);
+          }
         }
         unread = next;
+        mentions = nextMentions;
         _persistReadState();
       }
       notifyListeners();
@@ -3137,6 +3164,7 @@ class WorkspaceController extends ChangeNotifier {
       _diskOnlyWindows.remove(scope);
       _contextWindows.remove(scope);
       unread.remove(scope);
+      _clearMention(scope);
       _latestActivity.remove(scope);
       _summariesByChannel.remove(scope);
       _threadWindows.removeWhere(
@@ -4308,6 +4336,7 @@ class WorkspaceController extends ChangeNotifier {
       }
       // Source clearUnread: the read tail is the latest; no snapshot GET.
       if ((unread[id] ?? 0) != 0) unread = {...unread, id: 0};
+      _clearMention(id);
       _persistReadState();
       notifyListeners();
     } catch (_) {}
@@ -4339,6 +4368,7 @@ class WorkspaceController extends ChangeNotifier {
     );
     if (outcome == 'corrupt') return false;
     if ((unread[scopeId] ?? 0) != 0) unread = {...unread, scopeId: 0};
+    _clearMention(scopeId);
     _persistReadState();
     notifyListeners();
     return true;

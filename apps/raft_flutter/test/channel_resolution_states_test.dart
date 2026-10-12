@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Client extends RaftClient {
@@ -103,11 +104,11 @@ class _Client extends RaftClient {
 /// tabs, message window or composer, and neither may show the empty-channel
 /// "Start the conversation" copy.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final resolves in [false, true]) {
       testWidgets(
         '[L08b][K06b] $family/$dark unresolved channel shows Loading channel, then ${resolves ? 'the full channel page' : 'an explicit unavailable state'}',

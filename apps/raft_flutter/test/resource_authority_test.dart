@@ -10,6 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/task_surface.dart';
+import 'package:raft_ui/test_themes.dart';
 
 class _Adapter implements HttpClientAdapter {
   final calls = <RequestOptions>[];
@@ -142,11 +143,11 @@ void _taskRoutes(_Workspace w, _Adapter a) {
 }
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K10a] immediate task dialog while both requests are held ${theme.$1}/${theme.$2}',
       (tester) async {
