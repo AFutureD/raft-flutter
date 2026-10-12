@@ -10,9 +10,14 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
+import '../data/workspace_entity_directory.dart';
 import 'channel_form_fields.dart';
+import 'composer_directory.dart'
+    show cachedChannelRoster, rememberChannelRoster;
 import 'create_channel_dialog.dart';
 import 'fleet_views.dart';
+import 'management_support.dart'
+    show cachedServerFlag, pageIdentity, rememberServerFlag;
 import 'member_profile_view.dart';
 
 /// Agent activity for the compact-list badge: the row's `activity` when the
@@ -52,6 +57,9 @@ class _ChannelMembersButtonState extends State<ChannelMembersButton> {
   @override
   void initState() {
     super.initState();
+    // The roster the composer read when the channel opened is shown at once.
+    final roster = cachedChannelRoster(widget.controller, widget.channel.id);
+    if (roster != null) count = roster.humans.length + roster.agents.length;
     refresh();
   }
 
@@ -150,9 +158,28 @@ class _ChannelMembersState extends State<ChannelMembers> {
       ].where((channel) => channel.id == widget.channel.id).firstOrNull ??
       widget.channel;
   List<Map<String, dynamic>> humans = [], agents = [];
-  List<ChannelMemberCandidate> candidates = [];
-  final Map<String, Map<String, dynamic>> agentRows = {};
-  bool loading = true, adding = false;
+  late final ChannelCandidateFeed _feed = ChannelCandidateFeed(w);
+  List<ChannelMemberCandidate> get candidates => [
+    for (final c in _feed.value)
+      if (!_inChannel.contains('${c.kind}:${c.id}')) c,
+  ];
+
+  /// Agent rows (presence, profile seed) from the workspace directory.
+  Map<String, Map<String, dynamic>> get agentRows => {
+    for (final a in w.entityDirectory.rows(WorkspaceEntityKind.agents))
+      '${a['id']}': a,
+  };
+  Set<String> get _inChannel => {
+    for (final h in humans) 'human:${h['userId'] ?? h['id']}',
+    for (final a in agents) 'agent:${a['id']}',
+  };
+
+  /// The channel roster is the only per-channel read: it shows from the
+  /// composer's prefetched copy at the first frame (loading only on a true
+  /// cold open). Candidates and agent rows come from the workspace directory
+  /// and never hold the roster back.
+  bool rosterKnown = false, adding = false;
+  bool get loading => !rosterKnown || (addView && !_feed.ready);
   late bool addView = widget.startInAdd;
   String? error;
   final selected = <String>{};
@@ -160,7 +187,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
 
   /// `useServerFeatureFlag(channel_manager_role_actions_v0)`: the hover
   /// `Make admin` / `Demote` actions only exist behind it.
-  bool roleActionsEnabled = false;
+  late bool roleActionsEnabled = cachedServerFlag(w, _roleActionsFlag) ?? false;
+  static const _roleActionsFlag = 'channel_manager_role_actions_v0';
   String? roleChanging;
 
   /// The members page's profile stack top (`kind:id`): a row opens its member's
@@ -171,19 +199,32 @@ class _ChannelMembersState extends State<ChannelMembers> {
   void initState() {
     super.initState();
     search.addListener(() => setState(() {}));
+    final roster = cachedChannelRoster(w, widget.channel.id);
+    if (roster != null) {
+      humans = roster.humans;
+      agents = roster.agents;
+      rosterKnown = true;
+    }
+    _feed.addListener(_directoryChanged);
+    w.entityDirectory.addListener(_directoryChanged);
     load();
     loadRoleActionsFlag();
+  }
+
+  void _directoryChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> loadRoleActionsFlag() async {
     final server = w.server?.id;
     if (server == null) return;
+    final identity = pageIdentity(w);
     try {
       final result = await w.command(
         'POST',
         '/feature-flags/evaluate',
         data: {
-          'keys': ['channel_manager_role_actions_v0'],
+          'keys': [_roleActionsFlag],
           'serverId': server,
           'platform': 'web',
         },
@@ -191,10 +232,9 @@ class _ChannelMembersState extends State<ChannelMembers> {
       final on =
           result is Map &&
           (result['evaluations'] as List? ?? []).whereType<Map>().any(
-            (f) =>
-                f['key'] == 'channel_manager_role_actions_v0' &&
-                f['enabled'] == true,
+            (f) => f['key'] == _roleActionsFlag && f['enabled'] == true,
           );
+      rememberServerFlag(w, _roleActionsFlag, on, identity);
       if (mounted && on != roleActionsEnabled) {
         setState(() => roleActionsEnabled = on);
       }
@@ -203,15 +243,18 @@ class _ChannelMembersState extends State<ChannelMembers> {
 
   @override
   void dispose() {
+    _feed.removeListener(_directoryChanged);
+    _feed.dispose();
+    w.entityDirectory.removeListener(_directoryChanged);
     search.dispose();
     super.dispose();
   }
 
   Future<void> load() async {
+    // The authority the roster is read under (a later reduction drops it).
+    final readUnder = channel;
     try {
-      final roster = await w.query('/channels/${channel.id}/members');
-      final pool = await loadChannelMemberCandidates(w);
-      final rawAgents = await w.query('/agents');
+      final roster = await w.query('/channels/${readUnder.id}/members');
       if (!mounted) return;
       setState(() {
         humans = [
@@ -222,24 +265,13 @@ class _ChannelMembersState extends State<ChannelMembers> {
           for (final a in (roster['agents'] as List? ?? []).whereType<Map>())
             Map<String, dynamic>.from(a),
         ];
-        for (final a in (rawAgents as List? ?? const []).whereType<Map>()) {
-          agentRows['${a['id']}'] = Map<String, dynamic>.from(a);
-        }
-        final inChannel = {
-          for (final h in humans) 'human:${h['userId'] ?? h['id']}',
-          for (final a in agents) 'agent:${a['id']}',
-        };
-        // The add view also lists the signed-in user's server peers only.
-        candidates = [
-          for (final c in pool)
-            if (!inChannel.contains('${c.kind}:${c.id}')) c,
-        ];
-        loading = false;
+        rosterKnown = true;
       });
+      rememberChannelRoster(w, readUnder, humans: humans, agents: agents);
     } catch (e) {
       if (mounted) {
         setState(() {
-          loading = false;
+          rosterKnown = true;
           error = '$e';
         });
       }
@@ -361,7 +393,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
     String effectiveRole,
     String serverRole,
   ) {
-    final effective = m['effectiveChannelRole'] ??
+    final effective =
+        m['effectiveChannelRole'] ??
         (serverRole == 'owner' ||
                 serverRole == 'admin' ||
                 m['channelRole'] == 'admin'
@@ -373,7 +406,8 @@ class _ChannelMembersState extends State<ChannelMembers> {
         !channel.archived &&
         !isAllChannel &&
         channel.json['channelCapabilities'] is Map &&
-        (channel.json['channelCapabilities'] as Map)['changeChannelMemberRoles'] ==
+        (channel.json['channelCapabilities']
+                as Map)['changeChannelMemberRoles'] ==
             true &&
         !self &&
         protectedServerAdmin &&

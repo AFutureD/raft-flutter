@@ -2,11 +2,14 @@
 // (packages/web/src/components/channel/CreateChannelDialog.tsx) — DialogCard
 // with Name, Description (optional), Visibility (Public/Private segmented
 // control), Members (optional) search + AGENTS/HUMANS picker, Cancel/Create.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import 'channel_form_fields.dart';
 
 /// One selectable member row of the picker (an agent or a human).
@@ -33,6 +36,38 @@ class ChannelMemberCandidate {
   }
 }
 
+/// Candidate rows from agent and member rows (the `/agents` and
+/// `/servers/:id/members` payloads, or the workspace directory's copy of
+/// them): agents that are not deleted, and server members other than the
+/// signed-in user.
+List<ChannelMemberCandidate> channelMemberCandidatesFrom(
+  Iterable<Map<String, dynamic>> agents,
+  Iterable<Map<String, dynamic>>? members,
+  String? me,
+) => [
+  for (final a in agents)
+    if (a['deletedAt'] == null)
+      ChannelMemberCandidate(
+        kind: 'agent',
+        id: '${a['id']}',
+        name: '${a['name'] ?? ''}',
+        displayName: a['displayName'] as String?,
+        description: a['description'] as String?,
+        avatarUrl: a['avatarUrl'] as String?,
+      ),
+  if (members != null)
+    for (final m in members)
+      if ((m['userId'] ?? m['id']) != me)
+        ChannelMemberCandidate(
+          kind: 'human',
+          id: '${m['userId'] ?? m['id']}',
+          name: '${m['name'] ?? ''}',
+          displayName: m['displayName'] as String?,
+          description: m['description'] as String?,
+          avatarUrl: m['avatarUrl'] as String?,
+        ),
+];
+
 /// Agents (not deleted) and server members other than the signed-in user,
 /// from the same endpoints the Web stores load (`/agents`,
 /// `/servers/:id/members`).
@@ -44,30 +79,90 @@ Future<List<ChannelMemberCandidate>> loadChannelMemberCandidates(
     w.query('/agents'),
     if (serverId != null) w.query('/servers/$serverId/members'),
   ]);
-  final me = w.client.user?.id;
-  return [
-    for (final a in (values[0] as List? ?? const []).whereType<Map>())
-      if (a['deletedAt'] == null)
-        ChannelMemberCandidate(
-          kind: 'agent',
-          id: '${a['id']}',
-          name: '${a['name'] ?? ''}',
-          displayName: a['displayName'] as String?,
-          description: a['description'] as String?,
-          avatarUrl: a['avatarUrl'] as String?,
-        ),
-    if (values.length > 1)
-      for (final m in (values[1] as List? ?? const []).whereType<Map>())
-        if ((m['userId'] ?? m['id']) != me)
-          ChannelMemberCandidate(
-            kind: 'human',
-            id: '${m['userId'] ?? m['id']}',
-            name: '${m['name'] ?? ''}',
-            displayName: m['displayName'] as String?,
-            description: m['description'] as String?,
-            avatarUrl: m['avatarUrl'] as String?,
-          ),
+  List<Map<String, dynamic>> rows(dynamic v) => [
+    for (final m in (v as List? ?? const []).whereType<Map>())
+      Map<String, dynamic>.from(m),
   ];
+  return channelMemberCandidatesFrom(
+    rows(values[0]),
+    values.length > 1 ? rows(values[1]) : null,
+    w.client.user?.id,
+  );
+}
+
+/// The picker candidates the workspace directory already holds (this session
+/// or restored from the device); null while either list was never loaded.
+List<ChannelMemberCandidate>? cachedChannelMemberCandidates(
+  WorkspaceController w,
+) {
+  final d = w.entityDirectory;
+  if (!d.state(WorkspaceEntityKind.agents).loaded ||
+      !d.state(WorkspaceEntityKind.members).loaded) {
+    return null;
+  }
+  return channelMemberCandidatesFrom(
+    d.rows(WorkspaceEntityKind.agents),
+    d.rows(WorkspaceEntityKind.members),
+    w.client.user?.id,
+  );
+}
+
+/// Live source of the member picker's candidates. It holds the workspace
+/// directory's copy at once (no request is awaited before a surface opens),
+/// revalidates it quietly, follows later directory changes in place, and only
+/// asks the endpoints directly when the directory cannot provide them (a role
+/// without directory access, or a failed read). Owners call [dispose].
+class ChannelCandidateFeed extends ChangeNotifier {
+  ChannelCandidateFeed(this.w) {
+    w.entityDirectory.addListener(_sync);
+    final cached = cachedChannelMemberCandidates(w);
+    if (cached != null) {
+      value = cached;
+      ready = true;
+      w.entityDirectory.ensure(_kinds);
+    } else {
+      unawaited(_cold());
+    }
+  }
+  final WorkspaceController w;
+  static const _kinds = [
+    WorkspaceEntityKind.agents,
+    WorkspaceEntityKind.members,
+  ];
+  List<ChannelMemberCandidate> value = const [];
+
+  /// False until the first list (from the directory or the endpoints) landed.
+  bool ready = false;
+  bool _disposed = false;
+
+  void _sync() {
+    if (_disposed) return;
+    final next = cachedChannelMemberCandidates(w);
+    if (next == null) return;
+    value = next;
+    ready = true;
+    notifyListeners();
+  }
+
+  Future<void> _cold() async {
+    final d = w.entityDirectory;
+    await Future.wait([for (final kind in _kinds) d.refresh(kind)]);
+    if (_disposed || ready) return;
+    try {
+      final direct = await loadChannelMemberCandidates(w);
+      if (_disposed || ready) return;
+      value = direct;
+      ready = true;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    w.entityDirectory.removeListener(_sync);
+    super.dispose();
+  }
 }
 
 class CreateChannelDialog extends StatefulWidget {
@@ -111,7 +206,8 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
   late String visibility = widget.prefilledVisibility;
   late final Set<String> agentIds = {...widget.prefilledAgentIds};
   late final Set<String> humanIds = {...widget.prefilledHumanIds};
-  List<ChannelMemberCandidate> candidates = const [];
+  late final ChannelCandidateFeed _feed = ChannelCandidateFeed(w);
+  List<ChannelMemberCandidate> get candidates => _feed.value;
   bool submitting = false, unarchiving = false;
   String? error;
   Map<String, dynamic>? archivedCollision;
@@ -120,13 +216,14 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
   void initState() {
     super.initState();
     search.addListener(() => setState(() {}));
-    loadChannelMemberCandidates(w).then((value) {
-      if (mounted) setState(() => candidates = value);
-    }, onError: (_) {});
+    _feed.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _feed.dispose();
     name.dispose();
     description.dispose();
     search.dispose();

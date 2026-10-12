@@ -202,6 +202,26 @@ cachedChannelRoster(WorkspaceController w, String channelId) {
   return roster == null ? null : (humans: roster.humans, agents: roster.agents);
 }
 
+/// Keeps a roster another surface just read (the channel members page) as the
+/// shared per-channel copy, so the next surface that shows it (the members
+/// page, the settings strip, the composer) paints it at its first frame.
+/// Ignored when the channel is not in the workspace or its authority moved.
+void rememberChannelRoster(
+  WorkspaceController w,
+  RaftChannel channel, {
+  required List<Map<String, dynamic>> humans,
+  required List<Map<String, dynamic>> agents,
+}) {
+  final shared = _sharedComposerData[w.entityDirectory] ??= _ComposerShared();
+  shared.sync(directoryAuthority(w));
+  shared.rosters[channel.id] = _ComposerRoster(
+    _channelAuthority(channel),
+    humans,
+    agents,
+  );
+  shared._changed();
+}
+
 /// Autocomplete projection. People come from the shared, server-scoped entity
 /// directory (Source agentStore/serverStore members) and are available at the
 /// first frame; only the channel roster (Source useChannelMembers: in-channel

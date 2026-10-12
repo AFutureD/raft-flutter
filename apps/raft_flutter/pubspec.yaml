@@ -35,6 +35,8 @@ dependencies:
   flutter_dynamic_icon_plus:
     path: ../../packages/flutter_dynamic_icon_plus
   flutter_local_notifications: ^22.3.1
+  flutter_local_notifications_linux: ^8.0.1
+  dbus: ^0.7.11
   workmanager: ^0.10.10
   crypto: ^3.0.7
   drift: ^2.35.1

@@ -9,6 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'background_inbox.dart';
 import 'background_notifications.dart'
     show notificationInitialization, notificationDetails;
+import 'content_target.dart';
+import 'linux_activation_token.dart';
+import 'linux_desktop_identity.dart';
 import 'windows_notifications.dart';
 
 class NotificationPreferenceStore {
@@ -29,11 +32,30 @@ class NativeNotificationService extends ChangeNotifier {
     NotificationPreferenceStore? preferences,
     TargetPlatform? platform,
     WindowsNotifications? windows,
-  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+    this.linuxDetails,
+    LinuxActivationTokens? activationTokens,
+  }) : // Only the production plugin listens on the member's real session bus.
+       _activationTokens =
+           activationTokens ??
+           (plugin == null ? LinuxActivationTokens() : null),
+       _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _platform = platform ?? defaultTargetPlatform,
        _preferences = preferences ?? NotificationPreferenceStore(),
        _windows = windows ?? WindowsNotifications();
   final WindowsNotifications _windows;
+
+  final LinuxActivationTokens? _activationTokens;
+
+  /// The desktop's focus token for the notification click being handled.
+  Future<String?> takeActivationToken() async =>
+      await _activationTokens?.take();
+
+  /// Linux alert presentation; defaults to the app icon and launcher id.
+  final LinuxNotificationDetails Function()? linuxDetails;
+
+  /// Whether the Linux notification server renders `<b>`, `<a>` and `<img>` in
+  /// the body. Read once after initialization; message text is escaped when so.
+  bool _bodyMarkup = false;
   final TargetPlatform _platform;
   final FlutterLocalNotificationsPlugin _plugin;
   final NotificationPreferenceStore _preferences;
@@ -69,7 +91,8 @@ class NativeNotificationService extends ChangeNotifier {
   bool get receivesMessages =>
       _platform == TargetPlatform.android ||
       _platform == TargetPlatform.iOS ||
-      _platform == TargetPlatform.macOS;
+      _platform == TargetPlatform.macOS ||
+      _platform == TargetPlatform.linux;
   bool get canOpenSettings =>
       _platform == TargetPlatform.android ||
       _platform == TargetPlatform.iOS ||
@@ -77,9 +100,12 @@ class NativeNotificationService extends ChangeNotifier {
       _platform == TargetPlatform.windows;
 
   bool get systemManaged =>
-      _platform == TargetPlatform.macOS || _platform == TargetPlatform.windows;
+      _platform == TargetPlatform.macOS ||
+      _platform == TargetPlatform.windows ||
+      _platform == TargetPlatform.linux;
 
-  // Desktop has no app-owned opt-in; the system notification switch owns it.
+  // Desktop has no app-owned opt-in; the system notification switch owns it
+  // (on Linux the notification daemon: Do Not Disturb, per-app settings).
   void _updateEnabled() {
     enabled =
         _scope != null && available && permitted && (systemManaged || _wanted);
@@ -155,6 +181,10 @@ class NativeNotificationService extends ChangeNotifier {
         } else {
           // Desktop policy is owned by the freedesktop notification daemon.
           permitted = available;
+          if (available && _platform == TargetPlatform.linux) {
+            _activationTokens?.start();
+            await _readLinuxCapabilities();
+          }
         }
       }
     } catch (_) {
@@ -169,6 +199,20 @@ class NativeNotificationService extends ChangeNotifier {
       } catch (_) {}
     }
     notifyListeners();
+  }
+
+  Future<void> _readLinuxCapabilities() async {
+    try {
+      final linux = _plugin
+          .resolvePlatformSpecificImplementation<
+            LinuxFlutterLocalNotificationsPlugin
+          >();
+      _bodyMarkup = (await linux?.getCapabilities())?.bodyMarkup ?? false;
+    } catch (_) {
+      // Daemon offline or without GetCapabilities: assume plain text, which
+      // is also what a server without markup support displays verbatim.
+      _bodyMarkup = false;
+    }
   }
 
   Future<void> bind(String? scope) async {
@@ -347,6 +391,17 @@ class NativeNotificationService extends ChangeNotifier {
     try {
       final p = jsonDecode(payload);
       final uri = Uri.parse(p['uri'] as String);
+      if (_platform == TargetPlatform.linux) {
+        // One live notification per conversation: the server replaces it in
+        // place (Notify replaces_id), so a busy channel never stacks banners.
+        final target = ContentTarget.parse(uri, origin: Uri());
+        if (target != null) {
+          return messageNotificationId(
+            _scope!,
+            'conversation:${target.threadId ?? target.channelId}',
+          );
+        }
+      }
       final message = uri.queryParameters['messageId'] ?? uri.pathSegments.last;
       return messageNotificationId(_scope!, message);
     } catch (_) {
@@ -434,11 +489,30 @@ class NativeNotificationService extends ChangeNotifier {
       : _plugin.show(
           id: id,
           title: title,
-          body: body,
+          body: _platform == TargetPlatform.linux && _bodyMarkup
+              ? linuxEscapeMarkup(body)
+              : body,
           payload: payload,
-          notificationDetails: notificationDetails,
+          notificationDetails: _platform == TargetPlatform.linux
+              ? NotificationDetails(
+                  linux: (linuxDetails ?? _defaultLinuxDetails)(),
+                )
+              : notificationDetails,
         );
+
+  static LinuxNotificationDetails _defaultLinuxDetails() =>
+      linuxMessageNotificationDetails(
+        iconPath: linuxAppIconPath(),
+        desktopEntry: linuxDesktopEntryId(),
+      );
 
   bool receiveWindowsActivation(Uri uri) =>
       _platform == TargetPlatform.windows && _windows.receiveLink(uri);
 }
+
+/// Notification-spec body markup is a tiny HTML subset; message text must show
+/// as written, so the three markup characters are escaped before it is sent.
+String linuxEscapeMarkup(String text) => text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');

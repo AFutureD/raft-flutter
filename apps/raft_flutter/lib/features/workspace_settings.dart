@@ -7,8 +7,10 @@ import '../data/mobile_tabbar_preferences.dart';
 import '../data/personal_presentation.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
+import '../platform/linux_uri_scheme.dart';
 import '../platform/native_notifications.dart';
 import 'account_settings.dart';
+import 'desktop_links_settings.dart';
 import 'administration_view.dart';
 import 'appearance_section.dart';
 import 'billing_view.dart';
@@ -97,7 +99,17 @@ class WorkspaceSettings extends StatefulWidget {
 class _WorkspaceSettingsState extends State<WorkspaceSettings> {
   /// FeedbackUnreadDot: the account's `unread_total` from
   /// GET /product-feedback/tickets?limit=1, refreshed by the inbox.
-  int feedbackUnread = 0;
+  late int feedbackUnread =
+      readPageSnapshot(widget.controller, _unreadKey)?['count'] as int? ?? 0;
+  static const _unreadKey = 'settings:feedback-unread';
+
+  void _setUnread(int count) {
+    final w = widget.controller;
+    writePageSnapshot(w, _unreadKey, pageIdentity(w), {'count': count});
+    if (mounted && count != feedbackUnread) {
+      setState(() => feedbackUnread = count);
+    }
+  }
 
   @override
   void initState() {
@@ -116,7 +128,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
       );
       final unread = page is Map ? page['unread_total'] : null;
       if (!mounted || identity != pageIdentity(w) || unread is! int) return;
-      setState(() => feedbackUnread = unread < 0 ? 0 : unread);
+      _setUnread(unread < 0 ? 0 : unread);
     } catch (_) {
       // The dot is an accelerator; a failed read shows none.
     }
@@ -182,6 +194,13 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               service: widget.notifications!,
               controller: w,
             ),
+          ),
+        if (LinuxUriSchemeRegistration.instance.supported)
+          RaftSettingsDestination(
+            'desktop',
+            'Desktop',
+            RaftGlyph.monitor,
+            (_) => const DesktopLinksSettings(),
           ),
         if (w.server != null) ...[
           RaftSettingsDestination(
@@ -318,11 +337,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             (_) => SourceFeedbackView(
               controller: w,
               initialTicketId: _feedbackTicketId(w.location.settingsPath),
-              onUnreadChanged: (count) {
-                if (mounted && count != feedbackUnread) {
-                  setState(() => feedbackUnread = count);
-                }
-              },
+              onUnreadChanged: _setUnread,
             ),
             group: WorkspaceSettings.resources,
             scroll: false,
@@ -533,11 +548,10 @@ class _ReleaseNotesViewState extends State<ReleaseNotesView> {
         });
       }
     } catch (_) {
-      if (mounted && ticket == attempt) {
-        setState(() {
-          failed = true;
-          releases = null;
-        });
+      // A failed revalidation keeps the accepted list; only a cold read
+      // shows the unavailable banner.
+      if (mounted && ticket == attempt && releases == null) {
+        setState(() => failed = true);
       }
     }
   }

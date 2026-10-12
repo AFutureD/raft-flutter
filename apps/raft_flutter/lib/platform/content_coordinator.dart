@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show stderr;
 
 import 'package:flutter/widgets.dart'
     show WidgetsBinding, WidgetsBindingObserver, AppLifecycleState;
@@ -66,7 +66,8 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
     notifications.addListener(_notificationSettingsChanged);
     if (notifications.platform == TargetPlatform.macOS ||
-        notifications.platform == TargetPlatform.windows) {
+        notifications.platform == TargetPlatform.windows ||
+        notifications.platform == TargetPlatform.linux) {
       desktop = DesktopInboxNotifications(notifications: notifications);
       desktop!.bind(_workspace);
     }
@@ -83,6 +84,47 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     if (notifications.platform == TargetPlatform.windows &&
         initialArguments.contains('--windows-notification-test')) {
       await notifications.test();
+    }
+    if (notifications.platform == TargetPlatform.linux &&
+        initialArguments.contains('--linux-notification-test')) {
+      _linuxProbe = true;
+      stderr.writeln(
+        'raft-probe lifecycle=${WidgetsBinding.instance.lifecycleState}',
+      );
+      await notifications.bind('linux-notification-test');
+      await notifications.test();
+      await _linuxProbeSend();
+    }
+  }
+
+  /// Manual check on a notification server (docs/linux-desktop.md): with
+  /// `--linux-notification-test` the app posts a test alert at start, then
+  /// tries the same message alerts on every focus change. They go through
+  /// the production delivery gate, so only an unfocused window shows them.
+  bool _linuxProbe = false;
+  Future<void> _linuxProbeSend() async {
+    await notifications.bind('linux-notification-test');
+    const base = 'raft://v1/servers/s1';
+    for (final (title, body, uri) in const [
+      (
+        '#general',
+        'Ada: first <b>message</b> & more',
+        '$base/channels/c1/messages/m1',
+      ),
+      ('#general', 'Ada: second message', '$base/channels/c1/messages/m2'),
+      ('#random', 'Bo: other channel', '$base/channels/c2/messages/m3'),
+      ('Cy', 'direct message', '$base/dms/d1/messages/m4'),
+    ]) {
+      await notifications.show(
+        title: title,
+        body: body,
+        payload: jsonEncode({
+          'origin': 'https://example.test',
+          'principal': 'u1',
+          'serverId': 's1',
+          'uri': uri,
+        }),
+      );
     }
   }
 
@@ -218,15 +260,26 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     if (target != null) unawaited(navigate(target));
   }
 
+  /// Raises the window with the focus token the desktop sent for the click,
+  /// which Wayland compositors and KWin need before they let it take focus.
+  Future<void> _presentLinuxWindow() async {
+    try {
+      final token = await notifications.takeActivationToken();
+      if (_linuxProbe) stderr.writeln('raft-probe present token=$token');
+      await const MethodChannel(
+        'app.raft/window',
+      ).invokeMethod<void>('present', token == null ? null : {'token': token});
+    } catch (_) {
+      // A window that cannot be raised still opens the conversation.
+    }
+  }
+
   void _tap(String payload, {bool replaceInitial = false}) {
     if (_closed) return;
+    if (_linuxProbe) stderr.writeln('raft-probe tap payload=$payload');
     unawaited(notifications.presentWindow().catchError((Object _) {}));
-    if (Platform.isLinux) {
-      unawaited(
-        const MethodChannel('app.raft/window')
-            .invokeMethod<void>('present')
-            .catchError((Object _) {}),
-      );
+    if (notifications.platform == TargetPlatform.linux) {
+      unawaited(_presentLinuxWindow());
     }
     if (payload == 'raft-notification-test') return;
     if (_workspace == null) {
@@ -579,6 +632,10 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appForeground = state == AppLifecycleState.resumed;
     desktop?.sync();
+    if (_linuxProbe) {
+      stderr.writeln('raft-probe lifecycle=$state');
+      unawaited(_linuxProbeSend());
+    }
   }
 
   Future<void> dispose() async {

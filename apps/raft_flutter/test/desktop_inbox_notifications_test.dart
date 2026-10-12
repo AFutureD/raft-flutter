@@ -101,7 +101,11 @@ Map<String, dynamic> _row(String id, {bool old = false}) => {
 };
 
 void main() {
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.windows,
+    TargetPlatform.linux,
+  ]) {
     group('$platform', () {
       late _Client client;
       late WorkspaceController w;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,9 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
+import 'management_support.dart'
+    show cachedServerFlag, pageIdentity, rememberServerFlag;
 import '../platform/attachment_files.dart';
 import '../platform/content_links.dart';
 import 'quoted_message_preview.dart';
@@ -141,6 +145,34 @@ class _ReferenceInputs {
     identityHashCode(dms),
     dmCount,
   );
+}
+
+const _resourceReferencesFlag = 'composer_resource_references_v0';
+
+/// Evaluates whether `computer:` / `app:` references open on this server and
+/// remembers the answer under [identity] for the next open.
+Future<bool> _evaluateResourceReferences(
+  BuildContext context,
+  WorkspaceController w,
+  String identity,
+) async {
+  final mobile = Theme.of(context).platform == TargetPlatform.android;
+  final flag = await w.client.post(
+    '/feature-flags/evaluate',
+    data: {
+      'keys': [_resourceReferencesFlag],
+      'serverId': w.server!.id,
+      'platform': mobile ? 'mobile' : 'web',
+    },
+  );
+  final enabled =
+      flag is Map &&
+      flag['evaluations'] is List &&
+      (flag['evaluations'] as List).whereType<Map>().any(
+        (f) => f['key'] == _resourceReferencesFlag && f['enabled'] == true,
+      );
+  rememberServerFlag(w, _resourceReferencesFlag, enabled, identity);
+  return enabled;
 }
 
 /// Resolves message references only in the current authority. Structured
@@ -349,64 +381,75 @@ class MessagePresentation extends StatelessWidget {
       final w = controller, authority = workspaceAuthority(controller);
       bool current() => context.mounted && authority == workspaceAuthority(w);
       try {
-        final flag = await w.client.post(
-          '/feature-flags/evaluate',
-          data: {
-            'keys': ['composer_resource_references_v0'],
-            'serverId': w.server!.id,
-            'platform': Theme.of(context).platform == TargetPlatform.android
-                ? 'mobile'
-                : 'web',
-          },
-        );
-        if (!current() ||
-            flag is! Map ||
-            flag['evaluations'] is! List ||
-            !(flag['evaluations'] as List).whereType<Map>().any(
-              (f) =>
-                  f['key'] == 'composer_resource_references_v0' &&
-                  f['enabled'] == true,
-            )) {
+        // A flag this device has already seen enabled opens the reference at
+        // once and is revalidated behind it; only a flag never seen (or seen
+        // disabled) is evaluated before opening.
+        final identity = pageIdentity(w);
+        if (cachedServerFlag(w, _resourceReferencesFlag) == true) {
+          unawaited(
+            _evaluateResourceReferences(
+              context,
+              w,
+              identity,
+            ).catchError((_) => false),
+          );
+        } else if (!await _evaluateResourceReferences(context, w, identity) ||
+            !current()) {
           return;
         }
         if (uri.scheme == 'computer' && w.can('viewMachines')) {
-          final out = await w.query('/servers/${w.server!.id}/machines');
-          if (!current() || !context.mounted) return;
-          final rows = out is List ? out : out['machines'] as List? ?? [];
-          final machine = rows
-              .whereType<Map>()
-              .where((r) => r['id'] == uri.path && r['isComputer'] == true)
-              .firstOrNull;
+          // The workspace directory already holds the machines read.
+          final directory = w.entityDirectory;
+          final known = directory.state(WorkspaceEntityKind.computers).loaded
+              ? directory.computer(uri.path)
+              : null;
+          Map<String, dynamic>? machine = known?['isComputer'] == true
+              ? known
+              : null;
+          if (machine == null) {
+            final out = await w.query('/servers/${w.server!.id}/machines');
+            if (!current() || !context.mounted) return;
+            final rows = out is List ? out : out['machines'] as List? ?? [];
+            final fetched = rows
+                .whereType<Map>()
+                .where((r) => r['id'] == uri.path && r['isComputer'] == true)
+                .firstOrNull;
+            if (fetched != null) machine = Map<String, dynamic>.from(fetched);
+          }
           if (machine == null) {
             throw const RaftApiException(
               'The referenced resource is unavailable.',
             );
           }
+          final initial = machine;
+          if (!context.mounted) return;
           await showDialog(
             context: context,
             builder: (_) => FleetDetail(
               controller: w,
               computers: true,
-              initial: Map<String, dynamic>.from(machine),
+              initial: Map<String, dynamic>.from(initial),
             ),
           );
         } else if (uri.scheme == 'app' && w.canVisitSection('integrations')) {
+          // The Integrations page opens at once; the installed-apps read only
+          // vouches for the reference behind it.
+          w.setSection('integrations');
           final out = await w.query('/servers/${w.server!.id}/apps');
-          if (!current()) return;
+          if (authority != workspaceAuthority(w)) return;
           final rows = out is Map ? out['apps'] as List? ?? [] : const [];
           if (!rows.whereType<Map>().any((r) => r['appId'] == uri.path)) {
             throw const RaftApiException(
               'The referenced resource is unavailable.',
             );
           }
-          w.setSection('integrations');
         } else {
           throw const RaftApiException(
             'The referenced resource is unavailable.',
           );
         }
       } catch (e) {
-        if (current()) w.setError('$e');
+        if (authority == workspaceAuthority(w)) w.setError('$e');
       }
       return;
     }
@@ -452,6 +495,13 @@ class MessagePresentation extends StatelessWidget {
         return;
       }
       if (uri.host == 'thread' && parts.length == 2) {
+        // A message this device already holds in that channel is its own
+        // canonical target: jump at once instead of resolving it first.
+        if (w.visibleIds[parts[0]]?.contains(parts[1]) == true &&
+            w.ledger.messages(parts[0]).any((row) => row['id'] == parts[1])) {
+          await w.jumpToMessage(parts[0], parts[1]);
+          return;
+        }
         final resolved = await w.query(
           '/messages/context/${parts[1]}',
           query: {'channelId': parts[0]},
@@ -473,30 +523,68 @@ class MessagePresentation extends StatelessWidget {
         }
         return;
       }
-      Map<String, dynamic> data;
-      String heading;
-      if (uri.host == 'task' &&
-          parts.length == 1 &&
-          message.channelId.isNotEmpty) {
-        final number = int.tryParse(parts[0]);
-        if (number == null) return;
-        final carrier = message.json['parentChannelId'] ?? w.channel?.id;
-        if (carrier == null) return;
-        final out = await w.query('/tasks/channel/$carrier/number/$number');
-        data = Map<String, dynamic>.from(out['task']);
-        heading = 'task #$number · ${data['title'] ?? ''}';
-        if (onOpenTask != null && context.mounted && current()) {
-          onOpenTask!(data);
-          return;
-        }
-      } else {
+      if (uri.host != 'task' ||
+          parts.length != 1 ||
+          message.channelId.isEmpty) {
         return;
       }
-      if (!context.mounted || !current()) return;
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => mentionDialog(ctx, heading, data, current),
+      final number = int.tryParse(parts[0]);
+      if (number == null) return;
+      final carrier = message.json['parentChannelId'] ?? w.channel?.id;
+      if (carrier == null) return;
+      // The loaded channel tasks already know this task: open it from them
+      // (the task surface revalidates its own copy).
+      final local = taskByNumber?.call(number);
+      if (local != null && onOpenTask != null) {
+        onOpenTask!(Map<String, dynamic>.from(local));
+        return;
+      }
+      Future<Map<String, dynamic>> fetch() async {
+        final out = await w.query('/tasks/channel/$carrier/number/$number');
+        return Map<String, dynamic>.from(out['task']);
+      }
+
+      if (onOpenTask != null) {
+        // No task row to open the task surface with yet.
+        final task = await fetch();
+        if (context.mounted && current()) onOpenTask!(task);
+        return;
+      }
+      // The dialog opens at once with what is loaded (or a skeleton) and fills
+      // in when the task arrives.
+      final data = ValueNotifier<Map<String, dynamic>?>(
+        local == null ? null : Map<String, dynamic>.from(local),
       );
+      String headingOf(Map<String, dynamic>? task) => task == null
+          ? 'task #$number'
+          : 'task #$number · ${task['title'] ?? ''}';
+      if (!context.mounted) return;
+      final navigator = Navigator.of(context);
+      final shown = showDialog<void>(
+        context: context,
+        builder: (ctx) => ValueListenableBuilder<Map<String, dynamic>?>(
+          valueListenable: data,
+          builder: (ctx, task, _) => mentionDialog(
+            ctx,
+            headingOf(task),
+            task ?? const {},
+            current,
+            loading: task == null,
+          ),
+        ),
+      );
+      var closed = false;
+      unawaited(shown.whenComplete(() => closed = true));
+      try {
+        data.value = await fetch();
+      } catch (e) {
+        if (!closed && data.value == null && navigator.canPop()) {
+          navigator.pop();
+        }
+        if (current()) w.setError('$e');
+      }
+      await shown;
+      data.dispose();
     } catch (e) {
       if (current()) w.setError('$e');
     }
@@ -506,8 +594,9 @@ class MessagePresentation extends StatelessWidget {
     BuildContext ctx,
     String title,
     Map<String, dynamic> data,
-    bool Function() current,
-  ) {
+    bool Function() current, {
+    bool loading = false,
+  }) {
     final w = controller;
     return AlertDialog(
       title: Text(title),
@@ -518,6 +607,7 @@ class MessagePresentation extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (loading) const RaftSkeletonRow(),
               if (data['description'] is String)
                 RaftMessageBody(
                   content: data['description'],

@@ -17,6 +17,8 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import 'agent_runtime_catalog.dart';
 import 'agent_runtime_draft.dart';
+import 'management_support.dart'
+    show pageIdentity, readPageSnapshot, writePageSnapshot;
 import 'private_route_guard.dart';
 import 'runtime_form_dialog.dart';
 
@@ -131,7 +133,16 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
   late final RuntimeDraft draft = base.copy();
   late final String agentRuntime = base.runtime;
 
-  List<Map<String, dynamic>>? admissions;
+  // The last accepted admission options and live model catalog (this
+  // session, in memory) paint at the first frame; the reads below revalidate
+  // them in place.
+  String get _admissionsKey => 'agent-runtime-editor:$agentId:admissions';
+  String _modelsKey(String machine, String runtime) =>
+      'agent-runtime-editor:$machine:$runtime:models';
+  late List<Map<String, dynamic>>? admissions = () {
+    final cached = readPageSnapshot(w, _admissionsKey)?['options'];
+    return cached is List<Map<String, dynamic>> ? cached : null;
+  }();
   RuntimeModelSource source = const RuntimeModelIdle();
   int sourceTicket = 0;
   bool moreOpen = false, saving = false;
@@ -150,6 +161,7 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
   void initState() {
     super.initState();
     w.addListener(authorityChanged);
+    if (admissions != null) syncForm();
     unawaited(loadAdmissions());
     loadModels();
   }
@@ -170,6 +182,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
   /// `useExistingAgentRuntimeOptions`: fails closed to an empty list.
   Future<void> loadAdmissions() async {
     List<Map<String, dynamic>> options = const [];
+    final identity = pageIdentity(w);
+    var accepted = false;
     try {
       final data = await w.client.get('/agents/$agentId/runtime-options');
       if (data is Map && data['options'] is List) {
@@ -177,9 +191,13 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
           for (final o in data['options'] as List)
             if (o is Map) Map<String, dynamic>.from(o),
         ];
+        accepted = true;
       }
     } catch (_) {}
     if (!current) return;
+    if (accepted) {
+      writePageSnapshot(w, _admissionsKey, identity, {'options': options});
+    }
     setState(() => admissions = options);
     syncForm();
   }
@@ -221,7 +239,11 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
       return;
     }
     final ticket = ++sourceTicket;
-    source = runtimeModelLoadingFor(runtime);
+    final key = _modelsKey(id, runtime), identity = pageIdentity(w);
+    final cached = readPageSnapshot(w, key)?['source'];
+    source = cached is RuntimeModelLive
+        ? cached
+        : runtimeModelLoadingFor(runtime);
     unawaited(() async {
       RuntimeModelSource next;
       try {
@@ -234,6 +256,9 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
         next = const RuntimeModelError();
       }
       if (!current || ticket != sourceTicket) return;
+      if (next is RuntimeModelLive) {
+        writePageSnapshot(w, key, identity, {'source': next});
+      }
       setState(() => source = next);
     }());
   }
@@ -514,8 +539,9 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
 
   List<RaftAgentSelectOption<String>> runtimeOptions(BuildContext context) => [
     for (final option in admissions ?? const <Map<String, dynamic>>[])
-      if (existingAgentRuntimeOptions(base.runtime)
-              .any((r) => r.id == option['runtimeId']) &&
+      if (existingAgentRuntimeOptions(
+            base.runtime,
+          ).any((r) => r.id == option['runtimeId']) &&
           (legacyRuntimeEditorSupports('${option['runtimeId']}') ||
               option['runtimeId'] == draft.runtime))
         RaftAgentSelectOption(
@@ -711,7 +737,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
       if (supportsRuntimeApiUrl(runtime)) ...[
         RaftStableField(
           label: 'Provider',
-          hint: 'Default leaves Claude Code provider settings untouched. Custom sets ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY for this agent.',
+          hint:
+              'Default leaves Claude Code provider settings untouched. Custom sets ANTHROPIC_BASE_URL and ANTHROPIC_API_KEY for this agent.',
           child: RaftAgentSelect<String>(
             key: const ValueKey('runtime-editor-provider'),
             value: draft.providerCustom ? 'custom' : 'default',
@@ -868,7 +895,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
             key: const ValueKey('runtime-editor-fast-mode'),
             checked: draft.fastMode,
             title: 'Fast mode',
-            description: 'Launch this runtime with higher speed at a higher cost per token.',
+            description:
+                'Launch this runtime with higher speed at a higher cost per token.',
             onChanged: saving
                 ? null
                 : (v) => setState(() => draft.fastMode = v),
@@ -882,7 +910,8 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
           if (supportsRuntimeCommand(runtime))
             RaftStableField(
               label: 'Claude Command',
-              hint: 'Executable path or command name; Slock adds the Claude stream-json runtime arguments.',
+              hint:
+                  'Executable path or command name; Slock adds the Claude stream-json runtime arguments.',
               child: _TextField(
                 key: const ValueKey('runtime-editor-command'),
                 value: draft.command,

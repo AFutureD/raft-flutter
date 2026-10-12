@@ -16,6 +16,8 @@ import '../platform/file_selection.dart';
 
 import '../data/source_feedback_store.dart';
 import '../data/workspace_controller.dart';
+import 'management_support.dart'
+    show pageIdentity, readPageSnapshot, writePageSnapshot;
 
 /// Picks image attachments (the Web `<input type=file accept=...>`).
 typedef FeedbackFilePicker = Future<List<SourceFeedbackFile>> Function();
@@ -80,6 +82,34 @@ class SourceFeedbackView extends StatefulWidget {
 class _SourceFeedbackViewState extends State<SourceFeedbackView> {
   late SourceFeedbackStore store;
   StreamSubscription<RaftEvent>? session;
+
+  /// The inbox's first page as the last visit accepted it (this session, in
+  /// memory): painted at the first frame while the store's own read runs, so
+  /// a revisit shows rows instead of a skeleton.
+  static const _inboxKey = 'feedback:inbox';
+  List<SourceFeedbackTicket> seed = const [];
+  List<SourceFeedbackTicket> _remembered = const [];
+
+  void rememberInbox() {
+    if (!store.authorized || store.listLoading || store.listError != null) {
+      return;
+    }
+    final rows = store.tickets.take(20).toList(growable: false);
+    if (rows.length == _remembered.length &&
+        [
+          for (var i = 0; i < rows.length; i++)
+            identical(rows[i], _remembered[i]),
+        ].every((same) => same)) {
+      return;
+    }
+    _remembered = rows;
+    writePageSnapshot(
+      widget.controller,
+      _inboxKey,
+      pageIdentity(widget.controller),
+      {'tickets': rows},
+    );
+  }
 
   /// Account/server identity only: the inbox survives channel switches and
   /// thread opens (Source feedback store is account-owned).
@@ -170,6 +200,10 @@ class _SourceFeedbackViewState extends State<SourceFeedbackView> {
         if (mounted && store.authorized) widget.onUnreadChanged?.call(count);
       },
     );
+    final cached = readPageSnapshot(widget.controller, _inboxKey)?['tickets'];
+    seed = cached is List<SourceFeedbackTicket> ? cached : const [];
+    _remembered = seed;
+    store.addListener(rememberInbox);
     widget.controller.addListener(changed);
     session = widget.controller.client.events.listen((_) => changed());
     final ticket = widget.initialTicketId;
@@ -182,7 +216,12 @@ class _SourceFeedbackViewState extends State<SourceFeedbackView> {
 
   void changed() {
     if (!mounted) return;
-    if (store.syncAuthority()) unawaited(store.loadList());
+    if (store.syncAuthority()) {
+      // Another account/server/role: the previous page is not its inbox.
+      setState(() => seed = const []);
+      _remembered = const [];
+      unawaited(store.loadList());
+    }
   }
 
   @override
@@ -197,6 +236,7 @@ class _SourceFeedbackViewState extends State<SourceFeedbackView> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(changed);
       unawaited(session?.cancel());
+      store.removeListener(rememberInbox);
       store.dispose();
       bind();
     }
@@ -206,13 +246,17 @@ class _SourceFeedbackViewState extends State<SourceFeedbackView> {
   void dispose() {
     widget.controller.removeListener(changed);
     unawaited(session?.cancel());
+    store.removeListener(rememberInbox);
     store.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) =>
-      SourceFeedbackProjectionView(store: store, pickFiles: pickFeedbackImages);
+  Widget build(BuildContext context) => SourceFeedbackProjectionView(
+    store: store,
+    pickFiles: pickFeedbackImages,
+    inboxSeed: seed,
+  );
 }
 
 String _status(String status, String? closure) => switch (status) {
@@ -334,9 +378,14 @@ class SourceFeedbackProjectionView extends StatefulWidget {
     super.key,
     required this.store,
     this.pickFiles,
+    this.inboxSeed = const [],
   });
   final SourceFeedbackStore store;
   final FeedbackFilePicker? pickFiles;
+
+  /// The previous visit's first inbox page, shown instead of the skeleton
+  /// until the store's own read lands.
+  final List<SourceFeedbackTicket> inboxSeed;
 
   @override
   State<SourceFeedbackProjectionView> createState() =>
@@ -521,8 +570,30 @@ class _SourceFeedbackProjectionViewState
     },
   );
 
+  bool _matches(SourceFeedbackTicket t, SourceFeedbackFilter filter) =>
+      switch (filter) {
+        SourceFeedbackFilter.all => true,
+        SourceFeedbackFilter.open =>
+          t.status == 'open' || t.status == 'in_progress',
+        SourceFeedbackFilter.resolved =>
+          t.status == 'resolved' || t.status == 'closed',
+      };
+
   Widget _inbox(BuildContext context) {
-    final rows = store.visibleTickets;
+    // Nothing accepted yet but the previous visit's page is known: show it
+    // while the first read runs (no skeleton, no jump when rows are replaced).
+    final seeded =
+        store.tickets.isEmpty &&
+        store.listLoading &&
+        store.listError == null &&
+        widget.inboxSeed.isNotEmpty;
+    List<SourceFeedbackTicket> ticketsFor(SourceFeedbackFilter filter) => seeded
+        ? [
+            for (final t in widget.inboxSeed)
+              if (_matches(t, filter)) t,
+          ]
+        : store.ticketsForFilter(filter);
+    final rows = ticketsFor(store.filter);
     return RaftFeedbackInbox(
       key: ValueKey((store, store.authority())),
       headerAction: store.canWrite
@@ -538,7 +609,7 @@ class _SourceFeedbackProjectionViewState
                   ? null
                   : () => unawaited(store.loadList()),
             ),
-      anyTickets: store.tickets.isNotEmpty,
+      anyTickets: seeded || store.tickets.isNotEmpty,
       filter: switch (store.filter) {
         SourceFeedbackFilter.all => RaftFeedbackFilter.all,
         SourceFeedbackFilter.open => RaftFeedbackFilter.active,
@@ -549,7 +620,7 @@ class _SourceFeedbackProjectionViewState
         RaftFeedbackFilter.active => SourceFeedbackFilter.open,
         RaftFeedbackFilter.ended => SourceFeedbackFilter.resolved,
       }),
-      loading: store.listLoading,
+      loading: store.listLoading && !seeded,
       error: store.listError == null
           ? null
           : raftText(context, _errorCopy(store.listError!)),
@@ -564,7 +635,7 @@ class _SourceFeedbackProjectionViewState
       closeDisabled: store.closing,
       ticketsForFilter: (value) => feedbackRows(
         context,
-        store.ticketsForFilter(switch (value) {
+        ticketsFor(switch (value) {
           RaftFeedbackFilter.all => SourceFeedbackFilter.all,
           RaftFeedbackFilter.active => SourceFeedbackFilter.open,
           RaftFeedbackFilter.ended => SourceFeedbackFilter.resolved,

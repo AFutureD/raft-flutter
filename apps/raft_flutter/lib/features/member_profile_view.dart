@@ -44,6 +44,15 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
   @override
   WorkspaceController get w => widget.controller;
   Map<String, dynamic> profile = {};
+
+  /// The profile read (description, created agents, join date) was accepted
+  /// or restored. Until then only the directory's membership row is shown, so
+  /// the detail sections do not appear empty and then fill in.
+  bool detailLoaded = false;
+
+  /// The detail read settled (accepted, restored, or failed): a failed read
+  /// shows the empty sections it always showed rather than a shorter panel.
+  bool get detailSettled => detailLoaded || !loading;
   @override
   String get authority =>
       '${super.authority}|${identityHashCode(w)}|${w.client.origin}|${widget.userId}|${w.can('viewMembers')}';
@@ -53,6 +62,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
   Map<String, Object?> captureSnapshot() => {'profile': profile};
   @override
   bool restoreSnapshot(Map<String, Object?> fields) {
+    detailLoaded = true;
     // Accepted live membership still wins over the last detail projection.
     profile = {
       ...fields['profile'] as Map<String, dynamic>,
@@ -108,7 +118,11 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
   }
 
   @override
-  void clearData() => profile = {};
+  void clearData() {
+    profile = {};
+    detailLoaded = false;
+  }
+
   @override
   Future<void> loadData(int request, int generation) async {
     if (w.server == null || !w.can('viewMembers')) {
@@ -133,6 +147,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
         ...Map<String, dynamic>.from(value),
         ...?w.entityDirectory.member(widget.userId),
       };
+      detailLoaded = true;
     }
   }
 
@@ -194,11 +209,13 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
 
   /// `useServerFeatureFlag(server_guest_v0)`: Guest is only assignable while
   /// guest invites are on (`getEditableHumanServerRoles` `serverGuestEnabled`).
-  bool guestEnabled = false, guestFlagRequested = false;
+  late bool guestEnabled = cachedServerFlag(w, 'server_guest_v0') ?? false;
+  bool guestFlagRequested = false;
 
   Future<void> loadGuestFlag() async {
     final server = w.server?.id;
     if (server == null) return;
+    final identity = pageIdentity(w);
     try {
       final result = await w.command(
         'POST',
@@ -214,6 +231,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
           (result['evaluations'] as List? ?? []).whereType<Map>().any(
             (f) => f['key'] == 'server_guest_v0' && f['enabled'] == true,
           );
+      rememberServerFlag(w, 'server_guest_v0', on, identity);
       if (mounted && on != guestEnabled) setState(() => guestEnabled = on);
     } catch (_) {}
   }
@@ -416,11 +434,12 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
         avatarUrl: avatarUrl,
         youLabel: self ? raftText(context, '(you)') : null,
       ),
-      RaftPanelSection(
-        children: [
-          RaftDescriptionBlock(text: '${profile['description'] ?? ''}'),
-        ],
-      ),
+      if (detailSettled || profile['description'] is String)
+        RaftPanelSection(
+          children: [
+            RaftDescriptionBlock(text: '${profile['description'] ?? ''}'),
+          ],
+        ),
       RaftPanelSection(
         children: [
           RaftSectionEyebrow(raftText(context, 'Info')),
@@ -473,36 +492,37 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
             ),
         ],
       ),
-      RaftPanelSection(
-        children: [
-          RaftSectionHeader(
-            label: raftText(context, 'Created Agents'),
-            count: created.length,
-          ),
-          if (created.isEmpty)
-            RaftSpanPlaceholder(raftText(context, 'No created agents'))
-          else
-            RaftGapColumn(
-              children: [
-                for (final a in created)
-                  RaftAvatarListRow(
-                    avatar: RaftAvatarSlot(
-                      name: '${a['displayName'] ?? a['name']}',
-                      avatarUrl: a['avatarUrl'] as String?,
-                      slot: RaftAvatarSlotContext.surfaceList,
-                    ),
-                    name: '${a['displayName'] ?? a['name']}',
-                    subtitle: sourceRuntimeDisplayNames['${a['runtime']}'],
-                    rightContent: [
-                      RaftActivityDot(
-                        color: raftActivityDotColor(t, _createdActivity(a)),
-                      ),
-                    ],
-                  ),
-              ],
+      if (detailSettled)
+        RaftPanelSection(
+          children: [
+            RaftSectionHeader(
+              label: raftText(context, 'Created Agents'),
+              count: created.length,
             ),
-        ],
-      ),
+            if (created.isEmpty)
+              RaftSpanPlaceholder(raftText(context, 'No created agents'))
+            else
+              RaftGapColumn(
+                children: [
+                  for (final a in created)
+                    RaftAvatarListRow(
+                      avatar: RaftAvatarSlot(
+                        name: '${a['displayName'] ?? a['name']}',
+                        avatarUrl: a['avatarUrl'] as String?,
+                        slot: RaftAvatarSlotContext.surfaceList,
+                      ),
+                      name: '${a['displayName'] ?? a['name']}',
+                      subtitle: sourceRuntimeDisplayNames['${a['runtime']}'],
+                      rightContent: [
+                        RaftActivityDot(
+                          color: raftActivityDotColor(t, _createdActivity(a)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+          ],
+        ),
       if (canRemove)
         RaftPanelSection(
           children: [

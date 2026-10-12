@@ -3,6 +3,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
 
 class SidebarPreferencesView extends StatefulWidget {
@@ -31,6 +32,25 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
   void initState() {
     super.initState();
     startManagement();
+    if (loading) seedFromLocal();
+  }
+
+  /// A cold open (no page snapshot yet) still paints from what the workspace
+  /// already holds: the sidebar order it loads for the rail and the agent
+  /// directory. Both are the same projections the reads below return; if
+  /// either is missing the page waits for the read instead of showing a
+  /// partial view.
+  void seedFromLocal() {
+    final order = w.sidebarOrder;
+    final directory = w.entityDirectory;
+    final viewAgents = w.can('viewAgents');
+    if (order.isEmpty ||
+        (viewAgents && !directory.state(WorkspaceEntityKind.agents).loaded)) {
+      return;
+    }
+    prefs = Map<String, dynamic>.from(order);
+    agents = viewAgents ? directory.rows(WorkspaceEntityKind.agents) : [];
+    loading = false;
   }
 
   @override
@@ -162,7 +182,8 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
               .toList(),
         }, sectionChange: true);
       },
-      description: 'Conversations return to their normal sections. Messages and memberships remain available.',
+      description:
+          'Conversations return to their normal sections. Messages and memberships remain available.',
       submit: 'Remove',
       destructive: true,
     );

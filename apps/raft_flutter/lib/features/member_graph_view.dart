@@ -12,6 +12,8 @@ import 'package:raft_ui/recipes.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
 import '../data/workspace_controller.dart';
+import 'management_support.dart'
+    show pageIdentity, readPageSnapshot, writePageSnapshot;
 import 'profile_preview.dart';
 import 'sender_avatar_projection.dart';
 
@@ -40,12 +42,17 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
   int request = 0;
   late String openedServer = w.server?.id ?? '';
 
+  static const snapshotKey = 'member-graph';
+
   bool get guest => w.server?.string('role') == 'guest';
 
   @override
   void initState() {
     super.initState();
     w.addListener(serverChanged);
+    // Revisit: the last accepted graph renders at once and revalidates.
+    final cached = readPageSnapshot(w, snapshotKey)?['graph'];
+    if (cached != null) data = _parse(cached);
     if (guest) {
       WidgetsBinding.instance.addPostFrameCallback((_) => leaveForGuest());
     } else {
@@ -90,22 +97,28 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
   Future<void> load() async {
     final server = w.server;
     if (server == null) return;
-    final ticket = ++request;
+    final ticket = ++request, identity = pageIdentity(w);
     setState(() {
-      loading = true;
+      // Only a cold open shows the loading state; a revalidation keeps the
+      // graph on screen.
+      loading = data == null;
       error = null;
     });
     try {
       final value = await w.client.get('/servers/${server.id}/member-graph');
       if (!mounted || ticket != request) return;
       setState(() => data = _parse(value));
+      writePageSnapshot(w, snapshotKey, identity, {'graph': value});
     } catch (e) {
       if (!mounted || ticket != request) return;
-      setState(
-        () => error = e is RaftApiException && e.message.isNotEmpty
-            ? e.message
-            : raftText(context, 'Failed to load member graph'),
-      );
+      // A failed revalidation keeps the graph already shown.
+      if (data == null) {
+        setState(
+          () => error = e is RaftApiException && e.message.isNotEmpty
+              ? e.message
+              : raftText(context, 'Failed to load member graph'),
+        );
+      }
     } finally {
       if (mounted && ticket == request) setState(() => loading = false);
     }

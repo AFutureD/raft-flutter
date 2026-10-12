@@ -6,6 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/native_notifications.dart';
+import 'management_support.dart';
 
 /// Mounted NotificationsSection. Desktop (macOS / Linux / Windows) mirrors
 /// Web's DesktopNativeNotificationsCard: the system owns the switch, the card
@@ -115,8 +116,21 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       version = incoming;
       muted = savedMuted = row!['serverPushMuted'] as bool;
       verified = true;
+      return;
+    }
+    // Else the settings this page last accepted for the server.
+    final c = w;
+    final seen = hasServer && phone && c != null
+        ? readPageSnapshot(c, _snapshotKey)
+        : null;
+    if (seen != null && seen['muted'] is bool && seen['version'] is int) {
+      version = seen['version'] as int;
+      muted = savedMuted = seen['muted'] as bool;
+      verified = true;
     }
   }
+
+  static const _snapshotKey = 'notification-settings';
 
   void workspaceChanged() {
     if (!mounted) return;
@@ -157,6 +171,12 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     muted = savedMuted = response['serverPushMuted'] == true;
     verified = true;
     final controller = w;
+    if (controller != null) {
+      writePageSnapshot(controller, _snapshotKey, pageIdentity(controller), {
+        'muted': savedMuted,
+        'version': version,
+      });
+    }
     final server = controller?.server;
     if (controller != null && server != null) {
       final patch = RaftRecord({
@@ -363,7 +383,8 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
       final card = RaftNotificationSettingsCard(
         key: const ValueKey('notification-settings-card'),
         title: 'Desktop notifications',
-        description: 'Raft Desktop shows system notifications for new DMs, direct mentions, and followed thread replies while the window is in the background. Web push is not used on desktop.',
+        description:
+            'Raft Desktop shows system notifications for new DMs, direct mentions, and followed thread replies while the window is in the background. Web push is not used on desktop.',
         status: unavailable ? 'Unavailable' : 'Managed by the system',
         hint: unavailable
             ? 'This desktop build cannot show system notifications.'
@@ -410,7 +431,8 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
     return RaftNotificationSettingsCard(
       key: const ValueKey('notification-settings-card'),
       title: 'Phone notifications',
-      description: 'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.',
+      description:
+          'While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification. In the background Raft checks for new messages periodically, so some may arrive later.',
       status: unavailable
           ? 'Unavailable'
           : service.enabled

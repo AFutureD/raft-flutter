@@ -4,6 +4,9 @@
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -148,7 +151,30 @@ static void my_application_activate(GApplication* application) {
   fl_method_channel_set_method_call_handler(window_channel,
       [](FlMethodChannel*, FlMethodCall* call, gpointer data) {
         if (g_strcmp0(fl_method_call_get_name(call), "present") == 0) {
-          gtk_window_present(GTK_WINDOW(data));
+          GtkWindow* target = GTK_WINDOW(data);
+          // A notification click carries the desktop's activation token
+          // (org.freedesktop.Notifications ActivationToken). Wayland
+          // compositors and KWin only raise and focus a window that presents
+          // itself with it; without one this is a plain present.
+          FlValue* args = fl_method_call_get_args(call);
+          FlValue* token = args != nullptr &&
+                                   fl_value_get_type(args) == FL_VALUE_TYPE_MAP
+                               ? fl_value_lookup_string(args, "token")
+                               : nullptr;
+          if (token != nullptr &&
+              fl_value_get_type(token) == FL_VALUE_TYPE_STRING &&
+              fl_value_get_string(token)[0] != '\0') {
+            const gchar* startup_id = fl_value_get_string(token);
+            GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(target));
+#ifdef GDK_WINDOWING_WAYLAND
+            if (GDK_IS_WAYLAND_DISPLAY(display)) {
+              gdk_wayland_display_set_startup_notification_id(display,
+                                                              startup_id);
+            }
+#endif
+            gtk_window_set_startup_id(target, startup_id);
+          }
+          gtk_window_present(target);
           fl_method_call_respond_success(call, nullptr, nullptr);
         } else {
           fl_method_call_respond_not_implemented(call, nullptr);

@@ -369,7 +369,8 @@ class _SystemChannelsState extends State<_SystemChannelsSection>
       checkboxKey: const ValueKey('admin-hide-all'),
       saveKey: const ValueKey('admin-hide-all-save'),
       title: 'Hide #all channel',
-      description: 'When enabled, #all disappears from channel lists, search, posting, members, and agent channel surfaces. Existing history is preserved.',
+      description:
+          'When enabled, #all disappears from channel lists, search, posting, members, and agent channel surfaces. Existing history is preserved.',
       checked: hidden,
       dimmed: saving,
       onChanged: saving
@@ -479,8 +480,9 @@ class _InvitesState extends State<_InvitesSection>
     reload();
   }
 
+  /// Revalidates in place: the rows stay (and a restored empty list keeps its
+  /// "No pending invites." line); only a cold first read shows the blank state.
   Future<void> reload() {
-    setState(() => loading = true);
     return load(
       () => w.query('/servers/${w.server!.id}/invites'),
       (value) => invites = managementRows(value),
@@ -630,7 +632,8 @@ class _JoinLinksState extends State<_JoinLinksSection>
   Future<void> revoke(Map<String, dynamic> link) => _confirm(
     context,
     title: 'Revoke Invite Link',
-    message: 'Revoke this invite link? Anyone who still has the URL will stop being able to join with it.',
+    message:
+        'Revoke this invite link? Anyone who still has the URL will stop being able to join with it.',
     confirmLabel: 'Revoke Link',
     loadingLabel: 'Revoking…',
     onConfirm: () async {
@@ -1121,14 +1124,16 @@ class _TranslationState extends State<_TranslationSection> with _SavedFlash {
         checkboxKey: const ValueKey('admin-translation'),
         saveKey: const ValueKey('admin-translation-save'),
         title: 'Enable message translation for this server',
-        description: "Turn on message translation for this server. When this is off, members' language and display preferences will not translate messages here.",
+        description:
+            "Turn on message translation for this server. When this is off, members' language and display preferences will not translate messages here.",
         checked: enabled,
         dimmed: loading || !canManage,
         onChanged: saving || loading || !canManage
             ? null
             : (value) => setState(() => enabled = value),
         warnings: [
-          if (enabled && !settings.providerAvailable) 'Translation is enabled for this server, but no translation provider is configured.',
+          if (enabled && !settings.providerAvailable)
+            'Translation is enabled for this server, but no translation provider is configured.',
           ?failure,
         ],
         save: canManage ? _saveState(saving, saved) : null,
@@ -1192,8 +1197,9 @@ class _ProductAnalyticsState extends State<_ProductAnalyticsSection>
           },
         ),
       );
-      final enabled = managementRows(result['evaluations'])
-          .any((f) => f['key'] == flag && f['enabled'] == true);
+      final enabled = managementRows(
+        result['evaluations'],
+      ).any((f) => f['key'] == flag && f['enabled'] == true);
       rememberServerFlag(w, flag, enabled, identity);
       if (mounted && identity == pageIdentity(w) && enabled != flagEnabled) {
         setState(() => flagEnabled = enabled);
@@ -1236,7 +1242,8 @@ class _ProductAnalyticsState extends State<_ProductAnalyticsSection>
       child: RaftAdminSwitchCard(
         switchKey: const ValueKey('admin-product-analytics'),
         title: 'Product analytics for this workspace',
-        description: 'When off, no usage data is recorded for anyone in this workspace, whatever their own setting.',
+        description:
+            'When off, no usage data is recorded for anyone in this workspace, whatever their own setting.',
         checked: s == null ? true : s['productAnalyticsEnabled'] == true,
         onChanged: saving || s == null || s['canManageProductAnalytics'] != true
             ? null
@@ -1326,7 +1333,8 @@ class _MemberPermissionsState extends State<_MemberPermissionsSection>
         checkboxKey: const ValueKey('admin-hide-humans'),
         saveKey: const ValueKey('admin-hide-humans-save'),
         title: 'Hide human directory and counts from members',
-        description: 'Member role users cannot see server-wide human lists, graph surfaces, or human counts.',
+        description:
+            'Member role users cannot see server-wide human lists, graph surfaces, or human counts.',
         checked: hidden,
         dimmed: !canEdit,
         onChanged: !canEdit || saving

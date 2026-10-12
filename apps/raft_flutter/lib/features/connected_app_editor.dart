@@ -158,7 +158,11 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
       editing = app;
       fill(app);
       unawaited(loadShare());
-      unawaited(loadNotifications());
+      // A revisit paints the last accepted App Notifications settings and
+      // revalidates in place (never the one-time signing secret).
+      final cached = readPageSnapshot(w, _notificationsKey(app))?['data'];
+      if (cached is Map<String, dynamic>) applyNotifications(cached);
+      unawaited(loadNotifications(quiet: cached is Map<String, dynamic>));
     }
     for (final c in [
       name,
@@ -224,8 +228,24 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     }
   }
 
-  Future<void> loadNotifications() async {
-    setState(() => notificationsLoading = true);
+  String _notificationsKey(Map<String, dynamic> app) =>
+      'integrations:app-notifications:${app['id']}';
+
+  /// The accepted settings without anything secret: the signing secret is only
+  /// ever shown once, from the save/rotate answer.
+  Map<String, dynamic> _withoutSecrets(Map<String, dynamic> data) => {
+    ...data,
+    'webhook': {
+      for (final entry in managementMap(data['webhook']).entries)
+        if (!entry.key.toLowerCase().contains('secret')) entry.key: entry.value,
+    },
+  };
+
+  /// [quiet] revalidates settings already on screen: no loading state, and a
+  /// draft in progress is not overwritten.
+  Future<void> loadNotifications({bool quiet = false}) async {
+    final identity = pageIdentity(w);
+    if (!quiet) setState(() => notificationsLoading = true);
     try {
       final data = await w.client.get('$base/app-notifications');
       if (data is! Map ||
@@ -234,9 +254,25 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         throw StateError('Invalid App Notifications settings response');
       }
       if (!live) return;
-      applyNotifications(managementMap(data));
+      final accepted = managementMap(data);
+      final draft =
+          quiet &&
+          (requestChanged ||
+              endpoint.text !=
+                  '${managementMap(notifications?['webhook'])['endpoint_url'] ?? ''}');
+      if (draft) {
+        notifications = accepted;
+      } else {
+        applyNotifications(accepted);
+      }
+      final app = editing;
+      if (app != null) {
+        writePageSnapshot(w, _notificationsKey(app), identity, {
+          'data': _withoutSecrets(accepted),
+        });
+      }
     } catch (e) {
-      if (live) {
+      if (live && !(quiet && notifications != null)) {
         error = failure(e, 'Failed to load App Notifications settings');
       }
     } finally {
@@ -727,7 +763,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.shield,
         railLabel: 'App permissions',
         title: 'App permissions',
-        description: 'Approved by a Server admin at installation. The app accesses data directly.',
+        description:
+            'Approved by a Server admin at installation. The app accesses data directly.',
         status: raftFormat(context, '{count} permissions selected', {
           'count': groups.length,
         }),
@@ -758,7 +795,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         glyph: RaftGlyph.alertTriangle,
         railLabel: 'Danger zone',
         title: 'Danger zone',
-        description: 'Credential rotation, offline review, and deletion stay separate from routine configuration.',
+        description:
+            'Credential rotation, offline review, and deletion stay separate from routine configuration.',
         status: tr(app == null ? 'Available after save' : 'Restricted'),
         warning: true,
         child: dangerSection(),
@@ -1166,7 +1204,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
         if (configOpen && app != null)
           RaftAppEditorPanel(
             title: 'Webhook events',
-            description: 'Choose events for the resources selected in App permissions. Each installation controls its subscriptions separately.',
+            description:
+                'Choose events for the resources selected in App permissions. Each installation controls its subscriptions separately.',
             child: RaftAppEditorStack(
               gap: RaftSpace.x3,
               children: [
@@ -1233,8 +1272,10 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
     final app = editing;
     final status = publishStatus;
     final hint = switch (status) {
-      'publish_requested' || 'in_review' => 'Marketplace review is pending. You can edit this app while it waits, or delete it to withdraw the request.',
-      'unpublish_requested' => 'Marketplace offline review is pending. The app stays listed and installable until App Admin approves removal; approval revokes existing server installs and access.',
+      'publish_requested' || 'in_review' =>
+        'Marketplace review is pending. You can edit this app while it waits, or delete it to withdraw the request.',
+      'unpublish_requested' =>
+        'Marketplace offline review is pending. The app stays listed and installable until App Admin approves removal; approval revokes existing server installs and access.',
       _ => null,
     };
     final shareable = status == 'private' || status == 'rejected';
@@ -1256,7 +1297,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
               children: [
                 RaftAppEditorActionRow(
                   title: 'Private share link',
-                  description: 'Invite another server owner or admin to install this app without listing it in the public marketplace.',
+                  description:
+                      'Invite another server owner or admin to install this app without listing it in the public marketplace.',
                   extra: shareLink == null
                       ? null
                       : raftFormat(context, 'Active link expires {when}.', {
@@ -1309,7 +1351,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             cream: true,
             child: RaftAppEditorActionRow(
               title: 'Marketplace publish request',
-              description: 'Category and data access come from the app metadata and declared scopes above. Requesting review saves those changes first.',
+              description:
+                  'Category and data access come from the app metadata and declared scopes above. Requesting review saves those changes first.',
               action: RaftSettingsRecipeButton(
                 label: savingId == '${app['id']}'
                     ? 'Requesting…'
@@ -1348,7 +1391,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
           shadow: false,
           child: RaftAppEditorActionRow(
             title: 'Client secret',
-            description: 'Regenerating invalidates the previous secret for this app. The new secret is shown once.',
+            description:
+                'Regenerating invalidates the previous secret for this app. The new secret is shown once.',
             action: RaftSettingsRecipeButton(
               key: const ValueKey('connected-app-regenerate-secret-button'),
               label: regenerating
@@ -1366,7 +1410,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
             shadow: false,
             child: RaftAppEditorActionRow(
               title: 'Marketplace lifecycle',
-              description: 'Requesting offline review keeps the app live until App Admin approves removal.',
+              description:
+                  'Requesting offline review keeps the app live until App Admin approves removal.',
               action: RaftSettingsRecipeButton(
                 label: 'Request offline',
                 size: small,
@@ -1383,7 +1428,8 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
           RaftSettingsActionCard(
             key: const ValueKey('connected-app-delete-card'),
             title: 'Delete app',
-            description: 'Permanently deletes this app registration and its current credentials.',
+            description:
+                'Permanently deletes this app registration and its current credentials.',
             stacked: true,
             action: RaftSettingsRecipeButton(
               label: 'Delete',

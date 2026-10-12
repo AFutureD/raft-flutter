@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import 'add_members_dialog.dart';
 import 'integrations_views.dart'
     show integrationScopeCopy, integrationVisibleScopes;
@@ -239,10 +240,21 @@ class _MessageActionCardState extends State<MessageActionCard> {
   }
 
   Future<List<Map<String, dynamic>>> people() async {
-    final result = await Future.wait([
-      w.query('/servers/${w.server!.id}/members'),
-      w.query('/agents'),
-    ]);
+    // The workspace directory already holds both lists (same endpoints), so
+    // the form opens at once; only a directory that never loaded is fetched.
+    final directory = w.entityDirectory;
+    final loaded =
+        directory.state(WorkspaceEntityKind.members).loaded &&
+        directory.state(WorkspaceEntityKind.agents).loaded;
+    final result = loaded
+        ? [
+            directory.rows(WorkspaceEntityKind.members),
+            directory.rows(WorkspaceEntityKind.agents),
+          ]
+        : await Future.wait([
+            w.query('/servers/${w.server!.id}/members'),
+            w.query('/agents'),
+          ]);
     List<Map<String, dynamic>> rows(dynamic v, String key, String kind) {
       final values = v is List ? v : v[key] ?? [];
       return (values as List)
@@ -311,7 +323,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
         }, authority);
         return;
       }
-      await event('action_card.open');
+      // A best-effort product event never gates the dialog.
+      unawaited(event('action_card.open'));
       if (!mounted || !current(authority)) return;
       if (type == 'agent:create') {
         final created = await showManagedAgentForm(
@@ -499,7 +512,6 @@ class _MessageActionCardState extends State<MessageActionCard> {
     }
   }
 
-
   static const _known = {
     'channel:create',
     'agent:create',
@@ -591,7 +603,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
     final scopes = _list(action['scopes']);
     final visible = <String>[];
     for (final scope in scopes) {
-      if (integrationVisibleScopes.contains(scope) && !visible.contains(scope)) {
+      if (integrationVisibleScopes.contains(scope) &&
+          !visible.contains(scope)) {
         visible.add(scope);
       }
     }
@@ -602,7 +615,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
       );
     }
     final inbound = visible.any(
-      (s) => const {'agent:event:write', 'agent:notification:write'}.contains(s),
+      (s) =>
+          const {'agent:event:write', 'agent:notification:write'}.contains(s),
     );
     return RaftActionField(
       label: 'Scopes:',
@@ -644,7 +658,8 @@ class _MessageActionCardState extends State<MessageActionCard> {
           field('Agents:', agents.map(_agentName).join(', ')),
       ],
       'agent:create' => () {
-        final computer = action['requiredComputer'] ?? action['suggestedComputer'];
+        final computer =
+            action['requiredComputer'] ?? action['suggestedComputer'];
         final machine = computer is String
             ? w.entityDirectory.computer(computer)
             : null;
@@ -791,7 +806,9 @@ class _MessageActionCardState extends State<MessageActionCard> {
       body: _body(context),
       state: '${metadata['state']}',
       hint: action['draftHint'],
-      targetServer: carrier?.type == 'joint' && server is String ? server : null,
+      targetServer: carrier?.type == 'joint' && server is String
+          ? server
+          : null,
       completedBy: metadata['executedByUserName'],
       completedResult: _resultText(context),
       confirmLabel: verbs[type]!,

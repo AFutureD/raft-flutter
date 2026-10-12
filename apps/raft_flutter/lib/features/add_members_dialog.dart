@@ -11,6 +11,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import 'channel_form_fields.dart';
+import '../data/workspace_entity_directory.dart';
+import 'composer_directory.dart' show cachedChannelRoster;
 import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 
 /// The IDs the dialog really added.
@@ -66,66 +68,142 @@ class _AddMembersDialogState extends State<AddMembersDialog> {
   List<Map<String, dynamic>> members = [], agents = [];
   final selectedHumans = <String>{}, selectedAgents = <String>{};
   bool seeded = false, submitting = false;
+
+  /// Which lists are known (a local copy or a response). Until all three are,
+  /// the list stays empty rather than claiming there is nothing to add.
+  bool rosterKnown = false, peopleKnown = false, agentsKnown = false;
+
+  /// True once the load finished or failed: Web swallows load failures, so
+  /// the empty state then stands.
+  bool settled = false;
   String? error;
+
+  bool get ready => settled || (rosterKnown && peopleKnown && agentsKnown);
 
   @override
   void initState() {
     super.initState();
+    // First frame from the local copies: the roster the composer prefetched
+    // for the channel and the workspace directory's people and agents.
+    adoptRoster(cachedChannelRoster(w, widget.channelId));
+    adoptDirectory();
+    seed();
+    w.entityDirectory.addListener(directoryChanged);
     load();
   }
 
+  @override
+  void dispose() {
+    w.entityDirectory.removeListener(directoryChanged);
+    super.dispose();
+  }
+
+  bool get directoryLoaded {
+    final d = w.entityDirectory;
+    return d.state(WorkspaceEntityKind.agents).loaded &&
+        d.state(WorkspaceEntityKind.members).loaded;
+  }
+
+  void adoptRoster(
+    ({List<Map<String, dynamic>> humans, List<Map<String, dynamic>> agents})?
+    roster,
+  ) {
+    if (roster == null) return;
+    existingHumans = {
+      for (final h in roster.humans) '${h['userId'] ?? h['id']}',
+    };
+    existingAgents = {for (final a in roster.agents) '${a['id']}'};
+    rosterKnown = true;
+  }
+
+  void adoptDirectory() {
+    if (!directoryLoaded) return;
+    final d = w.entityDirectory;
+    members = d.rows(WorkspaceEntityKind.members);
+    agents = d.rows(WorkspaceEntityKind.agents);
+    peopleKnown = agentsKnown = true;
+  }
+
+  void directoryChanged() {
+    if (!mounted || !directoryLoaded) return;
+    setState(() {
+      adoptDirectory();
+      seed();
+    });
+  }
+
+  /// Seed once: every candidate starts selected. Later changes (a revalidated
+  /// roster) only drop selections that stopped being candidates.
+  void seed() {
+    if (!ready) return;
+    final humans = candidateHumans.map((m) => '${m['userId'] ?? m['id']}');
+    final agentIds = candidateAgents.map((a) => '${a['id']}');
+    if (!seeded) {
+      if (humans.isEmpty && agentIds.isEmpty) return;
+      seeded = true;
+      selectedHumans.addAll(humans);
+      selectedAgents.addAll(agentIds);
+    } else {
+      selectedHumans.retainAll(humans.toSet());
+      selectedAgents.retainAll(agentIds.toSet());
+    }
+  }
+
   Future<void> load() async {
+    // The local copies are already on screen; these reads only revalidate the
+    // roster and fill whatever was missing.
+    final serverId = w.server?.id;
+    final fromDirectory = directoryLoaded;
     try {
-      final serverId = w.server?.id;
       final values = await Future.wait([
         w.query('/channels/${widget.channelId}/members'),
-        if (serverId != null) w.query('/servers/$serverId/members'),
-        w.query('/agents'),
+        if (!fromDirectory && serverId != null)
+          w.query('/servers/$serverId/members'),
+        if (!fromDirectory) w.query('/agents'),
       ]);
       if (!mounted) return;
       final roster = values[0];
-      final peopleValue = serverId == null ? const [] : values[1];
-      final agentValue = values.last;
       List<Map<String, dynamic>> rows(dynamic v, String key) => [
         for (final row
             in ((v is Map ? v[key] : v) as List? ?? const []).whereType<Map>())
           Map<String, dynamic>.from(row),
       ];
       setState(() {
-        existingHumans = {
-          for (final h in rows(roster, 'humans')) '${h['userId'] ?? h['id']}',
-        };
-        existingAgents = {for (final a in rows(roster, 'agents')) '${a['id']}'};
-        members = rows(peopleValue, 'members');
-        agents = rows(agentValue, 'agents');
-        if (!seeded &&
-            (candidateHumans.isNotEmpty || candidateAgents.isNotEmpty)) {
-          // Seed once: every candidate starts selected.
-          seeded = true;
-          selectedHumans.addAll(
-            candidateHumans.map((m) => '${m['userId'] ?? m['id']}'),
-          );
-          selectedAgents.addAll(candidateAgents.map((a) => '${a['id']}'));
+        adoptRoster((
+          humans: rows(roster, 'humans'),
+          agents: rows(roster, 'agents'),
+        ));
+        if (!fromDirectory && !directoryLoaded) {
+          final peopleValue = serverId == null ? const [] : values[1];
+          members = rows(peopleValue, 'members');
+          agents = rows(values.last, 'agents');
+          peopleKnown = agentsKnown = true;
         }
+        settled = true;
+        seed();
       });
     } catch (_) {
       // The Web hook swallows load failures; the list simply stays empty.
+      if (mounted) setState(() => settled = true);
     }
   }
 
   /// Prefilled IDs that are not members yet and resolve to a known entry.
   List<Map<String, dynamic>> get candidateHumans => [
-    for (final id in widget.prefilledHumanIds)
-      if (!existingHumans.contains(id))
-        ...members.where((m) => '${m['userId'] ?? m['id']}' == id).take(1),
+    if (rosterKnown && peopleKnown)
+      for (final id in widget.prefilledHumanIds)
+        if (!existingHumans.contains(id))
+          ...members.where((m) => '${m['userId'] ?? m['id']}' == id).take(1),
   ];
   List<Map<String, dynamic>> get candidateAgents => [
-    for (final id in widget.prefilledAgentIds)
-      if (!existingAgents.contains(id))
-        ...agents.where((a) => '${a['id']}' == id).take(1),
+    if (rosterKnown && agentsKnown)
+      for (final id in widget.prefilledAgentIds)
+        if (!existingAgents.contains(id))
+          ...agents.where((a) => '${a['id']}' == id).take(1),
   ];
 
-  bool get nothingToAdd => candidateHumans.isEmpty && candidateAgents.isEmpty;
+  bool get nothingToAdd =>
+      ready && candidateHumans.isEmpty && candidateAgents.isEmpty;
   int get selectedCount => selectedHumans.length + selectedAgents.length;
   bool get canSubmit => !submitting && !nothingToAdd && selectedCount > 0;
 
