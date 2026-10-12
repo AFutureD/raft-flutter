@@ -28,7 +28,10 @@ the same widgets publish the same way on every layout.
   hosts collapse into the outermost) paints a strip of the top inset height
   above its child and owns a registry.
 - `RaftStatusBarSource(color, border?)` wraps a widget that paints a column
-  surface or a header. At paint time the strip draws, outermost first, every
+  surface or a header. At paint time the strip draws, in paint order (a parent before its
+  descendants, an earlier sibling before a later one; never by render depth,
+  so a column an opaque later one covers, like the conversation under a
+  folded profile panel, cannot win), every
   visible source flush with the top of the window over its own horizontal
   extent, with its `border` (left and right sides) continuing the divider.
   Sources add no layout or paint of their own.

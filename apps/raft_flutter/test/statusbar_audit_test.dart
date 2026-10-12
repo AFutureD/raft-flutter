@@ -162,6 +162,9 @@ void _zh(RootFixture f) {
   };
 }
 
+/// Shared with `statusbar_standard_test.dart`.
+void withDirectory(RootFixture f) => _withDirectory(f);
+
 void _withDirectory(RootFixture f) {
   f.overrides['GET /channels/dm'] = (_) => [
     {

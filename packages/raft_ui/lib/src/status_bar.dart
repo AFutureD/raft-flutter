@@ -383,14 +383,49 @@ class _RenderStatusBarStrip extends RenderBox {
       }
       found.add((source: source, left: left, right: right));
     }
-    // Columns and headers outermost first; scrims last, over all of them.
+    // Columns and headers in paint order (a parent before its descendants, an
+    // earlier sibling before a later one), so a column an opaque later one
+    // covers (a profile panel folded over the conversation, whose header stays
+    // mounted and flush with the top) loses to the surface that is really on
+    // top; scrims last, over all of them. Render depth is not paint order: a
+    // deeper header of an earlier sibling would wrongly win.
     found.sort((a, b) {
       if (a.source.overlay != b.source.overlay) {
         return a.source.overlay ? 1 : -1;
       }
-      return a.source.depth.compareTo(b.source.depth);
+      return _paintOrder(a.source, b.source);
     });
     return found;
+  }
+
+  /// Negative when [a] paints before [b]: the order of their ancestor chains,
+  /// compared at the first ancestor whose children differ (child order is
+  /// paint order for stacks, rows, and single-child wrappers alike).
+  static int _paintOrder(RenderObject a, RenderObject b) {
+    if (identical(a, b)) return 0;
+    List<RenderObject> chain(RenderObject node) {
+      final out = <RenderObject>[];
+      for (RenderObject? n = node; n != null; n = n.parent) {
+        out.add(n);
+      }
+      return out.reversed.toList();
+    }
+
+    final ca = chain(a), cb = chain(b);
+    var i = 0;
+    while (i < ca.length && i < cb.length && identical(ca[i], cb[i])) {
+      i++;
+    }
+    // One contains the other: the ancestor paints first.
+    if (i == ca.length) return -1;
+    if (i == cb.length) return 1;
+    var indexA = -1, indexB = -1, index = 0;
+    ca[i - 1].visitChildren((child) {
+      if (identical(child, ca[i])) indexA = index;
+      if (identical(child, cb[i])) indexB = index;
+      index++;
+    });
+    return indexA.compareTo(indexB);
   }
 
   /// Colour at the strip's centre (the pixel the system samples for icon
