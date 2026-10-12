@@ -1567,3 +1567,10 @@ the tapped control still runs; a tap that retargets the profile (another sender 
 mention) switches it instead of closing. A drag / scroll is not a tap. Phone and folded widths show
 the profile as a full page (no outside area). On those, the agent header gains a close X at >= 768px
 like Web (`hidden md:flex`).
+
+## Close affordances (cindy/close-sweep)
+
+Every closable surface is inventoried in `docs/close-affordances.md` (generated from the guard
+registry) with its x / Back / Escape / scrim / system back at phone, foldable and desktop widths
+against Web. Differences kept on purpose: the profile panel's outside tap (above); phone pages
+(image lightbox, attachment preview) lead with Back instead of x.

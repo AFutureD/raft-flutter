@@ -26,6 +26,8 @@ const viewerSurfaces = <CloseSurface>[
     files: [
       'lib/features/attachment_view.dart',
       'lib/features/attachment_image_lightbox.dart',
+      '../../packages/raft_ui/lib/src/attachment_lightbox.dart',
+      '../../packages/raft_ui/lib/src/status_bar.dart',
     ],
     status: 'fixed',
     fix: 'empty-stage tap closes (AttachmentLightboxImage, lead)',
@@ -63,6 +65,7 @@ const viewerSurfaces = <CloseSurface>[
       'lib/features/attachment_view.dart',
       'lib/features/attachment_preview_dialog.dart',
       'lib/features/attachment_html_preview.dart',
+      '../../packages/raft_ui/lib/src/attachment_preview_shell.dart',
     ],
   ),
   CloseSurface(
@@ -186,7 +189,10 @@ const viewerSurfaces = <CloseSurface>[
     phone: {_back, _sys},
     fold: {_sys},
     desktop: {_sys},
-    files: ['lib/features/fleet_views.dart'],
+    files: [
+      'lib/features/fleet_views.dart',
+      '../../packages/raft_ui/lib/src/agent_unavailable_panel.dart',
+    ],
   ),
   CloseSurface(
     'public-thread-panel',
@@ -195,7 +201,10 @@ const viewerSurfaces = <CloseSurface>[
     phone: {_back, _sys},
     fold: {_back, _esc, _sys},
     desktop: {_x, _esc, _sys},
-    files: ['lib/features/public_server_view.dart'],
+    files: [
+      'lib/features/public_server_view.dart',
+      '../../packages/raft_ui/lib/src/public_server.dart',
+    ],
   ),
   CloseSurface(
     'feedback-ticket',

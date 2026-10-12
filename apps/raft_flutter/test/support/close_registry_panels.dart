@@ -62,7 +62,10 @@ const panelSurfaces = <CloseSurface>[
     phone: {_back, _sys},
     fold: {_esc, _scrim, _sys},
     desktop: {_esc, _scrim, _sys},
-    files: ['lib/features/channel_settings.dart'],
+    files: [
+      'lib/features/channel_settings.dart',
+      '../../packages/raft_ui/lib/src/channel_settings_sheet.dart',
+    ],
     status: 'fixed',
     fix: 'RaftDismissScope: Escape runs the unsaved-draft guard',
   ),
