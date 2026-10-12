@@ -241,10 +241,16 @@ ParityCase _forwardCase() => ParityCase(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  MessagePresentation(
-                    controller: w,
-                    message: message,
-                    onExternalLink: (_) {},
+                  // The Web capture clips the card box: its `mt-1` margin
+                  // collapses out of the harness root (the message body's own
+                  // margin absorbs it in the timeline).
+                  RaftMessageBodyMargin(
+                    gap: 4,
+                    child: MessagePresentation(
+                      controller: w,
+                      message: message,
+                      onExternalLink: (_) {},
+                    ),
                   ),
                 ],
               ),

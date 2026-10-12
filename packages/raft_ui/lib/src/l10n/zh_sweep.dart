@@ -87,6 +87,8 @@ const Map<String, String> zhCatalogSweep = <String, String>{
   "unread": "未读",
   "{count} new messages": "{count} 条新消息",
   "{count} message": "{count} 条消息",
+  "message": "条消息",
+  "from {target} · thread": "来自 {target} · 消息列",
   "{count} messages": "{count} 条消息",
   "item": "项",
   "items": "项",
