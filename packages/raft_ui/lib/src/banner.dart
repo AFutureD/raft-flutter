@@ -18,7 +18,8 @@ export 'recipes/banner.g.dart'
 class RaftBanner extends StatelessWidget {
   const RaftBanner({
     super.key,
-    required this.description,
+    this.description = '',
+    this.descriptionBuilder,
     this.title,
     this.status = RaftBannerRecipeStatus.warning,
     this.size = RaftBannerRecipeSize.md,
@@ -47,6 +48,11 @@ class RaftBanner extends StatelessWidget {
   /// ui/Banner.tsx `withIcon` / `icon`: the leading `svg` grid cell
   /// (`[&>svg]` size and intent colour from the recipe).
   final RaftGlyph? glyph;
+
+  /// Rich body replacing the [description] text (Web `Banner` children that
+  /// are not a plain string, e.g. a `<p>` with a `<strong>` plus a checkbox
+  /// row). Receives the recipe description text style.
+  final Widget Function(TextStyle style)? descriptionBuilder;
 
   /// Extra body content after the description (a button row).
   final Widget? footer;
@@ -118,7 +124,10 @@ class RaftBanner extends StatelessWidget {
                     style: recipe.title.text(tokens, base: base),
                   ),
                 ),
-              if (strongPrefix != null && description.startsWith(strongPrefix!))
+              if (descriptionBuilder != null)
+                descriptionBuilder!(recipe.description.text(tokens, base: base))
+              else if (strongPrefix != null &&
+                  description.startsWith(strongPrefix!))
                 Text.rich(
                   TextSpan(
                     children: [

@@ -69,7 +69,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   List<Map<String, dynamic>>? setupMachines;
   String? setupMachinesError;
   StreamSubscription<RaftEvent>? events;
-  Timer? poll, debounce;
+  Timer? debounce;
+  RaftForegroundPeriodic? poll;
   String get base => '/servers/${w.server!.id}';
   bool get blocked =>
       projection?['phase'] != null &&
@@ -85,7 +86,8 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     startManagement();
     _signal = _setupSignal(w)..addListener(reload);
     listenEvents();
-    poll = Timer.periodic(const Duration(seconds: 10), (_) {
+    // Stops while hidden/paused; resume reloads (didChangeAppLifecycleState).
+    poll = RaftForegroundPeriodic(const Duration(seconds: 10), () {
       if (blocked && !busy) reload();
     });
   }
@@ -195,7 +197,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
     _signal?.removeListener(reload);
     events?.cancel();
     _directory?.removeListener(directoryChanged);
-    poll?.cancel();
+    poll?.dispose();
     debounce?.cancel();
     surveyOther.dispose();
     super.dispose();

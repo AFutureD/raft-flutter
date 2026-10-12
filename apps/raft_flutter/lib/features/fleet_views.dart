@@ -10,11 +10,12 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/system_bars.dart';
-import 'runtime_form_dialog.dart';
 import 'managed_agent_launcher.dart';
 import 'agent_scopes_view.dart';
 import 'agent_migration_view.dart';
 import 'agent_detail_view.dart';
+import 'report_issue.dart';
+import 'agent_runtime_editor.dart';
 import 'agent_avatar_dialog.dart';
 import 'computer_detail_view.dart';
 import 'add_computer_dialog.dart';
@@ -551,8 +552,13 @@ class FleetDetail extends StatefulWidget {
     this.clock,
     this.initialTrajectoryLog = const [],
     this.onOpenAgent,
+    this.feedbackExportUrl,
   });
   final List<Map<String, dynamic>> initialTrajectoryLog;
+
+  /// Feedback export worker of Report Issue; null = the build's
+  /// `RAFT_FEEDBACK_EXPORT_URL` (Web `VITE_FEEDBACK_EXPORT_URL`).
+  final String? feedbackExportUrl;
 
   /// Computers: open an agent row of "Agents on this computer".
   final ValueChanged<String>? onOpenAgent;
@@ -1147,6 +1153,59 @@ class _FleetDetailState extends State<FleetDetail> {
     );
   }
 
+  /// The "Edit runtime config" modal, then the confirmation it asks for
+  /// (Web `requestConfirm` closes the modal before the ConfirmDialog opens).
+  Future<void> editRuntime() async {
+    if (!allowed('editAgents')) return;
+    final machineId = row['machineId'];
+    final confirm = await showAgentRuntimeEditor(
+      context,
+      controller: w,
+      agent: row,
+      machine: machineId is String
+          ? machines?.where((m) => m['id'] == machineId).firstOrNull
+          : null,
+      authorized: () => allowed('editAgents'),
+      onSaved: load,
+    );
+    if (confirm == null || !mounted) return;
+    await webConfirm(
+      title: confirm.title,
+      message: confirm.message,
+      confirmLabel: confirm.confirmLabel,
+      loadingLabel: confirm.loadingLabel,
+      variant: confirm.variant,
+      operation: () async {
+        require('editAgents');
+        await confirm.operation();
+        await load();
+      },
+    );
+  }
+
+  /// Web `ReportIssueDialog` (`canManageAgent && showReportDialog`).
+  Future<void> reportIssue() async {
+    final captured = scope;
+    bool valid() =>
+        current &&
+        identical(scope, captured) &&
+        row['deletedAt'] == null &&
+        allowed('editAgents');
+    if (!valid()) return;
+    final machineId = row['machineId'];
+    await showReportIssueDialog(
+      context,
+      controller: w,
+      agent: row,
+      machine: machineId is String
+          ? machines?.where((m) => m['id'] == machineId).firstOrNull
+          : null,
+      activityLog: agentCachedActivityEntries(w, id),
+      authorized: valid,
+      exportUrl: widget.feedbackExportUrl,
+    );
+  }
+
   Future<void> editAvatar() async {
     final captured = scope;
     bool valid() =>
@@ -1216,21 +1275,7 @@ class _FleetDetailState extends State<FleetDetail> {
       onEditDescription: busy ? null : () => editField('description'),
       onEditRole: busy ? null : () => editField('role'),
       onEditRuntime: !external && row['machineId'] is String
-          ? () async {
-              if (!allowed('editAgents')) return;
-              await _fleetDialog<void>(
-                context,
-                w,
-                () => allowed('editAgents'),
-                (_) => RuntimeFormDialog(
-                  controller: w,
-                  machineId: row['machineId'],
-                  runtimeId: row['runtime'],
-                  agentId: id,
-                ),
-              );
-              await load();
-            }
+          ? editRuntime
           : null,
       onStartStop: () => action(
         () => runtimeCommand(
@@ -1243,13 +1288,23 @@ class _FleetDetailState extends State<FleetDetail> {
       onRestartReset: () => action(restartReset),
       onDelete: allowed('deleteAgents') ? remove : null,
       onMessage: row['deletedAt'] == null ? () => action(message) : null,
-      onMigrate: allowed('migrateAgents')
+      // Web `AgentMigrationSection`: `agent_migration_v0` and a computer.
+      onMigrate:
+          allowed('migrateAgents') &&
+              w.agentMigrationEnabled &&
+              row['machineId'] is String
           ? () => Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => AgentMigrationView(controller: w, agentId: id),
               ),
             )
+          : null,
+      onReportIssue:
+          reportIssueEnabled(widget.feedbackExportUrl ?? reportIssueBuildUrl) &&
+              allowed('editAgents') &&
+              row['deletedAt'] == null
+          ? reportIssue
           : null,
       onPermissions: allowed('editAgents')
           ? () => Navigator.push(

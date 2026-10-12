@@ -329,6 +329,8 @@ void main() {
       'sync_core_messages_v0',
       notificationPrefsFlag,
       WorkspaceController.remoteComputerUpgradeFlag,
+      WorkspaceController.agentMigrationFlag,
+      WorkspaceController.runtimeFormV2WebFlag,
     ]);
     final c = w.client as _Client;
     c.stream.add(RaftEvent('notification_prefs:updated', _prefs(2)));

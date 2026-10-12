@@ -411,9 +411,16 @@ class _RaftQuotedMessageSkeletonState extends State<RaftQuotedMessageSkeleton>
   );
 
   @override
-  void initState() {
-    super.initState();
-    pulse.repeat();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reduced motion shows the static skeleton and keeps no ticker alive.
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      pulse
+        ..stop()
+        ..value = 0;
+    } else if (!pulse.isAnimating) {
+      pulse.repeat();
+    }
   }
 
   @override
