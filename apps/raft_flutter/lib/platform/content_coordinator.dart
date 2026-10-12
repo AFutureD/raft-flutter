@@ -20,6 +20,7 @@ import 'native_notifications.dart';
 import 'background_inbox.dart';
 import 'background_notifications.dart';
 import 'desktop_inbox_notifications.dart';
+import 'macos_dock_unread.dart';
 
 /// Binds platform links and notification clicks to the currently signed-in
 /// principal. Every navigation rechecks server membership and visible context.
@@ -27,8 +28,13 @@ class NativeContentCoordinator with WidgetsBindingObserver {
   NativeContentCoordinator({
     NativeNotificationService? notifications,
     this.links,
-  }) : notifications = notifications ?? NativeNotificationService();
+    MacOSDockUnread? dockUnread,
+  }) : _providedDockUnread = dockUnread,
+       notifications = notifications ?? NativeNotificationService();
   final NativeNotificationService notifications;
+  final MacOSDockUnread? _providedDockUnread;
+  late final dockUnread =
+      _providedDockUnread ?? MacOSDockUnread(platform: notifications.platform);
   final Stream<Uri>? links;
   final background = BackgroundNotificationScheduler();
   DesktopInboxNotifications? desktop;
@@ -51,6 +57,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
         ? null
         : WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
+    dockUnread.bind(_workspace);
     notifications.onTap = _tap;
     notifications.deliveryAllowed = () =>
         !_closed && !(_appForeground ?? _workspace?.foreground ?? true);
@@ -86,6 +93,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _events?.cancel();
     _workspace = workspace;
     desktop?.bind(workspace);
+    dockUnread.bind(workspace);
     workspace?.addListener(_changed);
     _events = workspace?.client.events.listen(_event);
     _changed();
@@ -570,6 +578,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     _closed = true;
     WidgetsBinding.instance.removeObserver(this);
     desktop?.dispose();
+    await dockUnread.dispose();
     _epoch++;
     _navigation++;
     _workspace?.removeListener(_changed);

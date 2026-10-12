@@ -12,6 +12,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../platform/file_selection.dart';
+
 import '../data/source_feedback_store.dart';
 import '../data/workspace_controller.dart';
 
@@ -29,14 +31,13 @@ const _imageTypes = {
 /// The host picker restricted to FEEDBACK_ATTACHMENT_TYPES. Files over the
 /// size limit are not read; the store reports them by name.
 Future<List<SourceFeedbackFile>> pickFeedbackImages() async {
-  final files = await openFiles(
-    acceptedTypeGroups: [
-      XTypeGroup(
-        label: 'Images',
-        extensions: _imageTypes.keys.toList(),
-        mimeTypes: _imageTypes.values.toSet().toList(),
-      ),
-    ],
+  final files = await selectImages(
+    typeGroup: XTypeGroup(
+      label: 'Images',
+      extensions: _imageTypes.keys.toList(),
+      mimeTypes: _imageTypes.values.toSet().toList(),
+      uniformTypeIdentifiers: ['public.image'],
+    ),
   );
   final picked = <SourceFeedbackFile>[];
   for (final file in files) {
@@ -227,7 +228,8 @@ String _errorCopy(SourceFeedbackError error) => switch (error) {
   SourceFeedbackError.unavailable => "Couldn't load feedback. Try again.",
   SourceFeedbackError.unauthorized =>
     'Your feedback session expired. Reopen feedback and try again.',
-  SourceFeedbackError.notFound => 'This feedback ticket is no longer available.',
+  SourceFeedbackError.notFound =>
+    'This feedback ticket is no longer available.',
   SourceFeedbackError.rateLimited =>
     'Too many feedback requests. Try again later.',
   SourceFeedbackError.conflict =>

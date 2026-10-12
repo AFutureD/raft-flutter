@@ -85,6 +85,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Select photos and videos to share in Raft.</string>
 	<key>RaftAppGroup</key>
 	<string>$(RAFT_APP_GROUP)</string>
 </dict>

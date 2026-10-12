@@ -26,6 +26,7 @@ import 'recipe_surface.dart'
     show RaftCssBoxDecoration, RaftRecipeBox, raftCssText;
 import 'theme.dart';
 import 'tooltip.dart';
+import 'status_bar.dart';
 
 /// Tailwind `bg-gray-400` (oklch(70.7% 0.022 261.325)), StatusDot default.
 const raftGray400 = Color(0xFF99A1AF);
@@ -58,7 +59,11 @@ class RaftPanelTextScope extends StatelessWidget {
             weight: FontWeight.w400,
           ).copyWith(color: t.ink),
         ),
-        child: ColoredBox(color: t.colors['layer-panel']!, child: child),
+        // The panel body is the column's surface under a transparent header.
+        child: RaftStatusBarSource(
+          color: t.colors['layer-panel']!,
+          child: ColoredBox(color: t.colors['layer-panel']!, child: child),
+        ),
       ),
     );
   }
@@ -529,9 +534,9 @@ abstract final class RaftPanelText {
     fontStyle: FontStyle.italic,
     color: raftPanelInk(t, .4, t.colors['foreground-muted']!),
   );
-  static TextStyle muted(RaftTokens t) =>
-      value(t)
-          .copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
+  static TextStyle muted(RaftTokens t) => value(
+    t,
+  ).copyWith(color: raftPanelInk(t, .5, t.colors['foreground-muted']!));
   static TextStyle mono(RaftTokens t) =>
       value(t).copyWith(fontFamily: t.monoFont);
   static TextStyle monoSemibold(RaftTokens t) =>
@@ -1186,8 +1191,9 @@ class RaftSkillsSection extends StatelessWidget {
             Flexible(
               child: RaftCssText(
                 s.displayName,
-                style: RaftPanelText.value(t)
-                    .copyWith(fontWeight: FontWeight.w700),
+                style: RaftPanelText.value(
+                  t,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             if (s.userInvocable) ...[
@@ -1329,8 +1335,9 @@ class RaftReminderListView extends StatelessWidget {
                   const SizedBox(height: 12),
                   RaftCssText(
                     raftText(context, 'No reminders'),
-                    style: RaftPanelText.value(t)
-                        .copyWith(fontWeight: FontWeight.w700),
+                    style: RaftPanelText.value(
+                      t,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
