@@ -21,7 +21,7 @@ Native desktop windows on Windows, Linux and macOS. Click a screenshot to view t
     <tr>
       <td valign="top">
         <a href="screenshots/raft-windows-2026-10-12.jpg">
-          <img src="screenshots/raft-windows-2026-10-12.png" alt="Raft on Windows, showing a workspace chat and an Agent card in the yellow Brutal theme" width="400">
+          <img src="screenshots/raft-windows-2026-10-12.png" alt="Raft on Windows, showing a workspace chat and an Agent card in the Elegant theme" width="400">
         </a>
       </td>
       <td valign="top">
@@ -31,7 +31,7 @@ Native desktop windows on Windows, Linux and macOS. Click a screenshot to view t
       </td>
     </tr>
     <tr>
-      <td>Brutal light · October 12, 2026<br><a href="https://github.com/kevinzhow/raft-flutter/releases">Download releases</a> · <a href="docs/development.md#windows">Windows setup</a></td>
+      <td>Elegent light · October 12, 2026<br><a href="https://github.com/kevinzhow/raft-flutter/releases">Download releases</a> · <a href="docs/development.md#windows">Windows setup</a></td>
       <td>Brutal light · October 12, 2026<br><a href="docs/macos-evidence.md">Local build and signing</a></td>
     </tr>
     <tr>
