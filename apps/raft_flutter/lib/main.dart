@@ -33,9 +33,11 @@ import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
+import 'platform/launch_theme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
+import 'platform/ios_share_session.dart';
 import 'platform/incoming_share_staging.dart';
 import 'platform/content_coordinator.dart';
 import 'platform/workspace_cache.dart';
@@ -130,6 +132,7 @@ class RaftApp extends StatefulWidget {
 class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   late final content = widget.nativeContent ?? NativeContentCoordinator();
   late final sharing = widget.nativeSharing ?? NativeSharing();
+  late final shareSession = IOSShareSession(channel: sharing.channel);
   VoidCallback? removeShareReceiver;
   final pendingShares = <IncomingShareStaging>[];
   bool sharePickerOpen = false, shareDrainScheduled = false;
@@ -192,7 +195,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   WorkspaceController? workspace;
   WorkspaceCache? cache;
   StreamSubscription<RaftEvent>? sessionEvents;
-  RaftAppearance appearance = const RaftAppearance();
+  // Known before the first build: the deferred first frame is not the only
+  // guard against painting the default family before the stored one.
+  RaftAppearance appearance = storedAppearance();
   bool restoring = true;
   String? bootError;
   String origin = const String.fromEnvironment(
@@ -502,10 +507,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
-      appearance = RaftAppearance(
-        mode: ThemeMode.values.byName(p.getString('raft.mode') ?? 'system'),
-        light: RaftFamily.values.byName(p.getString('raft.light') ?? 'brutal'),
-      );
+      appearance = storedAppearance(p);
+      // Heals the native splash theme (app update, restored preferences).
+      unawaited(NativeLaunchTheme.instance.set(appearance));
       cache =
           await (widget.openWorkspaceCache?.call() ??
               DriftWorkspaceCache.open());
@@ -603,6 +607,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         return;
       }
       sessionEvents?.cancel();
+      shareSession.bind(null);
       content.bindWorkspace(null);
       oldWorkspace?.removeListener(workspaceChanged);
       oldWorkspace?.dispose();
@@ -1047,6 +1052,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           : null,
     );
     final rootChanged = rootInputs != workspaceRootInputs;
+    if (rootChanged) unawaited(shareSession.publish());
     workspaceRootInputs = rootInputs;
     if (serverSwitchLocation != null && w.server != null) {
       // The app-root URI already owns the accepted switch. Controller
@@ -1574,6 +1580,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   void watchSession(RaftClient c) {
+    shareSession.bind(c);
     final principal = c.user!.id;
     sessionEvents?.cancel();
     sessionEvents = c.events.listen((e) {
@@ -1609,6 +1616,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         setState(() {});
       }
       if (e.name == 'session:ended' && mounted && identical(c, client)) {
+        shareSession.bind(null);
         authAttempt++;
         rootRequest++;
         retireShares();
@@ -1640,6 +1648,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> logout({String? previousPrincipal}) async {
+    shareSession.bind(null);
     authAttempt++;
     rootRequest++;
     content.bindWorkspace(null);
@@ -1692,6 +1701,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final p = await SharedPreferences.getInstance();
     await p.setString('raft.mode', value.mode.name);
     await p.setString('raft.light', value.light.name);
+    // The next cold start's native splash needs the new canvas.
+    await NativeLaunchTheme.instance.set(value);
   }
 
   @override
@@ -1726,6 +1737,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     shareEpoch++;
     removeShareReceiver?.call();
     unawaited(sharing.dispose());
+    unawaited(shareSession.dispose());
     WidgetsBinding.instance.removeObserver(this);
     NativeSystemFonts.instance.removeListener(systemFontsChanged);
     unawaited(content.dispose());
