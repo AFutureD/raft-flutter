@@ -509,6 +509,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   Future<void> restore() async {
+    // The foreground owns the session from its first instruction: this is
+    // synchronous and never waits for or fails because of a background guest.
+    final guestSettled = sessionOwner.claim();
     try {
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
@@ -534,7 +537,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       // rejected or replaced account ends through the session events below.
       if (await c.restore(
         cachedFirst: true,
-        credentialsReady: sessionOwner.acquire(foreground: true),
+        credentialsReady: guestSettled,
         onLocalSession: (cached) {
           if (!cached) finishStartup();
         },
@@ -583,7 +586,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     String base,
     Future<void> Function(RaftClient) action,
   ) async {
-    await sessionOwner.acquire(foreground: true);
+    sessionOwner.claim();
     if (!mounted) return;
     final attempt = ++authAttempt;
     final c = authClient(base, attempt);
@@ -1670,7 +1673,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         ? Future<Session?>.value()
         : sessionPersistence.clearAfter(
             c.origin,
-            sessionOwner.acquire(foreground: true),
+            sessionOwner.claim(),
             principal: c.user?.id,
           );
     workspace = null;

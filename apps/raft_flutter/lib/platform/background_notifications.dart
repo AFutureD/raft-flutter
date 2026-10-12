@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
@@ -12,111 +11,12 @@ import 'package:workmanager/workmanager.dart';
 import 'background_inbox.dart';
 import 'content_coordinator.dart';
 import 'content_target.dart';
+import 'session_owner.dart';
 import 'session_store.dart';
 
+export 'session_owner.dart';
+
 bool get mobileBackgroundSupported => Platform.isAndroid || Platform.isIOS;
-const _sessionOwnerName = 'raft.native.session-owner.v1';
-
-/// One process-wide owner of rotating credentials across Flutter engines.
-/// Workers delegate to a running UI client and yield to foreground startup.
-/// Only requests and credential writes wait; local cache reads never do.
-class NativeSessionOwner {
-  NativeSessionOwner({this.poll, this.onYield, bool? supported})
-    : supported = supported ?? mobileBackgroundSupported;
-  final bool supported;
-  final Future<bool> Function()? poll;
-  final Future<void> Function()? onYield;
-  ReceivePort? _port;
-  Future<bool>? _polling;
-  Future<void>? _acquiring;
-  Future<void>? _yielding;
-  Future<void> acquire({bool foreground = false}) =>
-      _acquiring ??= _acquire(foreground).whenComplete(() => _acquiring = null);
-  Future<void> _acquire(bool foreground) async {
-    if (!supported || _port != null) return;
-    final deadline = DateTime.now().add(const Duration(seconds: 30));
-    SendPort? requestedYield;
-    while (true) {
-      final port = ReceivePort();
-      if (IsolateNameServer.registerPortWithName(
-        port.sendPort,
-        _sessionOwnerName,
-      )) {
-        _port = port;
-        _yielding = null;
-        port.listen((message) async {
-          if (message == 'yield' && onYield != null) {
-            try {
-              await (_yielding ??= onYield!());
-            } catch (_) {}
-            return;
-          }
-          if (message is! List ||
-              message.length != 2 ||
-              message[1] is! SendPort) {
-            return;
-          }
-          final reply = message[1] as SendPort;
-          if (message[0] != 'poll' || poll == null) {
-            reply.send(false);
-            return;
-          }
-          try {
-            reply.send(
-              await (_polling ??= poll!().whenComplete(() => _polling = null)),
-            );
-          } catch (_) {
-            reply.send(false);
-          }
-        });
-        return;
-      }
-      port.close();
-      final existing = IsolateNameServer.lookupPortByName(_sessionOwnerName);
-      if (foreground && existing != null && existing != requestedYield) {
-        requestedYield = existing;
-        // The worker releases its own mapping after transport and persistence
-        // settle. Never steal a live owner's port or abandon a token rotation.
-        existing.send('yield');
-      }
-      if (DateTime.now().isAfter(deadline)) {
-        throw const RaftApiException(
-          'Background session recovery is still running. Please retry.',
-        );
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
-  }
-
-  void release() {
-    if (_acquiring != null) {
-      unawaited(
-        _acquiring!.then<void>(
-          (_) => release(),
-          onError: (Object _, StackTrace _) {},
-        ),
-      );
-      return;
-    }
-    if (_polling != null) {
-      unawaited(
-        _polling!.then<void>(
-          (_) => release(),
-          onError: (Object _, StackTrace _) => release(),
-        ),
-      );
-      return;
-    }
-    final port = _port;
-    if (port == null) return;
-    if (IsolateNameServer.lookupPortByName(_sessionOwnerName) ==
-        port.sendPort) {
-      IsolateNameServer.removePortNameMapping(_sessionOwnerName);
-    }
-    port.close();
-    _port = null;
-  }
-}
 
 @pragma('vm:entry-point')
 void backgroundNotificationDispatcher() {
@@ -132,7 +32,7 @@ void backgroundNotificationDispatcher() {
 
 Future<bool> runBackgroundInbox() async {
   final started = DateTime.now();
-  final mode = IsolateNameServer.lookupPortByName(_sessionOwnerName) == null
+  final mode = IsolateNameServer.lookupPortByName(sessionOwnerName) == null
       ? 'headless'
       : 'existing-session-owner';
   var success = false;
@@ -145,33 +45,37 @@ Future<bool> runBackgroundInbox() async {
   }
 }
 
-Future<bool> _runBackgroundInbox() async {
-  final running = IsolateNameServer.lookupPortByName(_sessionOwnerName);
-  if (running != null) {
-    final reply = ReceivePort();
-    try {
-      running.send(['poll', reply.sendPort]);
-      return await reply.first.timeout(const Duration(seconds: 25)) == true;
-    } catch (_) {
-      return false;
-    } finally {
-      reply.close();
-    }
-  }
+/// A worker is a guest of the session. It never waits for, takes from or
+/// outlives a foreground: a live owner polls for it, a live guest makes it
+/// skip this wake, and it stops at once when preempted.
+Future<bool> _runBackgroundInbox({
+  Duration busyBudget = const Duration(seconds: 8),
+}) async {
+  final waitedSince = DateTime.now();
   RaftClient? client;
   Timer? budget;
-  var yielding = false;
-  final finished = Completer<void>();
+  var preempted = false;
+  GuestSessionStore? guestStore;
   final owner = NativeSessionOwner(
-    onYield: () async {
-      yielding = true;
+    onPreempt: () async {
+      preempted = true;
+      // Stop in-flight requests first; then fence and drain credential writes.
       client?.http.close(force: true);
-      await finished.future;
+      await guestStore?.preempt();
     },
   );
   try {
-    await owner.acquire();
-    if (yielding) return true;
+    while (true) {
+      final (probe, polled) = await NativeSessionOwner.probe();
+      if (probe == OwnerProbe.delegated) return polled;
+      if (probe == OwnerProbe.none && owner.registerGuest()) break;
+      // Another guest is mid-run (or registered between probe and register).
+      // This wake is a guest: wait a little for it, then try the next period.
+      if (DateTime.now().difference(waitedSince) > busyBudget) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    guestStore = GuestSessionStore(SecureSessionStore());
+    if (preempted) return true;
     final store = BackgroundInboxStore(),
         scope = await BackgroundInboxStore().scope();
     if (scope == null || !await store.enabled(scope)) return true;
@@ -196,10 +100,10 @@ Future<bool> _runBackgroundInbox() async {
         !await notificationPermission(plugin)) {
       return true;
     }
-    if (yielding) return true;
+    if (preempted) return true;
     client = RaftClient(
       origin: fields[0],
-      sessionStore: SecureSessionStore(),
+      sessionStore: guestStore,
       clientKind: 'mobile',
     );
     client.http.options.connectTimeout = const Duration(seconds: 3);
@@ -211,7 +115,7 @@ Future<bool> _runBackgroundInbox() async {
       () => client?.http.close(force: true),
     );
     if (!await client.restore() ||
-        yielding ||
+        preempted ||
         client.restoredOffline ||
         client.user?.id != fields[1]) {
       return true;
@@ -231,7 +135,7 @@ Future<bool> _runBackgroundInbox() async {
         }
       },
       deliver: (alert, selected) async {
-        if (yielding ||
+        if (preempted ||
             await store.scope() != selected ||
             !await store.enabled(selected) ||
             !await notificationPermission(plugin)) {
@@ -255,7 +159,6 @@ Future<bool> _runBackgroundInbox() async {
       await client?.dispose();
     } finally {
       owner.release();
-      finished.complete();
     }
   }
 }
