@@ -115,6 +115,23 @@ final class ShareInboxWriter {
                   "mimeType": mimeType, "sizeBytes": size])
   }
 
+  struct PreparedFile {
+    let url: URL
+    let name: String
+    let size: Int
+  }
+  /// A private, unpublished snapshot for the extension's explicit Send action.
+  /// The copied files keep their staged lifetime until completion/cancellation.
+  func preparedFiles() throws -> [PreparedFile] {
+    lock.lock(); defer { lock.unlock() }
+    guard !finished, !isCancelled else { throw Failure.cancelled }
+    return try files.map { row in
+      guard let file = row["file"] as? String, let name = row["filename"] as? String,
+            let size = row["sizeBytes"] as? Int else { throw Failure.invalidFile }
+      return PreparedFile(url: folder.appendingPathComponent(file), name: name, size: size)
+    }
+  }
+
   func commit(text: String?) throws -> String {
     lock.lock(); defer { lock.unlock() }
     guard !finished, !isCancelled else { throw Failure.cancelled }

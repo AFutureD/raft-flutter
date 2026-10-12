@@ -29,6 +29,7 @@ import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'thread_composition.dart';
 import 'tokens/shadows.g.dart';
+import 'status_bar.dart';
 
 /// LegacyTaskPanel's container is selected by MainLayout, independently of
 /// the modern task modal and of the task's accepted metadata.
@@ -180,20 +181,25 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
         ),
       ),
     );
-    final framed = overlay || mobile
-        ? DecoratedBox(
-            position: DecorationPosition.foreground,
-            decoration: BoxDecoration(
-              border: side && size.width >= 1024
-                  ? Border(
-                      left: BorderSide(
-                        color: t.brutal ? t.ink : t.colors['line-hairline']!,
-                        width: t.brutal ? 2 : 1,
-                      ),
-                    )
-                  : null,
+    final edge = side && size.width >= 1024
+        ? Border(
+            left: BorderSide(
+              color: t.brutal ? t.ink : t.colors['line-hairline']!,
+              width: t.brutal ? 2 : 1,
             ),
-            child: panel,
+          )
+        : null;
+    final framed = overlay || mobile
+        // A full-height panel is a column under the status bar: its surface
+        // and edge continue up through the band.
+        ? RaftStatusBarSource(
+            color: legacy ? t.canvas : t.panel,
+            border: edge,
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(border: edge),
+              child: panel,
+            ),
           )
         : RaftModalBackdrop(
             child: GestureDetector(
