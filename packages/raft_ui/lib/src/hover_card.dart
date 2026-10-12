@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'dismiss_scope.dart';
 import 'pointer_intent.dart';
 import 'recipe_surface.dart';
 import 'recipes/preview_card.g.dart';
@@ -425,7 +426,7 @@ class _RaftHoverCardState extends State<RaftHoverCard>
       ),
     );
     if (!widget.interactive) card = IgnorePointer(child: card);
-    return Positioned.fill(
+    final layer = Positioned.fill(
       child: CustomSingleChildLayout(
         delegate: placement,
         child: AnimatedBuilder(
@@ -445,6 +446,10 @@ class _RaftHoverCardState extends State<RaftHoverCard>
         ),
       ),
     );
+    // A pinned card (a tap, not a hover) is a popup: Android Back closes it.
+    return pinned
+        ? RaftBackDismiss(onDismiss: () => _hide(immediate: true), child: layer)
+        : layer;
   }
 
   @override

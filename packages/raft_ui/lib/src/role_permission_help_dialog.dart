@@ -87,6 +87,7 @@ class RaftRolePermissionHelpDialog extends StatelessWidget {
       surfaceKey: const ValueKey('role-help-dialog'),
       title: agent ? 'Agent roles' : 'Human roles',
       onClose: onClose,
+      onBackdrop: onClose,
       children: [
         // `space-y-3`
         for (final (i, (role, sum, text)) in (agent ? _agentRoles : _humanRoles).indexed) ...[

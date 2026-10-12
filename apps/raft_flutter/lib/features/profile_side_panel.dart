@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -47,6 +50,7 @@ class ProfileSidePanel extends StatelessWidget {
           orElse: () => AgentDetailTab.profile,
         ),
         onClose: onBack ?? onClose,
+        closeAction: true,
         // Nested creator / created-agent navigation stays in this panel.
         onOpenAgent: (id) => w.openProfile(RaftProfileKind.agent, id),
       ),
@@ -83,4 +87,91 @@ class ProfileSidePanel extends StatelessWidget {
       child: RaftProfilePanelSurface(child: body),
     );
   }
+}
+
+/// Owner-approved difference (docs/parity.md): Web's docked profile panel is
+/// non-modal and closes only from its X / Escape; on wide layouts a tap that
+/// lands outside the panel also dismisses it. The tap is observed through a
+/// raw pointer [Listener], so it never enters the gesture arena and the tapped
+/// control still works. A tap that retargets the profile (another sender
+/// avatar, a mention) switches it instead of closing it.
+class ProfileOutsideTapDismiss extends StatefulWidget {
+  const ProfileOutsideTapDismiss({
+    super.key,
+    required this.controller,
+    required this.panelKey,
+    required this.enabled,
+    required this.onDismiss,
+    required this.child,
+  });
+  final WorkspaceController controller;
+
+  /// The mounted [ProfileSidePanel]; a tap inside its box is not outside.
+  final GlobalKey panelKey;
+  final bool enabled;
+  final VoidCallback onDismiss;
+  final Widget child;
+
+  @override
+  State<ProfileOutsideTapDismiss> createState() =>
+      _ProfileOutsideTapDismissState();
+}
+
+class _ProfileOutsideTapDismissState extends State<ProfileOutsideTapDismiss> {
+  int? pointer;
+  Offset? down;
+  String? target;
+
+  bool insidePanel(Offset global) {
+    final box = widget.panelKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return false;
+    return (box.localToGlobal(Offset.zero) & box.size).contains(global);
+  }
+
+  void onDown(PointerDownEvent e) {
+    final profile = widget.controller.location.profile;
+    final panel = widget.panelKey.currentContext?.findRenderObject();
+    if (!widget.enabled ||
+        profile == null ||
+        panel is! RenderBox ||
+        !panel.attached ||
+        e.kind == PointerDeviceKind.mouse && e.buttons != kPrimaryButton ||
+        insidePanel(e.position)) {
+      pointer = null;
+      return;
+    }
+    pointer = e.pointer;
+    down = e.position;
+    target = widget.controller.location.uri.toString();
+  }
+
+  void onUp(PointerUpEvent e) {
+    if (e.pointer != pointer) return;
+    pointer = null;
+    final start = down, was = target;
+    if (start == null || was == null) return;
+    // A scroll / drag is not a tap.
+    if ((e.position - start).distance > kTouchSlop) return;
+    // The tapped control's own handler runs when the arena sweeps right after
+    // this event; decide afterwards whether the profile was retargeted.
+    scheduleMicrotask(() {
+      if (!mounted || !widget.enabled) return;
+      // Any location change (another profile, a thread or task opened /
+      // closed, a message jump) is the tapped control's own effect: keep it.
+      if (widget.controller.location.uri.toString() == was) {
+        widget.onDismiss();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerDown: onDown,
+    onPointerUp: onUp,
+    onPointerCancel: (e) {
+      if (e.pointer == pointer) pointer = null;
+    },
+    child: widget.child,
+  );
 }
