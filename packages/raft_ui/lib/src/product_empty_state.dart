@@ -119,7 +119,9 @@ class RaftProductEmptyPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return ColoredBox(
-      color: t.brutal ? t.panel : t.sidebar,
+      // TasksPanelViewport `dark:bg-transparent`: Elegant dark shows the
+      // mounted card surface.
+      color: t.brutal ? t.panel : (t.dark ? Colors.transparent : t.sidebar),
       child: Padding(
         padding: raftScrollPadding(context, const EdgeInsets.all(16)),
         child: SizedBox.expand(

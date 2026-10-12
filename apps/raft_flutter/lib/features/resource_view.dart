@@ -2299,6 +2299,15 @@ class _ResourceViewState extends State<ResourceView> {
         ? BoxDecoration(color: t.brutal ? t.panel : t.sidebar)
         : widget.section == 'search'
         ? searchSlots(context).frame.decoration(rui.RaftRecipeTokens(t))
+        // TasksPanelViewport is `dark:bg-transparent`: Elegant dark shows the
+        // mounted ancestor, ConversationPanelContent's card in a channel tab
+        // and the canvas-muted page surface on the Tasks page.
+        : widget.section == 'tasks' && t.dark && !t.brutal
+        ? BoxDecoration(
+            color: widget.channelId != null
+                ? t.card
+                : t.colors['layer-canvas-muted']!,
+          )
         : null;
     final bodyChild = widget.section == 'tasks'
         ? DefaultTextStyle.merge(
@@ -5233,9 +5242,9 @@ class _ResourceViewState extends State<ResourceView> {
   }
 
   /// TasksPanelViewport `bg-layer-canvas-muted theme-brutal:bg-white
-  /// dark:bg-transparent`: dark shows the shell canvas.
+  /// dark:bg-transparent`: dark shows the ancestor surface (see build).
   Color taskViewportFill(RaftTokens t) =>
-      t.brutal ? t.panel : (t.dark ? t.canvas : t.sidebar);
+      t.brutal ? t.panel : (t.dark ? Colors.transparent : t.sidebar);
 
   /// TasksPanel channel mode with no task at all: the centred EmptyState
   /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.
