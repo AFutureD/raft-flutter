@@ -1,40 +1,45 @@
 import UIKit
 import UniformTypeIdentifiers
-import Social
 
-/// Native compose sheet shared by the app-row and Action-list extensions.
-final class ShareViewController: SLComposeServiceViewController {
+/// Both extension entry points only copy content and hand it to the main app.
+/// The main app owns destination selection, credentials, drafts and sending.
+final class ShareViewController: UIViewController {
   private var writer: ShareInboxWriter?
   private var text: [String] = []
   private var providers: [NSItemProvider] = []
   private var cancelled = false
-  private var prepared = false, sending = false
-  private var composeClient: ShareComposeClient?
-  private var access: ShareAccessSession?
-  private var servers: [[String: Any]] = []
-  private var serverId: String?
-  private var channels: [ShareDestination] = []
-  private var destination: ShareDestination?
-  private var targetRevision = 0
-  private var task: Task<Void, Never>?
-  private let serverItem = SLComposeSheetConfigurationItem()!
-  private let channelItem = SLComposeSheetConfigurationItem()!
-  private let filesItem = SLComposeSheetConfigurationItem()!
+  private var prepared = false, appeared = false, publishing = false, opening = false
+  private var handoffToken: String?
+  private var openAttempt = 0
+  private var openTimeout: DispatchWorkItem?
+  private let progress = UIActivityIndicatorView(style: .medium)
+  private let status = UILabel()
+  private let retry = UIButton(type: .system)
+  private let close = UIButton(type: .system)
 
   override func viewDidLoad() {
     super.viewDidLoad()
-    title = NSLocalizedString("Share to Raft", comment: "Share extension title")
-    placeholder = NSLocalizedString("Add a message…", comment: "Share message")
-    serverItem.title = NSLocalizedString("Server", comment: "Share target server")
-    serverItem.value = NSLocalizedString("Loading…", comment: "Loading share account")
-    serverItem.valuePending = true
-    serverItem.tapHandler = { [weak self] in self?.chooseServer() }
-    channelItem.title = NSLocalizedString("Conversation", comment: "Share target conversation")
-    channelItem.value = NSLocalizedString("Choose a conversation", comment: "Share target")
-    channelItem.tapHandler = { [weak self] in self?.chooseConversation() }
-    filesItem.title = NSLocalizedString("Attachments", comment: "Share files")
-    filesItem.value = "0"
-    loadAccounts()
+    // No system social-compose card, text editor or destination picker.
+    view.backgroundColor = .systemBackground
+    status.text = NSLocalizedString("Preparing share…", comment: "Copying incoming content")
+    status.numberOfLines = 0
+    status.textAlignment = .center
+    retry.setTitle(NSLocalizedString("Open Raft", comment: "Retry main-app handoff"), for: .normal)
+    retry.addTarget(self, action: #selector(retryOpen), for: .touchUpInside)
+    retry.isHidden = true
+    close.setTitle(NSLocalizedString("Cancel", comment: "Cancel incoming copy"), for: .normal)
+    close.addTarget(self, action: #selector(closeShare), for: .touchUpInside)
+    let stack = UIStackView(arrangedSubviews: [progress, status, retry, close])
+    stack.axis = .vertical
+    stack.spacing = 16
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
+      stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24),
+      stack.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
+    ])
+    progress.startAnimating()
     guard let items = extensionContext?.inputItems as? [NSExtensionItem],
           let group = Bundle.main.object(forInfoDictionaryKey: "RaftAppGroup") as? String else {
       fail(); return
@@ -56,14 +61,17 @@ final class ShareViewController: SLComposeServiceViewController {
     }
   }
 
+  override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+    appeared = true
+    publishIfReady()
+  }
+
   private func load(_ index: Int) {
     guard !cancelled else { return }
     guard index < providers.count else {
       prepared = true
-      textView.text = text.joined(separator: "\n")
-      filesItem.value = String((try? writer?.preparedFiles().count) ?? 0)
-      reloadConfigurationItems()
-      validateContent()
+      publishIfReady()
       return
     }
     let provider = providers[index]
@@ -165,169 +173,103 @@ final class ShareViewController: SLComposeServiceViewController {
     }
   }
 
-  override func configurationItems() -> [Any]! { [serverItem, channelItem, filesItem] }
-
-  override func isContentValid() -> Bool {
-    guard prepared, !cancelled, !sending, destination != nil, composeClient != nil,
-          let writer, let files = try? writer.preparedFiles() else { return false }
-    let value = contentText ?? ""
-    return value.utf16.count <= 65536 && !ShareInboxWriter.unsafeText(value) &&
-      (!value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !files.isEmpty)
-  }
-
-  private func loadAccounts() {
-    task?.cancel(); composeClient?.cancel(); composeClient = nil
-    targetRevision += 1
-    task = Task { @MainActor [weak self] in
-      guard let self else { return }
+  private func publishIfReady() {
+    guard appeared, prepared, !publishing, !cancelled, let writer else { return }
+    publishing = true
+    close.isEnabled = false
+    let value = text.joined(separator: "\n")
+    DispatchQueue.global(qos: .userInitiated).async {
       do {
-        guard let group = Bundle.main.object(forInfoDictionaryKey: "RaftShareKeychainGroup") as? String,
-              !group.contains("$("), let account = try ShareSessionVault(accessGroup: group).read() else {
-          throw ShareComposeFailure.signIn
+        // One atomic rename publishes the envelope only after every file is copied.
+        let token = try writer.commit(text: value.isEmpty ? nil : value)
+        DispatchQueue.main.async {
+          guard !self.cancelled else { return }
+          self.handoffToken = token
+          self.close.isEnabled = true
+          self.close.setTitle(NSLocalizedString("Close", comment: "Close saved share"), for: .normal)
+          self.openMainApp()
         }
-        let client = ShareComposeClient(access: account, vault: ShareSessionVault(accessGroup: group))
-        self.composeClient = client
-        let servers = try await client.servers()
-        guard !self.cancelled, !Task.isCancelled else { return }
-        self.access = account; self.servers = servers
-        let preferred = servers.first { ($0["id"] as? String) == account.preferredServerId }
-        self.selectServer(preferred ?? servers.first)
-      } catch {
-        guard !self.cancelled, !Task.isCancelled else { return }
-        self.serverItem.valuePending = false
-        self.serverItem.value = NSLocalizedString("Open Raft to sign in", comment: "Share needs account")
-        self.reloadConfigurationItems()
-        self.showError(error, retry: { [weak self] in self?.loadAccounts() })
-      }
+      } catch { DispatchQueue.main.async { if !self.cancelled { self.fail() } } }
     }
   }
 
-  private func selectServer(_ row: [String: Any]?) {
-    guard !sending else { return }
-    targetRevision += 1
-    let revision = targetRevision
-    serverId = row?["id"] as? String
-    serverItem.valuePending = false
-    serverItem.value = row?["name"] as? String ?? NSLocalizedString("Choose a server", comment: "Share target")
-    destination = nil; channels = []
-    channelItem.value = NSLocalizedString("Choose a conversation", comment: "Share target")
-    reloadConfigurationItems(); validateContent()
-    guard let serverId, let composeClient else { return }
-    channelItem.valuePending = true
-    Task { @MainActor [weak self] in
-      guard let self else { return }
-      do {
-        let rows = try await composeClient.channels(server: serverId)
-        guard !self.cancelled, self.serverId == serverId, self.targetRevision == revision else { return }
-        self.channels = rows; self.channelItem.valuePending = false
-        self.reloadConfigurationItems(); self.validateContent()
-      } catch {
-        guard !self.cancelled, self.serverId == serverId, self.targetRevision == revision else { return }
-        self.channelItem.valuePending = false; self.reloadConfigurationItems()
-        self.showError(error, retry: { [weak self] in self?.selectServer(row) })
+  @objc private func retryOpen() { openMainApp() }
+
+  private func openMainApp() {
+    guard !cancelled, !opening, let token = handoffToken,
+          let url = URL(string: "raft://share/" + token) else { return }
+    opening = true
+    openAttempt += 1
+    let attempt = openAttempt
+    retry.isHidden = true
+    progress.startAnimating()
+    status.text = NSLocalizedString("Opening Raft…", comment: "Incoming handoff")
+    let completion: (Bool) -> Void = { [weak self] opened in
+      DispatchQueue.main.async {
+        guard let self, !self.cancelled, self.openAttempt == attempt else { return }
+        self.openTimeout?.cancel()
+        self.opening = false
+        if opened {
+          self.cancelled = true
+          self.extensionContext?.completeRequest(returningItems: nil)
+        } else {
+          self.showOpenFailure()
+        }
       }
     }
-  }
-  private func chooseServer() {
-    guard !sending else { return }
-    guard !servers.isEmpty else { loadAccounts(); return }
-    let available = servers
-    let names = available.map { $0["name"] as? String ?? "" }
-    let picker = ShareTargetList(title: NSLocalizedString("Server", comment: "Share target"), names: names) { [weak self] index in
-      guard let self, available.indices.contains(index) else { return }
-      self.popConfigurationViewController()
-      self.selectServer(available[index])
+    let timeout = DispatchWorkItem { [weak self] in
+      guard let self, !self.cancelled, self.openAttempt == attempt, self.opening else { return }
+      self.opening = false
+      self.showOpenFailure()
     }
-    pushConfigurationViewController(picker)
-  }
-  private func chooseConversation() {
-    guard !sending, !channelItem.valuePending else { return }
-    let available = channels, revision = targetRevision
-    let picker = ShareTargetList(title: NSLocalizedString("Conversation", comment: "Share target"), names: available.map { $0.name }) { [weak self] index in
-      guard let self, available.indices.contains(index), self.targetRevision == revision else { return }
-      self.destination = available[index]
-      self.channelItem.value = self.destination?.name
-      self.popConfigurationViewController(); self.reloadConfigurationItems(); self.validateContent()
-    }
-    pushConfigurationViewController(picker)
-  }
-  override func didSelectPost() {
-    guard isContentValid(), let destination, let writer, let composeClient,
-          let files = try? writer.preparedFiles() else { return }
-    sending = true
-    let value = contentText ?? ""
-    textView.isEditable = false; validateContent()
-    task = Task { @MainActor [weak self] in
-      guard let self else { return }
-      do {
-        try await composeClient.send(to: destination, text: value, files: files)
-        guard !self.cancelled else { return }
-        self.cancelled = true; composeClient.cancel(); writer.cancel()
-        self.extensionContext?.completeRequest(returningItems: nil)
-      } catch {
-        guard !self.cancelled else { return }
-        self.sending = false; self.textView.isEditable = true; self.validateContent()
-        self.showError(error, retry: nil)
+    openTimeout = timeout
+    DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: timeout)
+
+    // Compatibility technique used by receive_sharing_intent and similar
+    // libraries: use the modern public open API on the responder-chain app.
+    // Apple does not guarantee this entry point from Share/Action extensions.
+    // Keep extension API checking enabled; do not call sharedApplication or
+    // private runtime selectors. The callback, not finding a responder, decides
+    // whether opening succeeded. Saved content survives a rejected handoff.
+    var responder: UIResponder? = self
+    var visited = Set<ObjectIdentifier>()
+    while let current = responder, visited.insert(ObjectIdentifier(current)).inserted {
+      if let application = current as? UIApplication {
+        application.open(url, options: [:], completionHandler: completion)
+        return
       }
+      responder = current.next
     }
+    // Some hosts may honor the context request even without an app responder.
+    extensionContext?.open(url, completionHandler: completion)
   }
-  private func showError(_ error: Error, retry: (() -> Void)?) {
-    let message: String
-    switch error {
-    case ShareComposeFailure.signIn:
-      message = NSLocalizedString("Open Raft and sign in again, then share. Your login is needed to choose a destination.", comment: "Share account expired")
-    case ShareComposeFailure.upload:
-      message = NSLocalizedString("An attachment exceeds this server's upload limit or could not be uploaded.", comment: "Share upload failed")
-    default:
-      message = NSLocalizedString("Could not share. Check your connection and destination, then try again.", comment: "Share failed")
-    }
-    let alert = UIAlertController(title: NSLocalizedString("Share to Raft", comment: "Share title"), message: message, preferredStyle: .alert)
-    if let retry { alert.addAction(UIAlertAction(title: NSLocalizedString("Retry", comment: "Retry sharing"), style: .default) { _ in retry() }) }
-    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Dismiss error"), style: .cancel))
-    present(alert, animated: true)
+
+  private func showOpenFailure() {
+    progress.stopAnimating()
+    status.text = NSLocalizedString("Your share is saved. Open Raft to continue.", comment: "Main-app handoff rejected")
+    retry.isHidden = false
   }
+
   private func fail() {
-    prepared = false; writer?.cancel(); validateContent()
-    showError(ShareComposeFailure.invalidContent, retry: nil)
+    prepared = false
+    writer?.cancel()
+    progress.stopAnimating()
+    status.text = NSLocalizedString("This content could not be prepared for sharing.", comment: "Incoming copy failed")
+    close.isEnabled = true
   }
-  override func didSelectCancel() {
-    cancelled = true; task?.cancel(); composeClient?.cancel(); writer?.cancel()
-    extensionContext?.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
-  }
-  deinit { task?.cancel(); composeClient?.cancel(); writer?.cancel() }
-}
 
-private final class ShareTargetList: UITableViewController, UISearchResultsUpdating {
-  let names: [String]
-  let selected: (Int) -> Void
-  private var indices: [Int] = []
-  private let search = UISearchController(searchResultsController: nil)
-  init(title: String, names: [String], selected: @escaping (Int) -> Void) {
-    self.names = names; self.selected = selected; self.indices = Array(names.indices)
-    super.init(style: .insetGrouped); self.title = title
-  }
-  required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
-  override func viewDidLoad() {
-    super.viewDidLoad()
-    tableView.rowHeight = 52
-    search.searchResultsUpdater = self; search.obscuresBackgroundDuringPresentation = false
-    navigationItem.searchController = search
-    definesPresentationContext = true
-    if names.isEmpty {
-      let empty = UILabel(); empty.text = NSLocalizedString("No conversations available", comment: "Share empty targets")
-      empty.textAlignment = .center; empty.numberOfLines = 0; tableView.backgroundView = empty
+  @objc private func closeShare() {
+    cancelled = true
+    openAttempt += 1
+    openTimeout?.cancel()
+    writer?.cancel()
+    if handoffToken != nil {
+      // The content has already been accepted; closing leaves it for the app.
+      extensionContext?.completeRequest(returningItems: nil)
+    } else {
+      extensionContext?.cancelRequest(withError: NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError))
     }
   }
-  func updateSearchResults(for searchController: UISearchController) {
-    let query = searchController.searchBar.text ?? ""
-    indices = names.indices.filter { query.isEmpty || names[$0].localizedCaseInsensitiveContains(query) }
-    tableView.reloadData()
-  }
-  override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { indices.count }
-  override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-    var content = cell.defaultContentConfiguration(); content.text = names[indices[indexPath.row]]
-    cell.contentConfiguration = content; return cell
-  }
-  override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) { selected(indices[indexPath.row]) }
+
+  deinit { openTimeout?.cancel(); writer?.cancel() }
 }

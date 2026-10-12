@@ -24,6 +24,13 @@ class _Storage implements SearchMemoryStorage {
   }
 }
 
+class _SyncStorage extends _Storage implements SynchronousSearchMemoryStorage {
+  @override
+  bool get ready => true;
+  @override
+  String? readSync(String key) => values[key];
+}
+
 class _Workspace extends WorkspaceController {
   _Workspace(super.client);
   List<Map<String, dynamic>> agents = [
@@ -36,6 +43,26 @@ class _Workspace extends WorkspaceController {
 }
 
 void main() {
+  test('preloaded storage: the stored choice is in place before bind yields', () {
+    final storage = _SyncStorage();
+    final key = PersonalPresentationStore(storage: storage).scopeKey('https://fixture.invalid', 'u')!;
+    storage.values[key] = jsonEncode({
+      'font': 'lg',
+      'liveActivity': false,
+      'modelName': true,
+      'hideEmptySections': false,
+    });
+    final store = PersonalPresentationStore(storage: storage, desktop: true);
+    var notified = 0;
+    store.addListener(() => notified++);
+    // Not awaited: this is the state the first frame builds from.
+    unawaited(store.bind('https://fixture.invalid', 'u'));
+    expect(store.value.font, 'lg');
+    expect(store.value.hideEmptySections, isFalse, reason: 'desktop default is true');
+    expect(store.value.liveActivity, isFalse);
+    expect(notified, 1, reason: 'one notification, no defaults frame in between');
+  });
+
   test('local choice beats profile seed; corrupt storage and native/web defaults are safe', () async {
     final storage = _Storage();
     final store = PersonalPresentationStore(storage: storage, desktop: true);
