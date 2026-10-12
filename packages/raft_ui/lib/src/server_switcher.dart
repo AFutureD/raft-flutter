@@ -10,6 +10,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'mobile_navigation.dart';
 import 'recipe_surface.dart';
+import 'status_bar.dart';
 import 'rail_attention.dart';
 import 'recipes/app_rail.g.dart';
 import 'recipes/avatar.g.dart';
@@ -430,16 +431,35 @@ class RaftServerResolutionBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return ColoredBox(
-      color: t.product.brutalCream,
-      child: Center(
-        child: Text(
-          raftText(context, label),
-          style: RaftTypography.body(
-            t,
-            size: 20,
-            line: 28,
-            weight: FontWeight.w700,
+    // The splash is a page of its own (Material + page text style), never bare
+    // text: outside a Material Flutter paints the debug fallback style (yellow
+    // double underline). `safe-top` pads the status bar like the Web div.
+    // Brutal keeps the Web `bg-brutal-cream`; elegant (light and dark) uses
+    // the theme canvas, so the splash never flashes cream in dark mode.
+    final canvas = t.brutal ? t.product.brutalCream : t.canvas;
+    return RaftStatusBarHost(
+      fallback: canvas,
+      expand: true,
+      child: Material(
+        color: canvas,
+        child: DefaultTextStyle.merge(
+          style: TextStyle(
+            fontFamily: t.headingFont,
+            color: t.semantic.foreground,
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+            child: Center(
+              child: Text(
+                raftText(context, label),
+                style: RaftTypography.body(
+                  t,
+                  size: 20,
+                  line: 28,
+                  weight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
         ),
       ),

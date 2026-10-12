@@ -252,12 +252,11 @@ class _ErrorDisclosureState extends State<_ErrorDisclosure> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(
-            button: true,
-            expanded: open,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => open = !open),
+          RaftInteractive(
+            semanticLabel: widget.title,
+            onPressed: () => setState(() => open = !open),
+            builder: (context, state) => Opacity(
+              opacity: state.pressed ? .6 : 1,
               child: Row(
                 children: [
                   // The native disclosure marker: a 7px triangle, 6px before
