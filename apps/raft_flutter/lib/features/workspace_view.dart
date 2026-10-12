@@ -2798,7 +2798,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       selectedId: w.navigation.mobileRootTabOf(w.location) ?? 'chat',
       tabs: mobileTabIds,
       activityUnread: activityUnread,
-      // Android's tab bar consumes this inset; other hosts retain shell padding.
+      // Native tab bars consume the system inset once, outside the nav recipe.
       bottomInset: 0,
       onSelected: (tab) => selectMobileTab(tab, scope),
     );
@@ -3282,7 +3282,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final edgeToEdgeHome =
         mobileHome &&
         !kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android;
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
     final recipe = RaftSidebarRecipe(
       RaftTokens.of(context),
       viewportWidth: MediaQuery.sizeOf(context).width,

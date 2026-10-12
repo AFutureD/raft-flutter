@@ -31,7 +31,11 @@ class _Files extends AttachmentFiles {
   final bytes = Completer<Uint8List>();
   int reads = 0;
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) {
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) {
     reads++;
     return bytes.future;
   }

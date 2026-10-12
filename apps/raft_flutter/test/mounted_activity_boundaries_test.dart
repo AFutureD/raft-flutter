@@ -86,7 +86,7 @@ void main() {
             expect(row, findsOneWidget);
             final entries = w.navigation.entries.length;
             await t.tap(row);
-            final split = width >= (enabled ? 768 : 1024);
+            final split = width >= 768;
             final target = split ? 'first-channel' : 'mention-channel';
             void expectLocation() {
               expect(
