@@ -26,6 +26,7 @@ export 'src/panel_edge.dart';
 export 'src/localization.dart';
 export 'src/message_body.dart';
 export 'src/font_warm_up.dart';
+export 'src/idle_work.dart';
 export 'src/lru_cache.dart';
 export 'src/message_reference_chip.dart';
 export 'src/action_card.dart';

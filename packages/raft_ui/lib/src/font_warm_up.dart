@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import 'design_primitives.dart';
+import 'idle_work.dart';
 import 'dialog_card.dart' show raftRecipeThemeOf;
 import 'message_content_tokens.dart';
 import 'message_row_recipe.dart';
@@ -23,9 +23,10 @@ import 'tooltip.dart';
 /// "Back to bottom" button or a bold run scrolls in.
 ///
 /// [RaftFontWarmUp] lays out one short sample (Latin, CJK and emoji) per
-/// distinct combination the message list and its chrome use. Samples run one
-/// per event-loop turn, only while the user is not interacting (no pointer
-/// or key input for [quietPeriod]) and no watched list is scrolling; ambient
+/// distinct combination the message list and its chrome use. Samples run in
+/// short event-loop turns (one cold lookup, or a millisecond of warm ones),
+/// only while the user is not interacting (no pointer or key input for
+/// [quietPeriod]) and no watched list is scrolling; ambient
 /// animations such as a spinner do not hold them back. Already-resolved
 /// combinations cost a fraction of a millisecond.
 abstract final class RaftFontWarmUp {
@@ -41,7 +42,10 @@ abstract final class RaftFontWarmUp {
   static final _themes = <(RaftFamily, bool, bool, Locale?)>{};
   static final _positions = <WeakReference<ScrollPosition>>[];
   static final _watched = Expando<bool>('raftFontWarmUp');
-  static Timer? _timer;
+  // Ambient animation does not hold the warm-up back (see the class comment),
+  // but every step still waits a positive delay so the platform event loop
+  // (native input on Windows) runs between steps.
+  static final _idle = RaftIdleTimer(yieldToAnimation: false);
   static bool _inputHooked = false;
   static final _sinceInput = Stopwatch();
 
@@ -54,8 +58,7 @@ abstract final class RaftFontWarmUp {
 
   @visibleForTesting
   static void reset() {
-    _timer?.cancel();
-    _timer = null;
+    _idle.cancel();
     _queue.clear();
     _done.clear();
     _themes.clear();
@@ -112,21 +115,28 @@ abstract final class RaftFontWarmUp {
     return position != null && position.isScrollingNotifier.value;
   });
 
-  static void _arm([Duration delay = Duration.zero]) {
-    if (_queue.isEmpty || _timer != null) return;
-    _timer = Timer(delay, _run);
+  static void _arm([Duration delay = RaftIdleWork.minDelay]) {
+    if (_queue.isEmpty || _idle.isActive) return;
+    _idle.start(delay, _run);
   }
 
+  /// Longest a turn may keep resolving already-warm combinations (fractions of
+  /// a millisecond each). A cold fontconfig lookup blows the budget and ends
+  /// the turn after that one sample.
+  static const _turnBudget = Duration(microseconds: 1500);
+
   static void _run() {
-    _timer = null;
     final wait = quietPeriod - _sinceInput.elapsed;
     if (wait > Duration.zero || _scrolling) {
       _arm(wait > const Duration(milliseconds: 50) ? wait : quietPeriod);
       return;
     }
-    final style = _queue.removeFirst();
-    if (_done.add(_FontKey(style))) _layOut(style);
-    _arm(); // One potentially slow lookup per event-loop turn.
+    final turn = Stopwatch()..start();
+    do {
+      final style = _queue.removeFirst();
+      if (_done.add(_FontKey(style))) _layOut(style);
+    } while (_queue.isNotEmpty && turn.elapsed < _turnBudget);
+    _arm(); // Then yield to the event loop with a positive delay.
   }
 
   static void _layOut(TextStyle style) {
