@@ -121,6 +121,22 @@ class AppImageTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), b'corrupted')
             request.assert_not_called()
 
+    def test_bundled_libva_is_used_only_when_the_host_lacks_it(self):
+        with tempfile.TemporaryDirectory(prefix='raftlibva') as temporary:
+            host = Path(temporary)
+            script = appimage.host_libva_check().replace('/usr/lib64', str(host))
+            for other in ('/usr/lib/x86_64-linux-gnu', '/usr/lib'):
+                script = script.replace(other, str(host / 'none'))
+            def result():
+                return subprocess.check_output(
+                    ['sh', '-c', script + 'echo $host_libva'], text=True).strip()
+            self.assertEqual(result(), '0')
+            for name in appimage.LIBVA_LIBRARIES[:-1]:
+                (host / name).touch()
+            self.assertEqual(result(), '0')
+            (host / appimage.LIBVA_LIBRARIES[-1]).touch()
+            self.assertEqual(result(), '1')
+
 
 if __name__ == '__main__':
     unittest.main()

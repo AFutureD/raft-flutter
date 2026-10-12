@@ -106,3 +106,53 @@ class MediaLogLimiter {
 
   int get suppressed => _suppressed;
 }
+
+/// Name of the opt-in Linux hardware decoding switch.
+const linuxHwdecVariable = 'RAFT_LINUX_HWDEC';
+
+/// The mpv `hwdec` value requested through `RAFT_LINUX_HWDEC`, or null to keep
+/// software decoding (unset, empty, `no`, or anything that is not copy-back).
+///
+/// Only copy-back modes are accepted (`auto-copy`, `auto-copy-safe`,
+/// `vaapi-copy`, `nvdec-copy` ...): frames still reach the CPU texture path, so
+/// a zero-copy mode could not display. A comma list is accepted when every
+/// entry is acceptable. Anything else is ignored rather than passed to mpv.
+String? parseLinuxHwdec(String? raw) {
+  final value = raw?.trim().toLowerCase() ?? '';
+  if (value.isEmpty || value == 'no') return null;
+  final entries = value.split(',').map((e) => e.trim()).toList();
+  final valid = RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$');
+  for (final entry in entries) {
+    if (!valid.hasMatch(entry)) return null;
+    if (!entry.endsWith('-copy') &&
+        entry != 'auto-copy' &&
+        entry != 'auto-copy-safe') {
+      return null;
+    }
+  }
+  return entries.join(',');
+}
+
+/// One diagnostic line naming the decoder mpv actually uses.
+///
+/// [requested] is the `hwdec` option handed to mpv, [current] the value of its
+/// `hwdec-current` property (`no` for software decoding). Nothing here is
+/// user content: no path, URL or title.
+String formatHwdecLog({
+  required String requested,
+  String? current,
+  String? codec,
+  int? width,
+  int? height,
+}) {
+  String token(String? value, {String fallback = 'unknown'}) {
+    final clean = (value ?? '').replaceAll(RegExp(r'[^A-Za-z0-9_.,+-]'), '');
+    return clean.isEmpty ? fallback : clean;
+  }
+
+  final size = width != null && height != null && width > 0 && height > 0
+      ? '${width}x$height'
+      : 'unknown';
+  return 'raft.media: hwdec requested=${token(requested)} '
+      'current=${token(current)} codec=${token(codec)} $size';
+}

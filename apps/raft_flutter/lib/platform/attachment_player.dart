@@ -49,6 +49,8 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     this.transparentVideo = false,
   }) {
     MediaKit.ensureInitialized();
+    hwdecRequested =
+        parseLinuxHwdec(Platform.environment[linuxHwdecVariable]) ?? 'no';
     player = Player(
       configuration: const PlayerConfiguration(
         protocolWhitelist: ['file'],
@@ -71,13 +73,14 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
                 // does; forcing software there made 30 fps swscale the
                 // desktop default.
                 : Platform.isLinux
-                ? const VideoControllerConfiguration(
+                ? VideoControllerConfiguration(
                     enableHardwareAcceleration: false,
                     // The texture path copies frames in software anyway. mpv's
                     // default `auto` probes CUDA, VDPAU, V4L2 and VAAPI from a
                     // bundled userland against the host's drivers, which only
-                    // adds failures and start-up delay on Linux.
-                    hwdec: 'no',
+                    // adds failures and start-up delay on Linux. Copy-back
+                    // decoding is opt-in through RAFT_LINUX_HWDEC.
+                    hwdec: hwdecRequested,
                   )
                 : const VideoControllerConfiguration(),
           )
@@ -110,6 +113,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         controller!.waitUntilFirstFrameRendered.then((_) {
           hasFrame = true;
           publish();
+          if (Platform.isLinux) unawaited(logDecoder());
         }, onError: (_) {}),
       );
     }
@@ -140,6 +144,40 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       stderr.writeln(line);
     } on Object {
       // stderr may be closed (detached GUI session); logging is best effort.
+    }
+  }
+
+  /// The mpv `hwdec` option in effect on Linux (`no` unless opted in).
+  late final String hwdecRequested;
+
+  /// Writes one `raft.media: hwdec ...` line naming the decoder mpv really
+  /// uses once the first frame is out; best effort, never throws.
+  Future<void> logDecoder() async {
+    final native = player.platform;
+    if (closed || native is! NativePlayer) return;
+    try {
+      Future<String?> read(String name) async {
+        try {
+          return await native.getProperty(name, waitForInitialization: false);
+        } on Object {
+          return null;
+        }
+      }
+
+      final current = await read('hwdec-current');
+      final codec = await read('video-format');
+      if (closed) return;
+      _writeLog(
+        formatHwdecLog(
+          requested: hwdecRequested,
+          current: current,
+          codec: codec,
+          width: player.state.width,
+          height: player.state.height,
+        ),
+      );
+    } on Object {
+      // Diagnostics only.
     }
   }
 

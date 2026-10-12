@@ -16,6 +16,29 @@ HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
                          'GDK_PIXBUF_MODULE_FILE')
 
 
+# libmpv links the VA-API client libraries. A VA driver (iHD, radeonsi) must be
+# built against a libva no newer than the one that loads it, and libva searches
+# the driver directory it was compiled with, so a bundled Ubuntu libva cannot
+# load a Fedora driver. Prefer the host's; ship these only as a fallback that
+# AppRun adds to the library path when the host lacks them.
+LIBVA_LIBRARIES = ('libva.so.2', 'libva-drm.so.2', 'libva-x11.so.2', 'libva-wayland.so.2')
+HOST_LIBRARY_DIRECTORIES = ('/usr/lib64', '/usr/lib/x86_64-linux-gnu', '/usr/lib')
+
+
+def host_libva_check():
+    names = ' '.join(LIBVA_LIBRARIES)
+    dirs = ' '.join(HOST_LIBRARY_DIRECTORIES)
+    return f'''host_libva=1
+for lib in {names}; do
+  found=0
+  for dir in {dirs}; do
+    if [ -e "$dir/$lib" ]; then found=1; break; fi
+  done
+  if [ "$found" = 0 ]; then host_libva=0; fi
+done
+'''
+
+
 GTK3_IM_CACHES = (
     '/usr/lib64/gtk-3.0/3.0.0/immodules.cache',
     '/usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules.cache',
@@ -249,6 +272,11 @@ def package(stage, artifact, root, run, capture_output, file_digest):
             if not target.exists():
                 records[name] = provenance(name, path, notices)
                 shutil.copy2(path.resolve(), target)
+    fallback = stage / 'lib-fallback'
+    fallback.mkdir()
+    for name in LIBVA_LIBRARIES:
+        if (stage / 'lib' / name).exists():
+            shutil.move(str(stage / 'lib' / name), fallback / name)
     # Avoid loading host GIO modules into the bundled GLib ABI.
     (stage / 'lib/gio/modules').mkdir(parents=True)
     schemas = appdir / 'usr/share/glib-2.0/schemas'
@@ -270,8 +298,11 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     launcher.write_text('''#!/bin/sh
 set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-''' + host_environment_capture() + input_method_cache_setup() + '''export PATH="$app_dir/raft/bin:$PATH"
+''' + host_environment_capture() + input_method_cache_setup() + host_libva_check() + '''export PATH="$app_dir/raft/bin:$PATH"
 export LD_LIBRARY_PATH="$app_dir/raft/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+if [ "$host_libva" = 0 ]; then
+  export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$app_dir/raft/lib-fallback"
+fi
 export GIO_MODULE_DIR="$app_dir/raft/lib/gio/modules"
 export GSETTINGS_SCHEMA_DIR="$app_dir/usr/share/glib-2.0/schemas"
 export GIO_LAUNCH_DESKTOP="$app_dir/raft/bin/raft-gio-launch-desktop"
@@ -291,7 +322,8 @@ exec "$app_dir/raft/raft_flutter" "$@"
         dependencies(path, env=env)
     for row in records.values():
         row.setdefault('preparedSha256', row['sha256'])
-        row['sha256'] = file_digest(stage / 'lib' / row['library'])
+        placed = stage / 'lib-fallback' if row['library'] in LIBVA_LIBRARIES else stage / 'lib'
+        row['sha256'] = file_digest(placed / row['library'])
     for row in commands:
         row['sha256'] = file_digest(helpers / row['name'])
     manifest.update(libraries=sorted(records.values(), key=lambda row: row['library']),
