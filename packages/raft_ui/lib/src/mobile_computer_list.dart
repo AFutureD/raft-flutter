@@ -25,10 +25,15 @@ class RaftMobileComputerList extends StatelessWidget {
     required this.addLabel,
     required this.retryLabel,
     this.refreshError,
+    this.errorTitle,
+    this.errorDetail,
   });
   final List<Widget> rows;
   final bool loading;
   final String? error;
+
+  /// Load-error `EmptyState` copy shown when [error] is set.
+  final String? errorTitle, errorDetail;
 
   /// A failed refresh that kept the accepted [rows]: Web's
   /// `computers-refresh-error` banner (copy + Retry) above the list.
@@ -41,15 +46,21 @@ class RaftMobileComputerList extends StatelessWidget {
     final t = RaftTokens.of(context);
     final children = <Widget>[
       if (error != null)
+        // `EmptyState` (Monitor 36, load-error title / description) with the
+        // Retry action; Web shows no Add row in this state.
         Semantics(
           liveRegion: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(error!, style: RaftTypography.body(t, size: 14, line: 20)),
-              if (onRetry != null)
-                RaftButton(label: retryLabel, onPressed: onRetry),
-            ],
+          child: RaftEmptyState(
+            title: errorTitle ?? error!,
+            detail: errorDetail ?? '',
+            glyph: RaftGlyph.monitor,
+            action: onRetry == null
+                ? null
+                : RaftButton(
+                    label: retryLabel,
+                    glyph: RaftGlyph.refreshCw,
+                    onPressed: onRetry,
+                  ),
           ),
         ),
       if (refreshError != null && !loading)
@@ -120,7 +131,7 @@ class RaftMobileComputerList extends StatelessWidget {
           detail: emptyDetail,
           glyph: RaftGlyph.monitor,
         ),
-      if (!loading && onAdd != null)
+      if (!loading && onAdd != null && error == null)
         RaftInteractive(
           key: const ValueKey('computers-add-row'),
           semanticLabel: addLabel,

@@ -451,7 +451,10 @@ class RaftComputerRow extends StatelessWidget {
           ),
       ];
       return Container(
-        constraints: mobile ? const BoxConstraints(minHeight: 68) : null,
+        // 40px icon tile + 2 x p-3 + the border box (Brutal 2px, Elegant 1px).
+        constraints: mobile
+            ? BoxConstraints(minHeight: brutal ? 68 : 66)
+            : null,
         transform: mobile && (state.pressed || hover)
             ? Matrix4.translationValues(
                 state.pressed ? 1 : 0,
