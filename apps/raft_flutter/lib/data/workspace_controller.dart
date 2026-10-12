@@ -27,6 +27,7 @@ import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'attachment_url_cache.dart';
+import '../platform/inline_media_files.dart';
 import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
 import 'feature_flag_client_facts.dart';
@@ -1755,6 +1756,7 @@ class WorkspaceController extends ChangeNotifier {
     _stateStamp++;
     _attachmentImages?.synchronize(attachmentImageScope);
     _attachmentUrls.synchronize(attachmentImageScope);
+    _inlineMedia.synchronize(attachmentImageScope);
     if (!_disposed) {
       _ensureSyncIdentity();
       super.notifyListeners();
@@ -2652,6 +2654,8 @@ class WorkspaceController extends ChangeNotifier {
   static bool isPendingSend(RaftMessage message) =>
       message.json['pendingSend'] == true;
 
+  static bool _rateLimited(Object e) => e is RaftApiException && e.rateLimited;
+
   void setError(String? value) {
     final source = presentationSource;
     if (source != null) {
@@ -2871,6 +2875,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_revokedServers.contains(next.id)) return;
     server = next;
+    _burstAt.clear();
     if (mobileNavigation) section = 'home';
     if (!canVisitSection(section)) section = 'chat';
     sidebarOrder = {};
@@ -3415,6 +3420,7 @@ class WorkspaceController extends ChangeNotifier {
         ?..synchronize(attachmentImageScope)
         ..invalidateChannel(scope);
       _attachmentUrls.invalidateChannel(scope);
+      _inlineMedia.invalidateChannel(scope);
       ledger.revokeChannel(scope);
       messageSync.revokeChannel(scope);
       threadRepliesSync.revokeChannel(scope);
@@ -3714,7 +3720,11 @@ class WorkspaceController extends ChangeNotifier {
         },
       );
     } catch (e) {
-      if (generation == ledger.generation && !_disposed) setError('$e');
+      // A rate-limited background refresh is not an error to show: the held
+      // lists stay, and the next refresh (after Retry-After) catches up.
+      if (generation == ledger.generation && !_disposed && !_rateLimited(e)) {
+        setError('$e');
+      }
     }
   }
 
@@ -3962,9 +3972,25 @@ class WorkspaceController extends ChangeNotifier {
   void _roomsJoined() {
     _roomsJoinedPending = false;
     if (ledger.watermark > BigInt.zero) client.resume(ledger.watermark);
-    unawaited(syncVisibleScopes());
-    unawaited(refreshChannels());
-    unawaited(refreshUnread());
+    // A reconnect and a resume can both ask within a second; the tail read a
+    // moment ago already covers them.
+    if (_due('gap', freshness: const Duration(seconds: 3))) {
+      unawaited(syncVisibleScopes());
+    }
+    if (_due('channels')) unawaited(refreshChannels());
+    if (_due('unread')) unawaited(refreshUnread());
+  }
+
+  /// Server reads started by events and by returning to the foreground (not
+  /// by the person asking) are skipped while the last one is this fresh.
+  static const _burstFreshness = Duration(seconds: 15);
+  final Map<String, DateTime> _burstAt = {};
+  bool _due(String name, {Duration freshness = _burstFreshness}) {
+    final now = DateTime.now();
+    final last = _burstAt[name];
+    if (last != null && now.difference(last) < freshness) return false;
+    _burstAt[name] = now;
+    return true;
   }
 
   /// Source `recordHeartbeat`: a server seq past the ledger watermark means
@@ -4002,11 +4028,17 @@ class WorkspaceController extends ChangeNotifier {
       client.connect();
     } else {
       if (ledger.watermark > BigInt.zero) client.resume(ledger.watermark);
-      unawaited(syncVisibleScopes());
+      if (_due('gap', freshness: const Duration(seconds: 3))) {
+        unawaited(syncVisibleScopes());
+      }
     }
-    unawaited(refreshUnread());
-    loadSidebar();
-    if (entityDirectory.started) entityDirectory.revalidateAuthors();
+    // Returning to the foreground (alt-tab on a desktop does it often): the
+    // counts, sidebar and directory read less than 15 s ago are still fresh.
+    if (_due('unread')) unawaited(refreshUnread());
+    if (_due('sidebar')) loadSidebar();
+    if (entityDirectory.started && _due('authors')) {
+      entityDirectory.revalidateAuthors();
+    }
   }
 
   static const _gapPageLimit = 200;
@@ -4017,6 +4049,7 @@ class WorkspaceController extends ChangeNotifier {
   /// the held window. Nothing is cleared or reloaded.
   Future<void> syncVisibleScopes({BigInt? through}) async {
     if (_gapSyncing || _disposed) return;
+
     final thread = threadChannelId, main = channel?.id;
     final targets = [
       if (thread != null && !threadLoading) thread,
@@ -4231,7 +4264,7 @@ class WorkspaceController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      if (!_disposed) setError('$e');
+      if (!_disposed && !_rateLimited(e)) setError('$e');
     }
   }
 
@@ -5885,6 +5918,13 @@ class WorkspaceController extends ChangeNotifier {
   // only; see [AttachmentUrlCache] for the lifetime rules.
   final AttachmentUrlCache _attachmentUrls;
 
+  /// Local copies of inline video/audio, kept while a clip scrolls out of view
+  /// and back (see [InlineMediaFiles]). A route-local presentation shares its
+  /// source's.
+  InlineMediaFiles get inlineMedia =>
+      presentationSource?.inlineMedia ?? _inlineMedia;
+  final InlineMediaFiles _inlineMedia = InlineMediaFiles();
+
   /// Opens the storage connection for a freshly prefetched URL (the app wires
   /// `AttachmentHttp.warmHost` by default); null disables warming.
   final void Function(String url)? attachmentHostWarmer;
@@ -5908,6 +5948,7 @@ class WorkspaceController extends ChangeNotifier {
     String? disposition = 'inline',
     String? channelId,
     bool refresh = false,
+    bool coalesce = false,
   }) {
     final source = presentationSource;
     if (source != null) {
@@ -5916,6 +5957,7 @@ class WorkspaceController extends ChangeNotifier {
         disposition: disposition,
         channelId: channelId,
         refresh: refresh,
+        coalesce: coalesce,
       );
     }
     final scope = attachmentImageScope;
@@ -5931,6 +5973,17 @@ class WorkspaceController extends ChangeNotifier {
       return fetch().then(_urlOf);
     }
     if (refresh) _attachmentUrls.invalidate(id, disposition: disposition ?? '');
+    if (coalesce && disposition == 'inline') {
+      // Many tiles asking at once (a screenful of images) share one batch
+      // request instead of sending one request each.
+      return _attachmentUrls.resolveCoalesced(
+        id,
+        scope: scope,
+        channelId: channelId,
+        fetchMany: (ids) => _fetchAttachmentUrls(ids, RequestPriority.foreground),
+        fetch: fetch,
+      );
+    }
     return _attachmentUrls.resolve(
       id,
       disposition: disposition ?? '',
@@ -5973,24 +6026,33 @@ class WorkspaceController extends ChangeNotifier {
       id,
       scope: attachmentImageScope,
       channelId: channelId,
-      fetchMany: (ids) async {
-        _attachmentUrlRequests++;
-        final body = await client.post(
-          '/attachments/urls',
-          data: {'attachmentIds': ids},
-        );
-        final warm = attachmentHostWarmer;
-        if (warm != null && body is Map && body['urls'] is List) {
-          for (final entry in body['urls'] as List) {
-            if (entry is Map && entry['url'] is String) {
-              warm(entry['url'] as String);
-              break;
-            }
-          }
-        }
-        return body;
-      },
+      fetchMany: (ids) => _fetchAttachmentUrls(ids, RequestPriority.background),
     );
+  }
+
+  /// `POST /attachments/urls` (1..50 ids). Prefetch sends it as background
+  /// work, which the client refuses rather than queues when the attachment
+  /// limit has no headroom; a visible tile's load sends it as foreground work.
+  Future<dynamic> _fetchAttachmentUrls(
+    List<String> ids,
+    RequestPriority priority,
+  ) async {
+    _attachmentUrlRequests++;
+    final body = await (priority == RequestPriority.background
+        ? RaftClient.runBackground(
+            () => client.post('/attachments/urls', data: {'attachmentIds': ids}),
+          )
+        : client.post('/attachments/urls', data: {'attachmentIds': ids}));
+    final warm = attachmentHostWarmer;
+    if (warm != null && body is Map && body['urls'] is List) {
+      for (final entry in body['urls'] as List) {
+        if (entry is Map && entry['url'] is String) {
+          warm(entry['url'] as String);
+          break;
+        }
+      }
+    }
+    return body;
   }
 
   DateTime? _previewGateAt;
@@ -6350,12 +6412,18 @@ class WorkspaceController extends ChangeNotifier {
       // `rooms:joined`, once the server has joined this socket's rooms.
       _roomsJoinedPending = true;
       _lastHeartbeat = _lastServerEvent;
-      recoverMembership();
-      refreshMessageSyncFlag();
-      loadSidebar();
+      // A socket that flaps (a bad network reconnects every few seconds) must
+      // not repeat the whole refresh burst each time: what was read less than
+      // [_burstFreshness] ago is still fresh, and the resume sync below
+      // brings messages up to date.
+      if (_due('membership')) recoverMembership();
+      if (_due('syncFlag')) refreshMessageSyncFlag();
+      if (_due('sidebar')) loadSidebar();
       // A reconnect refreshes agents and members in place; the first connect
       // reuses the reads the selection already started.
-      if (_connectedBefore && entityDirectory.started) {
+      if (_connectedBefore &&
+          entityDirectory.started &&
+          _due('authors')) {
         entityDirectory.revalidateAuthors();
       }
       _connectedBefore = true;
@@ -6471,7 +6539,11 @@ class WorkspaceController extends ChangeNotifier {
         final cursor = BigInt.tryParse('${p['currentSeq']}');
         if (cursor != null && cursor > BigInt.zero) client.resume(cursor);
       }
-      refreshUnread();
+      // Every resume answer used to re-read the counts; a flapping socket
+      // resumes often. Counts read in the last 5 s are current.
+      if (_due('unread', freshness: const Duration(seconds: 5))) {
+        refreshUnread();
+      }
     }
     if (event.name == 'channel:removed') {
       final p = event.payload;
@@ -6532,6 +6604,7 @@ class WorkspaceController extends ChangeNotifier {
     _imageAuthorities.clear();
     _attachmentImages?.dispose();
     _attachmentUrls.dispose();
+    _inlineMedia.dispose();
     _channelFilesStores.clear();
     for (final drafts in _uploads.values) {
       for (final draft in drafts) {

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/freshness.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
@@ -71,6 +72,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   StreamSubscription<RaftEvent>? events;
   Timer? debounce;
   RaftForegroundPeriodic? poll;
+  final resumeReload = Freshness(const Duration(seconds: 20));
   String get base => '/servers/${w.server!.id}';
   bool get blocked =>
       projection?['phase'] != null &&
@@ -205,7 +207,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) reload();
+    if (state == AppLifecycleState.resumed && resumeReload.due()) reload();
   }
 
   @override

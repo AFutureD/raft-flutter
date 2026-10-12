@@ -156,6 +156,9 @@ void main() {
   testWidgets('the agent runtime editor repaints the last options and '
       'models on a revisit', (t) async {
     final (w, api) = await mountWorkspace(t, desktop);
+    // The test holds requests open on a fake clock; a revisit must start its
+    // own reads instead of joining the held ones.
+    w.client.singleFlightWindow = Duration.zero;
     api.routes['GET /agents/a1/runtime-options'] = (_) => {
       'options': [
         {'runtimeId': 'claude', 'canSelectInThisContext': true},

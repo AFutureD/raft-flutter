@@ -8,6 +8,9 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:uuid/uuid.dart';
 
 import 'models.dart';
+import 'rate_limit_governor.dart';
+import 'request_meter.dart';
+import 'server_rate_limits.dart';
 import 'proxy/transport_stub.dart'
     if (dart.library.io) 'proxy/transport_io.dart';
 import 'session_policy.dart';
@@ -32,12 +35,23 @@ class MemorySessionStore implements SessionStore {
 }
 
 class RaftApiException implements Exception {
-  const RaftApiException(this.message, {this.status})
+  const RaftApiException(this.message, {this.status, this.retryAfter})
     : details = const {},
       structured = false;
-  RaftApiException.response(this.message, {this.status, Map? body})
-    : details = _errorDetails(body),
-      structured = body != null && body['error'] is String;
+  RaftApiException.response(
+    this.message, {
+    this.status,
+    Map? body,
+    this.retryAfter,
+  }) : details = _errorDetails(body),
+       structured = body != null && body['error'] is String;
+
+  /// The server (or this client's own pacing) answered 429: the request was
+  /// not processed and may be repeated after [retryAfter].
+  bool get rateLimited => status == 429;
+
+  /// How long the server asked to wait (`Retry-After` / `RateLimit-Reset`).
+  final Duration? retryAfter;
 
   /// The response carried the Raft server's JSON error object. A status with
   /// no such body (an HTML page, an empty reply) came from a proxy, a WAF or a
@@ -167,7 +181,11 @@ class RaftClient {
     this.auditSink,
     this.allowSessionEnd = true,
     this.recoveryBackoff = defaultRecoveryBackoff,
-  }) : origin = origin.replaceFirst(RegExp(r'/$'), ''),
+    RateLimitGovernor? governor,
+    Future<void> Function(Duration)? sleep,
+  }) : governor = governor ?? RateLimitGovernor(),
+       _sleep = sleep ?? ((d) => Future<void>.delayed(d)),
+       origin = origin.replaceFirst(RegExp(r'/$'), ''),
        http =
            transport ??
            createProxiedDio(
@@ -177,6 +195,12 @@ class RaftClient {
              ),
            ) {
     http.options.baseUrl = '${this.origin}/api';
+    // Every Dio interceptor costs the request an event-loop turn, so the
+    // counter is attached only when a tool or test asked for it before the
+    // client was built.
+    if (RequestMeter.instance.enabled) {
+      http.interceptors.add(RequestMeter.instance.interceptor());
+    }
   }
   /// Waits between background attempts to confirm a session the server could
   /// not be asked about (network down, 5xx, a proxy's 4xx). The last entry
@@ -189,6 +213,24 @@ class RaftClient {
     Duration(seconds: 60),
   ];
   static const _refreshCooldown = Duration(seconds: 3);
+
+  /// 429 answers a request waits out (honouring `Retry-After`) before the
+  /// caller sees the error.
+  static const rateLimitRetries = 2;
+  final Map<String, ({Future<dynamic> flight, DateTime at})> _singleFlight = {};
+
+  /// A read already in flight is joined only while it is this young: one that
+  /// has stalled longer is not shared with a fresh attempt (a retry must not
+  /// wait on the stall it is retrying).
+  Duration singleFlightWindow = const Duration(seconds: 4);
+
+  /// Admission control for the server's rate-limited routes.
+  final RateLimitGovernor governor;
+  final Future<void> Function(Duration) _sleep;
+
+  /// GETs answered from an identical request already in flight.
+  int singleFlightJoins = 0;
+  int rateLimitRetriesSent = 0;
   static const _proactiveRefreshSpacing = Duration(seconds: 60);
 
   final String origin;
@@ -237,6 +279,7 @@ class RaftClient {
   /// Why the last session ended, or null if none ended since [restore].
   SessionEndReason? lastEndReason;
   Timer? _recoveryTimer;
+  Duration? _recoveryHint;
   int _recoveryAttempt = 0;
   int _socketRetries = 0;
   DateTime? _lastRotatedAt;
@@ -524,6 +567,7 @@ class RaftClient {
       );
       restoredOffline = true;
       _markDegraded();
+      if (e is RaftApiException && e.rateLimited) _recoveryHint = e.retryAfter;
       _scheduleRecovery();
       return false;
     }
@@ -550,8 +594,17 @@ class RaftClient {
         _recoveryTimer != null) {
       return;
     }
-    final delay =
+    var delay =
         recoveryBackoff[math.min(_recoveryAttempt, recoveryBackoff.length - 1)];
+    // Many devices that lost the network together must not return together:
+    // spread each wait by +-20 %. A server that said how long to wait
+    // (Retry-After on a 429) is not asked earlier than that.
+    delay = Duration(
+      milliseconds: (delay.inMilliseconds * (0.8 + 0.4 * governor.random.nextDouble())).round(),
+    );
+    final hint = _recoveryHint;
+    _recoveryHint = null;
+    if (hint != null && hint > delay) delay = hint;
     _recoveryAttempt++;
     final authentication = _authenticationGeneration;
     _recoveryTimer = Timer(delay, () {
@@ -830,7 +883,221 @@ class RaftClient {
   Future<dynamic> _accountRequest(String method, String path) =>
       _request(method, path, workspaceScoped: false);
 
+  static const _priorityKey = #raftRequestPriority;
+
+  /// The priority requests started in this zone carry (foreground unless
+  /// inside [runBackground]).
+  static RequestPriority get currentPriority =>
+      Zone.current[_priorityKey] as RequestPriority? ??
+      RequestPriority.foreground;
+
+  static const _sharedKey = #raftSharedReads;
+
+  /// Runs [body] so that identical GETs started inside it while one is in
+  /// flight (same path, query, server, principal and credentials, started
+  /// less than [singleFlightWindow] ago) share one HTTP request. For reads
+  /// that do not depend on anything the caller fences on; a write sent in
+  /// between ends the sharing (read-after-write).
+  static T runShared<T>(T Function() body) =>
+      runZoned(body, zoneValues: {_sharedKey: true});
+
+  /// Runs [body] so that every request it starts is background work:
+  /// prefetch, warming, periodic polls and post-reconnect refreshes. They
+  /// yield to the user's own requests when a rate limit is near and are never
+  /// retried after a 429. Subclasses and fakes of the client need no change.
+  static T runBackground<T>(T Function() body) => runZoned(
+    body,
+    zoneValues: {_priorityKey: RequestPriority.background},
+  );
+
+  /// Admission, single-flight and the 429 wait around [_send].
+  ///
+  /// * Identical GETs in flight at the same moment (same path, query, server
+  ///   and credentials) share one HTTP request; every extra caller receives
+  ///   its own copy of the decoded body.
+  /// * The server's rate-limited routes are paced by [governor]; a background
+  ///   request that would have to wait is refused at once.
+  /// * A 429 is answered by waiting `Retry-After` (plus jitter) and asking
+  ///   again, at most [rateLimitRetries] times and never longer than the
+  ///   governor's `maxWait`; after that the caller sees a
+  ///   [RaftApiException] with `rateLimited` and `retryAfter`. A 429 never
+  ///   ends a session.
   Future<dynamic> _request(
+    String method,
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? query,
+    bool authorized = true,
+    bool retried = false,
+    UploadCancellation? cancellation,
+    void Function(int, int)? onSendProgress,
+    Map<String, dynamic>? headers,
+    bool acceptServerExit = false,
+    Duration? receiveTimeout,
+    bool workspaceScoped = true,
+    RequestPriority? priority,
+  }) {
+    final level = priority ?? RaftClient.currentPriority;
+    Future<dynamic> send() => _sendPaced(
+      method,
+      path,
+      data: data,
+      query: query,
+      authorized: authorized,
+      retried: retried,
+      cancellation: cancellation,
+      onSendProgress: onSendProgress,
+      headers: headers,
+      acceptServerExit: acceptServerExit,
+      receiveTimeout: receiveTimeout,
+      workspaceScoped: workspaceScoped,
+      priority: level,
+    );
+    // Identical reads share one request only where the caller says it is
+    // safe ([runShared]): the client cannot see the caller's authority (role,
+    // channel membership, ...), and a read started after such a change must
+    // not be answered by one started before it.
+    final shared =
+        method == 'GET' &&
+        cancellation == null &&
+        onSendProgress == null &&
+        !retried &&
+        Zone.current[_sharedKey] == true;
+    if (!shared) {
+      if (method == 'GET') return send();
+      // Read-after-write: a read started once a write has been sent must not
+      // join a read that began before it (it would return the old state).
+      _singleFlight.clear();
+      return send().whenComplete(_singleFlight.clear);
+    }
+    final query_ = query == null || query.isEmpty
+        ? ''
+        : (query.entries.map((e) => '${e.key}=${e.value}').toList()..sort())
+              .join('&');
+    final key = [
+      workspaceScoped ? _generation : 0,
+      _authenticationGeneration,
+      user?.id,
+      authorized,
+      workspaceScoped ? serverId : headers?['X-Server-Id'],
+      path,
+      query_,
+    ].join('|');
+    final pending = _singleFlight[key];
+    if (pending != null &&
+        governor.now().difference(pending.at) < singleFlightWindow) {
+      singleFlightJoins++;
+      return pending.flight.then(_cloneJson);
+    }
+    late final Future<dynamic> flight;
+    flight = send();
+    _singleFlight[key] = (flight: flight, at: governor.now());
+    // Whoever started it observes the error; joiners get their own copy of it
+    // through [pending.then] above, so the entry must never go unhandled.
+    flight.then<void>((_) {}, onError: (Object _, StackTrace _) {}).whenComplete(
+      () {
+        if (identical(_singleFlight[key]?.flight, flight)) {
+          _singleFlight.remove(key);
+        }
+      },
+    );
+    return flight;
+  }
+
+  Future<dynamic> _sendPaced(
+    String method,
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? query,
+    bool authorized = true,
+    bool retried = false,
+    UploadCancellation? cancellation,
+    void Function(int, int)? onSendProgress,
+    Map<String, dynamic>? headers,
+    bool acceptServerExit = false,
+    Duration? receiveTimeout,
+    bool workspaceScoped = true,
+    RequestPriority priority = RequestPriority.foreground,
+  }) async {
+    final limits = ServerRateLimits.forRequest(method, path);
+    final authentication = _authenticationGeneration;
+    final workspace = workspaceScoped ? _generation : 0;
+    // Credential and session endpoints are answered at once (the person typing
+    // decides to retry; the session check has its own recovery timer, which
+    // honours Retry-After); nothing else waits behind a closed account bucket.
+    final waits = authorized && !path.startsWith('/auth/');
+    for (var attempt = 0; ; attempt++) {
+      try {
+        if (limits.isNotEmpty) {
+          try {
+            await governor.acquire(
+              limits,
+              waits ? priority : RequestPriority.background,
+            );
+          } on RateLimitedException catch (limited) {
+            throw RaftApiException(
+              limited.toString(),
+              status: 429,
+              retryAfter: limited.retryAfter,
+            );
+          }
+          if (authorized &&
+              (_closed ||
+                  authentication != _authenticationGeneration ||
+                  workspace != (workspaceScoped ? _generation : 0))) {
+            throw const RaftApiException('The account or workspace changed.');
+          }
+        }
+        return await _send(
+          method,
+          path,
+          data: data is FormData ? data.clone() : data,
+          query: query,
+          authorized: authorized,
+          retried: retried,
+          cancellation: cancellation,
+          onSendProgress: onSendProgress,
+          headers: headers,
+          acceptServerExit: acceptServerExit,
+          receiveTimeout: receiveTimeout,
+          workspaceScoped: workspaceScoped,
+        );
+      } on RaftApiException catch (e) {
+        final wait = e.retryAfter;
+        if (e.status != 429 ||
+            !waits ||
+            wait == null ||
+            attempt >= rateLimitRetries ||
+            priority == RequestPriority.background ||
+            wait > governor.maxWait ||
+            cancellation?.cancelled == true) {
+          rethrow;
+        }
+        rateLimitRetriesSent++;
+        await _sleep(backoffDelay(attempt, hint: wait, random: governor.random));
+        if (_closed ||
+            authentication != _authenticationGeneration ||
+            workspace != (workspaceScoped ? _generation : 0)) {
+          throw const RaftApiException('The account or workspace changed.');
+        }
+      }
+    }
+  }
+
+  static dynamic _cloneJson(dynamic value) {
+    if (value is Map) {
+      return <String, dynamic>{
+        for (final e in value.entries) '${e.key}': _cloneJson(e.value),
+      };
+    }
+    if (value is List) return [for (final e in value) _cloneJson(e)];
+    return value;
+  }
+
+  /// One HTTP exchange: the credential fence, the access-token refresh and a
+  /// single retry after it. Rate-limit admission, single-flight and the 429
+  /// wait live in [_request], around this.
+  Future<dynamic> _send(
     String method,
     String path, {
     dynamic data,
@@ -881,6 +1148,10 @@ class RaftClient {
           },
         ),
       );
+      governor.observe(
+        ServerRateLimits.forRequest(method, path),
+        response.headers,
+      );
       if (authorized &&
           (authentication != _authenticationGeneration ||
               requestGeneration != generation() && !exit))
@@ -920,7 +1191,7 @@ class RaftClient {
         if (requestGeneration != generation() ||
             authentication != _authenticationGeneration)
           throw const RaftApiException('The account or workspace changed.');
-        return _request(
+        return _send(
           method,
           path,
           data: data is FormData ? data.clone() : data,
@@ -935,14 +1206,33 @@ class RaftClient {
         );
       }
       final body = e.response?.data;
+      final status = e.response?.statusCode;
+      Duration? retryAfter;
+      if (status == 429) {
+        // Every client request that meets a 429 closes that limiter for the
+        // wait the server asked for, whoever sent it.
+        retryAfter =
+            retryAfterOf(e.response?.headers, governor.now()) ??
+            const Duration(seconds: 5);
+        governor.limitedBy(
+          ServerRateLimits.forRequest(method, path),
+          retryAfter,
+        );
+      } else {
+        governor.observe(
+          ServerRateLimits.forRequest(method, path),
+          e.response?.headers,
+        );
+      }
       throw RaftApiException.response(
         body is Map
             ? (body['error'] ?? body['message'] ?? 'Request failed').toString()
             : e.type == DioExceptionType.connectionError
             ? 'Cannot connect to the Raft server.'
             : 'Request failed. Please retry.',
-        status: e.response?.statusCode,
+        status: status,
         body: body is Map ? body : null,
+        retryAfter: retryAfter,
       );
     }
   }

@@ -21,6 +21,10 @@ class _Client extends RaftClient {
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async => {
     'url': 'https://storage.example.invalid/private-signed-capability',
   };
+
+  // The batch route is not served here: tiles fall back to the single route.
+  @override
+  Future<dynamic> post(String path, {dynamic data}) async => {'urls': []};
 }
 
 class _Files extends AttachmentFiles {
@@ -110,11 +114,11 @@ void main() {
         ),
       );
       await t.pumpWidget(host(first, 1));
-      await t.pump();
+      await t.pump(const Duration(milliseconds: 60));
       final state = t.state(find.byType(AttachmentView));
       expect(files.pending.length, 1);
       await t.pumpWidget(host(first, 2));
-      await t.pump();
+      await t.pump(const Duration(milliseconds: 60));
       expect(t.state(find.byType(AttachmentView)), same(state));
       expect(files.pending.length, 2);
       expect(files.cancellations[0].isCancelled, true);
@@ -137,7 +141,7 @@ void main() {
         isNotNull,
       );
       await t.pumpWidget(host(second, 2));
-      await t.pump();
+      await t.pump(const Duration(milliseconds: 60));
       expect(t.state(find.byType(AttachmentView)), same(state));
       expect(files.pending.length, 3);
       expect(
@@ -185,7 +189,7 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
       expect(files.cancellation, isNotNull);
       w.revokeServer('server');
       await tester.pump();
@@ -467,7 +471,7 @@ void main() {
           ),
         ),
       );
-      await t.pump();
+      await t.pump(const Duration(milliseconds: 60));
       expect(files.cancellation, isNotNull);
       final bytes = base64Decode(
         'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',

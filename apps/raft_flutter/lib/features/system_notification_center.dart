@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/freshness.dart';
 import '../data/system_notification_projection.dart';
 import '../data/system_notification_store.dart';
 import '../data/workspace_controller.dart';
@@ -51,6 +52,7 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
   WorkspaceEntitySelection? entities;
   Timer? coalesce, closeDelay;
   RaftForegroundPeriodic? poll;
+  final resumeRefresh = Freshness(const Duration(seconds: 20));
   OverlayEntry? popup;
   bool popupKeyboard = false;
   bool keyboardInput = false;
@@ -212,7 +214,8 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       changed();
-      unawaited(store.refresh());
+      // Alt-tab many times a minute reads the machines and agents once.
+      if (resumeRefresh.due()) unawaited(store.refresh());
     }
   }
 

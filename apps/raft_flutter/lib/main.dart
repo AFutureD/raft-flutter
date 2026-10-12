@@ -824,6 +824,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           sessionStore: store,
           clientKind: kind,
           auditSink: AuthAuditLog.shared,
+          // One limiter view for the API and the attachment transfers: the
+          // server counts both against the same per-user bucket.
+          governor: AttachmentHttp.governor,
         );
   }
 

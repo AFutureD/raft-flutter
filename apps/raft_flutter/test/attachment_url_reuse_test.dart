@@ -119,8 +119,12 @@ void main() {
     tester,
   ) async {
     final (client, files, _) = await mount(tester);
-    // The list preview resolved the URL once.
-    expect(client.reads, ['/attachments/image/url']);
+    // The list preview resolved the URL once, through the batch route (the
+    // tiles of one frame share a request).
+    expect(client.batches, [
+      ['image'],
+    ]);
+    expect(client.reads, isEmpty);
     for (var open = 0; open < 3; open++) {
       await tester.tap(find.byTooltip('Preview image.png'));
       await tester.pump();
@@ -131,7 +135,7 @@ void main() {
       expect(find.byTooltip('Close preview'), findsNothing);
     }
     expect(
-      client.reads.length,
+      client.batches.length + client.reads.length,
       1,
       reason: 'lightbox opens reuse the cached signed URL',
     );
@@ -197,16 +201,22 @@ void main() {
       pdf: true,
     );
     expect(client.reads, isEmpty, reason: 'nothing is requested on build');
+    expect(client.batches, isEmpty);
     final card = find.byType(RaftAttachmentCard);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(card));
     await settle(tester);
-    expect(client.reads, ['/attachments/doc/url']);
+    // Hover is a hint: it joins the bounded, batched background prefetch
+    // instead of sending a request of its own.
+    expect(client.batches, [
+      ['doc'],
+    ]);
+    expect(client.reads, isEmpty);
     // A press right after is already covered by the cached URL.
     final press = await tester.startGesture(tester.getCenter(card));
     await settle(tester);
-    expect(client.reads.length, 1);
+    expect(client.batches.length + client.reads.length, 1);
     await press.cancel();
   });
 }

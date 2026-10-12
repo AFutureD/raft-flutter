@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:raft_client/raft_client.dart' show RaftApiException;
+
 /// Memory-only cache of signed attachment URLs.
 ///
 /// A signed URL is a short-lived capability: it is held here only in memory,
@@ -18,10 +20,12 @@ class AttachmentUrlCache {
     this.maxEntries = 256,
     this.maxLifetime = const Duration(minutes: 4),
     this.safetyMargin = const Duration(seconds: 45),
-    this.unknownExpiryLifetime = const Duration(seconds: 60),
-    this.prefetchBatch = 20,
-    this.prefetchQueue = 40,
-    this.prefetchDelay = const Duration(milliseconds: 120),
+    this.unknownExpiryLifetime = const Duration(seconds: 150),
+    this.prefetchBatch = 50,
+    this.prefetchQueue = 100,
+    this.prefetchDelay = const Duration(milliseconds: 200),
+    this.minBatchInterval = const Duration(milliseconds: 1500),
+    this.coalesceDelay = Duration.zero,
   }) : _now = now ?? DateTime.now;
 
   final DateTime Function() _now;
@@ -35,10 +39,25 @@ class AttachmentUrlCache {
   /// starts now must outlive request latency and a redirect.
   final Duration safetyMargin;
 
-  /// Lifetime when neither the response nor the URL states an expiry.
+  /// Lifetime when neither the response nor the URL states an expiry (a URL
+  /// the server itself streams, with the bearer token in its query). With the
+  /// [safetyMargin] it is reused for about 105 s; a transfer that finds it
+  /// stale (401/403) signs once more. A shorter guess made every card that
+  /// came back into view after 15 s ask again.
   final Duration unknownExpiryLifetime;
+  /// The batch route accepts 1..50 ids.
   final int prefetchBatch, prefetchQueue;
-  final Duration prefetchDelay;
+
+  /// Background prefetch waits this long to gather a screenful, and never
+  /// sends batches closer together than [minBatchInterval] (at most 40 batch
+  /// requests a minute against a 120 a minute limit shared with every other
+  /// attachment request of the user).
+  final Duration prefetchDelay, minBatchInterval;
+
+  /// Foreground callers ([resolveCoalesced]) gather for this long (zero: the
+  /// tiles built in one frame share an event-loop turn), then one
+  /// batch request answers them all.
+  final Duration coalesceDelay;
 
   final LinkedHashMap<_Key, _Entry> _entries = LinkedHashMap();
   final Map<_Key, Future<String>> _inFlight = {};
@@ -48,6 +67,16 @@ class AttachmentUrlCache {
   int _epoch = 0;
   bool _batchRunning = false;
   Timer? _flushTimer;
+
+  /// In-flight keys whose answer must not be stored (a transfer rejected the
+  /// URL while the request was out). Per key: one rejected URL does not make
+  /// every other answer on its way worthless.
+  final Set<_Key> _stale = {};
+  DateTime? _lastBatchAt, _pausedUntil;
+  final Map<_Key, _Urgent> _urgent = {};
+  Timer? _urgentTimer;
+  bool _urgentScheduled = false;
+  int batchRequests = 0;
 
   /// Number of cached URLs (diagnostics and tests; never their values).
   int get length => _entries.length;
@@ -104,7 +133,7 @@ class AttachmentUrlCache {
       }
       // A revocation or scope change while the request was out means this
       // answer is not stored; the awaiting caller still applies its own check.
-      if (epoch == _epoch) {
+      if (epoch == _epoch && !_stale.remove(key)) {
         _store(key, url, body['expiresAt'], channelId);
       }
       return url;
@@ -159,23 +188,191 @@ class AttachmentUrlCache {
 
   void _schedule() {
     if (_flushTimer != null || _batchRunning || _queued.isEmpty) return;
-    _flushTimer = Timer(prefetchDelay, () {
+    var delay = prefetchDelay;
+    final now = _now();
+    final last = _lastBatchAt;
+    if (last != null) {
+      final wait = last.add(minBatchInterval).difference(now);
+      if (wait > delay) delay = wait;
+    }
+    final paused = _pausedUntil;
+    if (paused != null) {
+      final wait = paused.difference(now);
+      if (wait > delay) delay = wait;
+    }
+    _flushTimer = Timer(delay, () {
       _flushTimer = null;
       unawaited(_flush());
     });
+  }
+
+  /// Resolves [id] for a caller that wants it now, together with every other
+  /// caller asking within [coalesceDelay]: one batch request instead of one
+  /// request per attachment. An id the batch does not answer (the server
+  /// leaves out what it cannot sign) falls back to [fetch], the single route.
+  Future<String> resolveCoalesced(
+    String id, {
+    Object? scope,
+    String? channelId,
+    required Future<dynamic> Function(List<String> ids) fetchMany,
+    required Future<dynamic> Function() fetch,
+  }) {
+    const disposition = 'inline';
+    final key = _Key(id, disposition);
+    final hit = peek(id, disposition: disposition, scope: scope);
+    if (hit != null) return Future<String>.value(hit);
+    final pending = _inFlight[key];
+    if (pending != null) {
+      if (!_batched.contains(key)) return pending;
+      return pending.catchError(
+        (Object _) => resolve(
+          id,
+          disposition: disposition,
+          scope: scope,
+          channelId: channelId,
+          fetch: fetch,
+        ),
+      );
+    }
+    final queued = _queued.remove(key);
+    final epoch = _epoch;
+    final completer = Completer<String>();
+    _inFlight[key] = completer.future;
+    _batched.add(key);
+    unawaited(completer.future.then<void>((_) {}, onError: (Object _) {}));
+    _urgent[key] = _Urgent(
+      key,
+      channelId ?? queued?.channelId,
+      fetchMany,
+      fetch,
+      epoch,
+      completer,
+      scope,
+    );
+    if (coalesceDelay == Duration.zero) {
+      // Every tile built in this frame asks before any microtask runs, so one
+      // microtask gathers them all without waiting for a timer.
+      if (!_urgentScheduled) {
+        _urgentScheduled = true;
+        unawaited(
+          Future<void>.microtask(() {
+            _urgentScheduled = false;
+            return _flushUrgent();
+          }),
+        );
+      }
+    } else {
+      _urgentTimer ??= Timer(coalesceDelay, () {
+        _urgentTimer = null;
+        unawaited(_flushUrgent());
+      });
+    }
+    return completer.future;
+  }
+
+  Future<void> _flushUrgent() async {
+    final all = _urgent.values.toList();
+    _urgent.clear();
+    for (var start = 0; start < all.length; start += prefetchBatch) {
+      final batch = all.skip(start).take(prefetchBatch).toList();
+      unawaited(_sendUrgent(batch));
+    }
+  }
+
+  Future<void> _sendUrgent(List<_Urgent> batch) async {
+    batchRequests++;
+    Map<String, Map> byId = {};
+    try {
+      final body = await batch.first.fetchMany([
+        for (final item in batch) item.key.id,
+      ]);
+      final urls = body is Map ? body['urls'] : null;
+      byId = {
+        if (urls is List)
+          for (final entry in urls)
+            if (entry is Map && entry['id'] is String && entry['url'] is String)
+              entry['id'] as String: entry,
+      };
+    } catch (error) {
+      // The batch route failed as a whole; the singles below would meet the
+      // same limiter, so a rate-limited answer is passed on, not retried.
+      if (error is RaftApiException && error.rateLimited) {
+        _pause(error.retryAfter);
+        for (final item in batch) {
+          _finish(item.key);
+          item.completer.completeError(error);
+        }
+        return;
+      }
+    }
+    for (final item in batch) {
+      final entry = byId[item.key.id];
+      if (entry != null) {
+        if (item.epoch == _epoch && !_stale.remove(item.key)) {
+          _store(
+            item.key,
+            entry['url'] as String,
+            entry['expiresAt'],
+            item.channelId,
+          );
+        }
+        _finish(item.key);
+        item.completer.complete(entry['url'] as String);
+        continue;
+      }
+      // Not answered: ask for this one alone.
+      _inFlight.remove(item.key);
+      _batched.remove(item.key);
+      try {
+        final url = await resolve(
+          item.key.id,
+          disposition: item.key.disposition,
+          scope: item.scope,
+          channelId: item.channelId,
+          fetch: item.fetch,
+        );
+        item.completer.complete(url);
+      } catch (error, trace) {
+        item.completer.completeError(error, trace);
+      }
+    }
+  }
+
+  void _finish(_Key key) {
+    _inFlight.remove(key);
+    _batched.remove(key);
+  }
+
+  void _pause(Duration? retryAfter) {
+    final until = _now().add(retryAfter ?? const Duration(seconds: 5));
+    final current = _pausedUntil;
+    if (current == null || until.isAfter(current)) _pausedUntil = until;
   }
 
   Future<void> _flush() async {
     if (_batchRunning || _queued.isEmpty) return;
     _batchRunning = true;
     final batch = <_Prefetch>[];
-    for (final item in _queued.values) {
+    for (final item in _queued.values.toList()) {
+      // Answered meanwhile (a click, a foreground load): nothing to send.
+      if (_entries[item.key]?.usable(_now(), safetyMargin) == true ||
+          _inFlight.containsKey(item.key)) {
+        _queued.remove(item.key);
+        continue;
+      }
       if (batch.length >= prefetchBatch) break;
       batch.add(item);
     }
     for (final item in batch) {
       _queued.remove(item.key);
     }
+    if (batch.isEmpty) {
+      _batchRunning = false;
+      _schedule();
+      return;
+    }
+    _lastBatchAt = _now();
+    batchRequests++;
     final completers = <_Key, Completer<String>>{};
     for (final item in batch) {
       final completer = Completer<String>();
@@ -198,7 +395,7 @@ class AttachmentUrlCache {
       };
       for (final item in batch) {
         final entry = byId[item.key.id];
-        if (entry != null && item.epoch == _epoch) {
+        if (entry != null && item.epoch == _epoch && !_stale.remove(item.key)) {
           _store(
             item.key,
             entry['url'] as String,
@@ -213,6 +410,11 @@ class AttachmentUrlCache {
         }
       }
     } catch (error) {
+      // A refused or rate-limited batch is not repeated at once: the next one
+      // waits out the server's Retry-After.
+      if (error is RaftApiException && error.rateLimited) {
+        _pause(error.retryAfter);
+      }
       for (final completer in completers.values) {
         if (!completer.isCompleted) completer.completeError(error);
       }
@@ -220,6 +422,7 @@ class AttachmentUrlCache {
       for (final item in batch) {
         _inFlight.remove(item.key);
         _batched.remove(item.key);
+        _stale.remove(item.key);
       }
       _batchRunning = false;
       _schedule();
@@ -228,29 +431,50 @@ class AttachmentUrlCache {
 
   /// Drops a URL a transfer rejected (expired or revoked).
   void invalidate(String id, {String? disposition}) {
-    _entries.removeWhere(
-      (key, _) => key.id == id && (disposition == null || key.disposition == disposition),
-    );
-    _epoch++;
+    bool matches(_Key key) =>
+        key.id == id && (disposition == null || key.disposition == disposition);
+    _entries.removeWhere((key, _) => matches(key));
+    // Only this attachment's request on its way is now suspect; answers for
+    // every other id stay valid and are stored.
+    for (final key in _inFlight.keys) {
+      if (matches(key)) _stale.add(key);
+    }
   }
 
   /// Revocation: nothing resolved for [channelId] survives, in flight included.
   void invalidateChannel(String channelId) {
     _entries.removeWhere((_, entry) => entry.channelId == channelId);
     _queued.removeWhere((_, item) => item.channelId == channelId);
+    _dropUrgent((item) => item.channelId == channelId);
     _epoch++;
   }
 
   void clear() {
     _entries.clear();
     _queued.clear();
+    _dropUrgent((_) => true);
+    _stale.clear();
     _epoch++;
+  }
+
+  /// Callers still gathering for the next coalesced batch are released with
+  /// an error (their scope changed or was revoked); they ask again if needed.
+  void _dropUrgent(bool Function(_Urgent item) where) {
+    for (final item in _urgent.values.where(where).toList()) {
+      _urgent.remove(item.key);
+      _finish(item.key);
+      item.completer.completeError(
+        const FormatException('Attachment url request withdrawn.'),
+      );
+    }
   }
 
   void dispose() {
     clear();
     _flushTimer?.cancel();
     _flushTimer = null;
+    _urgentTimer?.cancel();
+    _urgentTimer = null;
   }
 
   /// Drops everything held for another identity (account, server, role,
@@ -293,7 +517,8 @@ class AttachmentUrlCache {
       return null;
     }
 
-    final signedAt = param('x-amz-date'), seconds = param('x-amz-expires');
+    final signedAt = param('x-amz-date') ?? param('x-goog-date'),
+        seconds = param('x-amz-expires') ?? param('x-goog-expires');
     final span = int.tryParse(seconds ?? '');
     if (signedAt != null && span != null && signedAt.length == 16) {
       final start = DateTime.tryParse(
@@ -341,6 +566,25 @@ class _Entry {
   final String? channelId;
   bool usable(DateTime now, Duration margin) =>
       expires.difference(now) > margin;
+}
+
+class _Urgent {
+  _Urgent(
+    this.key,
+    this.channelId,
+    this.fetchMany,
+    this.fetch,
+    this.epoch,
+    this.completer,
+    this.scope,
+  );
+  final Object? scope;
+  final _Key key;
+  final String? channelId;
+  final Future<dynamic> Function(List<String>) fetchMany;
+  final Future<dynamic> Function() fetch;
+  final int epoch;
+  final Completer<String> completer;
 }
 
 class _Prefetch {

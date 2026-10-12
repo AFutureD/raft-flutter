@@ -79,6 +79,13 @@ class SharedFileLease {
   final File file;
   Timer? _timer;
   Future<void>? _disposal;
+
+  /// Ends the expiry timer: the owner now decides when the file goes (the
+  /// inline media session cache evicts by age and size, and on dispose).
+  void cancelExpiry() {
+    _timer?.cancel();
+    _timer = null;
+  }
   Future<void> dispose() => _disposal ??= _dispose();
   Future<void> _dispose() async {
     _timer?.cancel();

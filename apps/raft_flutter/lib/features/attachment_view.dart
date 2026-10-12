@@ -237,15 +237,27 @@ class _AttachmentViewState extends State<AttachmentView> {
     final id = widget.metadata['id'];
     final thumbnail = key.rendition == 'thumbnail' ? thumbnailUrl : null;
     return (cancel) async {
-      if (thumbnail != null) {
-        return transfer.image(
-          thumbnail,
-          cancel: cancel,
-          onProgress: cancel.progressSink,
-        );
-      }
       final channelId = key.channelId;
-      final url = await controller.attachmentUrl('$id', channelId: channelId);
+      if (thumbnail != null) {
+        try {
+          return await transfer.image(
+            thumbnail,
+            cancel: cancel,
+            onProgress: cancel.progressSink,
+          );
+        } on DioException catch (error) {
+          // The thumbnail's signature came with the message and has lapsed:
+          // sign the original once (batched with the other tiles) rather than
+          // showing a broken card.
+          final status = error.response?.statusCode;
+          if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
+        }
+      }
+      final url = await controller.attachmentUrl(
+        '$id',
+        channelId: channelId,
+        coalesce: true,
+      );
       if (cancel.isCancelled) throw const StaleAttachmentImage();
       try {
         return await transfer.image(
@@ -400,6 +412,8 @@ class _AttachmentViewState extends State<AttachmentView> {
     downloadCancel.cancel();
     urlPrefetch?.cancel();
     urlPrefetch = null;
+    hoverPrefetch?.cancel();
+    hoverPrefetch = null;
     imageLease?.release();
     imageLease = null;
     for (final route in [previewRoute, progressRoute]) {
@@ -870,27 +884,38 @@ class _AttachmentViewState extends State<AttachmentView> {
   /// so the open starts at the storage request. A press fires on touch before
   /// the tap completes; hover gives desktop a head start. Plain files are
   /// saved with a one-shot `attachment` URL and are not prefetched.
-  void warmUrl() {
+  void warmUrl({bool press = false}) {
     if (widget.exportMode || widget.messageId == null || !authorized) return;
     final kind = attachmentPreviewKind(widget.metadata);
     if (!isImage && kind == null && !isHtml) return;
     if (kind == 'video' || kind == 'audio') return; // Inline loaders do it.
     if (kind == 'document' || isHtml) return; // Previewed by text, not URL.
-    final now = DateTime.now();
-    final last = lastUrlWarm;
-    if (last != null && now.difference(last) < const Duration(seconds: 20)) {
+    final id = '${widget.metadata['id']}';
+    if (!press) {
+      final now = DateTime.now();
+      final last = lastUrlWarm;
+      if (last != null && now.difference(last) < const Duration(seconds: 20)) {
+        return;
+      }
+      lastUrlWarm = now;
+      // Hover is only a hint: a mouse sweeping over a list of messages must
+      // not send one request per card. It joins the bounded, batched
+      // background prefetch (a no-op when the URL is held or on its way); the
+      // press that follows asks for it at once.
+      hoverPrefetch?.cancel();
+      hoverPrefetch = w.prefetchAttachmentUrl(id, channelId: ownerChannel);
       return;
     }
-    lastUrlWarm = now;
     unawaited(
-      w.attachmentUrl('${widget.metadata['id']}', channelId: ownerChannel).then(
-        (url) {
-          if (mounted && authorized) w.attachmentHostWarmer?.call(url);
-        },
-        onError: (Object _) {},
-      ),
+      w
+          .attachmentUrl(id, channelId: ownerChannel, coalesce: true)
+          .then((url) {
+            if (mounted && authorized) w.attachmentHostWarmer?.call(url);
+          }, onError: (Object _) {}),
     );
   }
+
+  PrefetchHandle? hoverPrefetch;
 
   DateTime? lastUrlWarm;
 
@@ -930,7 +955,10 @@ class _AttachmentViewState extends State<AttachmentView> {
     if (widget.exportMode) return child;
     return MouseRegion(
       onEnter: (_) => warmUrl(),
-      child: Listener(onPointerDown: (_) => warmUrl(), child: child),
+      child: Listener(
+        onPointerDown: (_) => warmUrl(press: true),
+        child: child,
+      ),
     );
   }
 

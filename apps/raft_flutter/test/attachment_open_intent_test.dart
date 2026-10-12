@@ -25,6 +25,10 @@ class _Client extends RaftClient {
     urlReads++;
     return {'url': 'https://storage.example.invalid/image'};
   }
+
+  // The batch route is not served here: tiles fall back to the single route.
+  @override
+  Future<dynamic> post(String path, {dynamic data}) async => {'urls': []};
 }
 
 class _Files extends AttachmentFiles {

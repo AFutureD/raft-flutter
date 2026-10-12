@@ -113,8 +113,12 @@ class _VideoPlayer extends _Player {
 
 /// Unmount and let the asynchronous player / lease disposal finish (the lease
 /// cancels its expiry timer).
+dynamic _mounted;
+
 Future<void> unmount(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
+  // The session cache owns the copy; its lease timer ends with the test.
+  _mounted?.inlineMedia.clear();
   for (var i = 0; i < 4; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
@@ -141,6 +145,7 @@ void main() {
     addTearDown(tester.view.reset);
     final (w, api) = (await tester.runAsync(() => fixture('owner')))!;
     addTearDown(w.dispose);
+    _mounted = w;
     api.routes['GET /attachments/a1/url'] = (_) => failUrl
         ? throw StateError('no url')
         : {'url': 'https://media.invalid/a1'};

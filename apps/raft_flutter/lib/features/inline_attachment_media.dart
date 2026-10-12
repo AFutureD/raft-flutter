@@ -7,7 +7,12 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_preview_files.dart';
-import '../platform/native_sharing.dart';
+import '../platform/inline_media_files.dart';
+
+/// Tests replace the transfer of the local copy (the product downloads it to a
+/// private temporary folder).
+@visibleForTesting
+AttachmentPreviewFiles Function()? debugInlinePreviewFiles;
 
 /// Seams for suites that mount the real message rows without a decoder (the
 /// parity extension suite): files and players handed to every inline card that
@@ -45,7 +50,7 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   void playbackChanged(AttachmentPlayback value) {}
 
   final cancel = CancelToken();
-  SharedFileLease? lease;
+  InlineMediaHold? hold;
   AttachmentPlayer? player;
   StreamSubscription<AttachmentPlayback>? playbackEvents;
   AttachmentPlayback playback = const AttachmentPlayback();
@@ -56,6 +61,12 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   bool get current =>
       mounted && !disposed && !cancel.isCancelled && authorized();
 
+  /// A card must stay built this long before it starts a download: a fast
+  /// scroll past a column of clips would otherwise start (and abandon) one
+  /// per clip.
+  static const settle = Duration(milliseconds: 250);
+  Timer? settleTimer;
+
   @override
   void initState() {
     super.initState();
@@ -63,9 +74,37 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
       // Web: an IntersectionObserver (160px margin) starts the load once the
       // card is near the viewport; the list only builds rows that are.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(loadMedia());
+        if (!mounted) return;
+        waitUntilSeen();
       });
     }
+  }
+
+  /// Starts the load once the card has been near the viewport for [settle]
+  /// (Web: an IntersectionObserver with a margin). Cards built only because
+  /// the list builds ahead of the viewport, or flung past, start nothing.
+  void waitUntilSeen() {
+    settleTimer?.cancel();
+    settleTimer = Timer(settle, () {
+      if (!mounted || disposed) return;
+      if (nearViewport()) {
+        unawaited(loadMedia());
+      } else {
+        waitUntilSeen();
+      }
+    });
+  }
+
+  /// Whether the card is within [margin] of the scrollable that holds it (a
+  /// card outside any scrollable counts as seen).
+  bool nearViewport({double margin = 160}) {
+    final box = context.findRenderObject();
+    final scrollable = Scrollable.maybeOf(context)?.context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return false;
+    if (scrollable is! RenderBox || !scrollable.attached) return true;
+    final card = box.localToGlobal(Offset.zero) & box.size;
+    final view = scrollable.localToGlobal(Offset.zero) & scrollable.size;
+    return card.overlaps(view.inflate(margin));
   }
 
   Future<void> loadMedia() async {
@@ -75,18 +114,35 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     }
     setState(() => mediaState = RaftInlineMediaState.loading);
     try {
-      final url = await controller.attachmentUrl(
-        '${metadata['id']}',
-        channelId: channelId ?? metadata['channelId'] as String?,
+      final owner = channelId ?? metadata['channelId'] as String?;
+      final files =
+          filesOverride ??
+          InlineMediaTestHooks.files ??
+          debugInlinePreviewFiles?.call() ??
+          AttachmentPreviewFiles();
+      // One copy per attachment for the session: a clip scrolled out of view
+      // and back is not downloaded (nor its URL signed) again.
+      final prepared = await controller.inlineMedia.acquire(
+        '${metadata['id']}|${metadata['contentVersion'] ?? metadata['contentHash'] ?? metadata['updatedAt'] ?? ''}',
+        scope: controller.attachmentImageScope,
+        channelId: owner,
+        load: (shared, wanted) async {
+          final url = await controller.attachmentUrl(
+            '${metadata['id']}',
+            channelId: owner,
+            coalesce: true,
+          );
+          if (!wanted()) return null;
+          return files.load(
+            url,
+            filename,
+            cancel: shared,
+            authorized: () => wanted() && authorized(),
+          );
+        },
       );
-      if (!current) return;
-      final prepared =
-          await (filesOverride ??
-                  InlineMediaTestHooks.files ??
-                  AttachmentPreviewFiles())
-              .load(url, filename, cancel: cancel, authorized: () => current);
       if (!current) {
-        await prepared?.dispose();
+        prepared?.release();
         return;
       }
       if (prepared == null) {
@@ -94,7 +150,7 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
         setState(() => mediaState = RaftInlineMediaState.failed);
         return;
       }
-      lease = prepared;
+      hold = prepared;
       player =
           (playerFactoryOverride ??
           InlineMediaTestHooks.playerFactory ??
@@ -134,16 +190,19 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   @override
   void dispose() {
     disposed = true;
+    settleTimer?.cancel();
     cancel.cancel();
-    final held = player, heldLease = lease, events = playbackEvents;
+    final held = player, heldCopy = hold, events = playbackEvents;
+    hold = null;
     unawaited(() async {
       try {
         unawaited(events?.cancel());
         await held?.dispose();
       } catch (_) {
-        // A failing native decoder must not retain its private file.
+        // A failing native decoder must not retain its copy.
       } finally {
-        await heldLease?.dispose();
+        // Gives the copy back; the session cache decides whether it stays.
+        heldCopy?.release();
       }
     }());
     super.dispose();

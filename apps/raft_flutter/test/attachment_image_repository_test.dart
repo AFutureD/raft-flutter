@@ -88,6 +88,10 @@ class _RasterClient extends RaftClient {
     resolutions++;
     return {'url': 'https://storage.example.invalid/owned-public-fixture'};
   }
+
+  // The batch route is not served here: tiles fall back to the single route.
+  @override
+  Future<dynamic> post(String path, {dynamic data}) async => {'urls': []};
 }
 
 class _RasterFiles extends AttachmentFiles {

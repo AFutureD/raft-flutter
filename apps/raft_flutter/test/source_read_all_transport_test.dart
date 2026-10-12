@@ -8,7 +8,7 @@ import 'package:raft_flutter/data/source_read_all_transport.dart';
 import 'message_presentation_test.dart' show fixture;
 
 Future<void> _dispatch() async {
-  for (var i = 0; i < 8; i++) {
+  for (var i = 0; i < 40; i++) {
     await Future<void>.delayed(Duration.zero);
   }
 }
