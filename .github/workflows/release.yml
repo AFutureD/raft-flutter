@@ -168,7 +168,7 @@ jobs:
         run: |
           chmod +x build/release/*.AppImage
           mkdir -p build/appimage-compatibility
-          docker run --rm --env GITHUB_ACTIONS=true --volume "$PWD:/source:ro" --volume "$PWD/build/release:/artifacts:ro" --volume "$PWD/build/appimage-compatibility:/evidence" fedora:44 bash /source/tool/appimage-fedora-test.sh
+          docker run --rm --cap-add IPC_LOCK --cap-add SYS_NICE --env GITHUB_ACTIONS=true --volume "$PWD:/source:ro" --volume "$PWD/build/release:/artifacts:ro" --volume "$PWD/build/appimage-compatibility:/evidence" fedora:44 bash /source/tool/appimage-fedora-test.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

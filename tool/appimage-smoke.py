@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import sys
 import subprocess
 import tempfile
 import time
@@ -77,13 +78,17 @@ def main():
         fuse_state = 'present; explicit extract-and-run'
     else:
         fuse_state = 'absent' if not Path('/dev/fuse').exists() else 'present'
-    subprocess.run(['gnome-keyring-daemon', '--unlock', '--components=secrets'],
-                   input='', text=True, capture_output=True, check=True)
     with tempfile.TemporaryDirectory(prefix='raft-appimage-ci-') as temporary:
         env = dict(os.environ, GDK_SCALE='2', GDK_DPI_SCALE='1',
                    XDG_DATA_HOME=str(Path(temporary) / 'data'),
                    XDG_CONFIG_HOME=str(Path(temporary) / 'config'),
                    XDG_CACHE_HOME=str(Path(temporary) / 'cache'))
+        for key in ('XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'):
+            Path(env[key]).mkdir(parents=True)
+        keyring = subprocess.run(['gnome-keyring-daemon', '--unlock', '--components=secrets'],
+                                 input='', text=True, capture_output=True, env=env)
+        if keyring.returncode:
+            raise ValueError(f'CI keyring startup failed: {keyring.stderr.strip()}')
         command = [str(artifact)]
         if args.mode != 'direct':
             command.append('--appimage-extract-and-run')
@@ -107,7 +112,7 @@ def main():
                         toplevels = dict(re.findall(r'xdg_surface[#@](\d+)\.get_toplevel\(new id xdg_toplevel[#@](\d+)\)', text))
                         for surface, wl_surface in surfaces:
                             toplevel = toplevels.get(surface)
-                            if toplevel and re.search(rf'xdg_toplevel[#@]{toplevel}\.set_title\("Raft"\)', text) and \
+                            if toplevel and re.search(rf'xdg_toplevel[#@]{toplevel}\.set_app_id\("app\.raft\.raft_flutter"\)', text) and \
                                     re.search(rf'wl_surface[#@]{wl_surface}\.attach\(wl_buffer', text) and \
                                     re.search(rf'wl_surface[#@]{wl_surface}\.commit\(', text):
                                 window = f'Raft toplevel {toplevel}, painted Wayland surface {wl_surface}'
@@ -135,15 +140,21 @@ def main():
                           'softwareRenderingForced': env.get('LIBGL_ALWAYS_SOFTWARE') == '1'}
                 png = args.output / f'raft-linux-appimage-{args.mode}-hidpi.png'
                 if args.mode == 'wayland':
-                    subprocess.run(['spectacle', '--background', '--nonotify', '--fullscreen',
-                                    '--output', str(png)], check=True, timeout=30, env=env)
+                    tree = capture(['xwininfo', '-root', '-tree'])
+                    outputs = re.findall(r'(0x[0-9a-f]+) "[^"\n]*(?:KDE Wayland Compositor|KWin)[^"\n]*"', tree)
+                    if len(outputs) != 1:
+                        raise ValueError(f'Expected one nested KWin output window: {tree}')
+                    if not re.search(r'wl_output[#@]\d+\.scale\(2\)', text):
+                        raise ValueError('The native Wayland client did not receive a 2x output scale')
+                    subprocess.run(['import', '-window', outputs[0], png], check=True)
+                    result.update(captureWindow=outputs[0], waylandOutputScale=2)
                 else:
                     subprocess.run(['import', '-window', window, png], check=True)
                 width, height, colors = map(int, capture(['identify', '-format', '%w %h %k', png]).split())
                 if width < 1000 or height < 600 or colors < 32:
                     raise ValueError('Screenshot lacks a full painted HiDPI window')
                 result.update(file=png.name, width=width, height=height, colors=colors,
-                              capture='KDE fullscreen' if args.mode == 'wayland' else 'X11 Raft window')
+                              capture='Nested KWin rendered output (native Wayland client)' if args.mode == 'wayland' else 'X11 Raft window')
                 (args.output / f'{args.mode}.json').write_text(json.dumps(result, indent=2) + '\n')
             finally:
                 try:

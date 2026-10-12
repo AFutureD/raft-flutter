@@ -190,7 +190,9 @@ systems, every GPU, or all desktop configurations.
 CI runs the actual release file directly and in extract-and-run mode at 2× scale.
 A Fedora 44 container without `/dev/fuse` additionally runs the downloaded artifact
 in X11 and under KDE's KWin native Wayland compositor. Source/OS/mode, startup logs,
-original PNGs and Wayland buffer-commit evidence are retained. These are production
+original PNGs and Wayland buffer-commit evidence are retained. KWin is nested on
+Xvfb to make its CPU-rendered output capturable on a GPU-less runner; the app
+itself is forced to use Wayland, and the monitor and client scale are checked at 2×. These are production
 startup checks, not login or full feature acceptance. The disposable tests use a
 fresh Secret Service keyring; the Fedora headless Wayland check uses software
 rendering and does not establish compatibility with the user's physical GPU.
