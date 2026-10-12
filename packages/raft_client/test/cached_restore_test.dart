@@ -152,17 +152,23 @@ void main() {
     );
   }
 
+  // The server never answers 403 on /auth/me (a retired account or revoked
+  // session is `401 {"error":...}`), so a 403 is a proxy or WAF and says
+  // nothing about the credentials: keep them (docs/logout-audit.md).
   test(
-    'cached-first restore clears credentials on forbidden validation',
+    'cached-first restore preserves credentials on forbidden validation',
     () async {
       final (client, adapter, store) = await _restore({
-        'error': 'Account disabled',
+        'error': 'Forbidden',
       }, status: 403);
+      final before = await store.read(client.origin);
       adapter.gate.complete();
       await client.sessionValidated;
-      expect(client.user, isNull);
-      expect(client.signedIn, isFalse);
-      expect(await store.read(client.origin), isNull);
+      expect(client.user?.id, 'alice');
+      expect(client.signedIn, isTrue);
+      expect(client.restoredOffline, isTrue);
+      expect(await store.read(client.origin), same(before));
+      expect(adapter.paths, isNot(contains('POST /auth/logout')));
       await client.dispose();
     },
   );

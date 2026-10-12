@@ -3556,6 +3556,7 @@ class _RaftChatViewState extends State<RaftChatView>
                       : w.channel?.archived != true),
               canSend:
                   !w.conversationPaused &&
+                  !w.sharedBlocked(thread: widget.thread) &&
                   w.uploadsReady(thread: widget.thread),
               suggestions: composerDirectory.suggestions,
               onSuggestionsRequested: (prefix) {

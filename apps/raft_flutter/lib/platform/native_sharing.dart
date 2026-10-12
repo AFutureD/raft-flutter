@@ -109,16 +109,39 @@ class NativeSharing {
       incomingDirectory ?? _incomingDirectory,
       _readContent,
       copyContent: readContent == null && Platform.isAndroid && this.supported
-          ? (uri, file, limit) async =>
-                (await this.channel.invokeMethod<int>('copyIncoming', {
-                  'uri': uri.toString(),
-                  'path': file.path,
-                  'limit': limit,
-                })) ??
-                (throw const FormatException('Shared file unavailable'))
+          ? (uri, file, limit, onBytes) async {
+              // The host reports copied bytes under this id while it copies.
+              final id = ++_copyIds;
+              _copyProgress[id] = onBytes;
+              try {
+                return (await this.channel.invokeMethod<int>('copyIncoming', {
+                      'uri': uri.toString(),
+                      'path': file.path,
+                      'limit': limit,
+                      'id': id,
+                    })) ??
+                    (throw const FormatException('Shared file unavailable'));
+              } finally {
+                _copyProgress.remove(id);
+              }
+            }
           : null,
     );
+    if (readContent == null && Platform.isAndroid && this.supported) {
+      this.channel.setMethodCallHandler((call) async {
+        if (call.method != 'copyProgress') {
+          throw MissingPluginException(call.method);
+        }
+        final args = call.arguments;
+        if (args is Map && args['id'] is int && args['bytes'] is int) {
+          _copyProgress[args['id'] as int]?.call(args['bytes'] as int);
+        }
+        return null;
+      });
+    }
   }
+  int _copyIds = 0;
+  final _copyProgress = <int, void Function(int)>{};
   late final IncomingShareInbox inbox;
   Future<Directory> _incomingDirectory() async {
     if (supported) {
