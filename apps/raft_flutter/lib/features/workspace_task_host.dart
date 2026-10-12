@@ -173,8 +173,9 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
     // full read then revalidates it in place.
     final known = seeded || legacy || knownChannel == null
         ? null
-        : MessageTaskCache.of(w.client)
-              .tasks(w, anchor.channelId)?[anchor.itemId];
+        : MessageTaskCache.of(
+            w.client,
+          ).tasks(w, anchor.channelId)?[anchor.itemId];
     final accepted = seeded
         ? seed!.row
         : known == null
@@ -351,13 +352,19 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
                       ? widget.leadingExtent
                       : 0
                 : 0,
-            child: SafeArea(
-              child: SourceTaskSurface(
-                key: ValueKey(identity),
-                owner: task,
-                onClose: close,
-                onBack: back,
-                legacyPresentation: presentation,
+            // The modal's scrim dims the status bar band too: this overlay sits
+            // above the workspace's own host, so it hosts a transparent strip.
+            child: RaftStatusBarHost(
+              fallback: Colors.transparent,
+              expand: true,
+              child: SafeArea(
+                child: SourceTaskSurface(
+                  key: ValueKey(identity),
+                  owner: task,
+                  onClose: close,
+                  onBack: back,
+                  legacyPresentation: presentation,
+                ),
               ),
             ),
           ),

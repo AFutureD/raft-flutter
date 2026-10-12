@@ -573,7 +573,7 @@ class _AttachmentViewState extends State<AttachmentView> {
             );
           },
         )
-      : DialogRoute<void>(context: context, builder: builder);
+      : RaftFullBleedDialogRoute<void>(context: context, builder: builder);
 
   Future<void> openCurrent() async {
     final revision = bindingRevision;

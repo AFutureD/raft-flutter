@@ -105,6 +105,27 @@ class RaftStatusBarHost extends StatelessWidget {
   }
 }
 
+/// A [DialogRoute] for a full-bleed modal (a lightbox or preview whose header
+/// runs edge to edge): the route is above the page's [RaftStatusBarHost], so it
+/// hosts its own strip. The strip is transparent, so the barrier still dims
+/// the page's band, and a header flush with the top publishes over it like
+/// anywhere else (`docs/status-bar.md`). The content keeps the default dialog
+/// safe area.
+class RaftFullBleedDialogRoute<T> extends DialogRoute<T> {
+  RaftFullBleedDialogRoute({
+    required super.context,
+    required WidgetBuilder builder,
+    super.settings,
+  }) : super(
+         useSafeArea: false,
+         builder: (context) => RaftStatusBarHost(
+           fallback: Colors.transparent,
+           expand: true,
+           child: SafeArea(child: builder(context)),
+         ),
+       );
+}
+
 /// Publishes [color] as the status bar colour while this widget is a visible
 /// top header (flush with the host's strip). Wrap the widget that actually
 /// paints the header background; it adds no layout or paint of its own.
@@ -118,10 +139,15 @@ class RaftStatusBarSource extends SingleChildRenderObjectWidget {
     super.key,
     required this.color,
     this.border,
+    this.overlay = false,
     required Widget super.child,
   });
 
   final Color color;
+
+  /// A modal scrim: composited over every column and header (whatever their
+  /// depth), so a dimmed window dims the status bar band like the rest.
+  final bool overlay;
 
   /// Vertical dividers drawn inside this widget's box (left / right sides),
   /// composited over [color]; pass an opaque colour for a divider whose
@@ -133,6 +159,7 @@ class RaftStatusBarSource extends SingleChildRenderObjectWidget {
       _RenderStatusBarSource(
         color,
         border,
+        overlay,
         RaftStatusBarScope.maybeOf(context),
       );
 
@@ -143,14 +170,21 @@ class RaftStatusBarSource extends SingleChildRenderObjectWidget {
   ) => renderObject
     ..color = color
     ..border = border
+    ..overlay = overlay
     ..registry = RaftStatusBarScope.maybeOf(context);
 }
 
 class _RenderStatusBarSource extends RenderProxyBox {
-  _RenderStatusBarSource(this._color, this._border, this._registry);
+  _RenderStatusBarSource(
+    this._color,
+    this._border,
+    this._overlay,
+    this._registry,
+  );
 
   Color _color;
   Border? _border;
+  bool _overlay;
   RaftStatusBarRegistry? _registry;
 
   Color get color => _color;
@@ -164,6 +198,13 @@ class _RenderStatusBarSource extends RenderProxyBox {
   set border(Border? value) {
     if (value == _border) return;
     _border = value;
+    _registry?._changed();
+  }
+
+  bool get overlay => _overlay;
+  set overlay(bool value) {
+    if (value == _overlay) return;
+    _overlay = value;
     _registry?._changed();
   }
 
@@ -316,7 +357,13 @@ class _RenderStatusBarStrip extends RenderBox {
       }
       found.add((source: source, left: left, right: right));
     }
-    found.sort((a, b) => a.source.depth.compareTo(b.source.depth));
+    // Columns and headers outermost first; scrims last, over all of them.
+    found.sort((a, b) {
+      if (a.source.overlay != b.source.overlay) {
+        return a.source.overlay ? 1 : -1;
+      }
+      return a.source.depth.compareTo(b.source.depth);
+    });
     return found;
   }
 
@@ -375,9 +422,14 @@ class _RenderStatusBarStrip extends RenderBox {
         }
       }
     }
+    final resolved = resolution().color;
+    // A translucent strip (a modal host: a transparent fallback with at most a
+    // scrim or an overlay header on it) leaves the status bar icon style to
+    // the page under it.
+    if (resolved.a < 1) return;
     context.pushLayer(
       AnnotatedRegionLayer<SystemUiOverlayStyle>(
-        _styleFor(resolution().color),
+        _styleFor(resolved),
         size: size,
         offset: offset,
       ),

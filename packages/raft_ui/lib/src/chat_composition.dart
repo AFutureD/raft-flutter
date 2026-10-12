@@ -10,6 +10,7 @@ import 'icons.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'sidebar_section.dart';
 import 'theme.dart';
+import 'status_bar.dart';
 
 enum RaftChatSidebarGroupKind { pinned, joint, channels, directMessages }
 
@@ -494,56 +495,59 @@ class _ConversationTabsState extends State<RaftConversationTabs> {
           raftBreakpointWidth(context) < RaftLayoutMetrics.desktopBreakpoint,
       density: RaftDensityScope.of(context),
     );
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: recipe.background,
-        // Elegant desktop tabs have no rule (`border-b-0`); a zero-width
-        // Flutter BorderSide would still paint a hairline.
-        border: Border(
-          bottom: recipe.outerBottomBorder == 0
-              ? BorderSide.none
-              : BorderSide(
-                  color: recipe.border,
-                  width: recipe.outerBottomBorder,
-                ),
+    return RaftStatusBarSource(
+      color: recipe.background,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: recipe.background,
+          // Elegant desktop tabs have no rule (`border-b-0`); a zero-width
+          // Flutter BorderSide would still paint a hairline.
+          border: Border(
+            bottom: recipe.outerBottomBorder == 0
+                ? BorderSide.none
+                : BorderSide(
+                    color: recipe.border,
+                    width: recipe.outerBottomBorder,
+                  ),
+          ),
         ),
-      ),
-      child: SizedBox(
-        height: recipe.effectiveListHeight,
-        child: Focus(
-          canRequestFocus: false,
-          onKeyEvent: navigation,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            primary: false,
-            child: Padding(
-              padding: recipe.listInset,
-              child: Semantics(
-                role: SemanticsRole.tabBar,
-                explicitChildNodes: true,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (
-                      var index = 0;
-                      index < widget.tabs.length;
-                      index++
-                    ) ...[
-                      if (index > 0 && recipe.gap > 0)
-                        SizedBox(width: recipe.gap),
-                      buildTab(widget.tabs[index], index, recipe),
+        child: SizedBox(
+          height: recipe.effectiveListHeight,
+          child: Focus(
+            canRequestFocus: false,
+            onKeyEvent: navigation,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              primary: false,
+              child: Padding(
+                padding: recipe.listInset,
+                child: Semantics(
+                  role: SemanticsRole.tabBar,
+                  explicitChildNodes: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < widget.tabs.length;
+                        index++
+                      ) ...[
+                        if (index > 0 && recipe.gap > 0)
+                          SizedBox(width: recipe.gap),
+                        buildTab(widget.tabs[index], index, recipe),
+                      ],
+                      // Source TabsList owns the final right border; separators
+                      // belong to the following tab and do not consume its width.
+                      if (recipe.tokens.brutal)
+                        SizedBox(
+                          key: const ValueKey('conversation-tab-list-edge'),
+                          width: 2,
+                          height: recipe.sourceTabHeight,
+                          child: const ColoredBox(color: Colors.black),
+                        ),
                     ],
-                    // Source TabsList owns the final right border; separators
-                    // belong to the following tab and do not consume its width.
-                    if (recipe.tokens.brutal)
-                      SizedBox(
-                        key: const ValueKey('conversation-tab-list-edge'),
-                        width: 2,
-                        height: recipe.sourceTabHeight,
-                        child: const ColoredBox(color: Colors.black),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
