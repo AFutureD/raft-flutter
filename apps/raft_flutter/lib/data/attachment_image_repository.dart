@@ -203,11 +203,10 @@ class DecodedAttachmentImage {
 }
 
 typedef AttachmentImageLoader = Future<Uint8List> Function(CancelToken cancel);
-typedef AttachmentImageDecoder =
-    Future<DecodedAttachmentImage> Function(
-      Uint8List bytes,
-      AttachmentDecodeTarget? target,
-    );
+typedef AttachmentImageDecoder = Future<DecodedAttachmentImage> Function(
+  Uint8List bytes,
+  AttachmentDecodeTarget? target,
+);
 
 /// Returns its owner-held completer even after Flutter's global LRU evicts its
 /// key. Keeping bytes or a MemoryImage alone would not prevent a new codec.
@@ -329,6 +328,16 @@ Future<DecodedAttachmentImage> decodeAttachmentImage(
     descriptor?.dispose();
     buffer.dispose();
   }
+  return _decodeAnimatedAttachmentImage(bytes, width, height);
+}
+
+/// Animated images keep their encoded bytes; kept out of [decodeAttachmentImage]
+/// so the still-image path's closures do not share a Context with `bytes`.
+Future<DecodedAttachmentImage> _decodeAnimatedAttachmentImage(
+  Uint8List bytes,
+  int width,
+  int height,
+) {
   final source = AttachmentMemoryImage(bytes);
   final provider = ResizeImage(
     source,
@@ -641,6 +650,7 @@ class AttachmentImageRepository {
         } finally {
           fetch.waiters.remove(e);
           e.fetch = null;
+          e.fetchCancel = null;
         }
       }
       e.load = null; // Idle cached bytes do not retain a retired row callback.

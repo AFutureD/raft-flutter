@@ -1254,10 +1254,12 @@ class _RaftChatViewState extends State<RaftChatView>
           child: InteractiveViewer(
             transformationController: zoom,
             child: Center(
-              child: Image.memory(
+              child: RaftSizedImage.memory(
                 draft.bytes,
                 key: imageKey,
                 fit: BoxFit.contain,
+                zoom: raftZoomableImageScale,
+                evictOnDispose: true,
               ),
             ),
           ),

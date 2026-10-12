@@ -221,7 +221,12 @@ void main() {
           matching: find.byType(Image),
         ),
       );
-      final bytes = (image.image as MemoryImage).bytes;
+      // Decoded at display size: unwrap the sized provider to reach the PNG.
+      final shown = image.image;
+      final bytes =
+          ((shown is RaftSizedImageProvider ? shown.imageProvider : shown)
+                  as MemoryImage)
+              .bytes;
       expect(bytes.take(8), [137, 80, 78, 71, 13, 10, 26, 10]);
       expect(bytes.length, greaterThan(1000));
       final decoded = await tester.runAsync(
