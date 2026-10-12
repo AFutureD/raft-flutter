@@ -44,6 +44,7 @@ class _FakeResolver implements SystemProxyResolver {
 void main() {
   late HttpServer web, secure;
   late TestProxy proxy;
+  TestProxy? proxyToClose;
   late String webHost, secureHost;
   final prints = <String>[];
 
@@ -56,6 +57,7 @@ void main() {
       basicUser: auth ? 'alice' : null,
       basicPassword: auth ? _password : null,
     );
+    proxyToClose = proxy;
   }
 
   setUpAll(() async {
@@ -124,7 +126,10 @@ void main() {
     await secure.close(force: true);
   });
 
-  tearDown(() async => proxy.close());
+  tearDown(() async {
+    await proxyToClose?.close();
+    proxyToClose = null;
+  });
 
   ProxySettings manual({String? password = _password, String user = 'alice'}) =>
       ProxySettings(
@@ -246,11 +251,12 @@ void main() {
   );
 
   test('RaftClient wires the proxy connector into its socket options', () {
-    // The sharded gate runs from the repository root, a plain `flutter test`
-    // from the package: find the source from either.
+    // Accept the App working directory used by the sharded gate, as well as
+    // plain `flutter test` from the package or repository root.
     final source = [
       'lib/src/client.dart',
       'packages/raft_client/lib/src/client.dart',
+      '../../packages/raft_client/lib/src/client.dart',
     ].map(File.new).firstWhere((f) => f.existsSync()).readAsStringSync();
     expect(source, contains('applyProxyTransport('));
     expect(source, contains('createProxiedDio('));
