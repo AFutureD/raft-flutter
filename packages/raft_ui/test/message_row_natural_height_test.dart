@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final agent in [false, true]) {
       testWidgets(
         'natural header and adjacent body/footer margin $family/$dark/agent=$agent',

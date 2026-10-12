@@ -7,6 +7,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture, MessageAdapter;
@@ -78,11 +79,11 @@ Widget taskHost(WorkspaceController w, RaftFamily family, bool dark) =>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K10b] legacy accepted metadata remains read-only without discussion/history $family/$dark',
       (t) async {

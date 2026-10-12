@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/desktop_directory_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 class _Client extends RaftClient {
   _Client()
@@ -41,11 +42,11 @@ class _Workspace extends WorkspaceController {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 1280.0]) {
       for (final computer in [false, true]) {
         testWidgets(

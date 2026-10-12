@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/features/page_layout.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'desktop_footer_sidebar_page_test.dart' show shellFonts;
 import 'workspace_shell_contract_test.dart' show retire;
@@ -17,11 +18,11 @@ import 'workspace_source_location_contract_test.dart'
 // the Panel's canvas-muted surface and the content on a separate panel surface.
 // Exact Chromium samples are retained in the desktop-region-audit receipt.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final (tab, width) in [
       ('language-region', 1280.0),
       ('notifications', 1280.0),

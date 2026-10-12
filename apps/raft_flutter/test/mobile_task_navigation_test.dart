@@ -7,16 +7,17 @@ import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_flutter/features/workspace_task_host.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'task_surface_test.dart' show modernTask, taskRoutes, flush;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final section in ['tasks', 'chat']) {
       for (final legacy in [false, true]) {
         testWidgets(

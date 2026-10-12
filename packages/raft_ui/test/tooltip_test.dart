@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Widget host(
   Widget child, {
@@ -25,7 +26,7 @@ void main() {
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
   ];
-  for (final (family, dark) in themes) {
+  for (final (family, dark) in raftThemeMatrix(themes)) {
     testWidgets('Product hover waits600ms with unchanged flow $family/$dark', (
       tester,
     ) async {

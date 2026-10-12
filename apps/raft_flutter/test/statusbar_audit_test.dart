@@ -22,6 +22,7 @@ import 'package:raft_flutter/features/public_server_view.dart';
 import 'package:raft_flutter/platform/system_bars.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'edge_to_edge_audit_test.dart'
@@ -582,7 +583,7 @@ void _wideTests() {
 
 void main() {
   _wideTests();
-  for (final theme in _themes) {
+  for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final p in pages) {
       testWidgets('statusbar ${p.name} $theme', (t) async {
         try {
@@ -638,7 +639,7 @@ void main() {
     '43-onboarding-shell': () =>
         const RaftOnboardingShell(child: Text('Create')),
   };
-  for (final theme in _themes) {
+  for (final theme in raftThemeMatrix(_themes, full: true)) {
     for (final entry in standalone.entries) {
       testWidgets('statusbar ${entry.key} $theme', (t) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;

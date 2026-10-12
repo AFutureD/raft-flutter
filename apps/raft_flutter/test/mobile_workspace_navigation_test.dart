@@ -11,6 +11,7 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Client extends RaftClient {
@@ -304,11 +305,11 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(n.sent, isEmpty);
   });
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'Members keeps its reading position after opening an agent $family/$dark',
       (tester) async {
@@ -893,10 +894,8 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final c = _Client()..selectServer('s');
-      final w = WorkspaceController(
-        c,
-        mobileNavigation: true,
-      )..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
+      final w = WorkspaceController(c, mobileNavigation: true)
+        ..server = RaftRecord({'id': 's', 'name': 'Fixture', 'role': 'owner'});
       w.setSection('members');
       addTearDown(() async {
         w.dispose();

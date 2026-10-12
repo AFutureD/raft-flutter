@@ -13,6 +13,7 @@ import 'package:raft_flutter/features/message_presentation.dart';
 import 'package:raft_flutter/features/message_reference_directory.dart';
 import 'package:raft_flutter/features/private_route_guard.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MessageAdapter implements HttpClientAdapter {
@@ -224,11 +225,11 @@ void main() {
     w.dispose();
   });
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('linked-only task keeps bare label external $family/$dark', (
       tester,
     ) async {

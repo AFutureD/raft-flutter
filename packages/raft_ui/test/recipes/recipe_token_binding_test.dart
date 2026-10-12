@@ -118,6 +118,8 @@ const _numbers = [
 ];
 const _fonts = ['headingFont', 'monoFont', 'sansFont'];
 
+// Full theme matrix on purpose (theme/token/recipe test): never sampled, see
+// package:raft_ui/test_themes.dart.
 void main() {
   final themes = {
     'brutal': RaftTokens.theme(RaftFamily.brutal),

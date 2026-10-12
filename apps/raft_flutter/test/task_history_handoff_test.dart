@@ -4,17 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'message_context_transition_test.dart' show row;
 import 'message_presentation_test.dart' show fixture;
 import 'task_surface_test.dart' show taskRoutes, modernTask, taskHost, flush;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
         '[K10d] $family/$dark/$width displayed History accepts pointer during reply handoff',

@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/desktop_directory_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 class _GroupingClient extends RaftClient {
   _GroupingClient()
@@ -65,11 +66,11 @@ class _GroupingClient extends RaftClient {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('long directory builds only visible members $family/$dark', (
       t,
     ) async {

@@ -80,6 +80,14 @@ Chinese UI strings: add them as a new `packages/raft_ui/lib/src/l10n/zh_<feature
 - **Outputs in `.local/`.** `host-collector-tests.txt`, `bindings-generator-pub-get.txt`, `analyze-all.txt`; `test-shard-N.txt` (expanded log) and `test-shard-N.json` (JSON event stream) per shard; `all-project-tests.txt` (aggregate that ends in `All tests passed!` only when every shard passed); `check-summary.txt` (counts, failed test names, slowest 20 tests); `check-durations.json` (per-file seconds including suite compile time, the slowest 20 tests, and the wall time, used to balance the next run); `engineering-run.json` (`sourceHash`, `completed`, `checks` with one `test-shard-N.txt` entry per shard, `shards`, `failedTests`). The stdout JSON (`passed`, `sourceChanged`, `checks`) is unchanged apart from the extra shard keys.
 - **Wall time.** Measured on a 16-CPU shared machine: a green run of 515 test files (4,412 tests) plus analysis takes about 5.5 to 6 minutes (4 shards of 5 to 6 minutes each, analysis and host tests alongside), against 35 to 60 minutes for the former serial run. The slowest single test takes about 15 seconds, so the 60 s per-test bound has wide margin.
 
+### Theme sampling
+
+Many Dart tests repeat one behaviour per theme variant (brutal-light, elegant-light, elegant-dark). By default each test file runs the default variant (brutal-light, always listed first) plus ONE other variant, picked by a stable hash of the file's package-relative path, so roughly half the files sample elegant-light and half elegant-dark. Tests do this by looping over `raftThemeMatrix([...])` from `package:raft_ui/test_themes.dart`; test names do not change, so the default variant keeps its name and duration history. Lists that only have brutal and elegant (no dark axis) run both.
+
+Set `RAFT_TEST_ALL_THEMES=1` to run every variant of every test. `python3 tool/check-project --all-themes` and `tool/prepare-handoff --all-themes` set it for you, and `.local/engineering-run.json` records `themes: sampled|all`. Run the full matrix before merging to main, and whenever you change theme, token or recipe code.
+
+Tests that are about theme differences (per-family tokens, audits, recipes) pass `full: true` to `raftThemeMatrix`, or iterate the theme set themselves, and always run the whole matrix: `design_tokens_test`, `dimension_contract_test`, `statusbar_audit_test`, `edge_to_edge_audit_test`, `system_bars_test`, `packages/raft_ui/test/recipes/*` and the `*_recipe_test.dart` files. A new per-theme test loop should use `raftThemeMatrix` with the default variant first; use `full: true` only when the test compares or audits themes.
+
 ## Behaviour parity checklists
 
 Logic parity with the Web client (what happens on which event, not how it looks) is tracked row by row in `docs/behavior-parity/<domain>.md` (`read.md`, `realtime.md`). Each domain file is written only by its domain auditor; fix branches never edit it.

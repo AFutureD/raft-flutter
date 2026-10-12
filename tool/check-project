@@ -3,6 +3,8 @@
 
 Independent checks (host tests, analysis, sharded Dart tests) run concurrently.
 Dart test files are split into balanced shards, one `flutter test` process each.
+Theme-parametrized Dart tests run the default theme plus one sampled variant per
+file; `--all-themes` (or RAFT_TEST_ALL_THEMES=1) runs the full theme matrix.
 Nothing is retried: a failing or timed-out test fails the gate and is listed in
 `.local/check-summary.txt`. Knobs: RAFT_CHECK_SHARDS, RAFT_CHECK_JOBS (flutter
 test `-j` per shard), RAFT_CHECK_SHARD_TIMEOUT_MINUTES (whole-shard watchdog).
@@ -189,9 +191,9 @@ def slowest_tests(results, count=SLOWEST_TESTS):
     return [{'name': r['name'], 'file': r['file'], 'seconds': r['seconds']} for r in real[:count]]
 
 
-def format_summary(shards, failures, totals, slowest, limit=None):
+def format_summary(shards, failures, totals, slowest, limit=None, themes=None):
     """Human-readable gate summary; failures are listed by test name (first `limit` if given)."""
-    lines = [f"Dart tests: {totals['passed']} passed, {totals['skipped']} skipped, {len(failures)} failed across {len(shards)} shard(s)."]
+    lines = [f"Dart tests: {totals['passed']} passed, {totals['skipped']} skipped, {len(failures)} failed across {len(shards)} shard(s)" + (f' (themes: {themes}).' if themes else '.')]
     for shard in shards:
         state = 'ok' if shard['passed'] else 'FAILED'
         lines.append(f"  shard {shard['index']}: {state} {shard['seconds']:.0f}s, {len(shard['files'])} files (log {shard['log']})")
@@ -279,8 +281,16 @@ def write_aggregate_log(shards, summary_text, passed):
         out.write('All tests passed!\n' if passed else 'Some tests failed.\n')
 
 
+def themes_mode(env):
+    return 'all' if env.get('RAFT_TEST_ALL_THEMES') == '1' else 'sampled'
+
+
 def main():
     check_env = dict(os.environ, PYTHONUTF8='1')
+    if '--all-themes' in sys.argv[1:]:
+        check_env['RAFT_TEST_ALL_THEMES'] = '1'
+    elif sys.argv[1:]:
+        raise SystemExit(f'check-project: unknown arguments {sys.argv[1:]}; the only option is --all-themes.')
     stamp = lambda: subprocess.check_output(tool_command('source-hash'), text=True, env=check_env).strip()
     source_hash = stamp()
     started = time.monotonic()
@@ -293,7 +303,7 @@ def main():
     shard_count, jobs = plan_parallelism(cpu, load)
     plan = partition(files, history_weights(root), shard_count, sizes)
     shard_timeout = float(os.environ.get('RAFT_CHECK_SHARD_TIMEOUT_MINUTES') or DEFAULT_SHARD_TIMEOUT_MINUTES) * 60
-    print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}).', file=sys.stderr)
+    print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}); themes: {themes_mode(check_env)}.', file=sys.stderr)
 
     # The bindings generator must be initialised before whole-project analysis.
     results['bindings-generator-pub-get.txt'] = run_logged(
@@ -342,7 +352,7 @@ def main():
     results = ordered
 
     slowest = slowest_tests(all_results)
-    summary_text = format_summary(shards, failures, totals, slowest)
+    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env))
     (local / 'check-summary.txt').write_text(summary_text, encoding='utf-8')
     write_aggregate_log(shards, summary_text, tests_passed)
     previous = read_json(local / 'check-durations.json').get('files', {})
@@ -351,12 +361,12 @@ def main():
     (local / 'check-durations.json').write_text(json.dumps({
         'sourceHash': source_hash, 'wallSeconds': round(time.monotonic() - started, 1), 'shards': len(shards), 'jobsPerShard': jobs,
         'slowestTests': slowest, 'files': dict(sorted(merged.items()))}, indent=2), encoding='utf-8')
-    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40))
+    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env)))
 
     changed = stamp() != source_hash
     ok = all(results.values()) and not changed
     (local / 'engineering-run.json').write_text(json.dumps({
-        'sourceHash': source_hash, 'completed': ok, 'checks': results,
+        'sourceHash': source_hash, 'completed': ok, 'themes': themes_mode(check_env), 'checks': results,
         'shards': [{'index': s['index'], 'passed': s['passed'], 'exitCode': s['code'], 'seconds': round(s['seconds'], 1), 'files': len(s['files']), 'log': s['log']} for s in shards],
         'failedTests': [{'shard': f['shard'], 'file': f['file'], 'name': f['name']} for f in failures]}, indent=2))
     print(json.dumps({'passed': ok, 'sourceChanged': changed, 'checks': results}))

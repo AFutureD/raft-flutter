@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture;
@@ -45,11 +46,11 @@ Rect? paintedMessage(WidgetTester tester, String id) {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[L02][L06] $family/$dark context keeps old paint, centers once and returns to latest through its actual button',
       (tester) async {
