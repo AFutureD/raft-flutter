@@ -192,7 +192,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   WorkspaceController? workspace;
   WorkspaceCache? cache;
   StreamSubscription<RaftEvent>? sessionEvents;
-  RaftAppearance appearance = const RaftAppearance();
+  // Known before the first build: the deferred first frame is not the only
+  // guard against painting the default family before the stored one.
+  RaftAppearance appearance = storedAppearance();
   bool restoring = true;
   String? bootError;
   String origin = const String.fromEnvironment(
@@ -502,10 +504,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
-      appearance = RaftAppearance(
-        mode: ThemeMode.values.byName(p.getString('raft.mode') ?? 'system'),
-        light: RaftFamily.values.byName(p.getString('raft.light') ?? 'brutal'),
-      );
+      appearance = storedAppearance(p);
       cache =
           await (widget.openWorkspaceCache?.call() ??
               DriftWorkspaceCache.open());
