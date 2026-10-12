@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
-import 'package:raft_ui/recipes.dart';
 
 /// Mounted Source ServerSelector.tsx. The app root owns authorized discovery,
 /// selection, creation and stale-result fences; this page owns only form input.
@@ -307,44 +306,29 @@ class _ServerOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return RaftInteractive(
+    return RaftChoiceCard(
       key: ValueKey('global-server-${server.id}'),
       onPressed: onPressed,
       semanticLabel: server.string('name'),
-      builder: (context, state) => RaftRecipeBox(
-        style: RaftCardRecipe.resolve(
-          theme: t.recipeTheme,
-          variant: RaftCardRecipeVariant.option,
-          states: t.recipeStates(
-            hovered: state.hovered,
-            pressed: state.pressed,
-            focusVisible: state.focusVisible,
-            disabled: !state.enabled,
-          ),
-          tokens: t.recipeTokens,
-        ).root,
-        tokens: t.recipeTokens,
-        padding: const EdgeInsets.all(RaftSpace.x3),
-        child: SizedBox(
-          width: double.infinity,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                server.string('name'),
-                style: RaftTypography.heading(t, size: 16, line: 24),
-              ),
-              Text(
-                '/${server.string('slug')}',
-                style: RaftTypography.heading(
-                  t,
-                  size: 14,
-                  line: 20,
-                  weight: FontWeight.w400,
-                ).copyWith(color: t.muted),
-              ),
-            ],
-          ),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              server.string('name'),
+              style: RaftTypography.heading(t, size: 16, line: 24),
+            ),
+            Text(
+              '/${server.string('slug')}',
+              style: RaftTypography.heading(
+                t,
+                size: 14,
+                line: 20,
+                weight: FontWeight.w400,
+              ).copyWith(color: t.muted),
+            ),
+          ],
         ),
       ),
     );
