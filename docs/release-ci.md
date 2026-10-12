@@ -142,7 +142,9 @@ Compilation, signatures and asset publication do not establish device functional
 
 `python tool/release.py build flatpak` reuses the pinned Linux build/media preparation,
 then packages the complete bundle with GNOME 51. The native Ubuntu build is never
-assumed compatible: every ELF is checked with `flatpak build --runtime` (not the
+assumed compatible: libraries supplied by the GNOME runtime (including graphics
+and font libraries) are removed from the app bundle to avoid conflicts with
+runtime driver extensions; every remaining ELF is checked with `flatpak build --runtime` (not the
 SDK), and both bundled Poppler commands must execute successfully. A mismatch
 stops publication. The manifest grants network, Wayland/X11, GPU/audio, keyring
 and notification services; file selection uses the GTK portal without granting

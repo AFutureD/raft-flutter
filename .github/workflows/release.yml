@@ -130,7 +130,7 @@ jobs:
         run: python tool/release.py build android
       - name: Smoke test the installed Flatpak at 2x display scale
         if: matrix.platform == 'flatpak'
-        run: dbus-run-session -- xvfb-run -a -s '-screen 0 2880x1800x24' python tool/flatpak-smoke.py
+        run: xvfb-run -a -s '-screen 0 2880x1800x24' dbus-run-session -- python tool/flatpak-smoke.py
       - name: Preserve Linux HiDPI screenshots and smoke evidence
         if: matrix.platform == 'flatpak' && always()
         uses: actions/upload-artifact@v4

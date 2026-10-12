@@ -103,6 +103,23 @@ def package(stage, artifact, root, run, capture, digest):
     metadata = payload / 'share/metainfo'
     metadata.mkdir(parents=True)
     shutil.copy2(root / 'packaging/flatpak' / f'{APP_ID}.metainfo.xml', metadata)
+    # The GNOME runtime owns EGL/GL drivers, fontconfig and desktop base libraries.
+    # Mixing Ubuntu copies with its graphics extensions can pass ldd and still
+    # abort during EGL initialization. Query the real runtime before exporting.
+    probe = work / 'runtime-probe'
+    run(['flatpak', 'build-init', probe, APP_ID, 'org.gnome.Sdk',
+         'org.gnome.Platform', RUNTIME_VERSION])
+    provided = {Path(line).name for line in capture([
+        'flatpak', 'build', '--runtime', probe, 'find', '/usr/lib', '-name', '*.so*']).splitlines()}
+    runtime_libraries = []
+    for library in (stage / 'lib').iterdir():
+        if library.name in provided:
+            library.unlink()
+            runtime_libraries.append(library.name)
+    provenance['runtimeProvidedLibraries'] = sorted(runtime_libraries)
+    provenance['libraries'] = [row for row in provenance['libraries']
+                               if row['library'] not in runtime_libraries]
+    (stage / 'data/notices/raft-media/manifest.json').write_text(json.dumps(provenance, indent=2) + '\n')
     spec = work / f'{APP_ID}.json'
     spec.write_text(json.dumps(manifest(payload), indent=2) + '\n')
     build = work / 'build'
@@ -120,5 +137,5 @@ def package(stage, artifact, root, run, capture, digest):
     run(['flatpak', 'build', '--runtime', build, '/app/raft/bin/pdftoppm', '-v'])
     run(['flatpak', 'build-bundle', f'--runtime-repo={FLATHUB}', repo, artifact, APP_ID])
     return {'appId': APP_ID, 'runtime': f'org.gnome.Platform/x86_64/{RUNTIME_VERSION}',
-            'elfFilesChecked': len(files), 'pdfHelpers': ['pdfinfo', 'pdftoppm'],
+            'elfFilesChecked': len(files), 'runtimeProvidedLibraries': sorted(runtime_libraries), 'pdfHelpers': ['pdfinfo', 'pdftoppm'],
             'signature': 'unsigned local bundle; runtime downloaded from Flathub'}
