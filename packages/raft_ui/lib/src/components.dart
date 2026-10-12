@@ -2082,21 +2082,37 @@ class _RaftComposerState extends State<RaftComposer> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       deferredFlushQueued = false;
       if (!mounted || composing || deferredDraft == null) return;
-      final pending = deferredDraft!;
-      deferredDraft = null;
-      applyProgrammaticDraft(pending.resolve(controller.text));
+      commitDeferredDraft();
       widget.onDraftChanged?.call(controller.text);
     });
   }
 
-  void applyProgrammaticDraft(String text) {
+  void commitDeferredDraft() {
+    final pending = deferredDraft;
+    if (pending == null || composing) return;
+    final next = pending.resolveValue(controller.value);
+    deferredDraft = null;
+    restoringDraft = true;
+    controller.value = next;
+    restoringDraft = false;
+  }
+
+  void applyProgrammaticDraft(String text, {bool preferPrepend = false}) {
     final next = raftProgrammaticEditingText(text), value = controller.value;
     if (next == value.text) {
       deferredDraft = null;
       return;
     }
     if (composing) {
-      deferredDraft = RaftDeferredComposerDraft(value.text, next);
+      final previous = deferredDraft;
+      final projected = previous?.resolve(value.text) ?? value.text;
+      if (next == projected) return;
+      deferredDraft = RaftDeferredComposerDraft(
+        projected,
+        next,
+        following: previous,
+        preferPrepend: preferPrepend,
+      );
       widget.onDraftChanged?.call(deferredDraft!.resolve(value.text));
       return;
     }
@@ -2317,9 +2333,7 @@ class _RaftComposerState extends State<RaftComposer> {
 
   Future<void> send({bool forceTask = false}) async {
     if (!composing && deferredDraft != null) {
-      final pending = deferredDraft!;
-      deferredDraft = null;
-      applyProgrammaticDraft(pending.resolve(controller.text));
+      commitDeferredDraft();
     }
     final draft = controller.text;
     final text = draft.trim();
@@ -2399,7 +2413,7 @@ class _RaftComposerState extends State<RaftComposer> {
       final recovery = projected.isEmpty
           ? draft
           : '$draft${draft.endsWith('\n') || projected.startsWith('\n') ? '' : '\n'}$projected';
-      applyProgrammaticDraft(recovery);
+      applyProgrammaticDraft(recovery, preferPrepend: true);
       queueDeferredDraftFlush();
     } else {
       controller.value = TextEditingValue(

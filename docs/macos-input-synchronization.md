@@ -9,7 +9,10 @@ saving only the visible native text. The editor flushes after composition commit
 in a post-frame callback, with selection mapped through the programmatic change.
 
 Append/prepend and combined caption/recovery updates rebase onto the text the IME
-has continued to edit. Disjoint replacements preserve live changes; conflicting
+has continued to edit. Deferred operations retain their arrival order and failed-send
+prepend intent, including identical sent/live text. Selection maps through each
+operation so combined captions and recovery keep the caret within live text.
+Disjoint replacements preserve live changes; conflicting
 replacements conservatively keep both texts separated by a newline rather than
 silently losing live input. No extra native editing states are sent for ordinary
 IME updates or ordinary rebuilds. A pending post-frame update cannot write into a

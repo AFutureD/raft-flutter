@@ -60,13 +60,38 @@ String raftProgrammaticEditingText(String text) {
 /// Ordinary shared captions append; failed sends prepend. For overlapping
 /// replacements, preserve both texts instead of discarding live input.
 class RaftDeferredComposerDraft {
-  RaftDeferredComposerDraft(this.base, String requested)
-    : requested = raftProgrammaticEditingText(requested);
+  RaftDeferredComposerDraft(
+    this.base,
+    String requested, {
+    this.following,
+    this.preferPrepend = false,
+  }) : requested = raftProgrammaticEditingText(requested);
   final String base, requested;
+  final RaftDeferredComposerDraft? following;
+  final bool preferPrepend;
 
-  String resolve(String current) {
+  String resolve(String current) =>
+      _resolve(following?.resolve(current) ?? current);
+
+  TextEditingValue resolveValue(TextEditingValue current) {
+    final before = following?.resolveValue(current) ?? current;
+    final next = _resolve(before.text);
+    return TextEditingValue(
+      text: next,
+      selection: raftProgrammaticSelection(
+        before,
+        next,
+        preferPrepend: preferPrepend,
+      ),
+    );
+  }
+
+  String _resolve(String current) {
     if (current == base) return requested;
     if (requested == base) return current;
+    if (preferPrepend && requested.endsWith(base)) {
+      return requested.substring(0, requested.length - base.length) + current;
+    }
     if (requested.startsWith(base))
       return current + requested.substring(base.length);
     if (requested.endsWith(base))
@@ -100,11 +125,25 @@ class RaftDeferredComposerDraft {
 }
 
 /// Maps the caret through one programmatic edit without splitting UTF-16 pairs.
-TextSelection raftProgrammaticSelection(TextEditingValue old, String next) {
+TextSelection raftProgrammaticSelection(
+  TextEditingValue old,
+  String next, {
+  bool preferPrepend = false,
+}) {
   if (!old.selection.isValid)
     return TextSelection.collapsed(offset: next.length);
+  final unchanged = old.text.isEmpty
+      ? -1
+      : preferPrepend && next.endsWith(old.text)
+      ? next.length - old.text.length
+      : next.startsWith(old.text)
+      ? 0
+      : next.endsWith(old.text)
+      ? next.length - old.text.length
+      : next.indexOf(old.text);
   final change = _change(old.text, next);
   int map(int offset) {
+    if (unchanged >= 0) return raftSafeEditingOffset(next, unchanged + offset);
     var result = offset;
     if (offset > change.start ||
         (offset == change.start && change.start < old.text.length)) {

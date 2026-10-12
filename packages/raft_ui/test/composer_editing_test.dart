@@ -95,4 +95,40 @@ void main() {
       );
     },
   );
+  test(
+    'identical failed text keeps prepend intent through a later caption',
+    () {
+      final recovery = RaftDeferredComposerDraft(
+        'same',
+        'same\nsame',
+        preferPrepend: true,
+      );
+      final caption = RaftDeferredComposerDraft(
+        'same\nsame',
+        'same\nsame\ncaption',
+        following: recovery,
+      );
+      expect(caption.resolve('new voice'), 'same\nnew voice\ncaption');
+      final value = caption.resolveValue(
+        const TextEditingValue(
+          text: 'new voice',
+          selection: TextSelection.collapsed(offset: 4),
+        ),
+      );
+      expect(value.text, 'same\nnew voice\ncaption');
+      expect(value.selection.baseOffset, 9);
+    },
+  );
+  test('combined prefix and suffix keep caret in the live text', () {
+    expect(
+      raftProgrammaticSelection(
+        const TextEditingValue(
+          text: 'new',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+        'sent\nnew\ncaption',
+      ).baseOffset,
+      7,
+    );
+  });
 }
