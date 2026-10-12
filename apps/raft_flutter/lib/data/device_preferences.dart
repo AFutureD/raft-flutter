@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart' show ThemeMode;
+import 'package:raft_ui/raft_ui.dart' show RaftAppearance, RaftFamily;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Synchronous view of the device preferences, preloaded once at app start so
@@ -74,4 +76,31 @@ class FeatureFlagMemory {
     merged.addAll(flags);
     preferences.setString(key, jsonEncode(merged));
   }
+}
+
+/// The appearance stored by the Appearance settings (`raft.mode`, `raft.light`),
+/// read synchronously so the very first built MaterialApp already uses the
+/// chosen family and mode. Missing, unknown or unavailable values fall back to
+/// the defaults one by one instead of failing the whole read.
+RaftAppearance storedAppearance([SharedPreferences? preferences]) {
+  final p = preferences ?? DevicePreferences.current;
+  String? read(String key) {
+    try {
+      return p?.getString(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  const defaults = RaftAppearance();
+  return RaftAppearance(
+    mode: ThemeMode.values.firstWhere(
+      (mode) => mode.name == read('raft.mode'),
+      orElse: () => defaults.mode,
+    ),
+    light: RaftFamily.values.firstWhere(
+      (family) => family.name == read('raft.light'),
+      orElse: () => defaults.light,
+    ),
+  );
 }

@@ -341,35 +341,58 @@ class _Chip extends StatelessWidget {
               ? RaftProductShadows.shadowBrutalSm.outer
               : t.themeShadows.xs.outer)
         : const <BoxShadow>[];
-    return Semantics(
-      button: true,
+    return RaftInteractive(
+      onPressed: onTap,
+      semanticLabel: label,
       selected: selected,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: RaftCssSnappedBox(
-          color: fill,
-          borderColor: t.brutal ? Colors.black : t.colors['line-muted']!,
-          borderWidth: border,
-          radius: t.brutal ? 0 : 6,
-          shadows: shadows,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 12 + border,
-              vertical: 6 + border,
-            ),
-            child: Text(
-              label,
-              style: RaftTypography.heading(
-                t,
-                size: 14,
-                line: 20,
-              ).copyWith(color: t.brutal ? Colors.black : t.strong),
+      builder: (context, state) {
+        final active = state.enabled && (state.hovered || state.pressed);
+        // Not selected: hover / pressed tint the idle surface.
+        final shade = !selected && active
+            ? (t.brutal
+                  ? t.product.brutalCream
+                  : t.colors['layer-canvas-muted']!)
+            : fill;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+            boxShadow: [
+              if (state.focusVisible)
+                BoxShadow(
+                  color: (t.brutal ? Colors.black : t.ink).withValues(
+                    alpha: .8,
+                  ),
+                  spreadRadius: 2,
+                ),
+            ],
+          ),
+          child: RaftCssSnappedBox(
+            color: shade,
+            borderColor: t.brutal
+                ? Colors.black
+                : active
+                ? t.colors['line-strong']!
+                : t.colors['line-muted']!,
+            borderWidth: border,
+            radius: t.brutal ? 0 : 6,
+            shadows: state.pressed && t.brutal ? const [] : shadows,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 12 + border,
+                vertical: 6 + border,
+              ),
+              child: Text(
+                label,
+                style: RaftTypography.heading(
+                  t,
+                  size: 14,
+                  line: 20,
+                ).copyWith(color: t.brutal ? Colors.black : t.strong),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -965,70 +988,91 @@ class _RuntimeRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GestureDetector(
-            onTap: onToggle,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: tile,
-                    height: tile,
-                    alignment: Alignment.center,
-                    decoration: RaftCssBoxDecoration(
-                      color: t.brutal ? Colors.white : t.panel,
-                      border: Border.all(
-                        color: t.brutal
-                            ? Colors.black
-                            : t.colors['line-muted']!,
-                        width: t.brutal ? 2 : 1,
+          RaftInteractive(
+            onPressed: onToggle,
+            semanticLabel: runtime.displayName,
+            checked: null,
+            selected: expanded,
+            builder: (context, state) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: state.enabled && (state.pressed || state.hovered)
+                    ? (t.brutal
+                          ? t.product.softSignal.withValues(alpha: .35)
+                          : t.colors['fill-muted']!.withValues(alpha: .6))
+                    : null,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: tile,
+                      height: tile,
+                      alignment: Alignment.center,
+                      decoration: RaftCssBoxDecoration(
+                        color: t.brutal ? Colors.white : t.panel,
+                        border: Border.all(
+                          color: t.brutal
+                              ? Colors.black
+                              : t.colors['line-muted']!,
+                          width: t.brutal ? 2 : 1,
+                        ),
+                        borderRadius: t.brutal
+                            ? null
+                            : BorderRadius.circular(6),
                       ),
-                      borderRadius: t.brutal ? null : BorderRadius.circular(6),
-                    ),
-                    child: Text(runtime.abbreviation, style: _mono(t, 9, 13.5)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      runtime.displayName,
-                      style: RaftTypography.heading(
-                        t,
-                        size: runtime.recommended ? 13 : 12,
-                        line: runtime.recommended ? 19.5 : 16,
-                      ).copyWith(color: quiet ? hint : t.ink),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: RaftCssBoxDecoration(
-                      color: badgeColors.fill,
-                      border: Border.all(
-                        color: badgeColors.border,
-                        width: t.brutal ? 2 : 1,
+                      child: Text(
+                        runtime.abbreviation,
+                        style: _mono(t, 9, 13.5),
                       ),
-                      borderRadius: t.brutal ? null : BorderRadius.circular(2),
                     ),
-                    child: Text(
-                      (runtime.detected ? tr('Detected') : tr('Not detected'))
-                          .toUpperCase(),
-                      style: _mono(t, 9, 13.5, color: badgeColors.text),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        runtime.displayName,
+                        style: RaftTypography.heading(
+                          t,
+                          size: runtime.recommended ? 13 : 12,
+                          line: runtime.recommended ? 19.5 : 16,
+                        ).copyWith(color: quiet ? hint : t.ink),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  RotatedBox(
-                    quarterTurns: expanded ? 1 : 0,
-                    child: RaftIcon(
-                      RaftGlyph.chevronRight,
-                      size: 15,
-                      color: quiet ? hint : t.ink,
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: RaftCssBoxDecoration(
+                        color: badgeColors.fill,
+                        border: Border.all(
+                          color: badgeColors.border,
+                          width: t.brutal ? 2 : 1,
+                        ),
+                        borderRadius: t.brutal
+                            ? null
+                            : BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        (runtime.detected ? tr('Detected') : tr('Not detected'))
+                            .toUpperCase(),
+                        style: _mono(t, 9, 13.5, color: badgeColors.text),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    RotatedBox(
+                      quarterTurns: expanded ? 1 : 0,
+                      child: RaftIcon(
+                        RaftGlyph.chevronRight,
+                        size: 15,
+                        color: quiet ? hint : t.ink,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1065,25 +1109,29 @@ class _RuntimeRow extends StatelessWidget {
                           ),
                         ),
                         if (command != null && onCopyInstallCommand != null)
-                          GestureDetector(
-                            onTap: () =>
+                          RaftInteractive(
+                            onPressed: () =>
                                 onCopyInstallCommand!(runtime.id, command),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                RaftIcon(
-                                  RaftGlyph.copy,
-                                  size: 12,
-                                  color: t.strong,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  tr('Copy install command'),
-                                  style: strong.copyWith(
-                                    decoration: TextDecoration.underline,
+                            semanticLabel: tr('Copy install command'),
+                            builder: (context, state) => Opacity(
+                              opacity: state.pressed ? .6 : 1,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  RaftIcon(
+                                    RaftGlyph.copy,
+                                    size: 12,
+                                    color: t.strong,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    tr('Copy install command'),
+                                    style: strong.copyWith(
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                       ],
