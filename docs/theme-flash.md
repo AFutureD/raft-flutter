@@ -37,3 +37,17 @@ So the "default theme" the owner sees is the icon-colour splash (native), not a 
 ## Splash
 
 The icon-colour splash is an owner requirement for the icon feature and is unchanged. Options if the splash colour itself must not differ from the chosen theme are listed in the hand-off notes.
+
+## Desktop (Linux profile build under xvfb; macOS needs a Mac recording)
+
+Same entrypoint, real persisted preferences (`THEME_FLASH_SEED=<file>` holds `<mode> <family>`, `THEME_FLASH_CACHE=<dir>` keeps the workspace cache so the second cold start is cache-first, `THEME_FLASH_PRESENTATION=<json>` stores the Appearance-section choices). `DBUS_SESSION_BUS_ADDRESS=disabled:` keeps the GApplication from forwarding to another running instance. Capture: `ffmpeg -f x11grab -framerate 30` from before launch; one capture at a time under `flock /tmp/raft-flutter-linux-capture.lock`.
+
+What desktop showed (before = origin/cindy/integration):
+
+- Linux shows no native window colour: GTK maps the window on the first Flutter frame (`first_frame_cb`), so the first frame the user sees is already Flutter UI.
+- The theme (rail, sidebar, canvas) was already the stored family on the first rendered frame in 30 of 31 cold starts (Elegant light and dark, with and without a seeded presentation). One cold start (Elegant light, cache-first) rendered the Brutal rail (`#FFD541`) and sidebar (`#FFFAEE`) for about 0.9 s before Elegant; it did not recur in 28 further baseline launches and an instrumented build (first build brutal and `restoring=true`, appearance read 6 ms later, first frame released after the rebuild) shows the ordering that normally prevents it. The synchronous `storedAppearance()` removes the dependency on that ordering.
+- Reproducible every launch: the sidebar and chat first render with the DEFAULT personal presentation (desktop default: empty sidebar sections hidden, font `md`) and switch to the stored choices (here: empty sections shown, font `lg`) about 0.3 s later. `PersonalPresentationStore.bind` read the stored value with an awaited storage read, after the first build. Frames: `/tmp/theme-flash/desktop-presentation-base-vs-fixed.png`.
+
+Fix: `bind` reads the preloaded `DevicePreferences` synchronously (`SynchronousSearchMemoryStorage`), so the first build already has the stored font, `hideEmptySections`, live-activity and model-name choices; one notification, no defaults frame. Test: `test/personal_presentation_test.dart`.
+
+macOS (`macos/Runner/MainFlutterWindow.swift`, not compilable on this host): the nib window is `visibleAtLaunch=NO`; `AppDelegate` orders it in at `applicationDidFinishLaunching`, before the deferred first Flutter frame, with the default NSWindow colour and a `FlutterView` that paints black until then. The window and `FlutterViewController.backgroundColor` now use the stored theme's canvas (white for every light family, `#141411` for dark; `mode=system` follows the app appearance), read from NSUserDefaults (`flutter.raft.mode`). Needs a Mac recording to confirm.
