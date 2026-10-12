@@ -15,3 +15,5 @@ Liberation Sans (diagram-only): unchanged fonts from fonts-liberation 1:2.1.5-3b
 Design-token sources vendored for `tool/gen-tokens` live in `tool/design-source/` (hashes in `manifest.json`): raft-ui 0.5.27 `dist/foundation.css`, `dist/styles.css`, `dist/fonts.css` (MIT, per the npm package metadata), tailwindcss 4.2.2 `theme.css` (MIT, license copied beside it), and raft-source 26f77ef `packages/web/src/index.css` (covered by the raft-source license above). See docs/design-tokens.md.
 
 Runtime alternate icons use a locally modified flutter_dynamic_icon_plus 1.4.1 (MIT), copyright 2024 chandrabezzo. The original [license](packages/flutter_dynamic_icon_plus/LICENSE), [upstream provenance](packages/flutter_dynamic_icon_plus/UPSTREAM.json) and [local changes](packages/flutter_dynamic_icon_plus/RAFT_PATCHES.md) are preserved with the vendored source.
+
+macOS Dock unread badges use app_badge_plus 1.3.5 (MIT), copyright 2024 LioLin. The unmodified [license](docs/licenses/app_badge_plus-1.3.5-MIT.txt) is preserved for distribution.

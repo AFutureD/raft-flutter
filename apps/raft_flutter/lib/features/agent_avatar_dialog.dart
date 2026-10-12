@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../platform/file_selection.dart';
+
 import '../data/workspace_controller.dart';
 
 class AgentAvatarUpload {
@@ -16,14 +18,13 @@ class AgentAvatarUpload {
 }
 
 Future<AgentAvatarUpload?> pickAgentAvatar() async {
-  final f = await openFile(
-    acceptedTypeGroups: [
-      const XTypeGroup(
-        label: 'Images',
-        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'],
-        mimeTypes: ['image/*'],
-      ),
-    ],
+  final f = await selectImage(
+    typeGroup: const XTypeGroup(
+      label: 'Images',
+      extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'],
+      mimeTypes: ['image/*'],
+      uniformTypeIdentifiers: ['public.image'],
+    ),
   );
   if (f == null) return null;
   // Reject before reading potentially large native files into memory.

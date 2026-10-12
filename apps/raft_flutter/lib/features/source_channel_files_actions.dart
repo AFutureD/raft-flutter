@@ -170,7 +170,7 @@ class SourceChannelFilesActions {
         }
         if (!current(file)) return;
         late DialogRoute<void> route;
-        route = DialogRoute<void>(
+        route = RaftFullBleedDialogRoute<void>(
           context: context(),
           builder: (_) => html
               ? HtmlAttachmentPreviewDialog(
@@ -207,7 +207,7 @@ class SourceChannelFilesActions {
             if (!current(file)) return;
             late DialogRoute<void> route;
             final imageKey = GlobalKey();
-            route = DialogRoute<void>(
+            route = RaftFullBleedDialogRoute<void>(
               context: context(),
               builder: (_) => RaftAttachmentLightbox(
                 title: file.filename,
@@ -257,7 +257,7 @@ class SourceChannelFilesActions {
           provider = MemoryImage(image);
           late DialogRoute<void> route;
           final imageKey = GlobalKey();
-          route = DialogRoute<void>(
+          route = RaftFullBleedDialogRoute<void>(
             context: context(),
             builder: (_) => RaftAttachmentLightbox(
               title: file.filename,

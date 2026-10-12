@@ -31,6 +31,7 @@ import 'recipes/label.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/token_binding.dart';
+import 'status_bar.dart';
 import 'theme.dart';
 
 /// Tailwind v4 text steps used by the dialogs (`--text-*` and its
@@ -276,52 +277,59 @@ class RaftModalBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     // backdrop-blur-[2px]: CSS blur radius is the Gaussian standard deviation.
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-      child: ColoredBox(
-        color: t.brutal
-            ? Colors.black.withValues(alpha: .6)
-            : t.colors['layer-backdrop']!,
-        child: LayoutBuilder(
-          builder: (context, box) {
-            Widget content = _PixelCenter(child: child);
-            if (onBackdrop != null) {
-              // Presses inside [child] never reach the backdrop handler.
-              content = GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onBackdrop,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _PixelCenter(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {},
-                      excludeFromSemantics: true,
-                      child: child,
+    final scrim = t.brutal
+        ? Colors.black.withValues(alpha: .6)
+        : t.colors['layer-backdrop']!;
+    // The scrim dims the status bar band over its width too (see
+    // `status_bar.dart`: a modal inside the host's scope publishes it).
+    return RaftStatusBarSource(
+      color: scrim,
+      overlay: true,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+        child: ColoredBox(
+          color: scrim,
+          child: LayoutBuilder(
+            builder: (context, box) {
+              Widget content = _PixelCenter(child: child);
+              if (onBackdrop != null) {
+                // Presses inside [child] never reach the backdrop handler.
+                content = GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onBackdrop,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _PixelCenter(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        excludeFromSemantics: true,
+                        child: child,
+                      ),
                     ),
                   ),
+                );
+              } else {
+                content = Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: content,
+                );
+              }
+              // Edge to edge: the layer spans the window, so a dialog taller
+              // than the screen must scroll clear of the gesture / nav bar.
+              // The centring area shrinks by the same amount (0 on desktop).
+              final inset = raftBottomInset(context);
+              return SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: inset),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: math.max(0, box.maxHeight - inset),
+                  ),
+                  child: content,
                 ),
               );
-            } else {
-              content = Padding(
-                padding: const EdgeInsets.all(16),
-                child: content,
-              );
-            }
-            // Edge to edge: the layer spans the window, so a dialog taller
-            // than the screen must scroll clear of the gesture / nav bar.
-            // The centring area shrinks by the same amount (0 on desktop).
-            final inset = raftBottomInset(context);
-            return SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: inset),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: math.max(0, box.maxHeight - inset),
-                ),
-                child: content,
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );

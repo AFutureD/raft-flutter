@@ -2283,31 +2283,39 @@ class _ResourceViewState extends State<ResourceView> {
     // Activity page draws no vertical border at x = 0; the desktop panel keeps
     // its line beside the rail.
     final activityBorder = !RaftAdaptiveWorkspace.compactOf(context);
-    final body = Container(
-      decoration: activityEdge
-          ? BoxDecoration(
-              color: t.brutal ? t.panel : t.sidebar,
-              border: activityBorder
-                  ? Border(
-                      left: BorderSide(
-                        color: t.brutal ? t.colors['color-black']! : t.line,
-                      ),
-                    )
-                  : null,
-            )
-          // SavedPanel: `bg-layer-canvas-muted theme-brutal:bg-white`.
-          : widget.section == 'saved'
-          ? BoxDecoration(color: t.brutal ? t.panel : t.sidebar)
-          : widget.section == 'search'
-          ? searchSlots(context).frame.decoration(rui.RaftRecipeTokens(t))
-          : null,
-      child: widget.section == 'tasks'
-          ? DefaultTextStyle.merge(
-              style: RaftTaskSectionRecipe(t).documentStyle,
-              child: buildBody(context),
-            )
-          : buildBody(context),
-    );
+    final BoxDecoration? surface = activityEdge
+        ? BoxDecoration(
+            color: t.brutal ? t.panel : t.sidebar,
+            border: activityBorder
+                ? Border(
+                    left: BorderSide(
+                      color: t.brutal ? t.colors['color-black']! : t.line,
+                    ),
+                  )
+                : null,
+          )
+        // SavedPanel: `bg-layer-canvas-muted theme-brutal:bg-white`.
+        : widget.section == 'saved'
+        ? BoxDecoration(color: t.brutal ? t.panel : t.sidebar)
+        : widget.section == 'search'
+        ? searchSlots(context).frame.decoration(rui.RaftRecipeTokens(t))
+        : null;
+    final bodyChild = widget.section == 'tasks'
+        ? DefaultTextStyle.merge(
+            style: RaftTaskSectionRecipe(t).documentStyle,
+            child: buildBody(context),
+          )
+        : buildBody(context);
+    final box = Container(decoration: surface, child: bodyChild);
+    // The page surface (and the Activity edge) is the column's top surface
+    // under a transparent header, so it continues under the status bar.
+    final body = surface == null
+        ? box
+        : RaftStatusBarSource(
+            color: surface.color ?? Colors.transparent,
+            border: surface.border is Border ? surface.border as Border : null,
+            child: box,
+          );
     return enabledActivity
         ? CallbackShortcuts(
             bindings: {
