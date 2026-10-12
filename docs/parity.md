@@ -1717,3 +1717,11 @@ then WebView load percent on Android/iOS/macOS, or downloaded bytes on the Linux
 static fallback), matching the image/PDF/video previews. Kevin asked for this on
 2026-10-12 ("缺个加载进度？别的都有"). The `html.preparing` ext parity cases
 (desktop and mobile) therefore differ from Web on purpose.
+
+## Underlines: one offset everywhere, including auth links (owner decision 2026-10-12)
+
+Every underline uses the hyperlink metrics (`underline decoration-2 underline-offset-2`):
+2px stroke, 2px below the baseline, shared by all themes (packages/raft_ui/lib/src/raft_underline.dart,
+guarded by raft_underline_guard_test). Web's auth-page links use a plain `underline` with no offset;
+Kevin asked to unify all underlines on the link style, so the `auth-ext` / `auth-pages` login and
+register cases differ from Web by that gap on purpose.
