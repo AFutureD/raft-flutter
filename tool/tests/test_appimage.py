@@ -37,11 +37,12 @@ class AppImageTests(unittest.TestCase):
                 'export GIO_MODULE_DIR="/appimage/gio/modules"\n' +
                 'export GSETTINGS_SCHEMA_DIR="/appimage/schemas"\n' +
                 'export GIO_LAUNCH_DESKTOP="/appimage/launcher"\n' +
+                'export GTK_IM_MODULE_FILE="/appimage/immodules.cache"\n' +
                 'exec "$@"\n')
             launch.chmod(0o755)
             probe = ('import os,json; print(json.dumps({k:v for k,v in os.environ.items() '
                      'if k in ["PATH","LD_LIBRARY_PATH","GIO_MODULE_DIR",'
-                     '"GSETTINGS_SCHEMA_DIR","GIO_LAUNCH_DESKTOP","TEST_HOST_HELPER"] '
+                     '"GSETTINGS_SCHEMA_DIR","GIO_LAUNCH_DESKTOP","GTK_IM_MODULE_FILE","TEST_HOST_HELPER"] '
                      'or k.startswith("RAFT_APPIMAGE_HOST_")}))')
             result = subprocess.run([str(launch), str(wrapper), sys.executable, '-c', probe],
                                     env=original, text=True, capture_output=True, check=True)
@@ -54,7 +55,7 @@ class AppImageTests(unittest.TestCase):
         for state in ('unset', 'empty', 'set'):
             with self.subTest(state=state):
                 original = {'PATH': os.defpath}
-                for key in ('LD_LIBRARY_PATH', 'GIO_MODULE_DIR', 'GSETTINGS_SCHEMA_DIR'):
+                for key in ('LD_LIBRARY_PATH', 'GIO_MODULE_DIR', 'GSETTINGS_SCHEMA_DIR', 'GTK_IM_MODULE_FILE'):
                     if state != 'unset':
                         original[key] = '' if state == 'empty' else '/host path/' + key
                 self.run_external_launch(original)
@@ -62,6 +63,23 @@ class AppImageTests(unittest.TestCase):
     def test_explicit_host_launcher_override_is_used_after_environment_restore(self):
         self.run_external_launch({'PATH': os.defpath, 'GIO_MODULE_DIR': '/host/modules'},
                                  override=True)
+
+    def test_host_input_method_cache_is_discovered_without_overwriting_user_selection(self):
+        with tempfile.TemporaryDirectory(prefix='raft im cache ') as temporary:
+            cache = Path(temporary) / 'immodules.cache'
+            cache.write_text('fixture module cache')
+            script = appimage.input_method_cache_setup(['/missing/cache', str(cache)])
+            command = script + 'exec ' + appimage.shlex.quote(sys.executable) + \
+                ' -c \'import os; print(os.environ.get("GTK_IM_MODULE_FILE", "<unset>"))\'\n'
+            for configured in (None, '', '/chosen/user/cache'):
+                with self.subTest(configured=configured):
+                    env = {'PATH': os.defpath}
+                    if configured is not None:
+                        env['GTK_IM_MODULE_FILE'] = configured
+                    result = subprocess.run(['/bin/sh', '-c', command], env=env,
+                                            text=True, capture_output=True, check=True)
+                    self.assertEqual(result.stdout.rstrip('\n'),
+                                     str(cache) if configured is None else configured)
 
     def test_dependency_parse_rejects_unresolved_libraries_and_version_failures(self):
         for text in ['libgtk-3.so.0 => not found', 'libc.so.6: version `GLIBC_2.40\' not found']:

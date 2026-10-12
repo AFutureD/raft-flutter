@@ -77,7 +77,7 @@ def main():
                 GSETTINGS_SCHEMA_DIR=str(payload.parent / 'usr/share/glib-2.0/schemas'),
                 GIO_LAUNCH_DESKTOP=str(payload / 'bin/raft-gio-launch-desktop'))
             for key in ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
-                        'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP'):
+                        'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE'):
                 prefix = 'RAFT_APPIMAGE_HOST_' + key
                 desktop_env[prefix + '_SET'] = 'x' if key in os.environ else ''
                 desktop_env[prefix] = os.environ.get(key, '')

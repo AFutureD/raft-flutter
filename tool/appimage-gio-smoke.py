@@ -30,7 +30,7 @@ def main():
     glib.g_error_free.argtypes = [error_pointer]
     gobject.g_object_unref.argtypes = [ctypes.c_void_p]
     keys = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
-            'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP')
+            'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE')
     expected = {key: os.environ.get('RAFT_APPIMAGE_HOST_' + key, '')
                 for key in keys
                 if os.environ.get('RAFT_APPIMAGE_HOST_' + key + '_SET') == 'x'}

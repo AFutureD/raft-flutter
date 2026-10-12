@@ -5,13 +5,37 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_ID = 'app.raft.raft_flutter'
 HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
-                         'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP')
+                         'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE')
+
+
+GTK3_IM_CACHES = (
+    '/usr/lib64/gtk-3.0/3.0.0/immodules.cache',
+    '/usr/lib/x86_64-linux-gnu/gtk-3.0/3.0.0/immodules.cache',
+    '/usr/lib/gtk-3.0/3.0.0/immodules.cache',
+)
+
+
+def input_method_cache_setup(candidates=GTK3_IM_CACHES):
+    dollar = chr(36)
+    # These are host GTK3 module caches for the installed input-method bridge.
+    # Preserve an explicit value, including an intentionally empty value.
+    return '\n'.join([
+        'if [ -z "' + dollar + '{GTK_IM_MODULE_FILE+x}" ]; then',
+        '  for module_cache in ' + ' '.join(shlex.quote(path) for path in candidates) + '; do',
+        '    if [ -r "' + dollar + 'module_cache" ]; then',
+        '      export GTK_IM_MODULE_FILE="' + dollar + 'module_cache"',
+        '      break',
+        '    fi',
+        '  done',
+        'fi',
+    ]) + '\n'
 
 
 def host_environment_capture():
@@ -220,7 +244,7 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     launcher.write_text('''#!/bin/sh
 set -eu
 app_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-''' + host_environment_capture() + '''export PATH="$app_dir/raft/bin:$PATH"
+''' + host_environment_capture() + input_method_cache_setup() + '''export PATH="$app_dir/raft/bin:$PATH"
 export LD_LIBRARY_PATH="$app_dir/raft/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export GIO_MODULE_DIR="$app_dir/raft/lib/gio/modules"
 export GSETTINGS_SCHEMA_DIR="$app_dir/usr/share/glib-2.0/schemas"
