@@ -158,57 +158,65 @@ class _ThreadActionsState extends State<ThreadActions> {
           (overlayBox.size.width - 200).clamp(8.0, double.infinity),
         ),
         top: rect.bottom + 4,
-        child: TapRegion(
-          groupId: menuGroup,
-          onTapOutside: (_) => closeMenu(),
-          child: RaftMenuPanel(
-            onDismiss: closeMenu,
-            children: [
-              if (widget.onSearch != null)
-                RaftMenuItem(
-                  label: raftText(context, 'Search in thread'),
-                  glyph: RaftGlyph.search,
-                  autofocus: true,
-                  onPressed: () {
-                    closeMenu();
-                    if (current) widget.onSearch!();
-                  },
-                ),
-              if (widget.onViewChannel != null)
-                RaftMenuItem(
-                  label: raftText(context, 'View in channel'),
-                  glyph: RaftGlyph.mapPin,
-                  onPressed: () {
-                    closeMenu();
-                    if (current) widget.onViewChannel!();
-                  },
-                ),
-              RaftMenuItem(
-                key: const Key('thread-follow-menu-item'),
-                label: raftText(
-                  context,
-                  following == true ? 'Unfollow Thread' : 'Follow Thread',
-                ),
-                glyph: following == true
-                    ? RaftGlyph.messageCircleOff
-                    : RaftGlyph.messageCirclePlus,
-                onPressed: following == null || busy
-                    ? null
-                    : () {
+        child: RaftBackDismiss(
+          routeContext: this.context,
+          onDismiss: closeMenu,
+          child: TapRegion(
+            groupId: menuGroup,
+            onTapOutside: (_) => closeMenu(),
+            child: RaftDismissScope(
+              onDismiss: closeMenu,
+              takeFocus: true,
+              child: RaftMenuPanel(
+                onDismiss: closeMenu,
+                children: [
+                  if (widget.onSearch != null)
+                    RaftMenuItem(
+                      label: raftText(context, 'Search in thread'),
+                      glyph: RaftGlyph.search,
+                      autofocus: true,
+                      onPressed: () {
                         closeMenu();
-                        toggle();
+                        if (current) widget.onSearch!();
                       },
+                    ),
+                  if (widget.onViewChannel != null)
+                    RaftMenuItem(
+                      label: raftText(context, 'View in channel'),
+                      glyph: RaftGlyph.mapPin,
+                      onPressed: () {
+                        closeMenu();
+                        if (current) widget.onViewChannel!();
+                      },
+                    ),
+                  RaftMenuItem(
+                    key: const Key('thread-follow-menu-item'),
+                    label: raftText(
+                      context,
+                      following == true ? 'Unfollow Thread' : 'Follow Thread',
+                    ),
+                    glyph: following == true
+                        ? RaftGlyph.messageCircleOff
+                        : RaftGlyph.messageCirclePlus,
+                    onPressed: following == null || busy
+                        ? null
+                        : () {
+                            closeMenu();
+                            toggle();
+                          },
+                  ),
+                  if (error != null || loadError != null)
+                    RaftMenuItem(
+                      label: raftText(context, 'Retry'),
+                      glyph: RaftGlyph.refreshCw,
+                      onPressed: () {
+                        closeMenu();
+                        retry();
+                      },
+                    ),
+                ],
               ),
-              if (error != null || loadError != null)
-                RaftMenuItem(
-                  label: raftText(context, 'Retry'),
-                  glyph: RaftGlyph.refreshCw,
-                  onPressed: () {
-                    closeMenu();
-                    retry();
-                  },
-                ),
-            ],
+            ),
           ),
         ),
       ),

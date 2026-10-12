@@ -745,36 +745,41 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
         ],
       );
     }
-    return RaftDialogShell(
-      surfaceKey: widget.surfaceKey,
-      title: title,
-      maxWidth: maxWidth,
-      onClose: loading ? null : cancel,
-      body: body,
-      footer: [
-        if (widget.showCancel)
-          RaftSettingsRecipeButton(
-            label: widget.cancelLabel,
-            size: widget.actionSize,
-            disabledOpacity: .3,
-            onPressed: loading ? null : cancel,
+    // Web ConfirmDialog gates every close on `loading`: Escape, Back and the
+    // X all wait for the running confirm.
+    return PopScope(
+      canPop: !loading,
+      child: RaftDialogShell(
+        surfaceKey: widget.surfaceKey,
+        title: title,
+        maxWidth: maxWidth,
+        onClose: loading ? null : cancel,
+        body: body,
+        footer: [
+          if (widget.showCancel)
+            RaftSettingsRecipeButton(
+              label: widget.cancelLabel,
+              size: widget.actionSize,
+              disabledOpacity: .3,
+              onPressed: loading ? null : cancel,
+            ),
+          ValueListenableBuilder<bool>(
+            valueListenable:
+                widget.confirmEnabled ?? const AlwaysStoppedAnimation(true),
+            builder: (context, enabled, _) => RaftSettingsRecipeButton(
+              key: widget.confirmKey,
+              label: loading
+                  ? widget.loadingLabel ?? 'Processing…'
+                  : widget.confirmLabel,
+              glyph: loading ? null : widget.confirmGlyph,
+              variant: widget.confirmVariant,
+              size: widget.actionSize,
+              disabledOpacity: .8,
+              onPressed: enabled && !loading ? confirm : null,
+            ),
           ),
-        ValueListenableBuilder<bool>(
-          valueListenable:
-              widget.confirmEnabled ?? const AlwaysStoppedAnimation(true),
-          builder: (context, enabled, _) => RaftSettingsRecipeButton(
-            key: widget.confirmKey,
-            label: loading
-                ? widget.loadingLabel ?? 'Processing…'
-                : widget.confirmLabel,
-            glyph: loading ? null : widget.confirmGlyph,
-            variant: widget.confirmVariant,
-            size: widget.actionSize,
-            disabledOpacity: .8,
-            onPressed: enabled && !loading ? confirm : null,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

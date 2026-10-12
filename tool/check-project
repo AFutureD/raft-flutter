@@ -305,6 +305,14 @@ def main():
     shard_timeout = float(os.environ.get('RAFT_CHECK_SHARD_TIMEOUT_MINUTES') or DEFAULT_SHARD_TIMEOUT_MINUTES) * 60
     print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}); themes: {themes_mode(check_env)}.', file=sys.stderr)
 
+    # A branch that merged new dependencies without `pub get` would fail every
+    # test file at compile time, slowly; resolve the workspace first and stop.
+    results['workspace-pub-get.txt'] = run_logged(
+        [*tool_command('flutter'), 'pub', 'get', '--enforce-lockfile'], root,
+        local / 'workspace-pub-get.txt', check_env) == 0
+    if not results['workspace-pub-get.txt']:
+        raise SystemExit('check-project: `flutter pub get --enforce-lockfile` failed; see .local/workspace-pub-get.txt.')
+
     # The bindings generator must be initialised before whole-project analysis.
     results['bindings-generator-pub-get.txt'] = run_logged(
         [*tool_command('flutter'), 'pub', 'get', '--enforce-lockfile'], root / 'apps/raft_flutter/tool/bindings_generator',
@@ -347,7 +355,7 @@ def main():
         all_results += parsed
     tests_passed = all(s['passed'] for s in shards) and bool(shards)
     results['all-project-tests.txt'] = tests_passed
-    ordered = {key: results[key] for key in ['host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt']}
+    ordered = {key: results[key] for key in ['workspace-pub-get.txt', 'host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt']}
     ordered.update({key: value for key, value in results.items() if key.startswith('test-shard-')})
     results = ordered
 

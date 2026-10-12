@@ -587,7 +587,7 @@ class _RaftAdminPrincipalPickerState extends State<RaftAdminPrincipalPicker> {
         link: link,
         child: OverlayPortal(
           controller: portal,
-          overlayChildBuilder: (context) {
+          overlayChildBuilder: raftBackDismissed(close, (context) {
             final box = this.context.findRenderObject() as RenderBox?;
             final width = box?.size.width ?? 240;
             final height = box?.size.height ?? 40;
@@ -663,7 +663,7 @@ class _RaftAdminPrincipalPickerState extends State<RaftAdminPrincipalPicker> {
                 ],
               ),
             );
-          },
+          }),
           child: Shortcuts(
             shortcuts: const {
               SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),

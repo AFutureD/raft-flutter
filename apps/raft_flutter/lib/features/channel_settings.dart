@@ -298,6 +298,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   }) async {
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: title,
         description: description,
@@ -417,6 +418,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     if (c.archived || !cap('editChannelMetadata')) return;
     await showRaftDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: 'Edit channel',
         fields: [
@@ -818,24 +820,28 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     await showRaftModal<void>(
       context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialog) => RaftUnsavedChangesPrompt(
-          message: 'The channel name or description has unsaved edits. Save them before closing?',
-          busy: busy,
-          onKeepEditing: () => Navigator.of(dialogContext).pop(),
-          onDiscard: () {
-            Navigator.of(dialogContext).pop();
-            resetDraft();
-            transition();
-          },
-          onSaveAndClose: () async {
-            setDialog(() => busy = true);
-            final saved = await saveChanges();
-            if (!dialogContext.mounted) return;
-            setDialog(() => busy = false);
-            if (!saved) return;
-            Navigator.of(dialogContext).pop();
-            transition();
-          },
+        // Web `Modal onClose`: Escape does nothing while the save runs.
+        builder: (dialogContext, setDialog) => PopScope(
+          canPop: !busy,
+          child: RaftUnsavedChangesPrompt(
+            message: 'The channel name or description has unsaved edits. Save them before closing?',
+            busy: busy,
+            onKeepEditing: () => Navigator.of(dialogContext).pop(),
+            onDiscard: () {
+              Navigator.of(dialogContext).pop();
+              resetDraft();
+              transition();
+            },
+            onSaveAndClose: () async {
+              setDialog(() => busy = true);
+              final saved = await saveChanges();
+              if (!dialogContext.mounted) return;
+              setDialog(() => busy = false);
+              if (!saved) return;
+              Navigator.of(dialogContext).pop();
+              transition();
+            },
+          ),
         ),
       ),
     );
@@ -1441,7 +1447,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       ],
     );
     // The barrier is the area outside the drawer: a press there is a close
-    // attempt like any other (Escape / back go through PopScope).
+    // attempt like any other (Escape goes through RaftDismissScope, back
+    // through PopScope).
     final root = widget.page
         ? sheet
         : Stack(
@@ -1453,48 +1460,63 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                   onTap: guardedClose,
                 ),
               ),
-              sheet,
+              // Web OverflowSheet `swipeDirection="right"`: a fling to the right
+              // dismisses the drawer (through the same unsaved-draft guard).
+              GestureDetector(
+                key: const ValueKey('channel-overflow-swipe'),
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: (details) {
+                  if ((details.primaryVelocity ?? 0) > 400) guardedClose();
+                },
+                child: sheet,
+              ),
             ],
           );
-    return PopScope(
-      // The members page owns back while it is open (it returns to the root
-      // view, or from its add view to the roster).
-      canPop: !dirty && !membersOpen,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !membersOpen) guardedClose();
-      },
-      child: widget.page
-          ? root
-          : Stack(
-              children: [
-                Offstage(
-                  offstage: membersOpen,
-                  child: ExcludeFocus(excluding: membersOpen, child: root),
-                ),
-                if (membersOpen)
-                  Stack(
-                    children: [
-                      Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: guardedClose,
-                        ),
-                      ),
-                      RaftOverflowBareSheet(
-                        child: ChannelMembers(
-                          key: ValueKey('channel-members-page-${c.id}'),
-                          controller: w,
-                          channel: channel,
-                          page: true,
-                          embedded: true,
-                          startInAdd: membersAdd,
-                          onClose: closeMembers,
-                        ),
-                      ),
-                    ],
+    return RaftDismissScope(
+      // Web OverflowSheet: Escape closes the drawer through the same
+      // unsaved-draft guard as the scrim and the X.
+      enabled: !widget.page,
+      onDismiss: guardedClose,
+      child: PopScope(
+        // The members page owns back while it is open (it returns to the root
+        // view, or from its add view to the roster).
+        canPop: !dirty && !membersOpen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && !membersOpen) guardedClose();
+        },
+        child: widget.page
+            ? root
+            : Stack(
+                children: [
+                  Offstage(
+                    offstage: membersOpen,
+                    child: ExcludeFocus(excluding: membersOpen, child: root),
                   ),
-              ],
-            ),
+                  if (membersOpen)
+                    Stack(
+                      children: [
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: guardedClose,
+                          ),
+                        ),
+                        RaftOverflowBareSheet(
+                          child: ChannelMembers(
+                            key: ValueKey('channel-members-page-${c.id}'),
+                            controller: w,
+                            channel: channel,
+                            page: true,
+                            embedded: true,
+                            startInAdd: membersAdd,
+                            onClose: closeMembers,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -1511,6 +1533,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         error is RaftApiException ? error.message : fallback;
     await showRaftDialog<void>(
       context: context,
+      // Web `DialogCard` (SOSDialog): no scrim close, Escape and X close.
+      barrierDismissible: false,
       builder: (dialogContext) {
         String tr(String text) => raftText(dialogContext, text);
         return Center(
@@ -1559,6 +1583,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   Future<void> deleteChannel() async {
     final accepted = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: 'Delete channel?',
         description:

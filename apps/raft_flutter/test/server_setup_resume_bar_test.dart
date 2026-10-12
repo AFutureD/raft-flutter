@@ -8,6 +8,8 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/server_setup_gate.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import 'fallback_text_style.dart';
+
 class _Client extends RaftClient {
   _Client()
     : super(origin: 'https://fixture.test', sessionStore: MemorySessionStore());
@@ -116,6 +118,7 @@ void main() {
       );
       expect(bar.bottom, 800 - 16);
       expect(bar.left, 16);
+      expectNoFallbackTextStyle('setup resume bar');
     },
   );
 
@@ -137,6 +140,7 @@ void main() {
       expect(posts, ['/servers/s/setup-transition start']);
       expect(find.byType(RaftSetupResumeBar), findsNothing);
       expect(find.text('Conversation'), findsNothing);
+      expectNoFallbackTextStyle('setup step');
     },
   );
 

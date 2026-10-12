@@ -399,6 +399,35 @@ class RaftAttachmentLightbox extends StatelessWidget {
   }
 }
 
+/// Web `ImageLightbox` stage: "Empty-stage clicks close the lightbox", and a
+/// click that lands inside the (zoomed / panned) image does not. A plain tap
+/// (not a drag or pinch, which win the gesture arena) outside the painted
+/// image behind [imageKey] calls [onClose].
+class RaftLightboxStageTap extends StatelessWidget {
+  const RaftLightboxStageTap({
+    super.key,
+    required this.imageKey,
+    required this.onClose,
+    required this.child,
+  });
+  final GlobalKey imageKey;
+  final VoidCallback onClose;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    key: const ValueKey('lightbox-stage'),
+    behavior: HitTestBehavior.translucent,
+    onTapUp: (details) {
+      final box = imageKey.currentContext?.findRenderObject();
+      // `globalToLocal` includes the zoom / pan transform above the image.
+      if (box is! RenderBox || !box.hasSize) return;
+      final local = box.globalToLocal(details.globalPosition);
+      if (!(Offset.zero & box.size).contains(local)) onClose();
+    },
+    child: child,
+  );
+}
+
 /// Gallery counter chip of the header (`<Badge variant="primary">2 / 3`).
 class RaftLightboxCounter extends StatelessWidget {
   const RaftLightboxCounter({

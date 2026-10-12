@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dismiss_scope.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'mobile_navigation.dart';
 import 'recipe_surface.dart';
+import 'status_bar.dart';
 import 'rail_attention.dart';
 import 'recipes/app_rail.g.dart';
 import 'recipes/avatar.g.dart';
@@ -165,33 +168,36 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
           final box = anchor.currentContext?.findRenderObject() as RenderBox?;
           if (box == null || !box.hasSize) return const SizedBox.shrink();
           final rect = box.localToGlobal(Offset.zero) & box.size;
-          return CustomSingleChildLayout(
-            delegate: _ServerMenuPlacement(
-              // AppRailRoot's CSS right border is part of its border box;
-              // AppRailHeader's positioned containing block excludes it.
-              widget.mobile
-                  ? Offset(8, rect.bottom - (t.brutal ? 2 : 1) + 4)
-                  : Offset(rect.right - (t.brutal ? 2 : 0) + 8, rect.top + 4),
-              mobileWidth: widget.mobile ? size.width - 16 : null,
-            ),
-            child: TapRegion(
-              groupId: this,
-              child: Focus(
-                focusNode: menuFocus,
-                onKeyEvent: (_, event) {
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.escape) {
-                    widget.controller.close();
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: RaftServerMenuPanel(
-                  width: widget.mobile ? size.width - 16 : 256,
-                  rows: widget.rows,
-                  actions: widget.actions,
-                  onActivate: activateAction,
-                  onReorder: widget.onReorder,
+          return RaftBackDismiss(
+            onDismiss: widget.controller.close,
+            child: CustomSingleChildLayout(
+              delegate: _ServerMenuPlacement(
+                // AppRailRoot's CSS right border is part of its border box;
+                // AppRailHeader's positioned containing block excludes it.
+                widget.mobile
+                    ? Offset(8, rect.bottom - (t.brutal ? 2 : 1) + 4)
+                    : Offset(rect.right - (t.brutal ? 2 : 0) + 8, rect.top + 4),
+                mobileWidth: widget.mobile ? size.width - 16 : null,
+              ),
+              child: TapRegion(
+                groupId: this,
+                child: Focus(
+                  focusNode: menuFocus,
+                  onKeyEvent: (_, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.escape) {
+                      widget.controller.close();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: RaftServerMenuPanel(
+                    width: widget.mobile ? size.width - 16 : 256,
+                    rows: widget.rows,
+                    actions: widget.actions,
+                    onActivate: activateAction,
+                    onReorder: widget.onReorder,
+                  ),
                 ),
               ),
             ),
@@ -429,16 +435,35 @@ class RaftServerResolutionBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return ColoredBox(
-      color: t.product.brutalCream,
-      child: Center(
-        child: Text(
-          raftText(context, label),
-          style: RaftTypography.body(
-            t,
-            size: 20,
-            line: 28,
-            weight: FontWeight.w700,
+    // The splash is a page of its own (Material + page text style), never bare
+    // text: outside a Material Flutter paints the debug fallback style (yellow
+    // double underline). `safe-top` pads the status bar like the Web div.
+    // Brutal keeps the Web `bg-brutal-cream`; elegant (light and dark) uses
+    // the theme canvas, so the splash never flashes cream in dark mode.
+    final canvas = t.brutal ? t.product.brutalCream : t.canvas;
+    return RaftStatusBarHost(
+      fallback: canvas,
+      expand: true,
+      child: Material(
+        color: canvas,
+        child: DefaultTextStyle.merge(
+          style: TextStyle(
+            fontFamily: t.headingFont,
+            color: t.semantic.foreground,
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+            child: Center(
+              child: Text(
+                raftText(context, label),
+                style: RaftTypography.body(
+                  t,
+                  size: 20,
+                  line: 28,
+                  weight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
         ),
       ),

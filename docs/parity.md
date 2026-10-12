@@ -1556,3 +1556,21 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
   as dialogs / modals on wide layouts.
 * Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
   in debug and test.
+
+## Profile side panel (cindy/phone-avatar-profile)
+
+Owner-approved difference (Kevin, 2026-10-12): on wide layouts (docked column) a tap or click that
+lands outside the profile panel also closes it, like the X. Web's `ProfilePanel` is non-modal and
+closes only from its X / Escape (no outside-click handler or backdrop). Flutter observes the tap
+with a raw pointer `Listener` (`ProfileOutsideTapDismiss`), so it never enters the gesture arena and
+the tapped control still runs; a tap that retargets the profile (another sender avatar, a
+mention) switches it instead of closing. A drag / scroll is not a tap. Phone and folded widths show
+the profile as a full page (no outside area). On those, the agent header gains a close X at >= 768px
+like Web (`hidden md:flex`).
+
+## Close affordances (cindy/close-sweep)
+
+Every closable surface is inventoried in `docs/close-affordances.md` (generated from the guard
+registry) with its x / Back / Escape / scrim / system back at phone, foldable and desktop widths
+against Web. Differences kept on purpose: the profile panel's outside tap (above); phone pages
+(image lightbox, attachment preview) lead with Back instead of x.
