@@ -11,6 +11,7 @@ import 'channel_form_fields.dart';
 import 'create_channel_dialog.dart'
     show ChannelMemberCandidate, channelNameError;
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart' show WorkspaceEntityKind;
 import 'joint_channel_views.dart' show jointPeople;
 import 'management_support.dart';
 
@@ -56,10 +57,21 @@ class CreateJointChannelDialog extends StatefulWidget {
         context.mounted &&
         w.server?.id == serverId &&
         w.can('federateChannels');
-    final values = await Future.wait([
-      w.client.get('/agents'),
-      w.client.get('/servers/$serverId/members'),
-    ]);
+    // The workspace directory already holds both lists (same endpoints), so
+    // the dialog opens at once; only a directory that never loaded is fetched.
+    final directory = w.entityDirectory;
+    final loaded =
+        directory.state(WorkspaceEntityKind.agents).loaded &&
+        directory.state(WorkspaceEntityKind.members).loaded;
+    final values = loaded
+        ? [
+            directory.rows(WorkspaceEntityKind.agents),
+            directory.rows(WorkspaceEntityKind.members),
+          ]
+        : await Future.wait([
+            w.client.get('/agents'),
+            w.client.get('/servers/$serverId/members'),
+          ]);
     if (!current()) return;
     final agents = managementRows(values[0])
         .where((a) => a['deletedAt'] == null)
