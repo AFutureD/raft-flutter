@@ -32,7 +32,7 @@ hold loading states (a held request is answered by `/release`), flip the login r
 500, 429, pending), the server list (none, one, two, many, loading, failed), the account (verified, unverified, profile
 pending) and the setup projection. Anonymous clients built inside the app (providers, forgot password) reach the same
 fixture through a loopback server. `/fallback` reports every paragraph painted in Flutter's missing-Material style
-(`debugLabel` "fallback style", yellow double underline): it was empty for all 191 screenshots of the fixed build and
+(`debugLabel` "fallback style", yellow double underline): it was empty for all 189 screenshots of the fixed build and
 listed `Restoring session…`, `Loading servers…` and `Joining community…` on the build before.
 
 Device: Android 16 x86_64 emulator (AVD `rs_design_phone`, 1080x2400 at 420 dpi, gesture navigation), package
