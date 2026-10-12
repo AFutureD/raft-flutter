@@ -2,13 +2,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final appearance in [
+  for (final appearance in raftThemeMatrix([
     const RaftAppearance(light: RaftFamily.brutal, mode: ThemeMode.light),
     const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.light),
     const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.dark),
-  ]) {
+  ])) {
     for (final density in RaftDensity.values) {
       testWidgets(
         'MessageTile uses source reaction face, vector and real target $appearance $density',

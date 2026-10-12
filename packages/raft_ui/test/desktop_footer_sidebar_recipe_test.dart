@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:raft_ui/workspace_shell_previews.dart';
 
 import 'task_typography_test.dart' show loadTaskFonts;
@@ -9,11 +10,11 @@ import 'task_typography_test.dart' show loadTaskFonts;
 // Source26f77ef Sidebar335–371/460–513/4092–4100/4203, LeftRail1012–1098.
 // Real DOM DPR1: two-line Pinned body45+mb4; Joint empty drag bucket28.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ], full: true)) {
     testWidgets(
       '$family/$dark actual empty sidebar wrappers retain Source boxes and collapse',
       (t) async {

@@ -4,17 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 // Actual original mounted ThreadPanel safe-point samples, all six contexts:
 // reports/thread-header-border-source-20261009/receipt.json and
 // reports/ink10-browser-paint-diagnostic-20261009/receipt.json.
 void main() {
   for (final width in [390.0, 957.0]) {
-    for (final (family, dark) in [
+    for (final (family, dark) in raftThemeMatrix([
       (RaftFamily.brutal, false),
       (RaftFamily.elegant, false),
       (RaftFamily.elegant, true),
-    ]) {
+    ])) {
       testWidgets('mounted header rule paint $width/$family/$dark', (t) async {
         final key = GlobalKey();
         await t.binding.setSurfaceSize(Size(width, 100));

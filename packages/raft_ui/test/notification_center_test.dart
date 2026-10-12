@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 const _themes = [
   (RaftFamily.brutal, false),
@@ -34,7 +35,7 @@ Finder _action(String id, String label) =>
     find.byKey(ValueKey('notification-action-$id-$label'));
 
 void main() {
-  for (final (family, dark) in _themes) {
+  for (final (family, dark) in raftThemeMatrix(_themes)) {
     final themeName = '$family/$dark';
     testWidgets('empty center retains mounted 320x288 composition $themeName', (
       tester,

@@ -21,12 +21,12 @@ import 'package:raft_flutter/data/system_notification_store.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/add_computer_dialog.dart';
+import 'package:raft_flutter/features/add_members_dialog.dart';
+import 'package:raft_flutter/features/create_joint_channel_dialog.dart';
 import 'package:raft_flutter/features/computer_detail_view.dart';
 import 'package:raft_flutter/features/create_channel_dialog.dart';
 import 'package:raft_flutter/features/channel_members.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
-import 'package:raft_flutter/features/joint_channel_views.dart';
-import 'package:raft_flutter/features/message_action_card.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/system_notification_center.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -264,7 +264,9 @@ Widget _shell(ParityContext ctx) {
 
 Widget _createChannel(ParityContext ctx) {
   final w = _workspace(ctx, 'chat');
+  // The React host paints a white page under the Modal scrim in every theme.
   return Scaffold(
+    backgroundColor: Colors.white,
     body: CreateChannelDialog(
       controller: w,
       prefilledName: ctx.props['name'] as String?,
@@ -299,10 +301,16 @@ WorkspaceController _cWorkspace(ParityContext ctx) {
   final routes = Map<String, dynamic>.from(fx['routes'] as Map);
   final loading = '${ctx.props['loading']}' == 'true';
   final failing = ctx.props['loadStatus'] == 'error';
+  // `loadError` over a loaded list: the first read succeeds, the refresh fails.
+  final refreshFails = ctx.props['loadError'] == 'true' && !failing;
+  var machineReads = 0;
   final client = ScreenFixtureClient(
     (method, path, query) {
       if (method == 'GET' && path == '/servers/$_serverId/machines') {
-        if (failing) throw const RaftApiException('fixture error', status: 500);
+        machineReads++;
+        if (failing || (refreshFails && machineReads > 1)) {
+          throw const RaftApiException('fixture error', status: 500);
+        }
         return loading
             ? ScreenFixtureClient.pending
             : {
@@ -452,49 +460,78 @@ Widget _removeMember(ParityContext ctx) {
   );
 }
 
-/// The action card of a `channel:add_member` message; tapping its confirm
-/// button opens the Add members form (the Web AddMembersDialog).
+/// The Web AddMembersDialog on a blank page: the React host renders the
+/// dialog alone, so the Flutter side shows the dialog over the same blank page.
 Widget _addMembers(ParityContext ctx) {
   final w = _workspace(ctx, 'chat');
   final fx = ctx.fixtureData;
-  final message = RaftMessage({
-    'id': 'msg-action-add-members',
-    'channelId': w.channels.first.id,
-    'senderType': 'agent',
-    'senderId': fx['agents']['cindy']['id'],
-    'senderName': 'Cindy',
-    'content': 'I can add these people to the channel.',
-    'createdAt': fx['times']['entityCreatedAtIso'],
-    'messageType': 'action',
-    'actionMetadata': {
-      'state': 'prepared',
-      'confirmationVersion': 1,
-      'action': {
-        'type': 'channel:add_member',
-        'channel': w.channels.first.id,
-        'humans': [fx['humans']['designer']['id']],
-        'agents': [fx['agents']['productUx']['id']],
-      },
-    },
-  });
   return Scaffold(
     backgroundColor: Colors.white,
-    body: Align(
-      alignment: Alignment.topLeft,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: MessageActionCard(controller: w, message: message),
-      ),
+    body: AddMembersDialog(
+      controller: w,
+      channelId: w.channels.first.id,
+      prefilledHumanIds: [fx['humans']['designer']['id'] as String],
+      prefilledAgentIds: [fx['agents']['productUx']['id'] as String],
     ),
   );
 }
 
+/// The Web CreateJointChannelDialog on a blank page, over the same agent and
+/// member lists the Joint channels page loads.
 Widget _createJoint(ParityContext ctx) {
   final w = _workspace(ctx, 'chat');
   return Scaffold(
     backgroundColor: Colors.white,
-    body: JointChannelsView(controller: w),
+    body: _JointDialogHost(controller: w),
   );
+}
+
+class _JointDialogHost extends StatefulWidget {
+  const _JointDialogHost({required this.controller});
+  final WorkspaceController controller;
+  @override
+  State<_JointDialogHost> createState() => _JointDialogHostState();
+}
+
+class _JointDialogHostState extends State<_JointDialogHost> {
+  List<Map<String, dynamic>>? agents, users;
+  @override
+  void initState() {
+    super.initState();
+    final w = widget.controller;
+    Future.wait([
+      w.query('/agents'),
+      w.query('/servers/${w.server!.id}/members'),
+    ]).then((values) {
+      if (!mounted) return;
+      List<Map<String, dynamic>> rows(dynamic v) => [
+        for (final row in (v as List? ?? const []).whereType<Map>())
+          Map<String, dynamic>.from(row),
+      ];
+      setState(() {
+        agents = [
+          for (final a in rows(values[0]))
+            if (a['deletedAt'] == null) a,
+        ];
+        users = [
+          for (final u in rows(values[1]))
+            if ((u['userId'] ?? u['id']) != w.client.user?.id) u,
+        ];
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => agents == null
+      ? const SizedBox.shrink()
+      : CreateJointChannelDialog(
+          agents: agents!,
+          users: users!,
+          freePlan: true,
+          origin: widget.controller.client.origin,
+          onCreate: (_) async => <String, dynamic>{},
+          onUnarchive: (_) async => <String, dynamic>{},
+        );
 }
 
 Widget _panel(ParityContext ctx) {
@@ -503,6 +540,11 @@ Widget _panel(ParityContext ctx) {
   final width = (ctx.props['w'] as num? ?? 342).toDouble();
   final height = (ctx.props['h'] as num? ?? 620).toDouble();
   final now = parityNow(ctx);
+  // Menus open at the pointer outside the panel: the React case screenshots
+  // the whole viewport, so the Flutter side captures it too.
+  final key = ctx.props['extCase'] as String;
+  final viewportCapture =
+      key.endsWith('-context-menu') || key.endsWith('-actions');
   final view = Scaffold(
     body: ResourceView(
       controller: w,
@@ -519,12 +561,19 @@ Widget _panel(ParityContext ctx) {
     density: ctx.props['platform'] == 'desktop' || panel == 'activity'
         ? RaftDensity.desktop
         : RaftDensity.touch,
-    child: ctx.frame(
-      width: width,
-      height: height,
-      padding: EdgeInsets.zero,
-      child: view,
-    ),
+    child: viewportCapture
+        ? Align(
+            alignment: Alignment.topLeft,
+            child: ClipRect(
+              child: SizedBox(width: width, height: height, child: view),
+            ),
+          )
+        : ctx.frame(
+            width: width,
+            height: height,
+            padding: EdgeInsets.zero,
+            child: view,
+          ),
   );
 }
 
@@ -602,10 +651,15 @@ Future<void> _interact(WidgetTester t, ParityContext ctx) async {
         ),
         400,
       );
-    case final k when k.startsWith('members.') && k.endsWith('-add-dialog'):
-      await _tap(t, find.text('Add members'), 600, true);
-    case final k when k.endsWith('-create-joint'):
-      await _tap(t, find.text('Create joint channel'), 600);
+    case 'computers.phone-refresh-error':
+      final fleet = t.widget<FleetView>(find.byType(FleetView));
+      unawaited(
+        fleet.controller.entityDirectory.refresh(
+          WorkspaceEntityKind.computers,
+          force: true,
+        ),
+      );
+      await t.pump(const Duration(milliseconds: 100));
     case 'notification.desktop-center':
       await _tap(t, find.byType(RaftMobileNotificationButton), 500);
     case final k when k.startsWith('create-channel.'):

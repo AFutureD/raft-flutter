@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 
@@ -18,7 +19,11 @@ Future<void> openMenu(WidgetTester t, double width) async {
 }
 
 void main() {
-  for (final theme in ['brutal', 'elegant-light', 'elegant-dark']) {
+  for (final theme in raftThemeMatrix([
+    'brutal',
+    'elegant-light',
+    'elegant-dark',
+  ])) {
     testWidgets(
       '[K08m] actual RaftApp $theme invalid server memory PUSHes accepted desktop root then REPLACEs the first real channel',
       (t) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 const _themes = [
   (RaftFamily.brutal, false),
@@ -130,7 +131,7 @@ Future<void> _keyboardOpen(WidgetTester tester, _FixtureState fixture) async {
 }
 
 void main() {
-  for (final (family, dark) in _themes) {
+  for (final (family, dark) in raftThemeMatrix(_themes)) {
     final theme = '$family/$dark';
     testWidgets(
       'keyboard opening focuses first action before another Tab $theme',

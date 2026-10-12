@@ -5,13 +5,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/src/popover_surface.dart';
 import 'package:raft_ui/src/theme.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark keeps source content layout and paint-only shadows',
       (t) async {
@@ -71,20 +72,17 @@ void main() {
     expect(r.cssShadows[2].spread, -12);
     expect(r.innerRing, isNull);
   });
-  test(
-    'dark XL preserves separate top inset and inner ring without layout padding',
-    () {
-      final r = RaftPopoverSurfaceRecipe(
-        raftTheme(RaftFamily.elegant, dark: true).extension<RaftTokens>()!,
-      );
-      expect(r.borderWidth, 0);
-      expect(r.topInset!.a, closeTo(.06, .0001));
-      expect(r.innerRing!.a, closeTo(.04, .0001));
-      expect(r.cssShadows.map((s) => s.offset.dy), [0, 24, 10, 4]);
-      expect(r.cssShadows.map((s) => s.blur), [0, 44, 16, 6]);
-      expect(r.cssShadows.map((s) => s.spread), [1, -12, -6, -3]);
-    },
-  );
+  test('dark XL preserves separate top inset and inner ring without layout padding', () {
+    final r = RaftPopoverSurfaceRecipe(
+      raftTheme(RaftFamily.elegant, dark: true).extension<RaftTokens>()!,
+    );
+    expect(r.borderWidth, 0);
+    expect(r.topInset!.a, closeTo(.06, .0001));
+    expect(r.innerRing!.a, closeTo(.04, .0001));
+    expect(r.cssShadows.map((s) => s.offset.dy), [0, 24, 10, 4]);
+    expect(r.cssShadows.map((s) => s.blur), [0, 44, 16, 6]);
+    expect(r.cssShadows.map((s) => s.spread), [1, -12, -6, -3]);
+  });
   testWidgets('theme replacement changes paint while keeping Elegant extent', (
     t,
   ) async {

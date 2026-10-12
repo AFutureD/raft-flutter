@@ -437,10 +437,15 @@ class RaftSliverTaskSection extends StatelessWidget {
     this.triggerKey,
     this.emptyLabel,
     this.findChildIndexCallback,
+    this.footer,
   });
   final String status;
   final int count;
   final IndexedWidgetBuilder itemBuilder;
+
+  /// Below the rows inside the open panel, with no gap (TaskSection's
+  /// per-lane "Load more" button follows `TaskSectionItems` directly).
+  final Widget? footer;
   final bool collapsed;
   final VoidCallback? onToggle;
   final Key? triggerKey;
@@ -512,6 +517,8 @@ class RaftSliverTaskSection extends StatelessWidget {
                   findChildIndexCallback: findChildIndexCallback,
                 ),
               ),
+            if (!collapsed && footer != null)
+              SliverToBoxAdapter(child: footer),
           ],
         ),
       ),
@@ -867,4 +874,37 @@ class _LaneEmptyPainter extends CustomPainter {
       old.color != color ||
       old.width != width ||
       old.radius != radius;
+}
+
+
+/// TasksPanel lane paging button: `<Button size="sm" variant="outline"
+/// className="box-border h-8 min-h-8 w-full gap-1 py-0 text-xs">`, labelled
+/// `task.panel.loadMore` ("Load more") or `common.loading` ("Loading…").
+class RaftTaskLoadMoreButton extends StatelessWidget {
+  const RaftTaskLoadMoreButton({
+    super.key,
+    required this.onPressed,
+    this.loading = false,
+  });
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => RaftControl(
+      variant: RaftControlVariant.outline,
+      visualHeight: 32,
+      visualWidth: constraints.maxWidth,
+      minimumTargetSize: 32,
+      onPressed: loading ? null : onPressed,
+      child: Center(
+        child: Text(
+          raftText(context, loading ? 'Loading…' : 'Load more'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, height: 16 / 12),
+        ),
+      ),
+    ),
+  );
 }

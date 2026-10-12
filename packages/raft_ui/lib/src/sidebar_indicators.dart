@@ -75,3 +75,43 @@ class RaftSidebarDraftIcon extends StatelessWidget {
     );
   }
 }
+
+/// Sidebar.tsx ChannelRow `sidebar-mention-marker`: a 16px chip with an 10px
+/// AtSign, `border-line-strong bg-primary-soft text-primary-strong`
+/// (Brutal `border-black bg-soft-signal text-black`).
+class RaftSidebarMentionMarker extends StatelessWidget {
+  const RaftSidebarMentionMarker({super.key, required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return RaftTooltip(
+      message: label,
+      excludeFromSemantics: true,
+      child: Semantics(
+        label: label,
+        child: Container(
+          key: const ValueKey('sidebar-mention-marker'),
+          width: 16,
+          height: 16,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: t.brutal
+                ? t.colors['color-soft-signal']
+                : t.colors['primary-soft'],
+            border: Border.all(
+              color: t.brutal ? Colors.black : t.colors['line-strong']!,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: RaftIcon(
+            RaftGlyph.atSign,
+            size: 10,
+            color: t.brutal ? Colors.black : t.colors['primary-strong'],
+          ),
+        ),
+      ),
+    );
+  }
+}

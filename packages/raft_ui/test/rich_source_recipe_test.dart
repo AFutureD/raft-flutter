@@ -4,6 +4,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/src/message_content_tokens.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
   test('original gallery mixed-wide and four-normal row contracts', () {
@@ -96,11 +97,11 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ], full: true)) {
     testWidgets(
       'intrinsic Markdown table, left headers and source link role $family/$dark',
       (tester) async {
@@ -111,8 +112,7 @@ void main() {
               body: SizedBox(
                 width: 640,
                 child: RaftMessageBody(
-                  content:
-                      '| Status | Count |\n|---|---|\n|Ready|3|\n\n[link](https://example.com)',
+                  content: '| Status | Count |\n|---|---|\n|Ready|3|\n\n[link](https://example.com)',
                 ),
               ),
             ),

@@ -15,6 +15,7 @@ import 'package:raft_flutter/platform/content_coordinator.dart';
 import 'package:raft_flutter/platform/content_target.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_focus_receipt_test.dart' show paintedMessage;
@@ -134,11 +135,11 @@ Future<void> waitForPainted(WidgetTester tester, String id) async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     // useAppNavigate.ts:446–464: routeKind is a separate permalink identity.
     // Two accepted-record scenarios deliberately share the same ID. Each actual
     // Activity row publishes its own route kind and preserves slug/msg encoding.

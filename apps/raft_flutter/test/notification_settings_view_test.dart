@@ -11,6 +11,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/notification_settings_view.dart';
 import 'package:raft_flutter/platform/native_notifications.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'native_notifications_test.dart' show deferredMacNotifications;
 
@@ -119,11 +120,11 @@ Future<void> drain(WidgetTester t) async {
 }
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('member mute real checkbox/keyboard/save $theme', (t) async {
       final f = (await t.runAsync(fixture))!;
       final (w, a, s) = f;

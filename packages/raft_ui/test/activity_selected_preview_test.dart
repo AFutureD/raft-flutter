@@ -11,6 +11,7 @@ import '../../../tool/testing/system_fonts.dart';
 
 import 'package:raft_ui/activity_selected_previews.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
   for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
@@ -114,7 +115,7 @@ final _themes = [
 ];
 
 void main() {
-  for (final (name, family, dark) in _themes) {
+  for (final (name, family, dark) in raftThemeMatrix(_themes)) {
     testWidgets('selected Activity row states $name', (t) async {
       final missingFonts = missingTestFontReason(cjkTestFonts());
       if (missingFonts != null) {

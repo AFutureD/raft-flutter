@@ -10,6 +10,7 @@ import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_avatar_dialog.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'parity/parity_harness.dart' show loadParityFonts;
 
@@ -286,11 +287,11 @@ void main() {
       expect(t.takeException(), isNull);
     },
   );
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'avatar close button supports keyboard without bypassing dirty guard $family/$dark',
       (t) async {

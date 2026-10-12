@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
   for (final family in RaftFamily.values) {
@@ -157,11 +158,11 @@ void main() {
     await tester.pump();
     expect(sent, ['日本語']);
   });
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     raftTheme(RaftFamily.brutal),
     raftTheme(RaftFamily.elegant),
     raftTheme(RaftFamily.elegant, dark: true),
-  ]) {
+  ])) {
     testWidgets(
       'task statuses and reaction controls retain accessible targets ${theme.brightness} ${theme.extension<RaftTokens>()!.family}',
       (tester) async {
@@ -194,11 +195,11 @@ void main() {
       },
     );
   }
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     raftTheme(RaftFamily.brutal),
     raftTheme(RaftFamily.elegant),
     raftTheme(RaftFamily.elegant, dark: true),
-  ]) {
+  ])) {
     testWidgets(
       'destructive high-contrast button target and contrast ${theme.brightness} ${theme.extension<RaftTokens>()!.family}',
       (tester) async {
