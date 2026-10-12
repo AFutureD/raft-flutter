@@ -192,9 +192,22 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   WorkspaceController? workspace;
   WorkspaceCache? cache;
   StreamSubscription<RaftEvent>? sessionEvents;
-  RaftAppearance appearance = const RaftAppearance();
+  RaftAppearance appearance = savedAppearance(DevicePreferences.current);
   bool restoring = true;
   String? bootError;
+
+  /// The saved theme choice. The preloaded [DevicePreferences] make it known
+  /// on the first frame, so "Restoring session…" and the first auth page
+  /// already use the user's theme instead of flashing the default (brutal
+  /// light) until SharedPreferences resolves.
+  static RaftAppearance savedAppearance(SharedPreferences? p) => p == null
+      ? const RaftAppearance()
+      : RaftAppearance(
+          mode: ThemeMode.values.asNameMap()[p.getString('raft.mode')] ??
+              ThemeMode.system,
+          light: RaftFamily.values.asNameMap()[p.getString('raft.light')] ??
+              RaftFamily.brutal,
+        );
   String origin = const String.fromEnvironment(
     'RAFT_ORIGIN',
     defaultValue: 'https://api.raft.build',
@@ -502,10 +515,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
-      appearance = RaftAppearance(
-        mode: ThemeMode.values.byName(p.getString('raft.mode') ?? 'system'),
-        light: RaftFamily.values.byName(p.getString('raft.light') ?? 'brutal'),
-      );
+      appearance = savedAppearance(p);
       cache =
           await (widget.openWorkspaceCache?.call() ??
               DriftWorkspaceCache.open());

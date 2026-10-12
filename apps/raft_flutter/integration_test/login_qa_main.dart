@@ -70,6 +70,7 @@ class _Fx {
   String community = 'pending';
   String location = '/';
   String theme = 'brutal';
+  String lang = 'en';
   bool dark = false;
   final held = <Completer<void>>[];
 
@@ -105,7 +106,7 @@ Map<String, dynamic> _user() => {
   'displayName': _fx.account == 'profile' ? null : 'Alice Zhang',
   'email': 'alice@example.invalid',
   'emailVerified': _fx.account != 'verify',
-  'displayLanguage': 'en',
+  'displayLanguage': _fx.lang,
   if (_fx.account == 'profile') 'profileSetupCompletedAt': null,
   if (_fx.account == 'profile') 'profileSetupSuggestedHandle': 'alice',
 };
@@ -577,6 +578,8 @@ Future<void> _start(String name, String theme) async {
     'raft.mode': _fx.dark ? 'dark' : 'light',
     'raft.light': _fx.theme,
   });
+  // main() preloads the saved preferences before the first frame.
+  await DevicePreferences.load();
   final generation = ++_generation;
   // A restart inside one process does not honour the initial location of a
   // `/s/...` route, so it arrives as a deep link once the directory loaded.
@@ -705,6 +708,7 @@ Future<void> _serve() async {
       final q = request.uri.queryParameters;
       switch (request.uri.path) {
         case '/scenario':
+          _fx.lang = q['lang'] ?? 'en';
           await _start(q['name']!, q['theme'] ?? 'brutal');
           request.response.write('ok');
         case '/set':

@@ -61,8 +61,10 @@ class Driver:
             self.key(4)
             time.sleep(.6)
 
+    lang = 'en'
+
     def scenario(self, name, theme, wait=3.0):
-        call('/scenario', name=name, theme=theme)
+        call('/scenario', name=name, theme=theme, lang=self.lang)
         time.sleep(wait)
 
 
@@ -319,9 +321,11 @@ if __name__ == '__main__':
     ap.add_argument('--serial', default='emulator-5582')
     ap.add_argument('--out', default='/tmp/login-qa')
     ap.add_argument('--themes', default='brutal,elegant,dark')
+    ap.add_argument('--lang', default='en', help='account display language (zh-CN: signed-in pages only)')
     ap.add_argument('states', nargs='*')
     a = ap.parse_args()
     d = Driver(a.serial, a.out)
+    d.lang = a.lang
     names = a.states or list(STATES)
     for name in names:
         for theme in a.themes.split(','):

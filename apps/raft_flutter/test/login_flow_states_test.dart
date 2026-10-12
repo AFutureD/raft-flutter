@@ -6,7 +6,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
@@ -322,4 +324,37 @@ void main() {
       expectNoFallbackTextStyle('root error fallback');
     });
   }
+
+  testWidgets('the first frame (Restoring session…) uses the saved theme', (
+    t,
+  ) async {
+    // main() preloads DevicePreferences before runApp: the splash is already
+    // painted in the saved dark theme, not in the default brutal cream.
+    SharedPreferences.setMockInitialValues({
+      'raft.mode': 'dark',
+      'raft.light': 'elegant',
+    });
+    DevicePreferences.adopt(await SharedPreferences.getInstance());
+    addTearDown(DevicePreferences.reset);
+    _held.clear();
+    final f = RootFixture();
+    _hold(f, 'GET /auth/me');
+    await f.mount(t, 'elegant-dark', 390, settle: false);
+    expect(find.text('Restoring session…'), findsOneWidget);
+    final tokens = RaftTokens.of(t.element(find.text('Restoring session…')));
+    expect(tokens.dark, isTrue);
+    final material = t.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(RaftServerResolutionBody),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(material.color, tokens.canvas);
+    for (final h in _held.values) {
+      if (!h.isCompleted) h.complete(null);
+    }
+    await f.close(t);
+  });
 }
