@@ -355,7 +355,11 @@ class RaftClient {
       }
     } on RaftApiException catch (e) {
       if (!current() || _session == null) return;
-      if (e.status == null || e.status! >= 500) {
+      if (e.status != 401 && e.status != 403) {
+        // A failed validation is not proof that credentials were revoked.
+        // In particular, rate limiting must not erase a valid local session
+        // and revoke it through /auth/logout. Keep the cached account offline
+        // until the server can validate it again.
         restoredOffline = true;
         return;
       }
