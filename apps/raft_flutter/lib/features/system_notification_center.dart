@@ -24,11 +24,16 @@ class SystemNotificationBell extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onBilling,
+    this.onFeedback,
     this.mobile = true,
     this.store,
   });
   final WorkspaceController controller;
   final VoidCallback onBilling;
+
+  /// Web `nav.toSettings("feedback")`: the workspace opens the Feedback tab of
+  /// Settings. Without it the notice shows the feedback view in a pushed page.
+  final VoidCallback? onFeedback;
   final bool mobile;
   final SystemNotificationStore? store;
   @override
@@ -394,6 +399,12 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
       if (!w.can('viewBilling')) return;
       close();
       if (current(captured)) widget.onBilling();
+      return;
+    }
+    if (n.destination == SystemNoticeDestination.feedback &&
+        widget.onFeedback != null) {
+      close();
+      if (current(captured)) widget.onFeedback!();
       return;
     }
     if (n.destination != SystemNoticeDestination.feedback &&

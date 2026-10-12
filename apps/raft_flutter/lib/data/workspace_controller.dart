@@ -21,6 +21,7 @@ import 'workspace_entity_directory.dart';
 import 'followed_threads_store.dart';
 import 'raft_location.dart';
 import 'raft_navigation_history.dart';
+import 'navigation_registry.dart';
 import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
@@ -3837,7 +3838,6 @@ class WorkspaceController extends ChangeNotifier {
       'providers': 'manageExternalAuth',
       'integrations': 'manageIntegrations',
       'im-bridges': 'manageIntegrations',
-      'joint-channels': 'federateChannels',
       'administration': 'viewServerSettings',
       'billing': 'viewBilling',
       'workspace-settings': 'viewServerSettings',
@@ -3851,7 +3851,6 @@ class WorkspaceController extends ChangeNotifier {
       'saved',
       'tasks',
       'settings',
-      'sidebar-settings',
     }.contains(name);
   }
 
@@ -5504,6 +5503,14 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   void setSection(String next) {
+    if (!NavigationRegistry.knowsSection(next)) {
+      NavigationRegistry.reportFallback(
+        'section',
+        next,
+        NavigationRegistry.unsupportedSections[next],
+      );
+      return;
+    }
     final source = presentationSource;
     if (source != null) {
       source.setSection(next);
