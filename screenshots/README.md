@@ -1,4 +1,33 @@
-# Linux Flatpak screenshot
+# Fedora KDE Wayland AppImage screenshot
+
+![Raft AppImage on Fedora KDE Wayland at native 2x scale](raft-linux-appimage-fedora-wayland-hidpi-2026-10-12.png)
+
+This original 2880 × 1800 PNG captures a disposable Fedora 44 KWin output with
+2× monitor scaling. Raft connects with `GDK_BACKEND=wayland`; its own Wayland
+surface received scale 2 and submitted buffers. The container has no `/dev/fuse`.
+KWin is nested on Xvfb and uses software rendering; the capture reads its actual
+composited output. This proves native Wayland startup and painting, not the user's
+physical GPU, login or full feature acceptance.
+
+[Source, capture method and digests](raft-linux-appimage-fedora-wayland-hidpi-2026-10-12.json).
+
+# Linux AppImage screenshot
+
+![Raft Linux AppImage sign-in screen at actual 2x scale](raft-linux-appimage-hidpi-2026-10-12.png)
+
+The 2560 × 1440 PNG is an original production AppImage window capture on Ubuntu
+24.04 at actual `GDK_SCALE=2`, not an enlarged image. The direct launch,
+extract-and-run launch and bundled PDF conversion passed. No account or workspace
+was imported. This proves native startup, not login or full feature acceptance.
+
+[Source build and startup checks](https://github.com/kevinzhow/raft-flutter/actions/runs/38247319392).
+That run's Fedora setup failed before executing the AppImage; later compatibility
+results are recorded separately. [Source, scaling and digests](raft-linux-appimage-hidpi-2026-10-12.json).
+
+The older Flatpak screenshot below is retained as historical evidence. Releases
+now use AppImage; Flatpak is no longer a release target.
+
+# Historical Flatpak screenshot
 
 ![Raft Linux Flatpak sign-in screen at 2x scale](raft-linux-flatpak-hidpi-2026-10-12.png)
 
