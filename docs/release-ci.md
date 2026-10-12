@@ -234,3 +234,25 @@ References: [AppImage concepts](https://docs.appimage.org/introduction/concepts.
 [current static runtime](https://github.com/AppImage/type2-runtime),
 [official FUSE guidance](https://github.com/AppImage/AppImageKit/wiki/FUSE).
 Build counter semantics: [GitHub default variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables).
+
+## Independent platform verification (2026-10-13)
+
+The [four-platform manual run](https://github.com/kevinzhow/raft-flutter/actions/runs/38278726932)
+on `256d477a384229d10576bf27666a5c9c266ba541` passed Windows, Android ARM64,
+macOS ARM64, AppImage startup and Fedora compatibility checks. All four downloaded
+artifacts independently matched their receipt's platform, source commit, version,
+workflow build number and SHA-256.
+
+The [merged-source run](https://github.com/kevinzhow/raft-flutter/actions/runs/38280123560)
+on `97a7ce97e26d68228eabcad775931ac0978e055f` also passed all platforms. Its first
+attempt failed to download Android SDK command-line tools because Google returned
+HTTP 502; Windows, macOS and AppImage/Fedora completed successfully while Android
+failed. Rerunning only the Android build succeeded without rebuilding the other
+platforms. The original failed attempt is retained.
+
+Local publication tests cover first-platform publication, partial-upload recovery,
+failed later platforms, idempotent retries, per-platform manifests, mismatched
+assets and provenance, legacy asset digest fallback, and full `+N` tag semantics.
+Workflow lint and 72 publication-condition combinations confirm platform-local
+dependencies and tag-only publishing. These manual runs did not create or modify
+a GitHub Release; remote publication is triggered by the next version-tag push.
