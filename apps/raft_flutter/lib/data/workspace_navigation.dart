@@ -1,3 +1,4 @@
+import 'navigation_registry.dart';
 import 'raft_location.dart';
 import 'raft_navigation_history.dart';
 
@@ -253,6 +254,23 @@ class WorkspaceNavigation {
     String section, {
     String? channelId,
     bool dm = false,
+  }) {
+    if (!NavigationRegistry.knowsSection(section)) {
+      NavigationRegistry.reportFallback(
+        'section',
+        section,
+        NavigationRegistry.unsupportedSections[section],
+      );
+      section = 'settings';
+    }
+    return _locationForSection(slug, section, channelId: channelId, dm: dm);
+  }
+
+  static RaftLocation _locationForSection(
+    String slug,
+    String section, {
+    String? channelId,
+    bool dm = false,
   }) => RaftLocation.at(
     serverSlug: slug,
     route: switch (section) {
@@ -284,16 +302,15 @@ class WorkspaceNavigation {
     'mcp-servers' => 'mcp',
     'browser' => 'notifications',
     'moderation' => 'administration',
+    'server-labs' => 'labs',
     _ => slug,
   };
 
   static const settingsSections = {
     'workspace-settings',
-    'sidebar-settings',
     'providers',
     'integrations',
     'im-bridges',
-    'joint-channels',
     'administration',
     'billing',
   };

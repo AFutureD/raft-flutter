@@ -17,6 +17,7 @@ import '../data/source_activity_unread_store.dart';
 import '../data/source_mobile_app_badge.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
+import '../data/navigation_registry.dart';
 import '../data/workspace_navigation.dart';
 import '../data/source_server_unread.dart';
 import 'workspace_menu_invite.dart';
@@ -61,20 +62,13 @@ import 'resource_search.dart';
 import 'quick_switcher_host.dart';
 import 'member_profile_view.dart';
 import 'fleet_views.dart';
-import 'integrations_views.dart';
-import 'provider_views.dart';
-import 'billing_view.dart';
-import 'administration_view.dart';
 import 'private_route_guard.dart';
 import 'server_setup_gate.dart';
-import 'sidebar_preferences_view.dart';
 import 'sidebar_projection.dart';
 import 'sidebar_sort_menu.dart';
 import 'agent_avatar_projection.dart';
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
-import 'im_bridges_view.dart';
-import 'joint_channel_views.dart';
 import 'workspace_browser.dart';
 import 'management_support.dart' show managementLaunch;
 import 'sender_avatar_projection.dart';
@@ -876,6 +870,14 @@ class _WorkspaceViewState extends State<WorkspaceView>
     String? searchQuery,
     bool restoreSavedSearch = false,
   }) {
+    if (!NavigationRegistry.knowsSection(section)) {
+      NavigationRegistry.reportFallback(
+        'section',
+        section,
+        NavigationRegistry.unsupportedSections[section],
+      );
+      return;
+    }
     final host = mobileHost;
     if (host != null) {
       // The covered page's projected location is stale after a section change;
@@ -1136,13 +1138,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
           : tr(switch (route) {
-              'workspace-settings' => 'Workspace settings',
               'activity' => 'Activity',
               'settings' => 'Settings',
-              'providers' => 'Provider connections',
-              'sidebar-settings' => 'Sidebar preferences',
-              'im-bridges' => 'IM bridges',
-              'joint-channels' => 'Joint channels',
               _ => route[0].toUpperCase() + route.substring(1),
             });
       Widget conversation() => ServerSetupGate(
@@ -1196,16 +1193,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 ),
               ),
             )
-          : route == 'workspace-settings'
-          ? ServerSettingsView(
-              key: ValueKey('settings-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'sidebar-settings'
-          ? SidebarPreferencesView(
-              key: ValueKey('sidebar-${w.server!.id}'),
-              controller: w,
-            )
           : route == 'members'
           ? DesktopDirectoryView(
               key: ValueKey('directory-$mobileAuthority'),
@@ -1213,58 +1200,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
               mobileRoot: !wide,
               selected: desktopNavigation.target,
               onSelected: selectDesktopDirectoryTarget,
-            )
-          : route == 'providers'
-          ? ProviderConnectionsView(
-              key: ValueKey('providers-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'administration'
-          ? AdministrationView(
-              key: ValueKey('administration-${w.server!.id}'),
-              controller: w,
-              standalone: true,
-            )
-          : route == 'billing'
-          ? ListView(
-              key: const PageStorageKey('workspace-billing'),
-              // PlanSection renders inside SettingsPanel's scrolling surface.
-              padding: raftScrollPadding(
-                context,
-                RaftSettingsPanelFrame.contentInset,
-              ),
-              children: [
-                BillingView(
-                  key: ValueKey('billing-${w.server!.id}'),
-                  controller: w,
-                ),
-              ],
-            )
-          : route == 'joint-channels'
-          ? JointChannelsView(
-              key: ValueKey('joint-channels-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'im-bridges'
-          ? IMBridgesView(
-              key: ValueKey('bridges-${w.server!.id}'),
-              controller: w,
-            )
-          : route == 'integrations'
-          ? ListView(
-              key: const PageStorageKey('workspace-integrations'),
-              // IntegrationsSection renders inside SettingsPanel's scrolling
-              // surface.
-              padding: raftScrollPadding(
-                context,
-                RaftSettingsPanelFrame.contentInset,
-              ),
-              children: [
-                IntegrationsView(
-                  key: ValueKey('integrations-${w.server!.id}'),
-                  controller: w,
-                ),
-              ],
             )
           : route == 'agents' || route == 'computers'
           ? wide
