@@ -4,7 +4,7 @@ Version-tag pushes include macOS ARM64 in the existing release matrix. Manual
 `Build and release` runs can select `macos` to build an artifact without publishing
 a GitHub Release. Version and build number use the same rules as other platforms.
 
-The macOS job uses Flutter pinned in `.fvmrc`, CocoaPods and Swift Package Manager.
+The macOS job uses Flutter pinned in `.fvmrc`, CocoaPods 1.16.2 and Swift Package Manager.
 It signs native code and frameworks inside out with ad-hoc signatures, then signs
 the app with the checked-in Release entitlements. No Apple signing secret is needed.
 Packaging rejects development provisioning profiles, wrong architectures, changed

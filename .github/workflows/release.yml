@@ -107,11 +107,20 @@ jobs:
         if: matrix.platform == 'android'
         shell: bash
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+      - name: Select Ruby for the pinned CocoaPods
+        if: matrix.platform == 'macos'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install the locked macOS CocoaPods version
+        if: matrix.platform == 'macos'
+        run: gem install cocoapods --version 1.16.2 --no-document
       - name: Check macOS packaging tools
         if: matrix.platform == 'macos'
         run: |
           xcodebuild -version
           pod --version
+          test "$(pod --version)" = "1.16.2"
           command -v codesign
       - name: Install Linux build and media dependencies
         if: matrix.platform == 'linux' || matrix.platform == 'appimage'
