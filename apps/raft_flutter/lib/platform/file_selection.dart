@@ -54,7 +54,6 @@ Future<List<XFile>> selectUploads({
   if (mediaOnly && _usesPhotos(platform)) {
     return (picker ?? ImagePicker()).pickMultipleMedia(
       requestFullMetadata: false,
-      limit: 9,
     );
   }
   return openFiles(
@@ -81,8 +80,5 @@ Future<List<XFile>> selectImages({
   TargetPlatform? platform,
   ImagePicker? picker,
 }) => _usesPhotos(platform)
-    ? (picker ?? ImagePicker()).pickMultiImage(
-        requestFullMetadata: false,
-        limit: 9,
-      )
+    ? (picker ?? ImagePicker()).pickMultiImage(requestFullMetadata: false)
     : openFiles(acceptedTypeGroups: [typeGroup]);

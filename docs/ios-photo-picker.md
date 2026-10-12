@@ -4,8 +4,8 @@ The composer media button, account and agent avatars, connected-app logos and
 Feedback image attachments use Flutter's official `image_picker` 1.2.4 on iOS.
 The mixed-media composer keeps images and videos; image-only controls retain an
 image-only picker. Every gallery call explicitly sets `requestFullMetadata:
-false`. Multi-selection is bounded to nine items, matching the share/photo
-selection capacity; cancellation returns no files.
+false`. Multi-selection has no additional iOS-only count limit; the existing
+feature-level attachment validation remains authoritative. Cancellation returns no files.
 
 On iOS 14+, the plugin uses Apple's PHPicker. The app already requires iOS 15,
 so this change does not raise the deployment minimum. The app receives only the
