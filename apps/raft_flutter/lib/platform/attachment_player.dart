@@ -156,6 +156,14 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     final native = player.platform;
     if (closed || native is! NativePlayer) return;
     try {
+      // The first rendered frame can arrive before mpv has set up the decoder;
+      // the video size is only published once a frame has been decoded, and
+      // hwdec-current is valid from then on.
+      if ((player.state.width ?? 0) <= 0) {
+        await player.stream.width
+            .firstWhere((w) => (w ?? 0) > 0)
+            .timeout(const Duration(seconds: 20));
+      }
       Future<String?> read(String name) async {
         try {
           return await native.getProperty(name, waitForInitialization: false);
