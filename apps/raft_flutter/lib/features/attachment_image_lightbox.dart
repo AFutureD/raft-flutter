@@ -176,6 +176,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
 
   @override
   void dispose() {
+    _unwatchDecodedSize();
     // The full-resolution bitmap is not kept once the lightbox closes; its
     // bytes stay in the persistent store for the next open. Releasing the
     // last consumer of an in-flight download cancels it.
@@ -263,19 +264,99 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
       }
       return stage(context, thumbnail);
     }
+    _watchDecodedSize();
     // `max-h-full max-w-full object-contain`: natural size, shrunk to fit
     // the stage, never enlarged.
-    return InteractiveViewer(
-      transformationController: widget.zoom,
-      child: Image(
-        image: provider,
-        key: widget.imageKey,
-        fit: BoxFit.scaleDown,
-        gaplessPlayback: true,
-        errorBuilder: (_, _, _) => const Center(
-          child: Text('Preview unavailable. Download the original file.'),
+    //
+    // Source ImageLightbox: "Empty-stage clicks close the lightbox. After
+    // zoom/pan ... also guard against stage-target clicks that land inside the
+    // transformed image." A tap (not a pan / pinch) outside the painted image
+    // closes the route; the tap recognizer loses the arena to a drag.
+    return LayoutBuilder(
+      builder: (context, constraints) => GestureDetector(
+        key: const ValueKey('lightbox-stage'),
+        behavior: HitTestBehavior.translucent,
+        onTapUp: (details) {
+          if (!imageContains(details.localPosition, constraints.biggest)) {
+            unawaited(Navigator.maybePop(context));
+          }
+        },
+        child: InteractiveViewer(
+          transformationController: widget.zoom,
+          child: Image(
+            image: provider,
+            key: widget.imageKey,
+            fit: BoxFit.scaleDown,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => const Center(
+              child: Text('Preview unavailable. Download the original file.'),
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  ImageStream? _sizeStream;
+  ImageStreamListener? _sizeListener;
+  Size? decoded;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _watchDecodedSize();
+  }
+
+  @override
+  void didUpdateWidget(AttachmentLightboxImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _watchDecodedSize();
+  }
+
+  void _watchDecodedSize() {
+    final provider = full;
+    if (provider == null) return;
+    final stream = provider.resolve(createLocalImageConfiguration(context));
+    if (_sizeStream?.key == stream.key) return;
+    _unwatchDecodedSize();
+    final listener = ImageStreamListener((info, _) {
+      final image = info.image;
+      decoded = Size(image.width.toDouble(), image.height.toDouble());
+    });
+    stream.addListener(listener);
+    _sizeStream = stream;
+    _sizeListener = listener;
+  }
+
+  void _unwatchDecodedSize() {
+    final listener = _sizeListener;
+    if (listener != null) _sizeStream?.removeListener(listener);
+    _sizeStream = null;
+    _sizeListener = null;
+  }
+
+  /// Whether [point] (stage coordinates) lands on the painted image: its
+  /// `scaleDown` box centred in [stage], mapped through the zoom / pan
+  /// transform. Without a known pixel size every point counts as the image
+  /// (never closes by accident).
+  @visibleForTesting
+  bool imageContains(Offset point, Size stage) {
+    final natural = decoded ?? widget.imageSize;
+    if (natural == null || natural.isEmpty) return true;
+    final scale = [
+      1.0,
+      stage.width / natural.width,
+      stage.height / natural.height,
+    ].reduce((a, b) => a < b ? a : b);
+    final size = natural * scale;
+    final box = Rect.fromCenter(
+      center: stage.center(Offset.zero),
+      width: size.width,
+      height: size.height,
+    );
+    final inverse = Matrix4.tryInvert(widget.zoom.value);
+    if (inverse == null) return true;
+    final local = MatrixUtils.transformPoint(inverse, point);
+    return box.contains(local);
   }
 }

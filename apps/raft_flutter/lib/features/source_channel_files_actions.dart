@@ -206,6 +206,7 @@ class SourceChannelFilesActions {
           try {
             if (!current(file)) return;
             late DialogRoute<void> route;
+            final imageKey = GlobalKey();
             route = RaftFullBleedDialogRoute<void>(
               context: context(),
               builder: (_) => RaftAttachmentLightbox(
@@ -217,9 +218,17 @@ class SourceChannelFilesActions {
                   glyph: RaftGlyph.download,
                   onPressed: () => download(file),
                 ),
-                child: Center(
-                  child: InteractiveViewer(
-                    child: Image(image: lease.provider, fit: BoxFit.contain),
+                child: RaftLightboxStageTap(
+                  imageKey: imageKey,
+                  onClose: () => _close(route),
+                  child: Center(
+                    child: InteractiveViewer(
+                      child: Image(
+                        image: lease.provider,
+                        key: imageKey,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -247,6 +256,7 @@ class SourceChannelFilesActions {
           }
           provider = MemoryImage(image);
           late DialogRoute<void> route;
+          final imageKey = GlobalKey();
           route = RaftFullBleedDialogRoute<void>(
             context: context(),
             builder: (_) => RaftAttachmentLightbox(
@@ -258,15 +268,20 @@ class SourceChannelFilesActions {
                 glyph: RaftGlyph.download,
                 onPressed: () => download(file),
               ),
-              child: Center(
-                child: InteractiveViewer(
-                  child: Image(
-                    image: provider!,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => Text(
-                      raftText(
-                        context(),
-                        'Preview unavailable. Download the original file.',
+              child: RaftLightboxStageTap(
+                imageKey: imageKey,
+                onClose: () => _close(route),
+                child: Center(
+                  child: InteractiveViewer(
+                    child: Image(
+                      image: provider!,
+                      key: imageKey,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => Text(
+                        raftText(
+                          context(),
+                          'Preview unavailable. Download the original file.',
+                        ),
                       ),
                     ),
                   ),

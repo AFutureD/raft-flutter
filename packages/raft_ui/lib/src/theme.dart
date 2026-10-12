@@ -754,6 +754,9 @@ ThemeData raftTheme(
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
+      // LocalizedToastProvider shows a ToastClose unless `hasClose` is false.
+      showCloseIcon: true,
+      closeIconColor: scheme.onInverseSurface,
       shape: shape(6),
       backgroundColor: scheme.inverseSurface,
       contentTextStyle: textTheme.bodyMedium!.copyWith(

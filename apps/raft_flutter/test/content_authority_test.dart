@@ -115,6 +115,27 @@ void main() {
     await c.stream.close();
   });
   test(
+    'share wake bypasses content navigation even before account restoration',
+    () {
+      var wakes = 0;
+      links.onIncomingShare = () => wakes++;
+      links.bindWorkspace(null);
+      links.receiveLink(Uri.parse('raft://share/${'a' * 32}'));
+      expect(wakes, 1);
+      expect(c.reads, 0);
+      expect(w.jumps, isEmpty);
+      links.bindWorkspace(w);
+      links.receiveLink(Uri.parse('raft://share/${'a' * 32}'));
+      links.receiveLink(
+        Uri.parse('raft://share/${'a' * 32}?path=/tmp/private'),
+      );
+      links.receiveLink(Uri.parse('raft://oauth/callback?code=fixture'));
+      expect(wakes, 2);
+      expect(c.reads, 0);
+      expect(w.jumps, isEmpty);
+    },
+  );
+  test(
     'Windows taps restore the window and retain message authorization',
     () async {
       await links.dispose();

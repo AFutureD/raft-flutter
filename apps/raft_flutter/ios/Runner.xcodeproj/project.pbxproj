@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -190,7 +190,6 @@
 				EDF23F70F2B5491B2B0A7BC5 /* RaftSharePage.js */,
 				06BF7ACDD15E71875C72815E /* InfoPlist.strings */,
 			);
-			name = ShareExtension;
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
@@ -276,7 +275,6 @@
 				29AB3A8FF097C36DF0A28D7A /* ShareComposeClient.swift */,
 				95AB87F854BCE6BCC69D3122 /* Localizable.strings */,
 			);
-			name = Shared;
 			path = Shared;
 			sourceTree = "<group>";
 		};
@@ -392,7 +390,7 @@
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
-				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
 			);
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
 			projectDirPath = "";
@@ -1078,7 +1076,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
 		};

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'localization.dart';
 
 import 'components.dart';
+import 'dialog_card.dart' show RaftCloseButton;
+import 'dismiss_scope.dart';
 import 'theme.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
@@ -186,59 +188,71 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !busy,
-    child: AlertDialog(
-      title: Text(raftText(context, widget.title)),
-      titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      actionsPadding: const EdgeInsets.all(16),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: form,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.description != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(widget.description!),
-                  ),
-                for (final field in widget.fields) _field(field),
-                if (widget.extra != null)
-                  ExcludeFocus(
-                    excluding: busy,
-                    child: IgnorePointer(ignoring: busy, child: widget.extra!),
-                  ),
-                if (error != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+    // Web `DialogCard`: Escape and the header X close it, a scrim press does
+    // not (the call sites open it with `barrierDismissible: false`).
+    child: RaftDismissScope(
+      child: AlertDialog(
+        title: Row(
+          children: [
+            Expanded(child: Text(raftText(context, widget.title))),
+            RaftCloseButton(
+              onPressed: busy ? null : () => Navigator.pop(context, false),
+            ),
+          ],
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        actionsPadding: const EdgeInsets.all(16),
+        content: SizedBox(
+          width: 480,
+          child: Form(
+            key: form,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.description != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(widget.description!),
+                    ),
+                  for (final field in widget.fields) _field(field),
+                  if (widget.extra != null)
+                    ExcludeFocus(
+                      excluding: busy,
+                      child: IgnorePointer(ignoring: busy, child: widget.extra!),
+                    ),
+                  if (error != null)
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+        actions: [
+          RaftTextButton(
+            label: 'Cancel',
+            variant: RaftControlVariant.outline,
+            onPressed: busy ? null : () => Navigator.pop(context, false),
+          ),
+          RaftButton(
+            label: widget.submitLabel,
+            busy: busy,
+            onPressed: submit,
+            destructive: widget.destructive,
+          ),
+        ],
+
       ),
-      actions: [
-        RaftTextButton(
-          label: 'Cancel',
-          variant: RaftControlVariant.outline,
-          onPressed: busy ? null : () => Navigator.pop(context, false),
-        ),
-        RaftButton(
-          label: widget.submitLabel,
-          busy: busy,
-          onPressed: submit,
-          destructive: widget.destructive,
-        ),
-      ],
     ),
   );
 }
