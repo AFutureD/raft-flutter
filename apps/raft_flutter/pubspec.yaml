@@ -46,7 +46,8 @@ dependencies:
   media_kit_libs_macos_video: ^1.1.4
   media_kit_libs_windows_video: ^1.0.11
   flutter_svg: ^2.3.0
-  desktop_drop: ^0.8.4
+  desktop_drop:
+    path: ../../packages/desktop_drop
   pasteboard: ^0.5.0
   ffi: ^2.2.0
 dev_dependencies:

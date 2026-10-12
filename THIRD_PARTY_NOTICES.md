@@ -16,4 +16,6 @@ Design-token sources vendored for `tool/gen-tokens` live in `tool/design-source/
 
 Runtime alternate icons use a locally modified flutter_dynamic_icon_plus 1.4.1 (MIT), copyright 2024 chandrabezzo. The original [license](packages/flutter_dynamic_icon_plus/LICENSE), [upstream provenance](packages/flutter_dynamic_icon_plus/UPSTREAM.json) and [local changes](packages/flutter_dynamic_icon_plus/RAFT_PATCHES.md) are preserved with the vendored source.
 
+Linux file drops use a locally modified desktop_drop 0.8.4 (Apache-2.0), copyright 2021 Mixin. The original [license](packages/desktop_drop/LICENSE), [upstream provenance](packages/desktop_drop/UPSTREAM.json) and [local changes](packages/desktop_drop/RAFT_PATCHES.md) are preserved with the vendored source.
+
 macOS Dock unread badges use app_badge_plus 1.3.5 (MIT), copyright 2024 LioLin. The unmodified [license](docs/licenses/app_badge_plus-1.3.5-MIT.txt) is preserved for distribution.

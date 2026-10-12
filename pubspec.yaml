@@ -7,6 +7,7 @@ workspace:
   - packages/raft_ui
   - packages/raft_client
   - packages/raft_sync
+  - packages/desktop_drop
   - packages/flutter_chat_ui
   - packages/flutter_dynamic_icon_plus
   - tool/ds_audit
