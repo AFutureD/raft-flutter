@@ -12,6 +12,44 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
 };
 
+// The header bar the title strip colours, and the CSS it is coloured with.
+// Null when the window manager draws the title bar (the app cannot colour
+// that); see docs/desktop-title-bar.md.
+struct TitleBar {
+  GtkWidget* header_bar;
+  GtkCssProvider* css;
+};
+
+static void title_bar_free(gpointer data) {
+  TitleBar* bar = static_cast<TitleBar*>(data);
+  g_clear_object(&bar->css);
+  g_free(bar);
+}
+
+static void format_rgb(char* out, size_t size, int64_t argb) {
+  g_snprintf(out, size, "#%06x", static_cast<unsigned>(argb & 0xFFFFFF));
+}
+
+// Paint the header bar in the nav rail's colours: no title, the rail's colour
+// in every window state, and the rail's divider as its bottom rule.
+static void title_bar_set_style(TitleBar* bar, int64_t background,
+                                int64_t foreground, int64_t rule,
+                                double rule_width) {
+  if (bar->header_bar == nullptr) return;
+  char bg[16], fg[16], line[16];
+  format_rgb(bg, sizeof(bg), background);
+  format_rgb(fg, sizeof(fg), foreground);
+  format_rgb(line, sizeof(line), rule);
+  g_autofree gchar* css = g_strdup_printf(
+      "headerbar.raft-titlebar, headerbar.raft-titlebar:backdrop {"
+      " background: %s; background-image: none; box-shadow: none;"
+      " border-bottom: %dpx solid %s; }"
+      "headerbar.raft-titlebar button, headerbar.raft-titlebar button image {"
+      " color: %s; text-shadow: none; -gtk-icon-shadow: none; }",
+      bg, static_cast<int>(rule_width + 0.5), line, fg);
+  gtk_css_provider_load_from_data(bar->css, css, -1, nullptr);
+}
+
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
@@ -47,14 +85,31 @@ static void my_application_activate(GApplication* application) {
     }
   }
 #endif
+  // RAFT_LINUX_HEADER_BAR=1 forces the header bar (a window manager that
+  // draws no title bar of its own, such as a bare Xvfb, would otherwise get
+  // none); RAFT_LINUX_HEADER_BAR=0 forces the window manager's.
+  const gchar* forced_header_bar = g_getenv("RAFT_LINUX_HEADER_BAR");
+  if (g_strcmp0(forced_header_bar, "1") == 0) use_header_bar = TRUE;
+  if (g_strcmp0(forced_header_bar, "0") == 0) use_header_bar = FALSE;
+  TitleBar* title_bar = g_new0(TitleBar, 1);
+  // The window's name stays for the task switcher; the bar shows no title.
+  gtk_window_set_title(window, "Raft");
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "raft_flutter");
+    // An empty custom title keeps the bar free of text; only the window
+    // controls GTK draws remain.
+    GtkWidget* no_title = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_show(no_title);
+    gtk_header_bar_set_custom_title(header_bar, no_title);
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-  } else {
-    gtk_window_set_title(window, "raft_flutter");
+    title_bar->header_bar = GTK_WIDGET(header_bar);
+    title_bar->css = gtk_css_provider_new();
+    GtkStyleContext* style = gtk_widget_get_style_context(title_bar->header_bar);
+    gtk_style_context_add_class(style, "raft-titlebar");
+    gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(title_bar->css),
+                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   }
 
   gtk_window_set_default_size(window, 1280, 720);
@@ -92,6 +147,43 @@ static void my_application_activate(GApplication* application) {
           fl_method_call_respond_not_implemented(call, nullptr);
         }
       }, g_object_ref(window), g_object_unref);
+
+  // The app tells the runner the rail's colours (and again on every theme
+  // change); GTK owns the bar's height, dragging, double-click and
+  // fullscreen / maximised / tiled states, so there is no strip to report.
+  g_autoptr(FlMethodChannel) title_bar_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "app.raft/titlebar", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      title_bar_channel,
+      [](FlMethodChannel*, FlMethodCall* call, gpointer data) {
+        TitleBar* bar = static_cast<TitleBar*>(data);
+        const gchar* method = fl_method_call_get_name(call);
+        if (g_strcmp0(method, "status") == 0) {
+          g_autoptr(FlValue) state = fl_value_new_map();
+          fl_value_set_string_take(state, "height", fl_value_new_float(0));
+          fl_value_set_string_take(state, "fullscreen", fl_value_new_bool(FALSE));
+          fl_method_call_respond_success(call, state, nullptr);
+        } else if (g_strcmp0(method, "setStyle") == 0) {
+          FlValue* args = fl_method_call_get_args(call);
+          auto integer = [args](const char* key) -> int64_t {
+            FlValue* value = fl_value_lookup_string(args, key);
+            return value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_INT
+                       ? fl_value_get_int(value)
+                       : 0;
+          };
+          FlValue* width = fl_value_lookup_string(args, "ruleWidth");
+          title_bar_set_style(
+              bar, integer("background"), integer("foreground"), integer("rule"),
+              width != nullptr && fl_value_get_type(width) == FL_VALUE_TYPE_FLOAT
+                  ? fl_value_get_float(width)
+                  : 1);
+          fl_method_call_respond_success(call, nullptr, nullptr);
+        } else {
+          fl_method_call_respond_not_implemented(call, nullptr);
+        }
+      },
+      title_bar, title_bar_free);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
