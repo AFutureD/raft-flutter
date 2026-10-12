@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 
@@ -15,7 +14,6 @@ class IOSShareSession {
   final MethodChannel channel;
   final bool supported;
   RaftClient? _client;
-  Interceptor? _observer;
   StreamSubscription<RaftEvent>? _events;
   Future<void> _tail = Future.value();
   int _revision = 0;
@@ -33,15 +31,9 @@ class IOSShareSession {
     _published = null;
     _enqueue(null);
     if (client == null) return;
-    _observer = InterceptorsWrapper(
-      onResponse: (response, handler) {
-        unawaited(publish());
-        handler.next(response);
-      },
-    );
-    client.http.interceptors.add(_observer!);
     _events = client.events.listen((event) {
       if (event.name == 'session:ended') bind(null);
+      if (event.name == 'session:credentials-updated') unawaited(publish());
     });
     unawaited(publish());
   }
@@ -138,8 +130,6 @@ class IOSShareSession {
   }
 
   void _detach() {
-    if (_observer != null) _client?.http.interceptors.remove(_observer);
-    _observer = null;
     unawaited(_events?.cancel());
     _events = null;
     _client = null;

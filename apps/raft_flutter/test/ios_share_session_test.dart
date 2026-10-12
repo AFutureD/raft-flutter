@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/platform/ios_share_session.dart';
@@ -34,6 +35,45 @@ class _Client extends RaftClient {
   }
   @override
   bool get signedIn => user != null;
+}
+
+class _Responses implements HttpClientAdapter {
+  bool rotate = false;
+  final List<String> paths = [];
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? body,
+    Future<void>? cancel,
+  ) async {
+    paths.add(options.path);
+    Object payload = {};
+    var status = 200;
+    if (options.path == '/auth/me') {
+      payload = {'id': 'alice', 'name': 'Alice'};
+    }
+    if (options.path == '/auth/refresh') {
+      payload = {
+        'accessToken': 'rotated-access',
+        'refreshToken': 'private-rotated',
+      };
+    }
+    if (options.path == '/fixture' &&
+        rotate &&
+        options.headers['Authorization'] != 'Bearer rotated-access') {
+      status = 401;
+    }
+    return ResponseBody.fromString(
+      jsonEncode(payload),
+      status,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 void main() {
@@ -240,4 +280,53 @@ void main() {
       expect(calls.last.arguments, isNull);
     },
   );
+  test(
+    '100 ordinary API responses never re-read or republish shared credentials',
+    () async {
+      final storage = _Credentials();
+      final c = _Client(storage),
+          owner = IOSShareSession(channel: channel, supported: true);
+      addTearDown(c.dispose);
+      addTearDown(owner.dispose);
+      c.http.httpClientAdapter = _Responses();
+      owner.bind(c);
+      await owner.publish();
+      await owner.settled;
+      final reads = storage.reads, writes = calls.length;
+      for (var i = 0; i < 100; i++) {
+        await c.get('/fixture');
+      }
+      await Future<void>.delayed(Duration.zero);
+      await owner.settled;
+      expect(storage.reads, reads);
+      expect(calls.length, writes);
+    },
+  );
+  test('successful token rotation emits no credentials and publishes new access once', () async {
+    final storage = _Credentials();
+    final client = _Client(storage), response = _Responses();
+    final owner = IOSShareSession(channel: channel, supported: true),
+        events = <RaftEvent>[];
+    addTearDown(client.dispose);
+    addTearDown(owner.dispose);
+    client.http.httpClientAdapter = response;
+    await client.restore();
+    final subscription = client.events.listen(events.add);
+    addTearDown(subscription.cancel);
+    owner.bind(client);
+    await owner.publish();
+    await owner.settled;
+    final reads = storage.reads;
+    response.rotate = true;
+    await client.get('/fixture');
+    await Future<void>.delayed(Duration.zero);
+    await owner.settled;
+    expect(storage.reads, reads + 1);
+    expect((calls.last.arguments as Map)['accessToken'], 'rotated-access');
+    final updated = events
+        .where((e) => e.name == 'session:credentials-updated')
+        .toList();
+    expect(updated.length, 1);
+    expect(updated.single.payload, isNull);
+  });
 }

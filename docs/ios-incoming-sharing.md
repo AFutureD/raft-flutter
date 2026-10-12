@@ -16,7 +16,9 @@ System ordering and Action availability still depend on the host share sheet.
 explicit shared Keychain group. Refresh tokens stay in the main app. The record
 has origin, principal, name, access expiry and preferred server; it uses
 WhenUnlockedThisDeviceOnly protection. Logout, account replacement, expired access
-and offline restoration retire it. The app keeps its previous default Keychain
+and offline restoration retire it. Publication follows accepted login, selected
+server changes and a payload-free session:credentials-updated event after token
+rotation; ordinary API responses neither read the Keychain nor publish a record. The app keeps its previous default Keychain
 access group first, so introducing this shared group does not move old login items.
 The group is provisioned for Runner, ShareExtension and ActionExtension.
 
