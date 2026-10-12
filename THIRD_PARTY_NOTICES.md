@@ -19,3 +19,5 @@ Runtime alternate icons use a locally modified flutter_dynamic_icon_plus 1.4.1 (
 Linux file drops use a locally modified desktop_drop 0.8.4 (Apache-2.0), copyright 2021 Mixin. The original [license](packages/desktop_drop/LICENSE), [upstream provenance](packages/desktop_drop/UPSTREAM.json) and [local changes](packages/desktop_drop/RAFT_PATCHES.md) are preserved with the vendored source.
 
 macOS Dock unread badges use app_badge_plus 1.3.5 (MIT), copyright 2024 LioLin. The unmodified [license](docs/licenses/app_badge_plus-1.3.5-MIT.txt) is preserved for distribution.
+
+The Linux runner vendors `apps/raft_flutter/linux/runner/flutter_embedder.h` unchanged from Flutter 3.47.6 (BSD-3-Clause, copyright The Flutter Authors) to add the vsync callback the GTK embedder omits (`vsync_driver.cc`).

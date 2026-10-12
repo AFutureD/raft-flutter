@@ -37,3 +37,14 @@ On Android pass the same settings with `--dart-define-from-file` (see the header
 with `--android-project-arg=raftApplicationIdSuffix=.linkperf` (isolated app id, AGENTS.md).
 
 Focused text fields blink their caret (2 frames/s); that is expected and excluded from the zero-frame rule.
+
+## Linux frame pacing (display refresh rate)
+
+Flutter 3.47.6's GTK embedder installs no vsync callback, so the engine paces frames with a fixed 1/60 s timer,
+and GDK 3 caps a GL-rendered window's frame clock at 60 Hz (a window committed through `eglSwapBuffers` never gets
+a measured refresh interval). `apps/raft_flutter/linux/runner/vsync_driver.cc` fixes both: it releases each engine
+frame on the GTK frame clock and fills the clock's refresh interval from the monitor's mode. It only reacts to an
+engine request, so idle stays at 0 frames and no tick callback is installed. `RAFT_LINUX_VSYNC=0` restores the
+engine's timer; `RAFT_LINUX_VSYNC_STATS=1` prints delivered frames per second. On a Flutter upgrade, re-check
+that `FlutterEngineProcTable` / `FlutterProjectArgs` still match the vendored `flutter_embedder.h`
+(the driver refuses to patch an engine whose layout it does not recognise and leaves the 60 Hz timer).

@@ -9,6 +9,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "vsync_driver.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -129,6 +130,8 @@ static void my_application_activate(GApplication* application) {
       project, self->dart_entrypoint_arguments);
 
   FlView* view = fl_view_new(project);
+  // Before the view is realized (that starts the engine); see vsync_driver.h.
+  raft_vsync_install(view);
   GdkRGBA background_color;
   // Background defaults to black, override it here if necessary, e.g. #00000000
   // for transparent.
