@@ -14,7 +14,7 @@ and the guards that keep them fixed.
 | Fixture entrypoint (production `RaftApp` + `RootErrorBoundary`, fixture API, no real login) | `apps/raft_flutter/integration_test/login_qa_main.dart` |
 | Driver: steps through the states, real pointer taps, `adb` typing/screenshots, fallback-style audit | `tool/login-qa` |
 | Contact sheets: device shots next to the Web (React) parity captures | `tool/login-qa-sheet` |
-| Screenshots | `/tmp/login-qa/after/<state>.<theme>.png` (fixed build), `/tmp/login-qa/before/` (build at `c88601bc`) |
+| Screenshots | `/tmp/login-qa/after/<state>.<theme>.png` (fixed build), `/tmp/login-qa/before/` (build at `c88601bc`, the states that exercise the changed widgets) |
 | Contact sheets | `/tmp/login-qa/sheets/` (Web, before, after per theme), `/tmp/login-qa/sheets-web/` (Web, after) |
 
 ```sh
