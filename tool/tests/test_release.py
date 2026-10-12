@@ -267,50 +267,6 @@ class ReleaseTests(unittest.TestCase):
                 with self.subTest(number=number, tag=tag), self.assertRaises(ValueError):
                     release.verify_artifacts(directory, matrix, '0.1.0', 'abc', number, tag)
 
-    def test_full_tag_is_used_for_release_and_upload_and_plus_is_not_a_prerelease(self):
-        with tempfile.TemporaryDirectory() as temp:
-            directory = Path(temp)
-            _, receipt = self.fixture(directory)
-            receipt.update(version='1.2.3', buildNumber='214', releaseTag='v1.2.3+9',
-                           flutter='3.47.6', signing='unsigned')
-            (directory / 'receipt.json').write_text(json.dumps(receipt))
-            environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3+9',
-                           'GITHUB_RUN_NUMBER': '214',
-                           'RELEASE_MATRIX': json.dumps(release.release_plan(self.config, 'windows'))}
-            with patch.object(release, 'OUT', directory), patch.object(release, 'capture', return_value='abc'), \
-                    patch.dict(release.os.environ, environment), patch.object(release, 'run') as commands:
-                release.publish()
-                self.assertEqual(commands.call_count, 3)
-                for call in commands.call_args_list:
-                    self.assertEqual(call.args[0][3], 'v1.2.3+9')
-                self.assertIn('--prerelease=false', commands.call_args.args[0])
-                self.assertIn('--latest=true', commands.call_args.args[0])
-                self.assertIn('Build number: 214.', (directory / 'release-notes.md').read_text())
-
-    def test_manual_run_cannot_publish(self):
-        with patch.dict(release.os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch'}):
-            with patch.object(release, 'run') as commands, self.assertRaises(ValueError):
-                release.publish()
-            commands.assert_not_called()
-
-    def test_release_stays_draft_until_upload_succeeds(self):
-        with tempfile.TemporaryDirectory() as temp:
-            directory = Path(temp)
-            _, receipt = self.fixture(directory)
-            receipt['flutter'] = '3.47.6'
-            receipt['signing'] = 'unsigned'
-            (directory / 'receipt.json').write_text(json.dumps(receipt))
-            environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v0.1.0', 'GITHUB_RUN_NUMBER': '1',
-                           'RELEASE_MATRIX': json.dumps(release.release_plan(self.config, 'windows'))}
-            with patch.object(release, 'OUT', directory), patch.object(release, 'capture', return_value='abc'), \
-                    patch.dict(release.os.environ, environment), patch.object(release, 'run') as commands:
-                commands.side_effect = [None, release.subprocess.CalledProcessError(1, 'upload')]
-                with self.assertRaises(release.subprocess.CalledProcessError):
-                    release.publish()
-                self.assertEqual(commands.call_count, 2)
-                self.assertIn('--draft', commands.call_args_list[0].args[0])
-                self.assertEqual(commands.call_args_list[1].args[0][1:3], ['release', 'upload'])
-
 
 if __name__ == '__main__':
     unittest.main()

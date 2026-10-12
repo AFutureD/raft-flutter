@@ -1,7 +1,7 @@
 # GitHub build and release
 
 `.github/workflows/release.yml` builds on GitHub-hosted runners using the exact
-Flutter version in `.fvmrc` and the checked-in pub lockfile. Windows x64, signed Android ARM64 and Linux x64 Flatpak are enabled
+Flutter version in `.fvmrc` and the checked-in pub lockfile. Windows x64, signed Android ARM64, Linux x64 AppImage and macOS ARM64 are enabled
 by default. Builds use `lib/main.dart` and produce no private test fixtures or
 test feature defines. This pipeline is separate from the local native-acceptance
 packager `tool/build-deliverables`; compilation does not imply full-app acceptance.
@@ -28,32 +28,64 @@ as Latest, while prereleases are not. Keep the same release key
 for Android updates. Branch PR/manual runs use the pubspec app version and the
 workflow counter; local runs without GitHub context fall back to the pubspec.
 
-Malformed tags or invalid/missing tag-run counters stop before building. All enabled platforms must succeed before
-the publication job runs. It verifies each artifact's SHA-256, architecture,
-version, build number, release tag and source commit, creates a draft, uploads every asset plus
-`CHECKSUMS.txt` and `build-manifest.json`, then publishes it. Tags containing a
-prerelease suffix become GitHub prereleases. Only the publish job has
-`contents: write`; it uses the built-in `GITHUB_TOKEN`, without a personal token.
-No second release-event workflow is needed.
+Malformed tags or invalid/missing tag-run counters stop before building. A shared
+plan validates the release protocol, then `prepare-release` creates one draft
+with the tag, source commit, build number and expected platform inventory. Each
+matrix entry calls `.github/workflows/release-platform.yml`, which owns its build,
+platform checks and publisher. The first successful platform uploads its assets
+and makes the release public; other successful platforms append their assets as
+they finish. A failed Windows, Android, macOS or AppImage job does not block the
+other platforms. The workflow still reports failures, and a missing asset may
+mean that its platform is still running or failed.
 
-Pull requests touching release tooling, the lockfile or desktop hosts run Windows and Flatpak
-build and retain artifacts for 14 days. **PR and manual runs never publish.** From
-Actions → Build and release → Run workflow, leave `platforms` blank for the enabled
-set, or select e.g. `windows,macos` to test builders before enabling them. Pull request plans exclude Android so neither fork nor same-repository PR builds
-receive the persistent signing secrets. Android changes are tested by a manual
-Android build on a reviewed branch; tags build all enabled platforms.
+AppImage packaging tests, Ubuntu startup checks and Fedora compatibility checks
+must pass before **AppImage** publishes. macOS packaging tests run in the macOS
+job. Neither platform's checks gate Windows or Android. All publishers verify
+their own artifact's SHA-256, architecture, version, build number, full release
+tag and source commit before uploading. Each platform owns a separate
+`CHECKSUMS-PLATFORM-ARCH.txt` and `build-manifest-PLATFORM-ARCH.json`; there is no
+shared checksum or manifest file for concurrent publishers to overwrite. For
+example, Android publishes `CHECKSUMS-android-arm64.txt` alongside its APK and
+`build-manifest-android-arm64.json`.
+
+Pull requests touching release tooling, the lockfile or desktop hosts run the
+unsigned desktop platforms and retain artifacts for 14 days. **PR and manual
+runs never publish.** From Actions → Build and release → Run workflow, leave
+`platforms` blank for the enabled set, or select e.g. `windows,macos` to test
+builders before enabling them. Pull request plans exclude Android and pass no
+persistent signing secrets. Android changes are tested by a manual Android build
+on a reviewed branch; tags build all enabled platforms. Builds use read-only
+repository permission; only tag preparation and platform publishers use
+`contents: write` with the built-in `GITHUB_TOKEN`.
 
 Concurrency is serialized per event/ref. Published assets are never overwritten.
-If upload fails, a draft remains; inspect it, delete that incomplete draft (retain
-the tag), then rerun the workflow. An existing published release must be corrected
-with a new tag (incrementing `+N` is sufficient), rather than overwriting old assets.
-On repositories with immutable releases, the draft-first sequence also ensures
-assets are present before publication locks them.
+On a retry of the same run, preparation verifies the existing release's source,
+build number and platform inventory. Publishers compare already uploaded files
+by SHA-256 and upload only missing files. An interrupted first upload leaves a
+draft until a platform finishes; an interrupted later upload leaves the already
+published platforms available. Do not delete successful assets to recover a
+failed platform. Rerun the failed publication with the original artifact; if a
+rebuild produces different bytes, the publisher refuses to replace existing
+files. Use a new tag (`+N` is sufficient) for changed artifacts, source or build
+number, or to replace a release created by the previous publication pipeline.
+
+Independent append operations require **mutable GitHub Releases**. Enabling
+immutable releases would lock the assets after the first platform publishes and
+prevent later platforms from appending. This pipeline does not change repository
+settings. The current repository has immutable releases disabled. Prerelease
+tags remain prereleases and are not marked Latest. Stable `+N` tags retain the
+whole tag and are marked Latest when the first platform succeeds.
+
+This follows the local SwiftWire release workflow's independent platform
+publication and checksum-verified, non-overwriting retries. GitHub's
+[`needs` failure propagation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs)
+means `fail-fast: false` alone cannot make an aggregate publisher independent;
+the publication dependencies must also stay within each platform instance.
 
 ## Enable other platforms
 
 Change `enabled` in `tool/release-platforms.json` after a manual build and platform
-acceptance. The same matrix and publish job handle every enabled platform. Runner
+acceptance. The same matrix and reusable platform workflow handle every enabled platform. Runner
 labels and architecture metadata are in that file; changing architecture also
 requires adjusting the corresponding native build and packaging implementation.
 
@@ -169,7 +201,7 @@ at all. Changed upstream downloads fail the hash check instead of silently
 changing the executable. Update the reviewed lock to adopt a newer snapshot.
 
 A version-tag release includes `raft-flutter-VERSION-appimage-x64.AppImage` in the
-verified Windows/Android/Linux release inventory. Flatpak is no longer a supported
+independently verified AppImage release inventory. Flatpak is no longer a supported
 release target, including manual platform selections. PR/manual builds retain
 artifacts without publishing.
 

@@ -6,9 +6,9 @@ on:
     tags: ['v*']
   pull_request:
     paths:
-      - '.github/workflows/release.yml'
+      - '.github/workflows/release*.yml'
       - 'tool/release*'
-      - 'tool/tests/test_release.py'
+      - 'tool/tests/test_release*.py'
       - 'tool/appimage*'
       - 'tool/prepare-media-linux'
       - 'tool/prepare-media-appimage'
@@ -56,162 +56,16 @@ jobs:
         with:
           python-version: '3.12'
       - run: |
-          python -m unittest discover -s tool/tests -p test_release.py -v
-          python -m unittest discover -s tool/tests -p test_appimage.py -v
-          python -m unittest discover -s tool/tests -p test_media_linux_sources.py -v
-          python -m unittest discover -s tool/tests -p test_macos_release.py -v
+          python -m unittest discover -s tool/tests -p 'test_release*.py' -v
       - id: plan
         env:
           RELEASE_PLATFORMS: ${{ inputs.platforms }}
         run: python tool/release.py plan
 
-  build:
-    needs: plan
-    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
-    env:
-      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
-      RELEASE_BUILD_NUMBER: ${{ needs.plan.outputs.build_number }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: .fvmrc
-          channel: stable
-          cache: true
-      - name: Select the pinned SDK wrapper
-        run: python tool/release.py sdk
-      - name: Initialize the downloaded Flutter SDK
-        run: flutter --version --machine
-      - name: Set up Java for Android
-        if: matrix.platform == 'android'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Set up Android SDK command-line tools
-        if: matrix.platform == 'android'
-        uses: android-actions/setup-android@v4
-        with:
-          cmdline-tools-version: '12266719'
-          packages: 'platform-tools'
-          log-accepted-android-sdk-licenses: 'false'
-      - name: Install Android SDK components
-        if: matrix.platform == 'android'
-        shell: bash
-        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
-      - name: Select Ruby for the pinned CocoaPods
-        if: matrix.platform == 'macos'
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-      - name: Install the locked macOS CocoaPods version
-        if: matrix.platform == 'macos'
-        run: |
-          gem install cocoapods --version 1.16.2 --no-document
-          gem install json --version 2.18.0 --no-document
-      - name: Check macOS packaging tools
-        if: matrix.platform == 'macos'
-        run: |
-          xcodebuild -version
-          pod --version
-          test "$(pod --version)" = "1.16.2"
-          ruby -rjson -e 'abort "Unexpected JSON serializer" unless JSON::VERSION == "2.18.0"'
-          command -v codesign
-      - name: Install Linux build and media dependencies
-        if: matrix.platform == 'linux' || matrix.platform == 'appimage'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev libmpv2 libmpv-dev patchelf poppler-utils
-          if [ '${{ matrix.platform }}' = appimage ]; then
-            python tool/prepare-media-appimage
-          else
-            python tool/prepare-media-linux
-          fi
-      - name: Install AppImage startup test tools
-        if: matrix.platform == 'appimage'
-        run: sudo apt-get install -y libgdk-pixbuf2.0-bin librsvg2-common xvfb x11-utils imagemagick desktop-file-utils gnome-keyring at-spi2-core
-      - name: Resolve locked dependencies
-        run: python tool/flutter pub get --enforce-lockfile
-      - name: Build and package desktop
-        if: matrix.platform != 'android'
-        run: python tool/release.py build ${{ matrix.platform }}
-      - name: Build and verify signed ARM64 Android APK
-        if: matrix.platform == 'android' && github.event_name != 'pull_request'
-        env:
-          RAFT_ANDROID_KEYSTORE_BASE64: ${{ secrets.RAFT_ANDROID_KEYSTORE_BASE64 }}
-          RAFT_ANDROID_STORE_PASSWORD: ${{ secrets.RAFT_ANDROID_STORE_PASSWORD }}
-          RAFT_ANDROID_KEY_PASSWORD: ${{ secrets.RAFT_ANDROID_KEY_PASSWORD }}
-          RAFT_ANDROID_KEY_ALIAS: ${{ secrets.RAFT_ANDROID_KEY_ALIAS }}
-        run: python tool/release.py build android
-      - name: Run the production AppImage at 2x display scale
-        if: matrix.platform == 'appimage'
-        run: |
-          artifact=$(find build/release -maxdepth 1 -name '*.AppImage' -print -quit)
-          xvfb-run -a -s '-screen 0 2880x1800x24' dbus-run-session -- python tool/appimage-smoke.py --artifact "$artifact" --output build/appimage-smoke --mode direct
-          xvfb-run -a -s '-screen 0 2880x1800x24' dbus-run-session -- python tool/appimage-smoke.py --artifact "$artifact" --output build/appimage-smoke --mode extract
-      - name: Preserve Linux HiDPI screenshots and startup evidence
-        if: matrix.platform == 'appimage' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-appimage-smoke
-          path: build/appimage-smoke/
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Preserve macOS dependency diagnostics
-        if: matrix.platform == 'macos' && always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-podspec-diagnostics
-          path: |
-            apps/raft_flutter/macos/Pods/Local Podspecs/*.json
-            apps/raft_flutter/macos/Podfile.lock
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Ensure tracked dependencies stayed locked
-        run: git diff --exit-code
-      - uses: actions/upload-artifact@v4
-        if: success() || (failure() && matrix.platform == 'appimage')
-        with:
-          name: release-${{ matrix.platform }}-${{ matrix.arch }}
-          path: build/release/*
-          if-no-files-found: error
-          retention-days: 14
 
-  appimage-compatibility:
-    needs: [plan, build]
-    if: contains(needs.plan.outputs.matrix, 'appimage')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: release-appimage-x64
-          path: build/release
-      - name: Test downloaded AppImage on Fedora KDE Wayland without FUSE
-        run: |
-          chmod +x build/release/*.AppImage
-          mkdir -p build/appimage-compatibility
-          docker run --rm --cap-add IPC_LOCK --cap-add SYS_NICE --env GITHUB_ACTIONS=true --volume "$PWD:/source:ro" --volume "$PWD/build/release:/artifacts:ro" --volume "$PWD/build/appimage-compatibility:/evidence" fedora:44 bash /source/tool/appimage-fedora-test.sh
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux-appimage-fedora-evidence
-          path: build/appimage-compatibility/
-          if-no-files-found: warn
-          retention-days: 14
-
-  publish:
+  prepare-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [plan, build, appimage-compatibility]
+    needs: plan
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -220,13 +74,35 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: release-*
-          path: build/release
-          merge-multiple: true
-      - name: Verify all artifacts and publish the complete release
+      - name: Prepare the shared release for independent platform uploads
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_MATRIX: ${{ needs.plan.outputs.matrix }}
-        run: python tool/release.py publish
+        run: python tool/release.py prepare
+
+  platform:
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' &&
+          (github.event_name != 'push' || needs.prepare-release.result == 'success') }}
+    needs: [plan, prepare-release]
+    name: ${{ matrix.platform }} (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    # The called build job explicitly reduces this to read. Only its tag-only
+    # publisher receives write permission; PR/manual jobs never publish.
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-platform.yml
+    with:
+      platform: ${{ matrix.platform }}
+      arch: ${{ matrix.arch }}
+      runner: ${{ matrix.runner }}
+      version: ${{ needs.plan.outputs.version }}
+      build_number: ${{ needs.plan.outputs.build_number }}
+      publish: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    secrets:
+      RAFT_ANDROID_KEYSTORE_BASE64: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_KEYSTORE_BASE64 || '' }}
+      RAFT_ANDROID_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_STORE_PASSWORD || '' }}
+      RAFT_ANDROID_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_KEY_PASSWORD || '' }}
+      RAFT_ANDROID_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.RAFT_ANDROID_KEY_ALIAS || '' }}

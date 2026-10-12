@@ -13,6 +13,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / 'apps/raft_flutter'
@@ -345,47 +346,168 @@ def verify_artifacts(directory, matrix, version, commit, build_number=None, tag=
     return receipts, files, ''.join(sorted(checksums))
 
 
-def publish():
+def tag_release():
     if os.environ.get('GITHUB_EVENT_NAME') != 'push':
         raise ValueError('Publishing is permitted only for a version-tag push')
-    identity = current_release()
+    return current_release(), capture(['git', 'rev-parse', 'HEAD'])
+
+
+def repository():
+    name = os.environ.get('GITHUB_REPOSITORY', '')
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', name):
+        raise ValueError('Publishing requires a valid GITHUB_REPOSITORY')
+    return name
+
+
+def read_release(tag, *, missing_ok=False):
+    command = ['gh', 'api', f'repos/{repository()}/releases/tags/{quote(tag, safe="")}']
+    result = subprocess.run(command, text=True, capture_output=True)
+    if result.returncode:
+        try:
+            error = json.loads(result.stdout)
+        except ValueError:
+            error = {}
+        if missing_ok and str(error.get('status')) == '404':
+            return None
+        raise subprocess.CalledProcessError(result.returncode, command,
+                                            output=result.stdout, stderr=result.stderr)
+    return json.loads(result.stdout)
+
+
+def release_metadata(identity, commit, matrix):
+    return {'tag': identity['tag'], 'version': identity['version'],
+            'buildNumber': identity['build_number'], 'commit': commit,
+            'platforms': [{'platform': row['platform'], 'arch': row['arch']}
+                          for row in matrix['include']]}
+
+
+def checked_release(remote, identity, commit, matrix=None):
+    match = re.search(r'<!-- raft-release:(.*?) -->', remote.get('body') or '', re.S)
+    if not match:
+        raise ValueError('Existing release lacks this pipeline provenance; use a new tag')
+    metadata = json.loads(match[1])
+    if (remote.get('tag_name') != identity['tag'] or
+            any(metadata.get(key) != value for key, value in {
+                'tag': identity['tag'], 'version': identity['version'],
+                'buildNumber': identity['build_number'], 'commit': commit,
+            }.items()) or
+            matrix is not None and metadata != release_metadata(identity, commit, matrix)):
+        raise ValueError('Existing release tag, source, build number or platform plan differs')
+    return metadata
+
+
+def prepare():
+    """Create one shared draft; the first successful platform publishes it."""
+    identity, commit = tag_release()
+    matrix = json.loads(os.environ['RELEASE_MATRIX'])
+    config = json.loads((ROOT / 'tool/release-platforms.json').read_text())
+    selected = ','.join(row['platform'] for row in matrix['include'])
+    if matrix != release_plan(config, selected):
+        raise ValueError('Release matrix differs from the checked-in platform configuration')
+    remote = read_release(identity['tag'], missing_ok=True)
+    if remote is not None:
+        checked_release(remote, identity, commit, matrix)
+        if remote.get('immutable'):
+            raise ValueError('Independent platform uploads require a mutable release')
+        print(f'Reusing prepared release {identity["tag"]}; existing assets remain unchanged')
+        return
+    OUT.mkdir(parents=True, exist_ok=True)
     version, number, tag = identity['version'], identity['build_number'], identity['tag']
-    commit = capture(['git', 'rev-parse', 'HEAD'])
-    receipts, artifacts, checksums = verify_artifacts(
-        OUT, json.loads(os.environ['RELEASE_MATRIX']), version, commit, number, tag)
-    (OUT / 'CHECKSUMS.txt').write_text(checksums, encoding='utf-8')
-    (OUT / 'build-manifest.json').write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8')
+    metadata = release_metadata(identity, commit, matrix)
     notes = OUT / 'release-notes.md'
     notes.write_text(f'Raft Flutter {tag}\n\nApp version: {version}. Build number: {number}.\n'
-                     f'Source: `{commit}`. Flutter {receipts[0]["flutter"]}.\n\n'
-                     + '\n'.join(f'- {r["platform"]} {r["arch"]}: {r["signing"]}.' for r in receipts)
-                     + '\n\nSee `CHECKSUMS.txt` and `build-manifest.json` for source and SHA-256 provenance. '
+                     f'Source: `{commit}`. Flutter {json.loads((ROOT / ".fvmrc").read_text())["flutter"]}.\n\n'
+                     'Each successful platform publishes independently. Assets arrive as its build '
+                     'and platform checks finish; a missing platform may still be running or have failed.\n\n'
+                     + '\n'.join(f'- {r["platform"]} {r["arch"]}' for r in metadata['platforms'])
+                     + '\n\nEach platform has its own `CHECKSUMS-PLATFORM-ARCH.txt` and '
+                     '`build-manifest-PLATFORM-ARCH.json` for source and SHA-256 provenance. '
                      'Hosted CI compiles and packages; platform functional acceptance is separate.\n'
                      '\nWindows requires Windows App Runtime 1.7 x64; extract the whole ZIP. '
                      'macOS ARM64 builds have ad-hoc signatures and are not notarized; '
                      'see READ-ME-FIRST.txt in the ZIP for first-launch instructions. '
-                     'Linux tar.gz requires compatible Ubuntu 26.04 runtime dependencies.\n',
+                     'Linux tar.gz requires compatible Ubuntu 26.04 runtime dependencies; '
+                     'AppImage has an Ubuntu 24.04 ABI baseline.\n\n'
+                     '<!-- raft-release:' + json.dumps(metadata, sort_keys=True, separators=(',', ':')) + ' -->\n',
                      encoding='utf-8')
-    # Never clobber published assets. Create a draft, upload everything, then publish.
-    # A failed upload leaves a draft for inspection; reruns fail rather than replace bytes.
-    run(['gh', 'release', 'create', tag, '--verify-tag', '--draft', '--title', f'Raft Flutter {tag}',
-         '--notes-file', notes])
-    run(['gh', 'release', 'upload', tag, *artifacts, OUT / 'CHECKSUMS.txt', OUT / 'build-manifest.json'])
-    run(['gh', 'release', 'edit', tag, '--draft=false', f'--prerelease={str("-" in version).lower()}',
-         f'--latest={str("-" not in version).lower()}'])
+    command = ['gh', 'release', 'create', tag, '--verify-tag', '--draft', '--target', commit,
+               '--title', f'Raft Flutter {tag}', '--notes-file', notes, '--latest=false']
+    if '-' in version:
+        command.append('--prerelease')
+    run(command)
+
+
+def asset_matches(tag, asset, path):
+    if asset.get('state') != 'uploaded' or asset.get('size') != path.stat().st_size:
+        return False
+    expected = digest(path)
+    if asset.get('digest'):
+        return asset['digest'] == f'sha256:{expected}'
+    # Older assets can lack a server digest. Compare their actual bytes.
+    with tempfile.TemporaryDirectory(prefix='raft-release-compare-') as temporary:
+        folder = Path(temporary)
+        run(['gh', 'release', 'download', tag, '--pattern', path.name, '--dir', folder])
+        downloaded = folder / path.name
+        return downloaded.is_file() and digest(downloaded) == expected
+
+
+def publish(platform):
+    """Verify and append only this platform, without waiting for sibling jobs."""
+    identity, commit = tag_release()
+    remote = read_release(identity['tag'])
+    metadata = checked_release(remote, identity, commit)
+    config = json.loads((ROOT / 'tool/release-platforms.json').read_text())
+    matrix = release_plan(config, platform)
+    spec = {'platform': platform, 'arch': matrix['include'][0]['arch']}
+    if spec not in metadata['platforms']:
+        raise ValueError('This platform is not in the prepared release plan')
+    receipts, artifacts, checksums = verify_artifacts(
+        OUT, matrix, identity['version'], commit, identity['build_number'], identity['tag'])
+    arch = spec['arch']
+    if not re.fullmatch(r'[A-Za-z0-9_-]+', arch):
+        raise ValueError('Unsafe platform architecture')
+    extension = {'windows': 'zip', 'macos': 'zip', 'android': 'apk',
+                 'linux': 'tar.gz', 'appimage': 'AppImage'}[platform]
+    expected_name = f'raft-flutter-{identity["asset_version"]}-{platform}-{arch}.{extension}'
+    if len(artifacts) != 1 or artifacts[0].name != expected_name:
+        raise ValueError('Artifact name does not belong to this platform and release')
+    with tempfile.TemporaryDirectory(prefix='raft-release-publish-') as temporary:
+        auxiliary = Path(temporary)
+        checksum = auxiliary / f'CHECKSUMS-{platform}-{arch}.txt'
+        manifest = auxiliary / f'build-manifest-{platform}-{arch}.json'
+        checksum.write_text(checksums, encoding='utf-8')
+        manifest.write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8')
+        assets = {asset['name']: asset for asset in remote.get('assets', [])}
+        missing = []
+        for path in [*artifacts, checksum, manifest]:
+            existing = assets.get(path.name)
+            if existing is None:
+                missing.append(path)
+            elif not asset_matches(identity['tag'], existing, path):
+                raise ValueError(f'Published asset differs; refusing to overwrite {path.name}')
+        if missing:
+            if remote.get('immutable'):
+                raise ValueError('Independent platform uploads require a mutable release')
+            # No shared manifest and no --clobber: sibling assets stay untouched.
+            run(['gh', 'release', 'upload', identity['tag'], *missing])
+        if remote.get('draft'):
+            run(['gh', 'release', 'edit', identity['tag'], '--draft=false',
+                 f'--prerelease={str("-" in identity["version"]).lower()}',
+                 f'--latest={str("-" not in identity["version"]).lower()}'])
+    print(f'Published {platform} independently to {identity["tag"]}')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['plan', 'sdk', 'build', 'publish'])
+    parser.add_argument('action', choices=['plan', 'sdk', 'build', 'prepare', 'publish'])
     parser.add_argument('platform', nargs='?', choices=sorted(PLATFORMS))
     args = parser.parse_args()
-    if args.action == 'build':
+    if args.action in {'build', 'publish'}:
         if not args.platform:
-            parser.error('build requires a platform')
-        build(args.platform)
+            parser.error(f'{args.action} requires a platform')
+        {'build': build, 'publish': publish}[args.action](args.platform)
     else:
-        {'plan': plan, 'sdk': sdk, 'publish': publish}[args.action]()
+        {'plan': plan, 'sdk': sdk, 'prepare': prepare}[args.action]()
 
 
 if __name__ == '__main__':
