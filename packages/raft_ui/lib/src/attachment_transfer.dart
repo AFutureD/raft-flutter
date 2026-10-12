@@ -14,7 +14,22 @@ import 'tokens/tokens.dart';
 /// transfer, raft_ui only draws it.
 @immutable
 class RaftTransferProgress {
-  const RaftTransferProgress({this.received = 0, this.total});
+  const RaftTransferProgress({
+    this.received = 0,
+    this.total,
+    this.percentOnly = false,
+  });
+
+  /// Progress reported only as a percentage (a WebView page load: byte counts
+  /// are unknown). 0 is still waiting; the label is `40%`, never byte sizes.
+  const RaftTransferProgress.percent(int percent)
+    : received = percent < 0
+          ? 0
+          : percent > 100
+          ? 100
+          : percent,
+      total = 100,
+      percentOnly = true;
 
   /// Nothing received and no length known: the URL or first byte is pending.
   static const connecting = RaftTransferProgress();
@@ -22,6 +37,9 @@ class RaftTransferProgress {
 
   /// Declared length; null or non-positive when the server did not send one.
   final int? total;
+
+  /// [received] / [total] are percent points, not bytes.
+  final bool percentOnly;
 
   /// The same progress with [fallback] (e.g. the attachment's `sizeBytes`)
   /// standing in for an unknown total.
@@ -41,16 +59,18 @@ class RaftTransferProgress {
       : (received / total!).clamp(0.0, 1.0).toDouble();
 
   /// `1.2 / 3.4 MB` (units follow the total), or `1.2 MB` without a total.
-  String get sizeLabel =>
-      formatTransferSizes(received, hasTotal ? total : null);
+  String get sizeLabel => percentOnly
+      ? '$received%'
+      : formatTransferSizes(received, hasTotal ? total : null);
 
   @override
   bool operator ==(Object other) =>
       other is RaftTransferProgress &&
       received == other.received &&
-      total == other.total;
+      total == other.total &&
+      percentOnly == other.percentOnly;
   @override
-  int get hashCode => Object.hash(received, total);
+  int get hashCode => Object.hash(received, total, percentOnly);
 }
 
 /// `1.2 / 3.4 MB`: both numbers use the unit of the larger one.
@@ -634,7 +654,7 @@ class RaftFileTransferPanel extends StatelessWidget {
                           return Text(
                             resolved.waiting
                                 ? raftText(context, 'Connecting…')
-                                : fraction == null
+                                : fraction == null || resolved.percentOnly
                                 ? resolved.sizeLabel
                                 : '${resolved.sizeLabel} · ${(fraction * 100).floor()}%',
                             style: mono,
@@ -659,6 +679,38 @@ class RaftFileTransferPanel extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A file preview whose content is still arriving, drawn on the preview body
+/// surface: the file panel (head, bar, `62%` or `1.7 / 2.8 MB · 62%`, Cancel)
+/// centred and opaque, so it can also cover a platform view that is loading.
+class RaftPreviewTransferStage extends StatelessWidget {
+  const RaftPreviewTransferStage({
+    super.key,
+    required this.filename,
+    required this.meta,
+    required this.progress,
+    this.onCancel,
+  });
+  final String filename, meta;
+  final ValueListenable<RaftTransferProgress?> progress;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return ColoredBox(
+      color: t.brutal ? Colors.white : t.panel,
+      child: Center(
+        child: RaftFileTransferPanel(
+          filename: filename,
+          meta: meta,
+          progress: progress,
+          onCancel: onCancel,
+        ),
       ),
     );
   }

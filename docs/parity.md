@@ -1708,3 +1708,12 @@ Every closable surface is inventoried in `docs/close-affordances.md` (generated 
 registry) with its x / Back / Escape / scrim / system back at phone, foldable and desktop widths
 against Web. Differences kept on purpose: the profile panel's outside tap (above); phone pages
 (image lightbox, attachment preview) lead with Back instead of x.
+
+## HTML preview loading: transfer progress instead of Web's preparing chip (owner decision 2026-10-12)
+
+Web shows a "Preparing interactive preview…" chip while the sandboxed iframe loads.
+The native preview shows the shared attachment transfer panel instead ("Connecting…",
+then WebView load percent on Android/iOS/macOS, or downloaded bytes on the Linux/Windows
+static fallback), matching the image/PDF/video previews. Kevin asked for this on
+2026-10-12 ("缺个加载进度？别的都有"). The `html.preparing` ext parity cases
+(desktop and mobile) therefore differ from Web on purpose.

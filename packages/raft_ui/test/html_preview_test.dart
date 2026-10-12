@@ -32,9 +32,13 @@ void main() {
   });
   test('HTML parser rejects oversized or excessive element input', () {
     expect(
-      () => raftStaticHtml('x' * (2 * 1024 * 1024 + 1)),
+      () => raftStaticHtml('x' * (raftStaticHtmlMaxChars + 1)),
       throwsFormatException,
     );
+    // The former 2 MiB cap rejected real reports with inline base64 images.
+    final large =
+        '<h1>Report</h1><img src="data:image/jpeg;base64,${'A' * (3 * 1024 * 1024)}" alt="Chart">';
+    expect(raftStaticHtml(large), contains('[Image: Chart]'));
     expect(() => raftStaticHtml('<p>x</p>' * 4001), throwsFormatException);
   });
   for (final (family, dark) in raftThemeMatrix([
