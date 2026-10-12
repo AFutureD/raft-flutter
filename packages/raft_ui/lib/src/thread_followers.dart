@@ -3,11 +3,11 @@
 // rows (remove / retry / loading / empty). The app adapter owns the roster,
 // removal, undo and profile opening.
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'anchored_popup.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
+import 'dismiss_scope.dart';
 import 'indicators.dart';
 import 'icons.dart';
 import 'localization.dart';
@@ -153,33 +153,36 @@ class _RaftThreadFollowersState extends State<RaftThreadFollowers> {
       onTapOutside: (_) => close(),
       child: OverlayPortal(
         controller: portal,
-        overlayChildBuilder: (context) => Stack(
-          children: [
-            Positioned.fill(
-              child: CallbackShortcuts(
-                bindings: {
-                  const SingleActivator(LogicalKeyboardKey.escape): close,
-                },
-                child: RaftAnchoredPopup(
-                  anchorKey: anchor,
-                  alignRight: true,
-                  gap: 6,
-                  child: TapRegion(
-                    groupId: group,
-                    child: SizedBox(
-                      width: 288,
-                      child: _Popover(
-                        key: const Key('thread-followers-popover'),
-                        body: widget.body,
-                        rows: widget.rows,
-                        onRetry: widget.onRetry,
+        overlayChildBuilder: (context) => RaftBackDismiss(
+          onDismiss: close,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                // Escape closes the popover, not the thread panel under it.
+                child: RaftDismissScope(
+                  onDismiss: close,
+                  takeFocus: true,
+                  child: RaftAnchoredPopup(
+                    anchorKey: anchor,
+                    alignRight: true,
+                    gap: 6,
+                    child: TapRegion(
+                      groupId: group,
+                      child: SizedBox(
+                        width: 288,
+                        child: _Popover(
+                          key: const Key('thread-followers-popover'),
+                          body: widget.body,
+                          rows: widget.rows,
+                          onRetry: widget.onRetry,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         child: KeyedSubtree(key: anchor, child: trigger),
       ),

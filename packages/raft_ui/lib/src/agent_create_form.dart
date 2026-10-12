@@ -24,6 +24,7 @@ import 'system_inset.dart';
 
 import 'components.dart';
 import 'design_primitives.dart';
+import 'dismiss_scope.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
@@ -68,7 +69,7 @@ Future<T?> showRaftAgentModal<T>(
     transitionDuration: const Duration(milliseconds: 150),
     transitionBuilder: (context, animation, _, child) =>
         FadeTransition(opacity: animation, child: child),
-    pageBuilder: (context, _, _) => builder(context),
+    pageBuilder: (context, _, _) => RaftDismissScope(child: builder(context)),
   );
 }
 
@@ -81,6 +82,7 @@ class RaftAgentDialogCard extends StatelessWidget {
     required this.title,
     required this.children,
     this.onClose,
+    this.onBackdrop,
     this.maxWidth = 448, // max-w-md = 28rem
     this.surfaceKey,
   });
@@ -90,6 +92,9 @@ class RaftAgentDialogCard extends StatelessWidget {
   final String title;
   final List<Widget> children;
   final VoidCallback? onClose;
+
+  /// `Modal closeOnBackdrop`: a press on the backdrop (outside the card).
+  final VoidCallback? onBackdrop;
   final double maxWidth;
 
   @override
@@ -126,7 +131,7 @@ class RaftAgentDialogCard extends StatelessWidget {
     // Edge to edge: a dialog taller than the screen scrolls clear of the
     // gesture / nav bar (0 on desktop and under a SafeArea route).
     final inset = raftBottomInset(context);
-    return LayoutBuilder(
+    final modal = LayoutBuilder(
       builder: (context, box) => SingleChildScrollView(
         // Modal inner `p-4`
         padding: EdgeInsets.fromLTRB(
@@ -146,37 +151,43 @@ class RaftAgentDialogCard extends StatelessWidget {
               constraints: BoxConstraints(maxWidth: maxWidth),
               child: Material(
                 type: MaterialType.transparency,
-                child: RaftRecipeBox(
-                  key: surfaceKey,
-                  style: card.root.withCssUsedBorderWidths(),
-                  tokens: tokens,
-                  applyText: false,
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(6 * _tw), // p-6
-                  child: DefaultTextStyle(
-                    style: base,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Semantics(
-                                header: true,
-                                child: Text(
-                                  raftText(context, title).toUpperCase(),
-                                  style: titleStyle,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // A press on the card never reaches the backdrop handler.
+                  onTap: onBackdrop == null ? null : () {},
+                  excludeFromSemantics: true,
+                  child: RaftRecipeBox(
+                    key: surfaceKey,
+                    style: card.root.withCssUsedBorderWidths(),
+                    tokens: tokens,
+                    applyText: false,
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(6 * _tw), // p-6
+                    child: DefaultTextStyle(
+                      style: base,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Semantics(
+                                  header: true,
+                                  child: Text(
+                                    raftText(context, title).toUpperCase(),
+                                    style: titleStyle,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (onClose != null)
-                              RaftAgentCloseButton(onPressed: onClose),
-                          ],
-                        ),
-                        const SizedBox(height: 4 * _tw), // mb-4
-                        ...children,
-                      ],
+                              if (onClose != null)
+                                RaftAgentCloseButton(onPressed: onClose),
+                            ],
+                          ),
+                          const SizedBox(height: 4 * _tw), // mb-4
+                          ...children,
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -185,6 +196,13 @@ class RaftAgentDialogCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (onBackdrop == null) return modal;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onBackdrop,
+      excludeFromSemantics: true,
+      child: modal,
     );
   }
 }
@@ -654,37 +672,45 @@ class _RaftAgentSelectState<T> extends State<RaftAgentSelect<T>> {
         link: link,
         child: OverlayPortal(
           controller: portal,
-          overlayChildBuilder: (context) => Positioned.fill(
-            child: TapRegion(
-              onTapOutside: (_) => close(),
-              child: Stack(
-                children: [
-                  CompositedTransformFollower(
-                    link: link,
-                    targetAnchor: Alignment.bottomLeft,
-                    offset: const Offset(0, _tw),
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: RaftMenuPanel(
-                        width: width,
-                        onDismiss: close,
-                        children: [
-                          for (final o in widget.options)
-                            RaftMenuItem(
-                              label: o.label,
-                              selected: o.value == widget.value,
-                              onPressed: o.enabled
-                                  ? () {
-                                      close();
-                                      widget.onChanged?.call(o.value);
-                                    }
-                                  : null,
-                            ),
-                        ],
+          overlayChildBuilder: raftBackDismissed(
+            close,
+            (context) => Positioned.fill(
+              child: TapRegion(
+                onTapOutside: (_) => close(),
+                // Escape closes the menu, not the dialog under it.
+                child: RaftDismissScope(
+                  onDismiss: close,
+                  takeFocus: true,
+                  child: Stack(
+                    children: [
+                      CompositedTransformFollower(
+                        link: link,
+                        targetAnchor: Alignment.bottomLeft,
+                        offset: const Offset(0, _tw),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: RaftMenuPanel(
+                            width: width,
+                            onDismiss: close,
+                            children: [
+                              for (final o in widget.options)
+                                RaftMenuItem(
+                                  label: o.label,
+                                  selected: o.value == widget.value,
+                                  onPressed: o.enabled
+                                      ? () {
+                                          close();
+                                          widget.onChanged?.call(o.value);
+                                        }
+                                      : null,
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

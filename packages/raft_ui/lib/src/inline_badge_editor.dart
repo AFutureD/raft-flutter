@@ -1,5 +1,7 @@
 import 'anchored_popup.dart';
 
+import 'dismiss_scope.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -227,52 +229,60 @@ class _RaftInlineBadgeEditorState extends State<RaftInlineBadgeEditor> {
       controller: portal,
       overlayChildBuilder: (context) => !isOpen
           ? const SizedBox.shrink()
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _setOpen(false, restoreFocus: false),
-                  ),
-                ),
-                Positioned.fill(
-                  child: RaftAnchoredPopup(
-                    anchorKey: anchorKey,
-                    movement: movement,
-                    alignRight: widget.alignRight,
-                    gap: 4,
-                    collisionPadding: 8,
-                    child: CallbackShortcuts(
-                      bindings: {
-                        const SingleActivator(LogicalKeyboardKey.escape): () =>
-                            _setOpen(false),
-                      },
-                      child: widget.panelBuilder != null
-                          ? widget.panelBuilder!(context, () => _setOpen(false))
-                          : RaftInlineBadgeMenu(
-                              key: menuKey,
-                              autofocus: keyboardEdge != null,
-                              focusLast: keyboardEdge ?? false,
-                              onDismiss: () => _setOpen(false),
-                              minWidth: widget.menuMinWidth,
-                              selectedId: widget.selectedId,
-                              options: widget.options,
-                              onSelect: (id) {
-                                if (!mounted ||
-                                    !widget.enabled ||
-                                    !isOpen ||
-                                    !widget.options.any(
-                                      (o) => o.id == id && !o.disabled,
-                                    ))
-                                  return;
-                                _setOpen(false);
-                                widget.onSelect(id);
-                              },
-                            ),
+          : RaftBackDismiss(
+              onDismiss: () => _setOpen(false, restoreFocus: false),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _setOpen(false, restoreFocus: false),
                     ),
                   ),
-                ),
-              ],
+                  Positioned.fill(
+                    child: RaftAnchoredPopup(
+                      anchorKey: anchorKey,
+                      movement: movement,
+                      alignRight: widget.alignRight,
+                      gap: 4,
+                      collisionPadding: 8,
+                      child: CallbackShortcuts(
+                        bindings: {
+                          const SingleActivator(
+                            LogicalKeyboardKey.escape,
+                          ): () =>
+                              _setOpen(false),
+                        },
+                        child: widget.panelBuilder != null
+                            ? widget.panelBuilder!(
+                                context,
+                                () => _setOpen(false),
+                              )
+                            : RaftInlineBadgeMenu(
+                                key: menuKey,
+                                autofocus: keyboardEdge != null,
+                                focusLast: keyboardEdge ?? false,
+                                onDismiss: () => _setOpen(false),
+                                minWidth: widget.menuMinWidth,
+                                selectedId: widget.selectedId,
+                                options: widget.options,
+                                onSelect: (id) {
+                                  if (!mounted ||
+                                      !widget.enabled ||
+                                      !isOpen ||
+                                      !widget.options.any(
+                                        (o) => o.id == id && !o.disabled,
+                                      ))
+                                    return;
+                                  _setOpen(false);
+                                  widget.onSelect(id);
+                                },
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
       child: CompositedTransformTarget(
         key: anchorKey,

@@ -7,12 +7,14 @@ import 'package:flutter/material.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show raftRecipeThemeOf;
 import 'icons.dart';
+import 'overlays/dialog.dart' show showRaftDialog;
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/field.g.dart' as field_recipe;
 import 'recipes/radio_group.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
+import 'agent_avatar_picker.dart' show RaftAvatarDiscardConfirmation;
 import 'banner.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'settings_controls.dart';
@@ -233,7 +235,7 @@ class _RaftAgentProfileEditDialogState
   late final name = TextEditingController(text: widget.displayName);
   late final description = TextEditingController(text: widget.description);
   late String? role = widget.role;
-  bool saving = false;
+  bool saving = false, confirming = false;
   String? error;
 
   @override
@@ -241,6 +243,27 @@ class _RaftAgentProfileEditDialogState
     name.dispose();
     description.dispose();
     super.dispose();
+  }
+
+  /// `requestClose` of AgentProfileEditDialog.tsx: nothing while saving, a
+  /// dirty draft asks before it is discarded. The X, Cancel, Escape, Back
+  /// and an outside press all run it.
+  Future<void> requestClose() async {
+    if (saving || confirming) return;
+    if (!dirty) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+    confirming = true;
+    final discard = await showRaftDialog<bool>(
+      context: context,
+      builder: (c) => RaftAvatarDiscardConfirmation(
+        onKeep: () => Navigator.pop(c, false),
+        onDiscard: () => Navigator.pop(c, true),
+      ),
+    );
+    confirming = false;
+    if (discard == true && mounted) Navigator.of(context).pop(false);
   }
 
   String get title => switch (widget.field) {
@@ -385,37 +408,43 @@ class _RaftAgentProfileEditDialogState
         ],
       ),
     };
-    return RaftDialogShell(
-      surfaceKey: const ValueKey('agent-dialog'),
-      title: title,
-      maxWidth: 512,
-      outlineClose: true,
-      onClose: saving ? null : () => Navigator.of(context).pop(false),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          fieldBody,
-          if (error != null) ...[
-            const SizedBox(height: 20),
-            RaftBanner(size: RaftBannerRecipeSize.sm, description: error!),
+    return PopScope(
+      canPop: !saving && !dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) requestClose();
+      },
+      child: RaftDialogShell(
+        surfaceKey: const ValueKey('agent-dialog'),
+        title: title,
+        maxWidth: 512,
+        outlineClose: true,
+        onClose: saving ? null : requestClose,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            fieldBody,
+            if (error != null) ...[
+              const SizedBox(height: 20),
+              RaftBanner(size: RaftBannerRecipeSize.sm, description: error!),
+            ],
           ],
+        ),
+        footer: [
+          RaftSettingsRecipeButton(
+            label: raftText(context, 'Cancel'),
+            size: RaftButtonRecipeSize.sm,
+            disabledOpacity: .3,
+            onPressed: saving ? null : requestClose,
+          ),
+          RaftSettingsRecipeButton(
+            key: const ValueKey('agent-profile-edit-save'),
+            label: raftText(context, 'Save'),
+            variant: RaftButtonRecipeVariant.accent,
+            size: RaftButtonRecipeSize.sm,
+            onPressed: dirty && !tooLong && !saving ? save : null,
+          ),
         ],
       ),
-      footer: [
-        RaftSettingsRecipeButton(
-          label: raftText(context, 'Cancel'),
-          size: RaftButtonRecipeSize.sm,
-          disabledOpacity: .3,
-          onPressed: saving ? null : () => Navigator.of(context).pop(false),
-        ),
-        RaftSettingsRecipeButton(
-          key: const ValueKey('agent-profile-edit-save'),
-          label: raftText(context, 'Save'),
-          variant: RaftButtonRecipeVariant.accent,
-          size: RaftButtonRecipeSize.sm,
-          onPressed: dirty && !tooLong && !saving ? save : null,
-        ),
-      ],
     );
   }
 }

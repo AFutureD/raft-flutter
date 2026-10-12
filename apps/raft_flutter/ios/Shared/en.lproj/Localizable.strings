@@ -13,3 +13,10 @@
 "Retry" = "Retry";
 "Server" = "Server";
 "Share to Raft" = "Share to Raft";
+"Preparing share…" = "Preparing share…";
+"Open Raft" = "Open Raft";
+"Cancel" = "Cancel";
+"Close" = "Close";
+"Opening Raft…" = "Opening Raft…";
+"Your share is saved. Open Raft to continue." = "Your share is saved. Open Raft to continue.";
+"This content could not be prepared for sharing." = "This content could not be prepared for sharing.";

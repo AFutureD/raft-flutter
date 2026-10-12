@@ -4,6 +4,8 @@
 // components/member/HumanDetailPanel.tsx). Data loading stays in the app; the
 // widgets here take plain view data and callbacks. Values cite the Tailwind
 // classes / raft-ui recipes they come from.
+import 'dismiss_scope.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -2161,38 +2163,41 @@ class _RaftOverflowMenuButtonState extends State<RaftOverflowMenuButton> {
   @override
   Widget build(BuildContext context) => OverlayPortal(
     controller: menu,
-    overlayChildBuilder: (_) => CompositedTransformFollower(
-      link: anchor,
-      targetAnchor: Alignment.bottomRight,
-      followerAnchor: Alignment.topRight,
-      offset: const Offset(0, 4),
-      child: Align(
-        alignment: Alignment.topRight,
-        child: TapRegion(
-          groupId: anchor,
-          child: FocusScope(
-            autofocus: true,
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.escape): close,
-              },
-              child: Focus(
-                autofocus: !keyboardOpened,
-                child: RaftMenuPanel(
-                  onDismiss: close,
-                  children: [
-                    for (final (i, e) in widget.entries.indexed)
-                      RaftMenuItem(
-                        autofocus: keyboardOpened && i == 0,
-                        label: e.label ?? '',
-                        glyph: e.glyph,
-                        leading: e.leading,
-                        onPressed: () {
-                          close();
-                          e.onPressed?.call();
-                        },
-                      ),
-                  ],
+    overlayChildBuilder: raftBackDismissed(
+      close,
+      (_) => CompositedTransformFollower(
+        link: anchor,
+        targetAnchor: Alignment.bottomRight,
+        followerAnchor: Alignment.topRight,
+        offset: const Offset(0, 4),
+        child: Align(
+          alignment: Alignment.topRight,
+          child: TapRegion(
+            groupId: anchor,
+            child: FocusScope(
+              autofocus: true,
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.escape): close,
+                },
+                child: Focus(
+                  autofocus: !keyboardOpened,
+                  child: RaftMenuPanel(
+                    onDismiss: close,
+                    children: [
+                      for (final (i, e) in widget.entries.indexed)
+                        RaftMenuItem(
+                          autofocus: keyboardOpened && i == 0,
+                          label: e.label ?? '',
+                          glyph: e.glyph,
+                          leading: e.leading,
+                          onPressed: () {
+                            close();
+                            e.onPressed?.call();
+                          },
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

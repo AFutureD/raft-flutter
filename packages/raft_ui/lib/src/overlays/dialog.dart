@@ -8,6 +8,7 @@ import 'dart:ui' show ImageFilter, SemanticsRole;
 import 'package:flutter/material.dart';
 
 import '../design_primitives.dart';
+import '../dismiss_scope.dart';
 import '../icons.dart';
 import '../localization.dart';
 import '../recipe_surface.dart';
@@ -548,7 +549,13 @@ class RaftDialogRoute<T> extends PopupRoute<T> {
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => capturedThemes.wrap(SafeArea(child: Builder(builder: builder)));
+  ) => capturedThemes.wrap(
+    // Web Dialog / AlertDialog close on Escape even where the scrim tap is
+    // off (`disablePointerDismissal`, confirm dialogs).
+    RaftDismissScope(
+      child: SafeArea(child: Builder(builder: builder)),
+    ),
+  );
 
   @override
   Widget buildTransitions(

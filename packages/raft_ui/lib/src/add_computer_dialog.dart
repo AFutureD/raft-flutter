@@ -3,6 +3,8 @@
 // Your Computer / Cloud Computer), then "Connect Computer" (install + setup
 // commands per platform while waiting), then "Computer Connected" (name it).
 // The app performs the requests through the callbacks.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../raft_ui.dart';
@@ -135,22 +137,35 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
         : waiting
         ? 'Connect Computer'
         : 'Add Computer';
-    return Center(
-      child: Material(
-        type: MaterialType.transparency,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: RaftDialogCard(
-            key: const ValueKey('computer-dialog'),
-            title: title,
-            // Card `max-w-lg p-6`.
-            maxWidth: 512,
-            onClose: connectedStep ? done : cancel,
-            child: connectedStep
-                ? _connectedStep(t)
-                : waiting
-                ? _waitingStep(t)
-                : _typeStep(t),
+    // Escape and the system back gesture leave through the same path as the
+    // X: `cancel` releases an unconnected registration, `done` names the
+    // connected Computer.
+    void leave() => unawaited(connectedStep ? done() : cancel());
+    return RaftDismissScope(
+      onDismiss: leave,
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) leave();
+        },
+        child: Center(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: RaftDialogCard(
+                key: const ValueKey('computer-dialog'),
+                title: title,
+                // Card `max-w-lg p-6`.
+                maxWidth: 512,
+                onClose: connectedStep ? done : cancel,
+                child: connectedStep
+                    ? _connectedStep(t)
+                    : waiting
+                    ? _waitingStep(t)
+                    : _typeStep(t),
+              ),
+            ),
           ),
         ),
       ),
