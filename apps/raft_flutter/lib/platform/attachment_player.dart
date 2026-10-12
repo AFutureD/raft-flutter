@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'attachment_player_log.dart';
+
 class AttachmentPlayback {
   const AttachmentPlayback({
     this.playing = false,
@@ -51,6 +53,8 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       configuration: const PlayerConfiguration(
         protocolWhitelist: ['file'],
         libass: false,
+        // warn+ so the next failure carries its reason (see raft.media: lines).
+        logLevel: MPVLogLevel.warn,
       ),
     );
     controller = video
@@ -69,6 +73,11 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
                 : Platform.isLinux
                 ? const VideoControllerConfiguration(
                     enableHardwareAcceleration: false,
+                    // The texture path copies frames in software anyway. mpv's
+                    // default `auto` probes CUDA, VDPAU, V4L2 and VAAPI from a
+                    // bundled userland against the host's drivers, which only
+                    // adds failures and start-up delay on Linux.
+                    hwdec: 'no',
                   )
                 : const VideoControllerConfiguration(),
           )
@@ -83,7 +92,6 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     ]) {
       subscriptions.add(stream.listen((_) => publish()));
     }
-    subscriptions.add(player.stream.error.listen((_) => publish(error: true)));
     if (controller != null) {
       if (Platform.isLinux) {
         // media_kit_video's Linux software renderer derives the frame size
@@ -105,18 +113,36 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         }, onError: (_) {}),
       );
     }
-    // media_kit's error stream omits fatal and video-output log events.
-    // Preserve their failure without exposing decoder paths or file contents.
+    // media_kit's error stream also fires for harmless libmpv errors (a
+    // hardware decoder that is absent, no sound card) while the video plays.
+    // Failure comes from classified log lines only; every warn+ line is kept
+    // in the journal, redacted, so a failure can be diagnosed afterwards.
     subscriptions.add(
       player.stream.log.listen((event) {
-        if (event.level == 'fatal' ||
-            (event.level == 'error' &&
-                (event.prefix == 'vo' || event.prefix.startsWith('vo/')))) {
+        final line = limiter.admit(
+          formatMediaLog(event.level, event.prefix, event.text),
+        );
+        if (line != null) _writeLog(line);
+        if (isPlaybackFailure(
+          event.level,
+          event.prefix,
+          event.text,
+          video: controller != null,
+        )) {
           publish(error: true);
         }
       }),
     );
   }
+  final limiter = MediaLogLimiter();
+  static void _writeLog(String line) {
+    try {
+      stderr.writeln(line);
+    } on Object {
+      // stderr may be closed (detached GUI session); logging is best effort.
+    }
+  }
+
   late final Player player;
   late final VideoController? controller;
   final Size maxVideoSize;
