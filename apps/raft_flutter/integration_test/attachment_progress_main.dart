@@ -75,11 +75,21 @@ class SlowFiles {
     response.headers.contentType = ContentType.binary;
     response.contentLength = size;
     var sent = 0;
+    var gone = false;
+    // A cancelled download closes the socket; `done` then completes with an error.
+    response.done.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
+      if (sent < size) {
+        gone = true;
+        log(
+          'connection closed by the client after $sent / $size bytes (cancelled)',
+        );
+      }
+    });
     try {
       if (delay > 0) await Future<void>.delayed(Duration(milliseconds: delay));
       final head = path.contains('pdf') ? Uint8List(0) : png;
       final step = (rate * .05).round();
-      while (sent < size) {
+      while (sent < size && !gone) {
         final end = (sent + step).clamp(0, size);
         final chunk = Uint8List(end - sent);
         for (var i = 0; i < chunk.length && sent + i < head.length; i++) {
@@ -91,8 +101,10 @@ class SlowFiles {
         if (sent % (step * 20) < step) log('sent $sent / $size');
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
-      await response.close();
-      log('finished $size bytes');
+      if (!gone) {
+        await response.close();
+        log('finished $size bytes');
+      }
     } catch (error) {
       log('client went away after $sent / $size bytes (cancelled)');
     }
@@ -212,6 +224,9 @@ Future<void> main() async {
       defaultValue: 'brutal',
     ),
     MobileTabbarStore.preferenceKey: tabs.encode(),
+  });
+  Timer.periodic(const Duration(seconds: 3), (_) {
+    debugPrint('attach-progress: api hits=${api.hits} misses=${api.misses}');
   });
   final dir = await Directory.systemTemp.createTemp('raft-attach-progress-');
   runApp(
