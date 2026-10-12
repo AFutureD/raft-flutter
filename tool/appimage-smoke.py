@@ -77,7 +77,7 @@ def main():
                 GSETTINGS_SCHEMA_DIR=str(payload.parent / 'usr/share/glib-2.0/schemas'),
                 GIO_LAUNCH_DESKTOP=str(payload / 'bin/raft-gio-launch-desktop'))
             for key in ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
-                        'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE'):
+                        'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE', 'GDK_PIXBUF_MODULE_FILE'):
                 prefix = 'RAFT_APPIMAGE_HOST_' + key
                 desktop_env[prefix + '_SET'] = 'x' if key in os.environ else ''
                 desktop_env[prefix] = os.environ.get(key, '')
@@ -87,10 +87,13 @@ def main():
                 desktop_env[key] = str(folder)
             subprocess.run([sys.executable, str(Path(__file__).with_name('appimage-gio-smoke.py')),
                             str(payload)], env=desktop_env, check=True)
+            subprocess.run([sys.executable, str(Path(__file__).with_name('appimage-image-smoke.py')),
+                            str(payload)], env=desktop_env, check=True)
             (args.output / 'payload-check.json').write_text(json.dumps({
                 'commit': receipt['commit'], 'elfFilesChecked': checked,
                 'pdfPageRendered': True, 'pdfColors': colors,
-                'desktopLauncherSpawned': True, 'desktopEnvironmentRestored': True}, indent=2) + '\n')
+                'desktopLauncherSpawned': True, 'desktopEnvironmentRestored': True,
+                'nativeSvgDecoded': True}, indent=2) + '\n')
     if args.mode != 'direct' and Path('/dev/fuse').exists():
         # Extract mode still never opens /dev/fuse; containers additionally prove
         # it works when the device itself does not exist.

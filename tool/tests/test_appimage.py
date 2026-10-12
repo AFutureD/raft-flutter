@@ -38,11 +38,13 @@ class AppImageTests(unittest.TestCase):
                 'export GSETTINGS_SCHEMA_DIR="/appimage/schemas"\n' +
                 'export GIO_LAUNCH_DESKTOP="/appimage/launcher"\n' +
                 'export GTK_IM_MODULE_FILE="/appimage/immodules.cache"\n' +
+                'export GDK_PIXBUF_MODULE_FILE="/appimage/loaders.cache"\n' +
+                'export APPDIR="/appimage" APPIMAGE="/appimage/file.AppImage" ARGV0="fake" OWD="/old"\n' +
                 'exec "$@"\n')
             launch.chmod(0o755)
             probe = ('import os,json; print(json.dumps({k:v for k,v in os.environ.items() '
                      'if k in ["PATH","LD_LIBRARY_PATH","GIO_MODULE_DIR",'
-                     '"GSETTINGS_SCHEMA_DIR","GIO_LAUNCH_DESKTOP","GTK_IM_MODULE_FILE","TEST_HOST_HELPER"] '
+                     '"GSETTINGS_SCHEMA_DIR","GIO_LAUNCH_DESKTOP","GTK_IM_MODULE_FILE","GDK_PIXBUF_MODULE_FILE","APPDIR","APPIMAGE","ARGV0","OWD","TEST_HOST_HELPER"] '
                      'or k.startswith("RAFT_APPIMAGE_HOST_")}))')
             result = subprocess.run([str(launch), str(wrapper), sys.executable, '-c', probe],
                                     env=original, text=True, capture_output=True, check=True)
@@ -55,7 +57,7 @@ class AppImageTests(unittest.TestCase):
         for state in ('unset', 'empty', 'set'):
             with self.subTest(state=state):
                 original = {'PATH': os.defpath}
-                for key in ('LD_LIBRARY_PATH', 'GIO_MODULE_DIR', 'GSETTINGS_SCHEMA_DIR', 'GTK_IM_MODULE_FILE'):
+                for key in ('LD_LIBRARY_PATH', 'GIO_MODULE_DIR', 'GSETTINGS_SCHEMA_DIR', 'GTK_IM_MODULE_FILE', 'GDK_PIXBUF_MODULE_FILE'):
                     if state != 'unset':
                         original[key] = '' if state == 'empty' else '/host path/' + key
                 self.run_external_launch(original)
@@ -80,6 +82,14 @@ class AppImageTests(unittest.TestCase):
                                             text=True, capture_output=True, check=True)
                     self.assertEqual(result.stdout.rstrip('\n'),
                                      str(cache) if configured is None else configured)
+
+    def test_image_loader_cache_relocates_matching_modules_and_rejects_missing_entries(self):
+        modules = [Path('/build path/libpixbufloader-svg.so')]
+        text = '# LoaderDir = /build path\n"/build path/libpixbufloader-svg.so"\n"svg" 6 "gdk-pixbuf"\n'
+        self.assertEqual(appimage.image_loader_cache(text, modules),
+                         '"libpixbufloader-svg.so"\n"svg" 6 "gdk-pixbuf"\n')
+        with self.assertRaisesRegex(ValueError, 'does not match'):
+            appimage.image_loader_cache('', modules)
 
     def test_dependency_parse_rejects_unresolved_libraries_and_version_failures(self):
         for text in ['libgtk-3.so.0 => not found', 'libc.so.6: version `GLIBC_2.40\' not found']:
