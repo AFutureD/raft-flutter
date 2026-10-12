@@ -181,6 +181,27 @@ class RaftMessageRowRecipe {
 
 /// Controlled mounted row. No message model, cache, API, or authority lookup.
 /// Active toolbars remain hit-testable above their row, inside its viewport.
+/// The message body's own vertical margin (`mt-1.5 mb-1.5`). A block that is
+/// the body's first child with its own top margin (the action card's `mt-1`)
+/// collapses with it: the gap is the larger of the two, not their sum.
+class RaftMessageBodyMargin extends InheritedWidget {
+  const RaftMessageBodyMargin({
+    super.key,
+    required this.gap,
+    required super.child,
+  });
+  final double gap;
+
+  /// Top margin left to add for a child that has [margin] of its own.
+  static double collapse(BuildContext context, double margin) {
+    final scope = context.getInheritedWidgetOfExactType<RaftMessageBodyMargin>();
+    return scope == null ? margin : (margin - scope.gap).clamp(0.0, margin);
+  }
+
+  @override
+  bool updateShouldNotify(RaftMessageBodyMargin old) => gap != old.gap;
+}
+
 class RaftMessageRow extends StatefulWidget {
   const RaftMessageRow({
     super.key,
@@ -753,21 +774,30 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                                     padding: EdgeInsets.symmetric(
                                       vertical: recipe.bodyGap,
                                     ),
-                                    child: DefaultTextStyle.merge(
-                                      style: recipe.body,
-                                      // Only the body reports its collapse.
-                                      child: compact
-                                          ? RaftMessageSemanticsScope(
-                                              visibleFraction: visibleFraction,
-                                              child: widget.content,
-                                            )
-                                          : widget.content,
+                                    child: RaftMessageBodyMargin(
+                                      gap: recipe.bodyGap,
+                                      child: DefaultTextStyle.merge(
+                                        style: recipe.body,
+                                        // Only the body reports its collapse.
+                                        child: compact
+                                            ? RaftMessageSemanticsScope(
+                                                visibleFraction:
+                                                    visibleFraction,
+                                                child: widget.content,
+                                              )
+                                            : widget.content,
+                                      ),
                                     ),
                                   ),
                                   if (widget.attachments != null)
                                     Padding(
                                       padding: EdgeInsets.only(
-                                        top: recipe.attachmentGap,
+                                        // `mt-1` collapses with the body's
+                                        // bottom margin (max, not sum).
+                                        top:
+                                            (recipe.attachmentGap -
+                                                    recipe.bodyGap)
+                                                .clamp(0.0, double.infinity),
                                       ),
                                       child: widget.attachments!,
                                     ),

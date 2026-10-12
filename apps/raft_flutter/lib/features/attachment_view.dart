@@ -759,6 +759,20 @@ class _AttachmentViewState extends State<AttachmentView> {
         preview: true,
       );
     }
+    final lowerName = name.toLowerCase();
+    if (lowerName.endsWith('.diff') ||
+        lowerName.endsWith('.patch') ||
+        const ['text/x-diff', 'text/x-patch', 'application/x-patch'].contains(
+          type,
+        )) {
+      // DiffPatchStatsLine: the stats need the fetched preview; until then
+      // (and in this client) the summary line reads "Diff preview".
+      return (
+        summary: raftText(context, 'Diff preview'),
+        meta: mimeLabel ?? raftText(context, 'patch'),
+        preview: false,
+      );
+    }
     if (kind != null) {
       return (
         summary: raftText(context, 'Document preview'),
