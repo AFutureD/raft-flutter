@@ -27,7 +27,11 @@ class _Files extends AttachmentFiles {
   final pending = Completer<Uint8List>();
   CancelToken? cancellation;
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) {
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) {
     cancellation = cancel;
     return pending.future;
   }
@@ -37,7 +41,11 @@ class _RebindingFiles extends AttachmentFiles {
   final pending = <Completer<Uint8List>>[];
   final cancellations = <CancelToken>[];
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) {
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) {
     final next = Completer<Uint8List>();
     pending.add(next);
     cancellations.add(cancel);

@@ -32,6 +32,7 @@ class AttachmentPreviewFiles {
     String filename, {
     required CancelToken cancel,
     required bool Function() authorized,
+    void Function(int received, int total)? onProgress,
   }) async {
     if (!authorized() || cancel.isCancelled) return null;
     final root = await temporaryDirectory();
@@ -60,7 +61,9 @@ class AttachmentPreviewFiles {
         onReceiveProgress: (received, total) {
           if (!authorized() || received > maxBytes || total > maxBytes) {
             cancel.cancel();
+            return;
           }
+          onProgress?.call(received, total);
         },
       );
       if (!authorized() ||

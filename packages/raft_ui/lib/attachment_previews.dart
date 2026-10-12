@@ -74,3 +74,119 @@ class _AttachmentPreviewState extends State<_AttachmentPreview> {
     ),
   );
 }
+
+@RaftPreviews('Attachment transfer')
+Widget attachmentTransferPreview() => const _AttachmentTransferPreview();
+
+/// Loading, waiting, failed and file-preview states of an attachment
+/// transfer: a thin bar along the bottom edge plus a `1.2 / 3.4 MB` chip.
+class _AttachmentTransferPreview extends StatefulWidget {
+  const _AttachmentTransferPreview();
+  @override
+  State<_AttachmentTransferPreview> createState() =>
+      _AttachmentTransferPreviewState();
+}
+
+class _AttachmentTransferPreviewState
+    extends State<_AttachmentTransferPreview> {
+  static const total = 3565158;
+  final progress = ValueNotifier<RaftTransferProgress?>(
+    const RaftTransferProgress(received: 1258291, total: total),
+  );
+  final connecting = ValueNotifier<RaftTransferProgress?>(
+    RaftTransferProgress.connecting,
+  );
+  String result = 'Ready';
+
+  @override
+  void dispose() {
+    progress.dispose();
+    connecting.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              RaftTextButton(
+                label: 'Advance',
+                onPressed: () {
+                  final next = ((progress.value?.received ?? 0) + 350000)
+                      .clamp(0, total)
+                      .toInt();
+                  progress.value = RaftTransferProgress(
+                    received: next,
+                    total: total,
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          RaftAttachmentCard(
+            filename: 'IMG_4821.jpg',
+            mimeType: 'image/jpeg',
+            imageExtent: const Size(300, 200),
+            previewPending: true,
+            transfer: progress,
+            onOpen: () => setState(() => result = 'Viewer opened'),
+          ),
+          const SizedBox(height: 12),
+          RaftAttachmentCard(
+            filename: 'IMG_4822.jpg',
+            mimeType: 'image/jpeg',
+            imageExtent: const Size(300, 200),
+            previewPending: true,
+            transfer: connecting,
+            onOpen: () => setState(() => result = 'Viewer opened'),
+          ),
+          const SizedBox(height: 12),
+          RaftAttachmentCard(
+            filename: 'IMG_4823.jpg',
+            mimeType: 'image/jpeg',
+            imageExtent: const Size(300, 200),
+            error: 'The image could not be loaded.',
+            onRetry: () => setState(() => result = 'Retried'),
+            onOpen: () => setState(() => result = 'Viewer opened'),
+          ),
+          const SizedBox(height: 12),
+          RaftAttachmentCard(
+            filename: '2026Q3-report.pdf',
+            mimeType: 'application/pdf',
+            sizeBytes: 2936012,
+            metaLabel: 'application/pdf',
+            downloadFailed: true,
+            onOpen: () => setState(() => result = 'Download retried'),
+          ),
+          const SizedBox(height: 24),
+          RaftFileTransferPanel(
+            filename: '2026Q3-report.pdf',
+            meta: 'PDF · 2.8 MB',
+            progress: ValueNotifier<RaftTransferProgress?>(
+              const RaftTransferProgress(received: 1782579, total: 2936012),
+            ),
+            onCancel: () => setState(() => result = 'Cancelled'),
+          ),
+          const SizedBox(height: 24),
+          RaftFileTransferPanel(
+            filename: '2026Q3-report.pdf',
+            meta: 'PDF · 2.8 MB',
+            progress: ValueNotifier<RaftTransferProgress?>(null),
+            failed: true,
+            onRetry: () => setState(() => result = 'Retried'),
+          ),
+          Semantics(
+            liveRegion: true,
+            child: Text(result, key: const Key('preview-result')),
+          ),
+        ],
+      ),
+    ),
+  );
+}
