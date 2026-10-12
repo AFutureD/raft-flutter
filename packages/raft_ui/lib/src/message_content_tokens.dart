@@ -11,7 +11,6 @@ import 'tokens/tokens.dart';
 abstract final class MessageContentPrimitive {
   // Tailwind 4 `text-blue-700` / `dark:text-blue-300` (oklch, sRGB-clamped).
   static const linkLight = Color(0xff1447e6), linkDark = Color(0xff8ec5ff);
-  static const linkUnderlineBottomInset = 1.0, linkUnderlineWidth = 2.0;
   static const compactGap = 4.0, documentGap = 12.0;
   static const compactListIndent = 20.0, documentListIndent = 24.0;
   static const tableInset = EdgeInsets.symmetric(horizontal: 8, vertical: 4);
@@ -95,9 +94,6 @@ class MessageContentRecipe {
         line: 16,
         weight: RaftTypography.black(tokens),
         color: semantic.toggle,
-      ).copyWith(
-        decoration: TextDecoration.underline,
-        decorationColor: semantic.toggle,
       );
   TextStyle heading(int level) {
     final size = document
@@ -248,12 +244,8 @@ class MessageContentRecipe {
                 color: tokens.colors['line-muted']!,
                 width: tokens.border,
               ),
-        a: body.copyWith(
-          color: semantic.link,
-          decoration: TextDecoration.underline,
-          decorationThickness: 2,
-          decorationColor: semantic.link,
-        ),
+        // The link underline is painted by RaftUnderlines (message_body).
+        a: body.copyWith(color: semantic.link),
         // raft-ui InlineCode appearance="message": brutal `bg-black/5
         // text-black`, elegant `bg-fill-muted text-foreground-strong`.
         code:

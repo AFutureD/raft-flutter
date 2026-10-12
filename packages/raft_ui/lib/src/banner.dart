@@ -2,6 +2,7 @@ import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/widgets.dart';
 
+import 'raft_underline.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
@@ -284,12 +285,9 @@ class _TailedDescription extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: tail.onPressed,
-                child: Text(
+                child: RaftUnderlinedText(
                   raftText(context, tail.label),
-                  style: style.copyWith(
-                    decoration: TextDecoration.underline,
-                    fontWeight: tailWeight,
-                  ),
+                  style: style.copyWith(fontWeight: tailWeight),
                 ),
               ),
             ),

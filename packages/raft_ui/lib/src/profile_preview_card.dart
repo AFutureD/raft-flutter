@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'design_primitives.dart';
 import 'flex_shrink_row.dart';
 import 'hover_card.dart';
@@ -336,11 +337,7 @@ class _ActivityHeading extends StatelessWidget {
           line: 15,
           weight: FontWeight.w700,
           color: color,
-        ).copyWith(
-          letterSpacing: .25,
-          decoration: hovered ? TextDecoration.underline : null,
-          decorationColor: color,
-        ),
+        ).copyWith(letterSpacing: .25),
       );
     }
 
@@ -359,7 +356,11 @@ class _ActivityHeading extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: s),
+            RaftUnderlinedText(
+              label,
+              style: s,
+              underline: state.hovered || state.focusVisible,
+            ),
             const SizedBox(width: 2),
             RaftIcon(RaftGlyph.chevronRight, size: 10, color: s.color),
           ],

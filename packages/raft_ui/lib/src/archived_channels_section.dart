@@ -3,6 +3,7 @@
 // the channel list, the capability check and the unarchive request.
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'banner.dart';
 import 'css_pixel_snap.dart';
 import 'icons.dart';
@@ -154,15 +155,11 @@ class RaftArchivedChannelsSection extends StatelessWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => onOpen(row.id),
-                  child: Text(
+                  child: RaftUnderlinedText(
                     raftFormat(context, '#{name}', {'name': row.name}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: text.title.copyWith(
-                      decoration: TextDecoration.underline,
-                      decorationThickness: 2,
-                      decorationColor: text.strong,
-                    ),
+                    style: text.title,
                   ),
                 ),
               ),

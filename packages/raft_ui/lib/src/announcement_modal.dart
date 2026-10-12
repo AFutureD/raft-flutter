@@ -14,6 +14,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import 'raft_underline.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'panel_layout.dart'
@@ -684,12 +685,22 @@ class _MarkdownBlocks {
   }
 
   Widget _text(List<InlineSpan> spans, TextStyle style) {
-    final text = RaftCssText.rich(TextSpan(children: spans), style: style);
+    final text = RaftCssText.rich(
+      TextSpan(children: spans),
+      style: style,
+      underline: _hasUnderline(spans),
+    );
     // Elegant InlineCode is `inline-flex` (an atomic box that can grow its
     // line); brutal code is an inline box that never does.
     final atomic = !t.brutal && _hasWidgetSpan(spans);
     return atomic ? _CssAtomicLines(style: style, child: text) : text;
   }
+
+  static bool _hasUnderline(List<InlineSpan> spans) => spans.any(
+    (s) =>
+        s is RaftUnderlineSpan ||
+        (s is TextSpan && s.children != null && _hasUnderline(s.children!)),
+  );
 
   static bool _hasWidgetSpan(List<InlineSpan> spans) => spans.any(
     (s) =>
@@ -742,12 +753,8 @@ class _MarkdownBlocks {
             final href = node.attributes['href'] ?? '';
             final link = onLink;
             spans.add(
-              TextSpan(
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  decoration: TextDecoration.underline,
-                  decorationColor: style.color,
-                ),
+              RaftUnderlineSpan(
+                style: const TextStyle(fontWeight: FontWeight.w500),
                 recognizer: link == null || href.isEmpty
                     ? null
                     : (TapGestureRecognizer()..onTap = () => link(href)),

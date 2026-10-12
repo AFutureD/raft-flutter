@@ -1,3 +1,4 @@
+import 'raft_underline.dart';
 import 'anchored_popup.dart';
 import 'dismiss_scope.dart';
 import 'tooltip.dart';
@@ -1722,10 +1723,9 @@ class RaftMessageEmbedRecipe {
   TextStyle get header =>
       RaftTypography.body(tokens, size: 11, line: 16, color: tokens.muted);
   TextStyle get metadata => header;
-  TextStyle get showMore => header.copyWith(
-    fontWeight: RaftTypography.black(tokens),
-    decoration: TextDecoration.underline,
-  );
+  TextStyle get showMore =>
+      header.copyWith(fontWeight: RaftTypography.black(tokens));
+  bool get showMoreUnderlined => true;
   double get collapsedHeight => 160;
   int get collapsedLines => 8;
 }
@@ -2611,7 +2611,7 @@ class RaftTextLink extends StatelessWidget {
           RaftIcon(glyph!, size: 12),
           const SizedBox(width: 4),
         ],
-        Text(
+        RaftUnderlinedText(
           label,
           style:
               textStyle ??
@@ -2620,7 +2620,6 @@ class RaftTextLink extends StatelessWidget {
                 fontSize: 11,
                 height: 16 / 11,
                 fontWeight: RaftTypography.black(RaftTokens.of(context)),
-                decoration: TextDecoration.underline,
               ),
         ),
       ],

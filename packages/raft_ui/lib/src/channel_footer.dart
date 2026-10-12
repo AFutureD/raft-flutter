@@ -4,6 +4,7 @@
 // over-limit grace banner above the composer. The app decides which one shows.
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'banner.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftRecipeButton;
@@ -110,11 +111,10 @@ class RaftChannelArchivedFooter extends StatelessWidget {
               onTap: onLink,
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
-                child: Text(
+                child: RaftUnderlinedText(
                   raftText(context, linkLabel!),
                   style: text.copyWith(
                     color: t.brutal ? Colors.black : t.strong,
-                    decoration: TextDecoration.underline,
                   ),
                 ),
               ),

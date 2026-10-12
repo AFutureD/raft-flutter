@@ -394,13 +394,12 @@ Widget _banners(ParityContext ctx) {
                   : null,
               action: b['action'] == null
                   ? null
-                  : Text(
+                  : RaftUnderlinedText(
                       b['action'] as String,
                       style: const TextStyle(
                         fontSize: 14,
                         height: 20 / 14,
                         fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
                       ),
                     ),
             ),

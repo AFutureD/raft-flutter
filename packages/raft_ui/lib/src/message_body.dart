@@ -55,7 +55,7 @@ import 'icons.dart';
 import 'lru_cache.dart';
 import 'message_list_marker.dart';
 import 'message_content_tokens.dart';
-import 'message_link_underline.dart';
+import 'raft_underline.dart';
 import 'mermaid_fullscreen.dart';
 import 'diagram_theme.dart';
 import 'design_primitives.dart';
@@ -821,7 +821,7 @@ class _RaftMarkdownState extends State<MarkdownWidget>
               context.findRenderObject()?.markNeedsPaint();
               return false;
             },
-            child: MessageLinkUnderlines(child: body),
+            child: RaftUnderlines(child: body),
           )
         : body;
   }

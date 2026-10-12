@@ -147,13 +147,7 @@ class RaftUnderlineTextButton extends StatelessWidget {
   Widget build(BuildContext context) => RaftInteractive(
     onPressed: onPressed,
     semanticLabel: label,
-    builder: (context, state) => RaftCssText(
-      label,
-      style: style.copyWith(
-        decoration: TextDecoration.underline,
-        decorationColor: style.color,
-      ),
-    ),
+    builder: (context, state) => RaftCssText(label, style: style, underline: true),
   );
 }
 

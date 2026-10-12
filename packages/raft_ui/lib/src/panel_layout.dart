@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/rendering.dart';
 
+import 'raft_underline.dart';
 import 'control_typography.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'icons.dart';
@@ -997,6 +998,8 @@ class RaftCssText extends StatelessWidget {
     this.softWrap,
     this.strutStyle,
     this.controlLabel = false,
+    this.underline = false,
+    this.underlineColor,
   }) : span = null;
 
   const RaftCssText.rich(
@@ -1009,6 +1012,8 @@ class RaftCssText extends StatelessWidget {
     this.softWrap,
     this.strutStyle,
     this.controlLabel = false,
+    this.underline = false,
+    this.underlineColor,
   }) : data = null;
 
   final String? data;
@@ -1025,6 +1030,13 @@ class RaftCssText extends StatelessWidget {
   /// baseline snap (which would undo the correction).
   final bool controlLabel;
 
+  /// Paints the shared hyperlink underline ([RaftUnderlines]). With a plain
+  /// string the whole label is underlined in [underlineColor] (default: the
+  /// text colour); with [RaftCssText.rich] it only enables painting of the
+  /// [RaftUnderlineSpan]s the caller put in [span].
+  final bool underline;
+  final Color? underlineColor;
+
   @override
   Widget build(BuildContext context) {
     var style = this.style;
@@ -1036,15 +1048,25 @@ class RaftCssText extends StatelessWidget {
     }
     final effective = DefaultTextStyle.of(context).style.merge(style);
     final text = span == null
-        ? Text(
-            data!,
-            style: style,
-            maxLines: maxLines,
-            overflow: overflow,
-            textAlign: textAlign,
-            softWrap: softWrap,
-            strutStyle: strutStyle,
-          )
+        ? (underline
+              ? Text.rich(
+                  RaftUnderlineSpan(text: data!, color: underlineColor),
+                  style: style,
+                  maxLines: maxLines,
+                  overflow: overflow,
+                  textAlign: textAlign,
+                  softWrap: softWrap,
+                  strutStyle: strutStyle,
+                )
+              : Text(
+                  data!,
+                  style: style,
+                  maxLines: maxLines,
+                  overflow: overflow,
+                  textAlign: textAlign,
+                  softWrap: softWrap,
+                  strutStyle: strutStyle,
+                ))
         : Text.rich(
             span!,
             style: style,
@@ -1057,7 +1079,8 @@ class RaftCssText extends StatelessWidget {
     return RaftCssLineBox(
       style: effective,
       textScaler: MediaQuery.textScalerOf(context),
-      child: text,
+      // Inside the line box, so the stroke shares the baseline snap shift.
+      child: underline ? RaftUnderlines(child: text) : text,
     );
   }
 }

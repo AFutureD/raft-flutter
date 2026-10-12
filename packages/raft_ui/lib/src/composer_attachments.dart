@@ -818,11 +818,10 @@ class _FailureRow extends StatelessWidget {
                 ),
                 child: RaftCssText(
                   raftText(context, 'Tap to retry'),
+                  underline: true,
                   style: style.copyWith(
                     fontWeight: FontWeight.w700,
                     color: brutal ? Colors.black : t.strong,
-                    decoration: TextDecoration.underline,
-                    decorationColor: brutal ? Colors.black : t.strong,
                   ),
                 ),
               ),

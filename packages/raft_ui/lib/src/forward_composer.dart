@@ -4,6 +4,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'attachment_card.dart';
 import 'attachment_transfer.dart';
 import 'avatar_content.dart';
@@ -269,10 +270,7 @@ class RaftForwardLinkAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
-    child: Text(
-      label,
-      style: const TextStyle(decoration: TextDecoration.underline),
-    ),
+    child: RaftUnderlinedText(label),
   );
 }
 

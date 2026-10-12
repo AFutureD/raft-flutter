@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
@@ -164,11 +165,9 @@ class RaftForwardDesktopDialog extends StatelessWidget {
                                 if (showClear)
                                   GestureDetector(
                                     onTap: onClear,
-                                    child: Text(
+                                    child: RaftUnderlinedText(
                                       clearLabel ?? '',
-                                      style: label.copyWith(
-                                        decoration: TextDecoration.underline,
-                                      ),
+                                      style: label,
                                     ),
                                   ),
                               ],

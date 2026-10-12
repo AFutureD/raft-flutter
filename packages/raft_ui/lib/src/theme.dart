@@ -54,7 +54,28 @@ class RaftFontFamilies {
   final List<String> fallback;
 }
 
+/// Offset and thickness of the shared underline (see [RaftUnderlines]).
 @immutable
+class RaftUnderlineMetrics {
+  const RaftUnderlineMetrics({required this.offset, required this.thickness});
+
+  /// Gap between the alphabetic baseline and the stroke's top edge.
+  final double offset;
+  final double thickness;
+
+  static RaftUnderlineMetrics of(BuildContext context) =>
+      RaftTokens.of(context).underline;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RaftUnderlineMetrics &&
+      other.offset == offset &&
+      other.thickness == thickness;
+
+  @override
+  int get hashCode => Object.hash(offset, thickness);
+}
+
 class RaftTokens extends ThemeExtension<RaftTokens> {
   /// [colors] is the string-keyed view; [tokens] defaults to the generated
   /// set for [family]/[dark].
@@ -156,6 +177,12 @@ class RaftTokens extends ThemeExtension<RaftTokens> {
   double get radius => brutal ? 0 : 8;
   double get fieldRadius => brutal ? 0 : 6;
   double get border => brutal ? 2 : 1;
+
+  /// The hyperlink underline every underlined run shares (Web `underline
+  /// decoration-2 underline-offset-2`; no theme overrides it, so Brutal and
+  /// Elegant agree and only the colour differs by recipe).
+  RaftUnderlineMetrics get underline =>
+      const RaftUnderlineMetrics(offset: 2, thickness: 2);
   TextStyle get fieldStyle => TextStyle(
     locale: textLocale,
     fontFamily: headingFont,

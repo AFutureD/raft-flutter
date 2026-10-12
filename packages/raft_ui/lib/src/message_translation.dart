@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'indicators.dart';
@@ -165,12 +166,11 @@ class _RaftTranslationActionState extends State<_RaftTranslationAction> {
             borderRadius: slot.borderRadius,
           ),
           child: ExcludeSemantics(
-            child: Text(
+            child: RaftUnderlinedText(
               widget.label,
-              style: style.copyWith(
-                decoration: underline ? TextDecoration.underline : null,
-                decorationColor: decorationColor ?? style.color,
-              ),
+              style: style,
+              underline: underline,
+              underlineColor: decorationColor,
             ),
           ),
         ),

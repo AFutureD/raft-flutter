@@ -5,8 +5,13 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
-import 'package:raft_ui/src/message_link_underline.dart';
 import 'package:raft_ui/test_themes.dart';
+
+/// First-line alphabetic baseline: the underline's anchor (Web
+/// `underline-offset-2`), whatever the font or line box.
+double _baseline(RenderParagraph p) =>
+    // ignore: invalid_use_of_protected_member
+    p.computeDistanceToActualBaseline(TextBaseline.alphabetic);
 
 const _href = 'https://example.invalid/manual';
 const _label = 'Quest Machine 官方手册';
@@ -76,9 +81,11 @@ void main() {
           () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
         ))!;
         final color = dark ? const Color(0xff8ec5ff) : const Color(0xff1447e6);
+        final strokeTop = (origin.dy + _baseline(paragraph) + 2 * scale)
+            .roundToDouble();
         for (
-          var y = (origin.dy + bounds.first.bottom - 3 * scale).ceil();
-          y < (origin.dy + bounds.first.bottom - scale).floor();
+          var y = strokeTop.ceil();
+          y < (strokeTop + 2 * scale).floor();
           y++
         ) {
           for (
@@ -182,7 +189,7 @@ void main() {
         home: Scaffold(
           body: RepaintBoundary(
             key: key,
-            child: MessageLinkUnderlines(
+            child: RaftUnderlines(
               child: Text.rich(
                 TextSpan(
                   style: base,
@@ -234,7 +241,7 @@ void main() {
       () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
     ))!;
     for (final box in bounds) {
-      final y = (origin.dy + box.bottom - 2).floor();
+      final y = (origin.dy + _baseline(paragraph) + 3).round();
       for (
         var x = (origin.dx + box.left).ceil() + 1;
         x < (origin.dx + box.right).floor() - 1;
@@ -264,11 +271,9 @@ void main() {
         ),
       );
       await tester.pumpWidget(host('Ordinary 中文 prose', 320));
-      expect(find.byType(MessageLinkUnderlines), findsNothing);
+      expect(find.byType(RaftUnderlines), findsNothing);
       await tester.pumpWidget(host('[$_label]($_href)', 320));
-      final dynamic render = tester.renderObject(
-        find.byType(MessageLinkUnderlines),
-      );
+      final dynamic render = tester.renderObject(find.byType(RaftUnderlines));
       expect(render.debugGeometryBuildCount, 1);
       for (var i = 0; i < 8; i++) {
         render.markNeedsPaint();
@@ -315,15 +320,11 @@ void main() {
       final paragraph = tester.renderObject<RenderParagraph>(rich);
       final boundary =
           key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final bounds = paragraph.getBoxesForSelection(
-        const TextSelection(baseOffset: 0, extentOffset: _label.length),
-        boxHeightStyle: ui.BoxHeightStyle.strut,
-      );
       final y =
           (paragraph.localToGlobal(Offset.zero, ancestor: boundary).dy +
-                  bounds.first.bottom -
-                  2)
-              .floor();
+                  _baseline(paragraph) +
+                  3)
+              .round();
       Future<int> bluePixels(int left, int right) async {
         final image = (await tester.runAsync(() => boundary.toImage()))!;
         final bytes = (await tester.runAsync(
@@ -343,9 +344,7 @@ void main() {
 
       expect(await bluePixels(0, 140), greaterThan(20));
       expect(await bluePixels(142, 298), 0);
-      final dynamic render = tester.renderObject(
-        find.byType(MessageLinkUnderlines),
-      );
+      final dynamic render = tester.renderObject(find.byType(RaftUnderlines));
       final position = tester
           .state<ScrollableState>(find.byType(Scrollable))
           .position;

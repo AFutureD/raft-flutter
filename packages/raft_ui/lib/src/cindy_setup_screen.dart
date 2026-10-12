@@ -267,13 +267,13 @@ class RaftCindySessionLink extends StatelessWidget {
           opacity: state.enabled ? 1 : .5,
           child: RaftCssText(
             raftText(context, 'Switch server'),
+            underline: true,
             style: TextStyle(
               fontFamily: t.bodyFont,
               fontSize: 14,
               height: 20 / 14,
               color: state.hovered ? t.strong : t.colors['foreground-muted'],
               fontWeight: FontWeight.w400,
-              decoration: TextDecoration.underline,
             ),
           ),
         ),

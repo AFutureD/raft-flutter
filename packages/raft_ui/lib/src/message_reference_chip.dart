@@ -7,6 +7,7 @@
 // raft-ui recipes.
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'hover_card.dart';
 import 'icons.dart';
 import 'mounted_task_chip.dart';
@@ -99,18 +100,11 @@ InlineSpan raftReferenceSpan(
       tokens: resolver,
     ).root;
     final decoration = RaftColorRef.fromCss(s['text-decoration-color']);
-    child = Text(
+    final color = s.color?.resolve(resolver) ?? base.color;
+    child = RaftUnderlinedText(
       label,
-      style: base.copyWith(
-        fontWeight: s.fontWeight,
-        color: s.color?.resolve(resolver) ?? base.color,
-        decoration: TextDecoration.underline,
-        decorationColor: decoration?.resolve(
-          resolver,
-          currentColor: base.color,
-        ),
-        decorationThickness: 2,
-      ),
+      style: base.copyWith(fontWeight: s.fontWeight, color: color),
+      underlineColor: decoration?.resolve(resolver, currentColor: color),
     );
   } else {
     child = RaftReferenceChip(

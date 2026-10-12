@@ -1707,13 +1707,10 @@ class RaftAdminSwitchCard extends StatelessWidget {
                                   child: GestureDetector(
                                     behavior: HitTestBehavior.opaque,
                                     onTap: onDescriptionLink,
-                                    child: Text(
+                                    child: RaftUnderlinedText(
                                       raftText(context, link),
                                       style: body.copyWith(
                                         fontWeight: FontWeight.w700,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: body.color,
-                                        color: body.color,
                                       ),
                                     ),
                                   ),

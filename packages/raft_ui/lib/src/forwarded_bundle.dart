@@ -440,6 +440,7 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                         expanded = !expanded;
                       }),
                       style: recipe.showMore,
+                      underline: recipe.showMoreUnderlined,
                       visualHeight: 20,
                       icon: RaftIcon(
                         expanded ? RaftGlyph.chevronUp : RaftGlyph.chevronRight,

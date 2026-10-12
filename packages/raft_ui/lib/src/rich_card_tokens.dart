@@ -142,8 +142,9 @@ class ForwardedSnapshotRecipe extends RaftMessageEmbedRecipe {
     color: tokens.brutal
         ? RaftPrimitiveColors.black.withValues(alpha: .6)
         : tokens.colors['foreground-placeholder'],
-    decoration: tokens.brutal ? TextDecoration.underline : TextDecoration.none,
   );
+  @override
+  bool get showMoreUnderlined => tokens.brutal;
 }
 
 class ActionSnapshotRecipe extends RaftActionCardRecipe {

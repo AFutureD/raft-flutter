@@ -5,6 +5,7 @@
 // The app supplies data and callbacks; every class list is resolved here.
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'system_inset.dart';
 import 'banner.dart';
 import 'components.dart' show RaftButton;
@@ -943,7 +944,7 @@ class _McpServerCard extends StatelessWidget {
                     size: 13,
                     color: text.muted,
                   ),
-                  Text(
+                  RaftUnderlinedText(
                     '${server.tools.length} ${server.tools.length == 1 ? 'tool' : 'tools'}',
                     style: RaftTypography.body(
                       t,
@@ -953,7 +954,7 @@ class _McpServerCard extends StatelessWidget {
                       color: t.brutal
                           ? Colors.black.withValues(alpha: .7)
                           : t.muted,
-                    ).copyWith(decoration: TextDecoration.underline),
+                    ),
                   ),
                 ],
               ),

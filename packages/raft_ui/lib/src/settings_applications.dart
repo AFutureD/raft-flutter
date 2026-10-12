@@ -8,6 +8,7 @@
 // The app supplies the projected rows and callbacks; class lists live here.
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'system_inset.dart';
 import 'banner.dart';
 import 'design_primitives.dart'
@@ -1062,7 +1063,7 @@ class RaftConnectedAppUrlLink extends StatelessWidget {
               RaftIcon(RaftGlyph.externalLink, size: 12, color: color),
               const SizedBox(width: 6),
               Flexible(
-                child: Text(
+                child: RaftUnderlinedText(
                   visible,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1072,12 +1073,7 @@ class RaftConnectedAppUrlLink extends StatelessWidget {
                         size: 12,
                         line: 16,
                         color: color,
-                      ).copyWith(
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                        decorationThickness: 2,
-                        decorationColor: color,
-                      ),
+                      ).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
@@ -1114,12 +1110,10 @@ class _AppRowCard extends StatelessWidget {
             key: ValueKey('connected-app-installed-${row.id}'),
             semanticLabel: row.name,
             onPressed: row.onOpenName,
-            builder: (context, st) => Text(
+            builder: (context, st) => RaftUnderlinedText(
               row.name,
-              style: nameStyle.copyWith(
-                decoration: st.hovered ? TextDecoration.underline : null,
-                decorationColor: text.strong,
-              ),
+              style: nameStyle,
+              underline: st.hovered,
             ),
           );
     final info = Row(

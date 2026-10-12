@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'raft_underline.dart';
 import 'agent_profile.dart';
 import 'auth_page.dart';
 import 'cindy_setup_screen.dart';
@@ -1127,11 +1128,9 @@ class _RuntimeRow extends StatelessWidget {
                                     color: t.strong,
                                   ),
                                   const SizedBox(width: 4),
-                                  Text(
+                                  RaftUnderlinedText(
                                     tr('Copy install command'),
-                                    style: strong.copyWith(
-                                      decoration: TextDecoration.underline,
-                                    ),
+                                    style: strong,
                                   ),
                                 ],
                               ),

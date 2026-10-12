@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import 'raft_underline.dart';
 import 'flex_shrink_row.dart';
 import 'icons.dart';
 import 'indicators.dart';
@@ -41,14 +42,15 @@ InlineSpan raftInlineMarkdownSpan(
             node.children ?? const [],
             style.copyWith(decoration: TextDecoration.lineThrough),
           ),
-          'a' => walk(
-            node.children ?? const [],
-            style.copyWith(
-              color: linkColor,
-              decoration: TextDecoration.underline,
-              decorationThickness: 2,
+          'a' => [
+            RaftUnderlineSpan(
+              style: style.copyWith(color: linkColor),
+              children: walk(
+                node.children ?? const [],
+                style.copyWith(color: linkColor),
+              ),
             ),
-          ),
+          ],
           'code' => [TextSpan(text: node.textContent, style: code)],
           'pre' => [
             TextSpan(
@@ -275,15 +277,17 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
         Text(widget.timestamp, style: stamp),
       ],
     );
-    final body = Text.rich(
-      raftInlineMarkdownSpan(
-        widget.content,
-        text,
-        linkColor: t.dark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
-        code: text.copyWith(fontFamily: t.monoFont),
+    final body = RaftUnderlines(
+      child: Text.rich(
+        raftInlineMarkdownSpan(
+          widget.content,
+          text,
+          linkColor: t.dark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+          code: text.copyWith(fontFamily: t.monoFont),
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
     );
     final attachment = widget.attachmentLabel == null
         ? null

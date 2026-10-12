@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'raft_underline.dart';
 import 'banner.dart';
 import 'brand.dart';
 import 'components.dart';
@@ -573,11 +574,7 @@ class _RaftAuthLegalCheckboxState extends State<RaftAuthLegalCheckbox> {
       line: 20,
       weight: FontWeight.w400,
     ).copyWith(color: t.muted);
-    final link = base.copyWith(
-      fontWeight: FontWeight.w700,
-      color: t.strong,
-      decoration: TextDecoration.underline,
-    );
+    final link = base.copyWith(fontWeight: FontWeight.w700, color: t.strong);
     final size = RaftCheckboxRecipe.resolve(
       theme: t.brutal ? RaftRecipeTheme.brutal : RaftRecipeTheme.elegant,
       size: RaftCheckboxRecipeSize.md,
@@ -602,18 +599,26 @@ class _RaftAuthLegalCheckboxState extends State<RaftAuthLegalCheckbox> {
         ),
         const SizedBox(width: 10), // gap-2.5
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              style: base,
-              children: raftRichText(
-                context,
-                'I agree to the <terms>Terms of Service</terms> and acknowledge the <privacy>Privacy Policy</privacy>.',
-                {
-                  'terms': (text) =>
-                      TextSpan(text: text, style: link, recognizer: terms),
-                  'privacy': (text) =>
-                      TextSpan(text: text, style: link, recognizer: privacy),
-                },
+          child: RaftUnderlines(
+            child: Text.rich(
+              TextSpan(
+                style: base,
+                children: raftRichText(
+                  context,
+                  'I agree to the <terms>Terms of Service</terms> and acknowledge the <privacy>Privacy Policy</privacy>.',
+                  {
+                    'terms': (text) => RaftUnderlineSpan(
+                      text: text,
+                      style: link,
+                      recognizer: terms,
+                    ),
+                    'privacy': (text) => RaftUnderlineSpan(
+                      text: text,
+                      style: link,
+                      recognizer: privacy,
+                    ),
+                  },
+                ),
               ),
             ),
           ),
@@ -656,20 +661,21 @@ class _RaftAuthLegalNoticeState extends State<RaftAuthLegalNotice> {
       line: 20,
       weight: FontWeight.w400,
     ).copyWith(color: t.brutal ? const Color(0x99000000) : t.muted);
-    final link = base.copyWith(decoration: TextDecoration.underline);
-    return Text.rich(
-      textAlign: TextAlign.center,
-      TextSpan(
-        style: base,
-        children: raftRichText(
-          context,
-          'By continuing, you agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.',
-          {
-            'terms': (text) =>
-                TextSpan(text: text, style: link, recognizer: terms),
-            'privacy': (text) =>
-                TextSpan(text: text, style: link, recognizer: privacy),
-          },
+    return RaftUnderlines(
+      child: Text.rich(
+        textAlign: TextAlign.center,
+        TextSpan(
+          style: base,
+          children: raftRichText(
+            context,
+            'By continuing, you agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.',
+            {
+              'terms': (text) =>
+                  RaftUnderlineSpan(text: text, recognizer: terms),
+              'privacy': (text) =>
+                  RaftUnderlineSpan(text: text, recognizer: privacy),
+            },
+          ),
         ),
       ),
     );
@@ -745,9 +751,9 @@ class RaftAuthTextLink extends StatelessWidget {
                   ),
               ],
             ),
-            child: Text(
+            child: RaftUnderlinedText(
               label,
-              style: style.copyWith(color: color, decorationColor: color),
+              style: style.copyWith(color: color),
             ),
           ),
         );
@@ -789,10 +795,6 @@ TextStyle _linkStyle(
       weight: primary || bold ? FontWeight.w700 : FontWeight.w400,
     ).copyWith(
       color: primary
-          ? (t.brutal ? t.product.brutalPink : t.semantic.accentStrong)
-          : t.muted,
-      decoration: TextDecoration.underline,
-      decorationColor: primary
           ? (t.brutal ? t.product.brutalPink : t.semantic.accentStrong)
           : t.muted,
     );
@@ -1429,10 +1431,10 @@ class RaftAuthVerifyPage extends StatelessWidget {
                   builder: (context, state) {
                     final active = state.hovered || state.pressed;
                     final color = active ? t.strong : t.muted;
-                    return Text.rich(
+                    return RaftUnderlines(
+                      child: Text.rich(
                       TextSpan(
-                        style: _linkStyle(t)
-                            .copyWith(color: color, decorationColor: color),
+                        style: _linkStyle(t).copyWith(color: color),
                         children: [
                           WidgetSpan(
                             alignment: PlaceholderAlignment.middle,
@@ -1445,12 +1447,13 @@ class RaftAuthVerifyPage extends StatelessWidget {
                               ),
                             ),
                           ),
-                          TextSpan(
+                          RaftUnderlineSpan(
                             text: manualOpen
                                 ? tr('Hide manual entry')
                                 : tr('Enter code manually'),
                           ),
                         ],
+                      ),
                       ),
                     );
                   },

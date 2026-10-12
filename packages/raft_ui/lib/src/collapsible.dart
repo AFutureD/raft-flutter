@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'localization.dart';
+import 'raft_underline.dart';
 import 'design_primitives.dart';
 import 'message_content_tokens.dart';
 import 'message_semantics.dart';
@@ -658,12 +659,17 @@ class RaftShowMoreToggle extends StatefulWidget {
     required this.onPressed,
     this.icon,
     this.style,
+    this.underline = true,
     this.visualHeight = 16,
   });
   final String label;
   final VoidCallback onPressed;
   final Widget? icon;
   final TextStyle? style;
+
+  /// Web ShowMoreToggle is underlined; one themed recipe (Brutal rich cards)
+  /// keeps the label plain.
+  final bool underline;
   final double visualHeight;
   @override
   State<RaftShowMoreToggle> createState() => _RaftShowMoreToggleState();
@@ -700,9 +706,10 @@ class _RaftShowMoreToggleState extends State<RaftShowMoreToggle> {
             ],
             // The control's semantic label already announces it once.
             ExcludeSemantics(
-              child: Text(
+              child: RaftUnderlinedText(
                 widget.label,
-                style: style.copyWith(color: color, decorationColor: color),
+                underline: widget.underline,
+                style: style.copyWith(color: color),
               ),
             ),
           ],
