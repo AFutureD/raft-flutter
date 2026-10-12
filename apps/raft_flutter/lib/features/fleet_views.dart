@@ -109,7 +109,8 @@ Future<void> showCredential(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              detail ?? 'This credential is shown once. Store it securely before closing.',
+              detail ??
+                  'This credential is shown once. Store it securely before closing.',
             ),
             const SizedBox(height: 16),
             RaftSecretView(
@@ -539,6 +540,7 @@ class FleetDetail extends StatefulWidget {
     required this.computers,
     required this.initial,
     this.onClose,
+    this.closeAction = false,
     this.initialTab = AgentDetailTab.profile,
     this.clock,
     this.initialTrajectoryLog = const [],
@@ -552,6 +554,10 @@ class FleetDetail extends StatefulWidget {
   final bool computers;
   final Map<String, dynamic> initial;
   final VoidCallback? onClose;
+
+  /// The agent header carries a close action at md+ (Web profile overlay
+  /// `onClose`); the Agents route detail column has none.
+  final bool closeAction;
 
   /// Web `?agentTab=` deep link (agents only).
   final AgentDetailTab initialTab;
@@ -1004,18 +1010,22 @@ class _FleetDetailState extends State<FleetDetail> {
         : 'issueAgentCredentials';
     require(cap);
     if (widget.computers) {
-      await confirm('Rotate computer key?', 'The old key will stop working. Reconnect this computer using the new key.', () async {
-        require(cap);
-        final result = await w.command('POST', '$base/rotate-key');
-        if (mounted && allowed(cap)) {
-          await showCredential(
-            context,
-            result['apiKey'],
-            controller: w,
-            authorized: () => allowed(cap),
-          );
-        }
-      });
+      await confirm(
+        'Rotate computer key?',
+        'The old key will stop working. Reconnect this computer using the new key.',
+        () async {
+          require(cap);
+          final result = await w.command('POST', '$base/rotate-key');
+          if (mounted && allowed(cap)) {
+            await showCredential(
+              context,
+              result['apiKey'],
+              controller: w,
+              authorized: () => allowed(cap),
+            );
+          }
+        },
+      );
     } else {
       final result = await w.command(
         'POST',
@@ -1186,6 +1196,7 @@ class _FleetDetailState extends State<FleetDetail> {
     actions: AgentDetailActions(
       onEditAvatar: busy ? null : editAvatar,
       onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),
+      onClose: widget.closeAction ? widget.onClose : null,
       onEditName: busy ? null : () => editField('displayName'),
       onEditDescription: busy ? null : () => editField('description'),
       onEditRole: busy ? null : () => editField('role'),

@@ -47,6 +47,7 @@ class ProfileSidePanel extends StatelessWidget {
           orElse: () => AgentDetailTab.profile,
         ),
         onClose: onBack ?? onClose,
+        closeAction: true,
         // Nested creator / created-agent navigation stays in this panel.
         onOpenAgent: (id) => w.openProfile(RaftProfileKind.agent, id),
       ),
