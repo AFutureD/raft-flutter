@@ -66,7 +66,9 @@ class DesktopTitleBarStyle {
   Map<String, Object> toArguments() => {
     'background': background.toARGB32(),
     'foreground': foreground.toARGB32(),
-    'rule': rule.toARGB32(),
+    // The system paints the rule opaque: resolve a translucent divider (the
+    // dark Elegant one) over the strip, the way the Flutter strip shows it.
+    'rule': Color.alphaBlend(rule, background).toARGB32(),
     'ruleWidth': ruleWidth,
     'dark': background.computeLuminance() < .5,
   };

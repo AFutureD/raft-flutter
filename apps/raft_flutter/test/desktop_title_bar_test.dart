@@ -137,7 +137,10 @@ void main() {
       final rail = RaftRailRecipe(tokens, viewportHeight: 800);
       final sent = runner.named('setStyle').last.arguments as Map;
       expect(sent['background'], rail.background.toARGB32());
-      expect(sent['rule'], rail.border.color.toARGB32());
+      expect(
+        sent['rule'],
+        Color.alphaBlend(rail.border.color, rail.background).toARGB32(),
+      );
       expect(sent['ruleWidth'], family == RaftFamily.brutal ? 2.0 : 1.0);
       expect(sent['dark'], dark);
     }

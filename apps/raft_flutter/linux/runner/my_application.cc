@@ -44,8 +44,10 @@ static void title_bar_set_style(TitleBar* bar, int64_t background,
       "headerbar.raft-titlebar, headerbar.raft-titlebar:backdrop {"
       " background: %s; background-image: none; box-shadow: none;"
       " border-bottom: %dpx solid %s; }"
-      "headerbar.raft-titlebar button, headerbar.raft-titlebar button image {"
-      " color: %s; text-shadow: none; -gtk-icon-shadow: none; }",
+      "headerbar.raft-titlebar button, headerbar.raft-titlebar button:backdrop,"
+      " headerbar.raft-titlebar button image,"
+      " headerbar.raft-titlebar button:backdrop image {"
+      " color: %s; opacity: 1; text-shadow: none; -gtk-icon-shadow: none; }",
       bg, static_cast<int>(rule_width + 0.5), line, fg);
   gtk_css_provider_load_from_data(bar->css, css, -1, nullptr);
 }
@@ -108,8 +110,13 @@ static void my_application_activate(GApplication* application) {
     title_bar->css = gtk_css_provider_new();
     GtkStyleContext* style = gtk_widget_get_style_context(title_bar->header_bar);
     gtk_style_context_add_class(style, "raft-titlebar");
-    gtk_style_context_add_provider(style, GTK_STYLE_PROVIDER(title_bar->css),
-                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    // Screen-wide, because a provider on the bar's own context would not reach
+    // the window buttons inside it; every rule is scoped to
+    // headerbar.raft-titlebar.
+    gtk_style_context_add_provider_for_screen(
+        gtk_widget_get_screen(title_bar->header_bar),
+        GTK_STYLE_PROVIDER(title_bar->css),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   }
 
   gtk_window_set_default_size(window, 1280, 720);

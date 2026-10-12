@@ -52,11 +52,16 @@ Xcode project and no toolbar (RemoteSurface adds an NSToolbar for a 52 pt row;
 the approved design keeps the standard bar height).
 
 ### Linux (done, verified under Xvfb)
+Screenshots of the three themes switching live: `.local/desktop-title-bar/linux-*.png`
+(capture needs `xvfb-run -s "-screen 0 1920x1200x24 +extension GLX +render -noreset"`
+and `RAFT_LINUX_HEADER_BAR=1`; without GLX the window never maps).
 `linux/runner/my_application.cc`: the GTK `GtkHeaderBar` (used under GNOME, on
 Wayland, or when forced) is coloured through a CSS provider (`headerbar.raft-titlebar`,
 also `:backdrop`, so inactive, maximised and tiled states keep the colour), an
 empty custom title removes the text, `border-bottom` is the rule, and the window
-buttons take the rail foreground colour. GTK keeps the bar's height, dragging,
+buttons take the rail foreground colour (the provider is screen-wide but every
+rule is scoped to `headerbar.raft-titlebar`; a translucent divider is blended over
+the strip first, since CSS gets one opaque colour). GTK keeps the bar's height, dragging,
 double-click and hides it in fullscreen. The window is named "Raft" for the task
 switcher. Limit: where the window manager draws the title bar itself (KDE,
 Xfce, tiling WMs, non-GNOME X11) the app cannot paint it and the strip is not
