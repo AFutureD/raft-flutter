@@ -35,7 +35,6 @@ String? mobileWorkspaceRootTabForLocation(
 String mobileWorkspaceBackSection(String section) => switch (section) {
   'computers' ||
   'workspace-settings' ||
-  'sidebar-settings' ||
   'providers' ||
   'integrations' ||
   'im-bridges' ||

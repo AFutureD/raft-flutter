@@ -1,3 +1,4 @@
+import '../data/navigation_registry.dart';
 import '../data/raft_location.dart';
 import '../data/raft_navigation_history.dart';
 import '../data/workspace_navigation.dart';
@@ -52,11 +53,21 @@ class DesktopNavigationPolicy {
       DesktopSidebarKind.settings,
     ),
     // Saved belongs to the regular Chat rail; it is not a classic rail mode.
-    _ => const DesktopNavigationPolicy._(
+    'home' || 'chat' || 'saved' => const DesktopNavigationPolicy._(
       'chat',
       DesktopSidebarKind.conversation,
     ),
+    _ => _unregistered(section),
   };
+
+  /// A section with no rail mode would silently show the Chat rail.
+  static DesktopNavigationPolicy _unregistered(String section) {
+    NavigationRegistry.reportFallback('desktop rail mode', section);
+    return const DesktopNavigationPolicy._(
+      'chat',
+      DesktopSidebarKind.conversation,
+    );
+  }
 }
 
 /// Identifiers only. Private entity payloads remain owned by authorized loaders.

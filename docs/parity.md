@@ -1534,3 +1534,16 @@ Left: the `@mention` highlight is 1/255 lighter in Chromium over the content ban
 counted as fill, 5% of that crop); tab-strip and chip widths follow fractional text advances
 (hairline); phone composer shadow (Web headless phone autofocuses the composer, a real phone does not);
 Elegant themes (sampled) still carry 1-2px row-pitch and blend deltas in the popups.
+
+## Navigation audit (cindy/nav-audit)
+
+Full table and guard design: `docs/navigation-audit.md`. Intended differences recorded there:
+
+* Settings > Bottom bar and the Settings > Computers row exist on the phone only (device preference;
+  Web's desktop has the Computers rail).
+* System notices for computers open the Computers detail / attention list in a pushed page; Web
+  navigates to `/computer/:id` and `/computers?filter=attention`.
+* Channel settings and Channel members open as full-width pages on a phone (Web: phone drawer) and
+  as dialogs / modals on wide layouts.
+* Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
+  in debug and test.

@@ -560,7 +560,12 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
             },
           ),
           action: 'Upgrade for more',
-          onAction: close,
+          // Web: onClose(); nav.toSettings("billing").
+          onAction: () {
+            if (busy) return;
+            close();
+            w.setSection('billing');
+          },
         )
       else if (error != null)
         RaftAgentBanner(
