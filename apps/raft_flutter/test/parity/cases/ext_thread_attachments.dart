@@ -178,6 +178,7 @@ class _NeverHtmlLoader extends AttachmentHtmlLoader {
     Uri uri, {
     required CancelToken cancel,
     required bool Function() authorized,
+    void Function(int received, int? total)? onProgress,
   }) => Completer<String?>().future;
 }
 

@@ -9,8 +9,15 @@ import 'theme.dart';
 
 /// Pure native HTML presentation. No script interpreter, iframe, local-file
 /// loader, remote image request or URL launcher belongs to this component.
+///
+/// The sanitizer builds the full DOM before it keeps a handful of text nodes,
+/// so the input is bounded by memory, not by what the page looks like. 16 MiB
+/// covers real single-file reports with inline base64 images (a 3 MB report
+/// failed at the former 2 MiB cap); beyond it the caller offers the browser.
+const raftStaticHtmlMaxChars = 16 * 1024 * 1024;
+
 String raftStaticHtml(String source) {
-  if (source.length > 2 * 1024 * 1024) {
+  if (source.length > raftStaticHtmlMaxChars) {
     throw const FormatException('The HTML is too large for a native preview.');
   }
   final document = parser.parse(source);

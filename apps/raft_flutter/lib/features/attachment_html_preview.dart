@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:isolate';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/attachment_html.dart';
+import '../platform/attachment_html_webview.dart';
 import 'attachment_comments_view.dart';
 
 class HtmlAttachmentPreviewDialog extends StatefulWidget {
@@ -20,6 +22,8 @@ class HtmlAttachmentPreviewDialog extends StatefulWidget {
     this.page = false,
     this.loader,
     this.openExternal,
+    this.useWebView,
+    this.webViewBuilder,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
@@ -29,6 +33,12 @@ class HtmlAttachmentPreviewDialog extends StatefulWidget {
   final bool page;
   final AttachmentHtmlLoader? loader;
   final Future<bool> Function(Uri)? openExternal;
+
+  /// Show the server's isolated preview URL in the platform WebView (Web
+  /// parity). Null selects it wherever a WebView implementation is registered
+  /// (Android, iOS, macOS); Linux and Windows fall back to the static preview.
+  final bool? useWebView;
+  final AttachmentHtmlWebViewBuilder? webViewBuilder;
   @override
   State<HtmlAttachmentPreviewDialog> createState() => _HtmlPreviewState();
 }
@@ -37,7 +47,19 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
   late final loader = widget.loader ?? AttachmentHtmlLoader();
   CancelToken cancel = CancelToken();
   String? html, error;
-  bool loading = true, opening = false;
+  Uri? webUri;
+  bool loading = true, opening = false, pageLoading = false;
+
+  /// What the loading stage draws: bytes of the static download, or the
+  /// WebView's page-load percent. Waiting (connecting) until the first update.
+  final progress = ValueNotifier<RaftTransferProgress?>(
+    RaftTransferProgress.connecting,
+  );
+  int lastReported = -1;
+
+  /// Failures that Retry cannot fix, and whether the browser can still help.
+  bool retryable = true, browserOffered = true;
+  bool get webView => widget.useWebView ?? attachmentHtmlWebViewSupported;
   bool get current => mounted && widget.authorized();
   @override
   void initState() {
@@ -52,11 +74,13 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     if (mounted) {
       setState(() {
         html = null;
+        webUri = null;
         error = null;
         loading = false;
       });
     } else {
       html = null;
+      webUri = null;
     }
   }
 
@@ -80,27 +104,140 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     setState(() {
       loading = true;
       error = null;
+      html = null;
+      webUri = null;
+      retryable = browserOffered = true;
+      pageLoading = false;
     });
+    progress.value = RaftTransferProgress.connecting;
+    lastReported = -1;
     try {
       final uri = await resolve();
       if (uri == null || !current) return;
+      if (webView) {
+        // The WebView cannot read response headers, so the pinned sandbox is
+        // verified on a fresh request first; the document's own CSP then
+        // applies again when the WebView loads it.
+        final isolated = await loader.verify(
+          uri,
+          cancel: cancel,
+          authorized: () => current,
+        );
+        if (!current) return;
+        if (!isolated) throw const AttachmentHtmlNotIsolated();
+        setState(() {
+          webUri = uri;
+          pageLoading = true;
+        });
+        return;
+      }
       final source = await loader.load(
         uri,
         cancel: cancel,
         authorized: () => current,
+        onProgress: byteProgress,
       );
       if (source != null && current) {
-        setState(() => html = raftStaticHtml(source));
+        // Parsing a multi-megabyte document must not block frames.
+        final text = source.length > 256 * 1024
+            ? await sanitizeOffThread(source)
+            : raftStaticHtml(source);
+        if (current) setState(() => html = text);
       }
-    } catch (_) {
-      if (current) {
-        setState(
-          () => error = 'The HTML preview could not be loaded. Download the file to view it.',
-        );
-      }
+    } catch (e) {
+      if (current) fail(e);
     } finally {
       if (current) setState(() => loading = false);
     }
+  }
+
+  /// Bytes of the static download, at most one repaint per percent point (or
+  /// per 32 KB while the length is unknown).
+  void byteProgress(int received, int? total) {
+    if (!current) return;
+    final step = total == null
+        ? received ~/ (32 * 1024)
+        : received * 100 ~/ total;
+    if (step == lastReported) return;
+    lastReported = step;
+    progress.value = RaftTransferProgress(received: received, total: total);
+  }
+
+  /// WebView page-load percent; only whole-point changes repaint.
+  void pageProgress(int percent) {
+    if (!current || !pageLoading || percent == lastReported) return;
+    lastReported = percent;
+    progress.value = RaftTransferProgress.percent(percent);
+  }
+
+  /// Static so the isolate closure cannot capture the State (not sendable).
+  static Future<String> sanitizeOffThread(String source) =>
+      Isolate.run(() => raftStaticHtml(source));
+
+  /// Says why the preview is unavailable and which actions can still help.
+  void fail(Object e) {
+    var retry = true, browser = true;
+    final String message;
+    switch (e) {
+      case AttachmentHtmlTooLarge():
+        retry = false;
+        message =
+            'This HTML file is too large for the in-app preview. Open it in the browser or download it.';
+      case AttachmentHtmlNotIsolated():
+        retry = browser = false;
+        message =
+            'The server did not provide an isolated HTML preview, so it is not shown. Download the file to view it.';
+      case DioException(response: final r?) when [401, 403].contains(r.statusCode):
+        retry = browser = false;
+        message = 'You do not have access to this HTML preview.';
+      case DioException(response: final r?) when [404, 410].contains(r.statusCode):
+        retry = browser = false;
+        message =
+            'The HTML preview is no longer available. Download the file to view it.';
+      case DioException(response: != null):
+        message =
+            'The server could not deliver the HTML preview. Retry, or open it in the browser.';
+      case DioException():
+        message =
+            'The HTML preview could not be loaded because the connection failed. Retry, or open it in the browser.';
+      case FormatException():
+        retry = false;
+        message =
+            'This HTML is too complex for the in-app preview. Open it in the browser or download it.';
+      case _WebViewFailure():
+        message =
+            'This device could not display the HTML preview. Open it in the browser or download it.';
+      default:
+        message =
+            'The HTML preview could not be loaded. Download the file to view it.';
+    }
+    setState(() {
+      error = message;
+      retryable = retry;
+      browserOffered = browser;
+      html = null;
+      webUri = null;
+      pageLoading = false;
+    });
+  }
+
+  bool webNavigation(String url) {
+    final preview = webUri;
+    if (!current || preview == null) return false;
+    final decision = attachmentHtmlNavigation(
+      url,
+      preview,
+      widget.controller.client.origin,
+    );
+    switch (decision.action) {
+      case AttachmentHtmlNavigationAction.allow:
+        return true;
+      case AttachmentHtmlNavigationAction.external:
+        unawaited(link('${decision.link}'));
+      case AttachmentHtmlNavigationAction.block:
+        setState(() => error = 'This link is unavailable in the HTML preview.');
+    }
+    return false;
   }
 
   Future<void> interactive() async {
@@ -160,6 +297,7 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     widget.controller.removeListener(scopeChanged);
     cancel.cancel();
     html = null;
+    progress.dispose();
     loader.dispose();
     super.dispose();
   }
@@ -181,31 +319,67 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
         : null,
     child: Column(
       children: [
-        if (error != null)
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              raftText(context, error!),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
+        if (error != null && (html != null || webUri != null))
+          errorLine(context),
         Expanded(
-          child: loading
-              ? const RaftPreviewPreparing()
+          child: webUri != null
+              ? Stack(
+                  children: [
+                    Positioned.fill(
+                      child: (widget.webViewBuilder ?? webViewBuilder)(
+                        context,
+                        webUri!,
+                        AttachmentHtmlWebViewEvents(
+                          onNavigation: webNavigation,
+                          onLoaded: () {
+                            if (current) setState(() => pageLoading = false);
+                          },
+                          onProgress: pageProgress,
+                          onFailed: (_) {
+                            if (current) {
+                              fail(const _WebViewFailure());
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    if (pageLoading)
+                      Positioned.fill(child: transferStage(context)),
+                  ],
+                )
+              : loading
+              ? transferStage(context)
               : html == null
               ? Center(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    // ds-allow: gap between the reason and its actions, the Wrap's own 8px rhythm doubled
+                    spacing: 16,
                     children: [
-                      RaftButton(
-                        label: 'Retry preview',
-                        onPressed: current ? load : null,
-                      ),
-                      RaftButton(
-                        label: 'Open interactive preview in browser',
-                        busy: opening,
-                        onPressed: current && !opening ? interactive : null,
+                      if (error != null) errorLine(context),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (retryable)
+                            RaftButton(
+                              label: 'Retry preview',
+                              onPressed: current ? load : null,
+                            ),
+                          if (browserOffered)
+                            RaftButton(
+                              label: 'Open interactive preview in browser',
+                              busy: opening,
+                              onPressed: current && !opening
+                                  ? interactive
+                                  : null,
+                            ),
+                          RaftButton(
+                            label: 'Download file',
+                            onPressed: current ? widget.onDownload : null,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -220,4 +394,42 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
       ],
     ),
   );
+
+  /// The same file transfer panel as the other previews, with Cancel closing
+  /// the preview. Opaque, so it also covers the WebView while the page loads.
+  Widget transferStage(BuildContext context) {
+    final name = '${widget.metadata['filename'] ?? 'HTML'}';
+    final size = (widget.metadata['sizeBytes'] as num?)?.toInt();
+    final extension = name.contains('.')
+        ? name.split('.').last.toUpperCase()
+        : 'HTML';
+    return RaftPreviewTransferStage(
+      filename: name,
+      meta: size == null || size <= 0
+          ? extension
+          : '$extension · ${RaftAttachmentCard.formatSize(size)}',
+      progress: progress,
+      onCancel: widget.onClose,
+    );
+  }
+
+  Widget errorLine(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Text(
+      raftText(context, error!),
+      textAlign: TextAlign.center,
+      style: TextStyle(color: Theme.of(context).colorScheme.error),
+    ),
+  );
+
+  static Widget webViewBuilder(
+    BuildContext context,
+    Uri uri,
+    AttachmentHtmlWebViewEvents events,
+  ) => AttachmentHtmlWebView(uri: uri, events: events);
+}
+
+/// The platform WebView could not show the page itself.
+class _WebViewFailure implements Exception {
+  const _WebViewFailure();
 }

@@ -4,6 +4,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.app.Activity
+import android.webkit.CookieManager
+import android.webkit.WebStorage
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -91,6 +93,27 @@ class MainActivity : FlutterActivity() {
         systemProxy = NativeProxyBridge(this, flutterEngine)
         LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
+        // Uploaded HTML previews run in an Android WebView. The app has no
+        // other WebView, so the process-wide cookie jar and web storage belong
+        // to the preview alone: never send or keep cookies, drop storage.
+        // Mirrors the Web sandbox (opaque origin, no cookie/storage access).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/html-preview-privacy")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "lockDown" -> {
+                        val cookies = CookieManager.getInstance()
+                        cookies.setAcceptCookie(false)
+                        cookies.removeAllCookies { WebStorage.getInstance().deleteAllData(); result.success(null) }
+                        cookies.flush()
+                    }
+                    "purge" -> {
+                        val cookies = CookieManager.getInstance()
+                        cookies.removeAllCookies { WebStorage.getInstance().deleteAllData(); result.success(null) }
+                        cookies.flush()
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/ime")
             .setMethodCallHandler { call, result ->
                 if (call.method == "visible") result.success(imeVisible()) else result.notImplemented()

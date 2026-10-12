@@ -55,6 +55,23 @@ void main() {
       expect(const RaftTransferProgress(received: 300, total: 200).fraction, 1);
       expect(RaftTransferProgress.connecting.waiting, isTrue);
     });
+    test('percent-only progress: label, fraction and waiting', () {
+      expect(const RaftTransferProgress.percent(40).sizeLabel, '40%');
+      expect(const RaftTransferProgress.percent(40).fraction, .4);
+      expect(const RaftTransferProgress.percent(0).waiting, isTrue);
+      expect(const RaftTransferProgress.percent(0).fraction, isNull);
+      expect(const RaftTransferProgress.percent(250).fraction, 1);
+      expect(const RaftTransferProgress.percent(-3).received, 0);
+      expect(
+        const RaftTransferProgress.percent(40).withFallbackTotal(900).total,
+        100,
+      );
+      expect(
+        const RaftTransferProgress.percent(40) ==
+            const RaftTransferProgress(received: 40, total: 100),
+        isFalse,
+      );
+    });
     test('a fallback total only fills an unknown total', () {
       const unknown = RaftTransferProgress(received: 50, total: -1);
       expect(unknown.withFallbackTotal(200).fraction, .25);
