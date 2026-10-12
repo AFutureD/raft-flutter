@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/external_identity.dart';
@@ -306,4 +307,64 @@ void main() {
     expect(w.location.profile, isNull);
     expect(avatar('ma'), findsOneWidget, reason: 'the chat is back');
   });
+
+  testWidgets(
+    'wide: a tap outside the profile panel dismisses it, non-blocking',
+    (t) async {
+      final (w, _) = await mount(t, const Size(1280, 800));
+      final panel = find.byKey(const Key('profile-panel'));
+      Future<void> open(String id) async {
+        await t.ensureVisible(avatar(id));
+        await frames(t, 4);
+        await t.tap(avatar(id));
+        await frames(t, 20);
+      }
+
+      await open('mh');
+      expect(panel, findsOneWidget);
+      expect(w.location.profile?.id, 'bob');
+      final entries = w.navigation.entries.length;
+      final rect = t.getRect(panel);
+
+      // Inside the panel: nothing closes.
+      await t.tapAt(rect.center);
+      await frames(t, 10);
+      expect(panel, findsOneWidget);
+
+      // Another avatar retargets the profile (replace, not close + push).
+      await t.ensureVisible(avatar('ma'));
+      await frames(t, 4);
+      await t.tap(avatar('ma'));
+      await frames(t, 20);
+      expect(panel, findsOneWidget);
+      expect(w.location.profile?.kind, RaftProfileKind.agent);
+      expect(w.location.profile?.id, 'a1');
+      expect(w.navigation.entries.length, entries);
+      expect(find.byKey(const ValueKey('profile-agent-a1')), findsOneWidget);
+
+      // The blank area of the timeline (right of the message text, left of the
+      // panel) closes it like the X.
+      await t.tapAt(Offset(rect.left - 24, 420));
+      await frames(t, 20);
+      expect(panel, findsNothing);
+      expect(w.location.profile, isNull);
+
+      // Reopen, then tap a control outside: it still does its job (a mention
+      // chip opens the agent profile) rather than only closing the panel.
+      await open('mh');
+      expect(w.location.profile?.id, 'bob');
+      final mention = find.textContaining('@cindy', findRichText: true).first;
+      await t.ensureVisible(mention);
+      await frames(t, 4);
+      await t.tapAt(t.getCenter(mention));
+      await frames(t, 20);
+      expect(w.location.profile?.id, 'a1');
+      expect(panel, findsOneWidget);
+
+      // A drag (scroll) outside is not a tap.
+      await t.dragFrom(Offset(rect.left - 200, 500), const Offset(0, 80));
+      await frames(t, 10);
+      expect(panel, findsOneWidget);
+    },
+  );
 }
