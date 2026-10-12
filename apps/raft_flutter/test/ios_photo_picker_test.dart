@@ -63,7 +63,7 @@ void main() {
       picker: picker,
     );
     expect(files, same(picker.files));
-    expect(picker.calls.single, (kind: 'media', metadata: false, limit: 9));
+    expect(picker.calls.single, (kind: 'media', metadata: false, limit: null));
   });
   test(
     'iOS single-image and feedback pickers disable full library metadata',
@@ -84,7 +84,7 @@ void main() {
       );
       expect(picker.calls, [
         (kind: 'image', metadata: false, limit: null),
-        (kind: 'images', metadata: false, limit: 9),
+        (kind: 'images', metadata: false, limit: null),
       ]);
     },
   );
