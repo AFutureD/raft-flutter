@@ -238,8 +238,13 @@ class Page {
     this.headerless = false,
     this.prepare,
     this.cropDp = 120,
+    this.phoneOnly = false,
   });
   final double cropDp;
+
+  /// Phone-only identity (`channelPage=`): at the wide layout it is dropped and
+  /// the same surface opens as a dialog, so there is no page to audit.
+  final bool phoneOnly;
   final String name, path;
   final void Function(RootFixture f)? prepare;
 
@@ -268,11 +273,20 @@ const pages = <Page>[
   Page('12-settings-bottom-bar', '/s/alpha/settings/bottom-bar'),
   Page('13-computers', '/s/alpha/computers'),
   Page('14-member-detail', '/s/alpha/human/bob'),
-  Page('15-channel-settings', '/s/alpha/channel/ca?channelPage=settings:ca'),
-  Page('16-channel-members', '/s/alpha/channel/ca?channelPage=members:ca'),
+  Page(
+    '15-channel-settings',
+    '/s/alpha/channel/ca?channelPage=settings:ca',
+    phoneOnly: true,
+  ),
+  Page(
+    '16-channel-members',
+    '/s/alpha/channel/ca?channelPage=members:ca',
+    phoneOnly: true,
+  ),
   Page(
     '17-channel-add-members',
     '/s/alpha/channel/ca?channelPage=members:ca&channelPageAdd=1',
+    phoneOnly: true,
   ),
   Page('46-dm-chat', '/s/alpha/dm/dm-peer', prepare: _withDirectory),
   Page('47-agent-detail', '/s/alpha/agent/agent-1', prepare: _withDirectory),
@@ -281,12 +295,14 @@ const pages = <Page>[
     '49-dm-settings',
     '/s/alpha/dm/dm-peer?channelPage=settings:dm-peer',
     prepare: _withDirectory,
+    phoneOnly: true,
   ),
   Page(
     '50-add-members-zh',
     '/s/alpha/channel/ca?channelPage=members:ca&channelPageAdd=1',
     prepare: _zh,
     cropDp: 915,
+    phoneOnly: true,
   ),
   Page('21-server-selector', '/'),
   Page('22-server-not-found', '/s/unknown', headerless: true),
