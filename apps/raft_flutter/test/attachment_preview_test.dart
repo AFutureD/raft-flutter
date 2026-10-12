@@ -41,6 +41,7 @@ class _Files extends AttachmentPreviewFiles {
     String filename, {
     required CancelToken cancel,
     required bool Function() authorized,
+    void Function(int, int)? onProgress,
   }) async => lease;
 }
 

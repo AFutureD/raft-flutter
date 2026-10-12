@@ -48,11 +48,18 @@ class AttachmentFiles {
     return uri;
   }
 
-  Future<Uint8List> image(String url, {required CancelToken cancel}) async {
+  /// [onProgress] receives dio's `(received, total)`; `total` is -1 when the
+  /// server sends no length. The caller throttles; this is called per chunk.
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int received, int total)? onProgress,
+  }) async {
     final result = await _dio.get<List<int>>(
       attachmentUri(url).toString(),
       options: Options(responseType: ResponseType.bytes),
       cancelToken: cancel,
+      onReceiveProgress: onProgress,
     );
     return Uint8List.fromList(result.data!);
   }
