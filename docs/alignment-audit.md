@@ -139,7 +139,7 @@ Impact = cases x offset. `x` are css px from the left of the capture.
 | 6 | `components.thread.files.list` (official) | row overflow (kebab) button | 357 vs 362 | 5 | right inset of the collapsed actions | `SourceChannelFileRow` |
 | 7 | `home.search.*`, `search-overlay.query*` | result rows | 3-6px | 3-6 | result row inner indent | search result row |
 | 8 | `shell.desktop.server.menu` | drag grip, count badge | 2-3 | 2-3 | grip glyph weight / width | server switcher row |
-| 9 | `taskdetail.mobile.*` | composer and bottom tab bar | 10-12 | 10-12 | not an alignment slip: Flutter's phone task modal covers the tab bar Web keeps; scroll state differs | layout difference |
+| 9 | `taskdetail.mobile.*` | composer and bottom tab bar | 10-12 | 10-12 | not an alignment slip: Flutter's phone task modal covers the tab bar Web keeps; scroll state differs | closed: intended difference, owner decision 2026-10-12 (parity.md "Phone task detail covers the bottom navigation") |
 | 10 | `thread-ext.timeline.*.back-to-bottom` | new-updates pill | 1-4 | 1-4 | pill width | |
 | 11 | `home.create-channel.dialog` | visibility segmented control | 1.7-3.7 | 2-4 | segment widths | same family as 4 |
 | 12 | `channelsettings.desktop.*` (20 cases) | one control right edge | 2 | 2 | action row | minor |

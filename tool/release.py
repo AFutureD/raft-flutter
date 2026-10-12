@@ -17,7 +17,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / 'apps/raft_flutter'
 OUT = ROOT / 'build/release'
-PLATFORMS = {'windows', 'android', 'linux', 'macos'}
+PLATFORMS = {'windows', 'android', 'linux', 'macos', 'flatpak'}
 VERSION_PATTERN = r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?'
 
 
@@ -73,11 +73,11 @@ def current_release():
 
 def release_plan(config, selection, event=''):
     if set(config) != PLATFORMS:
-        raise ValueError('Platform config must contain windows, android, linux and macos')
+        raise ValueError('Platform config must contain windows, android, linux, macos and flatpak')
     selected = ([part.strip() for part in selection.split(',')] if selection.strip()
                 else [name for name, row in config.items() if row['enabled']])
     if not selected or len(selected) != len(set(selected)) or any(name not in PLATFORMS for name in selected):
-        raise ValueError('Select unique known platforms: windows, android, linux, macos')
+        raise ValueError('Select unique known platforms: windows, android, linux, macos, flatpak')
     # Pull requests never receive the persistent Android signing key.
     if event == 'pull_request':
         selected = [name for name in selected if name != 'android']
@@ -250,7 +250,7 @@ def build(platform):
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
     android = None
-    command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else platform,
+    command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else 'linux' if platform == 'flatpak' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
                f'--dart-define=RAFT_APP_VERSION={version}']
     with tempfile.TemporaryDirectory(prefix='raft-release-') as temporary:
@@ -273,12 +273,18 @@ def build(platform):
             artifact = OUT / f'{name}.zip'
             zip_folder(stage, artifact)
             signing = 'unsigned portable Windows bundle'
-        elif platform == 'linux':
+        elif platform in {'linux', 'flatpak'}:
             linux_package(stage)
-            artifact = OUT / f'{name}.tar.gz'
-            with tarfile.open(artifact, 'w:gz') as archive:
-                archive.add(stage, arcname=name)
-            signing = 'not signed; Ubuntu 26.04 amd64 runtime'
+            if platform == 'flatpak':
+                import flatpak
+                artifact = OUT / f'{name}.flatpak'
+                flatpak_checks = flatpak.package(stage, artifact, ROOT, run, capture, digest)
+                signing = 'unsigned Flatpak bundle; GNOME 51 runtime'
+            else:
+                artifact = OUT / f'{name}.tar.gz'
+                with tarfile.open(artifact, 'w:gz') as archive:
+                    archive.add(stage, arcname=name)
+                signing = 'not signed; Ubuntu 26.04 amd64 runtime'
         elif platform == 'macos':
             apps = list((APP / 'build/macos/Build/Products/Release').glob('*.app'))
             if len(apps) != 1:
@@ -300,6 +306,8 @@ def build(platform):
                'artifact': artifact.name, 'sha256': digest(artifact), 'bytes': artifact.stat().st_size}
     if android is not None:
         receipt['android'] = android
+    if platform == 'flatpak':
+        receipt['flatpak'] = flatpak_checks
     (OUT / f'{name}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     (OUT / f'{name}.sha256').write_text(f"{receipt['sha256']}  {artifact.name}\n", encoding='utf-8')
     print(json.dumps(receipt, indent=2))
@@ -346,7 +354,7 @@ def publish():
                      + '\n\nSee `CHECKSUMS.txt` and `build-manifest.json` for source and SHA-256 provenance. '
                      'Hosted CI compiles and packages; platform functional acceptance is separate.\n'
                      '\nWindows requires Windows App Runtime 1.7 x64; extract the whole ZIP. '
-                     'macOS builds are not notarized. Linux requires compatible Ubuntu 26.04 runtime dependencies.\n',
+                     'macOS builds are not notarized. Linux tar.gz requires compatible Ubuntu 26.04 runtime dependencies; Flatpak installs its GNOME 51 runtime from Flathub.\n',
                      encoding='utf-8')
     # Never clobber published assets. Create a draft, upload everything, then publish.
     # A failed upload leaves a draft for inspection; reruns fail rather than replace bytes.

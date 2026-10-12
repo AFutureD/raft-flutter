@@ -105,6 +105,19 @@ WorkspaceController _workspace(ParityContext ctx, {List<dynamic>? board}) {
           {'task': detail['task']},
     'GET /servers/visual-server/members': [
       ...base.serverMembers,
+      // The creator of the fixture tasks (Web resolves it from the channel's
+      // `humans`, fixture `GET /channels/*/members`).
+      {
+        'id': 'visual-user',
+        'userId': 'visual-user',
+        'serverId': 'visual-server',
+        'name': 'artin',
+        'displayName': 'artin',
+        'description': 'Owner',
+        'avatarUrl': null,
+        'email': 'artin@example.test',
+        'role': 'owner',
+      },
       {
         'id': designer['id'],
         'userId': designer['id'],

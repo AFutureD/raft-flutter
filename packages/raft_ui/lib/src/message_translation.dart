@@ -261,6 +261,8 @@ class _SkeletonLine extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) => RaftSkeleton(
       variant: RaftSkeletonVariant.line,
+      // Elegant `rounded-full bg-foreground-strong/8` pill.
+      themed: true,
       // `w-44 max-w-full`.
       width: constraints.maxWidth.isFinite
           ? constraints.maxWidth.clamp(0, 176).toDouble()

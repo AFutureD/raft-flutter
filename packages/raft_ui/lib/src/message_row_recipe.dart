@@ -87,6 +87,9 @@ class RaftMessageRowRecipe {
       ? 4
       : 6;
   double get attachmentGap => 4;
+  double get translationLine => tokens.brutal ? 20 : 21;
+  // Baseline alignment puts the status' centre just above the line's centre.
+  double get translationLift => tokens.brutal ? 2.6 : 1;
   double get footerGap =>
       6; // Mounted MessageItemFooter overrides generic Elegant desktop mt10.
   double get toolbarTop => tokens.brutal ? -14 : 4;
@@ -184,6 +187,79 @@ class RaftMessageRowRecipe {
 
 /// Controlled mounted row. No message model, cache, API, or authority lookup.
 /// Active toolbars remain hit-testable above their row, inside its viewport.
+/// The message body's own vertical margin (`mt-1.5 mb-1.5`). A block that is
+/// the body's first child with its own top margin (the action card's `mt-1`)
+/// collapses with it: the gap is the larger of the two, not their sum.
+class RaftMessageBodyMargin extends InheritedWidget {
+  const RaftMessageBodyMargin({
+    super.key,
+    required this.gap,
+    required super.child,
+  });
+  final double gap;
+
+  /// Top margin left to add for a child that has [margin] of its own.
+  static double collapse(BuildContext context, double margin) {
+    final scope = context.getInheritedWidgetOfExactType<RaftMessageBodyMargin>();
+    return scope == null ? margin : (margin - scope.gap).clamp(0.0, margin);
+  }
+
+  @override
+  bool updateShouldNotify(RaftMessageBodyMargin old) => gap != old.gap;
+}
+
+/// A last block that is a *sibling* of the Web message body (the quoted
+/// message card): the body's own bottom margin collapses into the block's
+/// `mt-*`, so nothing follows the block. Flutter pads the whole content, so
+/// the block bleeds into that bottom padding by the body margin.
+class RaftBodyTrailingBleed extends SingleChildRenderObjectWidget {
+  const RaftBodyTrailingBleed({super.key, super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTrailingBleed(_bleedOf(context));
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderTrailingBleed renderObject,
+  ) => renderObject.bleed = _bleedOf(context);
+
+  static double _bleedOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<RaftMessageBodyMargin>()?.gap ?? 0;
+}
+
+class _RenderTrailingBleed extends RenderProxyBox {
+  _RenderTrailingBleed(this._bleed);
+  double _bleed;
+  set bleed(double value) {
+    if (value == _bleed) return;
+    _bleed = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(constraints, parentUsesSize: true);
+    size = Size(
+      child.size.width,
+      (child.size.height - _bleed).clamp(0.0, child.size.height),
+    );
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      child?.hitTest(result, position: position) ?? false;
+
+  @override
+  bool hitTestSelf(Offset position) => false;
+}
+
 class RaftMessageRow extends StatefulWidget {
   const RaftMessageRow({
     super.key,
@@ -756,25 +832,49 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
                                     padding: EdgeInsets.symmetric(
                                       vertical: recipe.bodyGap,
                                     ),
-                                    child: DefaultTextStyle.merge(
-                                      style: recipe.body,
-                                      // Only the body reports its collapse.
-                                      child: compact
-                                          ? RaftMessageSemanticsScope(
-                                              visibleFraction: visibleFraction,
-                                              child: widget.content,
-                                            )
-                                          : widget.content,
+                                    child: RaftMessageBodyMargin(
+                                      gap: recipe.bodyGap,
+                                      child: DefaultTextStyle.merge(
+                                        style: recipe.body,
+                                        // Only the body reports its collapse.
+                                        child: compact
+                                            ? RaftMessageSemanticsScope(
+                                                visibleFraction:
+                                                    visibleFraction,
+                                                child: widget.content,
+                                              )
+                                            : widget.content,
+                                      ),
                                     ),
                                   ),
                                   if (widget.attachments != null)
                                     Padding(
                                       padding: EdgeInsets.only(
-                                        top: recipe.attachmentGap,
+                                        // `mt-1` collapses with the body's
+                                        // bottom margin (max, not sum).
+                                        top:
+                                            (recipe.attachmentGap -
+                                                    recipe.bodyGap)
+                                                .clamp(0.0, double.infinity),
                                       ),
                                       child: widget.attachments!,
                                     ),
-                                  ?widget.translation,
+                                  // `div.mt-0` keeps the content column's line
+                                  // box (20px, Elegant leading-5.25 = 21px); the
+                                  // 11px inline-flex status sits on its baseline.
+                                  if (widget.translation != null)
+                                    SizedBox(
+                                      height: recipe.translationLine,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                            bottom: recipe.translationLift,
+                                          ),
+                                          child: widget.translation,
+                                        ),
+                                      ),
+                                    ),
                                   if (widget.footer != null)
                                     Padding(
                                       padding: EdgeInsets.only(

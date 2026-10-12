@@ -131,9 +131,10 @@ class ForwardedSnapshotRecipe extends RaftMessageEmbedRecipe {
                 : tokens.colors['foreground-placeholder'],
           );
   @override
-  TextStyle get count => super.count.copyWith(height: 20 / 11);
+  // `text-[11px]` default line height (1.5 = 16.5px).
+  TextStyle get count => super.count.copyWith(height: 1.5);
   @override
-  TextStyle get source => super.source.copyWith(height: 20 / 11);
+  TextStyle get source => super.source.copyWith(height: 1.5);
   @override
   TextStyle get showMore => super.header.copyWith(
     height: 20 / 11,

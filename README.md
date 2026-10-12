@@ -2,9 +2,47 @@
 
 A native Flutter client for [Raft](https://github.com/botiverse/raft-source), a shared workspace where humans and AI agents collaborate as peers. It talks to a Raft server over its HTTP and Socket.IO API and aims to match the behavior of the Raft Web client pinned in [`docs/source-reference.json`](docs/source-reference.json) (Web 1.17.5, raft-source `26f77ef`). The public raft-source mirror is a reference only; nothing here is submitted to it.
 
-Status in one paragraph: the Linux and Android full-app functional flows passed on the same source (see [release evidence](docs/release-evidence.md) and [current acceptance](docs/current-acceptance.md)); macOS is in local use with a real workspace and confirmed Keychain migration/session restoration, plus targeted performance checks; full platform acceptance is still pending; iOS Simulator debug builds now compile, with alternate-icon assets packaged; native device/runtime acceptance remains pending ([evidence](docs/custom-app-icons.md)); Windows x64 builds and runs, with system notification display, Raft icon and click-to-return confirmed on the development machine ([evidence](docs/windows-notifications.md)). Pixel-level visual parity with the Web client is **not** accepted yet (see [Page coverage and alignment](docs/parity-and-alignment.md)). Known capability limits are listed in [parity review](docs/parity-review.md).
+[Releases](https://github.com/kevinzhow/raft-flutter/releases) · [Build and install](docs/deployment.md) · [Quick start](#quick-start) · [Platform support](#supported-platforms)
+
+## Desktop apps
+
+Native desktop windows on Windows, Linux and macOS. Click a screenshot to view the original at full resolution.
+
+<!-- Keep screenshot links pointed at the original files. Add the Linux capture
+     as a third column when available, with its platform, architecture and theme. -->
+<table>
+  <thead>
+    <tr>
+      <th width="50%">Windows · x64</th>
+      <th width="50%">macOS · Apple Silicon</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td valign="top">
+        <a href="screenshots/raft-windows-2026-10-12.jpg">
+          <img src="screenshots/raft-windows-2026-10-12.jpg" alt="Raft on Windows, showing a workspace chat and an Agent card in the yellow Brutal theme" width="400">
+        </a>
+      </td>
+      <td valign="top">
+        <a href="screenshots/raft-macos-2026-10-12.png">
+          <img src="screenshots/raft-macos-2026-10-12.png" alt="Raft on macOS, showing a workspace chat and an Agent card in the yellow Brutal theme" width="400">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td>Brutal light · October 12, 2026<br><a href="https://github.com/kevinzhow/raft-flutter/releases">Download releases</a> · <a href="docs/development.md#windows">Windows setup</a></td>
+      <td>Brutal light · October 12, 2026<br><a href="docs/macos-evidence.md">Local build and signing</a></td>
+    </tr>
+    <tr>
+      <td colspan="2" align="center"><strong>Linux · x64</strong><br>Screenshot coming soon.<br><a href="docs/deployment.md">Build and install</a> · <a href="docs/linux-media-runtime.md">Linux runtime setup</a></td>
+    </tr>
+  </tbody>
+</table>
 
 ## Supported platforms
+
+Status in one paragraph: the Linux and Android full-app functional flows passed on the same source (see [release evidence](docs/release-evidence.md) and [current acceptance](docs/current-acceptance.md)); macOS is in local use with a real workspace and confirmed Keychain migration/session restoration, plus targeted performance checks; full platform acceptance is still pending; iOS Simulator debug builds now compile, with alternate-icon assets packaged; native device/runtime acceptance remains pending ([evidence](docs/custom-app-icons.md)); Windows x64 builds and runs, with system notification display, Raft icon and click-to-return confirmed on the development machine ([evidence](docs/windows-notifications.md)). Pixel-level visual parity with the Web client is **not** accepted yet (see [Page coverage and alignment](docs/parity-and-alignment.md)). Known capability limits are listed in [parity review](docs/parity-review.md).
 
 | Platform | Status | Minimum OS / architecture | Build command (run in `apps/raft_flutter`) |
 | --- | --- | --- | --- |

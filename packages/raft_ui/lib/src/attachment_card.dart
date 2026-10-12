@@ -76,6 +76,11 @@ class RaftAttachmentCard extends StatelessWidget {
     return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  /// `text-[10px]` summary / meta lines: Brutal resolves the utility's 1.4286
+  /// line height (14.29px); Elegant inherits the message content's
+  /// `leading-5.25` (21px).
+  static double metaLineHeight(RaftTokens t) => t.brutal ? 20 / 14 : 21 / 10;
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -147,7 +152,7 @@ class RaftAttachmentCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: component.metadata.copyWith(
-                      height: 20 / 14,
+                      height: metaLineHeight(t),
                       fontWeight: FontWeight.w500,
                       color: t.brutal
                           ? Colors.black.withValues(alpha: .7)
@@ -166,7 +171,7 @@ class RaftAttachmentCard extends StatelessWidget {
                     ? null
                     : formatSize(sizeBytes!),
                 style: component.metadata.copyWith(
-                  height: 20 / 14,
+                  height: metaLineHeight(t),
                   color: downloadFailed ? failedColor : null,
                 ),
                 separator: t.brutal

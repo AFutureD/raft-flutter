@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'recipe_surface.dart';
+import 'recipes/banner.g.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
 
@@ -391,17 +393,20 @@ class RaftArchivedNameBanner extends StatelessWidget {
       weight: FontWeight.w700,
       color: t.strong,
     );
+    // The public Banner recipe's root (padding, border, fill), not a
+    // hand-measured box.
+    final tokens = t.recipeTokens;
+    final recipe = RaftBannerRecipe.resolve(
+      theme: t.recipeTheme,
+      status: RaftBannerRecipeStatus.warning,
+      states: t.recipeStates(),
+      tokens: tokens,
+    );
     return Semantics(
       liveRegion: true,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: t.colors['warning-soft'],
-          border: Border.all(
-            color: t.brutal ? t.colors['line-strong']! : t.colors['warning']!,
-            width: t.border,
-          ),
-        ),
+      child: RaftRecipeBox(
+        style: recipe.root,
+        tokens: tokens,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

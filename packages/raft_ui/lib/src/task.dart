@@ -228,7 +228,8 @@ class RaftTaskCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: r.root.padding,
-        decoration: r.root.decoration(rt),
+        // `border-[0.5px]` resolves to the used 1px border box.
+        decoration: r.root.withCssUsedBorderWidths().decoration(rt),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,

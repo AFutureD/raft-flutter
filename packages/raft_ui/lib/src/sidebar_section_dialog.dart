@@ -176,6 +176,7 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
             variant: RaftInputGroupRecipeVariant.default_,
             controller: controller,
             maxLength: 80,
+            autofocus: true,
             hintText: raftText(context, 'My Project'),
             semanticLabel: raftText(context, 'Name'),
             onSubmitted: (_) => submit(),
@@ -225,6 +226,8 @@ class _RaftSidebarSectionDialogState extends State<RaftSidebarSectionDialog> {
                 ),
                 textStep: RaftTextSteps.sm,
                 disabled: !canSubmit,
+                // `disabled:opacity-50` on the submit Button.
+                disabledOpacity: .5,
                 onPressed: canSubmit ? submit : null,
               ),
             ],
@@ -305,7 +308,8 @@ class _EmojiButton extends StatelessWidget {
     variant: RaftButtonRecipeVariant.ghost,
     size: RaftButtonRecipeSize.iconMd,
     glyph: emoji.isEmpty ? RaftGlyph.smilePlus : null,
-    glyphSize: 18,
+    // `<SmilePlus size={18}>` inside Button's `[&_svg]:size-4`.
+    glyphSize: 16,
     child: emoji.isEmpty
         ? null
         : Text(emoji, style: const TextStyle(fontSize: 20, height: 28 / 20)),

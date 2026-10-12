@@ -7,6 +7,7 @@ import 'theme.dart';
 import 'rich_card_tokens.dart';
 import 'localization.dart';
 import 'message_body.dart';
+import 'message_row_recipe.dart' show RaftMessageBodyMargin;
 
 /// Only recipient-projected fields are retained. Source pointers, capability
 /// URLs and internal attachment projection IDs never become displayed text.
@@ -174,6 +175,11 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
     }
   }
 
+  static Widget metaLine(TextStyle style, String text) => SizedBox(
+    height: style.fontSize! * style.height!,
+    child: Text(text, style: style),
+  );
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context),
@@ -207,20 +213,22 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                       spacing: 6,
                       runSpacing: 2,
                       children: [
-                        Text(
+                        // A Text rounds a fractional line (15.71px) up; the
+                        // box keeps Web's exact height.
+                        metaLine(
+                          recipe.author,
                           item.author.isEmpty
                               ? raftText(context, 'Unknown author')
                               : item.author,
-                          style: recipe.author,
                         ),
                         if (item.createdAt != null) ...[
-                          Text('·', style: recipe.metadata),
-                          Text(
+                          metaLine(recipe.metadata, '·'),
+                          metaLine(
+                            recipe.metadata,
                             widget.formatTimestamp?.call(item.createdAt!) ??
                                 TimeOfDay.fromDateTime(
                                   item.createdAt!.toLocal(),
                                 ).format(context),
-                            style: recipe.metadata,
                           ),
                         ],
                       ],
@@ -329,7 +337,8 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
           : contents,
     );
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      // `mt-1` collapses with the message body's own margin.
+      padding: EdgeInsets.only(top: RaftMessageBodyMargin.collapse(context, 4)),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: recipe.maxWidth),
         child: Container(
@@ -361,13 +370,13 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              raftFormat(
-                                context,
-                                items.length == 1
-                                    ? '{count} message'
-                                    : '{count} messages',
-                                {'count': items.length},
-                              ),
+                              // message.forward.bundleCount: `one {message}`
+                              // (no number), `other {# messages}`.
+                              items.length == 1
+                                  ? raftText(context, 'message')
+                                  : raftFormat(context, '{count} messages', {
+                                      'count': items.length,
+                                    }),
                               style: widget.headerLine == null
                                   ? recipe.count
                                   : recipe.count.copyWith(
@@ -383,9 +392,14 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
-                          raftFormat(context, 'from {target}', {
-                            'target': first.sourceLabel!,
-                          }),
+                          raftFormat(
+                            context,
+                            first.thread &&
+                                    !first.sourceLabel!.endsWith(' · thread')
+                                ? 'from {target} · thread'
+                                : 'from {target}',
+                            {'target': first.sourceLabel!},
+                          ),
                           style: widget.headerLine == null
                               ? recipe.source
                               : recipe.source.copyWith(
@@ -405,7 +419,11 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                 Container(
                   decoration: recipe.footerDecoration,
                   padding: recipe.footerInset(viewportWidth),
-                  child: Align(
+                  // The footer is a block whose 24px line box holds the
+                  // inline-flex 11px button.
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 24),
+                    child: Align(
                     alignment: Alignment.centerLeft,
                     child: RaftShowMoreToggle(
                       label: expanded
@@ -427,6 +445,7 @@ class _RaftForwardedBundleState extends State<RaftForwardedBundle> {
                         expanded ? RaftGlyph.chevronUp : RaftGlyph.chevronRight,
                         size: 12,
                       ),
+                    ),
                     ),
                   ),
                 ),

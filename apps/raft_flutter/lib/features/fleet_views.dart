@@ -341,6 +341,8 @@ class _FleetViewState extends State<FleetView> {
         error: error == null || rows.isNotEmpty
             ? null
             : raftText(context, 'Directory could not be loaded.'),
+        errorTitle: raftText(context, "Couldn't load computers"),
+        errorDetail: raftText(context, 'Check your connection and try again.'),
         refreshError: error != null && rows.isNotEmpty
             ? raftText(
                 context,

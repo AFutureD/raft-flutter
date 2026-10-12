@@ -6,6 +6,7 @@ import 'recipes/button_variants.g.dart';
 import 'localization.dart';
 import 'theme.dart';
 import 'icons.dart';
+import 'message_row_recipe.dart' show RaftMessageBodyMargin;
 import 'rich_card_tokens.dart';
 
 /// A safe presentation of server-owned action metadata. Execution and current
@@ -123,7 +124,9 @@ class RaftActionCard extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: Padding(
-        padding: EdgeInsets.only(top: recipe.topGap),
+        padding: EdgeInsets.only(
+          top: RaftMessageBodyMargin.collapse(context, recipe.topGap),
+        ),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: recipe.background,

@@ -6,6 +6,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'flex_shrink_row.dart';
 import 'icons.dart';
 import 'indicators.dart';
+import 'message_row_recipe.dart' show RaftBodyTrailingBleed;
 import 'localization.dart';
 import 'theme.dart';
 
@@ -77,8 +78,10 @@ class RaftQuotedMessageSlot extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      Padding(padding: const EdgeInsets.only(top: 6), child: child);
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: RaftBodyTrailingBleed(child: child),
+  );
 }
 
 class RaftQuotedMessageCard extends StatefulWidget {
@@ -165,7 +168,14 @@ class _RaftQuotedMessageCardState extends State<RaftQuotedMessageCard> {
       color: brutal ? black(.4) : placeholder,
       mono: brutal,
       tabular: !brutal,
-    ).copyWith(fontSize: 10, color: hint, fontFamily: t.monoFont);
+    ).copyWith(
+      fontSize: 10,
+      // `text-[10px]`: Brutal resolves 1.4286 (14.29px); Elegant inherits the
+      // content's `leading-5.25` (21px), which also sets the header height.
+      height: brutal ? 20 / 14 : 2.1,
+      color: hint,
+      fontFamily: t.monoFont,
+    );
     // TSX `text-xs leading-snug text-foreground-strong sm:text-[13px]`.
     final text = style(
       size: wide ? 13 : 12,
