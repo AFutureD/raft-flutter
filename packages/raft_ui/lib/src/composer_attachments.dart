@@ -17,6 +17,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'theme.dart';
 import 'tooltip.dart';
+import 'sized_image.dart';
 
 /// Web `PendingFile.uploadStatus`: `validating` is the local selection check
 /// that runs before any transfer, `queued` is not shown separately.
@@ -476,7 +477,7 @@ class _ImageBody extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         const CustomPaint(painter: _TransparencyPainter()),
-        Image.memory(
+        RaftSizedImage.memory(
           item.preview!,
           fit: BoxFit.cover,
           filterQuality: FilterQuality.medium,

@@ -26,6 +26,7 @@ import 'workspace_shell.dart' show RaftWorkspaceRailAction;
 import 'status_bar.dart';
 import 'theme.dart';
 import 'viewport_breakpoints.dart';
+import 'sized_image.dart';
 
 /// `h-panel-header`: 62px on every theme (48px on short viewports).
 double _publicHeaderHeight(BuildContext context) =>
@@ -873,7 +874,7 @@ class RaftPublicServerLogo extends StatelessWidget {
       ),
       child: url == null || url.isEmpty
           ? letter
-          : Image.network(
+          : RaftSizedImage.network(
               url,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => letter,
