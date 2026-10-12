@@ -243,10 +243,10 @@ class RaftAttachmentCard extends StatelessWidget {
                           child:
                               preview ??
                               (transfer != null &&
-                                          (previewPending ||
-                                              error != null && onRetry != null)
-                                      ? const RaftTransferPlaceholder()
-                                      : null) ??
+                                      (previewPending ||
+                                          error != null && onRetry != null)
+                                  ? const RaftTransferPlaceholder()
+                                  : null) ??
                               (previewPending && error == null
                                   ? const SizedBox.expand()
                                   : null) ??
@@ -263,32 +263,15 @@ class RaftAttachmentCard extends StatelessWidget {
                         ),
                       ),
                       if (!exportMode && preview == null)
-                        if (error != null && onRetry != null) ...[
-                          const Positioned.fill(
-                            child: RaftImageTransferOverlay.failed(),
-                          ),
-                          // Option A: tap the failed chip's band to retry; the
-                          // rest of the tile still opens the viewer, which
-                          // fetches the original itself.
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            height: 48,
-                            child: Semantics(
-                              button: true,
-                              label: raftText(
-                                context,
-                                'Download failed · tap to retry',
-                              ),
-                              child: GestureDetector(
-                                key: const ValueKey('attachment-retry'),
-                                behavior: HitTestBehavior.opaque,
-                                onTap: onRetry,
-                              ),
+                        if (error != null && onRetry != null)
+                          // Option A: tap the failed chip's band to retry;
+                          // the rest of the tile still opens the viewer,
+                          // which fetches the original itself.
+                          Positioned.fill(
+                            child: RaftImageTransferOverlay.failed(
+                              onRetry: onRetry,
                             ),
-                          ),
-                        ]
+                          )
                         else if (previewPending && transfer != null)
                           Positioned.fill(
                             child: RaftImageTransferOverlay(

@@ -41,7 +41,8 @@ class RaftTransferProgress {
       : (received / total!).clamp(0.0, 1.0).toDouble();
 
   /// `1.2 / 3.4 MB` (units follow the total), or `1.2 MB` without a total.
-  String get sizeLabel => formatTransferSizes(received, hasTotal ? total : null);
+  String get sizeLabel =>
+      formatTransferSizes(received, hasTotal ? total : null);
 
   @override
   bool operator ==(Object other) =>
@@ -254,12 +255,22 @@ class _BarPainter extends CustomPainter {
       if (brutal && !failed && (frac == null || frac < 1)) {
         final ink = Paint()..color = border;
         canvas.drawRect(
-          Rect.fromLTRB(fillRect.right - rule, fillRect.top, fillRect.right, fillRect.bottom),
+          Rect.fromLTRB(
+            fillRect.right - rule,
+            fillRect.top,
+            fillRect.right,
+            fillRect.bottom,
+          ),
           ink,
         );
         if (frac == null) {
           canvas.drawRect(
-            Rect.fromLTRB(fillRect.left, fillRect.top, fillRect.left + rule, fillRect.bottom),
+            Rect.fromLTRB(
+              fillRect.left,
+              fillRect.top,
+              fillRect.left + rule,
+              fillRect.bottom,
+            ),
             ink,
           );
         }
@@ -298,9 +309,7 @@ class RaftTransferPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     return ColoredBox(
-      color: t.brutal
-          ? t.components.brutalCream
-          : t.colors['fill-muted']!,
+      color: t.brutal ? t.components.brutalCream : t.colors['fill-muted']!,
       child: Center(
         child: RaftIcon(
           RaftGlyph.image,
@@ -332,7 +341,9 @@ class RaftTransferChip extends StatelessWidget {
     final recipe = RaftTransferRecipe(t);
     final foreground = danger
         ? (t.brutal ? RaftPrimitiveColors.black : recipe.dangerForeground)
-        : (t.brutal ? RaftPrimitiveColors.black : Colors.white.withValues(alpha: .95));
+        : (t.brutal
+              ? RaftPrimitiveColors.black
+              : Colors.white.withValues(alpha: .95));
     final style = danger
         ? RaftTypography.body(t, size: 11, line: 14, color: foreground)
         : RaftTypography.mono(t, size: 11, line: 14, color: foreground);
@@ -383,14 +394,20 @@ class RaftImageTransferOverlay extends StatelessWidget {
     this.fallbackTotal,
     this.labelPrefix,
     this.inset = 8,
-  }) : failed = false;
+  }) : failed = false,
+       onRetry = null;
 
   /// The failed state: a full red bar and "Download failed · tap to retry".
-  const RaftImageTransferOverlay.failed({super.key, this.inset = 8})
-    : progress = null,
-      fallbackTotal = null,
-      labelPrefix = null,
-      failed = true;
+  /// With [onRetry] the bottom band holding the chip is a focusable button
+  /// (the rest of the surface keeps its own tap).
+  const RaftImageTransferOverlay.failed({
+    super.key,
+    this.inset = 8,
+    this.onRetry,
+  }) : progress = null,
+       fallbackTotal = null,
+       labelPrefix = null,
+       failed = true;
 
   /// Null value: not on the network (queued, or served from the disk cache),
   /// so nothing is drawn.
@@ -403,10 +420,37 @@ class RaftImageTransferOverlay extends StatelessWidget {
   final String? labelPrefix;
   final bool failed;
   final double inset;
+  final VoidCallback? onRetry;
+
+  /// Height of the retry hit band (the chip, its inset and the bar fit in it).
+  static const retryBand = 48.0;
 
   @override
   Widget build(BuildContext context) {
-    if (failed) return _frame(context, null, failed: true);
+    if (failed) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          _frame(context, null, failed: true),
+          if (onRetry != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: retryBand,
+              child: Semantics(
+                button: true,
+                label: raftText(context, 'Download failed · tap to retry'),
+                // InkWell: focusable, Enter / Space retry.
+                child: InkWell(
+                  key: const ValueKey('attachment-retry'),
+                  onTap: onRetry,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
     return ValueListenableBuilder<RaftTransferProgress?>(
       valueListenable: progress!,
       builder: (context, value, _) => value == null
@@ -583,9 +627,9 @@ class RaftFileTransferPanel extends StatelessWidget {
                     : ValueListenableBuilder<RaftTransferProgress?>(
                         valueListenable: progress,
                         builder: (context, value, _) {
-                          final resolved = (value ??
-                                  RaftTransferProgress.connecting)
-                              .withFallbackTotal(fallbackTotal);
+                          final resolved =
+                              (value ?? RaftTransferProgress.connecting)
+                                  .withFallbackTotal(fallbackTotal);
                           final fraction = resolved.fraction;
                           return Text(
                             resolved.waiting

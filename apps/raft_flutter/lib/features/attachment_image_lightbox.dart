@@ -121,7 +121,8 @@ class AttachmentLightboxImage extends StatefulWidget {
   /// takes this aspect ratio so the stage does not jump when the image lands.
   final Size? imageSize;
   @override
-  State<AttachmentLightboxImage> createState() => AttachmentLightboxImageState();
+  State<AttachmentLightboxImage> createState() =>
+      AttachmentLightboxImageState();
 }
 
 class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
@@ -164,7 +165,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     }
   }
 
-  /// Tap on a failed stage: fetch the original again.
+  /// Tap on the failed chip: fetch the original again.
   void retry() {
     lease?.release(discard: true);
     lease = null;
@@ -202,38 +203,33 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
           width = natural.width;
           height = natural.height;
         }
-        final retryable = failed;
         return Center(
           child: SizedBox(
             width: width,
             height: height,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: retryable ? retry : null,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  thumbnail == null
-                      ? const RaftTransferPlaceholder()
-                      : Image(
-                          image: thumbnail,
-                          key: widget.imageKey,
-                          fit: BoxFit.contain,
-                          gaplessPlayback: true,
-                        ),
-                  if (failed)
-                    const RaftImageTransferOverlay.failed(inset: 10)
-                  else if (transfer != null)
-                    RaftImageTransferOverlay(
-                      progress: transfer!,
-                      fallbackTotal: widget.transferTotalHint,
-                      labelPrefix: thumbnail == null
-                          ? null
-                          : raftText(context, 'Original image'),
-                      inset: 10,
-                    ),
-                ],
-              ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                thumbnail == null
+                    ? const RaftTransferPlaceholder()
+                    : Image(
+                        image: thumbnail,
+                        key: widget.imageKey,
+                        fit: BoxFit.contain,
+                        gaplessPlayback: true,
+                      ),
+                if (failed)
+                  RaftImageTransferOverlay.failed(inset: 10, onRetry: retry)
+                else if (transfer != null)
+                  RaftImageTransferOverlay(
+                    progress: transfer!,
+                    fallbackTotal: widget.transferTotalHint,
+                    labelPrefix: thumbnail == null
+                        ? null
+                        : raftText(context, 'Original image'),
+                    inset: 10,
+                  ),
+              ],
             ),
           ),
         );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
@@ -250,6 +251,57 @@ void main() {
           progress.dispose();
         },
       );
+
+      testWidgets('card: the failed retry is reachable by keyboard', (
+        tester,
+      ) async {
+        var retries = 0;
+        await tester.pumpWidget(
+          host(
+            family,
+            dark,
+            RaftAttachmentCard(
+              filename: 'b.jpg',
+              mimeType: 'image/jpeg',
+              imageExtent: const Size(300, 200),
+              error: 'x',
+              onRetry: () => retries++,
+              onOpen: () {},
+            ),
+          ),
+        );
+        // Tab order: the tile, then the retry band.
+        bool onRetry() {
+          var inside = false;
+          FocusManager.instance.primaryFocus?.context?.visitAncestorElements((
+            element,
+          ) {
+            inside = element.widget.key == const ValueKey('attachment-retry');
+            return !inside;
+          });
+          return inside;
+        }
+
+        for (var i = 0; i < 6 && !onRetry(); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(onRetry(), isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(retries, 1);
+        expect(
+          tester.getSemantics(find.byKey(const ValueKey('attachment-retry'))),
+          matchesSemantics(
+            isButton: true,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+            isFocused: true,
+            label: 'Download failed · tap to retry',
+          ),
+        );
+      });
 
       testWidgets('file panel: progress text, cancel, retry', (tester) async {
         final progress = ValueNotifier<RaftTransferProgress?>(
