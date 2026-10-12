@@ -426,7 +426,7 @@ void main() {
             case 'server':
               w.client.selectServer('other-server');
             case 'role':
-              w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+              w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
             case 'removed':
               (w.client as ParentClient).eventStream.add(
                 const RaftEvent('channel:removed', {

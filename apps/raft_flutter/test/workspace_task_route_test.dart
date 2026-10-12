@@ -217,7 +217,7 @@ void main() {
         final retired = t
             .widget<SourceTaskSurface>(find.byType(SourceTaskSurface))
             .owner;
-        w.server = RaftRecord({...w.server!.json, 'role': 'guest'});
+        w.server = RaftRecord({...w.server!.json, 'role': 'removed'});
         w.notifyListeners();
         await flush(t);
         expect(retired.closed, isTrue);

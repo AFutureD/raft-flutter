@@ -11,6 +11,7 @@ import 'mounted_avatar_recipe.dart';
 import 'recipe_surface.dart';
 import 'recipes/app_rail.g.dart';
 import 'rail_attention.dart';
+import 'status_bar.dart';
 import 'tooltip.dart' show RaftTooltip;
 
 /// A window-sized workspace layout. Panel sizes follow the Web panel contract.
@@ -25,6 +26,8 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
     required this.sidebar,
     required this.rail,
     this.thread,
+    this.profile,
+    this.profileWidth = 380,
     this.onPresentationChanged,
     this.sidebarVisible = true,
     this.mobileNavigation,
@@ -44,6 +47,13 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
   /// interaction and semantics.
   final bool sidebarVisible;
   final Widget? thread, mobileNavigation;
+
+  /// Web `ProfilePanel`: the profile side panel, a surface of its own beside
+  /// the thread (both stay mounted); it overlays the thread when the
+  /// conversation is too narrow for three columns, and the whole workspace
+  /// when folded.
+  final Widget? profile;
+  final double profileWidth;
   final void Function(bool mainVisible, bool threadVisible)?
   onPresentationChanged;
 
@@ -81,13 +91,62 @@ class RaftAdaptiveWorkspace extends StatefulWidget {
 class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
   final mainSlot = GlobalKey();
   final threadSlot = GlobalKey();
+  final profileSlot = GlobalKey();
 
-  Widget conversation({required bool split, double threadSize = 0}) {
-    final folded = widget.thread != null && !split;
+  /// Whether the thread and the profile share the right side (both columns)
+  /// rather than the profile covering the thread.
+  bool columns(double conversationWidth, double threadSize) =>
+      widget.thread != null &&
+      widget.profile != null &&
+      conversationWidth - threadSize - widget.profileWidth >= 320;
+
+  Widget conversation({
+    required bool split,
+    double threadSize = 0,
+    double conversationWidth = 0,
+  }) {
+    final hasSide = widget.thread != null || widget.profile != null;
+    final folded = hasSide && !split;
+    final both = split && columns(conversationWidth, threadSize);
+    final profileOverThread =
+        widget.thread != null && widget.profile != null && !both;
     // Visibility keeps the same state owner, excludes hidden focus/semantics,
     // and exposes presentation admission independently of accepted row data.
-    widget.onPresentationChanged?.call(!folded, widget.thread != null);
+    // A thread replaces the main conversation when folded; a profile overlay
+    // only covers it (Web `absolute inset-0 z-30`), the chat stays mounted
+    // and active underneath.
+    final hideMain = widget.thread != null && !split;
+    widget.onPresentationChanged?.call(
+      !hideMain,
+      widget.thread != null && !(widget.profile != null && !both),
+    );
     Widget thread() => KeyedSubtree(key: threadSlot, child: widget.thread!);
+    Widget profile() => KeyedSubtree(key: profileSlot, child: widget.profile!);
+    Widget panel(Key key, double width, Widget child) => Builder(
+      builder: (context) {
+        final t = RaftTokens.of(context);
+        // ThreadPanelRoot / ProfilePanel are attached Panels: their own left
+        // border is the divider (dropped when folded).
+        final border = Border(
+          left: BorderSide(
+            color: t.brutal ? Colors.black : t.colors['line-muted']!,
+            width: t.brutal ? 2 : 1,
+          ),
+        );
+        // The panel's divider continues up under the status bar; its own
+        // header (when flush) publishes the colour over the panel body.
+        return RaftStatusBarSource(
+          color: Colors.transparent,
+          border: _opaqueOver(border, t.canvas),
+          child: Container(
+            key: key,
+            width: width,
+            decoration: BoxDecoration(border: border),
+            child: child,
+          ),
+        );
+      },
+    );
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -97,38 +156,48 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
               child: KeyedSubtree(
                 key: mainSlot,
                 child: Visibility(
-                  visible: !folded,
+                  visible: !hideMain,
                   maintainState: true,
                   child: widget.content,
                 ),
               ),
             ),
-            if (split && widget.thread != null)
-              Builder(
-                builder: (context) {
-                  final t = RaftTokens.of(context);
-                  // ThreadPanelRoot is an attached Panel: its own left border
-                  // is the Channel | Thread divider (dropped when folded).
-                  return Container(
-                    key: const Key('workspace-thread-panel'),
-                    width: threadSize,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(
-                          color: t.brutal
-                              ? Colors.black
-                              : t.colors['line-muted']!,
-                          width: t.brutal ? 2 : 1,
-                        ),
-                      ),
-                    ),
-                    child: thread(),
-                  );
-                },
+            if (split && both) ...[
+              panel(const Key('workspace-thread-panel'), threadSize, thread()),
+              panel(
+                const Key('workspace-profile-panel'),
+                widget.profileWidth,
+                profile(),
+              ),
+            ] else if (split && profileOverThread)
+              panel(
+                const Key('workspace-thread-panel'),
+                threadSize,
+                Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fill(child: ExcludeFocus(child: thread())),
+                    Positioned.fill(child: profile()),
+                  ],
+                ),
+              )
+            else if (split && widget.thread != null)
+              panel(const Key('workspace-thread-panel'), threadSize, thread())
+            else if (split && widget.profile != null)
+              panel(
+                const Key('workspace-profile-panel'),
+                widget.profileWidth,
+                profile(),
               ),
           ],
         ),
-        if (folded) Positioned.fill(child: thread()),
+        if (folded && widget.thread != null)
+          Positioned.fill(
+            child: widget.profile == null
+                ? thread()
+                : ExcludeFocus(child: thread()),
+          ),
+        if (folded && widget.profile != null) Positioned.fill(child: profile()),
       ],
     );
   }
@@ -179,7 +248,14 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         t,
         MediaQuery.sizeOf(context).height,
       );
-      final hasThread = widget.thread != null;
+      final sidebarColor = t.brutal ? t.colors['brutal-cream']! : t.sidebar;
+      final sidebarBorder = Border(
+        right: BorderSide(
+          color: t.brutal ? Colors.black : t.colors['line-muted']!,
+          width: t.brutal ? 2 : 1,
+        ),
+      );
+      final hasThread = widget.thread != null || widget.profile != null;
       final conversationWidth =
           width -
           railWidth -
@@ -218,24 +294,19 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                         enabled: widget.sidebarVisible,
                         child: ExcludeFocus(
                           excluding: !widget.sidebarVisible,
-                          child: Container(
-                            key: const Key('workspace-sidebar-panel'),
-                            width: sidebarWidth,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                right: BorderSide(
-                                  color: t.brutal
-                                      ? Colors.black
-                                      : t.colors['line-muted']!,
-                                  width: t.brutal ? 2 : 1,
-                                ),
+                          child: RaftStatusBarSource(
+                            // The sidebar colour and its divider continue up
+                            // under the status bar.
+                            color: sidebarColor,
+                            border: _opaqueOver(sidebarBorder, t.canvas),
+                            child: Container(
+                              key: const Key('workspace-sidebar-panel'),
+                              width: sidebarWidth,
+                              decoration: BoxDecoration(border: sidebarBorder),
+                              child: Material(
+                                color: sidebarColor,
+                                child: retainedSidebar,
                               ),
-                            ),
-                            child: Material(
-                              color: t.brutal
-                                  ? t.colors['brutal-cream']
-                                  : t.sidebar,
-                              child: retainedSidebar,
                             ),
                           ),
                         ),
@@ -245,6 +316,7 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                 child: conversation(
                   split: sideThread,
                   threadSize: actualThread,
+                  conversationWidth: conversationWidth,
                 ),
               ),
               SizedBox(width: widget.trailingExtent),
@@ -263,9 +335,14 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
                 onChanged: resizeSidebar,
               ),
             ),
-          if (sideThread)
+          if (sideThread && widget.thread != null)
             Positioned(
-              right: actualThread - 4,
+              right:
+                  (columns(conversationWidth, actualThread)
+                      ? widget.profileWidth
+                      : 0) +
+                  actualThread -
+                  4,
               top: 0,
               bottom: 0,
               width: 8,
@@ -447,148 +524,154 @@ class RaftWorkspaceRail extends StatelessWidget {
     // AppRailRoot is a CSS border box: Container reserves its border width
     // before centering children. Explicit zero padding keeps the same padding
     // wrapper in Elegant, preserving child state when the theme changes.
-    return Container(
-      padding: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: recipe.background,
-        border: t.brutal
-            ? Border(
-                right: thinDivider
-                    ? recipe.border.copyWith(width: 1)
-                    : recipe.border,
-              )
-            : null,
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            workspaceHeader ??
-                SizedBox(
-                  height: headerHeight,
-                  child: RaftTooltip(
-                    message: workspaceTooltip,
-                    child: IconButton(
-                      key: const Key('rail-workspace'),
-                      constraints: BoxConstraints.tightFor(
-                        width: bounds.layoutHeight,
-                        height: bounds.layoutHeight,
-                      ),
-                      style: IconButton.styleFrom(
-                        minimumSize: Size.square(bounds.layoutHeight),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: const RoundedRectangleBorder(),
-                      ),
-                      onPressed: onWorkspace,
-                      icon: _RailAvatar(
-                        name: workspaceName,
-                        size: visualSize - 4,
+    final railBorder = t.brutal
+        ? Border(
+            right: thinDivider
+                ? recipe.border.copyWith(width: 1)
+                : recipe.border,
+          )
+        : null;
+    // The rail colour and its divider continue up under the status bar.
+    return RaftStatusBarSource(
+      color: recipe.background,
+      border: railBorder,
+      child: Container(
+        padding: EdgeInsets.zero,
+        decoration: BoxDecoration(color: recipe.background, border: railBorder),
+        child: SafeArea(
+          child: Column(
+            children: [
+              workspaceHeader ??
+                  SizedBox(
+                    height: headerHeight,
+                    child: RaftTooltip(
+                      message: workspaceTooltip,
+                      child: IconButton(
+                        key: const Key('rail-workspace'),
+                        constraints: BoxConstraints.tightFor(
+                          width: bounds.layoutHeight,
+                          height: bounds.layoutHeight,
+                        ),
+                        style: IconButton.styleFrom(
+                          minimumSize: Size.square(bounds.layoutHeight),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: const RoundedRectangleBorder(),
+                        ),
+                        onPressed: onWorkspace,
+                        icon: _RailAvatar(
+                          name: workspaceName,
+                          size: visualSize - 4,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: nav.padding,
-                child: Column(
-                  spacing: nav.rowGap ?? 0,
-                  children: [
-                    for (final d in destinations)
-                      Semantics(
-                        selected: selected == d.id,
-                        child: Padding(
-                          padding: EdgeInsets.zero,
-                          child: RaftTooltip(
-                            message: d.label,
-                            child: IconButton(
-                              key: ValueKey('rail-${d.id}'),
-                              isSelected: selected == d.id,
-                              constraints: BoxConstraints.tightFor(
-                                width: bounds.layoutHeight,
-                                height: bounds.layoutHeight,
-                              ),
-                              style: IconButton.styleFrom(
-                                minimumSize: Size.square(bounds.layoutHeight),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: recipe.radius,
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: nav.padding,
+                  child: Column(
+                    spacing: nav.rowGap ?? 0,
+                    children: [
+                      for (final d in destinations)
+                        Semantics(
+                          selected: selected == d.id,
+                          child: Padding(
+                            padding: EdgeInsets.zero,
+                            child: RaftTooltip(
+                              message: d.label,
+                              child: IconButton(
+                                key: ValueKey('rail-${d.id}'),
+                                isSelected: selected == d.id,
+                                constraints: BoxConstraints.tightFor(
+                                  width: bounds.layoutHeight,
+                                  height: bounds.layoutHeight,
                                 ),
-                                foregroundColor: t.brutal ? t.strong : t.muted,
-                                backgroundColor: Colors.transparent,
-                              ),
-                              icon: Container(
-                                width: visualSize,
-                                height: visualSize,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: selected == d.id
-                                      ? recipe.selectedBackground
-                                      : Colors.transparent,
-                                  borderRadius: recipe.radius,
-                                  border: Border.all(
-                                    color: selected == d.id && t.brutal
-                                        ? t.strong
-                                        : Colors.transparent,
-                                    width: t.brutal ? 2 : 1,
+                                style: IconButton.styleFrom(
+                                  minimumSize: Size.square(bounds.layoutHeight),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: recipe.radius,
                                   ),
-                                  boxShadow: selected == d.id && t.brutal
-                                      ? [
-                                          BoxShadow(
-                                            color: t.strong,
-                                            offset: const Offset(2, 2),
-                                          ),
-                                        ]
-                                      : null,
+                                  foregroundColor: t.brutal
+                                      ? t.strong
+                                      : t.muted,
+                                  backgroundColor: Colors.transparent,
                                 ),
-                                child: Stack(
+                                icon: Container(
+                                  width: visualSize,
+                                  height: visualSize,
                                   alignment: Alignment.center,
-                                  fit: StackFit.expand,
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    Center(
-                                      child: SizedBox.square(
-                                        dimension: recipe.glyphSize,
-                                        child: Stack(
-                                          clipBehavior: Clip.none,
-                                          fit: StackFit.expand,
-                                          children: [
-                                            railGlyph(d, recipe.glyphSize),
-                                            if (d.attention &&
-                                                (!d.attentionInactiveOnly ||
-                                                    selected != d.id))
-                                              RaftRailAttention(
-                                                child: railGlyph(
-                                                  d,
-                                                  recipe.glyphSize,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
+                                  decoration: BoxDecoration(
+                                    color: selected == d.id
+                                        ? recipe.selectedBackground
+                                        : Colors.transparent,
+                                    borderRadius: recipe.radius,
+                                    border: Border.all(
+                                      color: selected == d.id && t.brutal
+                                          ? t.strong
+                                          : Colors.transparent,
+                                      width: t.brutal ? 2 : 1,
                                     ),
-                                    if (d.unread > 0)
-                                      Positioned(
-                                        right: -4,
-                                        top: -4,
-                                        child: RaftRailUnreadCount(
-                                          count: d.unread,
+                                    boxShadow: selected == d.id && t.brutal
+                                        ? [
+                                            BoxShadow(
+                                              color: t.strong,
+                                              offset: const Offset(2, 2),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    fit: StackFit.expand,
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Center(
+                                        child: SizedBox.square(
+                                          dimension: recipe.glyphSize,
+                                          child: Stack(
+                                            clipBehavior: Clip.none,
+                                            fit: StackFit.expand,
+                                            children: [
+                                              railGlyph(d, recipe.glyphSize),
+                                              if (d.attention &&
+                                                  (!d.attentionInactiveOnly ||
+                                                      selected != d.id))
+                                                RaftRailAttention(
+                                                  child: railGlyph(
+                                                    d,
+                                                    recipe.glyphSize,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                  ],
+                                      if (d.unread > 0)
+                                        Positioned(
+                                          right: -4,
+                                          top: -4,
+                                          child: RaftRailUnreadCount(
+                                            count: d.unread,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
+                                onPressed: () => onSelected(d.id),
                               ),
-                              onPressed: () => onSelected(d.id),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (footer != null) footer!,
-            const SizedBox(height: 8),
-          ],
+              if (footer != null) footer!,
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -738,3 +821,14 @@ class _MobileKeyboardLayoutDelegate extends MultiChildLayoutDelegate {
   bool shouldRelayout(_MobileKeyboardLayoutDelegate old) =>
       old.floating != floating || old.keyboard != keyboard;
 }
+
+/// [border] with its sides composited over [backdrop]: a divider drawn outside
+/// a column's own background sits on the page behind it, not on the column.
+Border _opaqueOver(Border border, Color backdrop) => Border(
+  left: border.left.copyWith(
+    color: Color.alphaBlend(border.left.color, backdrop),
+  ),
+  right: border.right.copyWith(
+    color: Color.alphaBlend(border.right.color, backdrop),
+  ),
+);

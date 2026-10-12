@@ -568,6 +568,7 @@ Widget senderProfileHoverCard({
   required RaftMessage message,
   required RaftAvatarContent content,
   required Widget child,
+  ValueChanged<String>? onOpenActivity,
 }) {
   final type = message.string('senderType');
   final id = message.string('senderId');
@@ -597,6 +598,7 @@ Widget senderProfileHoverCard({
     agent: type == 'agent',
     id: id,
     fallbackLabel: message.string('senderName'),
+    onOpenActivity: onOpenActivity,
     avatar: RaftAvatarSlot(
       name: message.author,
       slot: RaftAvatarSlotContext.mentionCard,

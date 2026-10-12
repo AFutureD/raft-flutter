@@ -256,7 +256,7 @@ void main() {
         parentMessageId: 'parent',
       );
       expect(w.location.toString(), uri);
-      w.server = RaftRecord({'id': 's1', 'role': 'guest'});
+      w.server = RaftRecord({'id': 's1', 'role': 'removed'});
       final deniedUri = w.location.toString();
       await w.openThreadIdentity(
         parentChannelId: 'c1',
