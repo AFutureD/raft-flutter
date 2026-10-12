@@ -92,7 +92,11 @@ class RaftRecipeButton extends StatelessWidget {
     this.focusNode,
     this.glyphTrailing = false,
     this.focusRing = false,
+    this.disabledOpacity,
   });
+
+  /// Callsite `disabled:opacity-*` replacing the recipe's disabled opacity.
+  final double? disabledOpacity;
 
   /// Paints the focus-visible ring while focused even after a pointer press
   /// (Blink keeps `:focus-visible` on an element that script focused when a
@@ -219,8 +223,11 @@ class RaftRecipeButton extends StatelessWidget {
       child: Center(widthFactor: expand ? null : 1, child: content),
     );
     box = Transform.translate(offset: translate, child: box);
-    if (root.opacity != null && root.opacity! < 1) {
-      box = Opacity(opacity: root.opacity!, child: box);
+    final opacity = disabled && disabledOpacity != null
+        ? disabledOpacity
+        : root.opacity;
+    if (opacity != null && opacity < 1) {
+      box = Opacity(opacity: opacity, child: box);
     }
     return box;
   }
