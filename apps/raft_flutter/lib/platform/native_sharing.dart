@@ -180,6 +180,16 @@ class NativeSharing {
 
   Future<void> init() => _initialization ??= _init();
 
+  /// A wake-up signal only; content is read from the validated shared inbox.
+  static bool isIncomingShareLink(Uri uri) =>
+      uri.scheme == 'raft' &&
+      uri.host == 'share' &&
+      uri.userInfo.isEmpty &&
+      !uri.hasPort &&
+      !uri.hasQuery &&
+      !uri.hasFragment &&
+      RegExp(r'^/[a-f0-9]{32}$').hasMatch(uri.path);
+
   Future<void> _init() async {
     if (!supported || _closed) return;
     // Android provider events remain owned by receive_intent. An iOS extension

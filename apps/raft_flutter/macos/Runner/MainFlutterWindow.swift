@@ -8,6 +8,12 @@ class MainFlutterWindow: NSWindow {
     // Do not restore an old fullscreen/Space state during background launch.
     isRestorable = false
     let flutterViewController = FlutterViewController()
+    // The window is ordered in before Flutter's first frame (AppDelegate), and
+    // until then FlutterView paints black. Use the stored theme's canvas colour
+    // for both so a dark theme does not flash white (or a light one black).
+    let canvas = MainFlutterWindow.storedCanvasColor()
+    self.backgroundColor = canvas
+    flutterViewController.backgroundColor = canvas
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
@@ -31,6 +37,21 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()
+  }
+
+  /// `layer-canvas` of the stored appearance. shared_preferences keeps
+  /// `raft.mode` / `raft.light` in NSUserDefaults under the `flutter.` prefix.
+  /// Dark is always Elegant dark (#141411); every light family's canvas is white.
+  private static func storedCanvasColor() -> NSColor {
+    let mode = UserDefaults.standard.string(forKey: "flutter.raft.mode") ?? "system"
+    var dark = mode == "dark"
+    if mode == "system" {
+      let match = NSApplication.shared.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
+      dark = match == .darkAqua
+    }
+    return dark
+      ? NSColor(srgbRed: 20.0 / 255.0, green: 20.0 / 255.0, blue: 17.0 / 255.0, alpha: 1)
+      : NSColor.white
   }
 }
 
@@ -124,15 +145,33 @@ final class RaftTitleBar: NSObject {
       result(nil)
     case "doubleClick":
       // The user's System Settings choice for a title bar double-click.
-      let action = UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick")
-      if action == "Minimize" {
-        window?.miniaturize(nil)
-      } else if action != "None" {
-        window?.zoom(nil)
+      // "Fill" (macOS 15+) fills the screen's usable area and a second
+      // double-click restores; older systems only have the Minimize bool.
+      let defaults = UserDefaults.standard
+      let action = defaults.string(forKey: "AppleActionOnDoubleClick")
+        ?? (defaults.bool(forKey: "AppleMiniaturizeOnDoubleClick") ? "Minimize" : "Maximize")
+      switch action {
+      case "Minimize": window?.miniaturize(nil)
+      case "None": break
+      case "Fill": fill()
+      default: window?.zoom(nil)
       }
       result(nil)
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private var frameBeforeFill: NSRect?
+
+  private func fill() {
+    guard let window, let visible = window.screen?.visibleFrame else { return }
+    if window.frame == visible, let previous = frameBeforeFill {
+      frameBeforeFill = nil
+      window.setFrame(previous, display: true, animate: true)
+    } else {
+      frameBeforeFill = window.frame
+      window.setFrame(visible, display: true, animate: true)
     }
   }
 }

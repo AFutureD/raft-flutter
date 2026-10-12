@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -11,6 +12,65 @@ import 'package:raft_ui/raft_ui.dart';
 import 'app_global_server_selector_test.dart' show RootFixture;
 
 void main() {
+  for (final cold in [true, false]) {
+    testWidgets(
+      'iOS ${cold ? 'cold' : 'warm'} handoff opens the shared picker once without sending',
+      (t) async {
+        final directory = (await t.runAsync(
+          () => Directory.systemTemp.createTemp('raft-ios-root-share-test-'),
+        ))!;
+        final token = 'a' * 32;
+        Future<void> publish() async {
+          final folder = await Directory('${directory.path}/$token').create();
+          await File('${folder.path}/envelope.json').writeAsString(
+            jsonEncode({
+              'token': token,
+              'created': DateTime.now().millisecondsSinceEpoch,
+              'pending': true,
+              'text': 'iOS shared text',
+              'files': [],
+            }),
+          );
+        }
+
+        final sharing = NativeSharing(
+          supported: true,
+          ios: true,
+          incomingDirectory: () async => directory,
+        );
+        final f = RootFixture(sharing: sharing);
+        final wake = Uri.parse('raft://share/$token');
+        if (cold) await t.runAsync(publish);
+        await f.mount(t, 'elegant', 390, uri: cold ? wake : null);
+        if (!cold) {
+          await t.runAsync(publish);
+          f.content.receiveLink(wake);
+        }
+        for (
+          var i = 0;
+          i < 6 && find.byType(IncomingSharePicker).evaluate().isEmpty;
+          i++
+        ) {
+          await f.flush(t);
+        }
+        expect(find.byType(IncomingSharePicker), findsOneWidget);
+        f.content.receiveLink(wake);
+        f.content.receiveLink(wake);
+        await f.flush(t);
+        expect(find.byType(IncomingSharePicker), findsOneWidget);
+        expect(
+          f.adapter.calls.where(
+            (call) =>
+                call.path == '/v2/messages' ||
+                call.path.contains('/attachments/upload'),
+          ),
+          isEmpty,
+        );
+        await t.pumpWidget(const SizedBox());
+        await t.runAsync(() => directory.delete(recursive: true));
+      },
+    );
+  }
   testWidgets(
     'share admitted before restore selects another server and appends editable queued files without upload',
     (t) async {

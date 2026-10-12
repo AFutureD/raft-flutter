@@ -61,7 +61,7 @@ class SceneDelegate: FlutterSceneDelegate {
     // change it per user choice). This view takes over at once with the stored
     // theme's canvas and the chosen icon as a centred tile, and disappears at
     // the first rendered Flutter frame.
-    var system = scene.traitCollection.userInterfaceStyle
+    var system = (scene as? UIWindowScene)?.traitCollection.userInterfaceStyle ?? .unspecified
     if system == .unspecified { system = UIScreen.main.traitCollection.userInterfaceStyle }
     let startup = UIView()
     startup.backgroundColor = RaftStartupPalette.canvas(
