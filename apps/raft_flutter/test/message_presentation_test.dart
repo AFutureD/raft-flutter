@@ -476,7 +476,7 @@ void main() {
       await tester.pumpWidget(
         host(MessageActionCard(controller: w, message: message)),
       );
-      await tester.tap(find.text('Add members').last);
+      await tester.tap(find.text('Add Members').last);
       await tester.pumpAndSettle();
       // The Web dialog: title, target channel, one row per candidate.
       expect(find.text('ADD MEMBERS'), findsOneWidget);
