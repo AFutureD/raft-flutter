@@ -99,8 +99,11 @@ class ReleaseTests(unittest.TestCase):
                     archive.writestr(f'lib/{abi}/libapp.so', b'native bytes')
 
             write_apk('arm64-v8a')
-            with patch.object(release.subprocess, 'check_output', side_effect=[badging, cert, signatures]):
-                result = release.verify_android(apk, Path(temp) / 'key.jks', env, '0.1.0', '1')
+            for label in ['Signer #1', 'V2 Signer:', 'V3 Signer #1:', 'V3.1 Signer:', 'V4 Signer:']:
+                output = signatures.replace('Signer #1', label)
+                with self.subTest(label=label), \
+                        patch.object(release.subprocess, 'check_output', side_effect=[badging, cert, output]):
+                    result = release.verify_android(apk, Path(temp) / 'key.jks', env, '0.1.0', '1')
             self.assertEqual(result['versionCode'], 2001)
             self.assertEqual(result['certificateSHA256'], hashlib.sha256(cert).hexdigest())
             for invalid in [badging.replace('app.raft.raft_flutter', 'app.raft.raft_flutter.linkperf'),
