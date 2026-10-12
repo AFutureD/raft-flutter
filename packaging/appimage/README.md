@@ -6,7 +6,9 @@ not used. The current type2-runtime has static FUSE 3 and extract-and-run suppor
 
 `excludelist` is vendored unchanged from
 https://github.com/AppImage/pkg2appimage/blob/19e30b276ffedf4d3b4b56bc6320f463625a74f8/excludelist.
-Its rationale comments are retained. This keeps libc/device/display/font libraries
+Its rationale comments are retained. The optional JACK client is an explicit
+exception: Ubuntu libmpv/libavdevice link it, while a KDE desktop may not have it.
+GLES and Vulkan device loaders are additionally kept on the host. This keeps libc/device/display/font libraries
 on the host and bundles the remaining GTK and media dependencies together.
 
 The shipped runtime's MIT license and source snapshot metadata accompany the

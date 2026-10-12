@@ -5,7 +5,7 @@ if [[ "${GITHUB_ACTIONS:-}" != true ]] || [[ -e /dev/fuse ]]; then
   echo 'Expected a disposable CI container without /dev/fuse' >&2
   exit 1
 fi
-dnf install -y python3 dbus-daemon gnome-keyring xorg-x11-server-Xvfb xorg-x11-utils ImageMagick \
+dnf install -y python3 dbus-daemon gnome-keyring xorg-x11-server-Xvfb xwininfo ImageMagick \
   kwin-wayland spectacle mesa-dri-drivers mesa-libEGL mesa-libGL libglvnd-egl libglvnd-glx \
   fontconfig freetype harfbuzz libwayland-client alsa-lib pipewire-libs libstdc++
 artifact=$(find /artifacts -maxdepth 1 -name '*.AppImage' -print -quit)

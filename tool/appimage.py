@@ -22,9 +22,13 @@ def digest(path):
 
 
 def exclusions():
-    return {'libGLESv2.so.2', 'libvulkan.so.1'} | {line.split('#')[0].strip() for line in
-            (ROOT / 'packaging/appimage/excludelist').read_text().splitlines()
-            if line.split('#')[0].strip()}
+    vendor = {line.split('#')[0].strip() for line in
+              (ROOT / 'packaging/appimage/excludelist').read_text().splitlines()
+              if line.split('#')[0].strip()}
+    # Ubuntu's libmpv/libavdevice link JACK even for ordinary playback. JACK
+    # is optional on KDE/Fedora, so bundle its client instead of requiring users
+    # to install a music-production backend just to open the application.
+    return (vendor | {'libGLESv2.so.2', 'libvulkan.so.1'}) - {'libjack.so.0'}
 
 
 def elf(path):
