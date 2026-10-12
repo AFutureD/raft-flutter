@@ -246,11 +246,12 @@ void main() {
   );
 
   test('RaftClient wires the proxy connector into its socket options', () {
-    // The sharded gate runs from the repository root, a plain `flutter test`
-    // from the package: find the source from either.
+    // A plain `flutter test` runs from the package, the gate's shards from the
+    // repository root or apps/raft_flutter: find the source from any of them.
     final source = [
       'lib/src/client.dart',
       'packages/raft_client/lib/src/client.dart',
+      '../../packages/raft_client/lib/src/client.dart',
     ].map(File.new).firstWhere((f) => f.existsSync()).readAsStringSync();
     expect(source, contains('applyProxyTransport('));
     expect(source, contains('createProxiedDio('));
