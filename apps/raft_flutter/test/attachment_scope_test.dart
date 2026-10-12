@@ -488,7 +488,9 @@ void main() {
         t.widget<RaftAttachmentCard>(find.byType(RaftAttachmentCard)).preview,
         isNull,
       );
-      expect(files.cancellation!.isCancelled, true);
+      // The fetch had completed, so its token was already released (keeping
+      // it pinned the response bytes); revocation has nothing left to cancel.
+      expect(files.cancellation!.isCancelled, false);
       expect(
         PaintingBinding.instance.imageCache.containsKey(MemoryImage(bytes)),
         false,

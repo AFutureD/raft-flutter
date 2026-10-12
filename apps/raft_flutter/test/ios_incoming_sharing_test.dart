@@ -39,6 +39,29 @@ void main() {
         incomingDirectory: directory ?? () async => root,
       );
 
+  test('share wake links accept only an opaque inbox token', () {
+    expect(
+      NativeSharing.isIncomingShareLink(Uri.parse('raft://share/${'a' * 32}')),
+      isTrue,
+    );
+    for (final location in [
+      'raft://share/not-a-token',
+      'raft://share/${'a' * 32}/item-0',
+      'raft://share/${'a' * 32}?path=/tmp/private',
+      'raft://share/${'a' * 32}#fragment',
+      'raft://user@share/${'a' * 32}',
+      'raft://share:80/${'a' * 32}',
+      'https://share/${'a' * 32}',
+      'raft://oauth/callback',
+    ]) {
+      expect(
+        NativeSharing.isIncomingShareLink(Uri.parse(location)),
+        isFalse,
+        reason: location,
+      );
+    }
+  });
+
   test(
     'iOS cold recovery, repeated resume and later shares preserve identity',
     () async {
