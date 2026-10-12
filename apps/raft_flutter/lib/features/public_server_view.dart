@@ -568,6 +568,16 @@ class _PublicServerViewState extends State<PublicServerView> {
     bool parent = false,
     VoidCallback? onThread,
   }) {
+    // A main-timeline row with replies draws the badge: its caller must open
+    // the thread, or the badge is a dead tap.
+    assert(
+      parent ||
+          thread ||
+          m.threadId == null ||
+          m.replyCount <= 0 ||
+          onThread != null,
+      'public row ${m.id} has replies but no onThread',
+    );
     final formatter = timeFormatter;
     if (m.messageType == 'system') {
       return RaftSystemMessage(

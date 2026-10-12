@@ -5586,6 +5586,10 @@ class _ResourceViewState extends State<ResourceView> {
       result = await scopedDialog<String>(scope, (context) {
         return SourceTaskSurface(
           owner: owner,
+          // The board dialog is its own modal: no task slot / billing page
+          // behind it (references fall back to their read-only summary).
+          onTask: null,
+          onViewBilling: null,
           onClose: () => closeOwnedDialog(context, scope),
           onCleanupDelete: () {
             if (owner.canCleanupDelete) {

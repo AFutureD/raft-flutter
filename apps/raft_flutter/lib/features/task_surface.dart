@@ -14,6 +14,8 @@ class SourceTaskSurface extends StatefulWidget {
     super.key,
     required this.owner,
     required this.onClose,
+    required this.onTask,
+    required this.onViewBilling,
     this.onCleanupDelete,
     this.onBack,
     this.legacyPresentation = RaftLegacyTaskPresentation.modal,
@@ -21,6 +23,13 @@ class SourceTaskSurface extends StatefulWidget {
   });
   final TaskSurfaceController owner;
   final VoidCallback onClose;
+
+  /// Opens another task from an in-body `#N` reference of the discussion (Web
+  /// swaps the modal's task); null when the host has no task slot.
+  final ChatTaskOpener? onTask;
+
+  /// The discussion's plan banner "View Billing" link; null hides it.
+  final VoidCallback? onViewBilling;
   final VoidCallback? onCleanupDelete;
   final VoidCallback? onBack;
   final RaftLegacyTaskPresentation legacyPresentation;
@@ -146,7 +155,12 @@ class _SourceTaskSurfaceState extends State<SourceTaskSurface> {
                 retryLabel: raftText(context, 'Retry'),
                 onRetry: o.parentRemoved ? null : o.start,
               )
-            : RaftChatView(controller: o.discussion!, thread: true),
+            : RaftChatView(
+                controller: o.discussion!,
+                thread: true,
+                onTask: widget.onTask,
+                onViewBilling: widget.onViewBilling,
+              ),
         discussionBuilder: o.discussion == null
             ? null
             : (head) => RaftChatView(
@@ -154,6 +168,8 @@ class _SourceTaskSurfaceState extends State<SourceTaskSurface> {
                 thread: true,
                 hideThreadParent: true,
                 threadParentSlot: head,
+                onTask: widget.onTask,
+                onViewBilling: widget.onViewBilling,
               ),
       );
     },
