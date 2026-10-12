@@ -5244,7 +5244,7 @@ class _ResourceViewState extends State<ResourceView> {
   /// TasksPanelViewport `bg-layer-canvas-muted theme-brutal:bg-white
   /// dark:bg-transparent`: dark shows the ancestor surface (see build).
   Color taskViewportFill(RaftTokens t) =>
-      t.brutal ? t.panel : (t.dark ? Colors.transparent : t.sidebar);
+      t.brutal ? t.panel : (t.dark ? const Color(0x00000000) : t.sidebar);
 
   /// TasksPanel channel mode with no task at all: the centred EmptyState
   /// (`sortedTasks.length === 0 && isChannelMode`) instead of empty lanes.
