@@ -33,6 +33,7 @@ import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
+import 'platform/launch_theme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
@@ -194,22 +195,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   WorkspaceController? workspace;
   WorkspaceCache? cache;
   StreamSubscription<RaftEvent>? sessionEvents;
-  RaftAppearance appearance = savedAppearance(DevicePreferences.current);
+  // Known before the first build: the deferred first frame is not the only
+  // guard against painting the default family before the stored one.
+  RaftAppearance appearance = storedAppearance();
   bool restoring = true;
   String? bootError;
-
-  /// The saved theme choice. The preloaded [DevicePreferences] make it known
-  /// on the first frame, so "Restoring session…" and the first auth page
-  /// already use the user's theme instead of flashing the default (brutal
-  /// light) until SharedPreferences resolves.
-  static RaftAppearance savedAppearance(SharedPreferences? p) => p == null
-      ? const RaftAppearance()
-      : RaftAppearance(
-          mode: ThemeMode.values.asNameMap()[p.getString('raft.mode')] ??
-              ThemeMode.system,
-          light: RaftFamily.values.asNameMap()[p.getString('raft.light')] ??
-              RaftFamily.brutal,
-        );
   String origin = const String.fromEnvironment(
     'RAFT_ORIGIN',
     defaultValue: 'https://api.raft.build',
@@ -517,7 +507,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final p = await SharedPreferences.getInstance();
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
-      appearance = savedAppearance(p);
+      appearance = storedAppearance(p);
+      // Heals the native splash theme (app update, restored preferences).
+      unawaited(NativeLaunchTheme.instance.set(appearance));
       cache =
           await (widget.openWorkspaceCache?.call() ??
               DriftWorkspaceCache.open());
@@ -1709,6 +1701,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final p = await SharedPreferences.getInstance();
     await p.setString('raft.mode', value.mode.name);
     await p.setString('raft.light', value.light.name);
+    // The next cold start's native splash needs the new canvas.
+    await NativeLaunchTheme.instance.set(value);
   }
 
   @override

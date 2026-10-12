@@ -26,9 +26,11 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         prepareSharedUris(intent)
         super.onCreate(savedInstanceState)
-        // Flutter switches to NormalTheme before first paint. Restore the
-        // selected brand background synchronously for that startup interval.
-        window.setBackgroundDrawableResource(AppIconPalette.background(this))
+        // Flutter switches to NormalTheme before first paint. Give the window
+        // the stored theme's canvas for that startup interval, and persist the
+        // splash theme (stored appearance + enabled icon) for the next launch.
+        window.setBackgroundDrawable(LaunchTheme.background(this))
+        LaunchTheme.apply(this)
         consumeShare(intent)
     }
 
@@ -85,6 +87,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         sharing = NativeSharingBridge(this, flutterEngine, ::shareReceiverAttached)
         systemFonts = NativeSystemFontsBridge(this, flutterEngine)
+        LaunchTheme.register(this, flutterEngine)
         NativePdfPreviewBridge(this, flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.raft/ime")
             .setMethodCallHandler { call, result ->
