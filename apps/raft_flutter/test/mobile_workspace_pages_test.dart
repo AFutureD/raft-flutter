@@ -252,10 +252,13 @@ void main() {
     );
     final navigation = WorkspaceNavigation();
     navigation.bind('cold-task-alias', thread.withQuery({'task': '1'}));
-    expect(mobilePageEntries(navigation), hasLength(3));
+    // Home -> conversation -> thread -> task: a cold thread still has its
+    // conversation page under it.
+    expect(mobilePageEntries(navigation), hasLength(4));
     expect(backMobilePage(navigation), thread);
     expect(navigation.location.task, isNull);
     expect(navigation.location.thread?.itemId, 'message');
+    expect(mobilePageEntries(navigation), hasLength(3));
   });
 
   testWidgets(

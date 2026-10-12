@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'layout_hold.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
@@ -601,7 +602,15 @@ class _AttachmentViewState extends State<AttachmentView> {
     }
   }
 
-  ModalRoute<void> createPreviewRoute(bool page, WidgetBuilder builder) => page
+  ModalRoute<void> createPreviewRoute(bool page, WidgetBuilder builder) =>
+      _heldRoute(_previewRoute(page, builder));
+
+  ModalRoute<void> _heldRoute(ModalRoute<void> route) {
+    LayoutHold.hold(route);
+    return route;
+  }
+
+  ModalRoute<void> _previewRoute(bool page, WidgetBuilder builder) => page
       ? MaterialPageRoute<void>(
           settings: const RouteSettings(name: '/attachment-preview'),
           builder: (context) {

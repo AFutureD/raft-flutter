@@ -303,6 +303,31 @@ class _RaftChatViewState extends State<RaftChatView>
         leading: leading,
       );
 
+  /// Aligns a built row found by its wrapper key (no highlight anchor).
+  RaftTimelineAlignment alignOnRow(String key, {double? leading}) =>
+      RaftTimelineAlignment.row(
+        find: () {
+          RenderBox? found;
+          void visit(Element element) {
+            if (found != null) return;
+            if (element.widget.key == ValueKey('message-wrapper-$key')) {
+              final box = element.renderObject;
+              if (box is RenderBox && box.attached) found = box;
+              return;
+            }
+            element.visitChildren(visit);
+          }
+
+          try {
+            (context as Element).visitChildren(visit);
+          } on FlutterError {
+            return null;
+          }
+          return found;
+        },
+        leading: leading,
+      );
+
   double distanceFromLatest(ScrollPosition p) => p.maxScrollExtent - p.pixels;
   int newMessageCount = 0;
   Timer? highlightTimer;
@@ -792,6 +817,53 @@ class _RaftChatViewState extends State<RaftChatView>
   @override
   void didChangeMetrics() {
     if (reactionPicker != null) closeReactionPicker();
+    saveReadingAnchor();
+  }
+
+  /// A fold/unfold rebuilds the timeline in the other layout: remember the
+  /// topmost visible row (by id, not pixels, which reflow) so the new one
+  /// resumes there. Only readers above the latest end need it.
+  void saveReadingAnchor() {
+    final id = widget.thread ? w.threadChannelId : w.channel?.id;
+    if (id == null ||
+        !mounted ||
+        atBottom ||
+        !viewport.hasClients ||
+        viewport.positions.length != 1) {
+      return;
+    }
+    ReadingAnchor? best;
+    double bestTop = double.infinity;
+    void visit(Element element) {
+      final key = element.widget.key;
+      if (key is ValueKey<String> && key.value.startsWith('message-wrapper-')) {
+        final row = element.renderObject;
+        final Object? clip = row == null
+            ? null
+            : RenderAbstractViewport.maybeOf(row);
+        if (row is RenderBox &&
+            clip is RenderBox &&
+            row.attached &&
+            row.hasSize &&
+            clip.hasSize) {
+          final top =
+              row.localToGlobal(Offset.zero).dy -
+              clip.localToGlobal(Offset.zero).dy;
+          if (top + row.size.height > 1 && top < bestTop) {
+            bestTop = top;
+            best = ReadingAnchor(
+              key.value.substring('message-wrapper-'.length),
+              top,
+            );
+          }
+        }
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (context as Element).visitChildren(visit);
+    if (best != null) w.saveReadingAnchor(id, best!);
   }
 
   @override
@@ -840,6 +912,7 @@ class _RaftChatViewState extends State<RaftChatView>
     List<chat.Message> messages, {
     String? focus,
     double? focusTop,
+    ReadingAnchor? resume,
   }) {
     for (final timer in reactionFailureTimers.values) {
       timer.cancel();
@@ -853,14 +926,21 @@ class _RaftChatViewState extends State<RaftChatView>
     final target = focus == null
         ? null
         : messages.where((m) => m.metadata?['id'] == focus).firstOrNull;
-    centerFirst = target?.id;
-    centerAfter = target == null ? messages.lastOrNull?.id : null;
-    lastCenterIndex = target == null ? messages.length : 0;
+    final resumed = target != null || resume == null
+        ? null
+        : messages.where((m) => m.id == resume.messageKey).firstOrNull;
+    centerFirst = (target ?? resumed)?.id;
+    centerAfter = target == null && resumed == null
+        ? messages.lastOrNull?.id
+        : null;
+    lastCenterIndex = target == null && resumed == null ? messages.length : 0;
     centerEpoch++;
     viewport = RaftTimelineScrollController(
       bottomAnchored: bottomAnchored,
       initial: target != null
           ? alignOn(focus!, leading: focusTop)
+          : resumed != null
+          ? alignOnRow(resumed.id, leading: resume!.top)
           // An empty thread (e.g. a task's discussion) shows its head.
           : messages.isEmpty && !bottomAnchored
           ? RaftTimelineAlignment.start
@@ -1070,14 +1150,25 @@ class _RaftChatViewState extends State<RaftChatView>
                   adapter.messages.isEmpty &&
                       projected.isNotEmpty &&
                       !optimisticOnly(projected)))) {
-        if (scope != id) {
+        final enteringScope = scope != id;
+        if (enteringScope) {
           alsoCreateTask = false;
           selectionToast.clear();
         }
         scope = id;
         // A context replacement has different scroll bounds and its own
         // center; ordinary diffs and history prepends never enter here.
-        replaceContext(projected, focus: pendingAcceptedMount ? null : target);
+        replaceContext(
+          projected,
+          focus: pendingAcceptedMount ? null : target,
+          resume:
+              enteringScope &&
+                  target == null &&
+                  !pendingAcceptedMount &&
+                  id != null
+              ? w.takeReadingAnchor(id)
+              : null,
+        );
         replaced = true;
         scrolledHighlight = null;
         // Acceptance of the pending response must still enter atomic staging,

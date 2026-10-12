@@ -119,6 +119,16 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
 /// Why a jump target's message context could not be shown.
 enum MessageContextLoadError { notFound, beyondHistory }
 
+/// A message row and the distance of its top below the timeline's top edge.
+class ReadingAnchor {
+  ReadingAnchor(this.messageKey, this.top) : _saved = Stopwatch()..start();
+  final String messageKey;
+  final double top;
+  final Stopwatch _saved;
+  static const lifetime = Duration(seconds: 3);
+  bool get fresh => _saved.elapsed <= lifetime;
+}
+
 class WorkspaceController extends ChangeNotifier {
   void synchronizePagePresentation(
     WorkspaceController source, {
@@ -4329,6 +4339,25 @@ class WorkspaceController extends ChangeNotifier {
     } else {
       _scrolledAway.add(id);
     }
+  }
+
+  final Map<String, ReadingAnchor> _readingAnchors = {};
+
+  /// Where the reader was in a conversation when its timeline is about to be
+  /// rebuilt for another layout (fold / unfold). The next timeline that
+  /// mounts for [conversationId] shortly after resumes there; an anchor that
+  /// is not claimed promptly is a stale position and is ignored.
+  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) {
+    final source = presentationSource;
+    if (source != null) return source.saveReadingAnchor(conversationId, anchor);
+    _readingAnchors[conversationId] = anchor;
+  }
+
+  ReadingAnchor? takeReadingAnchor(String conversationId) {
+    final source = presentationSource;
+    if (source != null) return source.takeReadingAnchor(conversationId);
+    final anchor = _readingAnchors.remove(conversationId);
+    return anchor != null && anchor.fresh ? anchor : null;
   }
 
   /// Read receipts sent per scope: lets an optimistic open-time clear know
