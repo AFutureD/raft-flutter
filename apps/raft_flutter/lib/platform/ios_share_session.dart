@@ -33,7 +33,10 @@ class IOSShareSession {
     if (client == null) return;
     _events = client.events.listen((event) {
       if (event.name == 'session:ended') bind(null);
-      if (event.name == 'session:credentials-updated') unawaited(publish());
+      if (event.name == 'session:credentials-updated' ||
+          event.name == 'session:recovered') {
+        unawaited(publish());
+      }
     });
     unawaited(publish());
   }

@@ -14,6 +14,14 @@ class SecureSessionStore implements SessionStore {
            !kIsWeb &&
            defaultTargetPlatform == TargetPlatform.macOS,
        storage = FlutterSecureStorage(
+         // flutter_secure_storage defaults resetOnError to true: any exception
+         // while reading or writing (a Keystore that is momentarily
+         // unavailable, a background engine racing the foreground, a key that
+         // cannot unwrap) makes the plugin delete EVERY stored value and
+         // answer "Data has been reset". For credentials that turns one
+         // transient error into a permanent sign-out. Errors must surface to
+         // the caller, which keeps the record and retries.
+         aOptions: const AndroidOptions(resetOnError: false),
          mOptions: MacOsOptions(
            usesDataProtectionKeychain: useDataProtectionKeychain,
          ),
