@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / 'apps/raft_flutter'
 OUT = ROOT / 'build/release'
 PLATFORMS = {'windows', 'android', 'linux', 'macos'}
+VERSION_PATTERN = r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?'
 
 
 def run(args, **kwargs):
@@ -34,21 +35,54 @@ def digest(path):
 
 
 def version_info(text):
-    match = re.search(r'^version:\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\+(\d+)\s*$', text, re.M)
+    match = re.search(rf'^version:\s*({VERSION_PATTERN})\+(\d+)\s*$', text, re.M)
     if not match or int(match[2]) < 1:
         raise ValueError('App pubspec must have version: X.Y.Z[-prerelease]+positive-build-number')
     return match[1], match[2]
 
 
-def release_plan(config, selection, version, ref='', event=''):
+def release_identity(version, number, ref='', event='', run_number=''):
+    """Tags select the app version; the workflow run counter supplies build numbers.
+
+    The optional +N distinguishes releases of the same app version, as in Miraa.
+    It is deliberately independent of the automatically increasing build number.
+    """
+    tag = ''
+    asset_version = version
+    if event == 'push' or ref.startswith('refs/tags/'):
+        match = re.fullmatch(rf'refs/tags/v({VERSION_PATTERN})(?:\+([0-9]+))?', ref)
+        if not match:
+            raise ValueError('Release tag must be vX.Y.Z[-prerelease][+numeric-tag-build]')
+        version = match[1]
+        tag = ref.removeprefix('refs/tags/')
+        asset_version = tag.removeprefix('v')
+    if event == 'push' and not run_number:
+        raise ValueError('Tag releases require GITHUB_RUN_NUMBER for the automatic build number')
+    if run_number:
+        if not re.fullmatch(r'[1-9][0-9]*', run_number):
+            raise ValueError('GITHUB_RUN_NUMBER must be a positive integer')
+        number = run_number
+    return {'version': version, 'build_number': number, 'tag': tag, 'asset_version': asset_version}
+
+
+def current_release():
+    version, number = version_info((APP / 'pubspec.yaml').read_text(encoding='utf-8'))
+    return release_identity(version, number, os.environ.get('GITHUB_REF', ''),
+                            os.environ.get('GITHUB_EVENT_NAME', ''), os.environ.get('GITHUB_RUN_NUMBER', ''))
+
+
+def release_plan(config, selection, event=''):
     if set(config) != PLATFORMS:
         raise ValueError('Platform config must contain windows, android, linux and macos')
     selected = ([part.strip() for part in selection.split(',')] if selection.strip()
                 else [name for name, row in config.items() if row['enabled']])
     if not selected or len(selected) != len(set(selected)) or any(name not in PLATFORMS for name in selected):
         raise ValueError('Select unique known platforms: windows, android, linux, macos')
-    if event == 'push' and ref != f'refs/tags/v{version}':
-        raise ValueError('Release tag must exactly match the app pubspec version (vX.Y.Z[-prerelease])')
+    # Pull requests never receive the persistent Android signing key.
+    if event == 'pull_request':
+        selected = [name for name in selected if name != 'android']
+        if not selected:
+            raise ValueError('Pull requests require at least one unsigned desktop platform')
     return {'include': [{'platform': name, 'runner': config[name]['runner'],
                          'arch': config[name]['arch']} for name in selected]}
 
@@ -62,11 +96,10 @@ def emit_outputs(values):
 
 
 def plan():
-    version, number = version_info((APP / 'pubspec.yaml').read_text(encoding='utf-8'))
+    identity = current_release()
     matrix = release_plan(json.loads((ROOT / 'tool/release-platforms.json').read_text()),
-                          os.environ.get('RELEASE_PLATFORMS', ''), version,
-                          os.environ.get('GITHUB_REF', ''), os.environ.get('GITHUB_EVENT_NAME', ''))
-    emit_outputs({'matrix': json.dumps(matrix, separators=(',', ':')), 'version': version, 'build_number': number})
+                          os.environ.get('RELEASE_PLATFORMS', ''), os.environ.get('GITHUB_EVENT_NAME', ''))
+    emit_outputs({'matrix': json.dumps(matrix, separators=(',', ':')), **identity})
 
 
 def sdk():
@@ -168,18 +201,55 @@ def zip_folder(stage, destination):
                 archive.write(path, path.relative_to(stage.parent))
 
 
+def verify_android(apk, keystore, env, version, number):
+    sdk_root = env.get('ANDROID_HOME') or env.get('ANDROID_SDK_ROOT')
+    if not sdk_root:
+        raise ValueError('Android SDK path is missing')
+    tools = Path(sdk_root) / 'build-tools/37.0.0'
+    badging = subprocess.check_output([str(tools / 'aapt'), 'dump', 'badging', str(apk)],
+                                     text=True, env=env)
+    identity = re.search(r"^package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'", badging, re.M)
+    # Pinned Flutter adds 2000 to the build number for split ARM64 APKs.
+    if (not identity or identity[1] != 'app.raft.raft_flutter'
+            or int(identity[2]) != int(number) + 2000 or identity[3] != version):
+        raise ValueError('Android APK package or compiled version differs from the release plan')
+    if re.search(r'^application-debuggable(?:\s|$)', badging, re.M):
+        raise ValueError('Debuggable Android APK cannot be released')
+    with zipfile.ZipFile(apk) as archive:
+        abis = sorted({name.split('/')[1] for name in archive.namelist()
+                       if name.startswith('lib/') and name.endswith('.so')})
+    if abis != ['arm64-v8a']:
+        raise ValueError('Android release must contain only ARM64 native libraries')
+    cert = subprocess.check_output([
+        'keytool', '-exportcert', '-keystore', str(keystore), '-alias', env['RAFT_ANDROID_KEY_ALIAS'],
+        '-storepass:env', 'RAFT_ANDROID_STORE_PASSWORD',
+    ], env=env, stderr=subprocess.PIPE)
+    expected = hashlib.sha256(cert).hexdigest()
+    signatures = subprocess.check_output([
+        str(tools / 'apksigner'), 'verify', '--print-certs', str(apk),
+    ], text=True, env=env)
+    actual = sorted(set(value.lower() for value in re.findall(
+        r'^(?:Signer #\d+|V[234](?:\.\d+)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', signatures, re.M)))
+    if actual != [expected]:
+        raise ValueError('Android APK signature differs from the configured release certificate')
+    return {'package': identity[1], 'versionCode': int(identity[2]), 'versionName': identity[3],
+            'abis': abis, 'certificateSHA256': expected}
+
+
 def build(platform):
-    version, number = version_info((APP / 'pubspec.yaml').read_text(encoding='utf-8'))
+    identity = current_release()
+    version, number = identity['version'], identity['build_number']
     if os.environ.get('RELEASE_VERSION', version) != version or os.environ.get('RELEASE_BUILD_NUMBER', number) != number:
         raise ValueError('Build version differs from the planned version')
     OUT.mkdir(parents=True, exist_ok=True)
     config = json.loads((ROOT / 'tool/release-platforms.json').read_text())[platform]
     arch = config['arch']
-    name = f'raft-flutter-{version}-{platform}-{arch}'
+    name = f'raft-flutter-{identity["asset_version"]}-{platform}-{arch}'
     # No test entry points, inherited Dart defines or private local fixtures in hosted CI.
     # The only define supplied here is the public release version shown in About.
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
+    android = None
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
                f'--dart-define=RAFT_APP_VERSION={version}']
@@ -192,6 +262,7 @@ def build(platform):
                 raise ValueError('Android CI requires all four RAFT_ANDROID signing secrets; debug signing is forbidden')
             keystore = work / 'release.jks'
             keystore.write_bytes(base64.b64decode(env.pop('RAFT_ANDROID_KEYSTORE_BASE64'), validate=True))
+            keystore.chmod(0o600)
             env['RAFT_ANDROID_KEYSTORE_PATH'] = str(keystore)
             env['RAFT_ANDROID_SIGNING_REQUIRED'] = 'true'
             command += ['--split-per-abi', '--target-platform=android-arm64']
@@ -219,18 +290,22 @@ def build(platform):
         else:
             artifact = OUT / f'{name}.apk'
             shutil.copy2(APP / 'build/app/outputs/flutter-apk/app-arm64-v8a-release.apk', artifact)
+            android = verify_android(artifact, keystore, env, version, number)
             signing = 'release keystore from GitHub secrets'
     receipt = {'platform': platform, 'arch': arch, 'version': version, 'buildNumber': number,
+               'releaseTag': identity['tag'],
                'commit': capture(['git', 'rev-parse', 'HEAD']),
                'flutter': json.loads((ROOT / '.fvmrc').read_text())['flutter'],
                'signing': signing, 'nativeAcceptance': 'not performed by hosted build CI',
                'artifact': artifact.name, 'sha256': digest(artifact), 'bytes': artifact.stat().st_size}
+    if android is not None:
+        receipt['android'] = android
     (OUT / f'{name}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     (OUT / f'{name}.sha256').write_text(f"{receipt['sha256']}  {artifact.name}\n", encoding='utf-8')
     print(json.dumps(receipt, indent=2))
 
 
-def verify_artifacts(directory, matrix, version, commit):
+def verify_artifacts(directory, matrix, version, commit, build_number=None, tag=None):
     expected = {row['platform'] for row in matrix['include']}
     if not expected or len(expected) != len(matrix['include']):
         raise ValueError('Invalid release platform inventory')
@@ -245,8 +320,10 @@ def verify_artifacts(directory, matrix, version, commit):
         artifact = directory / name
         spec = next(r for r in matrix['include'] if r['platform'] == row['platform'])
         if (row['version'] != version or row['commit'] != commit or row['arch'] != spec['arch']
-                or artifact.stat().st_size != row['bytes'] or digest(artifact) != row['sha256']):
-            raise ValueError('Artifact version, source, architecture or checksum mismatch')
+                or artifact.stat().st_size != row['bytes'] or digest(artifact) != row['sha256']
+                or (build_number is not None and row.get('buildNumber') != build_number)
+                or (tag is not None and row.get('releaseTag') != tag)):
+            raise ValueError('Artifact version, build number, tag, source, architecture or checksum mismatch')
         files.append(artifact)
         checksums.append(f"{row['sha256']}  {name}\n")
     return receipts, files, ''.join(sorted(checksums))
@@ -255,16 +332,16 @@ def verify_artifacts(directory, matrix, version, commit):
 def publish():
     if os.environ.get('GITHUB_EVENT_NAME') != 'push':
         raise ValueError('Publishing is permitted only for a version-tag push')
-    version, _ = version_info((APP / 'pubspec.yaml').read_text(encoding='utf-8'))
-    tag = f'v{version}'
-    if os.environ.get('GITHUB_REF') != f'refs/tags/{tag}':
-        raise ValueError('Release tag differs from pubspec')
+    identity = current_release()
+    version, number, tag = identity['version'], identity['build_number'], identity['tag']
     commit = capture(['git', 'rev-parse', 'HEAD'])
-    receipts, artifacts, checksums = verify_artifacts(OUT, json.loads(os.environ['RELEASE_MATRIX']), version, commit)
+    receipts, artifacts, checksums = verify_artifacts(
+        OUT, json.loads(os.environ['RELEASE_MATRIX']), version, commit, number, tag)
     (OUT / 'CHECKSUMS.txt').write_text(checksums, encoding='utf-8')
     (OUT / 'build-manifest.json').write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8')
     notes = OUT / 'release-notes.md'
-    notes.write_text(f'Raft Flutter {tag}\n\nSource: `{commit}`. Flutter {receipts[0]["flutter"]}.\n\n'
+    notes.write_text(f'Raft Flutter {tag}\n\nApp version: {version}. Build number: {number}.\n'
+                     f'Source: `{commit}`. Flutter {receipts[0]["flutter"]}.\n\n'
                      + '\n'.join(f'- {r["platform"]} {r["arch"]}: {r["signing"]}.' for r in receipts)
                      + '\n\nSee `CHECKSUMS.txt` and `build-manifest.json` for source and SHA-256 provenance. '
                      'Hosted CI compiles and packages; platform functional acceptance is separate.\n'
@@ -276,7 +353,8 @@ def publish():
     run(['gh', 'release', 'create', tag, '--verify-tag', '--draft', '--title', f'Raft Flutter {tag}',
          '--notes-file', notes])
     run(['gh', 'release', 'upload', tag, *artifacts, OUT / 'CHECKSUMS.txt', OUT / 'build-manifest.json'])
-    run(['gh', 'release', 'edit', tag, '--draft=false', f'--prerelease={str("-" in version).lower()}'])
+    run(['gh', 'release', 'edit', tag, '--draft=false', f'--prerelease={str("-" in version).lower()}',
+         f'--latest={str("-" not in version).lower()}'])
 
 
 def main():

@@ -5,6 +5,7 @@ export 'panel_layout.dart' show raftRecipeTheme;
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
+import 'panel_edge.dart';
 import 'control_typography.dart';
 import 'icons.dart';
 import 'indicators.dart';
@@ -344,17 +345,9 @@ class RaftSettingsPanelFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final edge = t.brutal ? Colors.black : t.colors['line-muted']!;
-    // Owner decision 2026-10-12: the recipe's `border-l-2 border-black` /
-    // `border-l border-line-muted` edge is desktop-only; phone pages draw
-    // no left edge line (intended difference from Web).
-    final edgeBorder =
-        attached &&
-            MediaQuery.sizeOf(context).width >=
-                RaftLayoutMetrics.desktopBreakpoint
-        ? Border(
-            left: BorderSide(color: edge, width: t.brutal ? 2 : 1),
-          )
-        : null;
+    // `Panel edge="attached"`: the shared rule (RaftPanelEdge) decides, the
+    // phone page is the only presentation without the line.
+    final edgeBorder = attached ? RaftPanelEdge.left(context) : null;
     return Material(
       // SettingsPanel's Panel supplies bg-layer-canvas-muted to the transparent
       // desktop Elegant header. Its content div owns bg-layer-panel separately.

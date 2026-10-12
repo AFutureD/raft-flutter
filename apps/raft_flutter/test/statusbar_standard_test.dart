@@ -27,7 +27,7 @@ import 'package:raft_ui/test_themes.dart';
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'edge_to_edge_audit_test.dart' show richFixture, settle;
 import 'mobile_computer_navigation_test.dart' show loadComputerPageFonts;
-import 'statusbar_audit_test.dart' show Page, pages;
+import 'statusbar_audit_test.dart' show Page, pages, withDirectory;
 
 const _dpr = 2.625;
 const _topDp = 40.0;
@@ -225,18 +225,70 @@ List<({Page page, bool phone, bool wide})> _registryPages() {
   ];
 }
 
+/// Wide-only routes where a column is covered by a later one: a profile panel
+/// folds over the whole conversation column below the side-by-side breakpoint
+/// (the covered header stays mounted and flush with the top), over a thread,
+/// and over the activity / search detail. The covering surface decides the band.
+const _coverSizes = {
+  'fold-816': Size(816, 900),
+  'fold-841': Size(841, 900),
+  'desktop-1280': Size(1280, 800),
+};
+
+const _wideCoverPages = <Page>[
+  Page('60-profile-alone', '/s/alpha/channel/ca?profile=human:bob'),
+  Page('61-profile-home', '/s/alpha?profile=human:bob'),
+  Page(
+    '62-profile-agent',
+    '/s/alpha/channel/ca?profile=agent:agent-1',
+    prepare: withDirectory,
+  ),
+  Page(
+    '63-profile-over-thread',
+    '/s/alpha/channel/ca?thread=ca:ma&profile=human:bob',
+  ),
+  Page('64-activity-open', '/s/alpha/activity?open=channel:ca'),
+  Page('65-search-open', '/s/alpha/search?open=channel:ca'),
+  Page(
+    '66-activity-open-profile',
+    '/s/alpha/activity?open=channel:ca&profile=human:bob',
+  ),
+  Page(
+    '67-search-open-profile',
+    '/s/alpha/search?open=channel:ca&profile=human:bob',
+  ),
+];
+
 void main() {
   final shots = Platform.environment['RAFT_STATUSBAR_STANDARD_DIR'];
   final registry = _registryPages();
   for (final size in _sizes.entries) {
     final wide = size.value.width >= 768;
     final routes = [
-      for (final p in pages) p,
+      for (final p in pages)
+        if (!wide || !p.phoneOnly) p,
       for (final r in registry)
         if (wide ? r.wide : r.phone) r.page,
     ];
     for (final theme in raftThemeMatrix(_themes, full: true)) {
       for (final p in routes) {
+        testWidgets('statusbar standard ${p.name} ${size.key} $theme', (
+          t,
+        ) async {
+          try {
+            final f = await _mount(t, theme, size.value, p);
+            await p.act?.call(t, f);
+            await _check(t, size.key, theme, p, shots: shots);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    }
+  }
+  for (final size in _coverSizes.entries) {
+    for (final theme in raftThemeMatrix(_themes, full: true)) {
+      for (final p in _wideCoverPages) {
         testWidgets('statusbar standard ${p.name} ${size.key} $theme', (
           t,
         ) async {

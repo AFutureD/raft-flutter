@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/main.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
@@ -11,10 +14,17 @@ import 'app_global_server_selector_test.dart';
 /// The family a built theme belongs to.
 RaftFamily _family(ThemeData theme) => theme.extension<RaftTokens>()!.family;
 
+class _PendingSessionStore extends MemorySessionStore {
+  final pending = Completer<Session?>();
+  @override
+  Future<Session?> read(String origin) => pending.future;
+}
+
 Future<MaterialApp> _firstBuilt(
   WidgetTester t,
   Map<String, Object> stored, {
   required bool preload,
+  SessionStore? sessions,
 }) async {
   SharedPreferences.setMockInitialValues(stored);
   DevicePreferences.reset();
@@ -25,7 +35,7 @@ Future<MaterialApp> _firstBuilt(
   // exactly the tree the first frame would paint.
   await t.pumpWidget(
     RaftApp(
-      sessionStore: f.sessions,
+      sessionStore: sessions ?? f.sessions,
       nativeContent: f.content,
       nativeSharing: NativeSharing(supported: false),
       openWorkspaceCache: () async => f.cache,
@@ -37,6 +47,35 @@ Future<MaterialApp> _firstBuilt(
 }
 
 void main() {
+  testWidgets(
+    'device glyph locale remains independent of English UI and updates live',
+    (t) async {
+      final sessions = _PendingSessionStore();
+      // Traditional Chinese is not a shipped UI translation, but its regional
+      // glyph preference must survive the English UI fallback.
+      t.platformDispatcher.localeTestValue = const Locale('zh', 'TW');
+      addTearDown(t.platformDispatcher.clearLocaleTestValue);
+      final app = await _firstBuilt(t, {}, preload: true, sessions: sessions);
+      expect(app.locale, const Locale('en'));
+      expect(app.theme!.textTheme.bodyMedium!.locale, const Locale('zh', 'TW'));
+      expect(
+        app.darkTheme!.textTheme.bodyMedium!.locale,
+        const Locale('zh', 'TW'),
+      );
+      t.platformDispatcher.localeTestValue = const Locale('ja', 'JP');
+      await t.pump();
+      final updated = t.widget<MaterialApp>(find.byType(MaterialApp));
+      expect(updated.locale, const Locale('en'));
+      expect(
+        updated.theme!.textTheme.bodyMedium!.locale,
+        const Locale('ja', 'JP'),
+      );
+      await t.pumpWidget(const SizedBox());
+      sessions.pending.complete(null);
+      await t.pump();
+    },
+  );
+
   testWidgets('the first built MaterialApp uses the stored family and mode', (
     t,
   ) async {

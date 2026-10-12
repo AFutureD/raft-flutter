@@ -158,8 +158,9 @@ Future<Map<String, Object?>> shoot(
     );
     final out = await recorder.endRecording().toImage(w, h);
     final bytes = await out.toByteData(format: ui.ImageByteFormat.png);
-    File('${outDir().path}/$name.png')
-        .writeAsBytesSync(bytes!.buffer.asUint8List());
+    File(
+      '${outDir().path}/$name.png',
+    ).writeAsBytesSync(bytes!.buffer.asUint8List());
     image.dispose();
     out.dispose();
   });
@@ -711,8 +712,9 @@ Future<void> composerKeyboardScenario(
 void main() {
   mqProbeTests();
   tearDownAll(() {
-    File('${outDir().path}/metrics.json')
-        .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(metrics));
+    File(
+      '${outDir().path}/metrics.json',
+    ).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(metrics));
   });
   for (final theme in raftThemeMatrix([
     'brutal',
@@ -823,11 +825,27 @@ void main() {
         '25-share-picker-$theme-gesture',
         nav: Nav.gesture,
       );
+      // The destinations page is the Web forward page: no bottom bar.
       await assertEdgeToEdge(
         t,
-        const Scenario('25-share-picker', '', bottomControl: true),
+        const Scenario('25-share-picker', ''),
         theme,
         m,
+      );
+      // Choosing a row opens "Add shared content"; its Continue bar reaches
+      // the screen bottom.
+      await t.tap(find.byKey(const ValueKey('incoming-target-a-c')));
+      await settle(t, 6);
+      final next = await shoot(
+        t,
+        '25-share-picker-continue-$theme-gesture',
+        nav: Nav.gesture,
+      );
+      await assertEdgeToEdge(
+        t,
+        const Scenario('25-share-picker-continue', '', bottomControl: true),
+        theme,
+        next,
       );
       debugDefaultTargetPlatformOverride = null;
     });

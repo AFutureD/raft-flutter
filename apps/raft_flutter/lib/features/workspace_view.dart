@@ -51,6 +51,7 @@ import 'create_channel_dialog.dart';
 import 'create_joint_channel_dialog.dart' show CreateJointChannelDialog;
 import 'workspace_settings.dart';
 import 'server_views.dart';
+import 'layout_hold.dart';
 import 'mobile_workspace_navigation.dart';
 import 'mobile_workspace_pages.dart';
 import 'desktop_navigation_policy.dart';
@@ -199,7 +200,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
   _MobileNavigationSelection? _mobileNavigationSelection;
   _MobileNavigationSelection get mobileNavigationSelection =>
       _mobileNavigationSelection ??= _MobileNavigationSelection(this);
-  bool? mobileLayout;
 
   _WorkspaceViewState? get mobileHost =>
       widget.mobileHost as _WorkspaceViewState?;
@@ -311,9 +311,118 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Width changes only the projection. They never rewrite route/history.
     w.mobileNavigation = !wide;
     w.bindNavigation();
+    ensureLayoutLocation();
+  }
+
+  bool? lastCompact, heldCompact;
+
+  void layoutHoldChanged() {
+    if (!mounted || LayoutHold.held) return;
+    ensureLayoutLocation();
+    setState(() {});
+  }
+
+  /// Width picks the projection of the one canonical location. Crossing the
+  /// breakpoint (or arriving by link in the other layout) translates the few
+  /// identities that only exist in one layout (`channelPage=` is phone-only,
+  /// `activity|search ?open=` is wide master/detail), closes full-page routes
+  /// that have no URL identity and keeps the dialogs. Silent: the build that
+  /// follows reads the translated location; listeners catch up after it.
+  void ensureLayoutLocation() {
+    if (widget.mobileRoutePage || !mounted || LayoutHold.held) return;
+    final compact = !wide;
+    final crossed = lastCompact != null && lastCompact != compact;
+    lastCompact = compact;
+    if (w.presentationSource != null || w.server == null) return;
+    if (crossed) {
+      w.navigation.collapseRepeatedEntries();
+      closeUrllessPages();
+    }
+    // A content slot opened on a phone (Search thread hits) is a phone page
+    // already; only a slot the wide layout made needs translating.
+    final translation = compact && !crossed
+        ? null
+        : w.navigation.translateForLayout(compact: compact);
+    if (crossed) {
+      w.navigation.markLayoutCrossing(translated: translation != null && compact);
+    }
+    if (translation == null && !crossed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      w.notifyListeners();
+      if (translation != null) hydrateTranslated(translation, compact);
+    });
+  }
+
+  /// Full pages pushed without a location (notification centre pages, forward
+  /// composer, fleet details) have no counterpart in the other layout: close
+  /// them. Dialogs, sheets and the attachment preview are layout independent
+  /// and stay open.
+  void closeUrllessPages() {
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).popUntil(
+        (candidate) =>
+            candidate == route ||
+            candidate.isFirst ||
+            // The attachment preview adapts to the width itself (dialog or
+            // page) and is contractually kept open across a resize.
+            candidate.settings.name == '/attachment-preview' ||
+            candidate is! MaterialPageRoute,
+      );
+    });
+  }
+
+  /// The translated location names a conversation the other layout had not
+  /// loaded as its main channel (Activity detail was a content slot), and wide
+  /// shows channel management as a dialog.
+  void hydrateTranslated(LayoutTranslation translation, bool compact) {
+    if (compact) {
+      final to = translation.to;
+      final id = to.entityId;
+      if (id == null || !{RaftRoute.channel, RaftRoute.dm}.contains(to.route)) {
+        return;
+      }
+      if (w.channel?.id == id && to.thread == null) return;
+      if (to.thread != null) {
+        unawaited(w.resolveConversationChannel(id, preserveThread: true));
+      } else {
+        unawaited(w.jumpToMessage(id, to.messageId, navigate: false));
+      }
+      return;
+    }
+    final page = translation.from.channelPage;
+    if (page == null) return;
+    final channel = [
+      ...w.channels,
+      ...w.dms,
+    ].where((channel) => channel.id == page.channelId).firstOrNull;
+    if (channel == null || !w.can('viewChannel', resource: channel)) return;
+    if (page.kind == RaftChannelPage.settings) {
+      unawaited(
+        ChannelSettings.show(
+          context,
+          controller: w,
+          channel: channel,
+          dmName: channel.type == 'dm'
+              ? dmPeer(channel, requestSize: 36).name
+              : null,
+        ),
+      );
+    } else {
+      unawaited(
+        ChannelMembers.show(
+          context,
+          controller: w,
+          channel: channel,
+          startInAdd: translation.from.query('channelPageAdd') == '1',
+        ),
+      );
+    }
   }
 
   void selectMobileTab(String tab, String scope) {
@@ -482,6 +591,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
   @override
   void initState() {
     super.initState();
+    LayoutHold.count.addListener(layoutHoldChanged);
     adoptHostSearchEntry();
     mobileAppBadge = SourceMobileAppBadge()..addListener(chatSelectionChanged);
     // Starts recording visits to conversations from the first frame.
@@ -797,6 +907,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncSidebarAgents);
     w.removeListener(syncBridgeFlag);
     bridgeRequest++;
+    LayoutHold.count.removeListener(layoutHoldChanged);
     super.dispose();
   }
 
@@ -847,7 +958,20 @@ class _WorkspaceViewState extends State<WorkspaceView>
       return;
     }
     if (wide && desktopNavigation.target != null) {
-      closeDesktopDetail();
+      // Column 4 (profile, then thread) closes before its column-3 detail.
+      final panels = DesktopNavigationPolicy.sidePanels(
+        route: w.section,
+        wide: wide,
+        location: w.location,
+        target: desktopNavigation.target?.kind,
+      );
+      if (panels.profile) {
+        w.closeProfile();
+      } else if (panels.thread) {
+        closeThreadPanel();
+      } else {
+        closeDesktopDetail();
+      }
       return;
     }
     if (w.threadParent != null &&
@@ -1044,13 +1168,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   @override
   Widget build(BuildContext context) {
-    final compact = RaftAdaptiveWorkspace.compactOf(context);
-    if (ModalRoute.isCurrentOf(context) ?? true) mobileLayout = compact;
+    final live = RaftAdaptiveWorkspace.compactOf(context);
+    final compact = LayoutHold.held ? heldCompact ?? live : live;
+    if (!LayoutHold.held) heldCompact = live;
     final Widget body;
-    if (!widget.mobileRoutePage && (mobileLayout ?? compact)) {
+    if (!widget.mobileRoutePage && compact) {
       body = ListenableBuilder(
         listenable: Listenable.merge([mobileNavigationSelection, mobileTabbar]),
         builder: (context, _) {
+          ensureLayoutLocation();
           updateChannelAuthority();
           if (RouteFrameDiagnostics.enabled) {
             RouteFrameDiagnostics.location(
@@ -1102,6 +1228,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       final buildStarted = RouteFrameDiagnostics.enabled
           ? RouteFrameDiagnostics.now()
           : 0;
+      ensureLayoutLocation();
       // Computers and Activity are tab roots only while the bar has them.
       w.navigation.mobileTabs = mobileTabIds.toSet();
       final attentionOwner = activityUnread;
@@ -1154,11 +1281,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
         channelSearchAuthority = workspaceAuthority(w);
       }
       final t = RaftTokens.of(context);
-      final thread =
-          route == 'chat' &&
-          location.thread != null &&
-          !(wide &&
-              desktopNavigation.target?.kind == DesktopContentKind.thread);
+      final sidePanels = DesktopNavigationPolicy.sidePanels(
+        route: route,
+        wide: wide,
+        location: location,
+        target: desktopNavigation.target?.kind,
+      );
+      final thread = sidePanels.thread;
       final rootTab = w.navigation.mobileRootTabOf(location);
       final title = route == 'chat' || route == 'home'
           ? (w.channel?.name ?? tr('Workspace'))
@@ -1390,6 +1519,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           master: content,
           detail: desktopContentDetail(),
           compact: thread,
+          masterEdge: route == 'search',
           wideWidth: masterWideWidth,
           compactWidth: masterCompactWidth,
           onWidthChanged: saveMasterPanel,
@@ -1681,6 +1811,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                               child: WorkspaceGridView(
                                                 key: gridKey,
                                                 controller: w,
+                                                onViewBilling: () =>
+                                                    select('billing'),
                                                 route: route,
                                                 routeBody: content,
                                                 active: gridActive,
@@ -1731,9 +1863,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                                 )
                               : null,
                           profile:
-                              (route == 'chat' || route == 'home') &&
-                                  location.profile != null &&
-                                  !gridActive
+                              sidePanels.profile && !gridActive
                               ? profileSidePanel(location.profile!, page: !wide)
                               : null,
                         ),
@@ -1748,6 +1878,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
       );
       final body = WorkspaceTaskHost(
         controller: w,
+        onTask: openMessageTaskSurface,
+        onViewBilling: () => select('billing'),
         seed: taskSeed ?? mobileHost?.taskSeed,
         // RightPanel handles content routes before its workspace guard.
         presented: !gridActive || route == 'search' || route == 'activity',

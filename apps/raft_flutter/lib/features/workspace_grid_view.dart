@@ -22,11 +22,16 @@ class WorkspaceGridView extends StatefulWidget {
     required this.active,
     this.onDraftsChanged,
     this.onRouteSelected,
+    required this.onViewBilling,
   });
   final WorkspaceController controller;
   final String route;
   final Widget routeBody;
   final bool active;
+
+  /// The plan banners' "View Billing" link in every panel (Web
+  /// `nav.toSettings("billing")`).
+  final VoidCallback onViewBilling;
   final VoidCallback? onDraftsChanged;
   final ValueChanged<String>? onRouteSelected;
   @override
@@ -278,12 +283,14 @@ class WorkspaceGridViewState extends State<WorkspaceGridView> {
                       ? _Thread(
                           key: ValueKey('grid-thread-$id'),
                           controller: sessions.controllers[id]!,
+                          onViewBilling: widget.onViewBilling,
                         )
                       : _Conversation(
                           key: ValueKey(
                             'grid-conversation-$id-${sessions.draftRevisions[id] ?? 0}',
                           ),
                           controller: sessions.controllers[id]!,
+                          onViewBilling: widget.onViewBilling,
                           onMessageTask: (task, _) {
                             // threadStore370–374 resolves from accepted channel
                             // summaries; the task DTO itself is not that cache.
@@ -333,9 +340,11 @@ class _Conversation extends StatefulWidget {
   const _Conversation({
     super.key,
     required this.controller,
+    required this.onViewBilling,
     this.onMessageTask,
   });
   final WorkspaceController controller;
+  final VoidCallback onViewBilling;
   final void Function(Map<String, dynamic>, Future<void> Function())?
   onMessageTask;
   @override
@@ -375,6 +384,10 @@ class _ConversationState extends State<_Conversation> {
                   controller: w,
                   hideHeader: true,
                   onMessageTask: widget.onMessageTask,
+                  onViewBilling: widget.onViewBilling,
+                  // Channel settings belong to the single selected channel; a
+                  // grid panel paints the archived banner without the link.
+                  onOpenChannelSettings: null,
                 ),
               ),
             ),
@@ -428,6 +441,8 @@ class _ConversationState extends State<_Conversation> {
                           controller: w,
                           thread: true,
                           viewportHandle: threadViewport,
+                          onTask: widget.onMessageTask,
+                          onViewBilling: widget.onViewBilling,
                         ),
                       ),
                     ),
@@ -471,7 +486,12 @@ class _ConversationState extends State<_Conversation> {
 /// Source WorkspaceGridRealPanel's ThreadPanel is embedded with hideHeader.
 /// The editor tab owns the title/close; this timeline owns only its replies.
 class _Thread extends StatefulWidget {
-  const _Thread({super.key, required this.controller});
+  const _Thread({
+    super.key,
+    required this.controller,
+    required this.onViewBilling,
+  });
+  final VoidCallback onViewBilling;
   final WorkspaceController controller;
   @override
   State<_Thread> createState() => _ThreadState();
@@ -494,7 +514,13 @@ class _ThreadState extends State<_Thread> {
         role: RaftConversationSurfaceRole.threadTimeline,
         child: ServerSetupGate(
           controller: w,
-          child: RaftChatView(controller: w, thread: true),
+          child: RaftChatView(
+            controller: w,
+            thread: true,
+            // Replies are never tasks; the grid hosts no task slot.
+            onTask: null,
+            onViewBilling: widget.onViewBilling,
+          ),
         ),
       );
     },

@@ -176,15 +176,12 @@ class _ConversationPanelState extends State<ConversationPanel> {
         if (usesThumbnail) {
           url = thumbnail;
         } else {
-          final result = await w.client.get(
-            '/attachments/${Uri.encodeComponent(file.id)}/url',
+          url = await w.attachmentUrl(
+            file.id,
+            disposition: null,
+            channelId: file.channelId,
           );
-          if (cancel.isCancelled ||
-              result is! Map ||
-              result['url'] is! String) {
-            throw const StaleAttachmentImage();
-          }
-          url = result['url'];
+          if (cancel.isCancelled) throw const StaleAttachmentImage();
         }
         return files.image(url, cancel: cancel);
       },

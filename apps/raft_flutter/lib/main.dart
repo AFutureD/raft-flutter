@@ -36,6 +36,7 @@ import 'platform/keyboard_inset_guard.dart';
 import 'platform/launch_theme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
+import 'platform/attachment_http.dart';
 import 'platform/native_sharing.dart';
 import 'platform/ios_share_session.dart';
 import 'platform/incoming_share_staging.dart';
@@ -1736,6 +1737,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
     finishStartup();
     InviteRequests.instance.removeListener(inviteRequested);
@@ -1750,6 +1756,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     NativeSystemFonts.instance.removeListener(systemFontsChanged);
     unawaited(content.dispose());
+    AttachmentHttp.close();
     sessionEvents?.cancel();
     final flushed = workspace?.flushCache() ?? Future<void>.value();
     final retiredClient = client;
@@ -1779,6 +1786,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       domain: 'account',
     );
     final locale = displayLocale(client?.user?.string('displayLanguage'));
+    final textLocale = WidgetsBinding.instance.platformDispatcher.locale;
     return MaterialApp.router(
       title: 'Raft',
       routerDelegate: appRouter,
@@ -1812,6 +1820,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
         systemFontFamilies: NativeSystemFonts.instance.value,
         locale: locale,
+        textLocale: textLocale,
       ),
       darkTheme: raftTheme(
         RaftFamily.elegant,
@@ -1819,6 +1828,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         systemFonts: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
         systemFontFamilies: NativeSystemFonts.instance.value,
         locale: locale,
+        textLocale: textLocale,
       ),
       themeMode: appearance.mode,
     );

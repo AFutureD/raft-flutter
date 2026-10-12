@@ -110,6 +110,7 @@ class RaftMessageRowRecipe {
       ? (popupOpen ? RaftPrimitiveColors.black : tokens.strong)
       : Colors.transparent;
   TextStyle get body => TextStyle(
+    locale: tokens.textLocale,
     // Mounted host uses font-display, not Elegant's generic font-sans (Geist).
     fontFamily: tokens.headingFont,
     fontSize: 14,
@@ -122,6 +123,7 @@ class RaftMessageRowRecipe {
     fontWeight: tokens.brutal ? FontWeight.w700 : FontWeight.w500,
   );
   TextStyle get time => TextStyle(
+    locale: tokens.textLocale,
     fontFamily: tokens.brutal ? tokens.monoFont : tokens.bodyFont,
     fontSize: 12,
     height: tokens.brutal ? 16 / 12 : 1,
@@ -131,6 +133,7 @@ class RaftMessageRowRecipe {
         : tokens.muted.withValues(alpha: tokens.muted.a * .7),
   );
   TextStyle get continuationTime => TextStyle(
+    locale: tokens.textLocale,
     fontFamily: tokens.monoFont,
     fontSize: 10,
     height: 1,

@@ -2279,20 +2279,16 @@ class _ResourceViewState extends State<ResourceView> {
     if (snapshotted) observeListUpdates();
     // ThreadsInbox mounts ActivityInboxPanel with `theme-brutal:!border-l`.
     final activityEdge = widget.section == 'activity';
-    // Owner decision 2026-10-11 (overrides the Web measurement): the mobile
-    // Activity page draws no vertical border at x = 0; the desktop panel keeps
-    // its line beside the rail.
-    final activityBorder = !RaftAdaptiveWorkspace.compactOf(context);
+    // The shared left-edge rule (RaftPanelEdge): the Activity panel keeps its
+    // line beside the rail at every width but the full-width phone page
+    // (owner decisions 2026-10-11 / 2026-10-12).
     final BoxDecoration? surface = activityEdge
         ? BoxDecoration(
             color: t.brutal ? t.panel : t.sidebar,
-            border: activityBorder
-                ? Border(
-                    left: BorderSide(
-                      color: t.brutal ? t.colors['color-black']! : t.line,
-                    ),
-                  )
-                : null,
+            border: RaftPanelEdge.left(
+              context,
+              RaftPanelEdgeStyle.activityInbox,
+            ),
           )
         // SavedPanel: `bg-layer-canvas-muted theme-brutal:bg-white`.
         : widget.section == 'saved'
@@ -5595,6 +5591,10 @@ class _ResourceViewState extends State<ResourceView> {
       result = await scopedDialog<String>(scope, (context) {
         return SourceTaskSurface(
           owner: owner,
+          // The board dialog is its own modal: no task slot / billing page
+          // behind it (references fall back to their read-only summary).
+          onTask: null,
+          onViewBilling: null,
           onClose: () => closeOwnedDialog(context, scope),
           onCleanupDelete: () {
             if (owner.canCleanupDelete) {

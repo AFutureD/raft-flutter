@@ -11,7 +11,7 @@ void main() {
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ])) {
+  ], full: true)) {
     testWidgets('$family/$dark strip wears the rail colours and rule', (
       tester,
     ) async {

@@ -358,7 +358,7 @@ class NativeNotificationService extends ChangeNotifier {
   /// It does not depend on the member's opt-in: desktop notifications are owned
   /// by the system, and a phone only needs the permission to be granted.
   Future<bool> test({
-    String title = 'Raft',
+    String title = 'Test notification',
     String body = 'System notifications are enabled. Click to return to Raft.',
   }) async {
     await initialize();

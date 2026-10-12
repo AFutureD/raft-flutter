@@ -6,6 +6,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/incoming_share_targets.dart';
 import '../platform/incoming_share_staging.dart';
+import '../platform/native_sharing.dart' show IncomingSharedFile;
+import 'forward_composer_page.dart' show forwardTargetIcon;
 
 class IncomingSharePicker extends StatefulWidget {
   const IncomingSharePicker({
@@ -42,6 +44,11 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
   late List<RaftRecord> servers = widget.servers;
   StreamSubscription<RaftEvent>? events;
   IncomingShareTarget? selected;
+
+  /// Web's single-select forward flow: choosing a row opens the second page
+  /// ("Add shared content"), whose action is Continue.
+  bool review = false;
+  String? handoffError;
   List<IncomingShareTarget> targets = [];
   final search = TextEditingController();
   final searchFocus = FocusNode();
@@ -150,6 +157,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
           }
           server = null;
           selected = null;
+          review = false;
           targets = [];
           loading = false;
         });
@@ -175,7 +183,10 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     final keptNotice = notice;
     setState(() {
       server = next;
-      if (!(same && keepSelection)) selected = null;
+      if (!(same && keepSelection)) {
+        selected = null;
+        review = false;
+      }
       if (!same) {
         targets = seeded ?? [];
         search.clear();
@@ -212,6 +223,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
               notice = 'The selected destination is no longer available.';
             }
             selected = fresh;
+            if (fresh == null) review = false;
           }
         });
       } catch (e) {
@@ -224,6 +236,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
             // selectable on the strength of the device copy.
             targets = [];
             selected = null;
+            review = false;
             error = 'Conversations could not be loaded.';
           } else {
             notice = 'Conversations could not be loaded.';
@@ -240,7 +253,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     for (var wait = 0; revalidating && wait < 3; wait++) {
       setState(() {
         busy = true;
-        error = null;
+        handoffError = null;
       });
       await validation;
       if (!mounted || !widget.valid()) return;
@@ -270,7 +283,7 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     }
     setState(() {
       busy = true;
-      error = null;
+      handoffError = null;
     });
     try {
       await widget.onContinue(scope, destination);
@@ -279,7 +292,8 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
       if (mounted && widget.valid()) {
         setState(() {
           busy = false;
-          error = 'The shared content could not be added. Please try again.';
+          handoffError =
+              'The shared content could not be added. Please try again.';
         });
       }
     }
@@ -295,153 +309,252 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
     super.dispose();
   }
 
+  /// Web `getForwardTargets`: most recent activity first, then by label.
+  /// Destinations that have no conversation yet (a new DM) follow.
+  List<IncomingShareTarget> get ordered {
+    final query = search.text.trim().toLowerCase();
+    int time(IncomingShareTarget t) {
+      final json = t.channel?.json;
+      return DateTime.tryParse(
+            '${json?['lastMessageAt'] ?? json?['createdAt'] ?? ''}',
+          )?.millisecondsSinceEpoch ??
+          0;
+    }
+
+    return targets.where((t) => t.label.toLowerCase().contains(query)).toList()
+      ..sort((a, b) {
+        final order = time(b) - time(a);
+        return order != 0
+            ? order
+            : a.label.toLowerCase().compareTo(b.label.toLowerCase());
+      });
+  }
+
+  /// The share, as the second line of the target page.
+  String summary(BuildContext context) {
+    final raw = widget.staging?.raw;
+    final files = raw?.files.length ?? 0;
+    final text = raw?.text != null && raw!.text!.isNotEmpty;
+    if (files == 0) return raftText(context, 'Sharing text');
+    return raftFormat(
+      context,
+      text
+          ? files == 1
+                ? 'Sharing {count} file and text'
+                : 'Sharing {count} files and text'
+          : files == 1
+          ? 'Sharing {count} file'
+          : 'Sharing {count} files',
+      {'count': files},
+    );
+  }
+
+  Widget progress(BuildContext context) => RaftProgressBar(
+    key: const Key('incoming-share-preparing'),
+    label: raftFormat(context, 'Preparing {done} of {total} files', {
+      'done': widget.staging!.copied,
+      'total': widget.staging!.total,
+    }),
+    value: 100 * widget.staging!.copied / widget.staging!.total,
+  );
+
+  bool get preparing =>
+      widget.staging?.preparing == true && widget.staging!.total > 0;
+
   @override
   Widget build(BuildContext context) {
-    final query = search.text.trim().toLowerCase();
-    final rows = targets
-        .where((t) => t.label.toLowerCase().contains(query))
-        .toList();
+    final target = selected;
+    final second = review && target != null;
     return PopScope(
-      canPop: !busy,
+      canPop: !busy && !second,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && second && !busy) setState(() => review = false);
+      },
       child: RaftForwardPage(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Native-only page: it wears the same Web PanelHeader as every
-            // phone page.
-            RaftPanelHeaderBar(
-              title: raftText(context, 'Select destinations'),
-              onBack: busy ? null : () => Navigator.of(context).pop(false),
-              backTooltip: raftText(context, 'Back'),
-            ),
-            if (widget.staging?.preparing == true && widget.staging!.total > 0)
-              RaftPanel(
-                key: const Key('incoming-share-preparing'),
-                child: RaftProgressBar(
-                  label: raftFormat(
-                    context,
-                    'Preparing {done} of {total} files',
-                    {
-                      'done': widget.staging!.copied,
-                      'total': widget.staging!.total,
-                    },
-                  ),
-                  value: 100 * widget.staging!.copied / widget.staging!.total,
-                ),
-              ),
-            if (servers.isNotEmpty)
-              RaftPanel(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: RaftSegmentedControl<String>(
-                    value: server?.id ?? '',
-                    label: raftText(context, 'Server'),
-                    items: [
-                      for (final s in servers)
-                        RaftSegmentedOption(value: s.id, label: s.name),
-                    ],
-                    onChanged: busy
-                        ? null
-                        : (id) => load(servers.firstWhere((s) => s.id == id)),
-                  ),
-                ),
-              ),
-            Expanded(
-              child: RaftForwardTargetsBody(
-                search: RaftForwardSearchInput(
-                  controller: search,
-                  focusNode: searchFocus,
-                  placeholder: raftText(context, 'Search targets'),
-                  onChanged: (_) => setState(() {}),
-                ),
-                label:
-                    selected?.label ?? raftText(context, 'Select destinations'),
-                itemCount: loading || error != null
-                    ? 1
-                    : rows.length + (notice == null ? 0 : 1),
-                itemBuilder: (context, index) {
-                  if (loading) {
-                    return const RaftForwardSearchStatus(loading: true);
-                  }
-                  if (notice != null && index == 0) {
-                    return RaftForwardSearchStatus(
-                      key: const Key('incoming-share-notice'),
-                      message: raftText(context, notice!),
-                    );
-                  }
-                  if (notice != null) index--;
-                  if (error != null) {
-                    return RaftForwardSearchStatus(
-                      message: raftText(context, error!),
-                      retryLabel: raftText(context, 'Retry'),
-                      onRetry: () =>
-                          server == null ? refreshAuthority() : load(server!),
-                    );
-                  }
-                  final target = rows[index];
-                  return RaftForwardTargetRow(
-                    key: ValueKey('incoming-target-${target.key}'),
-                    icon: raftForwardTargetIcon(
-                      name: target.label,
-                      type: target.channel?.type ?? 'dm',
-                      agent: target.agentId != null,
-                    ),
-                    label: target.label,
-                    selected: selected?.key == target.key,
-                    checkbox: true,
-                    onTap: busy
-                        ? null
-                        : () => setState(() {
-                            selected = selected?.key == target.key
-                                ? null
-                                : target;
-                          }),
-                  );
-                },
-              ),
-            ),
-            // The footer paints to the screen edge and pads by the system inset.
-            RaftBottomInsetSurface(
-              decoration: BoxDecoration(
-                color: RaftTokens.of(context).panel,
-                border: Border(
-                  top: BorderSide(
-                    color: RaftTokens.of(context).line,
-                    width: RaftTokens.of(context).border,
-                  ),
-                ),
-              ),
-              padding: const EdgeInsets.all(RaftSpace.x4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: selected == null
-                        ? const SizedBox()
-                        : Align(
-                            alignment: Alignment.centerLeft,
-                            child: RaftButton(
-                              label: selected!.label,
-                              glyph: RaftGlyph.x,
-                              secondary: true,
-                              onPressed: busy
-                                  ? null
-                                  : () => setState(() => selected = null),
-                            ),
-                          ),
-                  ),
-                  RaftButton(
-                    key: const Key('incoming-share-continue'),
-                    label: raftText(context, 'Continue'),
-                    busy: busy,
-                    onPressed: busy || selected == null || loading
-                        ? null
-                        : proceed,
-                  ),
-                ],
-              ),
-            ),
+            if (second)
+              ..._reviewStep(context, target)
+            else
+              ..._targetsStep(context),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _targetsStep(BuildContext context) {
+    final query = search.text.trim();
+    final rows = ordered;
+    return [
+      RaftForwardPageHeader(
+        leading: RaftForwardIconAction(
+          glyph: RaftGlyph.arrowLeft,
+          tooltip: raftText(context, 'Back'),
+          onPressed: busy ? null : () => Navigator.of(context).pop(false),
+        ),
+        title: raftText(context, 'Select destinations'),
+        subtitle: summary(context),
+      ),
+      Expanded(
+        child: RaftForwardTargetsBody(
+          leading: [
+            if (preparing) progress(context),
+            if (servers.length > 1)
+              RaftForwardServerChips(
+                semanticLabel: raftText(context, 'Server'),
+                names: {for (final s in servers) s.id: s.name},
+                selected: server?.id ?? '',
+                onSelected: busy
+                    ? null
+                    : (id) => load(servers.firstWhere((s) => s.id == id)),
+              ),
+          ],
+          search: RaftForwardSearchInput(
+            controller: search,
+            focusNode: searchFocus,
+            placeholder: raftText(context, 'Search targets'),
+            onChanged: (_) => setState(() {}),
+          ),
+          label: raftText(context, 'Recent'),
+          itemCount: loading || error != null
+              ? 1
+              : (rows.isEmpty ? 1 : rows.length) + (notice == null ? 0 : 1),
+          itemBuilder: (context, index) {
+            if (loading) return const RaftForwardSearchStatus(loading: true);
+            if (notice != null && index == 0) {
+              return RaftForwardSearchStatus(
+                key: const Key('incoming-share-notice'),
+                message: raftText(context, notice!),
+              );
+            }
+            if (notice != null) index--;
+            if (error != null) {
+              return RaftForwardSearchStatus(
+                message: raftText(context, error!),
+                retryLabel: raftText(context, 'Retry'),
+                onRetry: () =>
+                    server == null ? refreshAuthority() : load(server!),
+              );
+            }
+            if (rows.isEmpty) {
+              return RaftForwardSearchStatus(
+                message: raftText(
+                  context,
+                  query.isEmpty
+                      ? 'No destinations available.'
+                      : 'No destinations match your search.',
+                ),
+              );
+            }
+            final row = rows[index];
+            final channel = row.channel;
+            return RaftForwardTargetRow(
+              key: ValueKey('incoming-target-${row.key}'),
+              icon: forwardTargetIcon(
+                widget.client.origin,
+                name: row.label,
+                type: channel?.type ?? 'dm',
+                agent:
+                    row.agentId != null || channel?.json['peerType'] == 'agent',
+                peerId:
+                    row.agentId ??
+                    row.userId ??
+                    (channel?.json['peerId'] is String
+                        ? channel!.json['peerId'] as String
+                        : null),
+                avatarUrl: channel?.json['peerAvatarUrl'] is String
+                    ? channel!.json['peerAvatarUrl'] as String
+                    : null,
+                gravatarHash: channel?.json['peerGravatarHash'] is String
+                    ? channel!.json['peerGravatarHash'] as String
+                    : null,
+              ),
+              // Web `targetPickerLabel`: channels show the bare name.
+              label: channel != null && channel.type != 'dm'
+                  ? channel.name
+                  : row.label,
+              selected: selected?.key == row.key,
+              checkbox: false,
+              trailing: row.requiresJoin
+                  ? RaftForwardTargetBadge(
+                      glyph: RaftGlyph.logIn,
+                      label: raftText(context, 'Not joined'),
+                    )
+                  : channel == null
+                  ? RaftForwardTargetBadge(
+                      glyph: RaftGlyph.userPlus,
+                      label: raftText(context, 'New DM'),
+                    )
+                  : null,
+              onTap: busy
+                  ? null
+                  : () => setState(() {
+                      selected = row;
+                      review = true;
+                      handoffError = null;
+                    }),
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _reviewStep(BuildContext context, IncomingShareTarget target) {
+    final raw = widget.staging?.raw;
+    final files = raw?.files ?? const <IncomingSharedFile>[];
+    return [
+      RaftForwardPageHeader(
+        leading: RaftForwardIconAction(
+          glyph: RaftGlyph.arrowLeft,
+          tooltip: raftText(context, 'Back to destinations'),
+          onPressed: busy ? null : () => setState(() => review = false),
+        ),
+        title: raftText(context, 'Add shared content'),
+        subtitle: raftFormat(context, 'Add to {target}', {
+          'target': target.label,
+        }),
+      ),
+      Expanded(
+        child: RaftForwardPreviewStep(
+          warnings: [if (preparing) progress(context)],
+          error: handoffError == null ? null : raftText(context, handoffError!),
+          previewLabel: raftText(context, 'Shared content'),
+          preview: RaftForwardSharePreview(
+            header: raftText(context, 'Shared'),
+            count: files.isEmpty
+                ? null
+                : raftFormat(
+                    context,
+                    files.length == 1 ? '{count} file' : '{count} files',
+                    {'count': files.length},
+                  ),
+            text: raw?.text,
+            files: [
+              for (final f in files)
+                RaftForwardShareFile(
+                  filename: f.filename,
+                  mimeType: f.mimeType,
+                  sizeBytes: f.sizeBytes,
+                ),
+            ],
+          ),
+          hint: files.isEmpty
+              ? null
+              : raftText(
+                  context,
+                  'Files are added to the composer. Review them before sending.',
+                ),
+          action: RaftForwardContinueAction(
+            key: const Key('incoming-share-continue'),
+            label: raftText(context, 'Continue'),
+            busy: busy,
+            onPressed: busy || loading ? null : proceed,
+          ),
+        ),
+      ),
+    ];
   }
 }

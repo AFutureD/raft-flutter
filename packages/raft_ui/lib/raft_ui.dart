@@ -22,6 +22,7 @@ export 'src/secret_view.dart';
 export 'src/attachment_card.dart';
 
 export 'src/adaptive_workspace.dart';
+export 'src/panel_edge.dart';
 export 'src/localization.dart';
 export 'src/message_body.dart';
 export 'src/font_warm_up.dart';
@@ -120,6 +121,7 @@ export 'src/composer_drop_overlay.dart';
 export 'src/sos_dialog.dart';
 
 export 'src/avatar_content.dart';
+export 'src/sized_image.dart';
 
 export 'src/message_row_recipe.dart';
 export 'src/message_translation.dart';

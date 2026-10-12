@@ -41,7 +41,8 @@ class RaftDesktopTitleStrip extends StatelessWidget {
     this.onDoubleTap,
   });
 
-  /// The whole strip, rule included: the system title bar's height.
+  /// The whole strip, rule included: the system title bar's height, or just
+  /// [RaftTitleBarRecipe.ruleWidth] below an independently drawn native bar.
   final double height;
 
   /// Begin moving the window; the press that started the move is the pointer
@@ -80,8 +81,9 @@ class RaftDesktopTitleStrip extends StatelessWidget {
 
 /// Puts the title strip above [child] while the window shows one.
 ///
-/// [height] is what the native window reports for its title bar and is zero
-/// when it has none; [fullscreen] hides the strip even if a height is stale
+/// [height] is the native title bar height, or [RaftTitleBarRecipe.ruleWidth]
+/// when only the rule below a native bar is needed. Zero draws nothing;
+/// [fullscreen] hides the strip even if a height is stale
 /// (macOS hides its title bar in fullscreen). The content below is given the
 /// remaining height, and the [MediaQuery] size matches it so everything
 /// measured against the viewport sees the area it really has.

@@ -16,6 +16,7 @@ import 'components.dart' show RaftAvatar, RaftAvatarKind;
 import 'list_items.dart';
 import 'mounted_avatar_recipe.dart';
 import 'recipes/recipe_runtime.dart' show RaftSlotStyle;
+import 'panel_edge.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
@@ -158,21 +159,14 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
               // The modern ThreadPanel is a raft-ui `Panel edge="attached"`
               // (`border-l-2 border-black`, elegant `border-l border-line-muted`):
               // its column starts 2px / 1px inside the modal frame, in the
-              // modal. Owner decision 2026-10-12: no left edge line on the
-              // phone (intended difference from Web). LegacyTaskPanel keeps
-              // its own side-presentation border (`framed` below).
-              child: legacy || mobile
+              // modal. The shared rule (RaftPanelEdge) leaves the full-width
+              // phone page without it. LegacyTaskPanel keeps its own
+              // side-presentation border (`framed` below).
+              child: legacy
                   ? body
                   : Container(
                       decoration: BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            color: t.brutal
-                                ? Colors.black
-                                : t.colors['line-muted']!,
-                            width: t.brutal ? 2 : 1,
-                          ),
-                        ),
+                        border: RaftPanelEdge.left(context),
                       ),
                       child: body,
                     ),

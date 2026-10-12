@@ -321,6 +321,7 @@ abstract final class RaftTypography {
     FontWeight weight = FontWeight.w700,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: t.headingFont,
     fontVariations: t.brutal || t.systemFonts
         ? null
@@ -384,6 +385,7 @@ abstract final class RaftTypography {
     FontWeight weight = FontWeight.w400,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: t.bodyFont,
     fontFamilyFallback: t.fontFallback,
     fontSize: size,
@@ -415,6 +417,7 @@ abstract final class RaftTypography {
     double line = 16,
     Color? color,
   }) => TextStyle(
+    locale: t.textLocale,
     fontFamily: t.monoFont,
     fontSize: size,
     height: line / size,
@@ -642,6 +645,7 @@ class RaftControlRecipe {
       ? 14
       : 16;
   TextStyle get textStyle => TextStyle(
+    locale: tokens.textLocale,
     fontFamily: tokens.brutal ? tokens.headingFont : tokens.bodyFont,
     fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
     fontSize: kind == RaftControlKind.segmentedButton
@@ -2707,6 +2711,7 @@ class RaftTaskSectionRecipe {
 
   /// MainLayout.tsx2255 AppShellRoot font-display, inherited by task cards.
   TextStyle get documentStyle => TextStyle(
+    locale: tokens.textLocale,
     fontFamily: tokens.headingFont,
     fontFamilyFallback: tokens.systemFonts ? tokens.fontFallback : null,
     fontSize: 16,

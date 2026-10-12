@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import 'attachment_http.dart';
+
 /// Preview capabilities belong to one attachment and one server. Normal
 /// presigned download URLs never authorize execution of HTML in a browser.
 Uri attachmentHtmlPreviewUri(String value, String origin, String id) {
@@ -52,15 +54,7 @@ bool attachmentHtmlSandboxed(String? value) {
 
 class AttachmentHtmlLoader {
   AttachmentHtmlLoader({Dio? dio})
-    : dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 30),
-              followRedirects: false,
-            ),
-          );
+    : dio = dio ?? AttachmentHttp.shared;
   final Dio dio;
   static const maxBytes = 2 * 1024 * 1024;
 
