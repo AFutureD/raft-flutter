@@ -447,6 +447,33 @@ void main() {
       await unmount(tester);
     }, variant: linux);
 
+    testWidgets('playing under a resting mouse hides the bar after 3 s; a move '
+        'shows it again', (tester) async {
+      final (player, _) = await mountVideo(tester);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      final card = tester.getCenter(find.byKey(const Key('inline-video')));
+      await mouse.moveTo(card);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(player.playing, isTrue);
+      expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.byKey(const Key('inline-video-bar')), findsNothing);
+      await mouse.moveTo(card + const Offset(5, 0));
+      await tester.pump();
+      expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
+      // Paused: the bar stays however long the pointer rests.
+      await tester.tap(find.byKey(const Key('inline-video-toggle')));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(player.playing, isFalse);
+      await tester.pump(const Duration(seconds: 10));
+      expect(find.byKey(const Key('inline-video-bar')), findsOneWidget);
+      await unmount(tester);
+    }, variant: linux);
+
     testWidgets('touch: Play stays visible; a tap on playback shows the bar '
         'for a few seconds', (tester) async {
       final (player, _) = await mountVideo(tester);

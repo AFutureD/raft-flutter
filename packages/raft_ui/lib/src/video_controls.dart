@@ -48,10 +48,15 @@ const _videoFadeStops = [
   1.0,
 ];
 
+/// How long a playing video keeps its controls after the last pointer movement
+/// (mouse) or the last tap (touch).
+const raftVideoControlsIdle = Duration(seconds: 3);
+
 /// The interactive layer over a video picture: click toggles playback, a
 /// centred Play while paused (on hover with a mouse, always on touch) and the
-/// [RaftVideoControlBar] (paused: always; playing: on hover, or for a few
-/// seconds after a tap on touch). [child] is the picture; [extra] stacks on
+/// [RaftVideoControlBar] (paused: always; playing: while the mouse moves over
+/// the picture and for [raftVideoControlsIdle] after it stops, or for that long
+/// after a tap on touch). [child] is the picture; [extra] stacks on
 /// top (the card's Eye action).
 class RaftVideoOverlay extends StatefulWidget {
   const RaftVideoOverlay({
@@ -99,7 +104,15 @@ class RaftVideoOverlay extends StatefulWidget {
 
 class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
   bool hovered = false, barTapped = false;
-  Timer? barTimer;
+
+  /// Mouse: the pointer rested over the playing picture; the bar is hidden
+  /// until it moves again.
+  bool idleHidden = false;
+
+  /// Mouse: the pointer is over the bar, or a seek / volume drag is running.
+  /// The bar stays while either holds.
+  bool overBar = false, dragging = false;
+  Timer? barTimer, idleTimer;
   double mutedFrom = 100;
 
   bool get touch =>
@@ -110,14 +123,79 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
   @override
   void dispose() {
     barTimer?.cancel();
+    idleTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(RaftVideoOverlay old) {
+    super.didUpdateWidget(old);
+    if (old.playing != widget.playing || old.ready != widget.ready) {
+      idleHidden = false;
+      armIdle();
+    }
+  }
+
+  /// Mouse: (re)start the rest timer. It only runs while the video plays under
+  /// a resting pointer that is not on the bar and not dragging a rail; any
+  /// other state cancels it, so nothing ticks while paused or hidden.
+  void armIdle() {
+    idleTimer?.cancel();
+    idleTimer = null;
+    if (touch ||
+        !hovered ||
+        !widget.ready ||
+        !widget.playing ||
+        overBar ||
+        dragging) {
+      return;
+    }
+    idleTimer = Timer(raftVideoControlsIdle, () {
+      idleTimer = null;
+      if (mounted) setState(() => idleHidden = true);
+    });
+  }
+
+  void pointerMoved() {
+    if (touch) return;
+    if (idleHidden) setState(() => idleHidden = false);
+    armIdle();
+  }
+
+  void pointerEntered() {
+    setState(() {
+      hovered = true;
+      idleHidden = false;
+    });
+    armIdle();
+  }
+
+  void pointerLeft() {
+    setState(() {
+      hovered = false;
+      overBar = dragging = false;
+      idleHidden = false;
+    });
+    armIdle();
+  }
+
+  void barHovered(bool over) {
+    if (overBar == over) return;
+    overBar = over;
+    armIdle();
+  }
+
+  void dragChanged(bool active) {
+    if (dragging == active) return;
+    dragging = active;
+    armIdle();
   }
 
   /// A tap on a playing picture (touch) reveals the bar for a few seconds.
   void showBarBriefly() {
     barTimer?.cancel();
     setState(() => barTapped = true);
-    barTimer = Timer(const Duration(seconds: 3), () {
+    barTimer = Timer(raftVideoControlsIdle, () {
       if (mounted) setState(() => barTapped = false);
     });
   }
@@ -136,7 +214,8 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
   }
 
   bool get showBar =>
-      widget.ready && (widget.playing ? (touch ? barTapped : hovered) : true);
+      widget.ready &&
+      (widget.playing ? (touch ? barTapped : hovered && !idleHidden) : true);
   bool get showCenterPlay =>
       widget.ready && !widget.playing && (touch || hovered);
 
@@ -155,8 +234,9 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
         'filename': widget.filename,
       }),
       child: MouseRegion(
-        onEnter: (_) => setState(() => hovered = true),
-        onExit: (_) => setState(() => hovered = false),
+        onEnter: (_) => pointerEntered(),
+        onHover: (_) => pointerMoved(),
+        onExit: (_) => pointerLeft(),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -208,34 +288,39 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: RaftVideoControlBar(
-                  key: const Key('inline-video-bar'),
-                  filename: widget.filename,
-                  playing: widget.playing,
-                  position: widget.position,
-                  duration: widget.duration,
-                  volume: widget.volume,
-                  touch: touch,
-                  hovered: hovered,
-                  fullscreen: widget.fullscreen,
-                  playLabel: playLabel,
-                  onTogglePlay: widget.onTogglePlay,
-                  onSeek: widget.onSeek,
-                  onVolume: widget.onVolume,
-                  onOpen: widget.onOpen,
-                  onDownload: widget.onDownload,
-                  onFullscreen: widget.onFullscreen,
-                  onMute: widget.onVolume == null
-                      ? null
-                      : () {
-                          if (widget.volume > 0) {
-                            mutedFrom = widget.volume;
-                            widget.onVolume!(0);
-                          } else {
-                            widget.onVolume!(mutedFrom > 0 ? mutedFrom : 100);
-                          }
-                        },
-                  onInteract: touch && widget.playing ? showBarBriefly : null,
+                child: MouseRegion(
+                  onEnter: (_) => barHovered(true),
+                  onExit: (_) => barHovered(false),
+                  child: RaftVideoControlBar(
+                    key: const Key('inline-video-bar'),
+                    filename: widget.filename,
+                    playing: widget.playing,
+                    position: widget.position,
+                    duration: widget.duration,
+                    volume: widget.volume,
+                    touch: touch,
+                    hovered: hovered,
+                    fullscreen: widget.fullscreen,
+                    playLabel: playLabel,
+                    onTogglePlay: widget.onTogglePlay,
+                    onSeek: widget.onSeek,
+                    onVolume: widget.onVolume,
+                    onOpen: widget.onOpen,
+                    onDownload: widget.onDownload,
+                    onFullscreen: widget.onFullscreen,
+                    onMute: widget.onVolume == null
+                        ? null
+                        : () {
+                            if (widget.volume > 0) {
+                              mutedFrom = widget.volume;
+                              widget.onVolume!(0);
+                            } else {
+                              widget.onVolume!(mutedFrom > 0 ? mutedFrom : 100);
+                            }
+                          },
+                    onInteract: touch && widget.playing ? showBarBriefly : null,
+                    onDragChanged: dragChanged,
+                  ),
                 ),
               ),
             ...widget.extra,
@@ -270,6 +355,7 @@ class RaftVideoControlBar extends StatefulWidget {
     this.onFullscreen,
     this.fullscreen = false,
     this.onInteract,
+    this.onDragChanged,
   });
   final String filename, playLabel;
   final bool playing, touch, hovered, fullscreen;
@@ -281,6 +367,9 @@ class RaftVideoControlBar extends StatefulWidget {
       onDownload,
       onFullscreen,
       onInteract;
+
+  /// A seek or volume drag started (true) or ended (false).
+  final ValueChanged<bool>? onDragChanged;
   final ValueChanged<Duration>? onSeek;
   final ValueChanged<double>? onVolume;
 
@@ -513,6 +602,7 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
                           enabled: widget.onVolume != null,
                           height: box,
                           thumb: true,
+                          onDragChanged: widget.onDragChanged,
                           onChanged: (v) => widget.onVolume?.call(v * 100),
                         ),
                       ),
@@ -537,14 +627,11 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
                   semanticLabel: raftFormat(context, 'Seek video {filename}', {
                     'filename': widget.filename,
                   }),
-                  semanticValue: raftFormat(
-                    context,
-                    '{position} of {duration}',
-                    {
-                      'position': raftAudioTimestamp(bounded),
-                      'duration': raftAudioTimestamp(widget.duration),
-                    },
-                  ),
+                  semanticValue:
+                      raftFormat(context, '{position} of {duration}', {
+                        'position': raftAudioTimestamp(bounded),
+                        'duration': raftAudioTimestamp(widget.duration),
+                      }),
                   value: progress,
                   step: known
                       ? (5000 / widget.duration.inMilliseconds).clamp(0.0, 1.0)
@@ -552,6 +639,7 @@ class _RaftVideoControlBarState extends State<RaftVideoControlBar> {
                   enabled: known,
                   height: 16,
                   thumb: widget.hovered || widget.touch,
+                  onDragChanged: widget.onDragChanged,
                   onChanged: (v) {
                     widget.onInteract?.call();
                     widget.onSeek?.call(
@@ -631,8 +719,10 @@ class _VideoRail extends StatefulWidget {
     this.thumb = true,
     this.step = .05,
     this.hoverLabel,
+    this.onDragChanged,
   });
   final double value, height, step;
+  final ValueChanged<bool>? onDragChanged;
   final bool enabled, thumb;
   final ValueChanged<double> onChanged;
   final String semanticLabel, semanticValue;
@@ -684,8 +774,13 @@ class _VideoRailState extends State<_VideoRail> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (d) => update(d.localPosition.dx),
-              onHorizontalDragStart: (d) => update(d.localPosition.dx),
+              onHorizontalDragStart: (d) {
+                widget.onDragChanged?.call(true);
+                update(d.localPosition.dx);
+              },
               onHorizontalDragUpdate: (d) => update(d.localPosition.dx),
+              onHorizontalDragEnd: (_) => widget.onDragChanged?.call(false),
+              onHorizontalDragCancel: () => widget.onDragChanged?.call(false),
               child: SizedBox(
                 height: widget.height,
                 child: Stack(
