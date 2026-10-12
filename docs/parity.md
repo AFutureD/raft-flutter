@@ -1281,7 +1281,8 @@ from Web). "On mobile, don't draw the black line on the left anywhere." Web's
 `Panel edge="attached"` (`border-l-2 border-black`, Elegant `border-l
 border-line-muted`) and the Brutal drawer `border-l-2` carry no breakpoint, so
 Web draws them on phones too, 2px (Brutal) / 1px (Elegant) inside the screen
-edge. Flutter draws them only at width >= 768 (`RaftLayoutMetrics.desktopBreakpoint`):
+edge. Flutter draws them only at width >= 768 (`RaftLayoutMetrics.desktopBreakpoint`,
+now decided in one place, see "Panel left edge" below):
 `RaftSettingsPanelFrame`, the channel overflow/settings drawer frames
 (`_OverflowDrawerFrame`, `RaftChannelSettingsSheet`; the full-width phone page
 and the members page's `RaftOverflowBareSheet(page: true)` draw none), and the
@@ -1296,6 +1297,49 @@ owner decision overrides the Web analysis (this reverses the phone half of
 `docs/alignment-audit.md` fixes 1-4; their desktop halves stay).
 `packages/raft_ui/test/phone_no_left_border_test.dart` pins the absence on
 phone and the presence on desktop.
+
+### Panel left edge: one rule, one place (`RaftPanelEdge`)
+
+Rule: **the attached left edge shows everywhere except when the surface is
+rendered as a full-width standalone phone page** (width below 768 dp, the same
+cut as `RaftAdaptiveWorkspace.compactOf`). A foldable (816 / 841) and a desktop
+window always draw it. `packages/raft_ui/lib/src/panel_edge.dart` is the only
+place that decides: `RaftPanelEdge.presentationOf(context)` returns
+`attached` or `phonePage`, `RaftPanelEdge.left(context, style)` returns the
+border (`attachedPanel` Brutal 2px black / Elegant 1px line-muted,
+`activityInbox` 1px, `drawer` Brutal-only 2px line-strong) and
+`RaftPanelEdge.masterRight` the master/detail divider. A surface never compares
+a width or reads its own "mobile" / "page" / "detail" flag for its edge.
+
+Surfaces on the rule (registry `apps/raft_flutter/test/support/panel_edge_registry.dart`):
+Settings panel (`RaftSettingsPanelFrame`), channel / DM settings drawer and
+members page (`_OverflowDrawerFrame`, `RaftChannelSettingsSheet`), the task
+thread panel inside its modal, the workspace thread and profile panels
+(`RaftAdaptiveWorkspace`), the Activity inbox panel (`ResourceView`), and the
+Activity / Search detail divider (`DesktopMasterDetail.masterEdge`, Web
+`MainLayout` col-2 `border-r`: Activity 1px, Search Brutal 2px, drawn inside
+the master's width). Guards: `panel_edge_matrix_test.dart` mounts each surface
+at 390 / 816 / 841 / 1280 in Brutal, Elegant and Elegant dark and checks the
+painted rule (absent only on the phone page); `panel_edge_registry_test.dart`
+fails on an unregistered `RaftPanelEdge` user, a listed file that does not use
+it, and any `left: BorderSide` whose neighbouring lines test a width /
+`compactOf` / `mobile` flag (allowlist: the legacy docked task panel).
+
+Why the Activity / Search detail lost its divider (owner report 2026-10-12,
+macOS desktop, Brutal, Activity list beside a Thread panel): the Flutter port
+of the master/detail layout (`DesktopMasterDetail`) never drew it. On Web the
+detail column has no border of its own (`renderContentSlot`: "no
+width/border/resize chrome needed") and the line is the right border of the
+col-2 wrapper (`masterDetailShellClassName`); the port copied the columns and
+widths but not that wrapper border, and no test looked between the two columns
+(`shell_border_placement_test` only has the Activity page without a detail).
+Checked by rendering the same Activity + thread preview at 85997b8a (before the
+phone decision) and at the branch base: no rule between list and detail in
+either, so the phone commit (65cdd952) did not remove it. What did keep the
+class of bug alive: every panel decided its own edge (an `attached` flag, a
+`MediaQuery` width, a `mobile` bool, `compactOf`), the 2026-10-11 / 10-12 fixes
+patched surfaces one by one, and the pinned tests covered only the surfaces
+that had already been reported (Settings, drawer, task).
 
 Remaining gaps: the OverflowSheet (Drawer) shell, the emoji picker popover
 (third-party grid), the Electron-only "Find a conversation" sidebar box, the

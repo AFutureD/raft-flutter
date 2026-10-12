@@ -493,7 +493,12 @@ void main() {
           return MaterialApp(
             theme: raftTheme(family, dark: dark),
             home: Scaffold(
-              body: SourceTaskSurface(owner: owner, onClose: () {}),
+              body: SourceTaskSurface(
+                owner: owner,
+                onClose: () {},
+                onTask: null,
+                onViewBilling: null,
+              ),
             ),
           );
         }

@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
 import 'theme.dart';
+import 'panel_edge.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'mounted_avatar_recipe.dart';
@@ -127,12 +128,10 @@ class _RaftAdaptiveWorkspaceState extends State<RaftAdaptiveWorkspace> {
         final t = RaftTokens.of(context);
         // ThreadPanelRoot / ProfilePanel are attached Panels: their own left
         // border is the divider (dropped when folded).
-        final border = Border(
-          left: BorderSide(
-            color: t.brutal ? Colors.black : t.colors['line-muted']!,
-            width: t.brutal ? 2 : 1,
-          ),
-        );
+        final border = RaftPanelEdge.leftFor(
+          t,
+          RaftPanelPresentation.attached,
+        )!;
         // The panel's divider continues up under the status bar; its own
         // header (when flush) publishes the colour over the panel body.
         return RaftStatusBarSource(

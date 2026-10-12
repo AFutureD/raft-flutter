@@ -13,6 +13,7 @@ import '../data/workspace_controller.dart';
 import '../data/message_task_cache.dart';
 import '../data/source_task_bucket.dart';
 import '../platform/system_bars.dart';
+import 'chat_view.dart' show ChatTaskOpener;
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
 import 'mobile_workspace_pages.dart';
@@ -50,6 +51,8 @@ class WorkspaceTaskHost extends StatefulWidget {
     super.key,
     required this.controller,
     required this.childBuilder,
+    required this.onTask,
+    required this.onViewBilling,
     this.leadingExtent = 0,
     this.seed,
     this.presented = true,
@@ -57,6 +60,11 @@ class WorkspaceTaskHost extends StatefulWidget {
   final WorkspaceController controller;
   final Widget Function(double legacyDockWidth, VoidCallback? onLegacyEscape)
   childBuilder;
+
+  /// The discussion's task references and plan banner act on the host
+  /// workspace: another task replaces this one, billing leaves the modal.
+  final ChatTaskOpener? onTask;
+  final VoidCallback? onViewBilling;
   final double leadingExtent;
   final TaskSurfaceSeed? seed;
 
@@ -308,6 +316,8 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
                     owner: task,
                     page: true,
                     onClose: back,
+                    onTask: widget.onTask,
+                    onViewBilling: widget.onViewBilling,
                     onBack: back,
                     legacyPresentation: RaftLegacyTaskPresentation.mobileModal,
                   ),
@@ -360,6 +370,8 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
                   key: ValueKey(identity),
                   owner: task,
                   onClose: close,
+                  onTask: widget.onTask,
+                  onViewBilling: widget.onViewBilling,
                   onBack: back,
                   legacyPresentation: presentation,
                 ),

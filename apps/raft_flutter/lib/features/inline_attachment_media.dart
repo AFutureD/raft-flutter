@@ -16,6 +16,7 @@ import '../platform/native_sharing.dart';
 mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   WorkspaceController get controller;
   Map<String, dynamic> get metadata;
+  String? get channelId;
   bool get pending;
   bool Function() get authorized;
   AttachmentPreviewFiles? get filesOverride;
@@ -53,13 +54,13 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     }
     setState(() => mediaState = RaftInlineMediaState.loading);
     try {
-      final value = await controller.query(
-        '/attachments/${metadata['id']}/url',
-        query: {'disposition': 'inline'},
+      final url = await controller.attachmentUrl(
+        '${metadata['id']}',
+        channelId: channelId ?? metadata['channelId'] as String?,
       );
       if (!current) return;
       final prepared = await (filesOverride ?? AttachmentPreviewFiles()).load(
-        value['url'] as String,
+        url,
         filename,
         cancel: cancel,
         authorized: () => current,
@@ -121,6 +122,7 @@ class InlineVideoAttachment extends StatefulWidget {
     super.key,
     required this.controller,
     required this.metadata,
+    this.channelId,
     required this.authorized,
     required this.pending,
     this.onOpenPreview,
@@ -130,6 +132,7 @@ class InlineVideoAttachment extends StatefulWidget {
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
+  final String? channelId;
   final bool Function() authorized;
 
   /// An optimistic (still uploading) attachment: no URL yet, spinner shown.
@@ -148,6 +151,8 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
   WorkspaceController get controller => widget.controller;
   @override
   Map<String, dynamic> get metadata => widget.metadata;
+  @override
+  String? get channelId => widget.channelId;
   @override
   bool get pending => widget.pending;
   @override
@@ -179,6 +184,7 @@ class InlineAudioAttachment extends StatefulWidget {
     super.key,
     required this.controller,
     required this.metadata,
+    this.channelId,
     required this.authorized,
     required this.pending,
     this.onDownload,
@@ -187,6 +193,7 @@ class InlineAudioAttachment extends StatefulWidget {
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
+  final String? channelId;
   final bool Function() authorized;
   final bool pending;
   final VoidCallback? onDownload;
@@ -203,6 +210,8 @@ class _InlineAudioAttachmentState extends State<InlineAudioAttachment>
   WorkspaceController get controller => widget.controller;
   @override
   Map<String, dynamic> get metadata => widget.metadata;
+  @override
+  String? get channelId => widget.channelId;
   @override
   bool get pending => widget.pending;
   @override

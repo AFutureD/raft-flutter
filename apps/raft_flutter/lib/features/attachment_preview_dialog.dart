@@ -136,6 +136,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     super.key,
     required this.controller,
     required this.metadata,
+    this.channelId,
     required this.authorized,
     required this.onClose,
     required this.onDownload,
@@ -146,6 +147,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
+  final String? channelId;
   final bool Function() authorized;
   final VoidCallback onClose;
   final Future<void> Function() onDownload;
@@ -249,13 +251,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           truncated = value['truncated'] == true;
         });
       } else if (['pdf', 'audio', 'video'].contains(kind)) {
-        final value = await widget.controller.query(
-          '/attachments/${widget.metadata['id']}/url',
-          query: {'disposition': 'inline'},
+        final url = await widget.controller.attachmentUrl(
+          '${widget.metadata['id']}',
+          channelId: widget.channelId ?? widget.metadata['channelId'] as String?,
         );
         if (!current || ticket != request) return;
         final prepared = await (widget.files ?? AttachmentPreviewFiles()).load(
-          value['url'] as String,
+          url,
           '${widget.metadata['filename'] ?? 'attachment'}',
           cancel: cancel,
           authorized: () => current,
