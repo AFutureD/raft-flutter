@@ -177,33 +177,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Android requests edge-to-edge without immersive hiding', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    final modes = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-          modes.add(call.arguments as String);
-        }
-        return null;
-      },
-    );
-    addTearDown(() {
-      debugDefaultTargetPlatformOverride = null;
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets('$platform requests edge-to-edge without immersive hiding', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = platform;
+      final modes = <String>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
-        null,
+        (call) async {
+          if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+            modes.add(call.arguments as String);
+          }
+          return null;
+        },
       );
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+      await tester.pumpWidget(
+        const MaterialApp(home: RaftSystemBars(child: SizedBox.expand())),
+      );
+      await tester.pump();
+      expect(modes, ['SystemUiMode.edgeToEdge']);
+      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
     });
-    await tester.pumpWidget(
-      const MaterialApp(home: RaftSystemBars(child: SizedBox.expand())),
-    );
-    await tester.pump();
-    expect(modes, ['SystemUiMode.edgeToEdge']);
-    expect(tester.takeException(), isNull);
-    debugDefaultTargetPlatformOverride = null;
-  });
+  }
 }
