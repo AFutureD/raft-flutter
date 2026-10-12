@@ -1,100 +1,98 @@
 # iOS receiving shares
 
-The iOS app now packages a native Share Extension. The extension accepts text,
-URLs, images, videos and files through `NSItemProvider`, prepares a private copy,
-and asks the user to Save or Cancel. Saving publishes an independent envelope;
-it does not send a message or open the containing app. When the user returns to
-Raft, cold initialization or foreground resume admits that envelope into the
-existing server/target picker and ordinary draft composer. That picker continues
-to recheck membership, target permissions and account identity. No credentials or
-server session enter the extension.
+Runner packages two public native extensions: ShareExtension in the share app row,
+and ActionExtension (Share to Raft / 分享到 Raft) in the Action list. Both use Apple's
+`SLComposeServiceViewController`, with editable text, searchable server/conversation
+selectors and the system Post/Cancel controls. Opening the sheet loads available
+targets; only an explicit Post uploads attachments and sends a message. It does not
+launch the containing app or automatically send shared content. Safari page
+preprocessing obtains the page URL/title through the documented JavaScript hook.
+Photos, Files and other providers use `NSItemProvider` text/URL/file representations.
+System ordering and Action availability still depend on the host share sheet.
 
-This preserves Android's target selection, existing-draft append, attachment
-ownership, explicit Send and cancellation semantics. It differs at the system
-handoff: iOS requires returning to Raft after Save. Direct channel selection and
-sending inside the extension are not implemented. System Photos/Files/Safari
-and real foreground/cold lifecycle flows remain unaccepted until simulator UI
-verification is complete.
+## Account and API contract
 
-## Plugin review
+`IOSShareSession` exports only the currently accepted account's access token to an
+explicit shared Keychain group. Refresh tokens stay in the main app. The record
+has origin, principal, name, access expiry and preferred server; it uses
+WhenUnlockedThisDeviceOnly protection. Logout, account replacement, expired access
+and offline restoration retire it. The app keeps its previous default Keychain
+access group first, so introducing this shared group does not move old login items.
+The group is provisioned for Runner, ShareExtension and ActionExtension.
 
-The current [receive_intent](https://pub.dev/packages/receive_intent) is Android
-only. [share_plus](https://pub.dev/packages/share_plus) presents outgoing sharing;
-it does not add an incoming Share Extension. Both
-[receive_sharing_intent 1.9.0](https://pub.dev/packages/receive_sharing_intent) and
-[share_handler 0.0.25](https://pub.dev/packages/share_handler) can transport iOS
-text/media after extension and App Group setup. We inspected their actual pub
-archives, including share_handler_ios 0.0.15. Their redirect implementations walk
-the responder chain to invoke UIApplication/openURL, and their extension
-payload is stored at one shared defaults key. Reusing that code directly would
-not provide this app's durable, ordered inbox contract. receive_sharing_intent
-1.9.0 also distributes its iOS implementation through SPM only.
+An extension without usable access asks the user to open Raft and sign in; it
+neither reads the refresh token nor presents an independent login flow. Existing
+sheet requests re-read current access, accepting token rotation or preferred-server
+changes only for the same origin/principal. An account change, logout or expired
+record blocks subsequent requests and late responses. Every Post rechecks `/auth/me`,
+server membership and destination availability, including archived and conversion
+fences. The user's explicit destination supplies `X-Server-Id` and cannot be silently
+replaced by the main app's selected server. Guest/member/admin/owner roles use the
+same mounted human API endpoints as RaftClient.
 
-[Apple's extension guide](https://developer.apple.com/library/archive/documentation/General/Conceptual/ExtensibilityPG/ExtensionOverview.html)
-describes shared containers and restricts UIApplication access and requesting a
-containing-app launch from Share Extensions. This implementation uses public
-extension APIs and shared files; it adds neither incoming pub dependency nor
-responder-chain redirect. Compilation cannot establish store acceptance or
-behavior on every provider/iOS version.
+`/attachments/upload-capabilities` supplies the server limit before upload.
+Multipart bodies are written in 64 KiB chunks to private temporary files and sent
+with URLSession's file upload API; no whole-file memory copy is used in production.
+Redirects are rejected, cookies/cache are disabled and response sizes are bounded.
+A failed message retains its randomId and already uploaded attachment IDs, so an
+unchanged retry uses the ordinary server idempotency contract. Editing content or
+changing the target creates a new message identity. Uploads that complete before
+cancellation may remain on the server, but cancellation prevents the message request.
+Local multipart and staging files are removed on completion/cancel.
 
-## Storage and process handoff
+## Files, legacy inbox and outgoing sharing
 
-Runner and ShareExtension declare `group.app.raft.raftFlutter`. App Group
-provisioning must be enabled for both signed physical-device targets. Each share
-copies at most 9 files, 25 MiB per file and 100 MiB total with 64 KiB chunks.
-Text is limited to 65,536 UTF-16 units. OAuth, credential and signed-resource
-links are rejected before durable publication, using the ordinary app's text
-policy. Names cannot choose paths. Files are excluded from backups and use
-complete-until-first-authentication protection on iOS.
+Runner and both extensions declare `group.app.raft.raftFlutter`. Copying is bounded
+to 9 files, 25 MiB per file and 100 MiB total; text is bounded to 65,536 UTF-16 units.
+Credential/OAuth/signed-resource URLs follow the existing unsafe-text policy.
+Provider files are opened before temporary callbacks end and copied from retained
+descriptors. Private `.staging-<token>` folders stay unpublished during direct Post;
+cancel signals ongoing copying and removes staging. Orphan staging older than 24
+hours is reaped without disturbing live transfers or committed inbox records.
 
-A `.staging-<token>` folder is invisible to the app's reader. The extension opens
-the provider file while its callback owns the URL, then copies from that open
-descriptor on a background queue. The descriptor survives removal of the
-provider's temporary pathname. Save atomically renames the complete folder to a
-32-character token, with the existing `envelope.json`/`item-N` format. Cancel
-signals the copy between chunks and deletes staging; it does not block the UI
-on the copy lock. App recovery retains the existing 24-hour pending expiry,
-account binding, destination revocation and draft file lifetime. Native crashes
-can leave an unpublished staging folder; the native directory service removes
-only staging folders older than 24 hours, preserving current transfers and
-committed draft records. Directory setup and cleanup also run off the UI thread.
+Previously saved `envelope.json`/`item-N` records remain compatible with cold/resume
+recovery, account binding and the main app's existing draft target picker. Android
+continues to use receive_intent and its existing draft handoff. The iOS bridge also
+presents outgoing sharing from private app export leases in the active scene.
 
-The app obtains only the entitled shared directory through `app.raft/sharing`.
-An iOS resume recovers pending envelopes serially and suppresses repeated token
-admission within a bounded process cache. Android remains on receive_intent and
-content-provider grants. The iOS bridge also presents outgoing sharing for the
-existing private export leases; it admits only files in the app's raft-share
-cache and requires an active app scene.
+The incoming implementation uses public extension APIs and no incoming pub plugin:
+receive_intent is Android-only; share_plus handles outgoing shares. The previously
+reviewed receive_sharing_intent/share_handler redirect and shared-defaults designs
+did not satisfy this app's inbox contract. See [Apple's extension guide](https://developer.apple.com/library/archive/documentation/General/Conceptual/ExtensibilityPG/ExtensionOverview.html).
 
-On Android, reading the launching intent and scanning the old inbox start in
-parallel. The launching share enters the receiver queue before recovered shares;
-an old inbox scan cannot block it. Regression tests hold each read independently
-to check both a slow scan and a scan that finishes before the intent arrives.
-The iOS cold/resume recovery and token deduplication use the same prior behavior.
+## UIScene and system bars
 
-## Build and verification
+The app already follows [Flutter's UIScene migration](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate):
+AppDelegate registers the implicit engine/plugins; SceneDelegate inherits
+FlutterSceneDelegate and calls super before attaching a temporary splash UIView.
+It does not replace the root FlutterViewController, create an extra UIWindow,
+request fullscreen or override Home indicator preferences. UIScene must remain
+adopted for builds with the iOS 27 SDK.
 
-`RAFT_FLUTTER_BIN=<pinned Flutter> python3 tool/ios-simulator-build --build-number N`
-builds but never installs or launches. Flutter's default simulator artifact has
-empty signing entitlements; this helper re-signs the local Runner and extension
-ad hoc with their explicit App Group and verifies both signatures. It is for
-simulators only, not physical-device signing. About receives the existing local
-dev version; the native marketing version remains the pubspec version.
+RaftSystemBars now explicitly requests edgeToEdge on iOS as well as Android. The
+Flutter iOS implementation issues a show-home-indicator notification for that
+mode. Miraa's local source likewise initializes edgeToEdge on iOS. A regression
+checks this platform request, but it does not establish physical indicator
+visibility. Kevin reported the indicator becomes visible when swiping; iOS 26
+system behavior is a possible factor ([Unity's verified issue](https://issuetracker.unity.com/issues/4265/hide-home-button-setting-is-ignored-on-ios-26-devices-home-button-is-always-hidden)).
+Neither that source nor the static comparison establishes the cause on this phone.
 
-The Foundation producer tests cover publication/cancellation, preserved bytes,
-provider callback lifetime, multiple shares, unsafe text, filenames, counts and
-sizes. A Dart test compiles that producer on macOS, reads its real envelope,
-binds it to an account, opens exact attachment bytes and completes it through
-the production inbox. That does not exercise NSItemProvider or a system share
-sheet. Focused recovery tests cover cold initialization, repeated/parallel
-resumes, late directory recovery and dispose. Existing sharing and icon tests
-remain part of the check scope. Both Runner and the embedded extension compile
-for the simulator; compiled metadata contains all five app icons.
+## Verification boundaries
 
-The requested UI verification is still pending: Xcode 27 uses Device Hub at
-`Xcode.app/Contents/Applications/DeviceHub.app`; old Simulator.app is absent by
-design here. Background Computer Use launched Device Hub, but window binding
-returned `cgWindowNotFound`. Under the user's background-only AGENTS instruction,
-no CLI boot/install/launch, global input or foreground-raising fallback was used.
-The user has been asked to open a bindable simulator window. No physical iPhone
-was installed or launched by this task.
+The native transport fixtures use synthetic credentials/DTOs and local files only.
+They cover same-account access rotation, account retirement, response identity,
+membership/archive/conversion fencing, server upload limits, exact binary multipart
+bytes, retry identity, retained attachment IDs and cancellation. Dart tests cover
+access-only export, offline/expired/wrong-principal rejection, delayed credential
+reads, native write ordering and existing inbox/draft handoff. Producer fixtures
+still check provider file lifetime, bounded copies and legacy atomic publication.
+
+`tool/ios-simulator-build` builds and ad-hoc signs Runner and both extensions with
+explicit groups; it never installs or launches and is not physical provisioning.
+Physical updates use real profiles/certificates and preserve the accepted personal
+bundle IDs. Native compilation and fixture results do not certify system provider
+UI, actual authenticated sending, Action placement, store approval or indicator
+visibility. Those require real device verification through background Computer Use
+or Kevin. No real message is sent by these fixtures. The latest background Device
+Hub binding failed with native pipe startup failure, so dependent UI actions stop
+under the user's AGENTS.md restriction.

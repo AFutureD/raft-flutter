@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 
 final class RaftSharingBridge: NSObject, FlutterPlugin {
+  private let sessionQueue = DispatchQueue(label: "app.raft.share-access")
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "app.raft/sharing", binaryMessenger: registrar.messenger())
     let bridge = RaftSharingBridge()
@@ -10,6 +11,20 @@ final class RaftSharingBridge: NSObject, FlutterPlugin {
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "updateShareSession":
+      guard let accessGroup = Bundle.main.object(forInfoDictionaryKey: "RaftShareKeychainGroup") as? String,
+            !accessGroup.isEmpty, !accessGroup.contains("$(") else {
+        result(FlutterError(code: "sharing_unavailable", message: "Share account is unavailable.", details: nil)); return
+      }
+      sessionQueue.async {
+        do {
+          let session = try (call.arguments as? [String: Any]).map { try ShareAccessSession.parse($0) }
+          try ShareSessionVault(accessGroup: accessGroup).replace(session)
+          DispatchQueue.main.async { result(nil) }
+        } catch {
+          DispatchQueue.main.async { result(FlutterError(code: "sharing_unavailable", message: "Share account is unavailable.", details: nil)) }
+        }
+      }
     case "incomingDirectory":
       guard let group = Bundle.main.object(forInfoDictionaryKey: "RaftAppGroup") as? String else {
         result(FlutterError(code: "sharing_unavailable", message: "The shared inbox is unavailable.", details: nil)); return
