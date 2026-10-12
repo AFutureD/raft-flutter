@@ -38,7 +38,11 @@ class _Client extends RaftClient {
 
 class _Files extends AttachmentFiles {
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) async =>
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) async =>
       throw StateError('Fixture image unavailable');
 }
 

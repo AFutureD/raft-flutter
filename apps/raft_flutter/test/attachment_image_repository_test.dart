@@ -93,7 +93,11 @@ class _RasterClient extends RaftClient {
 class _RasterFiles extends AttachmentFiles {
   int downloads = 0;
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) async {
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) async {
     downloads++;
     return base64Decode(
       'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAGUlEQVR4nGP8V7uCgRTARJLqUQ2jGoaUBgC7qgJDBU0aZAAAAABJRU5ErkJggg==',

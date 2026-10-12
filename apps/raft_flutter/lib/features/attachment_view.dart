@@ -13,6 +13,7 @@ import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
 import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
+import 'attachment_transfer_view.dart';
 import 'attachment_html_preview.dart';
 import 'attachment_image_lightbox.dart';
 import 'inline_attachment_media.dart';
@@ -54,8 +55,14 @@ class _AttachmentViewState extends State<AttachmentView> {
   ImageProvider? imageProvider;
   final imagePresentation = ValueNotifier<int>(0);
   WorkspaceAttachmentImageLease? imageLease;
+
+  /// Bytes of the list preview's network fetch; the card's bar listens to it.
+  AttachmentTransferView? imageTransfer;
   String? error;
   bool loading = false, saving = false, invalidated = false;
+
+  /// The last explicit download failed; the file card offers a retry.
+  bool downloadFailed = false;
 
   /// A cold network load fades in once; cached images appear directly.
   bool fadeIn = false;
@@ -211,14 +218,20 @@ class _AttachmentViewState extends State<AttachmentView> {
     final id = widget.metadata['id'];
     final thumbnail = key.rendition == 'thumbnail' ? thumbnailUrl : null;
     return (cancel) async {
-      if (thumbnail != null) return transfer.image(thumbnail, cancel: cancel);
+      if (thumbnail != null) {
+        return transfer.image(
+          thumbnail,
+          cancel: cancel,
+          onProgress: cancel.progressSink,
+        );
+      }
       final value = await controller.query(
         '/attachments/$id/url',
         query: {'disposition': 'inline'},
       );
       final url = value['url'] as String;
       if (cancel.isCancelled) throw const StaleAttachmentImage();
-      return transfer.image(url, cancel: cancel);
+      return transfer.image(url, cancel: cancel, onProgress: cancel.progressSink);
     };
   }
 
@@ -296,7 +309,9 @@ class _AttachmentViewState extends State<AttachmentView> {
     files = widget.files ?? files;
     metadataFingerprint = nextFingerprint;
     imageProvider = null;
+    imageTransfer = null;
     error = null;
+    downloadFailed = false;
     loading = saving = opening = invalidated = exportReadyReported = false;
     fadeIn = false;
     captureAuthority();
@@ -381,6 +396,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         load: loaderFor(key),
       );
       imageLease = lease;
+      imageTransfer = AttachmentTransferView(lease.lease.progress);
       final provider = await lease.lease.ready;
       if (current() && identical(imageLease, lease)) {
         setState(() {
@@ -452,7 +468,10 @@ class _AttachmentViewState extends State<AttachmentView> {
     final revision = bindingRevision;
     bool current() => revision == bindingRevision && authorized;
     if (!current() || saving) return;
-    setState(() => saving = true);
+    setState(() {
+      saving = true;
+      downloadFailed = false;
+    });
     final operationCancel = CancelToken();
     downloadCancel = operationCancel;
     final progress = ValueNotifier<double?>(null);
@@ -532,6 +551,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       }
     } catch (_) {
       if (mounted && current() && !operationCancel.isCancelled) {
+        setState(() => downloadFailed = true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Download failed. Try again.')),
         );
@@ -684,6 +704,9 @@ class _AttachmentViewState extends State<AttachmentView> {
               placeholder: imageProvider,
               previewFailed: error != null,
               title: name,
+              transferTotalHint: (widget.metadata['sizeBytes'] as num?)
+                  ?.toInt(),
+              imageSize: imageSize,
             );
           },
         ),
@@ -695,6 +718,20 @@ class _AttachmentViewState extends State<AttachmentView> {
     await operationRoute.completed;
     zoom.dispose();
     if (identical(previewRoute, operationRoute)) previewRoute = null;
+  }
+
+  /// The original's pixel size from the attachment metadata, when valid.
+  Size? get imageSize {
+    final width = (widget.metadata['width'] as num?)?.toDouble();
+    final height = (widget.metadata['height'] as num?)?.toDouble();
+    return width != null &&
+            height != null &&
+            width > 0 &&
+            height > 0 &&
+            width.isFinite &&
+            height.isFinite
+        ? Size(width, height)
+        : null;
   }
 
   /// Web MessageItem AttachmentChip branches: document previews (summary
@@ -787,6 +824,12 @@ class _AttachmentViewState extends State<AttachmentView> {
     previewPending: loading,
     error: error,
     onRetry: loadImage,
+    transfer: imageTransfer,
+    // A thumbnail's length is not the original's `sizeBytes`.
+    transferFallbackTotal: thumbnailUrl == null
+        ? (widget.metadata['sizeBytes'] as num?)?.toInt()
+        : null,
+    downloadFailed: downloadFailed,
     onOpen: open,
     onDownload: download,
     onShare: sharing.supported ? shareAttachment : null,
