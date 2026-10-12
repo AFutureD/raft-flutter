@@ -119,13 +119,11 @@ class BackgroundInboxAlert {
     );
     final message = row[thread ? 'latestActivityMessageId' : 'lastMessageId'];
     final channel = row[thread ? 'parentChannelId' : 'channelId'];
-    // The projection may omit firstMentionMessageId. Fail closed rather
-    // than label a later ordinary message as a personal mention.
-    if (mentionsOnly &&
-        (row['hasMention'] != true ||
-            row['firstMentionMessageId'] != message)) {
-      return null;
-    }
+    // The server only keeps unread mentions in `hasMention`; its
+    // firstMentionMessageId is the OLDEST unread mention (null on the
+    // RisingWave path), so it never gates the newest message. The unread
+    // count check below completes the `hasMention && unreadCount > 0` rule.
+    if (mentionsOnly && row['hasMention'] != true) return null;
     if (row['doneAt'] != null ||
         row['unreadCount'] is! num ||
         (row['unreadCount'] as num) <= 0 ||

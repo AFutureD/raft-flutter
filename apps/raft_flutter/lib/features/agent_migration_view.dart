@@ -1,10 +1,68 @@
 import 'page_layout.dart';
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import 'agent_metadata_projection.dart' show nonEmptyOr;
 import 'management_support.dart';
+
+/// Web components/agentMigration/state.ts migrationPhase: null for a state
+/// this client does not know.
+String? migrationPhase(String? state) => switch (state) {
+  'provisioning' ||
+  'prep' ||
+  'ready' ||
+  'in_transit' ||
+  'arriving' ||
+  'starting' ||
+  'cancel_requested_pre_flip' ||
+  'cancel_requested_post_flip' => 'active',
+  'canceled_pre_flip' || 'canceled_post_flip' => 'canceled',
+  'completed' => 'completed',
+  'aborted' || 'failed' => 'failed',
+  _ => null,
+};
+
+/// Web MigrationProgressPanel status word; an unknown state reads as its
+/// words ("in_transit_v2" -> "In transit v2") instead of the raw enum.
+String migrationStatusLabel(String? state) {
+  if (state != null && state.startsWith('cancel_requested_')) {
+    return 'Canceling';
+  }
+  switch (migrationPhase(state)) {
+    case 'completed':
+      return 'Complete';
+    case 'canceled':
+      return 'Canceled';
+    case 'failed':
+      return 'Needs attention';
+    case 'active':
+      return 'In progress';
+  }
+  final words = (state ?? '').replaceAll(RegExp(r'[_\-]+'), ' ').trim();
+  if (words.isEmpty) return 'Unknown';
+  return words[0].toUpperCase() + words.substring(1);
+}
+
+/// Web agent.detail.migrationAborted* copy for an `aborted` migration.
+String migrationAbortText(
+  String? reason, {
+  String source = 'the source computer',
+  String target = 'the target computer',
+}) => switch (reason) {
+  'prep-deadline' =>
+    'Preparing the workspace on $source stopped making progress before the deadline. $source may have gone offline, or packing stalled. Make sure $source is online, then try again.',
+  'transfer-deadline' =>
+    'The workspace transfer did not finish before the deadline. Make sure both Computers stay online and the target has enough free disk space, then try again.',
+  'arrival-deadline' =>
+    'The target Computer $target did not finish installing the workspace before the deadline. Make sure the target is running and has enough free disk space, then try again.',
+  _ =>
+    'The migration stopped before it completed. Review the technical reason, then try again.',
+};
 
 class AgentMigrationView extends StatefulWidget {
   const AgentMigrationView({
@@ -42,10 +100,28 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     'canceled_pre_flip',
     'canceled_post_flip',
   };
+  StreamSubscription<RaftEvent>? _events;
   @override
   void initState() {
     super.initState();
     startManagement();
+    _events = w.client.events.listen((e) {
+      // Web realtime.ts: a migration update for this agent (or a reconnect)
+      // refetches the latest migration.
+      final p = e.payload;
+      if (e.name == 'connected' ||
+          e.name == 'agent:migration-updated' &&
+              p is Map &&
+              p['agentId'] == widget.agentId) {
+        if (mounted) reload();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _events?.cancel();
+    super.dispose();
   }
 
   @override
@@ -91,8 +167,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
         .where(
           (m) =>
               m['id'] != agent['machineId'] &&
-              m['status'] == 'online' &&
-              m['revokedAt'] == null,
+              m['status'] == 'online',
         )
         .toList();
     if (targets.isEmpty) {
@@ -136,8 +211,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
           initial: '${agent['machineId'] ?? ''}',
           choices: {
             '': 'Unassigned',
-            for (final m in machines.where((m) => m['revokedAt'] == null))
-              '${m['id']}': '${m['name']}',
+            for (final m in machines) '${m['id']}': '${m['name']}',
           },
         ),
       ],
@@ -209,7 +283,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
                 Semantics(liveRegion: true, child: Text(error!)),
               if (agent.isNotEmpty) ...[
                 Text(
-                  '${agent['displayName'] ?? agent['name']}',
+                  nonEmptyOr(agent['displayName'], agent['name']),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
@@ -219,11 +293,24 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
               if (migration.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 Text(
-                  '${raftText(context, 'Migration status')}: ${migration['state']}',
+                  '${raftText(context, 'Migration status')}: ${raftText(context, migrationStatusLabel(migration['state'] as String?))}',
                 ),
                 Text(
                   '${computerName(migration['sourceMachineId'])} → ${computerName(migration['targetMachineId'])}',
                 ),
+                if (migration['state'] == 'aborted')
+                  Text(
+                    raftText(
+                      context,
+                      migrationAbortText(
+                        migration['abortReason'] as String?,
+                        source: computerName(migration['sourceMachineId']),
+                        target: computerName(migration['targetMachineId']),
+                      ),
+                    ),
+                  ),
+                if (migration['abortReason'] is String)
+                  Text('${migration['abortReason']}'),
                 if (migration['failureReason'] != null)
                   Text('${migration['failureReason']}'),
                 if (migration['cancelErrorMessage'] != null)

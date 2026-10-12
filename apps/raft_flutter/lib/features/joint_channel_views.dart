@@ -47,8 +47,8 @@ abstract class _JointState<T extends StatefulWidget>
         c.type,
         c.joined,
         c.archived,
-        c.json['isPrivate'],
-        c.json['capabilities'],
+        c.json['channelCapabilities'],
+        c.json['channelRole'],
       ]),
   };
   @override
@@ -117,7 +117,13 @@ abstract class _JointState<T extends StatefulWidget>
           final old = w.channels.where((c) => c.id == row['id']).firstOrNull;
           final policyChanged =
               old != null &&
-              ['type', 'joined', 'isPrivate', 'archivedAt', 'capabilities'].any(
+              [
+                'type',
+                'joined',
+                'archivedAt',
+                'channelCapabilities',
+                'channelRole',
+              ].any(
                 (key) =>
                     row.containsKey(key) &&
                     jsonEncode(row[key]) != jsonEncode(old.json[key]),
@@ -258,9 +264,9 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
     ]);
     if (!accepts(generation, request)) return;
     invites = managementRows(managementMap(values[0])['invites']);
-    channels = managementRows(
-      values[1],
-    ).where((c) => c['type'] == 'joint').toList();
+    channels = managementRows(values[1])
+        .where((c) => c['type'] == 'joint')
+        .toList();
   }
 
   Future<void> create() async {
@@ -281,12 +287,12 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
             w.client.get('/servers/${w.server!.id}/members'),
           ]);
     if (!current(scope)) return;
-    final agents = managementRows(
-      values[0],
-    ).where((a) => a['deletedAt'] == null).toList();
-    final users = managementRows(
-      values[1],
-    ).where((u) => (u['userId'] ?? u['id']) != w.client.user?.id).toList();
+    final agents = managementRows(values[0])
+        .where((a) => a['deletedAt'] == null)
+        .toList();
+    final users = managementRows(values[1])
+        .where((u) => (u['userId'] ?? u['id']) != w.client.user?.id)
+        .toList();
     final created = await scopedRaftModal<Map<String, dynamic>>(
       (context) => CreateJointChannelDialog(
         agents: agents,
@@ -483,8 +489,7 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
           'People to invite',
           required: true,
           multiline: true,
-          help:
-              'Enter names, @handles or email addresses, separated by commas or new lines.',
+          help: 'Enter names, @handles or email addresses, separated by commas or new lines.',
           validator: (v) => jointPeople(v).isEmpty
               ? 'Invite at least one person.'
               : jointPeople(v).length > 20
@@ -505,14 +510,9 @@ class _JointManagementState extends _JointState<JointChannelManagementView> {
 
   Future<void> resend() async {
     final scope = authority;
-    final saved = await confirm(
-      'Resend invitations',
-      'Send fresh invitations issued by this workspace and extend their expiry.',
-      () async {
-        await mutate('$base/joint-invite/resend', null, scope);
-      },
-      submit: 'Resend invitations',
-    );
+    final saved = await confirm('Resend invitations', 'Send fresh invitations issued by this workspace and extend their expiry.', () async {
+      await mutate('$base/joint-invite/resend', null, scope);
+    }, submit: 'Resend invitations');
     if (saved && current(scope)) await reload();
   }
 

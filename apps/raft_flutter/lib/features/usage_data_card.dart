@@ -3,13 +3,13 @@
 // `product_analytics_settings_v0` evaluates on for the server; saves on toggle
 // (`PATCH /auth/me {shareUsageData}`), a failure shows the warning banner.
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
+import '../data/feature_flag_client_facts.dart';
 
 class UsageDataSettingsCard extends StatefulWidget {
   const UsageDataSettingsCard({super.key, required this.controller});
@@ -40,15 +40,7 @@ class _UsageDataSettingsCardState extends State<UsageDataSettingsCard> {
       final result = managementMap(
         await w.client.post(
           '/feature-flags/evaluate',
-          data: {
-            'keys': [flag],
-            'serverId': w.server?.id,
-            'platform':
-                defaultTargetPlatform == TargetPlatform.android ||
-                    defaultTargetPlatform == TargetPlatform.iOS
-                ? 'mobile'
-                : 'web',
-          },
+          data: featureFlagEvaluateBody(keys: [flag], serverId: w.server?.id),
         ),
       );
       final on = managementRows(

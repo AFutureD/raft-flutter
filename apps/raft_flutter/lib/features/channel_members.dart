@@ -19,24 +19,103 @@ import 'fleet_views.dart';
 import 'management_support.dart'
     show cachedServerFlag, pageIdentity, rememberServerFlag;
 import 'member_profile_view.dart';
+import 'agent_metadata_catalog.dart' show sourceAgentActivities;
+import 'agent_metadata_projection.dart';
+import 'resource_cards.dart' show resourceRelativeTime;
 
-/// Agent activity for the compact-list badge: the row's `activity` when the
-/// payload carries one, else `agentStatusFallbackActivity(status)`.
-RaftAvatarPresence? channelMemberPresence(Map<String, dynamic> json) {
-  final activity = json['activity'];
-  final value = switch (activity) {
-    'online' => RaftAvatarActivity.online,
-    'thinking' => RaftAvatarActivity.thinking,
-    'working' => RaftAvatarActivity.working,
-    'error' => RaftAvatarActivity.error,
-    'offline' => RaftAvatarActivity.offline,
-    _ =>
-      json['status'] == 'active'
-          ? RaftAvatarActivity.online
-          : RaftAvatarActivity.offline,
-  };
-  return RaftAvatarPresence(activity: value);
+/// Web `ChannelMembers` participant count: agents + humans + Slack bridge
+/// participants (`externalMembers`).
+int channelRosterCount(dynamic roster) {
+  int length(String key) =>
+      roster is Map && roster[key] is List ? (roster[key] as List).length : 0;
+  return length('humans') + length('agents') + length('externalMembers');
 }
+
+/// Web `isLocalMember`: a roster row belongs to this server unless it names
+/// another `serverId` than the channel's.
+bool isLocalChannelMember(Map<String, dynamic> member, RaftChannel channel) {
+  final channelServer = channel.json['serverId'];
+  final memberServer = member['serverId'];
+  return channelServer is! String ||
+      channelServer.isEmpty ||
+      memberServer is! String ||
+      memberServer.isEmpty ||
+      memberServer == channelServer;
+}
+
+/// Web `jointPeerLabel`: the partner server of a joint-channel member
+/// (`serverName || serverSlug`), null for local members and other types.
+String? channelMemberPeerLabel(
+  Map<String, dynamic> member,
+  RaftChannel channel,
+) {
+  if (channel.type != 'joint' || isLocalChannelMember(member, channel)) {
+    return null;
+  }
+  for (final key in const ['serverName', 'serverSlug']) {
+    final value = member[key];
+    if (value is String && value.isNotEmpty) return value;
+  }
+  return null;
+}
+
+/// Web `useChannelMembers` + `useAgentDisplayState`: the roster snapshot with
+/// the canonical directory row (live activity, `lastSeenAt`) laid over it,
+/// resolved by [resolveAgentAmbientDisplay]. Without a live activity a
+/// managed stopped agent reads "Stopped" and an external agent silent for more
+/// than 120 s reads offline.
+AgentAmbientDisplay channelMemberAgentDisplay(
+  Map<String, dynamic> roster, {
+  Map? directory,
+  DateTime? now,
+}) {
+  final row = <String, dynamic>{
+    ...roster,
+    if (directory != null) ...Map<String, dynamic>.from(directory),
+  };
+  final activity = row['activityKind'] ?? row['activity'];
+  final status = row['status'] is String ? row['status'] as String : 'offline';
+  final external = row['external'] == true || row['runtime'] == 'external';
+  // A snapshot `offline` of a stopped agent is the absence of activity.
+  final live =
+      sourceAgentActivities.contains(activity) &&
+      !(status == 'stopped' && !external && activity == 'offline');
+  return resolveAgentAmbientDisplay(
+    identity: AgentPresentationIdentity(
+      id: '${row['id']}',
+      status: status,
+      runtime: row['runtime'] as String?,
+      external: external,
+      deleted: row['deletedAt'] != null,
+      lastSeenAt: row['lastSeenAt'] is String
+          ? DateTime.tryParse(row['lastSeenAt'] as String)
+          : null,
+    ),
+    now: now ?? DateTime.now(),
+    current: live ? agentRowActivity(row) : null,
+  );
+}
+
+RaftAvatarPresence channelMemberDisplayPresence(AgentAmbientDisplay display) =>
+    RaftAvatarPresence(
+      activity: switch (display.activity) {
+        'thinking' => RaftAvatarActivity.thinking,
+        'working' => RaftAvatarActivity.working,
+        'error' => RaftAvatarActivity.error,
+        'offline' => RaftAvatarActivity.offline,
+        _ => RaftAvatarActivity.online,
+      },
+    );
+
+/// Agent activity for the compact-list badge: the live directory row over the
+/// roster snapshot, else `agentStatusFallbackActivity(status)`.
+RaftAvatarPresence? channelMemberPresence(
+  Map<String, dynamic> json, {
+  Map? directory,
+  DateTime? now,
+}) => channelMemberDisplayPresence(
+  channelMemberAgentDisplay(json, directory: directory, now: now),
+);
 
 /// Header trigger: `Button size="sm" className="min-w-7 gap-1 px-1.5"` with
 /// `Users size={14}` and the mono participant count.
@@ -69,11 +148,7 @@ class _ChannelMembersButtonState extends State<ChannelMembersButton> {
         '/channels/${widget.channel.id}/members',
       );
       if (!mounted) return;
-      setState(
-        () => count =
-            ((roster['humans'] as List?)?.length ?? 0) +
-            ((roster['agents'] as List?)?.length ?? 0),
-      );
+      setState(() => count = channelRosterCount(roster));
     } catch (_) {
       if (mounted) setState(() => count = 0);
     }
@@ -157,7 +232,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
         ...w.dms,
       ].where((channel) => channel.id == widget.channel.id).firstOrNull ??
       widget.channel;
-  List<Map<String, dynamic>> humans = [], agents = [];
+  List<Map<String, dynamic>> humans = [], agents = [], externalMembers = [];
   late final ChannelCandidateFeed _feed = ChannelCandidateFeed(w);
   List<ChannelMemberCandidate> get candidates => [
     for (final c in _feed.value)
@@ -264,6 +339,11 @@ class _ChannelMembersState extends State<ChannelMembers> {
         agents = [
           for (final a in (roster['agents'] as List? ?? []).whereType<Map>())
             Map<String, dynamic>.from(a),
+        ];
+        externalMembers = [
+          for (final e
+              in (roster['externalMembers'] as List? ?? []).whereType<Map>())
+            Map<String, dynamic>.from(e),
         ];
         rosterKnown = true;
       });
@@ -445,6 +525,36 @@ class _ChannelMembersState extends State<ChannelMembers> {
     final origin = w.client.origin;
     final canRemove =
         w.can('removeChannelMembers', resource: channel) && !channel.archived;
+    // Web `renderExternalRow`: a Slack bridge participant is read-only (no
+    // profile, no actions) with the provider tag and `@handle`.
+    RaftMemberRowData externalRow(Map<String, dynamic> m) {
+      final id = '${m['id']}';
+      final candidate = ChannelMemberCandidate(
+        kind: 'human',
+        id: id,
+        name: '${m['displayName'] ?? ''}',
+        avatarUrl: m['avatarUrl'] as String?,
+      );
+      final handles = m['handles'];
+      final handle = handles is List && handles.isNotEmpty
+          ? '${handles.first}'
+          : '';
+      return RaftMemberRowData(
+        testId: 'member-page-row-external-$id',
+        human: true,
+        secondary: handle.isEmpty ? null : '@$handle',
+        roleLabel: raftText(context, 'Slack'),
+        label: '${m['displayName'] ?? ''}',
+        avatar: ChannelCandidateAvatar(
+          candidate: candidate,
+          avatarContext: widget.page
+              ? RaftMountedAvatarContext.membersRow
+              : RaftMountedAvatarContext.compactList,
+          origin: origin,
+        ),
+      );
+    }
+
     RaftMemberRowData row(String kind, Map<String, dynamic> m) {
       final id = '${kind == 'agent' ? m['id'] : (m['userId'] ?? m['id'])}';
       final candidate = ChannelMemberCandidate(
@@ -454,7 +564,14 @@ class _ChannelMembersState extends State<ChannelMembers> {
         displayName: m['displayName'] as String?,
         avatarUrl: m['avatarUrl'] as String?,
       );
-      final presence = kind == 'agent' ? channelMemberPresence(m) : null;
+      final display = kind == 'agent'
+          ? channelMemberAgentDisplay(m, directory: w.entityDirectory.agent(id))
+          : null;
+      final presence = display == null
+          ? null
+          : channelMemberDisplayPresence(display);
+      // Web: a joint partner's member can't be removed from this server.
+      final local = isLocalChannelMember(m, channel);
       // `effectiveChannelRole ?? serverRole`: owner / admin inheritance and an
       // explicit channel grant share the one user-facing Channel Admin label
       // (MemberRoleTag); a plain member shows nothing.
@@ -466,20 +583,23 @@ class _ChannelMembersState extends State<ChannelMembers> {
       return RaftMemberRowData(
         testId: 'member-page-row-$kind-$id',
         human: kind != 'agent',
-        secondary:
-            kind == 'agent' &&
-                (presence?.activity == RaftAvatarActivity.working ||
-                    presence?.activity == RaftAvatarActivity.thinking) &&
-                '${m['activityDetail'] ?? ''}'.trim().isNotEmpty
-            ? '${m['activityDetail']}'.trim()
-            : kind == 'agent'
-            ? raftText(context, switch (presence?.activity) {
-                RaftAvatarActivity.thinking => 'Thinking',
-                RaftAvatarActivity.working => 'Working',
-                RaftAvatarActivity.error => 'Error',
-                RaftAvatarActivity.offline => 'Offline',
-                _ => 'Online',
-              })
+        secondary: display != null
+            ? agentDisplayText(
+                display,
+                lastSeenAt: w.entityDirectory.agent(id)?['lastSeenAt'] is String
+                    ? DateTime.tryParse(
+                        w.entityDirectory.agent(id)!['lastSeenAt'] as String,
+                      )
+                    : m['lastSeenAt'] is String
+                    ? DateTime.tryParse(m['lastSeenAt'] as String)
+                    : null,
+                relativeTime: (seen) => resourceRelativeTime(
+                  seen.toIso8601String(),
+                  chinese: Localizations.localeOf(context).languageCode == 'zh',
+                ),
+                translate: (source, values) =>
+                    raftFormat(context, source, values),
+              )
             : (description.isEmpty ? null : description),
         secondaryMono: kind == 'agent',
         roleLabel: switch (role) {
@@ -502,7 +622,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
         onTap: widget.page
             ? () => setState(() => profile = (kind: kind, id: id))
             : null,
-        onRemove: canRemove && !isAllChannel
+        onRemove: canRemove && !isAllChannel && local
             ? () => requestRemove(
                 kind,
                 id,
@@ -542,7 +662,10 @@ class _ChannelMembersState extends State<ChannelMembers> {
         avatarContext: RaftMountedAvatarContext.compactList,
         origin: origin,
         presence: c.kind == 'agent' && agentRows[c.id] != null
-            ? channelMemberPresence(agentRows[c.id]!)
+            ? channelMemberPresence(
+                agentRows[c.id]!,
+                directory: w.entityDirectory.agent(c.id),
+              )
             : null,
       ),
     );
@@ -556,7 +679,10 @@ class _ChannelMembersState extends State<ChannelMembers> {
       loading: loading,
       adding: adding,
       error: error,
-      humans: [for (final h in humans) row('human', h)],
+      humans: [
+        for (final h in humans) row('human', h),
+        for (final e in externalMembers) externalRow(e),
+      ],
       agents: [for (final a in agents) row('agent', a)],
       onAdd: canAdd ? () => setState(() => addView = true) : null,
       onBack: () => setState(() {

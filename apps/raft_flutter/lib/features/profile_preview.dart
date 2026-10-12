@@ -14,7 +14,8 @@ import '../data/workspace_entity_directory.dart';
 import 'agent_detail_view.dart' show agentTimeFormatter;
 import 'agent_metadata_catalog.dart';
 import 'agent_trajectory_log.dart';
-import 'computer_detail_view.dart' show computerAgentActivityText;
+import 'agent_metadata_projection.dart';
+import 'resource_cards.dart' show resourceRelativeTime;
 
 /// shared runtimeCatalog display names, with the deprecated status suffix
 /// (formatRuntimeLabelWithStatus).
@@ -446,10 +447,17 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
     final runtime = config?.runtime ?? '${row['runtime'] ?? 'unknown'}';
     final model = config?.model ?? '${row['model'] ?? ''}';
     final external = row['external'] == true || runtime == 'external';
-    final activityValue = '${row['activity'] ?? 'offline'}';
-    final statusText = private
-        ? computerAgentActivityText(row)
-        : computerAgentActivityText({'activity': activityValue});
+    final display = agentRowAmbientDisplay(row);
+    final statusText = agentDisplayText(
+      display,
+      lastSeenAt: DateTime.tryParse('${row['lastSeenAt']}'),
+      withDetail: private,
+      relativeTime: (seen) => resourceRelativeTime(
+        seen.toIso8601String(),
+        chinese: Localizations.localeOf(context).languageCode == 'zh',
+      ),
+      translate: (source, values) => raftFormat(context, source, values),
+    );
     final machineId = row['machineId'];
     final computers = w.entityDirectory.state(WorkspaceEntityKind.computers);
     final machine = machineId is String
@@ -473,9 +481,9 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
       name: name,
       subtitle: '@${row['name'] ?? ''}',
       status: RaftProfilePreviewStatus(
-        activity: activityTone(activityValue),
+        activity: activityTone(display.activity),
         external: external && row['online'] != true,
-        text: raftText(context, statusText),
+        text: statusText,
       ),
       facts: row['profileProjection'] == 'channel_summary'
           ? null

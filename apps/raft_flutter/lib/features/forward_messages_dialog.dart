@@ -66,6 +66,16 @@ class ForwardAttempt {
   bool get completed => destinations.every((id) => outcomes[id] == 'success');
 }
 
+/// Web getForwardableMessages (forwardSelectionUtils.ts): only a `system`
+/// message or one whose `actionMetadata.kind` is set (action card, forwarded
+/// bundle) is blocked; any other messageType value is forwardable.
+bool messageForwardable(RaftMessage message) {
+  if (message.string('messageType') == 'system') return false;
+  final meta = message.json['actionMetadata'];
+  final kind = meta is Map ? meta['kind'] : null;
+  return kind == null || kind == '';
+}
+
 Future<bool> forwardMessages(
   BuildContext context,
   WorkspaceController controller,
@@ -74,10 +84,7 @@ Future<bool> forwardMessages(
   if (messages.isEmpty || messages.length > 20) {
     throw const RaftApiException('Forward between 1 and 20 messages.');
   }
-  if (messages.any(
-    (m) =>
-        m.string('messageType') != 'chat' || m.json['actionMetadata'] != null,
-  )) {
+  if (!messages.every(messageForwardable)) {
     throw const RaftApiException(
       'Only original, ordinary chat messages can be forwarded.',
     );

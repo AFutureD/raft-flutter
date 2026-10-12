@@ -7,7 +7,8 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/thread_agent_followers.dart';
 import '../data/workspace_controller.dart';
 import 'channel_form_fields.dart';
-import 'channel_members.dart' show channelMemberPresence;
+import 'agent_metadata_projection.dart';
+import 'resource_cards.dart' show resourceRelativeTime;
 import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 
 /// Web `followerAgentStatus`: the follower endpoint's transport-ish statuses
@@ -141,27 +142,37 @@ class _ThreadAgentFollowersViewState extends State<ThreadAgentFollowersView> {
     presence: presence,
   );
 
-  /// Web `AgentActivityInfo`: the live activity detail, else the status word.
+  /// Web `AgentActivityInfo`: `formatAgentDisplayStateText` of the agent's
+  /// display state (live directory row, else the follower's status).
   (RaftAvatarPresence, String) activity(ThreadAgentFollower agent) {
     final live = w.entityDirectory.agent(agent.id);
-    final merged = <String, dynamic>{
-      'status': followerAgentStatus(agent.status),
-      if (live?['activity'] != null) 'activity': live!['activity'],
-    };
-    final presence = channelMemberPresence(merged)!;
-    final detail = '${live?['activityDetail'] ?? ''}'.trim();
-    final text =
-        (presence.activity == RaftAvatarActivity.working ||
-                presence.activity == RaftAvatarActivity.thinking) &&
-            detail.isNotEmpty
-        ? detail
-        : raftText(context, switch (presence.activity) {
-            RaftAvatarActivity.thinking => 'Thinking',
-            RaftAvatarActivity.working => 'Working',
-            RaftAvatarActivity.error => 'Error',
-            RaftAvatarActivity.offline => 'Offline',
-            _ => 'Online',
-          });
+    final status = followerAgentStatus(agent.status);
+    final display = live != null
+        ? agentRowAmbientDisplay(live)
+        : resolveAgentAmbientDisplay(
+            identity: AgentPresentationIdentity(id: agent.id, status: status),
+            now: DateTime.now(),
+          );
+    final presence = RaftAvatarPresence(
+      activity: switch (display.activity) {
+        'thinking' => RaftAvatarActivity.thinking,
+        'working' => RaftAvatarActivity.working,
+        'error' => RaftAvatarActivity.error,
+        'offline' => RaftAvatarActivity.offline,
+        _ => RaftAvatarActivity.online,
+      },
+    );
+    final text = agentDisplayText(
+      display,
+      lastSeenAt: live?['lastSeenAt'] is String
+          ? DateTime.tryParse(live!['lastSeenAt'] as String)
+          : null,
+      relativeTime: (seen) => resourceRelativeTime(
+        seen.toIso8601String(),
+        chinese: Localizations.localeOf(context).languageCode == 'zh',
+      ),
+      translate: (source, values) => raftFormat(context, source, values),
+    );
     return (presence, text);
   }
 

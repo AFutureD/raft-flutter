@@ -111,7 +111,9 @@ void main() {
     'standalone',
     'dm',
     'not-joined',
-    'unsupported',
+    // The wire `activityMuteSupported` flag does not gate the control: Web
+    // `canToggleActivityMute` is type in {channel, private, joint} && joined
+    // (see field_parity_channels_test.dart).
     'missing-preference',
   ]) {
     testWidgets('$mode does not expose an activity mute action', (

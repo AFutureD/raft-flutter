@@ -116,6 +116,19 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
   return '$failed$separator$current';
 }
 
+/// Web `isThreadAbsentLookupError` (threadStore.ts): only the route's explicit
+/// "no thread for this message" 404 means an empty thread. A 404 carrying a
+/// `code` is absent only for `THREAD_NOT_FOUND`; without a `code` the legacy
+/// error text decides. Every other failure (a lost parent channel is also a
+/// 404) is a load error with Retry.
+bool isThreadAbsentLookupError(Object? error) {
+  if (error is! RaftApiException || error.status != 404) return false;
+  if (error.details.containsKey('code')) {
+    return error.details['code'] == 'THREAD_NOT_FOUND';
+  }
+  return error.message == 'No thread found for this message';
+}
+
 /// Why a jump target's message context could not be shown.
 enum MessageContextLoadError { notFound, beyondHistory }
 
@@ -154,6 +167,7 @@ class WorkspaceController extends ChangeNotifier {
     dms = source.dms;
     unread = source.unread;
     mentions = source.mentions;
+    newFlags = source.newFlags;
     sidebarOrder = source.sidebarOrder;
     connected = source.connected;
     foreground = active && source.foreground;
@@ -833,10 +847,7 @@ class WorkspaceController extends ChangeNotifier {
   bool _membershipScoped(String id) {
     final known = [...channels, ...dms].where((c) => c.id == id).firstOrNull;
     if (known == null) return true;
-    final json = known.json;
-    return json['isPrivate'] == true ||
-        json['visibility'] == 'private' ||
-        const {'private', 'dm', 'joint', 'thread'}.contains(known.type);
+    return const {'private', 'dm', 'joint', 'thread'}.contains(known.type);
   }
 
   Map<String, dynamic> _hydrateThreadSummaries(
@@ -1043,6 +1054,63 @@ class WorkspaceController extends ChangeNotifier {
       if (channel != null) channel = patch(channel!);
     }
     refreshUnread();
+  }
+
+  /// Source socketBridge `readMessageDisplayPrefsUpdate`: null unless the
+  /// frame carries a string `serverId`/`scopeId` and a boolean
+  /// `prefs.collapseLongMessages`.
+  static ({String serverId, String channelId, bool collapse, int? version})?
+  readMessageDisplayPrefsUpdate(dynamic payload) {
+    if (payload is! Map) return null;
+    final serverId = payload['serverId'], scopeId = payload['scopeId'];
+    final prefs = payload['prefs'];
+    if (serverId is! String || scopeId is! String || prefs is! Map) return null;
+    final collapse = prefs['collapseLongMessages'];
+    if (collapse is! bool) return null;
+    final version = payload['prefsVersion'];
+    return (
+      serverId: serverId,
+      channelId: scopeId,
+      collapse: collapse,
+      version: version is num ? version.toInt() : null,
+    );
+  }
+
+  /// Source `applyMessageDisplayPrefsState` for one row: a patch older than
+  /// the row's `displayPrefsVersion` is ignored.
+  static RaftChannel applyMessageDisplayPrefsToChannel(
+    RaftChannel value, {
+    required bool collapse,
+    int? version,
+  }) {
+    final prior = value.json['displayPrefsVersion'];
+    if (prior is num && version != null && version < prior) return value;
+    return RaftChannel({
+      ...value.json,
+      'collapseLongMessages': collapse,
+      'displayPrefsVersion': ?version,
+    });
+  }
+
+  /// Source socketBridge `message_display_prefs:updated`: written onto the
+  /// channel row so chat folding follows another device's toggle.
+  void _consumeMessageDisplayPrefs(dynamic payload) {
+    final update = readMessageDisplayPrefsUpdate(payload);
+    if (update == null ||
+        (client.serverId != null && update.serverId != client.serverId) ||
+        _revokedChannels.contains(update.channelId)) {
+      return;
+    }
+    RaftChannel patch(RaftChannel value) => value.id != update.channelId
+        ? value
+        : applyMessageDisplayPrefsToChannel(
+            value,
+            collapse: update.collapse,
+            version: update.version,
+          );
+    channels = channels.map(patch).toList();
+    dms = dms.map(patch).toList();
+    if (channel != null) channel = patch(channel!);
   }
 
   bool syncCoreMessagesEnabled = false;
@@ -1302,6 +1370,7 @@ class WorkspaceController extends ChangeNotifier {
       server = null;
       unread = {};
       mentions = {};
+      newFlags = {};
       _latestActivity.clear();
       sidebarOrder = {};
       threadParent = null;
@@ -1918,13 +1987,31 @@ class WorkspaceController extends ChangeNotifier {
     _putChannelRow(row);
   }
 
+  /// Server `LEGACY_ATTACHMENT_SAFE_LIMIT_BYTES`: the multipart request must
+  /// stay below the edge request-body boundary.
+  static const multipartUploadSafeLimitBytes = 90 * 1024 * 1024;
+
+  /// The file ceiling this client can honour from an upload-capabilities
+  /// body. With direct uploads enabled the server advertises the plan's
+  /// single-file `maxBytes`, but this client always posts multipart, so the
+  /// legacy transport ceiling applies. Null when the body is unusable.
+  static int? uploadLimitFromCapabilities(dynamic value) {
+    final max = value is Map ? value['maxBytes'] : null;
+    if (max is! num || !max.isFinite || max <= 0) return null;
+    final bytes = max.toInt();
+    return value['directUploadEnabled'] == true &&
+            bytes > multipartUploadSafeLimitBytes
+        ? multipartUploadSafeLimitBytes
+        : bytes;
+  }
+
   /// Web `resolveAttachmentUploadLimitBytes`: the server ceiling from
   /// `GET /attachments/upload-capabilities`, or null when it is unusable.
   Future<int?> uploadLimitBytes() async {
     try {
-      final value = await query('/attachments/upload-capabilities');
-      final max = value is Map ? value['maxBytes'] : null;
-      return max is num && max.isFinite && max > 0 ? max.toInt() : null;
+      return uploadLimitFromCapabilities(
+        await query('/attachments/upload-capabilities'),
+      );
     } catch (_) {
       return null;
     }
@@ -2294,6 +2381,11 @@ class WorkspaceController extends ChangeNotifier {
   /// mention the member (unread snapshot `hasMention`, a live `message:new`
   /// that mentions the member). Cleared with the unread count.
   Set<String> mentions = {};
+
+  /// Unread summary `hasNew`: non-joined public channels with messages past
+  /// the cursor (no exact count). Lights the quiet dot of a non-joined row;
+  /// cleared with the unread count (Web `newFlags`).
+  Set<String> newFlags = {};
   Map<String, dynamic> sidebarOrder = {};
   RaftRecord? server;
   bool can(String capability, {RaftChannel? resource}) => raftCan(
@@ -2847,6 +2939,7 @@ class WorkspaceController extends ChangeNotifier {
     _summariesByChannel.clear();
     unread = {};
     mentions = {};
+    newFlags = {};
     _latestActivity.clear();
     channelGeneration++;
     threadGeneration++;
@@ -3091,6 +3184,7 @@ class WorkspaceController extends ChangeNotifier {
 
   void _clearMention(String id) {
     if (mentions.contains(id)) mentions = {...mentions}..remove(id);
+    if (newFlags.contains(id)) newFlags = {...newFlags}..remove(id);
   }
 
   /// Source `applyAcceptedReadStateProjection`: an accepted read frontier
@@ -3146,6 +3240,7 @@ class WorkspaceController extends ChangeNotifier {
       if (counts is Map) {
         final next = <String, int>{};
         final nextMentions = <String>{};
+        final nextNew = <String>{};
         for (final e in counts.entries) {
           final id = e.key.toString(), entry = e.value;
           if (entry is num) {
@@ -3181,9 +3276,11 @@ class WorkspaceController extends ChangeNotifier {
           if (entry['hasMention'] == true && next[id]! > 0) {
             nextMentions.add(id);
           }
+          if (entry['hasNew'] == true) nextNew.add(id);
         }
         unread = next;
         mentions = nextMentions;
+        newFlags = nextNew;
         _persistReadState();
       }
       notifyListeners();
@@ -3765,9 +3862,25 @@ class WorkspaceController extends ChangeNotifier {
     unawaited(refreshChannel(id));
   }
 
+  /// Web `patchChannel` `hiddenAllChannel`: an admin hiding `#all` turns it
+  /// into a private channel named `all`, which leaves the list.
+  static bool isHiddenAllChannelRow(Map<String, dynamic> row) =>
+      row['name'] == 'all' && row['type'] == 'private';
+
   void _patchChannelRow(Map<String, dynamic> patch) {
     final id = patch['id'] as String;
     final held = [...channels, ...dms].where((c) => c.id == id).firstOrNull;
+    if (isHiddenAllChannelRow({...?held?.json, ...patch})) {
+      _channelRowSeq[id] = ++_channelReadSeq;
+      if (held != null) {
+        _acceptChannelLists(
+          channels.where((c) => c.id != id).toList(),
+          dms.where((c) => c.id != id).toList(),
+          readmit: const {},
+        );
+      }
+      return;
+    }
     // A projection lacks viewer fields (membership, capabilities): an unknown
     // or revoked row is read once instead of trusted.
     if (held == null || _revokedChannels.contains(id)) {
@@ -3815,6 +3928,7 @@ class WorkspaceController extends ChangeNotifier {
         read > _channelListSeq &&
         read > (_channelRowSeq[id] ?? 0);
     RaftChannel? fresh;
+    var lostAccess = false;
     try {
       final data = await client.get('/channels/$id');
       if (!current() || data is! Map || data['id'] != id) return;
@@ -3824,6 +3938,7 @@ class WorkspaceController extends ChangeNotifier {
       if (serverId is String && serverId != client.serverId) fresh = null;
     } on RaftApiException catch (e) {
       if (!current() || (e.status != 403 && e.status != 404)) return;
+      lostAccess = true;
     } catch (_) {
       // Transient failure: the held row stays until a later read.
       return;
@@ -3838,6 +3953,14 @@ class WorkspaceController extends ChangeNotifier {
         dms.where((c) => c.id != id).toList(),
         readmit: const {},
       );
+    }
+    // The server never emits `channel:removed`: this 403/404 is the way a lost
+    // channel is noticed, so it runs that event's cleanup. A held row was
+    // already revoked by the list update above.
+    if (lostAccess) {
+      if (held == null) _revokeChannel(id);
+      if (_threadIdentity?.parentChannelId == id) closeThread();
+      if (held == null) notifyListeners();
     }
   }
 
@@ -4057,6 +4180,28 @@ class WorkspaceController extends ChangeNotifier {
     }
     _save('servers', '', servers.map((s) => s.json).toList(), server: '');
     notifyListeners();
+  }
+
+  /// Bumped by every `server:plan-updated`. Views that hold billing / usage
+  /// reads (Web `loadBilling` + `loadUsage`) reload when it changes.
+  int planRevision = 0;
+
+  /// Web socketBridge `server:plan-updated`: patch the server row's plan, or
+  /// re-read the servers when the payload is incomplete; billing and usage
+  /// are then reloaded by [planRevision] observers.
+  void _consumeServerPlanUpdated(dynamic payload) {
+    final id = payload is Map ? payload['serverId'] : null;
+    final plan = payload is Map ? payload['plan'] : null;
+    if (id is String && id.isNotEmpty && plan is String) {
+      RaftRecord patch(RaftRecord value) =>
+          value.id == id ? RaftRecord({...value.json, 'plan': plan}) : value;
+      servers = servers.map(patch).toList();
+      if (server != null) server = patch(server!);
+      _save('servers', '', servers.map((s) => s.json).toList(), server: '');
+    } else {
+      unawaited(recoverMembership());
+    }
+    planRevision++;
   }
 
   Future<void> recoverMembership() async {
@@ -4799,7 +4944,9 @@ class WorkspaceController extends ChangeNotifier {
         'channelId': thread ? threadChannelId : intendedChannel,
         'senderId': user?.id ?? '',
         'senderType': 'user',
-        'senderName': user?.name ?? '',
+        // Web MessageInput: displayName || name (an empty displayName is
+        // missing).
+        'senderName': user?.firstNonEmpty(const ['displayName', 'name']) ?? '',
         'messageType': 'chat',
         'content': text,
         if (selectedMentions.isNotEmpty) 'mentions': selectedMentions,
@@ -5173,7 +5320,9 @@ class WorkspaceController extends ChangeNotifier {
               '/channels/$parentChannelId/threads/$parentMessageId',
             );
           } on RaftApiException catch (e) {
-            if (e.status != 404) rethrow;
+            // Only the route's explicit "no thread for this message" 404 is an
+            // empty thread; any other failure raises the in-panel Retry.
+            if (!isThreadAbsentLookupError(e)) rethrow;
           }
           if (!current()) return;
           _threadResolutionLoading = false;
@@ -6277,6 +6426,12 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (event.name == 'notification_prefs:updated') {
       _consumeNotificationPrefs(event.payload);
+    }
+    if (event.name == 'message_display_prefs:updated') {
+      _consumeMessageDisplayPrefs(event.payload);
+    }
+    if (event.name == 'server:plan-updated') {
+      _consumeServerPlanUpdated(event.payload);
     }
     if ((event.name == 'message:new' || event.name == 'message:updated') &&
         event.payload is Map) {

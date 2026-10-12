@@ -652,8 +652,7 @@ class _RaftChatViewState extends State<RaftChatView>
     }
   }
 
-  bool ordinary(RaftMessage m) =>
-      m.string('messageType') == 'chat' && m.json['actionMetadata'] == null;
+  bool ordinary(RaftMessage m) => messageForwardable(m);
   Future<void> forwardSelection() async {
     final messages = selection.selected.map((r) => r.message).toList();
     if (capturingSelection ||
@@ -1796,14 +1795,8 @@ class _RaftChatViewState extends State<RaftChatView>
 
   Widget? attachmentGallery(RaftMessage message) {
     final all = message.attachments;
-    bool raster(Map<String, dynamic> metadata) {
-      final type = '${metadata['mimeType']}'
-          .toLowerCase()
-          .split(';')
-          .first
-          .trim();
-      return type.startsWith('image/') && type != 'image/svg+xml';
-    }
+    bool raster(Map<String, dynamic> metadata) =>
+        attachmentIsInlineImage(metadata);
 
     final images = all.where(raster).toList();
     // Web MessageItem: images, then videos, then audio (each `space-y-2`),
@@ -1889,6 +1882,9 @@ class _RaftChatViewState extends State<RaftChatView>
     if (message.json['sourceServerId'] != null &&
         message.json['sourceServerId'] != w.server?.id) {
       return null;
+    }
+    if (message.string('senderType') == 'external_projection') {
+      return externalSenderSubtitle(message);
     }
     final carried = message.json['senderDescription'];
     final agent = senderAgent(message);

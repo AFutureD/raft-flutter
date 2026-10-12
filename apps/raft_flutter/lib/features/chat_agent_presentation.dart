@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
+import 'agent_metadata_projection.dart' show agentActivityText;
 import 'message_reference_directory.dart';
 import 'private_route_guard.dart';
 
@@ -120,25 +121,14 @@ class ChatAgentPresentation extends ChangeNotifier {
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
       final kind = data['detailKind'];
-      final text = switch (kind) {
-        'delivery_unconsumed' => 'Messages delivered, runtime not responding',
-        'wake_crash_loop_blocked' => 'Automatic wake paused — start manually',
-        'terminal_failure_paused' =>
-          detail.isEmpty
-              ? 'Automatic wake paused after repeated runtime failures — a manual start lifts it'
-              : detail,
-        'starting' || 'runtime_starting' => 'Starting…',
-        'compacting_context' => 'Compacting context…',
-        _ =>
-          activity == 'thinking'
-              ? 'Thinking…'
-              : detail.isEmpty
-              ? 'Working…'
-              : detail,
-      };
+      final text = agentActivityText(
+        activity as String,
+        detail,
+        kind is String ? kind : null,
+      );
       final row = LiveAgentWork(
         id,
-        activity as String,
+        activity,
         text.length <= 140 ? text : '${text.substring(0, 139).trimRight()}…',
         timestamp,
       );

@@ -180,7 +180,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
           RaftFormField(
             'displayName',
             'Display name',
-            initial: user.string('displayName', user.string('name')),
+            initial: user.firstNonEmpty(const ['displayName', 'name']),
             required: true,
           ),
           RaftFormField(

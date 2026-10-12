@@ -1315,6 +1315,11 @@ class _ResourceViewState extends State<ResourceView> {
         patchMessage(event.payload);
         return;
       }
+      if (widget.section == 'activity' &&
+          (event.name == 'task:updated' || event.name == 'task:created')) {
+        patchActivityTasks(event.payload);
+        return;
+      }
       final relevant = switch (widget.section) {
         'activity' =>
           event.name.startsWith('message:') ||
@@ -1597,6 +1602,29 @@ class _ResourceViewState extends State<ResourceView> {
         }
       });
     }
+  }
+
+  /// Source applyTaskToInboxItems: a task fact overlays the thread rows whose
+  /// parent message is the task's message.
+  void patchActivityTasks(Object? payload) {
+    if (!activityRowsLive || payload is! Map) return;
+    final tasks = [
+      if (payload['tasks'] is List) ...payload['tasks'] as List,
+      if (payload['task'] is Map) payload['task'],
+    ];
+    var next = rows, accepted = acceptedActivityItems;
+    for (final task in tasks) {
+      if (task is! Map) continue;
+      next = applyTaskToActivityRows(next, task);
+      accepted = applyTaskToActivityRows(accepted, task);
+    }
+    if (identical(next, rows) && identical(accepted, acceptedActivityItems)) {
+      return;
+    }
+    setState(() {
+      rows = next;
+      acceptedActivityItems = accepted;
+    });
   }
 
   bool activityMuted(Map<String, dynamic> row) {
@@ -2238,8 +2266,9 @@ class _ResourceViewState extends State<ResourceView> {
           }
           if (value is Map &&
               !(enabledActivity && ['saved', 'done'].contains(filter))) {
-            totalCount = (value['total'] ?? value['totalCount']) as int?;
-            totalUnreadCount = value['totalUnreadCount'] as int?;
+            totalCount = ((value['total'] ?? value['totalCount']) as num?)
+                ?.toInt();
+            totalUnreadCount = (value['totalUnreadCount'] as num?)?.toInt();
           }
           if (widget.section == 'activity' &&
               !['saved', 'done'].contains(filter) &&
@@ -4186,7 +4215,7 @@ class _ResourceViewState extends State<ResourceView> {
     final unread = (row['unreadCount'] as num? ?? 0).toInt();
     final title = thread
         ? '${row['parentMessagePreview'] ?? ''}'
-        : '${row['channelName'] ?? row['peerDisplayName'] ?? row['peerName'] ?? row['messagePreview'] ?? 'Conversation'}';
+        : activityRowTitle(row, w.dms);
     final senderType =
         row[thread ? 'latestActivitySenderType' : 'lastMessageSenderType'];
     final senderId =
@@ -4261,7 +4290,7 @@ class _ResourceViewState extends State<ResourceView> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: RaftCssText(
-                    '#${row['parentChannelName'] ?? ''}',
+                    activityThreadSubtitle(row, [...w.channels, ...w.dms]),
                     style: recipe.metadata.copyWith(
                       fontSize: 11,
                       height: 12 / 11,
@@ -4352,8 +4381,14 @@ class _ResourceViewState extends State<ResourceView> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (row['taskNumber'] != null &&
-                        row['taskStatus'] is String)
+                        row['taskStatus'] is String) ...[
                       RaftTaskStatus(status: row['taskStatus']),
+                      if (thread)
+                        RaftCssText(
+                          activityTaskLabel(row),
+                          style: recipe.metadata,
+                        ),
+                    ],
                     if (thread)
                       RaftResourceBadge(
                         label:
@@ -4821,7 +4856,7 @@ class _ResourceViewState extends State<ResourceView> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              '${group.first['parentChannelName'] ?? group.first['channelName'] ?? group.first['peerDisplayName'] ?? group.first['peerName'] ?? raftText(context, 'Conversation')} · ${group.length}',
+              '${activityGroupTitle(group.first, [...w.channels, ...w.dms]) ?? raftText(context, 'Conversation')} · ${group.length}',
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -5487,7 +5522,13 @@ class _ResourceViewState extends State<ResourceView> {
                 'Conversation')
             .toString();
     if (section == 'tasks') {
-      final status = '${row['status'] ?? 'todo'}';
+      // A task row always carries its status (TaskCard requires it); a row
+      // without one is skipped rather than rendered as Todo.
+      final rowStatus = row['status'];
+      if (rowStatus is! String || rowStatus.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      final status = rowStatus;
       final role = w.server?.string('role');
       final allowed = ['owner', 'admin'].contains(role)
           ? raftTaskStatuses
@@ -5744,6 +5785,114 @@ class _ResourceViewState extends State<ResourceView> {
       }
     }
   }
+}
+
+/// Web `peerDisplayName || peerName` of the DM/channel [id] in [channels];
+/// null when the channel is unknown or carries neither (ThreadsInbox.tsx:324).
+String? _peerLabelFor(Iterable<RaftChannel> channels, Object? id) {
+  if (id == null) return null;
+  for (final c in channels) {
+    if (c.id != id) continue;
+    final label = c.firstNonEmpty(const ['peerDisplayName', 'peerName']);
+    if (label.isNotEmpty) return label;
+  }
+  return null;
+}
+
+/// Activity channel/DM card title. A DM row resolves the peer through the DM
+/// channel list (the inbox `channelName` is only the other user's handle);
+/// everything else keeps `channelName`.
+String activityRowTitle(Map<String, dynamic> row, Iterable<RaftChannel> dms) {
+  final fallback =
+      row['channelName'] ??
+      row['peerDisplayName'] ??
+      row['peerName'] ??
+      row['messagePreview'] ??
+      'Conversation';
+  if (row['kind'] != 'dm') return '$fallback';
+  final peer = _peerLabelFor(dms, row['channelId']);
+  final name = row['channelName'];
+  return peer ?? (name is String && name.isNotEmpty ? name : '$fallback');
+}
+
+/// Thread card subtitle: `@peer` for a thread under a DM, `#parent` otherwise
+/// (inboxChannelFilter.ts itemFilterChannelLabel).
+String activityThreadSubtitle(
+  Map<String, dynamic> row,
+  Iterable<RaftChannel> channels,
+) {
+  final name = '${row['parentChannelName'] ?? ''}';
+  if (row['parentChannelType'] != 'dm') return '#$name';
+  final peer = _peerLabelFor(channels, row['parentChannelId']);
+  return '@${peer ?? name}';
+}
+
+/// Grouped Activity header title: the parent channel (peer name for a DM).
+String? activityGroupTitle(
+  Map<String, dynamic> first,
+  Iterable<RaftChannel> channels,
+) {
+  final thread = first['kind'] == 'thread';
+  final dm = thread
+      ? first['parentChannelType'] == 'dm'
+      : first['kind'] == 'dm';
+  if (dm) {
+    final peer = _peerLabelFor(
+      channels,
+      thread ? first['parentChannelId'] : first['channelId'],
+    );
+    if (peer != null) return peer;
+  }
+  final name =
+      first['parentChannelName'] ??
+      first['channelName'] ??
+      first['peerDisplayName'] ??
+      first['peerName'];
+  return name == null ? null : '$name';
+}
+
+/// Thread-row task label `#N @claimant` (ThreadsInbox.tsx task badge).
+String activityTaskLabel(Map<String, dynamic> row) {
+  final claimant = row['taskClaimedByName'];
+  return '#${row['taskNumber']}'
+      '${claimant is String && claimant.isNotEmpty ? ' @$claimant' : ''}';
+}
+
+/// Source applyTaskToInboxItems / normalizeTaskMetadataUpdate: overlay
+/// `taskNumber`, `taskStatus`, `taskClaimedByName` (null when unclaimed) on
+/// thread rows whose `parentMessageId` is the task's `messageId`. Returns
+/// [rows] itself when nothing changed.
+List<Map<String, dynamic>> applyTaskToActivityRows(
+  List<Map<String, dynamic>> rows,
+  Map task,
+) {
+  final messageId = task['messageId'], status = task['status'];
+  final number = task['taskNumber'];
+  if (messageId is! String || status is! String || number is! num) return rows;
+  final claimant = task['claimedByName'];
+  final name = claimant is String ? claimant : null;
+  var changed = false;
+  final next = [
+    for (final row in rows)
+      if (row['kind'] != 'thread' || row['parentMessageId'] != messageId)
+        row
+      else if (row['taskNumber'] == number &&
+          row['taskStatus'] == status &&
+          row['taskClaimedByName'] == name)
+        row
+      else ...[
+        () {
+          changed = true;
+          return {
+            ...row,
+            'taskNumber': number,
+            'taskStatus': status,
+            'taskClaimedByName': name,
+          };
+        }(),
+      ],
+  ];
+  return changed ? next : rows;
 }
 
 class _TaskDrag {

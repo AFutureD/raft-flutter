@@ -24,6 +24,7 @@ import 'agent_trajectory_log.dart';
 import 'runtime_usage_chip.dart';
 import 'agent_metadata_catalog.dart';
 import 'agent_runtime_catalog.dart' show reasoningEfforts;
+import 'agent_metadata_projection.dart';
 import 'mcp_views.dart';
 import 'agent_avatar_dialog.dart' show agentProfileAvatarUrl;
 import 'resource_cards.dart' show resourceRelativeTime;
@@ -136,14 +137,6 @@ const sourceRuntimeDisplayNames = <String, String>{
 String _reasoningEffortLabel(String? effort) =>
     reasoningEfforts.where((e) => e.$1 == effort).firstOrNull?.$2 ?? 'Default';
 
-const _activityLabels = {
-  'online': 'Online',
-  'thinking': 'Thinking',
-  'working': 'Working',
-  'error': 'Error',
-  'offline': 'Offline',
-};
-
 class AgentDetailPanel extends StatefulWidget {
   const AgentDetailPanel({
     super.key,
@@ -202,11 +195,32 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   late AgentDetailTab tab = widget.initialTab;
 
   Map<String, dynamic> get a => widget.agent;
-  String get displayName => '${a['displayName'] ?? a['name'] ?? ''}';
+  String get displayName => agentRowName(a);
   bool get external => a['external'] == true || a['runtime'] == 'external';
-  String get activity =>
-      '${widget.liveActivity?['activity'] ?? a['activity'] ?? (a['status'] == 'active' ? 'online' : 'offline')}';
+  AgentAmbientDisplay get _display => agentRowAmbientDisplay(
+    a,
+    live: widget.liveActivity,
+    now: (widget.clock ?? DateTime.now)(),
+  );
+  String get activity => _display.activity;
   bool get online => activity != 'offline';
+
+  /// Web `CreatedAgentStatusDot` -> useAgentDisplayState(agentId): the live
+  /// directory row, else the created-agent row's own status.
+  AgentAmbientDisplay _createdAgentDisplay(Map c) {
+    final now = (widget.clock ?? DateTime.now)();
+    final live = widget.controller.entityDirectory.agent('${c['id']}');
+    if (live != null) return agentRowAmbientDisplay(live, now: now);
+    return resolveAgentAmbientDisplay(
+      identity: AgentPresentationIdentity(
+        id: '${c['id']}',
+        status: c['status'] is String ? c['status'] as String : 'offline',
+        runtime: c['runtime'] as String?,
+        external: c['external'] == true || c['runtime'] == 'external',
+      ),
+      now: now,
+    );
+  }
 
   /// AGENT_PANEL_TABS filtered by visibility, then ordered like raft-ui
   /// `reconcileTabOrder`: the server's `agentPanelTabOrder` first (`channels` /
@@ -654,14 +668,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   Widget _profile(BuildContext context) {
     final t = RaftTokens.of(context);
     final canEdit = widget.canManage && a['deletedAt'] == null;
-    final detail = widget.liveActivity?['detail'] ?? a['activityDetail'];
-    final status =
-        widget.canViewPrivate && detail is String && detail.isNotEmpty
-        ? detail
-        : raftText(context, _activityLabels[activity] ?? activity);
+    final display = _display;
+    final status = agentActivityText(
+      display.activity,
+      widget.canViewPrivate ? display.detail : '',
+      widget.canViewPrivate ? display.detailKind : null,
+      translate: (source, values) => raftFormat(context, source, values),
+    );
     final agentId = '${a['id']}';
     final externalPresence = _externalPresence(context, t);
     final role = a['serverRole'];
+    final roleChip = agentServerRoleChip(role, deletedAt: a['deletedAt']);
     final pending =
         a['machineId'] is String && widget.machines == null && !external;
     final m = machine;
@@ -802,7 +819,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   onPressed: () =>
                       showRaftRolePermissionHelp(context, agent: true),
                 ),
-                if (canEdit && role != null && role != 'owner')
+                if (canEdit && roleChip != null && role != 'owner')
                   RaftInlineIconButton(
                     key: const ValueKey('agent-edit-role'),
                     glyph: RaftGlyph.pencil,
@@ -810,12 +827,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                     onPressed: widget.actions.onEditRole,
                   ),
               ],
-              child: role == null
+              child: roleChip == null
                   ? const SizedBox.shrink()
                   : RaftInlineBadge(
                       badge: RaftRecipeBadge(
-                        raftText(context, role == 'admin' ? 'Admin' : 'Member'),
-                        variant: role == 'admin'
+                        roleChip.known
+                            ? raftText(
+                                context,
+                                roleChip.label == 'admin' ? 'Admin' : 'Member',
+                              )
+                            : roleChip.label,
+                        variant: roleChip.label == 'admin'
                             ? RaftBadgeRecipeVariant.accent
                             : RaftBadgeRecipeVariant.muted,
                       ),
@@ -860,7 +882,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
               label: raftText(context, 'Creator'),
               child: creator is Map
                   ? RaftCreatorLink(
-                      name: '${creator['displayName'] ?? creator['name']}',
+                      name: nonEmptyOr(creator['displayName'], creator['name']),
                       handle: '${creator['name']}',
                       human: creator['type'] == 'human',
                       avatarUrl: creator['avatarUrl'] as String?,
@@ -956,11 +978,11 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                   for (final c in created)
                     RaftAvatarListRow(
                       avatar: RaftAvatarSlot(
-                        name: '${c['displayName'] ?? c['name']}',
+                        name: agentRowName(c),
                         avatarUrl: c['avatarUrl'] as String?,
                         slot: RaftAvatarSlotContext.surfaceList,
                       ),
-                      name: '${c['displayName'] ?? c['name']}',
+                      name: agentRowName(c),
                       subtitle:
                           sourceRuntimeDisplayNames['${c['runtime']}'] ??
                           '${c['runtime'] ?? ''}',
@@ -968,7 +990,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                         RaftActivityDot(
                           color: raftActivityDotColor(
                             t,
-                            c['status'] == 'active' ? 'online' : 'offline',
+                            _createdAgentDisplay(c).activity,
                           ),
                         ),
                       ],

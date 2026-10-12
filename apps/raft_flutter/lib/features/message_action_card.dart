@@ -23,6 +23,25 @@ const _inlineActions = {
 Map<String, dynamic> _map(dynamic value) =>
     value is Map ? Map<String, dynamic>.from(value) : {};
 
+/// Source isActionCardReadOnlyInServer (shared/actionCards.ts): an absent
+/// `sourceServerId` is an older server (not read-only); an explicit `null` is
+/// an unavailable card owner and a foreign id is a history copy.
+bool actionCardReadOnlyInServer(
+  Map<String, dynamic> metadata,
+  String? viewerServerId,
+) =>
+    metadata.containsKey('sourceServerId') &&
+    (metadata['sourceServerId'] == null ||
+        metadata['sourceServerId'] != viewerServerId);
+
+/// The thread's parent channel as the wire carries it
+/// (`conversationContext.parentChannelId`), null outside a thread.
+String? messageParentChannelId(Map<String, dynamic> message) {
+  final context = message['conversationContext'];
+  final id = context is Map ? context['parentChannelId'] : null;
+  return id is String && id.isNotEmpty ? id : null;
+}
+
 class MessageActionCard extends StatefulWidget {
   const MessageActionCard({
     super.key,
@@ -65,14 +84,13 @@ class _MessageActionCardState extends State<MessageActionCard> {
           .where(
             (c) =>
                 c.id ==
-                (widget.message.json['parentChannelId'] ??
+                (messageParentChannelId(widget.message.json) ??
                     widget.message.channelId),
           )
           .firstOrNull ??
       w.channel;
   String? get blocked {
-    if (metadata['sourceServerId'] != null &&
-        metadata['sourceServerId'] != w.server?.id) {
+    if (actionCardReadOnlyInServer(metadata, w.server?.id)) {
       final server = metadata['targetServerName'];
       return server is String
           ? 'This action runs on $server. Switch to $server to run it.'

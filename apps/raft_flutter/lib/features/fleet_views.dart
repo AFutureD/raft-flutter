@@ -14,6 +14,8 @@ import 'managed_agent_launcher.dart';
 import 'agent_scopes_view.dart';
 import 'agent_migration_view.dart';
 import 'agent_detail_view.dart';
+import 'agent_metadata_catalog.dart' show sourceAgentActivities;
+import 'agent_metadata_projection.dart';
 import 'report_issue.dart';
 import 'agent_runtime_editor.dart';
 import 'agent_avatar_dialog.dart';
@@ -498,8 +500,10 @@ class _FleetViewState extends State<FleetView> {
                 itemBuilder: (context, index) {
                   final captured = scope;
                   final row = rows[index],
-                      name =
-                          '${rows[index]['displayName'] ?? rows[index]['name']}';
+                      name = nonEmptyOr(
+                        rows[index]['displayName'],
+                        rows[index]['name'],
+                      );
                   return ListTile(
                     key: ValueKey('fleet-${row['id']}'),
                     leading: widget.computers
@@ -509,7 +513,7 @@ class _FleetViewState extends State<FleetView> {
                     subtitle: Text(
                       widget.computers
                           ? '${row['status'] ?? 'Offline'} · ${row['hostname'] ?? row['os'] ?? ''}'
-                          : '${row['external'] == true ? 'External' : row['runtime'] ?? ''} · ${row['activity'] ?? row['status'] ?? ''}',
+                          : '${row['external'] == true ? 'External' : row['runtime'] ?? ''} · ${raftText(context, agentDisplayText(agentRowAmbientDisplay(row)))}',
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () async {
@@ -615,6 +619,7 @@ class _FleetDetailState extends State<FleetDetail> {
   /// in flight.
   List<Map<String, dynamic>>? machines;
   Map<String, dynamic>? liveActivity;
+  BigInt? liveSeq;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -735,12 +740,27 @@ class _FleetDetailState extends State<FleetDetail> {
         closeProfile();
         return;
       }
+      if (e.name == 'connected') liveSeq = null;
       if (widget.computers || e.payload is! Map) return;
       final p = e.payload as Map;
       if (e.name == 'agent:activity' && p['agentId'] == id) {
+        // Web applySocketActivity: unknown activities and a serverSeq at or
+        // below the held one are dropped.
+        if (!sourceAgentActivities.contains(
+          p['activityKind'] ?? p['activity'],
+        )) {
+          return;
+        }
+        final seq = BigInt.tryParse('${p['serverSeq'] ?? ''}');
+        if (seq != null && liveSeq != null && seq <= liveSeq!) return;
+        if (seq != null) liveSeq = seq;
         setState(
-          () =>
-              liveActivity = {'activity': p['activity'], 'detail': p['detail']},
+          () => liveActivity = {
+            'activity': p['activity'],
+            'activityKind': p['activityKind'],
+            'detail': p['detail'],
+            'detailKind': p['detailKind'],
+          },
         );
       } else if (e.name == 'agent:updated' && (p['agentId'] ?? p['id']) == id) {
         // Only this agent's stored profile changed; the list itself is
@@ -854,7 +874,7 @@ class _FleetDetailState extends State<FleetDetail> {
       w,
       () => allowed('controlAgentRuntime'),
       (_) => RaftResetAgentDialog(
-        agentName: '${row['displayName'] ?? row['name'] ?? ''}',
+        agentName: nonEmptyOr(row['displayName'], row['name']),
         canFullReset: allowed('resetAgentWorkspace'),
         // Web: a plain member may only restart / reset the model.
         memberRuntimeOnly: w.server?.string('role') == 'member',
@@ -922,7 +942,7 @@ class _FleetDetailState extends State<FleetDetail> {
           RaftFormField(
             widget.computers ? 'name' : 'displayName',
             'Display name',
-            initial: '${row['displayName'] ?? row['name']}',
+            initial: nonEmptyOr(row['displayName'], row['name']),
             required: true,
           ),
           RaftFormField(
@@ -1001,7 +1021,7 @@ class _FleetDetailState extends State<FleetDetail> {
     if (!widget.computers) {
       // AgentDetailPanel `ConfirmDialog` "Delete Agent" (external agents get
       // their own copy: the external runtime is left alone).
-      final name = '${row['displayName'] ?? row['name'] ?? ''}';
+      final name = nonEmptyOr(row['displayName'], row['name']);
       await webConfirm(
         title: raftText(context, 'Delete Agent'),
         message: raftFormat(
@@ -1133,7 +1153,7 @@ class _FleetDetailState extends State<FleetDetail> {
         message: raftFormat(
           context,
           'Are you sure you want to stop "{name}"? The agent will stop processing messages.',
-          {'name': '${row['displayName'] ?? row['name'] ?? ''}'},
+          {'name': nonEmptyOr(row['displayName'], row['name'])},
         ),
         confirmLabel: raftText(context, 'Stop Agent'),
         loadingLabel: raftText(context, 'Stopping…'),
@@ -1309,8 +1329,7 @@ class _FleetDetailState extends State<FleetDetail> {
           : null,
       onStartStop: () => action(
         () => runtimeCommand(
-          '${liveActivity?['activity'] ?? row['activity'] ?? 'offline'}' ==
-                  'offline'
+          agentRowAmbientDisplay(row, live: liveActivity).activity == 'offline'
               ? 'start'
               : 'stop',
         ),

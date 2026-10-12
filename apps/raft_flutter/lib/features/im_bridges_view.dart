@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
@@ -6,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'slack_bridge_contract.dart';
+import '../data/feature_flag_client_facts.dart';
 
 class IMBridgesView extends StatefulWidget {
   const IMBridgesView({super.key, required this.controller});
@@ -92,13 +92,10 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
     final flags = managementMap(
       await w.client.post(
         '/feature-flags/evaluate',
-        data: {
-          'keys': ['slack_bridge_v0'],
-          'serverId': w.server?.id,
-          'platform': defaultTargetPlatform == TargetPlatform.android
-              ? 'mobile'
-              : 'web',
-        },
+        data: featureFlagEvaluateBody(
+          keys: ['slack_bridge_v0'],
+          serverId: w.server?.id,
+        ),
       ),
     );
     if (!accepts(generation, request)) return;

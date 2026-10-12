@@ -362,10 +362,14 @@ void main() {
                   c.path == '/feature-flags/evaluate' &&
                   (c.data as Map)['keys'].contains('activity_sidebar_inbox_v0'),
             );
+            // featureFlagEvaluateBody: platform plus the client facts the
+            // server's `client` rules read (os only on native mobile).
             expect(request.data, {
               'keys': ['activity_sidebar_inbox_v0'],
               'serverId': 's1',
               'platform': width == 390 ? 'mobile' : 'web',
+              if (width == 390) 'os': 'android',
+              'buildType': 'debug',
             });
             evaluation.complete(flag(enabled));
             await tester.pumpAndSettle();

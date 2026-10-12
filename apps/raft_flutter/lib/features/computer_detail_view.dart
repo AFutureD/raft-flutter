@@ -13,6 +13,7 @@ import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_detail_view.dart' show sourceRuntimeDisplayNames;
 import 'agent_metadata_catalog.dart';
+import 'agent_metadata_projection.dart';
 import 'computer_setup_commands.dart';
 import 'runtime_usage_chip.dart';
 import '../data/runtime_account_usage.dart';
@@ -161,20 +162,27 @@ String computerFileSize(num bytes) {
 String _pct(double v) =>
     v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
-/// The Web agent row status text (utils/activity.ts formatActivityText).
-String computerAgentActivityText(Map a) {
-  final activity = '${a['activity'] ?? 'offline'}';
-  final detail = a['activityDetail'];
-  if (detail is String && detail.isNotEmpty && activity != 'offline') {
-    return detail;
-  }
-  return switch (activity) {
-    'online' => 'Online',
-    'thinking' => 'Thinking',
-    'working' => 'Working',
-    'error' => 'Error',
-    _ => 'Offline',
-  };
+/// The Web agent row status text (utils/activity.ts formatActivityText via
+/// resolveAgentDisplayState): [agentActivityText] over the row's ambient
+/// display, so typed detail kinds and external presence apply.
+String computerAgentActivityText(
+  Map a, {
+  DateTime? now,
+  String Function(String source, Map<String, Object?> values)? translate,
+  String Function(DateTime seen)? relativeTime,
+}) {
+  final display = agentRowAmbientDisplay(a, now: now);
+  final seen = a['lastSeenAt'] is String
+      ? DateTime.tryParse(a['lastSeenAt'] as String)
+      : null;
+  return translate == null
+      ? agentDisplayText(display, lastSeenAt: seen, relativeTime: relativeTime)
+      : agentDisplayText(
+          display,
+          lastSeenAt: seen,
+          relativeTime: relativeTime,
+          translate: translate,
+        );
 }
 
 // ------------------------------------------------------------------ panel
@@ -415,7 +423,7 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
           : DateFormat.yMMMd('en').format(created.toUtc()),
       creator: creator is Map
           ? RaftComputerCreator(
-              name: '${creator['displayName'] ?? creator['name']}',
+              name: nonEmptyOr(creator['displayName'], creator['name']),
               handle: '${creator['name']}',
               avatarUrl: creator['avatarUrl'] as String?,
             )
@@ -427,10 +435,10 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
         for (final a in agents)
           RaftComputerAgent(
             id: a['id'] as String,
-            name: '${a['displayName'] ?? a['name'] ?? ''}',
+            name: agentRowName(a),
             avatarUrl: a['avatarUrl'] as String?,
             subtitle: _agentSubtitle(a),
-            activity: '${a['activity'] ?? 'offline'}',
+            activity: agentRowAmbientDisplay(a).activity,
             activityText: computerAgentActivityText(a),
           ),
       ],

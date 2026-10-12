@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 
 import 'search_memory.dart';
 import 'workspace_controller.dart';
+import 'feature_flag_client_facts.dart';
 
 /// Test seam: parity captures render the release availability contract (the
 /// grid toggle needs the server flag) instead of the DEV default.
@@ -97,11 +98,10 @@ class WorkspaceModeStore extends ChangeNotifier {
     try {
       final result = await workspace.client.post(
         '/feature-flags/evaluate',
-        data: {
-          'keys': ['chat_grid_layout_v0'],
-          'serverId': server,
-          'platform': 'web',
-        },
+        data: featureFlagEvaluateBody(
+          keys: ['chat_grid_layout_v0'],
+          serverId: server,
+        ),
       );
       if (ended ||
           scope != authority ||

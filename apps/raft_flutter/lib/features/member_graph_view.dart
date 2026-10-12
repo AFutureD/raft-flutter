@@ -201,6 +201,47 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
           );
   }
 
+  /// Hover-card avatar (`mention-card` slot) through the same projection as the
+  /// graph node: relative uploaded avatars resolve against the API origin and
+  /// humans fall back to Gravatar (`humanAvatar.ts`).
+  Widget hoverAvatar(RaftGraphMember member) {
+    final row = {
+      'id': member.id,
+      'userId': member.id,
+      'avatarUrl': member.avatarUrl,
+      'gravatarHash': member.gravatarHash.isEmpty ? null : member.gravatarHash,
+    };
+    final projection = projectSenderAvatar(
+      origin: w.client.origin,
+      senderId: member.id,
+      senderType: member.agent ? 'agent' : 'user',
+      agents: member.agent ? [row] : const [],
+      members: member.agent ? const [] : [row],
+      requestSize: 48,
+    );
+    return RaftAvatarSlot(
+      name: member.label,
+      agent: member.agent,
+      avatarUrl: member.avatarUrl,
+      slot: RaftAvatarSlotContext.mentionCard,
+      content: RaftAvatarContent(
+        name: member.label,
+        kind: member.agent
+            ? RaftAvatarContentKind.agent
+            : RaftAvatarContentKind.human,
+        uploadedUrl: projection.uploadedUrl,
+        gravatarUrl: projection.gravatarUrl,
+        pixelKey: projection.pixelKey,
+        fallback: Center(
+          child: RaftIcon(
+            member.agent ? RaftGlyph.bot : RaftGlyph.user,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (guest) return const SizedBox.shrink();
@@ -259,6 +300,7 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
                   controller: w,
                   agent: member.agent,
                   id: member.id,
+                  avatar: hoverAvatar(member),
                   child: node,
                 ),
               ),

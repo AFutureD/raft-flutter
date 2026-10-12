@@ -8,6 +8,7 @@ import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/content_links.dart';
 import 'archived_channels_section.dart';
+import 'member_profile_rules.dart';
 import 'invite_accept_view.dart';
 import 'public_visibility_view.dart';
 
@@ -554,7 +555,7 @@ class _MembersViewState extends State<MembersView> {
         builder: (context) => ValueListenableBuilder<Map<String, dynamic>>(
           valueListenable: profile,
           builder: (context, value, _) => AlertDialog(
-            title: Text('${value['displayName'] ?? value['name']}'),
+            title: Text(humanDisplayName(value)),
             content: SelectableText(
               '${value['description'] ?? ''}\n\n${value['email'] ?? ''}',
             ),
@@ -575,7 +576,7 @@ class _MembersViewState extends State<MembersView> {
   Future<void> change(Map<String, dynamic> member, String role) async {
     final id = member['userId'] ?? member['id'],
         server = w.server!.id,
-        name = '${member['displayName'] ?? member['name']}';
+        name = humanDisplayName(member);
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -655,9 +656,9 @@ class _MembersViewState extends State<MembersView> {
                   for (final member in members)
                     ListTile(
                       leading: RaftAvatar(
-                        name: '${member['displayName'] ?? member['name']}',
+                        name: humanDisplayName(member),
                       ),
-                      title: Text('${member['displayName'] ?? member['name']}'),
+                      title: Text(humanDisplayName(member)),
                       subtitle: Text(
                         '${member['role']} · ${member['email'] ?? ''}',
                       ),

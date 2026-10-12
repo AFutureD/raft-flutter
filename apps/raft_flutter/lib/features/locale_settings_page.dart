@@ -88,8 +88,21 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
   String get savedDisplay => translations.settings.display.name;
   String get savedTimezone =>
       w.client.user?.string('preferredTimezone').trim() ?? '';
-  String get savedTimeFormat =>
-      w.client.user?.string('preferredTimeFormat') == '24h' ? '24h' : '12h';
+  /// `effectiveTimeFormat = preferred ?? detectBrowserTimeFormat()`
+  /// (translationStore.ts:271): a null / `auto` preference follows the device.
+  String get savedTimeFormat => effectiveTimeFormat(
+    w.client.user?.json['preferredTimeFormat'],
+    device24Hour: device24Hour,
+  );
+
+  /// The device's 24-hour clock setting; refreshed with the MediaQuery.
+  bool device24Hour = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    device24Hour = MediaQuery.alwaysUse24HourFormatOf(context);
+  }
 
   /// The live UI locale in Web's `Locale` ids.
   String liveLocale(BuildContext context) =>
@@ -266,6 +279,15 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
     );
   }
 }
+
+/// Web `effectiveTimeFormat`: an explicit `12h` / `24h` preference, else the
+/// device default (`normalizeTimeFormatPreference` drops anything else).
+String effectiveTimeFormat(Object? preferred, {required bool device24Hour}) =>
+    switch (preferred) {
+      '12h' => '12h',
+      '24h' => '24h',
+      _ => device24Hour ? '24h' : '12h',
+    };
 
 // ------------------------------------------------------------- timezones
 

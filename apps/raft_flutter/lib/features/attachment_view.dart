@@ -21,6 +21,22 @@ import 'attachment_preview_gate.dart';
 import 'inline_attachment_media.dart';
 import 'private_route_guard.dart';
 
+bool _isSvgMime(String mime) =>
+    mime.toLowerCase().split(';').first.trim() == 'image/svg+xml';
+
+/// Web isPreviewableImageAttachment (urlImageFallback.ts): any `image/*`, but
+/// an SVG only when the server rasterized it (`thumbnailUrl`, a 320px WebP).
+/// Native never feeds authored SVG bytes to the raster decoder.
+bool attachmentIsInlineImage(Map<String, dynamic> metadata) {
+  final mime = '${metadata['mimeType'] ?? 'application/octet-stream'}';
+  final type = mime.toLowerCase().split(';').first.trim();
+  if (!type.startsWith('image/')) return false;
+  if (!_isSvgMime(type)) return true;
+  final thumbnail = metadata['thumbnailUrl'];
+  return thumbnail is String &&
+      (thumbnail.startsWith('https://') || thumbnail.startsWith('http://'));
+}
+
 class AttachmentView extends StatefulWidget {
   const AttachmentView({
     super.key,
@@ -80,12 +96,8 @@ class _AttachmentViewState extends State<AttachmentView> {
   String get name => '${widget.metadata['filename'] ?? 'Attachment'}';
   String get mime =>
       '${widget.metadata['mimeType'] ?? 'application/octet-stream'}';
-  bool get isImage {
-    final type = mime.toLowerCase().split(';').first.trim();
-    // Original Web only presents SVG inline when a raster projection exists.
-    // Native never feeds authored SVG bytes to the raster decoder.
-    return type.startsWith('image/') && type != 'image/svg+xml';
-  }
+  bool get isImage => attachmentIsInlineImage(widget.metadata);
+  bool get isSvg => _isSvgMime(mime);
 
   bool get visibleExportDescendant =>
       widget.exportMode &&
@@ -199,7 +211,11 @@ class _AttachmentViewState extends State<AttachmentView> {
       scope: w.attachmentImageScope,
       channelId: ownerChannel,
       metadata: widget.metadata,
-      rendition: preview && thumbnailUrl != null ? 'thumbnail' : 'original',
+      // An SVG's bytes are never decoded: its raster thumbnail serves the
+      // list preview and the lightbox alike.
+      rendition: (preview || isSvg) && thumbnailUrl != null
+          ? 'thumbnail'
+          : 'original',
       target: preview
           ? AttachmentDecodeTarget.box(
               box.width,

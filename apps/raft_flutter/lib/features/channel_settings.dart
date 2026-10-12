@@ -19,6 +19,12 @@ import 'management_support.dart'
         rememberServerFlag,
         writePageSnapshot;
 
+/// Web `canToggleActivityMute` (channelDomain.ts): channel / private / joint
+/// rows the member joined. The wire flag `activityMuteSupported` is not read.
+bool channelCanToggleActivityMute(RaftChannel channel) =>
+    channel.joined &&
+    const {'channel', 'private', 'joint'}.contains(channel.type);
+
 class ChannelSettings extends StatefulWidget {
   const ChannelSettings({
     super.key,
@@ -190,7 +196,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     final id = widget.channel.id;
     final wanted = [
       for (final part in parts)
-        if ((part != 'notification' || channel.flag('activityMuteSupported')) &&
+        if ((part != 'notification' || channelCanToggleActivityMute(channel)) &&
             // A 1:1 DM sheet has no members section (ChatPanel #1281).
             !(part == 'members' && drawer && channel.type == 'dm'))
           part,
@@ -562,7 +568,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
           if (widget.isPanel &&
               !dm &&
               c.joined &&
-              c.flag('activityMuteSupported') &&
+              channelCanToggleActivityMute(c) &&
               (!known.contains('notification') ||
                   notification['activityMuted'] is bool))
             RaftSheetSwitchRow(
@@ -580,7 +586,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                     w.server?.id != serverId ||
                     fresh == null ||
                     !fresh.joined ||
-                    !fresh.flag('activityMuteSupported') ||
+                    !channelCanToggleActivityMute(fresh) ||
                     !w.can('viewChannel', resource: fresh)) {
                   throw StateError(
                     'Channel activity preference is no longer available.',
@@ -1110,7 +1116,12 @@ class _ChannelSettingsState extends State<ChannelSettings> {
           candidate: candidate,
           avatarContext: RaftMountedAvatarContext.panelHeader,
           origin: origin,
-          presence: agent ? channelMemberPresence(m) : null,
+          presence: agent
+              ? channelMemberPresence(
+                  m,
+                  directory: w.entityDirectory.agent('${m['id']}'),
+                )
+              : null,
         ),
       );
     }
@@ -1187,7 +1198,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       ),
       if (!dm &&
           c.joined &&
-          c.flag('activityMuteSupported') &&
+          channelCanToggleActivityMute(c) &&
           (!known.contains('notification') ||
               notification['activityMuted'] is bool))
         RaftSheetSwitchRow(
@@ -1206,7 +1217,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                 w.server?.id != serverId ||
                 fresh == null ||
                 !fresh.joined ||
-                !fresh.flag('activityMuteSupported') ||
+                !channelCanToggleActivityMute(fresh) ||
                 !w.can('viewChannel', resource: fresh)) {
               throw StateError(
                 'Channel activity preference is no longer available.',

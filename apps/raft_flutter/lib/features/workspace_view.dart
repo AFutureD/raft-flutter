@@ -35,7 +35,6 @@ import 'chat_view.dart';
 import 'thread_actions.dart';
 import 'profile_side_panel.dart';
 import 'thread_agent_followers_view.dart';
-import 'computer_detail_view.dart';
 import 'community_join.dart';
 import 'conversation_panel.dart';
 import 'message_selection.dart';
@@ -69,6 +68,8 @@ import 'server_setup_gate.dart';
 import 'sidebar_projection.dart';
 import 'sidebar_sort_menu.dart';
 import 'agent_avatar_projection.dart';
+import 'agent_metadata_projection.dart';
+import 'resource_cards.dart' show resourceRelativeTime;
 import 'saved_sidebar_entry.dart';
 import 'system_notification_center.dart';
 import 'workspace_browser.dart';
@@ -3028,20 +3029,21 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final c = w.channel!;
     final peer = dmPeer(c, requestSize: 36);
     final row = peer.profile;
+    // Web resolveAgentDisplayState: external presence from lastSeenAt, typed
+    // detail kinds, activityKind ?? activity.
+    final display = !peer.agent || row == null
+        ? null
+        : agentRowAmbientDisplay(row);
     final activity = !peer.agent
         ? null
-        : switch ('${row?['activity'] ?? ''}') {
-            'online' => RaftActivityTone.online,
+        : switch (display?.activity) {
             'thinking' => RaftActivityTone.thinking,
             'working' => RaftActivityTone.working,
             'error' => RaftActivityTone.error,
             'offline' => RaftActivityTone.offline,
-            _ =>
-              row?['status'] == 'active'
-                  ? RaftActivityTone.online
-                  : RaftActivityTone.offline,
+            'online' => RaftActivityTone.online,
+            _ => RaftActivityTone.offline,
           };
-    final tone = activity?.name;
     return RaftDmHeader(
       key: Key(
         mobile ? 'workspace-mobile-detail-header' : 'workspace-channel-header',
@@ -3055,14 +3057,20 @@ class _WorkspaceViewState extends State<WorkspaceView>
       ),
       activity: activity,
       external: peer.agent && row?['runtime'] == 'external',
-      activityText: tone == null
+      activityText: activity == null
           ? null
-          : row?['activityDetail'] is String &&
-                (row!['activityDetail'] as String).isNotEmpty &&
-                tone != 'offline'
-          ? row['activityDetail'] as String
-          // Source formatActivityText: the localized activity label.
-          : tr(computerAgentActivityText({'activity': tone})),
+          : display == null
+          ? tr('Offline')
+          : agentDisplayText(
+              display,
+              lastSeenAt: DateTime.tryParse('${row?['lastSeenAt']}'),
+              relativeTime: (seen) => resourceRelativeTime(
+                seen.toIso8601String(),
+                chinese: Localizations.localeOf(context).languageCode == 'zh',
+              ),
+              translate: (source, values) =>
+                  raftFormat(context, source, values),
+            ),
       muted: c.flag('activityMuted'),
       mutedLabel: tr('Activity muted. Direct mentions can still notify you.'),
       onBack: mobile ? dismissPanel : null,

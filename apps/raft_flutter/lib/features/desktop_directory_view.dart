@@ -9,6 +9,7 @@ import '../data/workspace_entity_directory.dart';
 import 'desktop_navigation_policy.dart';
 import 'add_computer_dialog.dart';
 import 'agent_avatar_projection.dart';
+import 'agent_metadata_catalog.dart' show sourceAgentActivities;
 import 'computer_detail_view.dart'
     show computerAvailableVersion, computerDiskLow, computerRunLabel;
 import 'fleet_views.dart' show showFleetRegistration;
@@ -47,6 +48,7 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
   /// Live `agent:activity` per agent (Web agentStore.agentActivities): the
   /// avatar badge follows it before the next directory read.
   final liveActivity = <String, String>{};
+  final _liveSeq = <String, BigInt>{};
   StreamSubscription<RaftEvent>? _events;
 
   /// Account, workspace, role and the visibility rules of this column. Rows
@@ -87,13 +89,19 @@ class _DesktopDirectoryViewState extends State<DesktopDirectoryView> {
     _directory = w.entityDirectory..addListener(directoryChanged);
     _events?.cancel();
     liveActivity.clear();
+    _liveSeq.clear();
     _events = w.client.events.listen((e) {
       final p = e.payload;
+      if (e.name == 'connected') _liveSeq.clear();
       if (e.name != 'agent:activity' || p is! Map || !mounted) return;
       final id = p['agentId'], activity = p['activityKind'] ?? p['activity'];
-      if (id is String && activity is String) {
-        setState(() => liveActivity[id] = activity);
-      }
+      if (id is! String || !sourceAgentActivities.contains(activity)) return;
+      // Web applySocketActivity: a serverSeq at or below the held one is stale.
+      final seq = BigInt.tryParse('${p['serverSeq'] ?? ''}');
+      final last = _liveSeq[id];
+      if (seq != null && last != null && seq <= last) return;
+      if (seq != null) _liveSeq[id] = seq;
+      setState(() => liveActivity[id] = activity as String);
     });
     w.entityDirectory.ensure(waitKinds, retryFailed: true);
   }

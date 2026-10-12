@@ -137,7 +137,7 @@ class MessageAgentPresentation extends ChangeNotifier {
           status: status,
           activity: row['activity'] as String?,
           activityKind: row['activityKind'] as String?,
-          detailKind: row['detailKind'] as String?,
+          detailKind: agentRowDetailKind(row),
           detail: row['activityDetail'] is String
               ? row['activityDetail'] as String
               : '',

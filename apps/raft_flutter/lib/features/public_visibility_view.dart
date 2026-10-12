@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/feature_flag_client_facts.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart'
     show
@@ -74,15 +74,7 @@ class _PublicVisibilitySectionState extends State<PublicVisibilitySection> {
       final result = managementMap(
         await w.client.post(
           '/feature-flags/evaluate',
-          data: {
-            'keys': [publicFlag, guestFlag],
-            'serverId': w.server?.id,
-            'platform':
-                defaultTargetPlatform == TargetPlatform.android ||
-                    defaultTargetPlatform == TargetPlatform.iOS
-                ? 'mobile'
-                : 'web',
-          },
+          data: featureFlagEvaluateBody(keys: [publicFlag, guestFlag], serverId: w.server?.id),
         ),
       );
       bool on(String key) => managementRows(

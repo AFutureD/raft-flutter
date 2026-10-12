@@ -8,6 +8,7 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
+import '../data/feature_flag_client_facts.dart';
 import 'management_support.dart'
     show
         cachedServerFlag,
@@ -151,11 +152,10 @@ class _InviteDialogState extends State<_InviteDialog> {
       final result = await w.command(
         'POST',
         '/feature-flags/evaluate',
-        data: {
-          'keys': ['server_guest_v0'],
-          'serverId': widget.serverId,
-          'platform': 'web',
-        },
+        data: featureFlagEvaluateBody(
+          keys: ['server_guest_v0'],
+          serverId: widget.serverId,
+        ),
       );
       final on =
           result is Map &&

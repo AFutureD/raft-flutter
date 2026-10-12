@@ -1,14 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
+import 'member_profile_rules.dart';
 import 'provider_edit_dialog.dart';
+import '../data/feature_flag_client_facts.dart';
 
 class ProviderConnectionsView extends StatefulWidget {
   const ProviderConnectionsView({super.key, required this.controller});
@@ -57,13 +58,10 @@ class _ProviderConnectionsState
     final flags = managementMap(
       await w.client.post(
         '/feature-flags/evaluate',
-        data: {
-          'keys': ['provider_connections_v0'],
-          'serverId': w.server?.id,
-          'platform': defaultTargetPlatform == TargetPlatform.android
-              ? 'mobile'
-              : 'web',
-        },
+        data: featureFlagEvaluateBody(
+          keys: ['provider_connections_v0'],
+          serverId: w.server?.id,
+        ),
       ),
     );
     if (!accepts(generation, request)) return;
@@ -206,7 +204,7 @@ class _ProviderConnectionsState
                     const Text('No agents use this connection.'),
                   for (final a in managementRows(data?['agents']))
                     ListTile(
-                      title: Text('${a['displayName'] ?? a['name']}'),
+                      title: Text(humanDisplayName(a)),
                       subtitle: Text(
                         '${a['runtime']} · ${a['status']}${a['computerName'] == null ? '' : ' · ${a['computerName']}'}',
                       ),

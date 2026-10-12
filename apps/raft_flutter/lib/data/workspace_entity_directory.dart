@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:raft_client/raft_client.dart';
 
+import '../features/agent_metadata_catalog.dart';
+
 enum WorkspaceEntityKind { agents, computers, members }
 
 /// An accepted entity belongs to the owning authenticated workspace projection.
@@ -147,6 +149,10 @@ class WorkspaceEntityDirectory extends ChangeNotifier {
   final _pending = <WorkspaceEntityKind, Future<void>>{};
   final _activityVersions = <String, int>{};
   final _activity = <String, Map<String, dynamic>>{};
+
+  /// Highest accepted `agent:activity` serverSeq per agent (Web
+  /// agentActivitySeq); cleared on scope change and reconnect (`reset-seq`).
+  final _activitySeq = <String, BigInt>{};
   final _tickets = <WorkspaceEntityKind, int>{};
 
   /// Authorized agent tombstones. They are not live entities (lookups and
@@ -194,6 +200,7 @@ class WorkspaceEntityDirectory extends ChangeNotifier {
     _states.clear();
     _activityVersions.clear();
     _activity.clear();
+    _activitySeq.clear();
     _tombstones.clear();
     _settled.clear();
     _latestComputerVersion = null;
@@ -672,6 +679,7 @@ class WorkspaceEntityDirectory extends ChangeNotifier {
     final payload = event.payload is Map
         ? Map<String, dynamic>.from(event.payload as Map)
         : const <String, dynamic>{};
+    if (event.name == 'connected') _activitySeq.clear();
     final agents = scope.allows(WorkspaceEntityKind.agents);
     final computers = scope.allows(WorkspaceEntityKind.computers);
     switch (event.name) {
@@ -679,9 +687,25 @@ class WorkspaceEntityDirectory extends ChangeNotifier {
       case 'agent:activity' when agents:
         final id = payload['agentId'];
         if (id is! String) return;
+        // Web applySocketActivity: activityKind ?? activity must be a known
+        // activity, and a serverSeq at or below the held one is stale.
+        final kind = payload['activityKind'] ?? payload['activity'];
+        if (!sourceAgentActivities.contains(kind)) return;
+        final seq = BigInt.tryParse('${payload['serverSeq'] ?? ''}');
+        final last = _activitySeq[id];
+        if (seq != null && last != null && seq <= last) return;
+        if (seq != null) _activitySeq[id] = seq;
+        final detailKind = sourceAgentDetailKinds.contains(payload['detailKind'])
+            ? payload['detailKind']
+            : 'other';
         final patch = <String, dynamic>{
-          if (payload['activity'] is String) 'activity': payload['activity'],
-          if (payload['detail'] is String) 'activityDetail': payload['detail'],
+          'activity': kind,
+          'activityDetail': payload['detail'] is String
+              ? payload['detail']
+              : '',
+          // Same key as the REST row's `activityDetailKind`.
+          'activityDetailKind': detailKind,
+          'detailKind': detailKind,
         };
         _activityVersions[id] = (_activityVersions[id] ?? 0) + 1;
         _activity[id] = patch;

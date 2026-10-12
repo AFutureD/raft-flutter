@@ -7,6 +7,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/device_preferences.dart';
 import '../data/workspace_controller.dart';
+import '../data/feature_flag_client_facts.dart';
 
 /// ThreadsInbox's mounted activity_sidebar_inbox_v0 gate (sidebar chrome only;
 /// the split-preview threshold no longer depends on it, see [masterDetail]).
@@ -81,15 +82,10 @@ class DesktopActivityFlag extends ChangeNotifier {
     try {
       final value = await w.client.post(
         '/feature-flags/evaluate',
-        data: {
-          'keys': ['activity_sidebar_inbox_v0'],
-          'serverId': server,
-          'platform':
-              defaultTargetPlatform == TargetPlatform.android ||
-                  defaultTargetPlatform == TargetPlatform.iOS
-              ? 'mobile'
-              : 'web',
-        },
+        data: featureFlagEvaluateBody(
+          keys: ['activity_sidebar_inbox_v0'],
+          serverId: server,
+        ),
       );
       if (ended ||
           scope != sourceAuthority ||

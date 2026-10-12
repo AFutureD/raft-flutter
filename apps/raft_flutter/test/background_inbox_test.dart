@@ -97,7 +97,7 @@ void main() {
       true,
     );
   });
-  test('server mentions-only never promotes an ordinary latest message or incomplete mention evidence', () async {
+  test('server mentions-only alerts on hasMention with unread, not on firstMentionMessageId equality', () async {
     client.mode = 'mentions';
     client.rows = [
       row('ordinary'),
@@ -109,7 +109,9 @@ void main() {
       },
     ];
     await poller.run();
-    expect(sent, ['personal']);
+    // `later`: firstMentionMessageId is the OLDEST unread mention, so it
+    // legitimately differs from the latest message id.
+    expect(sent, unorderedEquals(['later', 'personal']));
   });
   test('workspace change during fetch cannot alert', () async {
     client.page = Completer();

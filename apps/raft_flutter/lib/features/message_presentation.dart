@@ -32,6 +32,16 @@ String? messageSenderIdentityKind(RaftMessage message) =>
       _ => null,
     };
 
+/// Web `message.externalAuthor?.provider ?? null` for an
+/// `external_projection` sender (MessageItem.tsx senderSubtitle); null for any
+/// other sender or a missing/blank provider.
+String? externalSenderSubtitle(RaftMessage message) {
+  if (message.string('senderType') != 'external_projection') return null;
+  final author = message.json['externalAuthor'];
+  final provider = author is Map ? author['provider'] : null;
+  return provider is String && provider.isNotEmpty ? provider : null;
+}
+
 final _dmReference = RegExp(
   r'dm:@([\w.-]+(?:~(?:agent|human))?)(?::([a-f0-9]{6,8}))?',
   caseSensitive: false,
@@ -530,7 +540,7 @@ class MessagePresentation extends StatelessWidget {
       }
       final number = int.tryParse(parts[0]);
       if (number == null) return;
-      final carrier = message.json['parentChannelId'] ?? w.channel?.id;
+      final carrier = messageParentChannelId(message.json) ?? w.channel?.id;
       if (carrier == null) return;
       // The loaded channel tasks already know this task: open it from them
       // (the task surface revalidates its own copy).
