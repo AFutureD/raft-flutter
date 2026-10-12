@@ -354,9 +354,7 @@ class _WorkspaceTaskHostState extends State<WorkspaceTaskHost> {
                 : 0,
             // The modal's scrim dims the status bar band too: this overlay sits
             // above the workspace's own host, so it hosts a transparent strip.
-            child: RaftStatusBarHost(
-              fallback: Colors.transparent,
-              expand: true,
+            child: RaftStatusBarHost.overlay(
               child: SafeArea(
                 child: SourceTaskSurface(
                   key: ValueKey(identity),

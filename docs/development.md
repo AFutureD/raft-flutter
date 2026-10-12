@@ -86,7 +86,7 @@ Many Dart tests repeat one behaviour per theme variant (brutal-light, elegant-li
 
 Set `RAFT_TEST_ALL_THEMES=1` to run every variant of every test. `python3 tool/check-project --all-themes` and `tool/prepare-handoff --all-themes` set it for you, and `.local/engineering-run.json` records `themes: sampled|all`. Run the full matrix before merging to main, and whenever you change theme, token or recipe code.
 
-Tests that are about theme differences (per-family tokens, audits, recipes) pass `full: true` to `raftThemeMatrix`, or iterate the theme set themselves, and always run the whole matrix: `design_tokens_test`, `dimension_contract_test`, `statusbar_audit_test`, `edge_to_edge_audit_test`, `system_bars_test`, `packages/raft_ui/test/recipes/*` and the `*_recipe_test.dart` files. A new per-theme test loop should use `raftThemeMatrix` with the default variant first; use `full: true` only when the test compares or audits themes.
+Tests that are about theme differences (per-family tokens, audits, recipes) pass `full: true` to `raftThemeMatrix`, or iterate the theme set themselves, and always run the whole matrix: `design_tokens_test`, `dimension_contract_test`, `statusbar_audit_test`, `statusbar_standard_test`, `edge_to_edge_audit_test`, `system_bars_test`, `packages/raft_ui/test/recipes/*` and the `*_recipe_test.dart` files. A new per-theme test loop should use `raftThemeMatrix` with the default variant first; use `full: true` only when the test compares or audits themes.
 
 ## Behaviour parity checklists
 

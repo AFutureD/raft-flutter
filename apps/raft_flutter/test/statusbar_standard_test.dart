@@ -19,7 +19,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:raft_ui/raft_ui.dart' show RaftMountedSidebarFrame, RaftWorkspaceRail;
+import 'package:raft_flutter/data/navigation_registry.dart';
+import 'package:raft_ui/raft_ui.dart'
+    show RaftMountedSidebarFrame, RaftWorkspaceRail;
+import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
 import 'edge_to_edge_audit_test.dart' show richFixture, settle;
@@ -184,11 +187,56 @@ Future<void> _check(
   expect(style, isNotNull, reason: '${p.name} $sizeName $theme: no style');
 }
 
+/// Every navigation target of the registry that the audit page list does not
+/// already render: sections and settings pages, with the layouts they exist
+/// on. The audit page list adds the routes that are not sections (channel,
+/// thread, DM, profiles, detail pages, modals).
+List<({Page page, bool phone, bool wide})> _registryPages() {
+  final known = {for (final p in pages) p.path};
+  final extra = <String, ({bool phone, bool wide})>{};
+  void add(String path, {bool phone = true, bool wide = true}) {
+    if (known.contains(path)) return;
+    extra[path] = (phone: phone, wide: wide);
+  }
+
+  for (final section in NavigationRegistry.sections) {
+    final tab = section.settingsTab;
+    add(switch (section.id) {
+      'home' || 'chat' => '/s/alpha',
+      'agents' || 'members' => '/s/alpha/members',
+      'settings' => '/s/alpha/settings',
+      _ when tab != null => '/s/alpha/settings/$tab',
+      _ => '/s/alpha/${section.id}',
+    });
+  }
+  for (final tab in NavigationRegistry.settingsTabs.where((t) => t.page)) {
+    add('/s/alpha/settings/${tab.id}', phone: tab.phone, wide: tab.wide);
+  }
+  return [
+    for (final e in extra.entries)
+      (
+        page: Page(
+          'reg-${e.key.substring('/s/alpha/'.length).replaceAll('/', '-')}',
+          e.key,
+        ),
+        phone: e.value.phone,
+        wide: e.value.wide,
+      ),
+  ];
+}
+
 void main() {
   final shots = Platform.environment['RAFT_STATUSBAR_STANDARD_DIR'];
+  final registry = _registryPages();
   for (final size in _sizes.entries) {
-    for (final theme in _themes) {
-      for (final p in pages) {
+    final wide = size.value.width >= 768;
+    final routes = [
+      for (final p in pages) p,
+      for (final r in registry)
+        if (wide ? r.wide : r.phone) r.page,
+    ];
+    for (final theme in raftThemeMatrix(_themes, full: true)) {
+      for (final p in routes) {
         testWidgets('statusbar standard ${p.name} ${size.key} $theme', (
           t,
         ) async {
