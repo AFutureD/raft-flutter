@@ -200,6 +200,15 @@ keeps Web's 1 s activity gate. Everything else matches Web: opening clears the
 local unread, scrolling back to the bottom and returning to the foreground send
 the read receipt.
 
+## Activity master-detail threshold: intended difference from Web (owner decision 2026-10-12)
+
+Owner decision 2026-10-12: Activity master-detail (single tap = side preview,
+same-row double tap = open) applies at every multi-column width (>= 768 dp,
+`RaftLayoutMetrics.desktopBreakpoint`) regardless of the
+`activity_sidebar_inbox_v0` flag; Web uses 768 with the flag and 1024 without.
+(`DesktopActivityFlag.masterDetail`; covered by
+`test/activity_fold_widths_test.dart`.)
+
 ## One command
 
 ```bash
@@ -1534,3 +1543,16 @@ Left: the `@mention` highlight is 1/255 lighter in Chromium over the content ban
 counted as fill, 5% of that crop); tab-strip and chip widths follow fractional text advances
 (hairline); phone composer shadow (Web headless phone autofocuses the composer, a real phone does not);
 Elegant themes (sampled) still carry 1-2px row-pitch and blend deltas in the popups.
+
+## Navigation audit (cindy/nav-audit)
+
+Full table and guard design: `docs/navigation-audit.md`. Intended differences recorded there:
+
+* Settings > Bottom bar and the Settings > Computers row exist on the phone only (device preference;
+  Web's desktop has the Computers rail).
+* System notices for computers open the Computers detail / attention list in a pushed page; Web
+  navigates to `/computer/:id` and `/computers?filter=attention`.
+* Channel settings and Channel members open as full-width pages on a phone (Web: phone drawer) and
+  as dialogs / modals on wide layouts.
+* Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
+  in debug and test.

@@ -9,8 +9,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'attachment_image_store.dart';
+import 'attachment_transfer.dart';
 
 export 'attachment_image_store.dart';
+export 'attachment_transfer.dart';
 
 /// No capability URL, bearer credential or disk path is retained in this identity.
 class AttachmentImageScope {
@@ -391,6 +393,12 @@ class AttachmentImageLease {
   /// True once the image was served from the persistent store (no network).
   bool get fromStore => _entry.fromStore;
 
+  /// Bytes of the network fetch behind this image, throttled. Null until the
+  /// entry goes to the network (it stays null for queued work and disk-cache
+  /// hits), so a cached image never shows a bar. Entries sharing one source
+  /// (list preview and lightbox) see the same numbers from one download.
+  ValueListenable<AttachmentTransferProgress?> get progress => _entry.transfer;
+
   void release() {
     if (_released) return;
     _released = true;
@@ -421,6 +429,9 @@ class _ImageEntry {
   final CancelToken cancel = CancelToken();
   final ready = Completer<DecodedAttachmentImage>();
   final Set<AttachmentImageLease> leases = {};
+
+  /// Mirror of the joined fetch's progress for this entry's consumers.
+  final transfer = ValueNotifier<AttachmentTransferProgress?>(null);
   DecodedAttachmentImage? value;
   _SourceFetch? fetch;
 
@@ -432,9 +443,18 @@ class _ImageEntry {
 /// One network fetch of a source shared by every decode of it (list preview
 /// and lightbox). Cancelled once no waiting entry remains.
 class _SourceFetch {
-  _SourceFetch(this.key);
+  _SourceFetch(this.key) {
+    // One throttled sink per download, fanned out to every waiting entry.
+    cancel = AttachmentFetchToken(transfer.report);
+    transfer.addListener(() {
+      for (final waiter in waiters) {
+        waiter.transfer.value = transfer.value;
+      }
+    });
+  }
   final AttachmentImageKey key;
-  final CancelToken cancel = CancelToken();
+  final AttachmentTransfer transfer = AttachmentTransfer();
+  late final AttachmentFetchToken cancel;
   final Set<_ImageEntry> waiters = {};
   late final Future<Uint8List> bytes;
   bool persisted = false;
@@ -613,6 +633,11 @@ class AttachmentImageRepository {
         fetch = _join(e);
         try {
           bytes = await fetch.bytes;
+          // Complete: hold the bar full while decoding; a loader that never
+          // reported has nothing to show.
+          e.transfer.value = fetch.transfer.value == null
+              ? null
+              : AttachmentTransferProgress(bytes.length, bytes.length);
         } finally {
           fetch.waiters.remove(e);
           e.fetch = null;
@@ -661,12 +686,17 @@ class AttachmentImageRepository {
       final next = fetch = _SourceFetch(source);
       _fetches[source] = next;
       next.bytes = loader(next.cancel).whenComplete(() {
+        next.transfer
+          ..flush()
+          ..close();
         if (identical(_fetches[source], next)) _fetches.remove(source);
       });
       // Abandoned fetches may fail after every waiter left.
       unawaited(next.bytes.then<void>((_) {}, onError: (Object _) {}));
     }
     fetch.waiters.add(e);
+    e.transfer.value =
+        fetch.transfer.value ?? AttachmentTransferProgress.connecting;
     e.fetch = fetch;
     e.fetchCancel = fetch.cancel;
     return fetch;

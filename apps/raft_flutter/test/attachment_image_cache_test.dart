@@ -32,7 +32,11 @@ class _Files extends AttachmentFiles {
   final Uint8List bytes;
   int downloads = 0;
   @override
-  Future<Uint8List> image(String url, {required CancelToken cancel}) async {
+  Future<Uint8List> image(
+    String url, {
+    required CancelToken cancel,
+    void Function(int, int)? onProgress,
+  }) async {
     downloads++;
     return bytes;
   }
