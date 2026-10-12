@@ -78,6 +78,7 @@ class AgentDetailActions {
   const AgentDetailActions({
     this.onBack,
     this.onClose,
+    this.backAlways = false,
     this.onEditName,
     this.onEditDescription,
     this.onEditRole,
@@ -90,6 +91,8 @@ class AgentDetailActions {
     this.onMigrate,
     this.onPermissions,
   });
+  /// Keep the Back chevron at md+ (`backButtonVisibility="always"`).
+  final bool backAlways;
   final VoidCallback? onBack,
       onClose,
       onEditName,
@@ -341,7 +344,9 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             profileBody: true,
             iconAlwaysVisible: true,
             // `useMobileBack` renders the chevron below `md` only.
-            onBack: MediaQuery.sizeOf(context).width >= 768
+            onBack:
+                MediaQuery.sizeOf(context).width >= 768 &&
+                    !widget.actions.backAlways
                 ? null
                 : widget.actions.onBack,
             backTooltip: raftText(context, 'Back'),

@@ -158,6 +158,9 @@ class _ThreadActionsState extends State<ThreadActions> {
           (overlayBox.size.width - 200).clamp(8.0, double.infinity),
         ),
         top: rect.bottom + 4,
+        child: RaftBackDismiss(
+          routeContext: this.context,
+          onDismiss: closeMenu,
         child: TapRegion(
           groupId: menuGroup,
           onTapOutside: (_) => closeMenu(),
@@ -210,6 +213,7 @@ class _ThreadActionsState extends State<ThreadActions> {
                 ),
             ],
           ),
+        ),
         ),
       ),
     );

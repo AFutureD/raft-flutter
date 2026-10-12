@@ -800,6 +800,24 @@ class _WorkspaceViewState extends State<WorkspaceView>
     super.dispose();
   }
 
+  /// Escape: closes the topmost closable layer and nothing else (Web's
+  /// document listeners do not navigate Back from a plain page).
+  void escapePanel() {
+    final layer =
+        mobileHost != null ||
+        w.location.profile != null ||
+        w.location.task != null ||
+        w.location.legacyTask != null ||
+        w.location.channelPage != null ||
+        w.location.thread != null ||
+        wide && desktopNavigation.target != null ||
+        threadSelection.active ||
+        mainSelection.active ||
+        scaffold.currentState?.isDrawerOpen == true ||
+        w.threadParent != null && w.section == 'chat';
+    if (layer) dismissPanel();
+  }
+
   void dismissPanel() {
     final host = mobileHost;
     if (host != null) {
@@ -1403,11 +1421,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
       Widget workspace(
         double legacyDockWidth,
         VoidCallback? onLegacyEscape,
-      ) => CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape):
-              onLegacyEscape ?? dismissPanel,
-        },
+      ) => RaftDismissScope(
+        // Web closes panels from a document-level Escape listener; here the
+        // scope holds the shell's initial focus, so Escape reaches it even
+        // before anything inside was focused.
+        onDismiss: onLegacyEscape ?? escapePanel,
         child: PopScope(
           // Tasks/channel management own mobile MaterialPages. Their hidden
           // workspace must allow the platform page to pop; desktop panels and
@@ -1422,6 +1440,11 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   !mainSelection.active &&
                   !threadSelection.active &&
                   (!wide || !thread) &&
+                  // Wide layouts show a profile / directory detail beside the
+                  // list: Back closes it instead of leaving the route.
+                  (!wide ||
+                      w.location.profile == null &&
+                          desktopNavigation.target == null) &&
                   scaffold.currentState?.isDrawerOpen != true,
           onPopInvokedWithResult: (didPop, _) {
             // A channel page may consume Back internally (e.g. Add Members).
@@ -2281,12 +2304,24 @@ class _WorkspaceViewState extends State<WorkspaceView>
     final key = ValueKey(
       'desktop-detail-$mobileAuthority-${target.kind}-${target.id}',
     );
+    // Web `renderContentSlot` hands Search / Activity agent and human details
+    // `onBack=closeSlot` with `backButtonVisibility="always"`: Back at every
+    // width. A directory / route detail keeps Back below `md` only (the phone
+    // page), and nothing beside the list on wide layouts.
+    final slot = const {'search', 'activity'}.contains(
+      desktopNavigation.masterRoute,
+    );
     if (target.kind == DesktopContentKind.human) {
       return MemberProfileView(
         key: key,
         controller: w,
         userId: target.id,
         onClose: closeDesktopDetail,
+        onBack: !wide
+            ? dismissPanel
+            : slot
+            ? closeDesktopDetail
+            : null,
         showClose: false,
         onMessage: () => messageDesktopProfile(target),
       );
@@ -2305,6 +2340,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         onClose: !wide && target.kind == DesktopContentKind.computer
             ? dismissPanel
             : closeDesktopDetail,
+        backAlways: slot && target.kind == DesktopContentKind.agent,
         onOpenAgent: (id) => wide
             ? desktopNavigation.selectTarget(
                 DesktopContentTarget(DesktopContentKind.agent, id),

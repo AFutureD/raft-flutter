@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'design_primitives.dart';
+import 'dismiss_scope.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
@@ -187,7 +188,8 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
       link: link,
       child: OverlayPortal(
         controller: portal,
-        overlayChildBuilder: (context) => _popup(context, t),
+        overlayChildBuilder: (context) =>
+            RaftBackDismiss(onDismiss: close, child: _popup(context, t)),
         child: LayoutBuilder(
           builder: (context, constraints) {
             WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -19,6 +19,7 @@ import 'package:flutter/rendering.dart';
 
 import 'control_typography.dart';
 import 'design_primitives.dart';
+import 'dismiss_scope.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart' show RaftCssText;
@@ -372,7 +373,9 @@ class _RenderPixelCenter extends RenderShiftedBox {
 }
 
 /// Opens [builder] the way the Web mounts `Modal`: a full-window layer whose
-/// backdrop is painted by [RaftModalBackdrop] (not a Material barrier).
+/// backdrop is painted by [RaftModalBackdrop] (not a Material barrier). Like
+/// Web (`closeOnEscape` defaults to true) Escape closes it ([RaftDismissScope]);
+/// a scrim tap does not (`closeOnBackdrop` is opt-in).
 Future<T?> showRaftModal<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -381,8 +384,9 @@ Future<T?> showRaftModal<T>(
   barrierDismissible: false,
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
-  pageBuilder: (context, _, _) =>
-      Material(type: MaterialType.transparency, child: builder(context)),
+  pageBuilder: (context, _, _) => RaftDismissScope(
+    child: Material(type: MaterialType.transparency, child: builder(context)),
+  ),
 );
 
 /// The route [showRaftModal] pushes, for hosts that open and close a modal
@@ -395,8 +399,9 @@ RawDialogRoute<T> raftModalRoute<T>({
   barrierColor: Colors.transparent,
   transitionDuration: Duration.zero,
   settings: settings,
-  pageBuilder: (context, _, _) =>
-      Material(type: MaterialType.transparency, child: builder(context)),
+  pageBuilder: (context, _, _) => RaftDismissScope(
+    child: Material(type: MaterialType.transparency, child: builder(context)),
+  ),
 );
 
 /// raft-ui `Card` root (`card.recipe.ts` slot `root`) with [padding].

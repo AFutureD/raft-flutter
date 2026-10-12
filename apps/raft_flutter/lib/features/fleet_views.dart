@@ -541,6 +541,7 @@ class FleetDetail extends StatefulWidget {
     required this.initial,
     this.onClose,
     this.closeAction = false,
+    this.backAlways = false,
     this.initialTab = AgentDetailTab.profile,
     this.clock,
     this.initialTrajectoryLog = const [],
@@ -558,6 +559,10 @@ class FleetDetail extends StatefulWidget {
   /// The agent header carries a close action at md+ (Web profile overlay
   /// `onClose`); the Agents route detail column has none.
   final bool closeAction;
+
+  /// The agent header keeps its Back at md+ too (a Search / Activity content
+  /// slot: Web `backButtonVisibility="always"`).
+  final bool backAlways;
 
   /// Web `?agentTab=` deep link (agents only).
   final AgentDetailTab initialTab;
@@ -1197,6 +1202,7 @@ class _FleetDetailState extends State<FleetDetail> {
       onEditAvatar: busy ? null : editAvatar,
       onBack: widget.onClose ?? () => Navigator.of(context).maybePop(),
       onClose: widget.closeAction ? widget.onClose : null,
+      backAlways: widget.backAlways,
       onEditName: busy ? null : () => editField('displayName'),
       onEditDescription: busy ? null : () => editField('description'),
       onEditRole: busy ? null : () => editField('role'),

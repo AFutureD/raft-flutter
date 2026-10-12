@@ -24,6 +24,7 @@ import 'system_inset.dart';
 
 import 'components.dart';
 import 'design_primitives.dart';
+import 'dismiss_scope.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
@@ -68,7 +69,7 @@ Future<T?> showRaftAgentModal<T>(
     transitionDuration: const Duration(milliseconds: 150),
     transitionBuilder: (context, animation, _, child) =>
         FadeTransition(opacity: animation, child: child),
-    pageBuilder: (context, _, _) => builder(context),
+    pageBuilder: (context, _, _) => RaftDismissScope(child: builder(context)),
   );
 }
 
@@ -654,37 +655,40 @@ class _RaftAgentSelectState<T> extends State<RaftAgentSelect<T>> {
         link: link,
         child: OverlayPortal(
           controller: portal,
-          overlayChildBuilder: (context) => Positioned.fill(
-            child: TapRegion(
-              onTapOutside: (_) => close(),
-              child: Stack(
-                children: [
-                  CompositedTransformFollower(
-                    link: link,
-                    targetAnchor: Alignment.bottomLeft,
-                    offset: const Offset(0, _tw),
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: RaftMenuPanel(
-                        width: width,
-                        onDismiss: close,
-                        children: [
-                          for (final o in widget.options)
-                            RaftMenuItem(
-                              label: o.label,
-                              selected: o.value == widget.value,
-                              onPressed: o.enabled
-                                  ? () {
-                                      close();
-                                      widget.onChanged?.call(o.value);
-                                    }
-                                  : null,
-                            ),
-                        ],
+          overlayChildBuilder: raftBackDismissed(
+            close,
+            (context) => Positioned.fill(
+              child: TapRegion(
+                onTapOutside: (_) => close(),
+                child: Stack(
+                  children: [
+                    CompositedTransformFollower(
+                      link: link,
+                      targetAnchor: Alignment.bottomLeft,
+                      offset: const Offset(0, _tw),
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: RaftMenuPanel(
+                          width: width,
+                          onDismiss: close,
+                          children: [
+                            for (final o in widget.options)
+                              RaftMenuItem(
+                                label: o.label,
+                                selected: o.value == widget.value,
+                                onPressed: o.enabled
+                                    ? () {
+                                        close();
+                                        widget.onChanged?.call(o.value);
+                                      }
+                                    : null,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

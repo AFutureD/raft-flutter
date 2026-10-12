@@ -1903,6 +1903,9 @@ class _RaftChatViewState extends State<RaftChatView>
       builder: (context) => Positioned(
         left: x,
         top: y,
+        child: RaftBackDismiss(
+          routeContext: this.context,
+          onDismiss: closeReactionPicker,
         child: TapRegion(
           onTapOutside: (_) => closeReactionPicker(),
           child: RaftQuickReactionPicker(
@@ -1922,6 +1925,7 @@ class _RaftChatViewState extends State<RaftChatView>
               );
             },
           ),
+        ),
         ),
       ),
     );

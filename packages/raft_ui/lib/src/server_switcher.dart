@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dismiss_scope.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -165,33 +167,36 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
           final box = anchor.currentContext?.findRenderObject() as RenderBox?;
           if (box == null || !box.hasSize) return const SizedBox.shrink();
           final rect = box.localToGlobal(Offset.zero) & box.size;
-          return CustomSingleChildLayout(
-            delegate: _ServerMenuPlacement(
-              // AppRailRoot's CSS right border is part of its border box;
-              // AppRailHeader's positioned containing block excludes it.
-              widget.mobile
-                  ? Offset(8, rect.bottom - (t.brutal ? 2 : 1) + 4)
-                  : Offset(rect.right - (t.brutal ? 2 : 0) + 8, rect.top + 4),
-              mobileWidth: widget.mobile ? size.width - 16 : null,
-            ),
-            child: TapRegion(
-              groupId: this,
-              child: Focus(
-                focusNode: menuFocus,
-                onKeyEvent: (_, event) {
-                  if (event is KeyDownEvent &&
-                      event.logicalKey == LogicalKeyboardKey.escape) {
-                    widget.controller.close();
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: RaftServerMenuPanel(
-                  width: widget.mobile ? size.width - 16 : 256,
-                  rows: widget.rows,
-                  actions: widget.actions,
-                  onActivate: activateAction,
-                  onReorder: widget.onReorder,
+          return RaftBackDismiss(
+            onDismiss: widget.controller.close,
+            child: CustomSingleChildLayout(
+              delegate: _ServerMenuPlacement(
+                // AppRailRoot's CSS right border is part of its border box;
+                // AppRailHeader's positioned containing block excludes it.
+                widget.mobile
+                    ? Offset(8, rect.bottom - (t.brutal ? 2 : 1) + 4)
+                    : Offset(rect.right - (t.brutal ? 2 : 0) + 8, rect.top + 4),
+                mobileWidth: widget.mobile ? size.width - 16 : null,
+              ),
+              child: TapRegion(
+                groupId: this,
+                child: Focus(
+                  focusNode: menuFocus,
+                  onKeyEvent: (_, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.escape) {
+                      widget.controller.close();
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: RaftServerMenuPanel(
+                    width: widget.mobile ? size.width - 16 : 256,
+                    rows: widget.rows,
+                    actions: widget.actions,
+                    onActivate: activateAction,
+                    onReorder: widget.onReorder,
+                  ),
                 ),
               ),
             ),

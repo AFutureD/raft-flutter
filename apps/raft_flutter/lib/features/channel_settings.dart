@@ -1441,7 +1441,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       ],
     );
     // The barrier is the area outside the drawer: a press there is a close
-    // attempt like any other (Escape / back go through PopScope).
+    // attempt like any other (Escape goes through RaftDismissScope, back
+    // through PopScope).
     final root = widget.page
         ? sheet
         : Stack(
@@ -1456,45 +1457,51 @@ class _ChannelSettingsState extends State<ChannelSettings> {
               sheet,
             ],
           );
-    return PopScope(
-      // The members page owns back while it is open (it returns to the root
-      // view, or from its add view to the roster).
-      canPop: !dirty && !membersOpen,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !membersOpen) guardedClose();
-      },
-      child: widget.page
-          ? root
-          : Stack(
-              children: [
-                Offstage(
-                  offstage: membersOpen,
-                  child: ExcludeFocus(excluding: membersOpen, child: root),
-                ),
-                if (membersOpen)
-                  Stack(
-                    children: [
-                      Positioned.fill(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: guardedClose,
-                        ),
-                      ),
-                      RaftOverflowBareSheet(
-                        child: ChannelMembers(
-                          key: ValueKey('channel-members-page-${c.id}'),
-                          controller: w,
-                          channel: channel,
-                          page: true,
-                          embedded: true,
-                          startInAdd: membersAdd,
-                          onClose: closeMembers,
-                        ),
-                      ),
-                    ],
+    return RaftDismissScope(
+      // Web OverflowSheet: Escape closes the drawer through the same
+      // unsaved-draft guard as the scrim and the X.
+      enabled: !widget.page,
+      onDismiss: guardedClose,
+      child: PopScope(
+        // The members page owns back while it is open (it returns to the root
+        // view, or from its add view to the roster).
+        canPop: !dirty && !membersOpen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && !membersOpen) guardedClose();
+        },
+        child: widget.page
+            ? root
+            : Stack(
+                children: [
+                  Offstage(
+                    offstage: membersOpen,
+                    child: ExcludeFocus(excluding: membersOpen, child: root),
                   ),
-              ],
-            ),
+                  if (membersOpen)
+                    Stack(
+                      children: [
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: guardedClose,
+                          ),
+                        ),
+                        RaftOverflowBareSheet(
+                          child: ChannelMembers(
+                            key: ValueKey('channel-members-page-${c.id}'),
+                            controller: w,
+                            channel: channel,
+                            page: true,
+                            embedded: true,
+                            startInAdd: membersAdd,
+                            onClose: closeMembers,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+      ),
     );
   }
 

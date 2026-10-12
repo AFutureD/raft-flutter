@@ -169,6 +169,8 @@ class RaftToastController extends ChangeNotifier {
   VoidCallback? get onAction => _onAction;
   RaftToastRecipeTone _tone = RaftToastRecipeTone.success;
   RaftToastRecipeTone get tone => _tone;
+  bool _dismissible = true;
+  bool get dismissible => _dismissible;
 
   /// raft-ui ToastProvider's authored default is 5000ms.
   void show(
@@ -177,8 +179,13 @@ class RaftToastController extends ChangeNotifier {
     String? actionLabel,
     VoidCallback? onAction,
     RaftToastRecipeTone tone = RaftToastRecipeTone.success,
+
+    /// LocalizedToastProvider `hasClose` (shown unless `data.hasClose` is
+    /// false; only the selection and Forward toasts opt out).
+    bool dismissible = true,
   }) {
     _timer?.cancel();
+    _dismissible = dismissible;
     _title = title;
     _actionLabel = actionLabel;
     _onAction = onAction;
@@ -314,6 +321,9 @@ class _RaftToastPortalState extends State<RaftToastPortal> {
                 child: RaftToast(
                   title: title,
                   tone: widget.controller.tone,
+                  onClose: widget.controller.dismissible
+                      ? widget.controller.clear
+                      : null,
                   actionLabel: widget.controller.actionLabel,
                   onAction: () {
                     final action = widget.controller.onAction;
