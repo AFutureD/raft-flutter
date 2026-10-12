@@ -338,48 +338,60 @@ class RaftSettingsPanelFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final edge = t.brutal ? Colors.black : t.colors['line-muted']!;
+    // Owner decision 2026-10-12: the recipe's `border-l-2 border-black` /
+    // `border-l border-line-muted` edge is desktop-only; phone pages draw
+    // no left edge line (intended difference from Web).
+    final edgeBorder =
+        attached &&
+            MediaQuery.sizeOf(context).width >=
+                RaftLayoutMetrics.desktopBreakpoint
+        ? Border(
+            left: BorderSide(color: edge, width: t.brutal ? 2 : 1),
+          )
+        : null;
     return Material(
       // SettingsPanel's Panel supplies bg-layer-canvas-muted to the transparent
       // desktop Elegant header. Its content div owns bg-layer-panel separately.
       color: t.brutal ? Colors.white : t.sidebar,
       // Container insets the child by the border width, as CSS does.
-      child: Container(
-        // Owner decision 2026-10-12: the recipe's `border-l-2 border-black` /
-        // `border-l border-line-muted` edge is desktop-only; phone pages draw
-        // no left edge line (intended difference from Web).
-        decoration:
-            attached &&
-                MediaQuery.sizeOf(context).width >=
-                    RaftLayoutMetrics.desktopBreakpoint
-            ? BoxDecoration(
-                border: Border(
-                  left: BorderSide(color: edge, width: t.brutal ? 2 : 1),
-                ),
-              )
-            : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Panel edge="attached": `*:data-panel-frame-header:border-b`
-            // (Elegant 1px line-muted inside the header box; Brutal's header
-            // recipe already draws border-b-2 black).
-            if (header != null)
-              if (t.brutal || !attached)
-                header!
-              else
-                Container(
-                  foregroundDecoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: edge)),
+      // The left edge continues up under the status bar on wide layouts; the
+      // header (when flush) publishes the colour over the panel.
+      child: RaftStatusBarSource(
+        // Phones draw no edge and publish nothing here.
+        color: edgeBorder == null
+            ? Colors.transparent
+            : t.brutal
+            ? Colors.white
+            : t.sidebar,
+        border: edgeBorder,
+        child: Container(
+          decoration: edgeBorder == null
+              ? null
+              : BoxDecoration(border: edgeBorder),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Panel edge="attached": `*:data-panel-frame-header:border-b`
+              // (Elegant 1px line-muted inside the header box; Brutal's header
+              // recipe already draws border-b-2 black).
+              if (header != null)
+                if (t.brutal || !attached)
+                  header!
+                else
+                  Container(
+                    foregroundDecoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: edge)),
+                    ),
+                    child: header,
                   ),
-                  child: header,
+              Expanded(
+                child: Material(
+                  color: contentColor ?? (t.brutal ? Colors.white : t.panel),
+                  child: child,
                 ),
-            Expanded(
-              child: Material(
-                color: contentColor ?? (t.brutal ? Colors.white : t.panel),
-                child: child,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

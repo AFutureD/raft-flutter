@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/personal_presentation.dart';
 import 'package:raft_flutter/data/source_mobile_app_badge.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'workspace_shell_contract_test.dart' show mountShell, openHelp, retire;
@@ -23,11 +24,11 @@ Future<void> shellFonts(WidgetTester t) => t.runAsync(() async {
 });
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K08b] $family/$dark actual four footer entries retain Source slot geometry and unseen Help lifecycle',
       (t) async {

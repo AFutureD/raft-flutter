@@ -10,6 +10,7 @@ import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_flutter/features/workspace_grid_view.dart';
 import 'package:raft_flutter/features/source_feedback_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_source_location_contract_test.dart' show pageFixture, frames;
 
@@ -55,11 +56,11 @@ Future<void> retire(WidgetTester t) async {
 }
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K08a] $family/$dark classic owner keeps six entries, guest hides directory, and one sidebar heading',
       (t) async {

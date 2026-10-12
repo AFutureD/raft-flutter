@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _agents = <Map<String, dynamic>>[
@@ -89,11 +90,11 @@ class _Workspace extends WorkspaceController {
 /// accepted store at once; it never invents defaults and a changed target never
 /// shows the previous entity's facts.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final computers in [false, true]) {
       final kind = computers ? 'computer' : 'agent';
       final rows = computers ? _computers : _agents;

@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/recipes.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'control_transition_paint_test.dart' show pixel;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final directDecoration in [false, true]) {
       testWidgets(
         '[K09a] $family/$dark CSS rounded-full uses actual size (direct=$directDecoration)',

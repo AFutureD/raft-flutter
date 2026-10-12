@@ -8,13 +8,14 @@ import 'package:raft_flutter/data/source_channel_files_store.dart';
 import 'package:raft_flutter/features/source_channel_file_glyph.dart';
 import 'package:raft_flutter/features/source_channel_files_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       'inline SVG actually paints and retires on authority loss $theme',
       (tester) async {

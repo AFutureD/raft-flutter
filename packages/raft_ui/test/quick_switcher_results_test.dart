@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Widget host(RaftFamily family, bool dark, Widget child) => MaterialApp(
   theme: raftTheme(family, dark: dark),
@@ -12,11 +13,11 @@ Widget host(RaftFamily family, bool dark, Widget child) => MaterialApp(
 );
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('overlay result pieces render in ${theme.$1}/${theme.$2}', (
       t,
     ) async {

@@ -7,17 +7,18 @@ import 'package:raft_flutter/data/raft_navigation_history.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/resource_search.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_activity_activation_test.dart' show message;
 import 'workspace_source_location_contract_test.dart'
     show pageFixture, mountPage, frames, waitForPainted;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets('$family/$dark mobile Search returns to its scrolled result', (
       tester,
     ) async {
@@ -90,7 +91,10 @@ void main() {
           final field = find.byWidgetPredicate(
             (widget) =>
                 widget is TextField &&
-                widget.decoration?.hintText?.startsWith('Search channels, DMs, messages…') == true,
+                widget.decoration?.hintText?.startsWith(
+                      'Search channels, DMs, messages…',
+                    ) ==
+                    true,
           );
           final count = w.navigation.entries.length,
               revision = w.navigationRevision;
@@ -170,7 +174,10 @@ void main() {
         final field = find.byWidgetPredicate(
           (widget) =>
               widget is TextField &&
-              widget.decoration?.hintText?.startsWith('Search channels, DMs, messages…') == true,
+              widget.decoration?.hintText?.startsWith(
+                    'Search channels, DMs, messages…',
+                  ) ==
+                  true,
         );
         await tester.enterText(field, 'changed');
         await frames(tester, () {});

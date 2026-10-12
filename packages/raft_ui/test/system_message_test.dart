@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final appearance in [
+  for (final appearance in raftThemeMatrix([
     const RaftAppearance(light: RaftFamily.brutal),
     const RaftAppearance(light: RaftFamily.elegant),
     const RaftAppearance(light: RaftFamily.elegant, mode: ThemeMode.dark),
-  ]) {
+  ])) {
     testWidgets(
       'system message is compact, centered and one-line ${appearance.light} ${appearance.mode}',
       (t) async {

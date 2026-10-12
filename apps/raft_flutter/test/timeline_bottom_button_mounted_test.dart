@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_focus_receipt_test.dart' show contextRows, paintedMessage;
@@ -13,11 +14,11 @@ import 'message_presentation_test.dart' show fixture;
 /// in the thread timeline; in a centered history window it reloads the latest
 /// page.
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '[K04] $family/$dark history-window button is centered above the composer and reloads latest',
       (tester) async {
