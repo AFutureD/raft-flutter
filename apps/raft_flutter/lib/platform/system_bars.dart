@@ -94,7 +94,11 @@ class _RaftSystemBarsState extends State<RaftSystemBars> {
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
+      // iOS also needs the explicit show-home-indicator notification, rather
+      // than relying only on the view controller's default hide preference.
       unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     }
   }

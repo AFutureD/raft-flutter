@@ -690,14 +690,22 @@ class RaftClient {
         },
       );
       if (_session != old) return;
-      _session = Session(
+      final refreshed = Session(
         accessToken: value['accessToken'],
         refreshToken: value['refreshToken'],
         installationId: old.installationId,
         cachedUser: old.cachedUser,
       );
-      await _persist(_session);
-      _socket?.auth = _authenticateSocket;
+      _session = refreshed;
+      await _persist(refreshed);
+      if (_session == refreshed && !_closed) {
+        _socket?.auth = _authenticateSocket;
+        // Consumers may re-read accepted credentials only after rotation.
+        // The event deliberately contains neither access nor refresh tokens.
+        if (refreshed.accessToken != old.accessToken) {
+          _emit(const RaftEvent('session:credentials-updated', null));
+        }
+      }
     } on RaftApiException catch (e) {
       if (_session == old && (e.status == 401 || e.status == 403))
         await logout();

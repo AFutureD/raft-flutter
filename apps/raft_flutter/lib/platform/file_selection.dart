@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:image_picker/image_picker.dart';
 
 class PickedUpload {
   const PickedUpload(this.name, this.bytes);
@@ -37,11 +40,45 @@ const mediaPickerTypeGroups = [
       'avi',
     ],
     mimeTypes: ['image/*', 'video/*'],
+    uniformTypeIdentifiers: ['public.image', 'public.movie'],
   ),
 ];
 
-/// Uses the host document picker, including Android's Storage Access Framework.
-/// Read one selected file at a time so large batches do not duplicate buffers.
-Future<List<XFile>> selectUploads({bool mediaOnly = false}) => openFiles(
-  acceptedTypeGroups: mediaOnly ? mediaPickerTypeGroups : const [],
-);
+/// iOS Photos uses PHPicker without library access or full asset metadata.
+/// Other hosts retain their document picker; the file button always uses it.
+Future<List<XFile>> selectUploads({
+  bool mediaOnly = false,
+  TargetPlatform? platform,
+  ImagePicker? picker,
+}) {
+  if (mediaOnly && _usesPhotos(platform)) {
+    return (picker ?? ImagePicker()).pickMultipleMedia(
+      requestFullMetadata: false,
+    );
+  }
+  return openFiles(
+    acceptedTypeGroups: mediaOnly ? mediaPickerTypeGroups : const [],
+  );
+}
+
+bool _usesPhotos(TargetPlatform? platform) =>
+    !kIsWeb && (platform ?? defaultTargetPlatform) == TargetPlatform.iOS;
+
+Future<XFile?> selectImage({
+  required XTypeGroup typeGroup,
+  TargetPlatform? platform,
+  ImagePicker? picker,
+}) => _usesPhotos(platform)
+    ? (picker ?? ImagePicker()).pickImage(
+        source: ImageSource.gallery,
+        requestFullMetadata: false,
+      )
+    : openFile(acceptedTypeGroups: [typeGroup]);
+
+Future<List<XFile>> selectImages({
+  required XTypeGroup typeGroup,
+  TargetPlatform? platform,
+  ImagePicker? picker,
+}) => _usesPhotos(platform)
+    ? (picker ?? ImagePicker()).pickMultiImage(requestFullMetadata: false)
+    : openFiles(acceptedTypeGroups: [typeGroup]);

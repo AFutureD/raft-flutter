@@ -143,7 +143,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
     final gap = canonical && !t.brutal
         ? RaftResourceMetrics.elegantHeaderGap
         : RaftLayoutMetrics.panelGap;
-    return Container(
+    final header = Container(
       key: const Key('page-header-surface'),
       height: height,
       padding: canonical && !t.brutal && mobile
@@ -223,6 +223,7 @@ class RaftPageHeader extends StatelessWidget implements PreferredSizeWidget {
         ],
       ),
     );
+    return RaftStatusBarSource(color: recipe.background, child: header);
   }
 }
 

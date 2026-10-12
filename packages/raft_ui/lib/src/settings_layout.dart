@@ -363,12 +363,7 @@ class RaftSettingsPanelFrame extends StatelessWidget {
       // The left edge continues up under the status bar on wide layouts; the
       // header (when flush) publishes the colour over the panel.
       child: RaftStatusBarSource(
-        // Phones draw no edge and publish nothing here.
-        color: edgeBorder == null
-            ? Colors.transparent
-            : t.brutal
-            ? Colors.white
-            : t.sidebar,
+        color: t.brutal ? Colors.white : t.sidebar,
         border: edgeBorder,
         child: Container(
           decoration: edgeBorder == null
@@ -391,9 +386,13 @@ class RaftSettingsPanelFrame extends StatelessWidget {
                     child: header,
                   ),
               Expanded(
-                child: Material(
+                // Without a frame header the content surface is the top one.
+                child: RaftStatusBarSource(
                   color: contentColor ?? (t.brutal ? Colors.white : t.panel),
-                  child: child,
+                  child: Material(
+                    color: contentColor ?? (t.brutal ? Colors.white : t.panel),
+                    child: child,
+                  ),
                 ),
               ),
             ],
