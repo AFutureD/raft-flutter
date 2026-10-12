@@ -238,7 +238,7 @@ class InstallTest(unittest.TestCase):
 
     def test_sdk37_signature_output_and_duplicate_scheme_certificates(self):
         digest = 'a' * 64
-        output = f'V2 Signer: certificate SHA-256 digest: {digest}\nV3 Signer: certificate SHA-256 digest: {digest}\n'
+        output = f'V2 Signer: certificate SHA-256 digest: {digest}\nV3 Signer: certificate SHA-256 digest: {digest}\nV3.0 Signer: certificate SHA-256 digest: {digest}\nV3.1 Signer: certificate SHA-256 digest: {digest}\n'
         self.assertEqual(android.certificate(self.apk, 'apksigner', lambda _: output), [digest])
 
     def test_identity_downgrade_signature_and_missing_app_block_before_mutation(self):

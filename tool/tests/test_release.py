@@ -99,7 +99,7 @@ class ReleaseTests(unittest.TestCase):
                     archive.writestr(f'lib/{abi}/libapp.so', b'native bytes')
 
             write_apk('arm64-v8a')
-            for label in ['Signer #1', 'V2 Signer:', 'V3 Signer #1:', 'V3.1 Signer:', 'V4 Signer:']:
+            for label in ['Signer #1', 'V2 Signer:', 'V3 Signer #1:', 'V3.0 Signer:', 'V3.1 Signer:', 'V4 Signer:']:
                 output = signatures.replace('Signer #1', label)
                 with self.subTest(label=label), \
                         patch.object(release.subprocess, 'check_output', side_effect=[badging, cert, output]):

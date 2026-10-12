@@ -201,7 +201,7 @@ def verify_android(apk, keystore, env, version, number):
         str(tools / 'apksigner'), 'verify', '--print-certs', str(apk),
     ], text=True, env=env)
     actual = sorted(set(value.lower() for value in re.findall(
-        r'^(?:Signer #\d+|V[234](?:\.1)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', signatures, re.M)))
+        r'^(?:Signer #\d+|V[234](?:\.\d+)? Signer(?: #\d+)?):? certificate SHA-256 digest: ([0-9a-fA-F]{64})$', signatures, re.M)))
     if actual != [expected]:
         raise ValueError('Android APK signature differs from the configured release certificate')
     return {'package': identity[1], 'versionCode': int(identity[2]), 'versionName': identity[3],
