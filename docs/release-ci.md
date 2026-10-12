@@ -1,7 +1,7 @@
 # GitHub build and release
 
 `.github/workflows/release.yml` builds on GitHub-hosted runners using the exact
-Flutter version in `.fvmrc` and the checked-in pub lockfile. Windows x64 and signed Android ARM64 are enabled
+Flutter version in `.fvmrc` and the checked-in pub lockfile. Windows x64, signed Android ARM64 and Linux x64 Flatpak are enabled
 by default. Builds use `lib/main.dart` and produce no private test fixtures or
 test feature defines. This pipeline is separate from the local native-acceptance
 packager `tool/build-deliverables`; compilation does not imply full-app acceptance.
@@ -24,7 +24,7 @@ prerelease suffix become GitHub prereleases. Only the publish job has
 `contents: write`; it uses the built-in `GITHUB_TOKEN`, without a personal token.
 No second release-event workflow is needed.
 
-Pull requests touching release tooling, the lockfile or Windows host run a Windows
+Pull requests touching release tooling, the lockfile or desktop hosts run Windows and Flatpak
 build and retain artifacts for 14 days. **PR and manual runs never publish.** From
 Actions → Build and release → Run workflow, leave `platforms` blank for the enabled
 set, or select e.g. `windows,macos` to test builders before enabling them. Pull request plans exclude Android so neither fork nor same-repository PR builds
@@ -50,6 +50,7 @@ requires adjusting the corresponding native build and packaging implementation.
 | Windows x64 | `windows-2022` | Complete portable ZIP | No Authenticode signature or installer. Requires Windows App Runtime 1.7 x64. Keep all DLLs and `data/`; `RUN.txt` explains explicit notification registration. Fresh-machine and cold-click acceptance is still pending. |
 | Android ARM64 | `ubuntu-24.04` | Signed split APK | SDK 37 / build tools 37.0.0, Java 17. Requires all signing secrets below; missing secrets fail instead of producing a debug-signed release. No Play Store/AAB upload. |
 | Linux x64 | `ubuntu-26.04` | Relocatable `.tar.gz` | Uses existing pinned Ubuntu Resolute media preparation; package/hash drift fails. Bundles library notices/provenance and verifies ELF lookup. Ubuntu 26.04 glibc/GTK/drivers required; other distributions are unverified. Review media GPL terms and supply matching source before enabling distribution. |
+| Linux x64 Flatpak | `ubuntu-26.04` | `.flatpak` | GNOME 51 runtime; checks every bundled ELF inside the runtime, includes PDF helpers and library notices, then installs and starts the production app in a fresh CI sandbox at 2x scale. |
 | macOS ARM64 | `macos-15` | `.app` ZIP via `ditto` | Existing ad-hoc signing. No Developer ID/notarization; Gatekeeper distribution acceptance is pending. No Intel build. |
 
 Android repository **Actions secrets**:
@@ -136,3 +137,40 @@ recognize versioned signer labels such as `V3.0 Signer`.
 SDK setup: [setup-android](https://github.com/android-actions/setup-android).
 Signature verification: [Android apksigner](https://developer.android.com/tools/apksigner).
 Compilation, signatures and asset publication do not establish device functional acceptance.
+
+## Linux Flatpak
+
+`python tool/release.py build flatpak` reuses the pinned Linux build/media preparation,
+then packages the complete bundle with GNOME 51. The native Ubuntu build is never
+assumed compatible: every ELF is checked with `flatpak build --runtime` (not the
+SDK), and both bundled Poppler commands must execute successfully. A mismatch
+stops publication. The manifest grants network, Wayland/X11, GPU/audio, keyring
+and notification services; file selection uses the GTK portal without granting
+host home-directory or whole-session-bus access.
+
+PR and manual runs compile, package and retain artifacts without publishing.
+A version-tag release includes `raft-flutter-VERSION-flatpak-x64.flatpak` in the
+same verified release inventory as Windows and Android. This creates a GitHub
+release asset; publication to Flathub requires a separate submission.
+
+```sh
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user ./raft-flutter-VERSION-flatpak-x64.flatpak
+flatpak run app.raft.raft_flutter
+```
+
+Flatpak keeps application data in its own sandbox; the existing native profile
+is not copied or modified. Sign in separately. The bundle is unsigned; verify
+its published SHA-256 before installing. GNOME runtime updates come from Flathub.
+Media source package/version URLs and distribution notices travel with the app,
+including its PDF helper dependencies (see `docs/linux-media-runtime.md`).
+
+The `linux-flatpak-smoke` CI artifact includes the unscaled PNG captured at actual
+`GDK_SCALE=2`, launch log, installed runtime information and source-bound screenshot
+metadata. This proves a fresh production window opens, not login, messaging,
+portal file selection or real desktop notification acceptance. Runtime errors
+and screenshots are retained even when smoke testing fails.
+
+References: [Flatpak manifests](https://docs.flatpak.org/en/latest/manifests.html),
+[bundle distribution](https://docs.flatpak.org/en/latest/single-file-bundles.html),
+[Flatpak build commands](https://docs.flatpak.org/en/latest/flatpak-command-reference.html).
