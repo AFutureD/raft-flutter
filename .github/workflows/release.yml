@@ -114,13 +114,16 @@ jobs:
           ruby-version: '3.3'
       - name: Install the locked macOS CocoaPods version
         if: matrix.platform == 'macos'
-        run: gem install cocoapods --version 1.16.2 --no-document
+        run: |
+          gem install cocoapods --version 1.16.2 --no-document
+          gem install json --version 2.18.0 --no-document
       - name: Check macOS packaging tools
         if: matrix.platform == 'macos'
         run: |
           xcodebuild -version
           pod --version
           test "$(pod --version)" = "1.16.2"
+          ruby -rjson -e 'abort "Unexpected JSON serializer" unless JSON::VERSION == "2.18.0"'
           command -v codesign
       - name: Install Linux build and media dependencies
         if: matrix.platform == 'linux' || matrix.platform == 'appimage'
