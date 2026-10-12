@@ -108,7 +108,7 @@ def package(stage, artifact, root, run, capture, digest):
     build = work / 'build'
     repo = work / 'repo'
     run(['flatpak-builder', '--user', '--force-clean', '--disable-rofiles-fuse',
-         f'--repo={repo}', build, spec])
+         f'--state-dir={work / "state"}', f'--repo={repo}', build, spec])
     # --runtime uses the actual runtime, not the SDK's extra development libraries.
     files = [p.relative_to(payload) for p in payload.rglob('*')
              if p.is_file() and elf_header(p) == b'\x7fELF']
