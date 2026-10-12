@@ -37,6 +37,7 @@ import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'tooltip.dart' show RaftTooltip;
+import 'sized_image.dart';
 
 /// Surface styles of [RaftPanel].
 enum RaftPanelStyle {
@@ -407,7 +408,7 @@ class RaftAvatar extends StatelessWidget {
             content ??
             (imageUrl == null
                 ? fallback
-                : Image.network(
+                : RaftSizedImage.network(
                     imageUrl!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => fallback,
@@ -468,7 +469,7 @@ class RaftAvatar extends StatelessWidget {
                 content ??
                 (imageUrl == null
                     ? fallback
-                    : Image.network(
+                    : RaftSizedImage.network(
                         imageUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => fallback,
