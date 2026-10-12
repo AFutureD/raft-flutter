@@ -200,10 +200,21 @@ class _BillingState extends ManagementState<BillingView> {
   void initState() {
     super.initState();
     startManagement();
+    seenPlanRevision = w.planRevision;
+    w.addListener(reloadOnPlanUpdate);
+  }
+
+  /// Web `server:plan-updated`: patch the plan, then reload billing and usage.
+  int seenPlanRevision = 0;
+  void reloadOnPlanUpdate() {
+    if (!mounted || w.planRevision == seenPlanRevision) return;
+    seenPlanRevision = w.planRevision;
+    reload();
   }
 
   @override
   void dispose() {
+    w.removeListener(reloadOnPlanUpdate);
     seatInput.dispose();
     promotion.dispose();
     super.dispose();

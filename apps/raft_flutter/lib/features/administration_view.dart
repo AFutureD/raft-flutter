@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:raft_client/raft_client.dart';
@@ -21,6 +20,7 @@ import 'management_support.dart'
         rememberServerFlag,
         writePageSnapshot;
 import 'server_setup_gate.dart' show refreshServerSetup;
+import '../data/feature_flag_client_facts.dart';
 
 /// Settings > Workspace > Administration: SettingsPanel.tsx
 /// AdministrationTabContent. Each section owns its data and requests like the
@@ -1186,15 +1186,7 @@ class _ProductAnalyticsState extends State<_ProductAnalyticsSection>
       final result = managementMap(
         await w.client.post(
           '/feature-flags/evaluate',
-          data: {
-            'keys': [flag],
-            'serverId': w.server?.id,
-            'platform':
-                defaultTargetPlatform == TargetPlatform.android ||
-                    defaultTargetPlatform == TargetPlatform.iOS
-                ? 'mobile'
-                : 'web',
-          },
+          data: featureFlagEvaluateBody(keys: [flag], serverId: w.server?.id),
         ),
       );
       final enabled = managementRows(

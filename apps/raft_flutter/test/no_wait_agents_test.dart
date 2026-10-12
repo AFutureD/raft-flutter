@@ -59,6 +59,9 @@ Future<(WorkspaceController, MessageAdapter)> mount(WidgetTester t) async {
       'name': 'cindy',
       'displayName': 'Cindy',
       'status': 'active',
+      // The REST row carries the derived activity (a status-only row reads as
+      // online, as in Web resolveAgentDisplayState): offline offers Start.
+      'activity': 'offline',
       'runtime': 'claude',
       'model': 'sonnet',
       'machineId': 'm1',

@@ -108,7 +108,7 @@ class LabNavigationActivity {
           );
         }),
         at(110, () {
-          final activity = revision.isOdd ? 'busy' : 'online';
+          final activity = revision.isOdd ? 'working' : 'online';
           agents.first['activity'] = activity;
           emit('agent:activity', {
             'agentId': agents.first['id'],

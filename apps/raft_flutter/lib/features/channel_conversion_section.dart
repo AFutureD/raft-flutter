@@ -8,6 +8,7 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'channel_conversion_progress.dart';
+import '../data/feature_flag_client_facts.dart';
 
 final _observations = Expando<Map<String, ConversionObservation>>();
 
@@ -166,11 +167,7 @@ class _ConversionSectionState
     final result = managementMap(
       await w.client.post(
         '/feature-flags/evaluate',
-        data: {
-          'keys': [channelConversionFlag],
-          'serverId': w.server?.id,
-          'platform': 'web',
-        },
+        data: featureFlagEvaluateBody(keys: [channelConversionFlag], serverId: w.server?.id),
       ),
     );
     return managementRows(result['evaluations'])

@@ -79,6 +79,7 @@ import '../platform/native_sharing.dart';
 import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
 import '../platform/keyboard_inset_diagnostics.dart';
+import '../data/feature_flag_client_facts.dart';
 
 part 'workspace_view_sidebar_menus.dart';
 part 'mobile_workspace_route.dart';
@@ -694,19 +695,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       try {
         final result = await w.client.post(
           '/feature-flags/evaluate',
-          data: {
-            'keys': [
-              'slack_bridge_v0',
-              'provider_connections_v0',
-              'server_labs_ui_v0',
-            ],
-            'serverId': w.server!.id,
-            'platform':
-                (defaultTargetPlatform == TargetPlatform.android ||
-                    defaultTargetPlatform == TargetPlatform.iOS)
-                ? 'mobile'
-                : 'web',
-          },
+          data: featureFlagEvaluateBody(keys: ['slack_bridge_v0', 'provider_connections_v0', 'server_labs_ui_v0'], serverId: w.server!.id),
         );
         if (!mounted || request != bridgeRequest) return;
         final rows = result is Map
@@ -2236,12 +2225,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
     if (!mounted || expectedScope != null && expectedScope != mobileAuthority) {
       return;
     }
+    // Human profiles are not gated on `viewMembers`: the server answers a guest
+    // with the channel-scoped profile of a human they can see (routes/servers.ts
+    // member profile) and Web opens it unconditionally (ProfilePanel.tsx).
     final capability = switch (route) {
       RaftRoute.agent => 'viewAgents',
       RaftRoute.computer => 'viewMachines',
-      _ => 'viewMembers',
+      _ => null,
     };
-    if (!w.can(capability)) return;
+    if (capability != null && !w.can(capability)) return;
     w.navigation.navigate(
       RaftLocation.at(
         serverSlug: w.location.serverSlug,

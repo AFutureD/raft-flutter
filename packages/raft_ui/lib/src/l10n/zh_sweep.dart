@@ -5,6 +5,8 @@ const Map<String, String> zhCatalogSweep = <String, String>{
   // users. Wording is Web zh-cn.ts verbatim (placeholders renamed to the
   // native call site) wherever Web has the string.
   "Runtime Config": "运行时配置",
+  "Error: {detail}": "错误：{detail}",
+  "Last active {time}": "上次活跃 {time}",
   "Keep at least {min} seats to cover current server usage.": "至少保留 {min} 个席位以覆盖服务器当前用量。",
   "Adds {seats}": "增加 {seats}",
   "Removes {seats}": "减少 {seats}",

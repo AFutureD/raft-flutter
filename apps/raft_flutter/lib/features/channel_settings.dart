@@ -18,6 +18,7 @@ import 'management_support.dart'
         readPageSnapshot,
         rememberServerFlag,
         writePageSnapshot;
+import '../data/feature_flag_client_facts.dart';
 
 /// Web `canToggleActivityMute` (channelDomain.ts): channel / private / joint
 /// rows the member joined. The wire flag `activityMuteSupported` is not read.
@@ -336,11 +337,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       final result = await w.command(
         'POST',
         '/feature-flags/evaluate',
-        data: {
-          'keys': [guestFlag, channelConversionFlag],
-          'serverId': serverId,
-          'platform': 'web',
-        },
+        data: featureFlagEvaluateBody(keys: [guestFlag, channelConversionFlag], serverId: serverId),
       );
       bool enabled(String key) =>
           result is Map &&

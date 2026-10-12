@@ -22,6 +22,7 @@ import 'member_profile_view.dart';
 import 'agent_metadata_catalog.dart' show sourceAgentActivities;
 import 'agent_metadata_projection.dart';
 import 'resource_cards.dart' show resourceRelativeTime;
+import '../data/feature_flag_client_facts.dart';
 
 /// Web `ChannelMembers` participant count: agents + humans + Slack bridge
 /// participants (`externalMembers`).
@@ -298,11 +299,10 @@ class _ChannelMembersState extends State<ChannelMembers> {
       final result = await w.command(
         'POST',
         '/feature-flags/evaluate',
-        data: {
-          'keys': [_roleActionsFlag],
-          'serverId': server,
-          'platform': 'web',
-        },
+        data: featureFlagEvaluateBody(
+          keys: [_roleActionsFlag],
+          serverId: server,
+        ),
       );
       final on =
           result is Map &&

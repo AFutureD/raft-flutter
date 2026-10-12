@@ -29,6 +29,7 @@ import 'attachment_image_repository.dart';
 import 'attachment_url_cache.dart';
 import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
+import 'feature_flag_client_facts.dart';
 
 class WorkspaceAttachmentImageLease {
   WorkspaceAttachmentImageLease(this.lease, this._releaseAuthority);
@@ -1143,19 +1144,7 @@ class WorkspaceController extends ChangeNotifier {
     try {
       final result = await client.post(
         '/feature-flags/evaluate',
-        data: {
-          'keys': [
-            'sync_core_messages_v0',
-            notificationPrefsFlag,
-            remoteComputerUpgradeFlag,
-            agentMigrationFlag,
-            runtimeFormV2WebFlag,
-          ],
-          'serverId': id,
-          'platform': defaultTargetPlatform == TargetPlatform.android
-              ? 'mobile'
-              : 'web',
-        },
+        data: featureFlagEvaluateBody(keys: ['sync_core_messages_v0', notificationPrefsFlag, remoteComputerUpgradeFlag, agentMigrationFlag, runtimeFormV2WebFlag], serverId: id),
       );
       if (_disposed ||
           request != _messageFlagRequest ||
@@ -4202,6 +4191,7 @@ class WorkspaceController extends ChangeNotifier {
       unawaited(recoverMembership());
     }
     planRevision++;
+    notifyListeners();
   }
 
   Future<void> recoverMembership() async {

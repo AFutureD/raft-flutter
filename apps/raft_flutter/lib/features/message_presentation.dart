@@ -22,6 +22,7 @@ import 'attachment_view.dart';
 import 'fleet_views.dart';
 import 'private_route_guard.dart';
 import 'profile_preview.dart';
+import '../data/feature_flag_client_facts.dart';
 
 /// Full MessageDTO uses `user`; legacy/native human rows use `human`.
 /// Presentation consumers use one identity kind without altering transport data.
@@ -166,14 +167,13 @@ Future<bool> _evaluateResourceReferences(
   WorkspaceController w,
   String identity,
 ) async {
-  final mobile = Theme.of(context).platform == TargetPlatform.android;
   final flag = await w.client.post(
     '/feature-flags/evaluate',
-    data: {
-      'keys': [_resourceReferencesFlag],
-      'serverId': w.server!.id,
-      'platform': mobile ? 'mobile' : 'web',
-    },
+    data: featureFlagEvaluateBody(
+      keys: [_resourceReferencesFlag],
+      serverId: w.server!.id,
+      platform: Theme.of(context).platform,
+    ),
   );
   final enabled =
       flag is Map &&

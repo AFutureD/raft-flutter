@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -12,6 +11,7 @@ import 'agent_metadata_projection.dart';
 import 'message_agent_presentation.dart';
 import 'private_route_guard.dart';
 import 'sender_avatar_projection.dart';
+import '../data/feature_flag_client_facts.dart';
 
 /// One channel roster as returned by `/channels/:id/members`, together with
 /// the channel authority it was read under.
@@ -142,13 +142,7 @@ class _ComposerShared extends ChangeNotifier {
       try {
         final flags = await w.client.post(
           '/feature-flags/evaluate',
-          data: {
-            'keys': ['composer_resource_references_v0'],
-            'serverId': server.id,
-            'platform': defaultTargetPlatform == TargetPlatform.android
-                ? 'mobile'
-                : 'web',
-          },
+          data: featureFlagEvaluateBody(keys: ['composer_resource_references_v0'], serverId: server.id),
         );
         if (!current()) return;
         final enabled =
