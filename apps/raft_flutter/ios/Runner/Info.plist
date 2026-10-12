@@ -85,5 +85,7 @@
 			</array>
 		</dict>
 	</array>
+	<key>RaftAppGroup</key>
+	<string>$(RAFT_APP_GROUP)</string>
 </dict>
 </plist>
