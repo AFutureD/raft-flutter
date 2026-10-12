@@ -224,15 +224,7 @@ class _RootErrorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preferences = DevicePreferences.current;
-    final light = RaftFamily.values.firstWhere(
-      (family) => family.name == preferences?.getString('raft.light'),
-      orElse: () => RaftFamily.brutal,
-    );
-    final mode = ThemeMode.values.firstWhere(
-      (mode) => mode.name == preferences?.getString('raft.mode'),
-      orElse: () => ThemeMode.system,
-    );
+    final appearance = storedAppearance();
     final device = WidgetsBinding.instance.platformDispatcher.locale;
     final chinese = device.languageCode == 'zh';
     return MaterialApp(
@@ -241,9 +233,9 @@ class _RootErrorApp extends StatelessWidget {
       locale: chinese ? const Locale('zh', 'CN') : const Locale('en'),
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: raftTheme(light),
+      theme: raftTheme(appearance.light),
       darkTheme: raftTheme(RaftFamily.elegant, dark: true),
-      themeMode: mode,
+      themeMode: appearance.mode,
       home: RaftRootErrorFallback(
         message: report.message,
         stack: report.stack,
