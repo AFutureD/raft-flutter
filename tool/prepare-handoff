@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Make a feature branch fast-forwardable onto cindy/integration before handoff.
 
-1. fetch origin and merge origin/cindy/integration into the current branch
+1. fetch origin and rebase the current branch onto origin/cindy/integration, so
+   the integrator can fast-forward and the integration history stays linear
    (stops on conflicts so the branch owner resolves them, not the integrator);
 2. run tool/check-project under the shared gate lock (waiting, holder, start,
    first failure, abort and result are appended to /tmp/raft-flutter-gate-events.log;
@@ -131,19 +132,23 @@ def main():
     if git('status', '--porcelain'):
         sys.exit('Working tree is not clean; commit first.')
     git('fetch', '-q', 'origin')
-    merged = subprocess.run(['git', 'merge', '--no-edit', args.base], cwd=root,
-                            text=True, capture_output=True)
-    if merged.returncode != 0:
-        print(merged.stdout + merged.stderr)
-        sys.exit(f'Merge of {args.base} has conflicts: resolve them on this branch, '
-                 'commit, and run tool/prepare-handoff again.')
+    # Rebase, not merge: a merge commit per handoff (and another per catch-up)
+    # buried the integration history in noise.
+    rebased = subprocess.run(['git', 'rebase', args.base], cwd=root,
+                             text=True, capture_output=True)
+    if rebased.returncode != 0:
+        print(rebased.stdout + rebased.stderr)
+        subprocess.run(['git', 'rebase', '--abort'], cwd=root,
+                       text=True, capture_output=True)
+        sys.exit(f'Rebase onto {args.base} has conflicts: run `git rebase {args.base}`, '
+                 'resolve them on this branch, and run tool/prepare-handoff again.')
     branch = git('branch', '--show-current')
     head = git('rev-parse', '--short', 'HEAD')
     base = git('rev-parse', '--short', args.base)
     if args.no_check:
         print(f'handoff: {branch} {head} (contains {args.base} {base}); gate skipped')
         return
-    emit.branch, emit.sha = gate_events.identity(root)  # after the merge
+    emit.branch, emit.sha = gate_events.identity(root)  # after the rebase
     state = {'child': False}
     gate_events.raise_on_signals()
     try:
