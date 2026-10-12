@@ -20,6 +20,7 @@ import 'package:raft_ui/recipes.dart'
         RaftSearchRecipeStyle;
 
 import '../data/source_activity_unread_store.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/search_memory.dart';
 import '../data/activity_follow_state.dart';
@@ -1104,7 +1105,7 @@ class _ResourceViewState extends State<ResourceView> {
     }
     setState(() {
       errorWhileLoading = loading;
-      error = '$cause';
+      error = userErrorText(cause, where: widget.section);
       searchFailureKind = widget.section == 'search'
           ? classifySearchFailure(cause)
           : null;
@@ -2650,10 +2651,7 @@ class _ResourceViewState extends State<ResourceView> {
                 (widget.section == 'activity' || widget.section == 'saved')))
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(
-              raftText(context, error!),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+            child: RaftErrorBanner(error!, small: true),
           ),
         Expanded(
           child:

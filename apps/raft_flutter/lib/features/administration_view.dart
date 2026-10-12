@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/content_links.dart';
@@ -95,12 +95,7 @@ class AdministrationView extends StatelessWidget {
 
 /// `err.response?.data?.error || fallback`.
 String _apiError(Object error, String fallback) =>
-    error is RaftApiException &&
-        error.status != null &&
-        error.message.isNotEmpty &&
-        error.message != 'Request failed'
-    ? error.message
-    : fallback;
+    userErrorText(error, fallback: fallback, where: 'administration');
 
 Key _region(String section) => ValueKey('admin-section-$section');
 

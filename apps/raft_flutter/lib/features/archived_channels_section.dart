@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+
 import '../data/workspace_controller.dart';
 import 'agent_detail_view.dart' show agentTimeFormatter;
 
@@ -61,9 +63,14 @@ class _ArchivedChannelsSectionState extends State<ArchivedChannelsSection> {
     } catch (e) {
       if (current()) {
         setState(() {
-          error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to unarchive channel');
+          error = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to unarchive channel',
+              where: 'archived channels',
+            ),
+          );
         });
       }
     } finally {

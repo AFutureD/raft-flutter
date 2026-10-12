@@ -104,7 +104,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
     } on RaftApiException catch (e) {
       if (e.status == 409) {
         await reload();
-        throw const RaftApiException(
+        throw const RaftUserError(
           'The sidebar changed on another client. Review the updated list and retry.',
         );
       }
@@ -409,7 +409,7 @@ class _SidebarPreferencesState extends ManagementState<SidebarPreferencesView> {
               raftText(context, 'Sidebar preferences'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            if (error != null) Semantics(liveRegion: true, child: Text(error!)),
+            if (error != null) RaftErrorBanner(error!, small: true),
             Text(
               raftText(
                 context,

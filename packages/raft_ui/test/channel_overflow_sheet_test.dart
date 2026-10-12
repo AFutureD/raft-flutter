@@ -133,7 +133,7 @@ void main() {
       final gate = Completer<void>();
       Future<void> action() async {
         attempt++;
-        if (attempt == 1) throw StateError('Server said no');
+        if (attempt == 1) throw const RaftUserError('Server said no');
         await gate.future;
       }
 

@@ -7,9 +7,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'banner.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
+import 'error_presentation.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 
@@ -53,7 +53,7 @@ class RaftCreateTaskDialogView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (error != null) ...[RaftBanner(description: error!), gap],
+            if (error != null) ...[RaftErrorBanner(error!), gap],
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,

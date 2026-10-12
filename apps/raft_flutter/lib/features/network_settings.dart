@@ -289,12 +289,14 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
         'code': r.statusCode,
       });
     }
-    return raftText(context, switch (r.error) {
-      'proxy-auth' => 'The proxy rejected the username or password.',
-      'timeout' => 'The connection timed out.',
-      _ => 'Could not connect through this proxy.',
-    });
+    return raftText(context, probeError(r.error));
   }
+
+  static String probeError(String? error) => switch (error) {
+    'proxy-auth' => 'The proxy rejected the username or password.',
+    'timeout' => 'The connection timed out.',
+    _ => 'Could not connect through this proxy.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -457,19 +459,27 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               ],
               if (probeResult != null) ...[
                 const SizedBox(height: RaftSpace.x3),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    probeText(context),
+                if (probeResult!.ok)
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      probeText(context),
+                      key: const Key('network-test-result'),
+                      style: RaftSettingsText(RaftTokens.of(context))
+                          .description,
+                    ),
+                  )
+                else
+                  // A failed probe is an error row like every other settings
+                  // failure: the warning Banner, density sm.
+                  KeyedSubtree(
                     key: const Key('network-test-result'),
-                    style: RaftSettingsText(RaftTokens.of(context)).description
-                        .copyWith(
-                          color: probeResult!.ok
-                              ? null
-                              : RaftTokens.of(context).colors['warning-strong'],
-                        ),
+                    child: RaftErrorBanner(
+                      probeError(probeResult!.error),
+                      small: true,
+                      bold: true,
+                    ),
                   ),
-                ),
               ],
             ],
           ),

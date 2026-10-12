@@ -3,8 +3,8 @@ import 'package:flutter/rendering.dart';
 
 import 'icons.dart';
 import 'indicators.dart';
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'localization.dart';
-import 'recipe_surface.dart';
 import 'components.dart';
 import 'settings_layout.dart';
 import 'theme.dart';
@@ -160,23 +160,8 @@ class RaftNotificationSettingsCard extends StatelessWidget {
               ],
               if (error != null) ...[
                 const SizedBox(height: 12),
-                Semantics(
-                  liveRegion: true,
-                  child: RaftRecipeBox(
-                    style: RaftBannerRecipe.resolve(
-                      theme: t.recipeTheme,
-                      status: RaftBannerRecipeStatus.warning,
-                      size: RaftBannerRecipeSize.sm,
-                      states: t.recipeStates(),
-                      tokens: t.recipeTokens,
-                    ).root,
-                    tokens: t.recipeTokens,
-                    child: Text(
-                      raftText(context, error!),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
+                // Web SettingsPanel: `<Banner intent="warning" density="sm" className="font-bold">`.
+                RaftErrorBanner(error!, small: true, bold: true),
                 if (onRetry != null) ...[
                   const SizedBox(height: 12),
                   Align(

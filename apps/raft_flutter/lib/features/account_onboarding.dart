@@ -8,7 +8,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../platform/file_selection.dart';
 
-import 'auth_view.dart' show authLinkToken;
+import '../data/user_error.dart';
+import 'auth_view.dart' show authFailureText, authLinkToken;
 
 bool accountNeedsProfile(RaftRecord? user) =>
     user != null &&
@@ -46,13 +47,11 @@ class AccountMediaActions {
     );
     if (file == null) return;
     if (client.generation != generation) {
-      throw const RaftApiException(
-        'The active account changed. Choose the image again.',
-      );
+      throw const RaftUserError(raftGenericErrorText);
     }
     final length = await file.length();
     if (length > 5 * 1024 * 1024) {
-      throw const RaftApiException('Avatar image must be 5 MB or smaller.');
+      throw const RaftUserError('Avatar image must be 5 MB or smaller');
     }
     final extension = file.name.split('.').last.toLowerCase();
     final mime = {
@@ -63,13 +62,11 @@ class AccountMediaActions {
       'webp': 'image/webp',
     }[extension];
     if (mime == null) {
-      throw const RaftApiException('Choose a JPEG, PNG, GIF or WebP image.');
+      throw const RaftUserError('Failed to upload avatar');
     }
     final bytes = await file.readAsBytes();
     if (client.generation != generation) {
-      throw const RaftApiException(
-        'The active account changed. Choose the image again.',
-      );
+      throw const RaftUserError(raftGenericErrorText);
     }
     await client.post(
       '/auth/me/avatar',
@@ -192,7 +189,15 @@ class _OnboardingState extends State<AccountOnboardingView>
       await client.post('/auth/resend-verification');
       if (mounted) setState(() => resent = true);
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: 'Failed to resend verification email',
+            where: 'resend verification',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => resending = false);
     }
@@ -214,7 +219,13 @@ class _OnboardingState extends State<AccountOnboardingView>
       }
     } catch (e) {
       if (mounted && client.generation == generation) {
-        setState(() => error = '$e');
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: 'Verification failed. The link may be expired.',
+            where: 'verify email',
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => verifying = false);
@@ -232,7 +243,10 @@ class _OnboardingState extends State<AccountOnboardingView>
     super.dispose();
   }
 
-  Future<void> run(Future<void> Function() action) async {
+  Future<void> run(
+    Future<void> Function() action, {
+    String fallback = "Couldn't finish identity setup",
+  }) async {
     if (busy) return;
     final generation = client.generation;
     setState(() {
@@ -248,7 +262,9 @@ class _OnboardingState extends State<AccountOnboardingView>
       }
     } catch (e) {
       if (mounted && client.generation == generation) {
-        setState(() => error = '$e');
+        setState(
+          () => error = authFailureText(e, fallback, where: 'onboarding'),
+        );
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -258,8 +274,8 @@ class _OnboardingState extends State<AccountOnboardingView>
   Future<void> verify() async {
     final code = authLinkToken(token.text.trim());
     if (code.isEmpty) {
-      throw const RaftApiException(
-        'Enter the verification link or code from your email.',
+      throw const RaftUserError(
+        'Verification failed. The link may be expired.',
       );
     }
     await client.request(
@@ -287,8 +303,11 @@ class _OnboardingState extends State<AccountOnboardingView>
       query: {'name': username.text.trim()},
     );
     if (available['available'] != true) {
-      throw RaftApiException(
-        available['message'] ?? 'This username is unavailable.',
+      throw RaftUserError(
+        available['message'] is String &&
+                (available['message'] as String).trim().isNotEmpty
+            ? available['message'] as String
+            : 'This username is already taken.',
       );
     }
     await client.post(
@@ -421,8 +440,10 @@ class _OnboardingState extends State<AccountOnboardingView>
                   imageUrl: avatarUrl.isEmpty ? null : avatarUrl,
                   onUpload: busy
                       ? null
-                      : () =>
-                            run(() => AccountMediaActions.uploadAvatar(client)),
+                      : () => run(
+                          () => AccountMediaActions.uploadAvatar(client),
+                          fallback: 'Failed to upload avatar',
+                        ),
                 ),
                 RaftAuthWideButton(
                   key: const Key('onboarding-complete'),

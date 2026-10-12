@@ -3,12 +3,14 @@ import 'dart:io' show HttpException, SocketException;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show MissingPluginException, PlatformException;
+import 'package:flutter/services.dart'
+    show MissingPluginException, PlatformException;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/device_preferences.dart';
+import '../data/user_error.dart' show redactErrorText;
 
 /// What the root fallback shows (Web RootErrorFallback: `error.message`,
 /// `error.stack`, React `componentStack`).
@@ -22,6 +24,16 @@ class RootErrorReport {
   final String message;
   final String? stack;
   final String? componentStack;
+
+  /// What the closed "Stack trace" disclosure holds: the error text, then the
+  /// stack.
+  String get details {
+    final text = message.trim();
+    final trace = stack?.trim() ?? '';
+    return redactErrorText(
+      [if (text.isNotEmpty) text, if (trace.isNotEmpty) trace].join('\n\n'),
+    );
+  }
 }
 
 /// Whether an error that escaped every other handler ends the app on the root
@@ -236,10 +248,15 @@ class _RootErrorApp extends StatelessWidget {
       theme: raftTheme(appearance.light),
       darkTheme: raftTheme(RaftFamily.elegant, dark: true),
       themeMode: appearance.mode,
+      // Web prints `error.message` on the page; a native exception message is
+      // a developer string, so the page shows only the title and the reload
+      // action. The text and stacks stay one tap away in the closed
+      // "Stack trace" disclosure.
       home: RaftRootErrorFallback(
-        message: report.message,
-        stack: report.stack,
+        message: '',
+        stack: report.details,
         componentStack: report.componentStack,
+        componentStackOpen: false,
         onReload: onReload,
       ),
     );

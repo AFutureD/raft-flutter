@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'agent_profile.dart' show raftGray400;
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
 import 'dialog_card.dart';
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'localization.dart';
 import 'indicators.dart' show RaftSkeletonRow;
@@ -827,8 +828,13 @@ class RaftComputerSidebarList extends StatelessWidget {
           addLabel: addLabel,
           onAdd: onAdd,
         ),
+        // Web's desktop sidebar shows no load error; the Flutter line uses the
+        // shared small warning banner instead of bare text.
         if (errorText != null)
-          Semantics(liveRegion: true, child: Text(errorText!)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: RaftErrorBanner(errorText!, small: true),
+          ),
         for (final row in rows)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/personal_presentation.dart';
 import 'account_onboarding.dart';
@@ -112,7 +113,15 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
         profileSaved = profileName.text.trim() == name;
       });
     } catch (e) {
-      if (mounted && scope == authority) setState(() => profileError = '$e');
+      if (mounted && scope == authority) {
+        setState(
+          () => profileError = userErrorText(
+            e,
+            fallback: 'Failed to update profile',
+            where: 'account profile',
+          ),
+        );
+      }
     } finally {
       if (mounted && scope == authority) setState(() => profileBusy = false);
     }
@@ -161,7 +170,13 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
       }
     } catch (error) {
       if (mounted && sourceScope == authority) {
-        setState(() => mediaError = '$error');
+        setState(
+          () => mediaError = userErrorText(
+            error,
+            fallback: 'Failed to upload avatar',
+            where: 'account avatar',
+          ),
+        );
       }
     } finally {
       if (mounted && sourceScope == authority) {
@@ -320,6 +335,17 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (mediaError != null) ...[
+            // `<p className="text-xs font-bold text-brutal-red" role="alert">`
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                raftText(context, mediaError!),
+                style: RaftSettingsText(t).alert,
+              ),
+            ),
+            const SizedBox(height: RaftSpace.x3),
+          ],
           RaftSettingsField(
             label: 'Display Name',
             child: RaftRecipeInput(
@@ -384,14 +410,12 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
               ],
             ),
           ),
-          if (profileError != null || mediaError != null) ...[
+          if (profileError != null) ...[
             const SizedBox(height: RaftSpace.x3),
-            // AccountSection puts both profile and avatar failures in the
-            // same warning Banner after Email, before the save control.
-            RaftBanner(
-              description: profileError ?? mediaError!,
-              size: RaftBannerRecipeSize.sm,
-            ),
+            // `<Banner intent="warning" density="sm" className="font-bold">`
+            // after Email, before the save control; the avatar failure is its
+            // own `text-xs` alert above the form.
+            RaftErrorBanner(profileError!, small: true, bold: true),
           ],
           const SizedBox(height: RaftSpace.x3),
           Align(

@@ -10,6 +10,8 @@ import '../platform/system_bars.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/server_error_code.dart';
+import '../data/user_error.dart';
 import 'management_support.dart';
 
 bool isValidAuthEmail(String value) =>
@@ -28,6 +30,24 @@ String? authOriginError(String value) {
       ? null
       : 'Enter the server origin, such as https://raft.example.com.';
 }
+
+/// Web `authServerErrorMessage(err, fallback)`: bad credentials get the
+/// localized sentence, otherwise the server's own text, else [fallback].
+String authFailureText(Object error, String fallback, {String? where}) =>
+    serverErrorIs(error, 'Invalid email or password')
+    ? 'Incorrect email or password.'
+    // Native only (no Web counterpart): the Android local-network permission
+    // the person has to grant is actionable, so it is shown as is.
+    : serverErrorIs(error, localNetworkPermissionError)
+    ? localNetworkPermissionError
+    : userErrorText(
+        error,
+        fallback: fallback,
+        codeText: const {
+          'AUTH_INVALID_CREDENTIALS': 'Incorrect email or password.',
+        },
+        where: where,
+      );
 
 String authLinkToken(String value, {String parameter = 'token'}) {
   final uri = Uri.tryParse(value);
@@ -128,7 +148,9 @@ class _AuthState extends State<AuthView> {
       if (mounted && request == providerRequest) {
         setState(() {
           providers = [];
-          if (requestPermission && e is RaftApiException) error = e.message;
+          if (requestPermission && e is RaftApiException) {
+            error = authFailureText(e, 'Login failed', where: 'auth providers');
+          }
         });
       }
     } finally {
@@ -173,7 +195,17 @@ class _AuthState extends State<AuthView> {
         );
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      // Web SocialAuthCallbackPage: `finishFailed` unless the server sent text.
+      // A sign-in the person cancelled reports nothing.
+      if (mounted && !active.cancelled) {
+        setState(
+          () => error = authFailureText(
+            e,
+            'Failed to finish sign-in',
+            where: 'social sign-in',
+          ),
+        );
+      }
     } finally {
       active.helpUrl.removeListener(helpChanged);
       await active.cancel();
@@ -250,8 +282,7 @@ class _AuthState extends State<AuthView> {
     if (!validate()) return;
     if (mode == 'register' && !accepted) {
       setState(
-        () =>
-            error = 'Accept the terms and privacy policy to create an account.',
+        () => error = 'You must agree to the Terms of Service and acknowledge the Privacy Policy to create an account.',
       );
       return;
     }
@@ -284,9 +315,7 @@ class _AuthState extends State<AuthView> {
         case 'reset':
           final code = widget.resetToken ?? authLinkToken(token.text.trim());
           if (code.isEmpty) {
-            throw const RaftApiException(
-              'Enter a password reset link or code.',
-            );
+            throw const RaftUserError('Enter a password reset link or code.');
           }
           await anonymous('/auth/reset-password', {
             'token': code,
@@ -297,11 +326,12 @@ class _AuthState extends State<AuthView> {
     } catch (e) {
       if (mounted) {
         setState(
-          () => error =
-              e is RaftApiException &&
-                  e.details['code'] == 'AUTH_INVALID_CREDENTIALS'
-              ? 'Incorrect email or password.'
-              : '$e',
+          () => error = authFailureText(e, switch (mode) {
+            'register' => 'Registration failed',
+            'forgot' => 'Failed to send reset email',
+            'reset' => 'Password reset failed. The link may be expired.',
+            _ => 'Login failed',
+          }, where: 'auth $mode'),
         );
       }
     } finally {

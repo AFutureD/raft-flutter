@@ -155,10 +155,8 @@ class RaftAgentAvatarPicker extends StatelessWidget {
                           ),
                           if (error != null) ...[
                             const SizedBox(height: 20),
-                            RaftAgentBanner(
-                              status: RaftAgentBannerStatus.warning,
-                              description: error!,
-                            ),
+                            // Web `<Banner status="warning" size="sm" role="alert">`.
+                            RaftErrorBanner(error!, small: true),
                           ],
                         ],
                       ),

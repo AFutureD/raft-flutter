@@ -16,6 +16,26 @@ import 'package:raft_ui/raft_ui.dart' show raftChinese;
 /// Literals that are intentionally identical in every locale (no entry needed).
 const _sameInEveryLocale = <String>{};
 
+/// Error copy that has no Web zh-cn wording yet. zh users see the English until
+/// Kevin decides the wording; each entry is listed in the error-presentation
+/// handoff. Never invent Chinese for these.
+const _pendingKevinZh = <String>{
+  // fleet: managed MCP credential-header validation (no Web wording)
+  'Select encrypted headers to save a header credential.',
+  'Select encrypted headers to test a credential.',
+  // fleet: computer runtime command receipts (were untranslated SnackBars)
+  'Requested. Applies when the computer reconnects.',
+  'Request accepted. Check runtime status for completion.',
+  // Native download / save feedback (Web downloads through the browser and has
+  // no in-app copy). Listed in /tmp/error-parity/needs-zh-chat.md.
+  'Saved {name}',
+  'Download failed. Try again.',
+  'No application can open this file.',
+  // channel settings: a stale mounted action is refused (Web has no copy)
+  'Channel editing is no longer available.',
+  'Channel activity preference is no longer available.',
+};
+
 class _Use {
   const _Use(this.file, this.line, this.text, {this.interpolated = false});
   final String file;
@@ -36,7 +56,13 @@ Iterable<File> _sources() sync* {
   }
 }
 
-final _call = RegExp(r'(?<![\w.$])(raftText|raftFormat|raftRichText|tr)\(');
+final _call = RegExp(
+  r'(?<![\w.$])(raftText|raftFormat|raftRichText|tr|RaftUserError|showRaftToast)\(',
+);
+
+/// `userErrorText(e, fallback: 'Failed to ...')`: the fallback is a catalog key
+/// shown through raftText by the display layer.
+final _fallback = RegExp(r'\bfallback:\s*(?=[\x27"])');
 
 /// Index just past the string literal starting at [i] (quote char at [i]).
 int _skipString(String s, int i) {
@@ -181,7 +207,7 @@ List<_Use> _scan() {
       final head = s.substring((m.start - 12).clamp(0, s.length), m.start);
       if (RegExp(r'(String|Widget|void)\s+$').hasMatch(head)) continue;
       final args = _args(s, m.end - 1);
-      final index = name == 'tr' ? 0 : 1;
+      final index = name == 'tr' || name == 'RaftUserError' ? 0 : 1;
       if (args.length <= index) continue;
       final line = '\n'.allMatches(s.substring(0, m.start)).length + 1;
       final lit = _literal(args[index]);
@@ -194,6 +220,15 @@ List<_Use> _scan() {
           uses.add(_Use(file.path, line, text));
         }
       }
+    }
+    for (final m in _fallback.allMatches(s)) {
+      final end = _skipString(s, m.end);
+      final lit = _literal(s.substring(m.end, end));
+      if (lit == null) continue;
+      final line = '\n'.allMatches(s.substring(0, m.start)).length + 1;
+      uses.add(
+        _Use(file.path, line, lit.value, interpolated: lit.interpolated),
+      );
     }
   }
   return uses;
@@ -214,6 +249,7 @@ void main() {
         interpolated.add(u);
       } else if (_isText(_stripInterpolation(u.text)) &&
           !_sameInEveryLocale.contains(u.text) &&
+          !_pendingKevinZh.contains(u.text) &&
           !raftChinese.containsKey(u.text)) {
         missing.putIfAbsent(u.text, () => u);
       }

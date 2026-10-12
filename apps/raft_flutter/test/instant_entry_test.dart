@@ -369,6 +369,17 @@ Future<void> settle(WidgetTester t, Scene s, [int frames = 12]) async {
   }
 }
 
+/// Workspace failures are Web's `toast.error`: the view shows them and clears
+/// `w.error`, so a test records what was raised instead of reading it later.
+List<String> raisedErrors(WorkspaceController w) {
+  final seen = <String>[];
+  w.addListener(() {
+    final e = w.error;
+    if (e != null) seen.add(e);
+  });
+  return seen;
+}
+
 void main() {
   late Directory dir;
   setUp(() {
@@ -867,6 +878,7 @@ void main() {
       final sharing = slowSharing(dir, copy);
       final s = await boot(t, dir, cold: false, sharing: sharing);
       sharing.receive(_share);
+      final raised = raisedErrors(s.w);
       s.f.adapter.statuses['POST /channels/cp/join'] = 403;
       await framesUntil(t, pickerVisible, gate: null);
       await copyDone(t, copy);
@@ -883,7 +895,7 @@ void main() {
       expect(w.sharedBlocked(), isFalse);
       expect(w.drafts['cp'], 'Shared caption');
       expect(w.uploads(), isNotEmpty);
-      expect(w.error, 'Could not join this channel.');
+      expect(raised, contains('Could not join this channel.'));
       await s.f.close(t);
     },
   );
@@ -1026,6 +1038,7 @@ void main() {
           };
         }
         final w = f.workspace(t);
+        final raised = raisedErrors(w);
         final before = w.location, index = w.navigation.index;
         s.notifications!.onTap!(
           payload(f, 'raft://v1/servers/a/channels/$id/messages/m$id'),
@@ -1037,7 +1050,7 @@ void main() {
         await settle(t, s);
         expect(w.location, before);
         expect(w.navigation.index, index);
-        expect(w.error, contains('unavailable'));
+        expect(raised.join('\n'), contains('unavailable'));
         await f.close(t);
       },
     );
@@ -1053,6 +1066,7 @@ void main() {
         return [f.servers[1]];
       };
       final w = f.workspace(t);
+      final raised = raisedErrors(w);
       final before = w.location, index = w.navigation.index;
       s.notifications!.onTap!(payload(f, _toX));
       expect(
@@ -1063,7 +1077,7 @@ void main() {
       expect(w.location.entityId, isNot('cx'));
       expect(w.navigation.index, index);
       expect(w.location, before);
-      expect(w.error, contains('unavailable'));
+      expect(raised.join('\n'), contains('unavailable'));
       await f.close(t);
     },
   );

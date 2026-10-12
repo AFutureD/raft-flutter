@@ -13,6 +13,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/source_time_formatter.dart';
 import '../platform/content_links.dart';
+import '../data/server_error_code.dart';
+import '../data/user_error.dart';
 import 'community_join.dart' show communityAgreementError;
 import 'management_support.dart';
 import 'sender_avatar_projection.dart';
@@ -272,9 +274,13 @@ class _PublicServerViewState extends State<PublicServerView> {
       // A failed revalidation keeps what the visitor is reading.
       if (seen != null) return;
       setState(
-        () => error = e.message.isNotEmpty
-            ? e.message
-            : tr('Failed to load this public server'),
+        () => error = tr(
+          userErrorText(
+            e,
+            fallback: 'Failed to load this public server',
+            where: 'public server',
+          ),
+        ),
       );
     } catch (_) {
       if (mounted && request == serverRequest && seen == null) {
@@ -283,11 +289,16 @@ class _PublicServerViewState extends State<PublicServerView> {
     }
   }
 
-  String messageFailure(Object e) => e is RaftApiException && e.status == 404
-      ? tr('This server or channel is no longer public.')
-      : e is RaftApiException && e.message.isNotEmpty
-      ? e.message
-      : tr('Failed to load public messages');
+  /// PublicServerPage: 404 says the page is no longer public, otherwise the
+  /// server's text, else the localized fallback.
+  String messageFailure(Object e) => tr(
+    userErrorText(
+      e,
+      fallback: 'Failed to load public messages',
+      statusText: const {404: 'This server or channel is no longer public.'},
+      where: 'public messages',
+    ),
+  );
 
   Future<void> loadMessages() async {
     final id = selectedId;
@@ -407,11 +418,14 @@ class _PublicServerViewState extends State<PublicServerView> {
     }
   }
 
-  String threadFailure(Object e) => e is RaftApiException && e.status == 404
-      ? tr('This server or channel is no longer public.')
-      : e is RaftApiException && e.message.isNotEmpty
-      ? e.message
-      : tr("Couldn't load this thread");
+  String threadFailure(Object e) => tr(
+    userErrorText(
+      e,
+      fallback: "Couldn't load this thread",
+      statusText: const {404: 'This server or channel is no longer public.'},
+      where: 'public thread',
+    ),
+  );
 
   Future<void> loadOlderThread() async {
     final id = threadChannelId;
@@ -464,17 +478,23 @@ class _PublicServerViewState extends State<PublicServerView> {
       );
     } on RaftApiException catch (e) {
       final body = e.details['agreement'];
-      final code = e.details['code'] ?? e.message;
       if (mounted) {
         final asked =
-            (code == 'agreement_required' || code == 'agreement_changed') &&
+            (serverErrorIs(e, 'agreement_required') ||
+                serverErrorIs(e, 'agreement_changed') ||
+                serverErrorCode(e) == 'agreement_required' ||
+                serverErrorCode(e) == 'agreement_changed') &&
             body is Map;
         setState(() {
           joining = false;
           if (!asked) {
-            joinError = e.message.isNotEmpty
-                ? e.message
-                : tr('Failed to join this public server');
+            joinError = tr(
+              userErrorText(
+                e,
+                fallback: 'Failed to join this public server',
+                where: 'public join',
+              ),
+            );
           }
         });
         if (asked) return Map<String, dynamic>.from(body);
@@ -745,7 +765,8 @@ class _PublicServerViewState extends State<PublicServerView> {
         if (error.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(RaftSpace.x3),
-            child: RaftConnectedAppsError(error),
+            // `<Banner intent="warning" className="m-3 shrink-0">`
+            child: RaftErrorBanner(error),
           ),
         Expanded(
           child: messages.isEmpty

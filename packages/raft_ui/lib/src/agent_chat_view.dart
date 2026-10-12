@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'agent_profile.dart' show RaftPanelText;
 import 'collapsible.dart' show RaftShowMoreToggle;
 import 'dialog_card.dart' show RaftTextSteps, raftCssTextStyle;
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'list_items.dart';
 import 'localization.dart';
@@ -66,9 +67,16 @@ class RaftAgentChatView extends StatefulWidget {
     super.key,
     required this.channels,
     required this.dms,
+    this.channelsError,
+    this.dmsError,
   });
   final List<RaftAgentChannelRow> channels;
   final List<RaftAgentDmRow> dms;
+
+  /// A failed channels / DMs read (English source): the section shows
+  /// `<Banner intent="warning" density="sm" className="font-bold">` in
+  /// `px-5 pb-4`, like Web.
+  final String? channelsError, dmsError;
 
   /// `AGENT_CHAT_CHANNEL_PREVIEW_LIMIT`.
   static const channelPreviewLimit = 5;
@@ -88,7 +96,11 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
     final sectionRule = t.brutal
         ? Colors.black.withValues(alpha: .1)
         : t.colors['line-muted']!;
-    final empty = widget.channels.isEmpty && widget.dms.isEmpty;
+    final empty =
+        widget.channels.isEmpty &&
+        widget.dms.isEmpty &&
+        widget.channelsError == null &&
+        widget.dmsError == null;
     return ColoredBox(
       color: bg,
       child: SingleChildScrollView(
@@ -177,6 +189,11 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
     ),
   );
 
+  Widget _errorRow(String message) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+    child: RaftErrorBanner(message, small: true, bold: true),
+  );
+
   /// `flex items-center gap-3 border ... bg-fill-muted px-3 py-2` inside `px-4 pb-4`.
   Widget _inlineEmpty(
     BuildContext context,
@@ -261,7 +278,9 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
             'Channels where this agent can read or participate.',
           ),
         ),
-        if (widget.channels.isEmpty)
+        if (widget.channelsError != null)
+          _errorRow(widget.channelsError!)
+        else if (widget.channels.isEmpty)
           _inlineEmpty(
             context,
             t,
@@ -402,7 +421,9 @@ class _RaftAgentChatViewState extends State<RaftAgentChatView> {
         raftText(context, 'Agent DMs'),
         raftText(context, 'Direct conversations involving this agent.'),
       ),
-      if (widget.dms.isEmpty)
+      if (widget.dmsError != null)
+        _errorRow(widget.dmsError!)
+      else if (widget.dms.isEmpty)
         _inlineEmpty(
           context,
           t,

@@ -130,9 +130,7 @@ class SourceChannelFilesActions {
   void _error(String message) {
     final c = context();
     if (!_disposed && c.mounted) {
-      ScaffoldMessenger.maybeOf(
-        c,
-      )?.showSnackBar(SnackBar(content: Text(raftText(c, message))));
+      showRaftToast(c, message);
     }
   }
 

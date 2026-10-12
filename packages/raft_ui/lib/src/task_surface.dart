@@ -29,6 +29,7 @@ import 'task_timeline.dart';
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
 import 'thread_composition.dart';
+import 'thread_resolution_body.dart';
 import 'tokens/shadows.g.dart';
 import 'status_bar.dart';
 
@@ -383,15 +384,18 @@ class _RaftTaskSurfaceState extends State<RaftTaskSurface> {
   Widget modernBody(BuildContext context) {
     final head = properties(context);
     if (widget.error != null && widget.loading == false)
+      // ThreadPanel `resolveFailed`: title, body and an outline Retry; the
+      // exception itself is never shown.
       return SingleChildScrollView(
-        child: Column(
-          children: [
-            RaftAuthBanner(text: '${widget.error}'),
-            RaftTextButton(
-              label: 'Retry',
-              onPressed: () => unawaited(widget.onRetry()),
-            ),
-          ],
+        child: RaftThreadResolutionBody(
+          loadingLabel: raftText(context, 'Loading...'),
+          errorTitle: raftText(context, "Couldn't load this thread"),
+          errorBody: raftText(
+            context,
+            "The thread couldn't be opened. If this channel just became public, retrying usually fixes it.",
+          ),
+          retryLabel: raftText(context, 'Retry'),
+          onRetry: () => unawaited(widget.onRetry()),
         ),
       );
     final buildDiscussion = widget.discussionBuilder;

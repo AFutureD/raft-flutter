@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+
 import '../data/workspace_controller.dart';
 
 class CreateTaskDialog extends StatefulWidget {
@@ -104,9 +106,14 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
     } catch (e) {
       if (mounted) {
         setState(
-          () => error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to create task'),
+          () => error = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to create task',
+              where: 'create task',
+            ),
+          ),
         );
       }
     } finally {

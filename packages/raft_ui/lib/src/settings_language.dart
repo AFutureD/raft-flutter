@@ -6,8 +6,8 @@
 // and saving.
 import 'package:flutter/material.dart';
 
-import 'banner.dart';
 import 'dialog_card.dart';
+import 'error_presentation.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
@@ -175,8 +175,7 @@ class RaftLanguageRegionView extends StatelessWidget {
               _selectBlock(
                 RaftSettingsPreference(
                   title: 'Display language',
-                  description:
-                      'Choose the language for the app interface. This is separate from message translation.',
+                  description: 'Choose the language for the app interface. This is separate from message translation.',
                   child: _select(
                     context,
                     key: const ValueKey('display-language-select'),
@@ -202,8 +201,7 @@ class RaftLanguageRegionView extends StatelessWidget {
               RaftSettingsPreference(
                 gapBefore: 16,
                 title: 'Translation mode',
-                description:
-                    'Auto translates visible messages. Manual adds Translate to each message menu. Off keeps originals only.',
+                description: 'Auto translates visible messages. Manual adds Translate to each message menu. Off keeps originals only.',
                 notice: translationNotice,
                 child: _segmented(
                   context,
@@ -237,8 +235,7 @@ class RaftLanguageRegionView extends StatelessWidget {
                 RaftSettingsPreference(
                   gapBefore: 16,
                   title: 'Default view',
-                  description:
-                      'Choose whether messages show translation, original, or both.',
+                  description: 'Choose whether messages show translation, original, or both.',
                   child: _segmented(
                     context,
                     key: const ValueKey('translation-display'),
@@ -255,10 +252,8 @@ class RaftLanguageRegionView extends StatelessWidget {
               ],
               if (languageError != null) ...[
                 gap,
-                RaftBanner(
-                  description: languageError!,
-                  size: RaftBannerRecipeSize.sm,
-                ),
+                // `<Banner intent="warning" density="sm" className="font-bold">`
+                RaftErrorBanner(languageError!, small: true, bold: true),
               ],
               gap,
               _save(
@@ -307,10 +302,8 @@ class RaftLanguageRegionView extends StatelessWidget {
               ),
               if (dateTimeError != null) ...[
                 gap,
-                RaftBanner(
-                  description: dateTimeError!,
-                  size: RaftBannerRecipeSize.sm,
-                ),
+                // `<Banner intent="warning" density="sm" className="font-bold">`
+                RaftErrorBanner(dateTimeError!, small: true, bold: true),
               ],
               gap,
               _save(

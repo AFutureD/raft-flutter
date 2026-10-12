@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'private_route_guard.dart';
@@ -75,7 +76,7 @@ class _ManagedAgentFormHost extends StatefulWidget {
 class _ManagedAgentFormHostState extends State<_ManagedAgentFormHost> {
   WorkspaceController get w => widget.controller;
   List<Map<String, dynamic>>? machines;
-  Object? failure;
+  String? failure;
   int ticket = 0;
 
   bool get directoryLoaded =>
@@ -134,7 +135,13 @@ class _ManagedAgentFormHostState extends State<_ManagedAgentFormHost> {
       setState(() => machines = filtered(rows is List ? rows : const []));
     } catch (e) {
       if (mounted && mine == ticket && machines == null) {
-        setState(() => failure = e);
+        setState(
+          () => failure = userErrorText(
+            e,
+            fallback: raftGenericErrorText,
+            where: 'managed agent launcher',
+          ),
+        );
       }
     }
   }
@@ -150,7 +157,7 @@ class _ManagedAgentFormHostState extends State<_ManagedAgentFormHost> {
         if (failure != null)
           RaftAgentBanner(
             status: RaftAgentBannerStatus.warning,
-            description: '$failure',
+            description: failure!,
             action: 'Retry',
             onAction: load,
           )

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:raft_client/raft_client.dart';
 
+import 'user_error.dart';
 import 'workspace_controller.dart';
 
 /// raft-shared `SUPPORTED_TRANSLATION_LANGUAGES` (value → English label).
@@ -238,6 +239,13 @@ class MessageTranslationStore extends ChangeNotifier {
   Timer? _flush;
   String? settingsError;
 
+  /// Web translationStore: the server's text or `settings.translation.loadFailed`.
+  static String _settingsLoadFailed(Object failure) => userErrorText(
+    failure,
+    fallback: 'Failed to load translation settings',
+    where: 'translation settings',
+  );
+
   /// Servers whose gate was read (or set) in this session; a gate restored
   /// from the device is shown but still read once.
   final _verified = <String>{};
@@ -380,13 +388,13 @@ class MessageTranslationStore extends ChangeNotifier {
           );
         } else if (generation == w.client.generation) {
           _failedLoads.add(id);
-          settingsError = e.message;
+          settingsError = _settingsLoadFailed(e);
         }
       } catch (e) {
         if (epoch != _epoch) return;
         if (generation == w.client.generation) {
           _failedLoads.add(id);
-          settingsError = '$e';
+          settingsError = _settingsLoadFailed(e);
         }
       } finally {
         if (epoch == _epoch) {

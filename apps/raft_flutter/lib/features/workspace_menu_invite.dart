@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/raft_location.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
 import '../data/feature_flag_client_facts.dart';
@@ -167,6 +167,19 @@ class _InviteDialogState extends State<_InviteDialog> {
     } catch (_) {}
   }
 
+  /// InviteHumanDialog `setError(err.response?.data?.error ||
+  /// "Failed to prepare join link")`. The dialog's own error row belongs to
+  /// the email form, so a join-link failure is reported as a toast rather
+  /// than dropped.
+  void linkFailed(Object e) => showRaftToast(
+    context,
+    userErrorText(
+      e,
+      fallback: 'Failed to prepare join link',
+      where: 'join link',
+    ),
+  );
+
   // The first existing join link, else a fresh unlimited one.
   Future<void> loadLink() async {
     final identity = pageIdentity(w);
@@ -188,8 +201,11 @@ class _InviteDialogState extends State<_InviteDialog> {
         });
         if (identity == pageIdentity(w)) _rememberLink();
       }
-    } catch (_) {
-      if (mounted) setState(() => loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => loading = false);
+        linkFailed(e);
+      }
     }
   }
 
@@ -242,7 +258,8 @@ class _InviteDialogState extends State<_InviteDialog> {
         );
         _rememberLink();
       }
-    } catch (_) {
+    } catch (e) {
+      if (mounted) linkFailed(e);
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -258,7 +275,8 @@ class _InviteDialogState extends State<_InviteDialog> {
         setState(() => link = null);
         _rememberLink();
       }
-    } catch (_) {
+    } catch (e) {
+      if (mounted) linkFailed(e);
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -267,22 +285,20 @@ class _InviteDialogState extends State<_InviteDialog> {
   Future<void> send(List<(String, String)> invites) async {
     for (final (email, _) in invites) {
       final error = sourceInviteEmailError(email);
-      if (error != null) throw StateError(error);
+      if (error != null) throw RaftUserError(error);
     }
     if (!widget.current()) {
-      throw StateError('Invitation is unavailable.');
+      throw const RaftUserError('Failed to send invites');
     }
-    try {
-      await Future.wait([
-        for (final (email, role) in invites)
-          w.client.post(
-            '/servers/${widget.serverId}/invites',
-            data: {'email': email, 'role': role},
-          ),
-      ]);
-    } on RaftApiException catch (e) {
-      throw StateError(e.message);
-    }
+    // A failed invite rethrows as caught: the dialog shows the server's text
+    // or `member.invite.failedSend` through the error scope.
+    await Future.wait([
+      for (final (email, role) in invites)
+        w.client.post(
+          '/servers/${widget.serverId}/invites',
+          data: {'email': email, 'role': role},
+        ),
+    ]);
     if (mounted) Navigator.of(context).pop(true);
   }
 

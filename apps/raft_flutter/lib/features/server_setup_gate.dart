@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/freshness.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
@@ -259,7 +260,11 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
         setupMachinesError = null;
       } catch (e) {
         if (!accepts(generation, request)) return;
-        setupMachinesError = '$e';
+        setupMachinesError = userErrorText(
+          e,
+          fallback: 'Server setup could not be updated. Try again.',
+          where: 'setup machines',
+        );
         if (e is RaftApiException && [401, 403].contains(e.status)) {
           setupMachines = null;
         }

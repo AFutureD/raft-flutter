@@ -5,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/resource_snapshot_cache.dart' show stableValue;
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'channel_conversion_section.dart';
 import 'channel_form_fields.dart';
@@ -262,7 +263,9 @@ class _ChannelSettingsState extends State<ChannelSettings> {
           }
           known.add(part);
         }
-        error = failure == null ? null : '$failure';
+        error = failure == null
+            ? null
+            : failText(failure!, raftGenericErrorText);
       });
       // The member roster is not shown here and is never cached.
       writePageSnapshot(w, snapshotKey, identity, {
@@ -273,7 +276,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       });
     } catch (e) {
       if (mounted && generation == w.client.generation) {
-        setState(() => error = '$e');
+        setState(() => error = failText(e, raftGenericErrorText));
       }
     }
   }
@@ -289,7 +292,9 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       await w.refreshChannels();
       await load();
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(() => error = failText(e, 'Failed to update channel'));
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -387,11 +392,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       if (mounted) Navigator.of(context).maybePop();
     } catch (e) {
       if (mounted) {
-        setState(
-          () => error = e is RaftApiException
-              ? e.message
-              : raftText(context, 'Failed to update channel'),
-        );
+        setState(() => error = failText(e, 'Failed to update channel'));
       }
     } finally {
       if (mounted) setState(() => busy = false);
@@ -439,7 +440,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
               identity != pageIdentity(w) ||
               channel.archived ||
               !cap('editChannelMetadata')) {
-            throw StateError('Channel editing is no longer available.');
+            throw RaftUserError('Channel editing is no longer available.');
           }
           await w.command('PATCH', '/channels/${c.id}', data: values);
           if (identity != pageIdentity(w)) return;
@@ -585,7 +586,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                     !fresh.joined ||
                     !channelCanToggleActivityMute(fresh) ||
                     !w.can('viewChannel', resource: fresh)) {
-                  throw StateError(
+                  throw RaftUserError(
                     'Channel activity preference is no longer available.',
                   );
                 }
@@ -785,11 +786,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
       return true;
     } catch (e) {
       if (mounted) {
-        setState(
-          () => error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to update channel'),
-        );
+        setState(() => error = failText(e, 'Failed to update channel'));
       }
       return false;
     } finally {
@@ -881,13 +878,15 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     ...w.channels.where((c) => c.id != channel.id),
   ].firstOrNull;
 
+  /// Web `err.response?.data?.error || formatMessage(fallback)`, localized.
+  String failText(Object e, String fallback) => raftText(
+    context,
+    userErrorText(e, fallback: fallback, where: 'channel settings'),
+  );
+
   Future<void> failWith(Object e, String fallback) async {
     if (!mounted) return;
-    setState(
-      () => error = e is RaftApiException && e.message.isNotEmpty
-          ? e.message
-          : raftText(context, fallback),
-    );
+    setState(() => error = failText(e, fallback));
   }
 
   Future<void> archive() async {
@@ -1216,7 +1215,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                 !fresh.joined ||
                 !channelCanToggleActivityMute(fresh) ||
                 !w.can('viewChannel', resource: fresh)) {
-              throw StateError(
+              throw RaftUserError(
                 'Channel activity preference is no longer available.',
               );
             }
@@ -1538,7 +1537,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         ? 'You no longer have permission to control agents here.'
         : null;
     String failure(Object error, String fallback) =>
-        error is RaftApiException ? error.message : fallback;
+        userErrorText(error, fallback: fallback, where: 'channel SOS');
     await showRaftDialog<void>(
       context: context,
       // Web `DialogCard` (SOSDialog): no scrim close, Escape and X close.

@@ -11,6 +11,7 @@ import 'banner.dart';
 import 'components.dart' show RaftButton;
 import 'design_primitives.dart' show RaftSpinner, RaftTypography;
 import 'feedback_inbox.dart' show RaftDashedBorderPainter, RaftUiSkeleton;
+import 'error_presentation.dart';
 import 'icons.dart';
 import 'list_items.dart' show RaftSectionEyebrow, RaftSurfaceListItem;
 import 'settings_controls.dart' show RaftSettingsRecipeButton;
@@ -91,12 +92,8 @@ class RaftServerLabsSection extends StatelessWidget {
       line: 20,
       color: text.muted,
     );
-    Widget warning(String message) => RaftBanner(
-      status: RaftBannerRecipeStatus.warning,
-      size: RaftBannerRecipeSize.sm,
-      description: message,
-      descriptionWeight: FontWeight.w700,
-    );
+    Widget warning(String message) =>
+        RaftErrorBanner(message, small: true, bold: true);
     final body = switch (status) {
       RaftServerLabsStatus.loading => const Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -357,7 +354,7 @@ class RaftProviderConnectionsFrame extends StatelessWidget {
                   border: Border.all(color: edge, width: 2),
                 ),
                 child: Text(
-                  error!,
+                  raftText(context, error!),
                   style: RaftTypography.body(
                     t,
                     size: 14,
@@ -642,12 +639,7 @@ class _RaftMcpServersSectionState extends State<RaftMcpServersSection> {
     );
     final items = <WidgetBuilder>[
       if (widget.error != null)
-        (_) => RaftBanner(
-          status: RaftBannerRecipeStatus.warning,
-          size: RaftBannerRecipeSize.sm,
-          description: widget.error!,
-          descriptionWeight: FontWeight.w700,
-        ),
+        (_) => RaftErrorBanner(widget.error!, small: true, bold: true),
       (_) => Padding(
         padding: EdgeInsets.only(top: widget.error == null ? 0 : 24),
         child: header(
@@ -892,11 +884,10 @@ class _McpServerCard extends StatelessWidget {
                     ],
                     if (server.lastCheckError != null) ...[
                       const SizedBox(height: 12),
-                      RaftBanner(
-                        status: RaftBannerRecipeStatus.warning,
-                        size: RaftBannerRecipeSize.sm,
-                        description: server.lastCheckError!,
-                        descriptionWeight: FontWeight.w700,
+                      RaftErrorBanner(
+                        server.lastCheckError!,
+                        small: true,
+                        bold: true,
                       ),
                     ],
                   ],

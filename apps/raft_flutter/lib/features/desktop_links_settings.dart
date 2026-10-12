@@ -119,13 +119,10 @@ class _DesktopLinksSettingsState extends State<DesktopLinksSettings>
                     ],
                   ),
                 if (service.error != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      service.error!,
-                      key: const ValueKey('raft-uri-scheme-error'),
-                      style: r.description,
-                    ),
+                  RaftErrorBanner(
+                    service.error!,
+                    key: const ValueKey('raft-uri-scheme-error'),
+                    small: true,
                   ),
               ],
             ),

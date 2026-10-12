@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 
 import 'raft_underline.dart';
 import 'system_inset.dart';
-import 'banner.dart';
 import 'design_primitives.dart'
     show
         RaftInteractive,
@@ -18,6 +17,7 @@ import 'design_primitives.dart'
         RaftSegmentedOption,
         RaftTypography;
 import 'dialog_card.dart' show RaftCloseButton, RaftRecipeCard;
+import 'error_presentation.dart';
 import 'icons.dart';
 import 'list_items.dart' show RaftSectionEyebrow, RaftSurfaceListItem;
 import 'localization.dart';
@@ -561,12 +561,8 @@ class RaftConnectedAppsError extends StatelessWidget {
   const RaftConnectedAppsError(this.message, {super.key});
   final String message;
   @override
-  Widget build(BuildContext context) => RaftBanner(
-    status: RaftBannerRecipeStatus.warning,
-    size: RaftBannerRecipeSize.sm,
-    description: message,
-    descriptionWeight: FontWeight.w700,
-  );
+  Widget build(BuildContext context) =>
+      RaftErrorBanner(message, small: true, bold: true);
 }
 
 class _EmptyBox extends StatelessWidget {

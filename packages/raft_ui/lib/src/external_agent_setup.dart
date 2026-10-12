@@ -531,7 +531,7 @@ class RaftExternalSetupSection extends StatelessWidget {
                         ),
                       if (statusError != null)
                         RaftCssText(
-                          statusError!,
+                          raftText(context, statusError!),
                           style: _xs(
                             t,
                             weight: FontWeight.w700,

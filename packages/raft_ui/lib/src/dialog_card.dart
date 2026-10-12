@@ -17,15 +17,14 @@ import 'system_inset.dart';
 
 import 'package:flutter/rendering.dart';
 
-import 'banner.dart' show RaftBanner;
 import 'control_typography.dart';
 import 'design_primitives.dart';
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'dismiss_scope.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart' show RaftCssText;
 import 'recipe_surface.dart';
-import 'recipes/banner.g.dart' show RaftBannerRecipeStatus;
 import 'recipes/button_variants.g.dart';
 import 'recipes/card.g.dart';
 import 'recipes/field.g.dart' as field_recipe;
@@ -961,45 +960,8 @@ class RaftDialogTextInput extends StatelessWidget {
   }
 }
 
-/// Web `Banner intent="warning" className="font-bold"`.
-class RaftWarningBanner extends StatelessWidget {
-  const RaftWarningBanner(this.message, {super.key, this.small = false});
-  final String message;
-
-  /// Call-site `text-xs` (AddMembersDialog's error Banner).
-  final bool small;
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    // Product `<Banner intent="warning" className="font-bold">`: the public
-    // Banner recipe geometry; BannerDescription keeps its regular weight.
-    if (!small) {
-      return RaftBanner(
-        description: message,
-        status: RaftBannerRecipeStatus.warning,
-      );
-    }
-    return Semantics(
-      liveRegion: true,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: t.colors['warning-soft'],
-          border: Border.all(
-            color: t.brutal ? t.colors['line-strong']! : t.colors['warning']!,
-            width: t.border,
-          ),
-        ),
-        child: Text(
-          message,
-          style: raftCssTextStyle(
-            family: t.headingFont,
-            step: small ? RaftTextSteps.xs : RaftTextSteps.sm,
-            weight: FontWeight.w700,
-            color: t.strong,
-          ),
-        ),
-      ),
-    );
-  }
+/// Web `Banner intent="warning" className="font-bold"` (the dialog error row).
+/// Kept as the name the channel dialogs use; it is [RaftErrorBanner].
+class RaftWarningBanner extends RaftErrorBanner {
+  const RaftWarningBanner(super.message, {super.key, super.small});
 }

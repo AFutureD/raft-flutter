@@ -4,8 +4,8 @@
 import 'package:flutter/material.dart';
 
 import 'settings_administration.dart' show RaftAgreementBody;
-import 'banner.dart';
 import 'dialog_card.dart';
+import 'error_presentation.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
@@ -146,11 +146,11 @@ class _RaftCommunityAgreementDialogState
               ),
               if (error.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                RaftBanner(
+                RaftErrorBanner(
+                  error,
                   key: const ValueKey('community-agreement-error'),
-                  description: error,
-                  size: RaftBannerRecipeSize.sm,
-                  descriptionWeight: FontWeight.w700,
+                  small: true,
+                  bold: true,
                 ),
               ],
               const SizedBox(height: 20),

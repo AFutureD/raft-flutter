@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/system_bars.dart';
@@ -320,7 +322,15 @@ class _FleetViewState extends State<FleetView> {
       await showManagedAgentForm(context, w);
       if (current(captured)) await load();
     } catch (e) {
-      if (current(captured)) setState(() => actionError = '$e');
+      if (current(captured)) {
+        setState(
+          () => actionError = userErrorText(
+            e,
+            fallback: 'Failed to create agent',
+            where: 'managed agent form',
+          ),
+        );
+      }
     }
   }
 
@@ -330,7 +340,16 @@ class _FleetViewState extends State<FleetView> {
     final state = w.entityDirectory.state(kind);
     final loading = !w.entityDirectory.settled(kind);
     final error =
-        actionError ?? (state.error == null ? null : '${state.error}');
+        actionError ??
+        (state.error == null
+            ? null
+            : userErrorText(
+                state.error,
+                fallback: widget.computers
+                    ? "Couldn't load computers"
+                    : raftGenericErrorText,
+                where: 'fleet directory',
+              ));
     if (widget.computers &&
         MediaQuery.sizeOf(context).width <
             RaftLayoutMetrics.desktopBreakpoint) {
@@ -481,7 +500,7 @@ class _FleetViewState extends State<FleetView> {
       if (error != null)
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Semantics(liveRegion: true, child: Text(error)),
+          child: RaftErrorBanner(error),
         ),
       Expanded(
         child: loading && rows.isEmpty
@@ -809,9 +828,9 @@ class _FleetDetailState extends State<FleetDetail> {
         setState(() => gone = true);
         return;
       }
-      _readFailed('$e');
+      _readFailed(e, 'agent detail');
     } catch (e) {
-      if (current && ticket == request) _readFailed('$e');
+      if (current && ticket == request) _readFailed(e, 'agent detail');
     }
   }
 
@@ -823,9 +842,15 @@ class _FleetDetailState extends State<FleetDetail> {
   /// refresh) failed. Web falls back silently once the profile is on screen,
   /// so the page-level error slot is only for a profile that cannot render
   /// yet (it carries the Retry); mutation failures use `action` instead.
-  void _readFailed(String message) {
+  void _readFailed(Object failure, String where) {
     if (_renderable) return;
-    setState(() => error = message);
+    setState(
+      () => error = userErrorText(
+        failure,
+        fallback: raftGenericErrorText,
+        where: where,
+      ),
+    );
   }
 
   /// After the user's own mutation (or an explicit retry): re-read the shared
@@ -845,7 +870,13 @@ class _FleetDetailState extends State<FleetDetail> {
     }
     setState(() {
       row = compose();
-      if (failure != null && !_renderable) error = '$failure';
+      if (failure != null && !_renderable) {
+        error = userErrorText(
+          failure,
+          fallback: raftGenericErrorText,
+          where: 'fleet detail refresh',
+        );
+      }
     });
   }
 
@@ -883,7 +914,10 @@ class _FleetDetailState extends State<FleetDetail> {
     );
   }
 
-  Future<void> action(Future<void> Function() operation) async {
+  Future<void> action(
+    Future<void> Function() operation, {
+    String fallback = raftGenericErrorText,
+  }) async {
     if (busy || !current) {
       return;
     }
@@ -894,7 +928,11 @@ class _FleetDetailState extends State<FleetDetail> {
     try {
       await operation();
     } catch (e) {
-      if (current) setState(() => error = '$e');
+      if (current) {
+        setState(
+          () => error = userErrorText(e, fallback: fallback, where: 'agent action'),
+        );
+      }
     } finally {
       if (current) setState(() => busy = false);
     }
@@ -1122,7 +1160,12 @@ class _FleetDetailState extends State<FleetDetail> {
       throw const RaftApiException('This action is not available.');
     }
     require(capability);
-    await w.command('POST', '$base/reset', data: {'mode': mode});
+    // Web ResetAgentDialog: `data.error || agent.reset.failed`.
+    await withWebError(
+      'Failed to reset agent',
+      () => w.command('POST', '$base/reset', data: {'mode': mode}),
+      where: 'agent reset',
+    );
     await load();
   }
 
@@ -1160,7 +1203,11 @@ class _FleetDetailState extends State<FleetDetail> {
         variant: RaftButtonRecipeVariant.warning,
         operation: () async {
           require('controlAgentRuntime');
-          await w.command('POST', '$base/stop', data: {});
+          await withWebError(
+            'Failed to stop agent',
+            () => w.command('POST', '$base/stop', data: {}),
+            where: 'agent stop',
+          );
           await load();
         },
       );
@@ -1189,14 +1236,12 @@ class _FleetDetailState extends State<FleetDetail> {
         );
         await load();
         if (mounted && current) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result is Map && result['appliesOnReconnect'] == true
-                    ? 'Requested. Applies when the computer reconnects.'
-                    : 'Request accepted. Check runtime status for completion.',
-              ),
-            ),
+          showRaftToast(
+            context,
+            result is Map && result['appliesOnReconnect'] == true
+                ? 'Requested. Applies when the computer reconnects.'
+                : 'Request accepted. Check runtime status for completion.',
+            tone: RaftToastRecipeTone.success,
           );
         }
       },
@@ -1313,6 +1358,7 @@ class _FleetDetailState extends State<FleetDetail> {
     initialTrajectoryLog: widget.initialTrajectoryLog,
     busy: busy,
     error: error,
+    onDismissError: () => setState(() => error = null),
     canManage: allowed('editAgents'),
     canViewPrivate: allowed('editAgents'),
     canControlRuntime: allowed('controlAgentRuntime'),
@@ -1327,13 +1373,18 @@ class _FleetDetailState extends State<FleetDetail> {
       onEditRuntime: !external && row['machineId'] is String
           ? editRuntime
           : null,
-      onStartStop: () => action(
-        () => runtimeCommand(
-          agentRowAmbientDisplay(row, live: liveActivity).activity == 'offline'
-              ? 'start'
-              : 'stop',
-        ),
-      ),
+      onStartStop: () {
+        final starting =
+            agentRowAmbientDisplay(row, live: liveActivity).activity ==
+            'offline';
+        unawaited(
+          action(
+            () => runtimeCommand(starting ? 'start' : 'stop'),
+            // Web handleStop: `agent.detail.stopAgentFailed`.
+            fallback: starting ? raftGenericErrorText : 'Failed to stop agent',
+          ),
+        );
+      },
       onRestartReset: () => action(restartReset),
       onDelete: allowed('deleteAgents') ? remove : null,
       onMessage: row['deletedAt'] == null ? () => action(message) : null,
@@ -1526,7 +1577,19 @@ class _FleetInspectionState extends State<FleetInspection> {
         'dir': target,
       });
     } catch (e) {
-      if (current && ticket == request) setState(() => error = '$e');
+      if (current && ticket == request) {
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: switch (widget.kind) {
+              'workspace-files' => 'Failed to load files',
+              'skills' => 'Failed to load skills',
+              _ => raftGenericErrorText,
+            },
+            where: 'fleet inspection',
+          ),
+        );
+      }
     } finally {
       if (current && ticket == request) setState(() => loading = false);
     }
@@ -1553,7 +1616,13 @@ class _FleetInspectionState extends State<FleetInspection> {
             },
             onError: (Object e) {
               if (current && ticket == fileRequest) {
-                content.value = _FileReadFailed('$e');
+                content.value = _FileReadFailed(
+                  userErrorText(
+                    e,
+                    fallback: 'Failed to load file',
+                    where: 'workspace file read',
+                  ),
+                );
               }
             },
           ),
@@ -1571,7 +1640,7 @@ class _FleetInspectionState extends State<FleetInspection> {
               valueListenable: content,
               builder: (_, data, _) => SelectableText(switch (data) {
                 _PendingFile() => raftText(context, 'Loading…'),
-                _FileReadFailed(:final message) => message,
+                _FileReadFailed(:final message) => raftText(context, message),
                 Map() when data['binary'] == true =>
                   'Binary file · ${data['mimeType'] ?? ''} · ${data['size']} bytes',
                 Map() => '${data['content'] ?? ''}',
@@ -1621,11 +1690,7 @@ class _FleetInspectionState extends State<FleetInspection> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(error!),
-                  TextButton(
-                    onPressed: load,
-                    child: Text(raftText(context, 'Try again')),
-                  ),
+                  RaftLoadError(error!, onRetry: load, expand: false),
                 ],
               ),
             ),
@@ -1641,7 +1706,7 @@ class _FleetInspectionState extends State<FleetInspection> {
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.all(RaftSpace.x4),
-                  child: RaftWarningBanner(error!),
+                  child: RaftErrorBanner(error!),
                 ),
               if (dir.isNotEmpty)
                 ListTile(

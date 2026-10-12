@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'channel_conversion_progress.dart';
@@ -173,6 +174,13 @@ class _ConversionSectionState
     return managementRows(result['evaluations'])
         .any((f) => f['key'] == channelConversionFlag && f['enabled'] == true);
   }
+
+  /// Web `responseData.error || formatMessage('channel.edit.failedConvertJoint')`.
+  String conversionError(RaftApiException e) => userErrorText(
+    e,
+    fallback: 'Failed to convert channel to joint channel',
+    where: 'channel conversion',
+  );
 
   @override
   Future<void> loadData(int request, int generation) async {
@@ -374,11 +382,11 @@ class _ConversionSectionState
               'conversionJob': e.details['conversionJob'],
             });
             observations.remove(key);
-            error = e.message;
+            error = conversionError(e);
           } else if (e is RaftApiException &&
               [400, 403, 404, 409].contains(e.status)) {
             observations.remove(key);
-            error = e.message;
+            error = conversionError(e);
             uploadBlocked =
                 e.details['code'] == 'channel_conversion_uploads_in_flight';
             if ([401, 403, 404].contains(e.status)) {
@@ -387,7 +395,7 @@ class _ConversionSectionState
             }
           } else {
             uncertain = true;
-            error = 'The conversion outcome is not confirmed. Check status before trying again.';
+            error = 'Conversion status could not be confirmed. Reconnecting; the last known progress is preserved.';
           }
         }
       },
@@ -515,15 +523,8 @@ class _ConversionSectionState
           if (snapshot.status == 'failed' &&
               snapshot.job.isEmpty &&
               snapshot.command['error'] is String)
-            Text(
-              snapshot.command['error'],
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          if (error != null)
-            Text(
-              error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+            RaftErrorBanner(snapshot.command['error'], small: true),
+          if (error != null) RaftErrorBanner(error!, small: true),
           Wrap(
             spacing: 8,
             children: [

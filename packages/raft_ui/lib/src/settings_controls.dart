@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'banner.dart';
 import 'design_primitives.dart' hide RaftPanelHeaderRecipe;
+import 'error_presentation.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'overlays/dialog.dart' show showRaftDialog;
@@ -711,7 +711,8 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
       if (mounted) {
         setState(() {
           loading = false;
-          error = e is StateError ? e.message : '$e';
+          // Web ConfirmDialog: the server's error text, else the generic copy.
+          error = raftErrorMessage(context, e);
         });
       }
     }
@@ -738,10 +739,7 @@ class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
           body,
           // ConfirmDialog: `<Banner intent="warning" className="mt-4">`.
           const SizedBox(height: 16),
-          RaftBanner(
-            status: RaftBannerRecipeStatus.warning,
-            description: error,
-          ),
+          RaftErrorBanner(error),
         ],
       );
     }
@@ -1171,7 +1169,7 @@ class RaftSettingsPreference extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Semantics(
                 liveRegion: true,
-                child: Text(error, style: text.alert),
+                child: Text(raftText(context, error), style: text.alert),
               ),
             ),
         ],

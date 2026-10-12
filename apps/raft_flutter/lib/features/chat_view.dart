@@ -19,6 +19,7 @@ import '../data/plan_history.dart';
 import '../data/raft_location.dart';
 import '../data/raft_permalink.dart';
 import '../data/thread_search.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/message_translation_store.dart';
 import '../data/source_time_formatter.dart';
@@ -676,7 +677,17 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (current()) {
-        setState(() => selectionError = '$e');
+        setState(
+          () => selectionError = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback:
+                  "One or more selected items can't be forwarded. Select regular messages instead.",
+              where: 'forward selection',
+            ),
+          ),
+        );
       }
     }
   }
@@ -719,7 +730,16 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (current()) {
-        setState(() => selectionError = raftText(context, '$e'));
+        setState(
+          () => selectionError = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'The message image could not be rendered.',
+              where: 'message image preview',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted &&
@@ -1387,10 +1407,12 @@ class _RaftChatViewState extends State<RaftChatView>
         text: (key, args) => raftFormat(context, key, args),
       );
     } catch (e) {
+      // Web MessageInput `setError`: the composer's error banner.
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        w.setComposerError(
+          userErrorText(e, fallback: 'Upload failed', where: 'attach files'),
+          thread: widget.thread,
+        );
       }
     }
   }
@@ -1599,9 +1621,7 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        showRaftToast(context, userErrorText(e, where: 'message action'));
       }
     }
   }
@@ -2132,9 +2152,7 @@ class _RaftChatViewState extends State<RaftChatView>
       await store.setSaved(message.id, !store.isSaved(message.id));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        showRaftToast(context, userErrorText(e, where: 'save message'));
       }
     }
   }

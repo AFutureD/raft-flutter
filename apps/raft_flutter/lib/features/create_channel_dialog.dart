@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'channel_form_fields.dart';
@@ -251,9 +253,14 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
       if (mounted) {
         setState(() {
           archivedCollision = null;
-          error = e is RaftApiException
-              ? e.message
-              : raftText(context, 'Failed to unarchive channel');
+          error = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to unarchive channel',
+              where: 'create channel unarchive',
+            ),
+          );
         });
       }
     } finally {
@@ -306,9 +313,14 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
               details['archivedChannelId'] != null) {
             archivedCollision = Map<String, dynamic>.from(details);
           } else {
-            error = e is RaftApiException
-                ? e.message
-                : raftText(context, 'Failed to create channel');
+            error = raftText(
+              context,
+              userErrorText(
+                e,
+                fallback: 'Failed to create channel',
+                where: 'create channel',
+              ),
+            );
           }
         });
       }

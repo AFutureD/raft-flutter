@@ -25,10 +25,16 @@ class RaftRootErrorFallback extends StatelessWidget {
     required this.onReload,
     this.stack,
     this.componentStack,
+    this.componentStackOpen = true,
   });
 
-  /// `error.message`.
+  /// `error.message`. Empty hides the message box: a native app whose error
+  /// text is a raw exception keeps it behind the "Stack trace" disclosure
+  /// instead of printing it on the page.
   final String message;
+
+  /// Web renders the component stack `<details open>`.
+  final bool componentStackOpen;
 
   /// `error.stack`; null or empty hides the "Stack trace" disclosure.
   final String? stack;
@@ -102,13 +108,17 @@ class RaftRootErrorFallback extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _ErrorBox(
-                    key: const ValueKey('root-error-message'),
-                    // `leading-relaxed` is 22.75px; Blink snaps the box edges to device
-                    // pixels (the brutal 50.75px box paints 50, the elegant 48.75px
-                    // box 49), so the line is rounded the same way.
-                    child: Text(message, style: _mono(t, 14, _snapLine(context, t, 22.75))),
-                  ),
+                  if (message.isNotEmpty)
+                    _ErrorBox(
+                      key: const ValueKey('root-error-message'),
+                      // `leading-relaxed` is 22.75px; Blink snaps the box edges to device
+                      // pixels (the brutal 50.75px box paints 50, the elegant 48.75px
+                      // box 49), so the line is rounded the same way.
+                      child: Text(
+                        message,
+                        style: _mono(t, 14, _snapLine(context, t, 22.75)),
+                      ),
+                    ),
                   if (hasStack)
                     _ErrorDisclosure(
                       key: const ValueKey('root-error-stack'),
@@ -120,7 +130,7 @@ class RaftRootErrorFallback extends StatelessWidget {
                       key: const ValueKey('root-error-component-stack'),
                       title: raftText(context, 'Component stack'),
                       body: componentStack!,
-                      initiallyOpen: true,
+                      initiallyOpen: componentStackOpen,
                     ),
                   const SizedBox(height: 8),
                   // `mt-6 flex justify-end` after the `mb-4` boxes.

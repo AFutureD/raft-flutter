@@ -178,7 +178,7 @@ void main() {
     );
     expect(failed, isA<CommunityJoinFailed>());
     expect(
-      (failed as CommunityJoinFailed).message,
+      ((failed as CommunityJoinFailed).error as RaftApiException).message,
       'Server seat limit reached',
     );
   });

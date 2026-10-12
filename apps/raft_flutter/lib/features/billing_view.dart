@@ -4,6 +4,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
 import 'management_support.dart';
@@ -298,7 +299,7 @@ class _BillingState extends ManagementState<BillingView> {
   }
 
   String _error(Object e, String fallback) =>
-      e is RaftApiException && e.message.isNotEmpty ? e.message : fallback;
+      userErrorText(e, fallback: fallback, where: 'billing');
 
   Future<void> _mutate(
     _BillingAction kind,

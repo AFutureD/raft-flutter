@@ -562,9 +562,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Provider verified'), findsNothing);
       expect(
-        find.textContaining(
-          'The verification receipt does not match this request. Refresh and retry.',
-        ),
+        // Web `settings.providers.verifyError`: a failed verification never
+        // shows the internal receipt check.
+        find.textContaining('Verification could not be started.'),
         findsOneWidget,
       );
       mismatch = false;

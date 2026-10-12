@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'brand.dart';
 import 'design_primitives.dart';
+import 'error_presentation.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'settings_layout.dart';
@@ -204,24 +205,28 @@ class RaftAppIconChoices extends StatelessWidget {
             },
           ),
           const SizedBox(height: RaftSpace.x4),
-          Semantics(
-            liveRegion: busy || error != null,
-            child: Text(
-              raftText(
-                context,
-                error ??
-                    (busy
-                        ? 'Changing icon…'
-                        : 'Saved on this device. Tap a color to apply.'),
-              ),
-              style: RaftTypography.body(
-                t,
-                size: 12,
-                line: 16,
-                color: text.muted,
+          if (error != null)
+            // Native only (no Web counterpart): the failure is the warning
+            // Banner every settings panel uses, density sm.
+            RaftErrorBanner(error!, small: true, bold: true)
+          else
+            Semantics(
+              liveRegion: busy,
+              child: Text(
+                raftText(
+                  context,
+                  busy
+                      ? 'Changing icon…'
+                      : 'Saved on this device. Tap a color to apply.',
+                ),
+                style: RaftTypography.body(
+                  t,
+                  size: 12,
+                  line: 16,
+                  color: text.muted,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

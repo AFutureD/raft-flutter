@@ -8,6 +8,7 @@ import 'indicators.dart';
 import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'dialog_card.dart';
 import 'icons.dart';
+import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'system_inset.dart';
 import 'status_bar.dart';
@@ -615,7 +616,10 @@ class RaftLightboxFailure extends StatelessWidget {
                 child: Text(title, style: const TextStyle(fontSize: 14)),
               ),
               const SizedBox(height: 12),
-              Text(message, style: const TextStyle(fontSize: 12)),
+              Text(
+                raftText(context, message),
+                style: const TextStyle(fontSize: 12),
+              ),
             ],
           ),
         ),

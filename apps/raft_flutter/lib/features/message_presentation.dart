@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../data/raft_location.dart';
 import '../data/raft_permalink.dart';
 import '../data/source_time_formatter.dart';
+import '../data/user_error.dart';
 
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -459,7 +460,18 @@ class MessagePresentation extends StatelessWidget {
           );
         }
       } catch (e) {
-        if (authority == workspaceAuthority(w)) w.setError('$e');
+        // Web MessageItem: `toast.error(sourceUnavailable)`.
+        if (current() && context.mounted) {
+          showRaftToast(
+            context,
+            userErrorText(
+              e,
+              fallback:
+                  'Unable to open source. It may be unavailable or deleted.',
+              where: 'open resource reference',
+            ),
+          );
+        }
       }
       return;
     }
@@ -591,12 +603,33 @@ class MessagePresentation extends StatelessWidget {
         if (!closed && data.value == null && navigator.canPop()) {
           navigator.pop();
         }
-        if (current()) w.setError('$e');
+        if (current() && context.mounted) {
+          showRaftToast(
+            context,
+            userErrorText(
+              e,
+              fallback:
+                  'Unable to open source. It may be unavailable or deleted.',
+              where: 'open task reference',
+            ),
+          );
+        }
       }
       await shown;
       data.dispose();
     } catch (e) {
-      if (current()) w.setError('$e');
+      // Web MessageItem `showThreadRefNotice`: `toast.error(threadUnavailable)`.
+      if (current() && context.mounted) {
+        showRaftToast(
+          context,
+          userErrorText(
+            e,
+            fallback:
+                'Unable to open thread. It may be unavailable or deleted.',
+            where: 'open reference',
+          ),
+        );
+      }
     }
   }
 

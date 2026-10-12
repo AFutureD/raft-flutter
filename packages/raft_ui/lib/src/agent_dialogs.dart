@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'error_presentation.dart' show RaftErrorScope;
 import 'dialog_card.dart' show raftRecipeThemeOf;
 import 'icons.dart';
 import 'overlays/dialog.dart' show showRaftDialog;
@@ -303,7 +304,11 @@ class _RaftAgentProfileEditDialogState
       if (mounted) {
         setState(() {
           saving = false;
-          error = e is StateError ? e.message : '$e';
+          // Web: `data.error || agent.detail.editProfile.saveFailed`.
+          error = RaftErrorScope.of(context)(
+            e,
+            fallback: 'Could not save changes. Try again.',
+          );
         });
       }
     }

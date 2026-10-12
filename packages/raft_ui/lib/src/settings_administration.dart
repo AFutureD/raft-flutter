@@ -70,12 +70,8 @@ class RaftAdminWarning extends StatelessWidget {
   const RaftAdminWarning(this.message, {super.key});
   final String message;
   @override
-  Widget build(BuildContext context) => RaftBanner(
-    status: RaftBannerRecipeStatus.warning,
-    size: RaftBannerRecipeSize.sm,
-    description: message,
-    descriptionWeight: FontWeight.w700,
-  );
+  Widget build(BuildContext context) =>
+      RaftErrorBanner(message, small: true, bold: true);
 }
 
 /// `Button variant="accent" size="sm"` Save / Saving… / (Check) Saved.

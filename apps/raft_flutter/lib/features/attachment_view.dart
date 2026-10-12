@@ -268,7 +268,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       } on DioException catch (error) {
         // A reused URL can outlive the server's view of it (clock skew,
         // early expiry): drop it and sign once more.
-        final status = error.response?.statusCode;
+        final status = _httpStatus(error);
         if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
         controller.invalidateAttachmentUrl('$id');
         final fresh = await controller.attachmentUrl(
@@ -506,13 +506,7 @@ class _AttachmentViewState extends State<AttachmentView> {
       await sharing.shareFile(prepared, mime);
     } catch (_) {
       if (mounted && current() && !operationCancel.isCancelled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              raftText(context, 'The attachment could not be shared.'),
-            ),
-          ),
-        );
+        showRaftToast(context, 'The attachment could not be shared.');
       }
     } finally {
       if (mounted && revision == bindingRevision) {
@@ -584,34 +578,26 @@ class _AttachmentViewState extends State<AttachmentView> {
         dialogVisible = false;
       }
       if (saved != null && mounted && current()) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved $name'),
-            action: SnackBarAction(
-              label: 'Open',
-              onPressed: () async {
-                try {
-                  await files.open(saved, mime);
-                } catch (_) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('No application can open this file.'),
-                      ),
-                    );
-                  }
-                }
-              },
-            ),
-          ),
+        showRaftToast(
+          context,
+          raftFormat(context, 'Saved {name}', {'name': name}),
+          tone: RaftToastRecipeTone.success,
+          actionLabel: 'Open',
+          onAction: () async {
+            try {
+              await files.open(saved, mime);
+            } catch (_) {
+              if (mounted) {
+                showRaftToast(context, 'No application can open this file.');
+              }
+            }
+          },
         );
       }
     } catch (_) {
       if (mounted && current() && !operationCancel.isCancelled) {
         setState(() => downloadFailed = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download failed. Try again.')),
-        );
+        showRaftToast(context, 'Download failed. Try again.');
       }
     } finally {
       if (revision == bindingRevision) saving = false;
@@ -1025,9 +1011,9 @@ class _AttachmentViewState extends State<AttachmentView> {
       opacity: opacity,
       fit: widget.imageFit,
       gaplessPlayback: true,
-      errorBuilder: (_, _, _) => const Padding(
-        padding: EdgeInsets.all(16),
-        child: Text('Preview unavailable. Download the original file.'),
+      errorBuilder: (_, _, _) => const RaftLoadError(
+        'Preview unavailable. Download the original file.',
+        expand: false,
       ),
     );
     if (!fadeIn) return image();
@@ -1040,3 +1026,5 @@ class _AttachmentViewState extends State<AttachmentView> {
     );
   }
 }
+
+int? _httpStatus(DioException failure) => failure.response?.statusCode;

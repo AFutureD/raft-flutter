@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import 'components.dart';
 import 'design_primitives.dart';
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
@@ -287,14 +288,12 @@ class _RaftSelectionToolbarState extends State<RaftSelectionToolbar> {
                   ],
                 ),
                 if (widget.error != null)
-                  Semantics(
-                    liveRegion: true,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        widget.error!,
-                        style: TextStyle(color: t.colors['danger-strong']),
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: RaftErrorBanner(
+                      widget.error!,
+                      small: true,
+                      bold: true,
                     ),
                   ),
               ],
@@ -379,12 +378,9 @@ class RaftImageReview extends StatelessWidget {
           ),
         ),
         if (error != null)
-          Semantics(
-            liveRegion: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(error!),
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: RaftErrorBanner(error!, small: true, bold: true),
           ),
         const Divider(height: 1),
         Padding(

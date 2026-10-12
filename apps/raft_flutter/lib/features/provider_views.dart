@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
+import '../data/user_error.dart';
+import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
@@ -53,8 +55,23 @@ class _ProviderConnectionsState
     return true;
   }
 
+  /// ProviderConnectionsSettings never shows the server's text: each action
+  /// fails with its own `settings.providers.*` message.
+  Future<T> _web<T>(String message, Future<T> Function() action) =>
+      withWebError(
+        message,
+        action,
+        serverText: false,
+        where: 'provider connections',
+      );
+
   @override
-  Future<void> loadData(int request, int generation) async {
+  Future<void> loadData(int request, int generation) => _web(
+    'Provider connections could not be loaded.',
+    () => _loadData(request, generation),
+  );
+
+  Future<void> _loadData(int request, int generation) async {
     final flags = managementMap(
       await w.client.post(
         '/feature-flags/evaluate',
@@ -82,7 +99,11 @@ class _ProviderConnectionsState
   }
 
   Future<void> create() async {
-    if (options.isEmpty) throw StateError('No provider choices are available.');
+    if (options.isEmpty) {
+      throw const RaftUserError(
+        'The provider connection could not be created.',
+      );
+    }
     await form(
       'Add provider connection',
       [
@@ -118,19 +139,23 @@ class _ProviderConnectionsState
           (p) => p['id'] == v['providerId'] && p['providerKind'] == 'gateway',
         );
         if (gateway && v['endpointUrl']!.isEmpty) {
-          throw StateError('A gateway endpoint is required.');
+          throw const RaftUserError(
+            'The provider connection could not be created.',
+          );
         }
-        await w.client.post(
-          '/provider-connections',
-          data: {
-            'name': v['name'],
-            'providerId': v['providerId'],
-            'apiKey': v['apiKey'],
-            if (gateway) 'endpointUrl': v['endpointUrl'],
-            if (gateway)
-              'supportsImageInput': v['supportsImageInput'] == 'true',
-          },
-        );
+        await _web('The provider connection could not be created.', () async {
+          await w.client.post(
+            '/provider-connections',
+            data: {
+              'name': v['name'],
+              'providerId': v['providerId'],
+              'apiKey': v['apiKey'],
+              if (gateway) 'endpointUrl': v['endpointUrl'],
+              if (gateway)
+                'supportsImageInput': v['supportsImageInput'] == 'true',
+            },
+          );
+        });
       },
       submit: 'Add',
     );
@@ -163,12 +188,12 @@ class _ProviderConnectionsState
           trim: false,
         ),
       ],
-      (v) async {
+      (v) => _web('The provider connection could not be updated.', () async {
         await w.client.post(
           '/provider-connections/${connection['id']}/credentials/rotate',
           data: {'apiKey': v['apiKey']},
         );
-      },
+      }),
       description:
           'The new credential replaces the existing one. Agents must use the new credential version.',
       submit: 'Rotate',
@@ -196,9 +221,15 @@ class _ProviderConnectionsState
                 children: [
                   if (data == null)
                     Text(
-                      failure == null
-                          ? raftText(context, 'Loading…')
-                          : _loadFailure(failure),
+                      raftText(
+                        context,
+                        failure == null
+                            ? 'Loading…'
+                            : _loadFailure(
+                                failure,
+                                'Assigned Agents could not be loaded.',
+                              ),
+                      ),
                     )
                   else if (managementRows(data['agents']).isEmpty)
                     const Text('No agents use this connection.'),
@@ -241,11 +272,11 @@ class _ProviderConnectionsState
       await confirm(
         'Detach deleted agent?',
         'Remove the assignment left by this deleted agent.',
-        () async {
+        () => _web('The provider connection could not be updated.', () async {
           await w.client.delete(
             '/provider-connections/${connection['id']}/agents/$detachId',
           );
-        },
+        }),
         submit: 'Detach',
       );
     }
@@ -272,8 +303,9 @@ class _ProviderConnectionsState
         )
         .toList();
     if (candidates.isEmpty) {
-      throw StateError(
-        'Connect a computer with the Built-in Pi runtime before verification.',
+      // Web `settings.providers.verifyNoComputers`.
+      throw const RaftUserError(
+        'No online Computer with the Built-in runtime is connected.',
       );
     }
     List<String> models = [];
@@ -309,11 +341,14 @@ class _ProviderConnectionsState
                     fields: const [],
                     description: failure == null
                         ? 'Loading…'
-                        : _loadFailure(failure),
+                        : _loadFailure(
+                            failure,
+                            'Verification could not be started.',
+                          ),
                     submitLabel: 'Verify',
-                    onSubmit: (_) async =>
-                        throw failure ??
-                            StateError('This form is still loading.'),
+                    onSubmit: (_) async => throw const RaftUserError(
+                      'Verification could not be started.',
+                    ),
                   )
                 : RaftFormDialog(
                     title: 'Verify on a computer',
@@ -377,16 +412,16 @@ class _ProviderConnectionsState
                             receipt['model'] != v['model'] ||
                             receipt['probeKind'] != 'canary') {
                           result = {};
-                          throw StateError(
-                            'The verification receipt does not match this request. Refresh and retry.',
+                          throw const RaftUserError(
+                            'Verification could not be started.',
                           );
                         }
                         if (receipt['outcome'] == 'success' &&
                             (receipt['verifiedAt'] is! String ||
                                 receipt['closedAt'] is! String)) {
                           result = {};
-                          throw StateError(
-                            'The computer has not returned a completed verification receipt. Retry this request.',
+                          throw const RaftUserError(
+                            'Verification could not be started.',
                           );
                         }
                       } catch (e) {
@@ -396,7 +431,17 @@ class _ProviderConnectionsState
                             dialogContext.mounted) {
                           Navigator.of(dialogContext).pop(false);
                         }
-                        rethrow;
+                        // Web `settings.providers.verifyError`; 401/403 stay
+                        // untouched for the page's authority handling.
+                        if (e is RaftUserError ||
+                            e is RaftApiException &&
+                                const [401, 403].contains(e.status)) {
+                          rethrow;
+                        }
+                        logUserError(e, where: 'provider verify');
+                        throw const RaftUserError(
+                          'Verification could not be started.',
+                        );
                       }
                     },
                     submitLabel: 'Verify',
@@ -461,9 +506,10 @@ class _ProviderConnectionsState
                 children: [
                   if (receipts == null)
                     Text(
-                      failure == null
-                          ? raftText(context, 'Loading…')
-                          : _loadFailure(failure),
+                      raftText(
+                        context,
+                        failure == null ? 'Loading…' : _loadFailure(failure),
+                      ),
                     )
                   else if (receipts.isEmpty)
                     Text(
@@ -510,12 +556,7 @@ class _ProviderConnectionsState
           children: [
             RaftProviderConnectionsFrame(
               loading: loading && connections.isEmpty,
-              error: error == null
-                  ? null
-                  : raftText(
-                      context,
-                      'Provider connections could not be loaded.',
-                    ),
+              error: error == null ? null : raftText(context, error!),
               canAdd: options.isNotEmpty && !busy,
               onAdd: w.can('manageExternalAuth') ? () => run(create) : null,
               rows: [
@@ -581,11 +622,14 @@ class _ProviderConnectionsState
                                 await confirm(
                                   'Delete ${connection['name']}?',
                                   'Remove this connection and its encrypted credential. Assigned agents must be detached first.',
-                                  () async {
-                                    await w.client.delete(
-                                      '/provider-connections/${connection['id']}',
-                                    );
-                                  },
+                                  () => _web(
+                                    'The provider connection could not be updated.',
+                                    () async {
+                                      await w.client.delete(
+                                        '/provider-connections/${connection['id']}',
+                                      );
+                                    },
+                                  ),
                                   submit: 'Delete',
                                   destructive: true,
                                 );
@@ -602,8 +646,12 @@ class _ProviderConnectionsState
         );
 }
 
-String _loadFailure(Object failure) =>
-    '$failure'.replaceFirst('Bad state: ', '');
+/// The English source text for a dialog's failed read: the caller's own
+/// message (`RaftUserError`) or [fallback]; never the exception text.
+String _loadFailure(Object failure, [String fallback = raftGenericErrorText]) {
+  logUserError(failure, where: 'provider dialog read');
+  return failure is RaftUserError ? failure.message : fallback;
+}
 
 /// Opens a dialog at once: [builder] gets no data (and, once the read failed,
 /// the [failure]) until [load] answers, then the data.

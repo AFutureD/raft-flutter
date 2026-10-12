@@ -4,9 +4,9 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'computer_setup_commands.dart';
@@ -74,9 +74,16 @@ class _AddComputerDialogState extends State<AddComputerDialog> {
         throw const RaftComputerActionError('Failed to register computer');
       }
       registeredId = machine['id'] as String;
-    } on RaftApiException catch (e) {
+    } on RaftComputerActionError {
+      rethrow;
+    } catch (e) {
+      // Web: `data.error || machine.add.registerFailed`.
       throw RaftComputerActionError(
-        e.message.isNotEmpty ? e.message : 'Failed to register computer',
+        userErrorText(
+          e,
+          fallback: 'Failed to register computer',
+          where: 'register computer',
+        ),
       );
     }
   }
@@ -119,6 +126,7 @@ class _AddComputerDialogState extends State<AddComputerDialog> {
       return c == null ? null : (c.install, c.setup);
     },
     register: register,
+    onViewPlans: () => w.setSection('billing'),
     cancel: cancel,
     done: done,
     connected: connected == null

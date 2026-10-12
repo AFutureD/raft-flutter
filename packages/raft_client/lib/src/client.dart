@@ -81,6 +81,9 @@ Map<String, dynamic> _errorDetails(Map? body) {
     // caller must accept before joining (a public guest join, a community
     // server or an invite); public text, not a credential.
     'agreement',
+    // Form-validation issues (`[{code, pointer}]`); the pointer names the
+    // field that failed (runtime form v2 create / edit).
+    'issues',
   };
   dynamic freeze(dynamic value) {
     if (value is Map) {
@@ -108,6 +111,13 @@ Map<String, dynamic> _errorDetails(Map? body) {
         'transferIntentIds',
         'reservationIds',
       });
+    if (key == 'issues') {
+      return [
+        if (value is List)
+          for (final issue in value)
+            if (issue is Map) receipt(issue, {'code', 'pointer'}),
+      ];
+    }
     if (key == 'agreement') {
       return receipt(value, {'id', 'title', 'bodyMarkdown', 'version'});
     }

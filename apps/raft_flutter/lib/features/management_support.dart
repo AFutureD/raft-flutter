@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/device_preferences.dart';
 import '../data/resource_snapshot_cache.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 
 Map<String, dynamic> managementMap(dynamic value) =>
@@ -269,7 +270,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
         // Any other failure keeps the accepted projection and its snapshot.
         setState(() {
           loading = false;
-          error = '$e';
+          error = userErrorText(e, where: 'management load');
         });
       }
     } finally {
@@ -286,6 +287,10 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
   Future<void> run(
     Future<void> Function() action, {
     bool refresh = true,
+
+    /// The surface's Web fallback message (`err.response?.data?.error ||
+    /// formatMessage(fallback)`).
+    String? fallback,
   }) async {
     if (busy) return;
     final generation = w.client.generation, sourceAuthority = authority;
@@ -306,7 +311,13 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     } catch (e) {
       if (accepts(generation) && authority == sourceAuthority) {
         invalidateDeniedMutation(e);
-        setState(() => error = '$e');
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: fallback,
+            where: 'management action',
+          ),
+        );
       }
     } finally {
       _operationAuthority = null;
@@ -324,7 +335,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     if (mounted) {
       setState(() {
         loading = false;
-        this.error = '$error';
+        this.error = userErrorText(error, where: 'management denied');
       });
     }
     return true;
@@ -518,13 +529,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
       if (error != null)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Semantics(
-            liveRegion: true,
-            child: Text(
-              error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
+          child: RaftErrorBanner(error!, small: true),
         ),
       if (loading) const LinearProgressIndicator(),
       Expanded(

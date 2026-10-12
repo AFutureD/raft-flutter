@@ -27,7 +27,7 @@ void main() {
                     onSubmit: (data) async {
                       requests++;
                       expect(data['title'], '日本語 中文');
-                      if (fail) throw StateError('Try again');
+                      if (fail) throw const RaftUserError('Try again');
                       pending = Completer<void>();
                       await pending!.future;
                     },

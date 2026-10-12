@@ -17,6 +17,7 @@ import 'reaction_toggle.dart';
 import 'workspace_cache.dart';
 import 'resource_snapshot_cache.dart';
 import 'user_activity.dart';
+import 'user_error.dart';
 import 'workspace_entity_directory.dart';
 import 'followed_threads_store.dart';
 import 'raft_location.dart';
@@ -1818,18 +1819,31 @@ class WorkspaceController extends ChangeNotifier {
   Future<Set<String>> executeMentionActions(
     String action,
     List<String> resolutionIds,
+  ) async => (await executeMentionActionResults(action, resolutionIds)).entries
+      .where((r) => mentionActionSucceeded(action, r.value))
+      .map((r) => r.key)
+      .toSet();
+
+  /// Web `mentionActionSucceeded`.
+  static bool mentionActionSucceeded(String action, Map? result) =>
+      result?['status'] == (action == 'notify' ? 'queued' : 'delivered');
+
+  /// The per-row results of `POST /messages/mention-actions/execute`, by
+  /// resolution id (a row the server did not answer for is absent).
+  Future<Map<String, Map<String, dynamic>>> executeMentionActionResults(
+    String action,
+    List<String> resolutionIds,
   ) async {
     final value = await command(
       'POST',
       '/messages/mention-actions/execute',
       data: {'action': action, 'resolutionIds': resolutionIds},
     );
-    final ok = action == 'notify' ? 'queued' : 'delivered';
     return {
       if (value is Map && value['results'] is List)
         for (final r in (value['results'] as List).whereType<Map>())
-          if (r['status'] == ok && r['resolutionId'] is String)
-            r['resolutionId'] as String,
+          if (r['resolutionId'] is String)
+            r['resolutionId'] as String: Map<String, dynamic>.from(r),
     };
   }
 
@@ -1845,8 +1859,9 @@ class WorkspaceController extends ChangeNotifier {
       !(presentationSource?._queuedSendTexts ?? _queuedSendTexts).containsKey(
         draftScope(thread: thread),
       ) &&
-      uploads(thread: thread)
-          .every((u) => u.id != null || u.queued && u.error == null);
+      uploads(
+        thread: thread,
+      ).every((u) => u.id != null || u.queued && u.error == null);
 
   /// Web MessageInput composer error banner per draft scope.
   final Map<String, String> _composerErrors = {};
@@ -2163,11 +2178,47 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  /// Web `formatAttachmentUploadServerError`.
-  static String _uploadServerError(String message) =>
-      message == 'Attachment storage timed out'
-      ? 'The file reached Raft, but saving it timed out.'
-      : message;
+  /// Web `utils/attachmentUploadErrorPresentation.ts`: the server's `UPLOAD_*`
+  /// code or text, the "storage timed out" mapping, else `uploadRetryHint`.
+  @visibleForTesting
+  static String uploadErrorText(Object failure) => _isStorageTimeout(failure)
+      ? _storageTimedOut
+      : userErrorText(
+          failure,
+          fallback: 'File no longer available or upload failed. Tap to retry.',
+          codeText: _uploadCodeText,
+          where: 'upload attachment',
+        );
+
+  static const _storageTimedOut =
+      'The file reached Raft, but saving it timed out.';
+
+  /// Web `SERVER_UPLOAD_ERROR_MESSAGE_ID`.
+  static bool _isStorageTimeout(Object failure) =>
+      failure is RaftApiException &&
+      failure.message == 'Attachment storage timed out';
+
+  /// A 403 whose reason is membership revocation (not a transient failure).
+  static bool _isNotServerMember(Object failure) =>
+      failure is RaftApiException &&
+      failure.status == 403 &&
+      failure.message == 'Not a member of this server';
+
+  static const _uploadCodeText = {
+    'UPLOAD_COMPLETE_FAILED': 'The upload could not be completed.',
+    'UPLOAD_SESSION_EXPIRED': 'Upload session expired.',
+    'UPLOAD_SESSION_CANCELED': 'Upload session was canceled.',
+    'UPLOAD_OBJECT_MISMATCH': 'Uploaded object failed verification.',
+    'UPLOAD_SESSION_STATUS_FAILED': 'The upload session could not be checked.',
+    'UPLOAD_SESSION_CREATE_FAILED': 'The upload session could not be created.',
+    'UPLOAD_CAPABILITY_FAILED': 'Upload capability could not be checked.',
+    'UPLOAD_INVALID_REQUEST': 'The attachment is empty.',
+    'UPLOAD_TOO_LARGE': 'The attachment exceeds the plan limit.',
+    'UPLOAD_OBJECT_PUT_UNCERTAIN':
+        'The upload response was lost. Retry to safely resume this upload.',
+    'UPLOAD_STALLED':
+        'The upload stopped making progress. Check your connection and try again.',
+  };
 
   static String _limitLabel(int bytes) => bytes % (1024 * 1024) == 0
       ? '${bytes ~/ (1024 * 1024)}MB'
@@ -2289,9 +2340,7 @@ class WorkspaceController extends ChangeNotifier {
       if (!draft.cancel.cancelled &&
           generation == ledger.generation &&
           !_disposed) {
-        draft.error = e is RaftApiException
-            ? _uploadServerError(e.message)
-            : 'File no longer available or upload failed. Tap to retry.';
+        draft.error = uploadErrorText(e);
       }
     } finally {
       notifyListeners();
@@ -2845,7 +2894,7 @@ class WorkspaceController extends ChangeNotifier {
       );
       if (servers.isNotEmpty) await selectServer(servers.first);
     } catch (e) {
-      error = '$e';
+      error = userErrorText(e, where: 'load servers');
     } finally {
       loading = false;
       notifyListeners();
@@ -3022,10 +3071,7 @@ class WorkspaceController extends ChangeNotifier {
         client.channels(dm: true),
       ]);
     } catch (e) {
-      if (e is RaftApiException &&
-          e.status == 403 &&
-          e.message == 'Not a member of this server' &&
-          generation == client.generation) {
+      if (_isNotServerMember(e) && generation == client.generation) {
         revokeServer(next.id);
         await recoverMembership();
         loading = false;
@@ -3033,7 +3079,7 @@ class WorkspaceController extends ChangeNotifier {
         return;
       }
       if (generation == client.generation) {
-        error = '$e';
+        error = userErrorText(e, where: 'load channels');
         loading = false;
         notifyListeners();
       }
@@ -3376,7 +3422,8 @@ class WorkspaceController extends ChangeNotifier {
     // refused: the composer says so and Send stays off, nothing is discarded.
     final keepShared = _shareHolds.containsKey(id);
     if (keepShared) {
-      _shareHolds[id] = 'This conversation is no longer available. Your draft and files are kept.';
+      _shareHolds[id] =
+          'This conversation is no longer available. Your draft and files are kept.';
     }
     if (!keepShared && sharedPrincipal != null && sharedServer != null) {
       unawaited(
@@ -3723,7 +3770,7 @@ class WorkspaceController extends ChangeNotifier {
       // A rate-limited background refresh is not an error to show: the held
       // lists stay, and the next refresh (after Retry-After) catches up.
       if (generation == ledger.generation && !_disposed && !_rateLimited(e)) {
-        setError('$e');
+        setError(userErrorText(e, where: 'refresh channels'));
       }
     }
   }
@@ -4264,7 +4311,9 @@ class WorkspaceController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      if (!_disposed && !_rateLimited(e)) setError('$e');
+      if (!_disposed && !_rateLimited(e)) {
+        setError(userErrorText(e, where: 'refresh servers'));
+      }
     }
   }
 
@@ -4536,7 +4585,7 @@ class WorkspaceController extends ChangeNotifier {
         if (e is RaftApiException && (e.status == 403 || e.status == 404)) {
           _revokeChannel(next.id);
         } else {
-          error = '$e';
+          error = userErrorText(e, where: 'select channel');
         }
       }
     } finally {
@@ -4611,7 +4660,9 @@ class WorkspaceController extends ChangeNotifier {
       }
       await _saveWindow(id, thread: thread);
     } catch (e) {
-      if (currentWindow()) error = '$e';
+      if (currentWindow()) {
+        error = userErrorText(e, where: 'load older messages');
+      }
     } finally {
       if (currentWindow()) {
         loadingOlder = false;
@@ -5021,7 +5072,13 @@ class WorkspaceController extends ChangeNotifier {
           _uploads[scope] = [...pending.uploads, ...?_uploads[scope]];
         }
         unawaited(_saveDraftScope(scope));
-        if (cause != null && currentSend()) error = '$cause';
+        if (cause != null && currentSend()) {
+          error = userErrorText(
+            cause,
+            fallback: 'Failed to send message',
+            where: 'send message',
+          );
+        }
       }
       notifyListeners();
       return false;
@@ -5402,7 +5459,11 @@ class WorkspaceController extends ChangeNotifier {
         if (current() && cached == null) {
           // ThreadPanel's in-panel "Couldn't load this thread" + Retry; Web raises
           // no workspace-level error for it.
-          _threadResolutionError = '$e';
+          _threadResolutionError = userErrorText(
+            e,
+            fallback: "Couldn't load this thread",
+            where: 'open thread',
+          );
         }
       } finally {
         if (current()) {
@@ -5708,7 +5769,7 @@ class WorkspaceController extends ChangeNotifier {
           if (e is RaftApiException && e.status == 403) {
             _revokeChannel(channelId);
           } else {
-            error = '$e';
+            error = userErrorText(e, where: 'load message context');
             _pendingMessageContextChannelId = null;
             _pendingMessageContextWindow = null;
             channelLoading = false;
@@ -5787,7 +5848,7 @@ class WorkspaceController extends ChangeNotifier {
       await refreshChannels();
       await selectChannel(channels.firstWhere((next) => next.id == c.id));
     } catch (e) {
-      setError('$e');
+      setError(userErrorText(e, where: 'join channel'));
     }
   }
 
@@ -5800,7 +5861,7 @@ class WorkspaceController extends ChangeNotifier {
       await command('POST', '/channels/$id/join');
       await refreshChannels();
     } catch (e) {
-      setError('$e');
+      setError(userErrorText(e, where: 'join thread parent channel'));
     }
   }
 

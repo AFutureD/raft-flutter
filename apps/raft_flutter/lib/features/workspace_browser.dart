@@ -85,15 +85,9 @@ Future<void> openWorkspaceInBrowser(
     if (!opened) throw const FormatException('Browser unavailable');
   } catch (_) {
     if (context.mounted && current()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            raftText(
-              context,
-              'The workspace could not be opened in the browser.',
-            ),
-          ),
-        ),
+      showRaftToast(
+        context,
+        'The workspace could not be opened in the browser.',
       );
     }
   }

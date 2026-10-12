@@ -96,7 +96,11 @@ void main() {
         client.pending.single.complete({});
         await tester.pump();
         failed.completeError(
-          const RaftApiException('Refresh failed', status: 500),
+          RaftApiException.response(
+            'Refresh failed',
+            status: 500,
+            body: {'error': 'Refresh failed'},
+          ),
         );
         await tester.pumpAndSettle();
         expect(find.textContaining('Refresh failed'), findsOneWidget);
@@ -192,7 +196,11 @@ void main() {
         await tester.tap(find.byTooltip('Mark conversation done'));
         await tester.pumpAndSettle();
         client.pending.single.completeError(
-          const RaftApiException('Denied', status: 403),
+          RaftApiException.response(
+            'Denied',
+            status: 403,
+            body: {'error': 'Denied'},
+          ),
         );
         await tester.pumpAndSettle();
         expect(state.rows, isEmpty);

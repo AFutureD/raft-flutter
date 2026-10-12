@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 
 /// Source SettingsPanel inline password form. Credentials remain in controllers
@@ -106,9 +106,11 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
     } catch (cause) {
       if (accepts(captured)) {
         setState(
-          () => error = cause is RaftApiException
-              ? cause.message
-              : 'Could not update your password. Try again.',
+          () => error = userErrorText(
+            cause,
+            fallback: 'Failed to change password',
+            where: 'change password',
+          ),
         );
       }
     } finally {
@@ -199,11 +201,7 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(top: RaftSpace.x3),
-              child: RaftBanner(
-                description: error!,
-                size: RaftBannerRecipeSize.sm,
-                descriptionWeight: FontWeight.w700,
-              ),
+              child: RaftErrorBanner(error!, small: true, bold: true),
             ),
           if (saved)
             Padding(

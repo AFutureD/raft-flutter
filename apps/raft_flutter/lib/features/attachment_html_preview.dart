@@ -187,10 +187,12 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
         retry = browser = false;
         message =
             'The server did not provide an isolated HTML preview, so it is not shown. Download the file to view it.';
-      case DioException(response: final r?) when [401, 403].contains(r.statusCode):
+      case DioException(response: final r?)
+          when [401, 403].contains(r.statusCode):
         retry = browser = false;
         message = 'You do not have access to this HTML preview.';
-      case DioException(response: final r?) when [404, 410].contains(r.statusCode):
+      case DioException(response: final r?)
+          when [404, 410].contains(r.statusCode):
         retry = browser = false;
         message =
             'The HTML preview is no longer available. Download the file to view it.';
@@ -356,7 +358,7 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
                     // ds-allow: gap between the reason and its actions, the Wrap's own 8px rhythm doubled
                     spacing: 16,
                     children: [
-                      if (error != null) errorLine(context),
+                      if (error != null) errorLine(context, beside: true),
                       Wrap(
                         alignment: WrapAlignment.center,
                         spacing: 8,
@@ -413,14 +415,12 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     );
   }
 
-  Widget errorLine(BuildContext context) => Semantics(
-    liveRegion: true,
-    child: Text(
-      raftText(context, error!),
-      textAlign: TextAlign.center,
-      style: TextStyle(color: Theme.of(context).colorScheme.error),
-    ),
-  );
+  /// Web has no in-repo error state for the HTML preview; the failure reads
+  /// like Web's other page errors: a warning banner over a shown page, the
+  /// muted mono load-error message when there is no page to show.
+  Widget errorLine(BuildContext context, {bool beside = false}) => beside
+      ? RaftLoadError(error!, expand: false)
+      : RaftErrorBanner(error!, small: true, bold: true);
 
   static Widget webViewBuilder(
     BuildContext context,

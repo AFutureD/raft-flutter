@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/feature_flag_client_facts.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
@@ -101,7 +102,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
     if (failure is RaftApiException && [401, 403].contains(failure.status)) {
       setState(() {
         profile = {};
-        error = '$failure';
+        error = userErrorText(failure, where: 'member profile');
         loading = false;
       });
       return;
@@ -254,7 +255,18 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
       await reload();
       if (mounted) setState(() => editingRole = false);
     } catch (e) {
-      if (mounted) setState(() => roleError = '$e');
+      if (mounted) {
+        setState(
+          () => roleError = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to update role',
+              where: 'member role',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => roleSaving = false);
     }
@@ -444,9 +456,10 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
               padding: raftScrollPadding(context),
               children: [
                 if (error != null)
-                  RaftPanelMessage(
-                    raftText(context, 'Profile could not be loaded.'),
-                    action: RaftButton(label: 'Retry', onPressed: reload),
+                  RaftLoadError(
+                    'Profile could not be loaded.',
+                    onRetry: reload,
+                    expand: false,
                   ),
                 ..._sections(
                   context,

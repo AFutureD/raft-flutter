@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+
 import '../data/workspace_controller.dart';
 import 'channel_form_fields.dart';
 import '../data/workspace_entity_directory.dart';
@@ -243,9 +245,14 @@ class _AddMembersDialogState extends State<AddMembersDialog> {
       widget.onSubmitError?.call(e);
       if (mounted) {
         setState(() {
-          error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to add members.');
+          error = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to add members.',
+              where: 'add members',
+            ),
+          );
         });
       }
     } finally {

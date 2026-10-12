@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/server_error_code.dart';
 import 'private_route_guard.dart';
 
 /// The default community server (utils/communityServers.ts).
@@ -33,8 +34,11 @@ class CommunityAgreementRequired extends CommunityJoinOutcome {
 }
 
 class CommunityJoinFailed extends CommunityJoinOutcome {
-  const CommunityJoinFailed(this.message);
-  final String message;
+  const CommunityJoinFailed(this.error);
+
+  /// The failure as caught; display it through `userErrorText` (Web:
+  /// `response.data.error || "Failed to join community server"`).
+  final Object error;
 }
 
 /// useJoinCommunityFlow.joinCommunity / the agreement dialog's join: one
@@ -52,19 +56,19 @@ Future<CommunityJoinOutcome> requestCommunityJoin(
     return const CommunityJoined();
   } on RaftApiException catch (error) {
     final agreement = error.details['agreement'];
-    if ((error.message == 'agreement_required' ||
-            error.message == 'agreement_changed') &&
+    if ((serverErrorIs(error, 'agreement_required') ||
+            serverErrorIs(error, 'agreement_changed')) &&
         agreement is Map) {
       return CommunityAgreementRequired(Map<String, dynamic>.from(agreement));
     }
-    return CommunityJoinFailed(error.message);
+    return CommunityJoinFailed(error);
   }
 }
 
 /// The dialog's error line: a changed agreement asks the member to reopen
 /// the join action, anything else is the generic failure.
 String communityAgreementError(BuildContext context, Object error) =>
-    error is RaftApiException && error.message == 'agreement_changed'
+    serverErrorIs(error, 'agreement_changed')
     ? raftText(
         context,
         'The agreement was updated. Open the join action again to review the latest version.',
@@ -100,7 +104,7 @@ Future<bool> showCommunityAgreementDialog(
 /// Joins [slug]. An agreement that must be accepted first is shown in the
 /// dialog ([beforeDialog] runs just before it opens). Resolves true once
 /// joined, false when the member declined the agreement; a failed request
-/// throws a [RaftApiException] carrying the server's message.
+/// rethrows the [RaftApiException] (show it with `userErrorText`).
 Future<bool> joinCommunity(
   BuildContext Function() dialogContext,
   RaftClient client,
@@ -111,8 +115,8 @@ Future<bool> joinCommunity(
   switch (first) {
     case CommunityJoined():
       return true;
-    case CommunityJoinFailed(:final message):
-      throw RaftApiException(message);
+    case CommunityJoinFailed(:final error):
+      throw error;
     case CommunityAgreementRequired():
       beforeDialog?.call();
       final context = dialogContext();
@@ -131,8 +135,8 @@ Future<bool> joinCommunity(
               return;
             case CommunityAgreementRequired():
               throw const RaftApiException('agreement_changed');
-            case CommunityJoinFailed(:final message):
-              throw RaftApiException(message);
+            case CommunityJoinFailed(:final error):
+              throw error;
           }
         },
       );

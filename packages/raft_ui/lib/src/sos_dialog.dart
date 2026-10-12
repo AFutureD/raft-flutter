@@ -8,6 +8,7 @@ import 'banner.dart';
 import 'components.dart';
 import 'dialog_card.dart';
 import 'form_controls.dart';
+import 'error_presentation.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'theme.dart';
@@ -121,11 +122,10 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
         ? null
         : Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: RaftBanner(
+            child: RaftErrorBanner(
+              error!,
               key: const ValueKey('sos-error'),
-              description: error!,
-              status: RaftBannerRecipeStatus.destructive,
-              size: RaftBannerRecipeSize.sm,
+              small: true,
             ),
           );
     // Raft dialog routes carry no Material; the guidance editor needs one.

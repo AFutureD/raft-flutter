@@ -91,7 +91,11 @@ class _Workspace extends WorkspaceController {
     if (path.endsWith('/runtimes/rescan')) return {'accepted': true};
     if (path.endsWith('/setup-transition')) {
       if (failCompletion) {
-        throw const RaftApiException('Completion failed', status: 503);
+        throw RaftApiException.response(
+          'Completion failed',
+          status: 503,
+          body: {'error': 'Completion failed'},
+        );
       }
       return setupProjection = {
         'phase': 'complete',

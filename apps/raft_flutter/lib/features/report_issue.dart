@@ -19,6 +19,7 @@ import 'package:raft_client/system_proxy.dart' show createProxiedDio;
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/raft_location.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 
 /// The build's feedback export worker (Web `VITE_FEEDBACK_EXPORT_URL`).
@@ -158,15 +159,18 @@ class ReportIssueSession {
 
   /// Web `describeApiFailure`: `HTTP {status}: {detail}` for a server answer.
   String _apiFailure(Object error) {
-    if (error is RaftApiException) {
-      return error.status == null
-          ? error.message
-          : raftFormatPlain(translate('HTTP {status}: {detail}'), {
-              'status': error.status,
-              'detail': error.message,
-            });
+    // The detail is the server's own error text or `Unknown error`; a raw
+    // exception is logged, never put in the report dialog.
+    final detail = translate(
+      userErrorText(error, fallback: 'Unknown error', where: 'report issue'),
+    );
+    if (error is RaftApiException && error.status != null) {
+      return raftFormatPlain(translate('HTTP {status}: {detail}'), {
+        'status': error.status,
+        'detail': detail,
+      });
     }
-    return '$error'.isEmpty ? translate('Unknown error') : '$error';
+    return detail;
   }
 
   RaftReportIssueFailure _step(String label, String detail) =>
@@ -277,7 +281,7 @@ class ReportIssueSession {
       filename = _exportFilename();
       sha = sha256.convert(bundleBytes).toString();
     } catch (e) {
-      throw _step('Collect report bundle failed', '$e');
+      throw _step('Collect report bundle failed', _apiFailure(e));
     }
 
     Map<String, dynamic> attestation;

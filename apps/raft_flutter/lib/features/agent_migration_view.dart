@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/migration_error.dart';
+import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_metadata_projection.dart' show nonEmptyOr;
 import 'management_support.dart';
@@ -147,8 +149,35 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     machines = [];
   }
 
+  /// Web `migrationErrorPresentation`: the failure's `code` picks the
+  /// `migration.error.*` copy; the server's own sentence is never shown.
+  Future<T> _migration<T>(
+    MigrationErrorContext context,
+    Future<T> Function() action,
+  ) async {
+    try {
+      return await action();
+    } on RaftUserError {
+      rethrow;
+    } catch (e) {
+      if (e is RaftApiException && const [401, 403].contains(e.status)) {
+        rethrow;
+      }
+      throw RaftUserError(
+        context == MigrationErrorContext.cancel
+            ? migrationCancelErrorText(e)
+            : migrationErrorText(e, context),
+      );
+    }
+  }
+
   @override
-  Future<void> loadData(int request, int generation) async {
+  Future<void> loadData(int request, int generation) => _migration(
+    MigrationErrorContext.status,
+    () => _loadData(request, generation),
+  );
+
+  Future<void> _loadData(int request, int generation) async {
     if (w.server == null) return;
     final responses = await Future.wait([
       w.query(base),
@@ -172,8 +201,8 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
         .toList();
     if (targets.isEmpty) {
       setState(
-        () => error =
-            'Connect another compatible computer before moving this agent.',
+        // Web's target select is disabled with this placeholder.
+        () => error = 'No other attached computer',
       );
       return;
     }
@@ -187,14 +216,15 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
           choices: {for (final m in targets) '${m['id']}': '${m['name']}'},
         ),
       ],
-      (values) async {
+      (values) => _migration(MigrationErrorContext.start, () async {
         await w.command(
           'POST',
           '$base/migrate',
           data: {'targetComputer': values['target']},
         );
-      },
-      description: 'The source agent will stop while its workspace moves. Check progress for completion.',
+      }),
+      description:
+          'The source agent will stop while its workspace moves. Check progress for completion.',
       submit: 'Move',
     );
     await reload();
@@ -215,7 +245,7 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
           },
         ),
       ],
-      (values) async {
+      (values) => withWebError('Something went wrong', () async {
         await w.command(
           'POST',
           '$base/assign-machine',
@@ -223,8 +253,9 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
             'machineId': values['machine']!.isEmpty ? null : values['machine'],
           },
         );
-      },
-      description: 'Change the computer assignment. This does not transfer the existing workspace files.',
+      }, where: 'assign computer'),
+      description:
+          'Change the computer assignment. This does not transfer the existing workspace files.',
     );
     await reload();
   }
@@ -241,14 +272,15 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
     await form(
       'Cancel migration?',
       [],
-      (values) async {
+      (values) => _migration(MigrationErrorContext.cancel, () async {
         await w.command(
           'POST',
           '$base/migration/cancel',
           data: {'migrationRef': ref, 'expectedRevision': revision},
         );
-      },
-      description: 'Request a coordinated cancellation. The computers must acknowledge it before the migration is safely stopped.',
+      }),
+      description:
+          'Request a coordinated cancellation. The computers must acknowledge it before the migration is safely stopped.',
       submit: 'Cancel migration',
       destructive: true,
     );
@@ -280,7 +312,10 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
             padding: raftScrollPadding(context, const EdgeInsets.all(24)),
             children: [
               if (error != null)
-                Semantics(liveRegion: true, child: Text(error!)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+                  child: RaftErrorBanner(error!, small: true),
+                ),
               if (agent.isNotEmpty) ...[
                 Text(
                   nonEmptyOr(agent['displayName'], agent['name']),
@@ -298,28 +333,33 @@ class _AgentMigrationState extends ManagementState<AgentMigrationView> {
                 Text(
                   '${computerName(migration['sourceMachineId'])} → ${computerName(migration['targetMachineId'])}',
                 ),
+                // Web MigrationProgressPanel: failure copy chosen by code (an
+                // aborted run names its computers); never the server's sentence.
                 if (migration['state'] == 'aborted')
-                  Text(
-                    raftText(
-                      context,
+                  Padding(
+                    padding: const EdgeInsets.only(top: RaftSpace.x2),
+                    child: RaftErrorBanner(
                       migrationAbortText(
                         migration['abortReason'] as String?,
                         source: computerName(migration['sourceMachineId']),
                         target: computerName(migration['targetMachineId']),
                       ),
+                      small: true,
                     ),
+                  )
+                else if (migrationFailureText(migration) case final failure?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: RaftSpace.x2),
+                    child: RaftErrorBanner(failure, small: true),
                   ),
-                if (migration['abortReason'] is String)
-                  Text('${migration['abortReason']}'),
-                if (migration['failureReason'] != null)
-                  Text('${migration['failureReason']}'),
-                if (migration['cancelErrorMessage'] != null)
-                  Text('${migration['cancelErrorMessage']}'),
                 if (migration['cancelNeedsAttention'] == true)
-                  Text(
-                    raftText(
-                      context,
-                      'Cancellation needs attention. Refresh after reconnecting both computers.',
+                  Padding(
+                    padding: const EdgeInsets.only(top: RaftSpace.x2),
+                    child: RaftBanner(
+                      status: RaftBannerRecipeStatus.warning,
+                      size: RaftBannerRecipeSize.sm,
+                      title: 'Cancellation needs attention',
+                      description: migrationCancelAttentionText(migration),
                     ),
                   ),
                 if (migration['migrationRef'] is String)

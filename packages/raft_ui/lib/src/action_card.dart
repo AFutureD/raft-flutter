@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart' show RaftTypography;
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'dialog_card.dart' show RaftRecipeButton;
 import 'recipes/button_variants.g.dart';
 import 'localization.dart';
@@ -44,6 +45,7 @@ class RaftActionCard extends StatelessWidget {
   final String? hint, targetServer, completedBy, blockedReason, error;
   final bool busy;
   final VoidCallback? onConfirm;
+
   /// ActionTitleLine: `flex flex-wrap items-center gap-2` of the title items
   /// and, when done, the `ml-auto` Done badge (alone on its line when the
   /// items leave no room for it).
@@ -66,12 +68,12 @@ class RaftActionCard extends StatelessWidget {
     if (badge == null) return items();
     return LayoutBuilder(
       builder: (context, constraints) {
-        double width(String text, [TextStyle? textStyle]) =>
-            (TextPainter(
-              text: TextSpan(text: text, style: textStyle ?? style),
-              textDirection: TextDirection.ltr,
-            )..layout()).width;
-        final used = parts.fold<double>(0, (a, p) => a + width(p)) +
+        double width(String text, [TextStyle? textStyle]) => (TextPainter(
+          text: TextSpan(text: text, style: textStyle ?? style),
+          textDirection: TextDirection.ltr,
+        )..layout()).width;
+        final used =
+            parts.fold<double>(0, (a, p) => a + width(p)) +
             8 * (parts.length - 1);
         final badgeWidth =
             recipe.badgeInset.horizontal +
@@ -82,13 +84,20 @@ class RaftActionCard extends StatelessWidget {
         if (used + 8 + badgeWidth <= constraints.maxWidth) {
           return Row(
             spacing: 8,
-            children: [for (final part in parts) item(part), const Spacer(), badge],
+            children: [
+              for (final part in parts) item(part),
+              const Spacer(),
+              badge,
+            ],
           );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           spacing: 8,
-          children: [items(), Align(alignment: Alignment.centerRight, child: badge)],
+          children: [
+            items(),
+            Align(alignment: Alignment.centerRight, child: badge),
+          ],
         );
       },
     );
@@ -229,14 +238,10 @@ class RaftActionCard extends StatelessWidget {
                     ),
                   ),
                 if (error != null)
+                  // Web `<Banner intent="warning" density="sm" className="mt-1">`.
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
+                    padding: const EdgeInsets.only(top: 4),
+                    child: RaftErrorBanner(error!, small: true),
                   ),
                 if (!done)
                   Padding(
@@ -322,7 +327,11 @@ class RaftActionField extends StatelessWidget {
 /// A bold notice line inside the summary (`font-bold text-brutal-orange`,
 /// `text-amber-700`, `text-foreground-strong`).
 class RaftActionNote extends StatelessWidget {
-  const RaftActionNote(this.text, {super.key, this.tone = RaftActionTone.strong});
+  const RaftActionNote(
+    this.text, {
+    super.key,
+    this.tone = RaftActionTone.strong,
+  });
   final String text;
   final RaftActionTone tone;
 

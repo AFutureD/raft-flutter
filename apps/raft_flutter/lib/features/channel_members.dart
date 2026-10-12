@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_entity_directory.dart';
@@ -352,7 +354,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
       if (mounted) {
         setState(() {
           rosterKnown = true;
-          error = '$e';
+          error = raftText(context, userErrorText(e, where: 'channel members'));
         });
       }
     }

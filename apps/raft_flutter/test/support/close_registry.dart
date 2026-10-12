@@ -19,6 +19,9 @@ const closeScanExempt = <String, String>{
       'removes routes when access is revoked; opens no surface of its own',
   'lib/features/page_layout.dart':
       'RaftPageHeader primitive: each page that uses it is a listed surface',
+  '../../packages/raft_ui/lib/src/error_presentation.dart':
+      'RaftToastHost overlay only paints the toast viewport; a toast is not '
+      'a closable layer',
   '../../packages/raft_ui/lib/src/panel_layout.dart':
       'RaftPanelHeaderBar primitive: each panel that uses it is a listed surface',
 };

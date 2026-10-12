@@ -7,6 +7,9 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/server_error_code.dart';
+import '../data/user_error.dart';
+
 /// An invite the app was asked to open: its token and, for a full link, the
 /// Raft server it names.
 @immutable
@@ -263,16 +266,19 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
     } on RaftApiException catch (e) {
       if (!mounted) return;
       final fresh = e.details['agreement'];
-      if ((e.message == 'agreement_required' ||
-              e.message == 'agreement_changed') &&
+      if ((serverErrorIs(e, 'agreement_required') ||
+              serverErrorIs(e, 'agreement_changed')) &&
           fresh is Map) {
         // The agreement to accept changed: show the current one.
         setState(() => info = {...?info, 'agreement': fresh});
       } else {
+        // InviteAcceptPage: the server's own text, else the localized fallback.
         setState(
-          () => error = e.message.isEmpty
-              ? raftText(context, 'Failed to accept invite')
-              : e.message,
+          () => error = userErrorText(
+            e,
+            fallback: 'Failed to accept invite',
+            where: 'invite accept',
+          ),
         );
       }
     } catch (_) {

@@ -134,7 +134,11 @@ class _AnnouncementHostState extends State<AnnouncementHost>
     }
     for (final id in store.writeFailedIds) {
       if (_notified.add(id)) {
-        showRaftErrorNotice(context, raftAnnouncementSaveFailed(context));
+        // AnnouncementModal: `toast.error(common.announcement.saveFailed)`.
+        showRaftToast(
+          context,
+          "Couldn't save that you've read this announcement. It'll show again next time.",
+        );
       }
     }
     final current = store.current;

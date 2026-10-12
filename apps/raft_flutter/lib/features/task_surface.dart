@@ -147,11 +147,13 @@ class _SourceTaskSurfaceState extends State<SourceTaskSurface> {
             : o.discussion == null
             ? RaftThreadResolutionBody(
                 loadingLabel: raftText(context, 'Loading...'),
-                errorTitle: o.parentError != null
-                    ? '${o.parentError}'
-                    : o.error == null
+                errorTitle: o.parentError == null && o.error == null
                     ? null
-                    : '${o.error}',
+                    : raftText(context, "Couldn't load this thread"),
+                errorBody: raftText(
+                  context,
+                  "The thread couldn't be opened. If this channel just became public, retrying usually fixes it.",
+                ),
                 retryLabel: raftText(context, 'Retry'),
                 onRetry: o.parentRemoved ? null : o.start,
               )

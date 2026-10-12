@@ -290,9 +290,10 @@ void main() {
           loadInfo: () async => _info(),
           accept: (_) async {
             attempts++;
-            throw const RaftApiException(
+            throw RaftApiException.response(
               'This invite has already been used.',
               status: 400,
+              body: {'error': 'This invite has already been used.'},
             );
           },
         );

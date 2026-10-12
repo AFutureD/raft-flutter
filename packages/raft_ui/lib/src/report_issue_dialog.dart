@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'banner.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
+import 'error_presentation.dart';
 import 'form_controls.dart' show RaftTextarea;
 import 'icons.dart';
 import 'indicators.dart';
@@ -75,11 +76,8 @@ enum RaftTranscriptRequestState {
 }
 
 /// A step failure with the message the dialog shows (Web `stepError`).
-class RaftReportIssueFailure implements Exception {
-  const RaftReportIssueFailure(this.message);
-  final String message;
-  @override
-  String toString() => message;
+class RaftReportIssueFailure extends RaftUserError {
+  const RaftReportIssueFailure(super.message);
 }
 
 /// Web `ReportIssueDialog`. [onSubmit] resolves to the receipt or throws a
@@ -161,9 +159,11 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(
-        () => error = e is RaftReportIssueFailure
-            ? e.message
-            : raftText(context, 'Failed to submit issue report'),
+        () => error = raftErrorMessage(
+          context,
+          e,
+          fallback: 'Failed to submit issue report',
+        ),
       );
     } finally {
       if (mounted) setState(() => loading = false);
@@ -522,10 +522,10 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: RaftBanner(
+              child: RaftErrorBanner(
+                error!,
                 key: const ValueKey('report-issue-error'),
-                description: error!,
-                descriptionWeight: FontWeight.w700,
+                bold: true,
               ),
             ),
           Wrap(

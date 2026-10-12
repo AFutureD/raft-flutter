@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 
@@ -52,8 +53,46 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
     return true;
   }
 
+  /// AgentMcpTab `messageFor(error, agent.mcp.errorRequestFailed)`: the
+  /// server's `error` text, else the managed-MCP failure message.
+  static const _failed = 'Managed MCP request failed';
+
   @override
-  Future<void> loadData(int request, int generation) async {
+  Future<void> run(
+    Future<void> Function() action, {
+    bool refresh = true,
+    String? fallback,
+  }) => super.run(
+    () => withWebError(fallback ?? _failed, action, where: 'managed mcp'),
+    refresh: refresh,
+    fallback: fallback ?? _failed,
+  );
+
+  @override
+  Future<bool> form(
+    String title,
+    List<RaftFormField> fields,
+    Future<void> Function(Map<String, String>) save, {
+    String submit = 'Save',
+    String? description,
+    bool destructive = false,
+  }) => super.form(
+    title,
+    fields,
+    (values) => withWebError(_failed, () => save(values), where: 'managed mcp'),
+    submit: submit,
+    description: description,
+    destructive: destructive,
+  );
+
+  @override
+  Future<void> loadData(int request, int generation) => withWebError(
+    _failed,
+    () => _loadData(request, generation),
+    where: 'managed mcp',
+  );
+
+  Future<void> _loadData(int request, int generation) async {
     final results = await Future.wait([
       w.client.get(
         widget.agentId == null
@@ -149,10 +188,12 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
       ],
       (v) async {
         if ((v['headerName']!.isEmpty) != (v['headerValue']!.isEmpty)) {
-          throw StateError('Enter both the credential header name and value.');
+          throw const RaftUserError(
+            'Credential header names must be unique, and new or renamed headers need a value.',
+          );
         }
         if (v['authMode'] != 'headers' && v['headerValue']!.isNotEmpty) {
-          throw StateError(
+          throw const RaftUserError(
             'Select encrypted headers to save a header credential.',
           );
         }
@@ -215,7 +256,8 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
       },
       submit: 'Remove',
       destructive: true,
-      description: 'Remove this stored header. Other saved credentials are preserved. To remove every credential, change authentication to None.',
+      description:
+          'Remove this stored header. Other saved credentials are preserved. To remove every credential, change authentication to None.',
     );
   }
 
@@ -247,15 +289,20 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
           'Credential header value',
           obscure: true,
           trim: false,
-          help: 'Leave empty to use the saved credential when testing an existing connection.',
+          help:
+              'Leave empty to use the saved credential when testing an existing connection.',
         ),
       ],
       (v) async {
         if (v['headerName']!.isEmpty != v['headerValue']!.isEmpty) {
-          throw StateError('Enter both the header name and its credential.');
+          throw const RaftUserError(
+            'Credential header names must be unique, and new or renamed headers need a value.',
+          );
         }
         if (v['authMode'] != 'headers' && v['headerValue']!.isNotEmpty) {
-          throw StateError('Select encrypted headers to test a credential.');
+          throw const RaftUserError(
+            'Select encrypted headers to test a credential.',
+          );
         }
         result = managementMap(
           await w.client.post(
@@ -319,9 +366,9 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
 
   Future<void> assignment(Map<String, dynamic> server) async {
     final current = managementMap(server['assignment']);
-    final names = managementRows(server['toolCatalog'])
-        .map((t) => '${t['name']}')
-        .toList();
+    final names = managementRows(
+      server['toolCatalog'],
+    ).map((t) => '${t['name']}').toList();
     await form(
       'Agent tool access',
       [
@@ -373,9 +420,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
     return RaftMcpServersSection(
       scrollable: true,
       loading: loading && servers.isEmpty,
-      error: error == null
-          ? null
-          : raftText(context, 'Managed MCP request failed'),
+      error: error == null ? null : raftText(context, error!),
       onAddServer: manage ? () => run(() => edit()) : null,
       servers: [
         for (final server in servers)
@@ -519,9 +564,7 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
         RaftMcpServersSection(
           usage: true,
           loading: loading && servers.isEmpty,
-          error: error == null
-              ? null
-              : raftText(context, 'Managed MCP request failed'),
+          error: error == null ? null : raftText(context, error!),
           servers: [
             for (final server in servers)
               if (server['usage'] is Map)
@@ -558,7 +601,6 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.agentId == null
-      ? serverCatalog(context)
-      : agentUsage(context);
+  Widget build(BuildContext context) =>
+      widget.agentId == null ? serverCatalog(context) : agentUsage(context);
 }

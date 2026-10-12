@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../data/message_translation_store.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 
@@ -84,7 +84,8 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
   bool languageSaved = false, dateTimeSaved = false;
 
   String get savedMode => translations.settings.mode.name;
-  String get savedTarget => translations.settings.preferredLanguage ?? 'browser';
+  String get savedTarget =>
+      translations.settings.preferredLanguage ?? 'browser';
   String get savedDisplay => translations.settings.display.name;
   String get savedTimezone =>
       w.client.user?.string('preferredTimezone').trim() ?? '';
@@ -171,9 +172,11 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
     } catch (e) {
       if (mounted && scope == authority) {
         setState(() {
-          final message = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, failure);
+          final message = userErrorText(
+            e,
+            fallback: failure,
+            where: 'locale settings',
+          );
           if (language) {
             languageError = message;
           } else {

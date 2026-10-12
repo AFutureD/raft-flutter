@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:raft_ui/raft_ui.dart';
-import 'package:raft_client/raft_client.dart';
 
 import '../data/device_preferences.dart';
+import '../data/user_error.dart';
+import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'app_notifications_catalog.dart';
@@ -237,7 +238,13 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
   }
 
   @override
-  Future<void> loadData(int request, int generation) async {
+  Future<void> loadData(int request, int generation) => withWebError(
+    'Failed to load connected apps',
+    () => _loadData(request, generation),
+    where: 'connected apps',
+  );
+
+  Future<void> _loadData(int request, int generation) async {
     final data = await Future.wait(
       [
         '/integrations/clients',
@@ -300,7 +307,14 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     );
   }
 
-  Future<String?> _mutate(String id, Future<void> Function() body) async {
+  /// Runs [body]; on failure returns the English text to show (the server's
+  /// `error`, else [fallback]), or null when the change was dropped (stale or
+  /// authority revoked).
+  Future<String?> _mutate(
+    String id,
+    Future<void> Function() body, {
+    required String fallback,
+  }) async {
     final generation = w.client.generation, source = authority;
     setState(() => savingId = id);
     try {
@@ -310,7 +324,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     } catch (e) {
       if (!accepts(generation) || source != authority) return null;
       if (invalidateDeniedMutation(e)) return null;
-      return e is RaftApiException && e.message.isNotEmpty ? e.message : null;
+      return userErrorText(e, fallback: fallback, where: 'connected apps');
     } finally {
       if (mounted && accepts(generation) && source == authority) {
         setState(() => savingId = null);
@@ -341,13 +355,12 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
     final failure = await _mutate(
       '${app['id']}',
       () => w.client.delete('/integrations/marketplace/${app['id']}/install'),
+      fallback: 'Failed to uninstall marketplace app',
     );
     if (failure != null || error != null) {
       if (mounted) {
         setState(
-          () => error =
-              failure ??
-              raftText(context, 'Failed to uninstall marketplace app'),
+          () => error = failure ?? 'Failed to uninstall marketplace app',
         );
       }
       return false;
@@ -379,6 +392,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
             final failure = await _mutate(
               id,
               () => w.client.post('/integrations/marketplace/$id/install'),
+              fallback: 'Failed to install marketplace app',
             );
             if (!modal.mounted) return;
             if (failure == null && error == null) {
@@ -386,7 +400,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
             } else {
               setModal(
                 () => modalError =
-                    failure ?? tr('Failed to install marketplace app'),
+                    failure ?? 'Failed to install marketplace app',
               );
             }
           }
@@ -1003,12 +1017,11 @@ class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
       if (!mounted) return;
       setState(() {
         loading = false;
-        error = e is RaftApiException && e.message.isNotEmpty
-            ? e.message
-            : raftText(
-                context,
-                'Failed to load installed App Notifications settings',
-              );
+        error = userErrorText(
+          e,
+          fallback: 'Failed to load installed App Notifications settings',
+          where: 'installed app notifications',
+        );
       });
     }
   }
@@ -1021,12 +1034,11 @@ class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
     } catch (e) {
       if (mounted) {
         setState(
-          () => error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(
-                  context,
-                  'Failed to update installed App Notifications settings',
-                ),
+          () => error = userErrorText(
+            e,
+            fallback: 'Failed to update installed App Notifications settings',
+            where: 'installed app notifications update',
+          ),
         );
       }
     } finally {

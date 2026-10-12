@@ -4,10 +4,10 @@
 import 'package:flutter/material.dart';
 
 import 'raft_underline.dart';
-import 'banner.dart';
 import 'css_pixel_snap.dart';
 import 'icons.dart';
 import 'list_items.dart';
+import 'error_presentation.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'settings_controls.dart';
@@ -82,10 +82,10 @@ class RaftArchivedChannelsSection extends StatelessWidget {
             count: rows.length,
           ),
           if (error != null) ...[
-            RaftBanner(
+            RaftErrorBanner(
+              error!,
               key: const ValueKey('archived-channels-error'),
-              description: error!,
-              size: RaftBannerRecipeSize.sm,
+              small: true,
             ),
             const SizedBox(height: 12),
           ],

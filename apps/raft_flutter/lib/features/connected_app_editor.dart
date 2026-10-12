@@ -14,6 +14,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../platform/file_selection.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
 import 'app_notifications_catalog.dart';
@@ -147,8 +148,10 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
   bool get live => mounted && generation == w.client.generation;
   String get base => '/integrations/clients/${editing?['id']}';
   String tr(String s) => raftText(context, s);
+  /// Web `err.response?.data?.error || formatMessage(fallback)`; the English
+  /// source string, localized by the banner.
   String failure(Object e, String fallback) =>
-      e is RaftApiException && e.message.isNotEmpty ? e.message : tr(fallback);
+      userErrorText(e, fallback: fallback, where: 'connected app editor');
 
   @override
   void initState() {

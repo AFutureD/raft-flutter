@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
+import 'package:raft_flutter/data/user_error.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/create_joint_channel_dialog.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
@@ -127,6 +128,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: raftTheme(RaftFamily.brutal),
+        // main.dart installs the app error mapper above every route.
+        builder: (_, child) =>
+            RaftErrorScope(format: raftAppErrorFormatter, child: child!),
         home: WorkspaceView(
           controller: w,
           appearance: RaftAppearance(light: RaftFamily.brutal),

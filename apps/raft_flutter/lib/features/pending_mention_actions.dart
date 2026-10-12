@@ -9,9 +9,48 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'composer_attachments_view.dart';
 import 'public_avatar_url.dart';
+
+/// Web `formatMentionActionStatusNotice`: why a mention action did not apply.
+String mentionActionStatusNotice(BuildContext context, Map? result) {
+  final status = result?['status'], reason = result?['reason'];
+  final text = switch (status) {
+    _ when result == null => 'This mention action is no longer available.',
+    'dropped' =>
+      reason == 'delivery_unavailable'
+          ? 'Notification was not delivered because delivery is temporarily unavailable. Try again.'
+          : 'That target was not notified right now. Try again.',
+    'no_permission' => switch (reason) {
+      'sender_lacks_channel_access' =>
+        'You no longer have access to that channel, so this mention action was not applied.',
+      'target_lacks_read_access' =>
+        'That person cannot read this conversation, so they were not notified.',
+      'add_not_allowed_for_surface' =>
+        'That person cannot be added from this mention action. Use the channel member controls instead.',
+      'add_requires_human_member_authority' =>
+        'Agents cannot add channel members from mention actions. Ask a human member to add them.',
+      'add_requires_member_management_authority' =>
+        'Only channel admins can add members from this mention action.',
+      _ =>
+        'This mention action is not available for the current channel state.',
+    },
+    'stale' => switch (reason) {
+      'target_already_member' =>
+        'That target is already in the channel, so no action is needed.',
+      'target_unavailable' => 'That target is no longer available.',
+      _ => 'This mention action is no longer pending.',
+    },
+    'expired' => 'This mention action has expired.',
+    'not_found' => 'This mention action is no longer available.',
+    'ambiguous' =>
+      'This mention action matched more than one target. Refresh and try again.',
+    _ => 'This mention action could not be applied.',
+  };
+  return raftText(context, text);
+}
 
 class PendingMentionActions extends StatefulWidget {
   const PendingMentionActions({
@@ -73,28 +112,55 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
   }
 
   Future<void> mark(List<String> ids, RaftPendingMentionState outcome) async {
+    w.setComposerError(null, thread: widget.thread);
     setState(() {
       notice = null;
       for (final id in ids) {
         executing[id] = outcome;
       }
     });
+    final single = ids.length == 1;
     try {
-      final ok = await w.executeMentionActions(
-        outcome == RaftPendingMentionState.added ? 'add' : 'notify',
-        ids,
-      );
+      final action = outcome == RaftPendingMentionState.added
+          ? 'add'
+          : 'notify';
+      final results = await w.executeMentionActionResults(action, ids);
       if (!mounted) return;
-      for (final id in ids.where(ok.contains)) {
+      final ok = [
+        for (final id in ids)
+          if (WorkspaceController.mentionActionSucceeded(action, results[id]))
+            id,
+      ];
+      for (final id in ok) {
         scheduleRemoval(id, outcome);
       }
       if (ok.length < ids.length) {
+        final failed = ids.firstWhere((id) => !ok.contains(id));
+        final reason = mentionActionStatusNotice(context, results[failed]);
+        // Web: a single row shows the reason alone; a batch add leads with
+        // how many were added.
         setState(
-          () => notice = raftText(context, 'Mention action failed. Try again.'),
+          () => notice = single
+              ? reason
+              : ok.isNotEmpty
+              ? '${raftFormat(context, 'Added {succeeded} of {total}. ', {'succeeded': ok.length, 'total': ids.length})}$reason'
+              : '${raftText(context, 'No people were added. ')}$reason',
         );
       }
     } catch (e) {
-      if (mounted) setState(() => notice = '$e');
+      // Web: the server's text, else `failedMentionAction` / `mentionAddFailed`.
+      if (mounted) {
+        w.setComposerError(
+          userErrorText(
+            e,
+            fallback: single
+                ? 'Failed to execute mention action'
+                : 'Failed to add mentioned people',
+            where: 'mention action',
+          ),
+          thread: widget.thread,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {

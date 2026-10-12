@@ -349,18 +349,57 @@ class RaftPendingMentionSlot extends StatelessWidget {
   final Widget strip;
   final String? notice;
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (notice != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Semantics(liveRegion: true, child: Text(notice!)),
-        ),
-      Padding(padding: const EdgeInsets.only(bottom: 8), child: strip),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (notice != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            // Web `mentionActionNotice`: `rounded-md border border-line-muted
+            // bg-fill-muted/50 px-2 py-1 text-[11px] font-bold leading-4
+            // text-foreground-muted`; brutal `rounded-none border-2
+            // border-black/35 bg-black/[0.04] text-black/70`.
+            child: Semantics(
+              liveRegion: true,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: t.brutal
+                      ? Colors.black.withValues(alpha: .04)
+                      : t.colors['fill-muted']!.withValues(
+                          alpha: t.colors['fill-muted']!.a * .5,
+                        ),
+                  border: Border.all(
+                    color: t.brutal
+                        ? Colors.black.withValues(alpha: .35)
+                        : t.colors['line-muted']!,
+                    width: t.brutal ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(t.brutal ? 0 : 6),
+                ),
+                child: Text(
+                  notice!,
+                  style: TextStyle(
+                    fontFamily: t.headingFont,
+                    fontSize: 11,
+                    height: 16 / 11,
+                    fontWeight: FontWeight.w700,
+                    color: t.brutal
+                        ? Colors.black.withValues(alpha: .7)
+                        : t.colors['foreground-muted'],
+                    leadingDistribution: TextLeadingDistribution.even,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        Padding(padding: const EdgeInsets.only(bottom: 8), child: strip),
+      ],
+    );
+  }
 }
 
 /// Web MessageInput `<Banner intent="warning" density="sm">` above the
@@ -389,6 +428,7 @@ class RaftComposerNotice extends StatelessWidget {
         style: TextStyle(fontFamily: t.headingFont),
         child: RaftBanner(
           description: message,
+          descriptionWeight: FontWeight.w700,
           size: RaftBannerRecipeSize.sm,
           // Measured on Web: the `icon-xs` button is 24px in Brutal but 16px in
           // Elegant (the recipe resolves 24 for both); its 12px glyph stays.
@@ -429,6 +469,7 @@ class RaftComposerNotice extends StatelessWidget {
                 fontFamily: t.headingFont,
                 fontSize: 12,
                 height: 16 / 12,
+                fontWeight: FontWeight.w700,
                 leadingDistribution: TextLeadingDistribution.even,
               ),
         ),

@@ -5,6 +5,7 @@ import 'localization.dart';
 import 'components.dart';
 import 'dialog_card.dart' show RaftCloseButton;
 import 'dismiss_scope.dart';
+import 'error_presentation.dart';
 import 'theme.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
@@ -42,8 +43,13 @@ class RaftFormDialog extends StatefulWidget {
     this.description,
     this.destructive = false,
     this.extra,
+    this.errorFallback,
   });
   final String title, submitLabel;
+
+  /// The surface's Web fallback message, shown when a failed submit carries no
+  /// server text (`err.response?.data?.error || formatMessage(fallback)`).
+  final String? errorFallback;
   final String? description;
   final bool destructive;
   final Widget? extra;
@@ -95,7 +101,15 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
       if (mounted && ModalRoute.of(context)?.isCurrent == true)
         Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(
+          () => error = raftErrorMessage(
+            context,
+            e,
+            fallback: widget.errorFallback,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -223,16 +237,7 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                       excluding: busy,
                       child: IgnorePointer(ignoring: busy, child: widget.extra!),
                     ),
-                  if (error != null)
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
+                  if (error != null) RaftErrorBanner(error!),
                 ],
               ),
             ),

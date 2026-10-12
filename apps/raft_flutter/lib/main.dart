@@ -15,6 +15,7 @@ import 'data/attachment_image_store.dart';
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
 import 'data/source_time_formatter.dart';
+import 'data/user_error.dart';
 import 'data/workspace_cache.dart';
 import 'data/raft_location.dart';
 import 'data/shared_draft_attachment.dart';
@@ -776,10 +777,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     restoreFailure = failure;
     restoreRetrying = false;
     restoring = false;
-    final delay = restoreBackoff[restoreAttempt.clamp(
-      0,
-      restoreBackoff.length - 1,
-    )];
+    final delay =
+        restoreBackoff[restoreAttempt.clamp(0, restoreBackoff.length - 1)];
     restoreAttempt++;
     restoreRetry?.cancel();
     restoreRetry = Timer(delay, retryRestore);
@@ -800,7 +799,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
 
   RaftClient authClient(String base, int attempt) {
     final problem = authOriginError(base);
-    if (problem != null) throw RaftApiException(problem);
+    if (problem != null) throw RaftUserError(problem);
     late final RaftClient candidate;
     candidate = makeClient(
       base.trim(),
@@ -1052,7 +1051,11 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       if (current()) {
         setState(() {
           directoryLoading = false;
-          selectorError = '$e';
+          selectorError = userErrorText(
+            e,
+            fallback: 'Something went wrong',
+            where: 'server directory',
+          );
         });
       }
     }
@@ -1149,23 +1152,24 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           .firstOrNull;
       if (server == null) {
         if (!mounted) return;
-        throw RaftApiException(
-          raftText(
-            context,
-            "Joined community server but it's missing from the list",
-          ),
+        throw const RaftUserError(
+          "Joined community server but it's missing from the list",
         );
       }
       joiningCommunitySlug = null;
       await chooseServer(server, location: Uri(path: '/s/$slug'));
     } catch (e) {
       communityDialogOpen = false;
-      debugPrint('[Community] Failed to join $slug from the route: $e');
+      logUserError(e, where: 'community join from the route');
       if (!live()) return;
       // Web re-arms the attempt on an error; the not-found page or the
       // server list shows meanwhile.
       communityAttempt = null;
-      selectorError = '$e';
+      selectorError = userErrorText(
+        e,
+        fallback: 'Failed to join community server',
+        where: 'community join from the route',
+      );
       setState(() => joiningCommunitySlug = null);
       if (w.servers.isNotEmpty) await showAccessDenied(slug, live);
     }
@@ -1603,7 +1607,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
             selecting.then<void>(
               (_) {},
               onError: (Object e) {
-                if (current()) w.setError('$e');
+                if (current()) {
+                  w.setError(
+                    userErrorText(
+                      e,
+                      fallback: 'Could not switch servers. Please try again.',
+                      where: 'server selection',
+                    ),
+                  );
+                }
               },
             ),
           );
@@ -1658,7 +1670,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         await prefs.setString('$serverMemoryKey.last', selected.string('slug'));
       }
     } catch (e) {
-      if (current()) setState(() => selectorError = '$e');
+      if (current()) {
+        setState(
+          () => selectorError = userErrorText(
+            e,
+            fallback: 'Could not switch servers. Please try again.',
+            where: 'choose server',
+          ),
+        );
+      }
     } finally {
       if (current()) setState(() => selectingServer = false);
     }
@@ -1695,7 +1715,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       }
       await chooseServer(created);
     } catch (e) {
-      if (current()) setState(() => selectorError = '$e');
+      if (current()) {
+        setState(
+          () => selectorError = userErrorText(
+            e,
+            fallback: 'Failed to create server',
+            where: 'create server',
+          ),
+        );
+      }
     } finally {
       if (current()) setState(() => selectingServer = false);
     }
@@ -2105,9 +2133,14 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               // Resolves the theme's font combinations once the app is idle.
               child: RaftFontWarmUpScope(
                 child: RaftSystemBars(
-                  child: KeyboardInsetGuard(
-                    imeVisible: platformImeVisibility,
-                    child: child!,
+                  child: RaftErrorScope(
+                    format: raftAppErrorFormatter,
+                    child: RaftToastHost(
+                      child: KeyboardInsetGuard(
+                        imeVisible: platformImeVisibility,
+                        child: child!,
+                      ),
+                    ),
                   ),
                 ),
               ),

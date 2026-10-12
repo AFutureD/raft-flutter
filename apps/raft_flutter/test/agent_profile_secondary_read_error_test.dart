@@ -104,7 +104,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(AgentDetailPanel), findsOneWidget);
-        expect(find.byType(RaftPanelError), findsNothing);
+        expect(find.byType(RaftPanelErrorStrip), findsNothing);
         expect(find.text('Profile could not be loaded.'), findsNothing);
         expect(find.text('Alpha Agent'), findsWidgets);
         if (failSkills) {
@@ -114,17 +114,19 @@ void main() {
             scrollable: find.byType(Scrollable).last,
           );
           // The failure is shown once, inside the Skills section, with Retry.
-          expect(find.text('Internal server error'), findsOneWidget);
+          expect(find.text('Failed to load skills'), findsOneWidget);
           expect(
             find.descendant(
               of: find.byType(AgentSkillsSection),
-              matching: find.text('Internal server error'),
+              matching: find.text('Failed to load skills'),
             ),
             findsOneWidget,
           );
           expect(find.text('Retry'), findsOneWidget);
-        } else {
+          // A body-less 500 shows the Web fallback, never the exception text.
           expect(find.text('Internal server error'), findsNothing);
+        } else {
+          expect(find.text('Failed to load skills'), findsNothing);
         }
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

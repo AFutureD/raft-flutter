@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'raft_underline.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftShadowSet;
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'theme.dart';
 
@@ -117,7 +118,11 @@ class RaftForwardDesktopDialog extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: RaftTypography.heading(t, size: 16, line: 24),
+                            style: RaftTypography.heading(
+                              t,
+                              size: 16,
+                              line: 24,
+                            ),
                           ),
                           Text(
                             subtitle,
@@ -145,7 +150,9 @@ class RaftForwardDesktopDialog extends StatelessWidget {
                       width: side,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        border: Border(right: BorderSide(color: rule, width: 2)),
+                        border: Border(
+                          right: BorderSide(color: rule, width: 2),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -197,14 +204,7 @@ class RaftForwardDesktopDialog extends StatelessWidget {
                               padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (error != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Text(error!, style: label),
-                                    ),
-                                  preview,
-                                ],
+                                children: [preview],
                               ),
                             ),
                           ),
@@ -212,6 +212,7 @@ class RaftForwardDesktopDialog extends StatelessWidget {
                             noteLabel: noteLabel,
                             note: note,
                             send: send,
+                            error: error,
                           ),
                         ],
                       ),
@@ -234,9 +235,11 @@ class _NoteBar extends StatelessWidget {
     required this.noteLabel,
     required this.note,
     required this.send,
+    this.error,
   });
   final String noteLabel;
   final Widget note, send;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +263,9 @@ class _NoteBar extends StatelessWidget {
               color: t.brutal ? Colors.black.withValues(alpha: .6) : t.muted,
             ),
           ),
+          // Web MessageInput's own error row: `Banner intent="warning"
+          // density="sm" font-bold` above the editor.
+          if (error != null) RaftErrorBanner(error!, small: true, bold: true),
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(

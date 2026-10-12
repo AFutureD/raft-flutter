@@ -66,20 +66,6 @@ class RaftAnnouncementLabels {
   final String dismiss, back, next, ok;
 }
 
-/// `common.announcement.saveFailed` in the [context] locale.
-String raftAnnouncementSaveFailed(BuildContext context) =>
-    Localizations.maybeLocaleOf(context)?.languageCode == 'zh'
-    ? '没能记录你已读过这条公告，下次还会再出现。'
-    : "Couldn't save that you've read this announcement. It'll show again next time.";
-
-/// Shows [message] as a transient error notice of the enclosing Scaffold
-/// (the Web `toast.error`). No-op without a ScaffoldMessenger.
-void showRaftErrorNotice(BuildContext context, String message) {
-  ScaffoldMessenger.maybeOf(
-    context,
-  )?.showSnackBar(SnackBar(content: Text(message)));
-}
-
 /// The whole Web modal: backdrop + centred card, page navigation and the
 /// keyboard contract.
 ///

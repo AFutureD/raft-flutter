@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_detail_view.dart' show sourceRuntimeDisplayNames;
@@ -494,11 +495,16 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
         'POST',
         '/servers/$serverId/machines/$id/computer/restart',
       );
-    } on RaftApiException catch (e) {
+    } catch (e) {
+      // Web handleComputerRestart: the server's `error` text, else the restart
+      // message; the `computer_offline` code gets its own copy.
       throw RaftComputerActionError(
-        '$e'.contains('computer_offline')
-            ? 'The Computer is offline.'
-            : 'Failed to request restart. The Computer must be online.',
+        userErrorText(
+          e,
+          fallback: 'Failed to request restart. The Computer must be online.',
+          codeText: const {'computer_offline': 'The Computer is offline.'},
+          where: 'computer restart',
+        ),
       );
     }
   }
@@ -512,16 +518,17 @@ class _ComputerDetailPanelState extends State<ComputerDetailPanel> {
         data: {'targetVersion': target},
       );
     } catch (e) {
-      final code = e is RaftApiException ? '$e' : '';
+      // Web upgradeRefusalFromCode: the server's `code`, never its text.
+      final code = e is RaftApiException ? e.details['code'] : null;
+      logUserError(e, where: 'computer upgrade');
       if (mounted) {
         setState(
-          () => upgradeRefusal = code.contains('remote_upgrade_disabled')
-              ? 'web_upgrade_off'
-              : code.contains('computer_remote_upgrade_unsupported')
-              ? 'too_old'
-              : code.contains('computer_broadcast_not_eligible')
-              ? 'not_allowed'
-              : 'unknown',
+          () => upgradeRefusal = switch (code) {
+            'remote_upgrade_disabled' => 'web_upgrade_off',
+            'computer_remote_upgrade_unsupported' => 'too_old',
+            'computer_broadcast_not_eligible' => 'not_allowed',
+            _ => 'unknown',
+          },
         );
       }
     } finally {

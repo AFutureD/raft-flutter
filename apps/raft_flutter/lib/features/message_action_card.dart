@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'add_members_dialog.dart';
@@ -323,6 +324,7 @@ class _MessageActionCardState extends State<MessageActionCard> {
     final authority = workspaceAuthority(w),
         snapshot = Map<String, dynamic>.from(action),
         version = metadata['confirmationVersion'];
+    final reconfirming = metadata['state'] == 'reconfirm_required';
     openingAuthority = authority;
     openingVersion = version;
     setState(() {
@@ -521,7 +523,19 @@ class _MessageActionCardState extends State<MessageActionCard> {
       );
       if (accepted != true && !submitted) await event('action_card.dismiss');
     } catch (e) {
-      if (current(authority)) setState(() => error = '$e');
+      if (current(authority)) {
+        // Web ActionCard: the server's text, else `actionCard.reconfirmationFailed`
+        // / `actionCard.executeFailed`.
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: reconfirming
+                ? 'Reconfirmation failed'
+                : 'Failed to execute action',
+            where: 'action card',
+          ),
+        );
+      }
     } finally {
       ownedDialog = null;
       openingAuthority = null;

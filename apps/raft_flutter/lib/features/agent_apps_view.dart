@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+import '../data/web_error.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart';
 import 'integrations_views.dart';
@@ -69,8 +71,18 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
     return true;
   }
 
+  /// Web `errorText(err, fallback)`: the server's `error` text, else this
+  /// action's `agent.apps.*` / `agent.detail.*` message.
+  Future<void> _web(String fallback, Future<void> Function() action) =>
+      withWebError(fallback, action, where: 'agent apps');
+
   @override
-  Future<void> loadData(int request, int generation) async {
+  Future<void> loadData(int request, int generation) => _web(
+    'Failed to load connected apps',
+    () => _loadData(request, generation),
+  );
+
+  Future<void> _loadData(int request, int generation) async {
     final agentData = managementMap(
       await w.client.get('/agents/${widget.agentId}'),
     );
@@ -102,16 +114,19 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
         generation = w.client.generation,
         sourceAuthority = authority;
     if (cursor == null) return;
-    final page = managementMap(
-      await w.client.get(
-        '$base/events',
-        query: {
-          'limit': '25',
-          'before': cursor,
-          if (filter != null) 'clientId': filter,
-        },
-      ),
-    );
+    late final Map<String, dynamic> page;
+    await _web('Failed to load app events', () async {
+      page = managementMap(
+        await w.client.get(
+          '$base/events',
+          query: {
+            'limit': '25',
+            'before': cursor,
+            if (filter != null) 'clientId': filter,
+          },
+        ),
+      );
+    });
     if (!accepts(generation) || sourceAuthority != authority) return;
     final ids = events.map((e) => e['id']).toSet();
     events = [
@@ -124,7 +139,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
 
   Future<void> grant() async {
     if (apps.isEmpty) {
-      throw StateError('No apps are available to grant to this agent.');
+      throw const RaftUserError('No apps are available on this server.');
     }
     Map<String, dynamic>? selected;
     final picked = await form(
@@ -160,7 +175,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
               : null,
         ),
       ],
-      (v) async {
+      (v) => _web('Failed to grant access', () async {
         await w.client.post(
           '$base/grants',
           data: {
@@ -168,7 +183,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
             'scopes': parseIntegrationScopes(v['scopes']!),
           },
         );
-      },
+      }),
       submit: 'Grant access',
       description:
           'Allow this app to send the approved events or notifications to this agent.',
@@ -191,7 +206,13 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
               }
             },
             onError: (Object e) {
-              if (accepts(generation)) failure.value = '$e';
+              if (accepts(generation)) {
+                failure.value = userErrorText(
+                  e,
+                  fallback: 'Failed to load the event',
+                  where: 'agent app event',
+                );
+              }
             },
           ),
     );
@@ -203,14 +224,15 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
           child: SingleChildScrollView(
             child: ListenableBuilder(
               listenable: Listenable.merge([payload, failure]),
-              builder: (context, _) => SelectableText(
-                failure.value ??
-                    (payload.value == null
-                        ? raftText(context, 'Loading…')
-                        : const JsonEncoder.withIndent(
-                            '  ',
-                          ).convert(payload.value!.$1)),
-              ),
+              builder: (context, _) => failure.value != null
+                  ? RaftErrorBanner(failure.value!, small: true, bold: true)
+                  : SelectableText(
+                      payload.value == null
+                          ? raftText(context, 'Loading…')
+                          : const JsonEncoder.withIndent(
+                              '  ',
+                            ).convert(payload.value!.$1),
+                    ),
             ),
           ),
         ),
@@ -247,7 +269,7 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
     final empty = RaftPanelText.muted(t);
     return RaftPanelGroups(
       groups: [
-        if (error != null) [RaftPanelError(error!)],
+        if (error != null) [RaftErrorBanner(error!, small: true, bold: true)],
         if (pending.isNotEmpty)
           [
             RaftSectionHeader(
@@ -349,19 +371,25 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
         if (manager && pending) ...[
           _small(
             raftText(context, 'Approve'),
-            () => run(() async {
-              await w.client.post(
-                '/integrations/requests/${item['id']}/approve',
-                data: {'remember': true},
-              );
-            }),
+            () => run(
+              () => _web('Failed to approve the request', () async {
+                await w.client.post(
+                  '/integrations/requests/${item['id']}/approve',
+                  data: {'remember': true},
+                );
+              }),
+            ),
             selected: true,
           ),
           _small(
             raftText(context, 'Deny'),
-            () => run(() async {
-              await w.client.post('/integrations/requests/${item['id']}/deny');
-            }),
+            () => run(
+              () => _web('Failed to deny the request', () async {
+                await w.client.post(
+                  '/integrations/requests/${item['id']}/deny',
+                );
+              }),
+            ),
           ),
         ] else if (manager)
           _small(
@@ -370,11 +398,11 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
               await confirm(
                 'Revoke app access?',
                 'Disconnect ${item['clientName']} from this agent.',
-                () async {
+                () => _web('Failed to revoke app access', () async {
                   await w.client.post(
                     '/integrations/grants/${item['id']}/revoke',
                   );
-                },
+                }),
                 submit: 'Revoke',
                 destructive: true,
               );

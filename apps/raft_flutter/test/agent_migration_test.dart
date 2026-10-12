@@ -136,7 +136,15 @@ void main() {
         {'migrationRef': 'fixture-ref', 'expectedRevision': 2},
       ]);
       expect(find.byType(RaftFormDialog), findsOneWidget);
-      expect(find.textContaining('Migration changed'), findsOneWidget);
+      // Web AgentMigrationCancelDialog: the stale code picks catalog copy, the
+      // server's sentence is not shown.
+      expect(
+        find.textContaining(
+          'The migration changed before cancellation was submitted',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('refresh before retrying'), findsNothing);
       expect(find.text('Move agent'), findsNothing);
     },
   );

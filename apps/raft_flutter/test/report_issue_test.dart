@@ -66,7 +66,13 @@ class _Client extends RaftClient {
   }) async {
     calls.add((method, path, data));
     final answer = answers['$method $path'];
-    if (answer == null) throw const RaftApiException('not found', status: 404);
+    if (answer == null) {
+      throw RaftApiException.response(
+        'not found',
+        status: 404,
+        body: {'error': 'not found'},
+      );
+    }
     return answer(data);
   }
 }
@@ -134,7 +140,13 @@ Map<String, Object? Function(dynamic)> _answers({
     return {};
   },
   'POST /product-feedback': (_) {
-    if (ticketFails) throw const RaftApiException('nope', status: 500);
+    if (ticketFails) {
+      throw RaftApiException.response(
+        'nope',
+        status: 500,
+        body: {'error': 'nope'},
+      );
+    }
     return {'id': 'ticket-1'};
   },
 };

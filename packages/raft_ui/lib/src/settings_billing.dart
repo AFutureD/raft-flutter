@@ -1148,7 +1148,7 @@ class _ManagePlanCard extends StatelessWidget {
         Text(m.help, style: mono),
         if (m.draftError != null) ...[
           const SizedBox(height: 12),
-          Text(m.draftError!, style: red),
+          Text(raftText(context, m.draftError!), style: red),
         ],
         if (m.actions.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -1165,7 +1165,10 @@ class _ManagePlanCard extends StatelessWidget {
         ])
           if (copy != null && copy.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Semantics(liveRegion: true, child: Text(copy, style: style)),
+            Semantics(
+              liveRegion: true,
+              child: Text(raftText(context, copy), style: style),
+            ),
           ],
       ],
     );

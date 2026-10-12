@@ -197,6 +197,7 @@ export 'src/notification_settings_card.dart';
 export 'src/cindy_setup_screen.dart';
 export 'src/setup_steps.dart';
 export 'src/toast.dart';
+export 'src/error_presentation.dart';
 
 export 'src/workspace_mode_card.dart';
 

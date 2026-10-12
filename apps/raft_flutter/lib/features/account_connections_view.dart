@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/oauth_broker.dart';
 import 'management_support.dart';
@@ -172,7 +173,15 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
       // owns its submit progress, so no outer spinner runs behind the dialog.
       await sendPasswordSetup();
     } catch (e) {
-      if (mounted && scope == authority) setState(() => error = '$e');
+      if (mounted && scope == authority) {
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: 'Failed to send password setup email',
+            where: 'password setup',
+          ),
+        );
+      }
     }
   }
 
@@ -201,8 +210,8 @@ class _AccountConnectionsState extends ManagementState<AccountConnectionsView> {
             style: recipe.detail,
           ),
         ),
-      if (error != null)
-        Semantics(liveRegion: true, child: Text(error!, style: recipe.detail)),
+      // `<Banner intent="warning" density="sm" className="font-bold">`
+      if (error != null) RaftErrorBanner(error!, small: true, bold: true),
       if (!loading && !passwordStateKnown)
         Text(
           raftText(

@@ -62,13 +62,7 @@ Future<void> shareMessageLink(
     }
   } catch (_) {
     if (context.mounted && valid()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            raftText(context, 'The message link could not be shared.'),
-          ),
-        ),
-      );
+      showRaftToast(context, 'The message link could not be shared.');
     }
   }
 }

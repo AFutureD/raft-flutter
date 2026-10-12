@@ -9,6 +9,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../platform/file_selection.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 
 class AgentAvatarUpload {
@@ -115,7 +116,15 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
       final next = await widget.pickUpload();
       if (!valid || own != ticket || next == null) return;
       if (next.bytes.length > 5 * 1024 * 1024) {
-        throw const RaftApiException('Image must be at most 5 MB.');
+        // Web `isAvatarFileTooLarge` -> `avatar.tooLarge`.
+        setState(
+          () => error = raftFormat(
+            context,
+            'Avatar image must be {maxLabel} or smaller',
+            {'maxLabel': raftText(context, '5 MB')},
+          ),
+        );
+        return;
       }
       setState(() {
         upload = next;
@@ -124,7 +133,15 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
         error = null;
       });
     } catch (e) {
-      if (valid && own == ticket) setState(() => error = '$e');
+      if (valid && own == ticket) {
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: 'Failed to upload avatar',
+            where: 'agent avatar pick',
+          ),
+        );
+      }
     }
   }
 
@@ -193,7 +210,19 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
       changed = false;
       Navigator.pop(context);
     } catch (e) {
-      if (valid && own == ticket) setState(() => error = '$e');
+      if (valid && own == ticket) {
+        // Web: an upload falls back to `uploadAvatarFailed`, a preset change
+        // to `editProfile.saveFailed`.
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: upload != null
+                ? 'Failed to upload avatar'
+                : 'Could not save changes. Try again.',
+            where: 'agent avatar save',
+          ),
+        );
+      }
     } finally {
       if (valid && own == ticket) setState(() => busy = false);
     }

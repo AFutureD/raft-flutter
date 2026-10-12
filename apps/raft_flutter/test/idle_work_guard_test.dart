@@ -25,7 +25,8 @@ const _patterns = <String, String>{
       r'\bTimer\(\s*(?:const\s+)?Duration(?:\.zero|\(\))|'
       r'\bFuture\.delayed\(\s*(?:const\s+)?Duration(?:\.zero|\(\))|'
       r'=\s*Duration\.zero\s*\]',
-  'Future(': r'\bFuture(?:<[^>]*>)?\(\s*\(\s*\)\s*(?:=>|\{)|\bFuture\.microtask\(',
+  'Future(':
+      r'\bFuture(?:<[^>]*>)?\(\s*\(\s*\)\s*(?:=>|\{)|\bFuture\.microtask\(',
   'scheduleMicrotask': r'\bscheduleMicrotask\(',
   '.repeat(': r'\.repeat\(',
   'Timer.periodic': r'\bTimer\.periodic\(|\bStream\.periodic\(',
@@ -100,6 +101,15 @@ const _allow = <String, Map<String, _Allow>>{
       reason:
           'One-shot roster load after the channel changes; the callback '
           'starts a request and never re-arms.',
+    ),
+  },
+  'apps/raft_flutter/lib/features/workspace_view.dart': {
+    'frame request': (
+      count: 1,
+      reason:
+          'Single frame so the post-frame callback that shows and clears '
+          'w.error (Web toast.error) runs even when nothing else rebuilds; '
+          'the callback never re-requests.',
     ),
   },
   'apps/raft_flutter/lib/features/system_notification_center.dart': {
@@ -229,9 +239,11 @@ void main() {
     ]) {
       final dir = Directory('${root.path}/$base');
       if (!dir.existsSync()) continue;
-      for (final f in dir.listSync(recursive: true).whereType<File>().where(
-        (f) => f.path.endsWith('.dart'),
-      )) {
+      for (final f
+          in dir
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((f) => f.path.endsWith('.dart'))) {
         final rel = f.path.substring(root.path.length + 1);
         for (final line in f.readAsLinesSync()) {
           final code = _stripComments(line);

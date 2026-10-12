@@ -5,13 +5,14 @@
 // widgets here take plain view data and callbacks. Values cite the Tailwind
 // classes / raft-ui recipes they come from.
 import 'dismiss_scope.dart';
+import 'dialog_card.dart' show RaftRecipeButton;
+import 'error_presentation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'system_inset.dart';
 import 'avatar_content.dart';
-import 'components.dart' show RaftButton;
 import 'icons.dart';
 import 'inline_badge_editor.dart';
 import 'localization.dart';
@@ -1234,18 +1235,9 @@ class RaftSkillsSection extends StatelessWidget {
       );
     }
     if (error != null) {
-      return RaftPanelSection(
-        children: [
-          RaftCssText(error!, style: RaftPanelText.muted(t)),
-          RaftButton(
-            label: raftText(context, 'Retry'),
-            glyph: RaftGlyph.refreshCw,
-            tone: RaftButtonRecipeVariant.outline,
-            size: RaftButtonRecipeSize.sm,
-            onPressed: onRetry,
-          ),
-        ],
-      );
+      // AgentSkills.tsx: centred `gap-3` column, mono muted message and an
+      // outline `sm` Retry with the RefreshCw icon.
+      return RaftLoadError(error!, onRetry: onRetry);
     }
     final total = global.length + workspace.length;
     return RaftPanelSection(
@@ -1297,10 +1289,12 @@ class RaftReminderListView extends StatelessWidget {
     required this.reminders,
     this.loading = false,
     this.error,
+    this.onRetry,
   });
   final List<RaftReminderItem> reminders;
   final bool loading;
   final String? error;
+  final VoidCallback? onRetry;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
@@ -1327,7 +1321,15 @@ class RaftReminderListView extends StatelessWidget {
               child: RaftCssText(raftText(context, 'Loading…'), style: bold),
             ),
           if (error != null)
-            RaftCssText(error!, style: bold)
+            // AgentRemindersSection: `<Banner intent="warning" density="sm"
+            // className="font-bold">` with the outline Retry below.
+            RaftErrorBanner(
+              error!,
+              small: true,
+              bold: true,
+              onRetry: onRetry,
+              retryLabel: 'Retry',
+            )
           else if (reminders.isEmpty && !loading)
             Padding(
               padding: const EdgeInsets.only(top: 48),
@@ -1557,7 +1559,48 @@ class RaftWorkspaceTreeView extends StatelessWidget {
                 const EdgeInsets.symmetric(vertical: 4),
               ),
               children: error != null
-                  ? [RaftCssText(error!, textAlign: TextAlign.center)]
+                  // AgentWorkspace.tsx: `px-3 py-4 text-center` AlertTriangle
+                  // (warning-strong / brutal-orange), the mono muted message
+                  // and an outline Retry.
+                  ? [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                        child: Column(
+                          children: [
+                            RaftIcon(
+                              RaftGlyph.triangleAlert,
+                              size: 20,
+                              color: t.brutal
+                                  ? t.product.brutalOrange
+                                  : t.colors['warning-strong'] ?? t.strong,
+                            ),
+                            const SizedBox(height: 6),
+                            RaftCssText(
+                              raftText(context, error!),
+                              textAlign: TextAlign.center,
+                              style: RaftTypography.mono(
+                                t,
+                                size: 14,
+                                line: 20,
+                                color: t.brutal
+                                    ? t.colors['foreground-muted']
+                                    : t.muted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            RaftRecipeButton(
+                              label: raftText(context, 'Retry'),
+                              variant: RaftButtonRecipeVariant.outline,
+                              size: RaftButtonRecipeSize.sm,
+                              onPressed: onRefresh,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]
                   : [for (final n in nodes) _node(t, n)],
             ),
     );
@@ -1713,9 +1756,14 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
     required this.content,
     this.onBack,
     this.embedded = false,
+    this.error,
   });
   final String path, content;
   final VoidCallback? onBack;
+
+  /// AgentWorkspace.tsx `fileError || fileLoadFailed`: the read failed, so the
+  /// pane shows the centred mono placeholder text instead of the content.
+  final String? error;
 
   /// The desktop right pane: header `border-b bg-layer-panel px-4 py-2` with the
   /// path (`font-mono text-sm font-medium`), no back arrow, `p-4` content.
@@ -1723,6 +1771,9 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    if (embedded && error != null) {
+      return Center(child: _errorText(context, t));
+    }
     if (embedded) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1790,22 +1841,43 @@ class RaftWorkspaceFilePreview extends StatelessWidget {
           ],
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: SelectableText(
-              content,
-              style: RaftTypography.mono(
-                t,
-                size: 12,
-                line: 18,
-                color: t.strong,
-              ),
-            ),
-          ),
+          child: error != null
+              ? Center(child: _errorText(context, t))
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    content,
+                    style: RaftTypography.mono(
+                      t,
+                      size: 12,
+                      line: 18,
+                      color: t.strong,
+                    ),
+                  ),
+                ),
         ),
       ],
     );
   }
+
+  Widget _errorText(BuildContext context, RaftTokens t) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Semantics(
+      liveRegion: true,
+      child: RaftCssText(
+        raftText(context, error!),
+        textAlign: TextAlign.center,
+        style: RaftTypography.mono(
+          t,
+          size: 14,
+          line: 20,
+          color: t.brutal
+              ? Colors.black.withValues(alpha: .4)
+              : t.colors['foreground-placeholder'],
+        ),
+      ),
+    ),
+  );
 }
 
 /// A scrolling column of panel groups separated by [gap]
@@ -1944,6 +2016,64 @@ class RaftButtonWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Wrap(spacing: 6, runSpacing: 6, children: children);
+}
+
+/// AgentDetailPanel `startError` strip: `border-b bg-warning-soft px-5 py-2`
+/// (brutal `border-b-2 border-black bg-brutal-orange/20`) with the message
+/// (`text-sm font-bold`, truncated) and a dismiss `X`.
+class RaftPanelErrorStrip extends StatelessWidget {
+  const RaftPanelErrorStrip(this.message, {super.key, this.onDismiss});
+  final String message;
+  final VoidCallback? onDismiss;
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: t.brutal
+              ? t.product.brutalOrange.withValues(alpha: .2)
+              : t.colors['warning-soft'],
+          border: Border(
+            bottom: BorderSide(
+              color: t.brutal ? Colors.black : t.colors['line-muted']!,
+              width: t.brutal ? 2 : 1,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: RaftCssText(
+                raftText(context, message),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: RaftTypography.heading(
+                  t,
+                  size: 14,
+                  line: 20,
+                  weight: FontWeight.w700,
+                  color: t.brutal ? Colors.black : t.strong,
+                ),
+              ),
+            ),
+            if (onDismiss != null) ...[
+              const SizedBox(width: 8),
+              RaftInlineIconButton(
+                glyph: RaftGlyph.x,
+                size: 14,
+                tooltip: raftText(context, 'Dismiss'),
+                onPressed: onDismiss,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Detail-panel error line (`text-xs font-bold`).
@@ -2375,7 +2505,7 @@ class RaftInlineRoleEditor extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              error!,
+              raftText(context, error!),
               style: RaftPanelText.caption(t).copyWith(
                 color: t.product.brutalOrange,
                 fontWeight: FontWeight.w700,

@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
+
 import 'channel_form_fields.dart';
 import 'create_channel_dialog.dart'
     show ChannelMemberCandidate, channelNameError;
@@ -265,9 +267,14 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
             {'max': maxJointChannelServers},
           );
         } else {
-          final body = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to create joint channel');
+          final body = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to create joint channel',
+              where: 'create joint channel',
+            ),
+          );
           error = body;
           billingError = body.contains('requires the Pro plan');
         }
@@ -286,9 +293,14 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
       if (mounted) {
         setState(() {
           submitting = false;
-          error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to unarchive channel');
+          error = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to unarchive channel',
+              where: 'create joint channel unarchive',
+            ),
+          );
         });
       }
     }

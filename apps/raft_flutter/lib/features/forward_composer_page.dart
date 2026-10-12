@@ -11,6 +11,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/source_time_formatter.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'channel_footer_states.dart' show jointChannelReadOnly;
 import 'forward_messages_dialog.dart';
@@ -287,6 +288,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
       busy = true;
       error = null;
     });
+    var resolving = true;
     try {
       for (final d in selected.values) {
         final target = d.search;
@@ -310,6 +312,7 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
           }
         }
       }
+      resolving = false;
       final destinations = [
         for (final d in selected.values)
           if (d.channelId != null) d.channelId!,
@@ -331,14 +334,22 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
         Navigator.of(context).pop(true);
         return true;
       }
-      setState(
-        () => error = raftText(
-          context,
-          "We couldn't confirm whether the forward finished. It's safe to try again.",
-        ),
-      );
+      // Web: some destinations did not take the forward; the toast and the
+      // composer banner ask to retry the remaining ones.
+      const retry = 'Some destinations failed. Retry the remaining destinations.';
+      setState(() => error = retry);
+      showRaftToast(context, retry);
     } catch (e) {
-      if (current) setState(() => error = '$e');
+      if (current) {
+        // Web ForwardComposerDialog: `forwardToast.error(message)` plus the
+        // composer's own error banner carrying the same message.
+        final message = resolving
+            ? 'The selected destinations are no longer available. Review your selection and try again.'
+            : forwardRequestFailureMessage(e);
+        logUserError(e, where: 'forward messages');
+        setState(() => error = message);
+        showRaftToast(context, message);
+      }
     } finally {
       if (current) setState(() => busy = false);
     }
@@ -695,4 +706,24 @@ class _ForwardComposerPageState extends State<ForwardComposerPage> {
       ],
     );
   }
+}
+
+/// Web `forwardRequestFailureMessage`: a fixed sentence per server `code`,
+/// "We couldn't confirm whether the forward finished" otherwise. The server's
+/// own error text is not shown for a forward.
+String forwardRequestFailureMessage(Object error) {
+  final code = error is RaftApiException ? error.details['code'] : null;
+  return switch (code) {
+    'cross_source_bundle' => 'Select messages from one conversation or thread.',
+    'source_not_found' =>
+      'One or more selected messages are no longer available. Review the original conversation and try again.',
+    'forwarded_source_not_supported' =>
+      "Forwarded messages can't be forwarded again. Select the original messages instead.",
+    'unsupported_source_message' || 'unsupported_source' =>
+      "One or more selected items can't be forwarded. Select regular messages instead.",
+    'cross_server_source' =>
+      "Messages from another server can't be forwarded here.",
+    _ =>
+      "We couldn't confirm whether the forward finished. It's safe to try again.",
+  };
 }

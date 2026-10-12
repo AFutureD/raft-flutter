@@ -439,8 +439,11 @@ void main() {
     ) async {
       final (w, c) = _workspace(_routes());
       addTearDown(w.dispose);
-      c.routes['PATCH /agents/a-bot'] = (_) =>
-          RaftApiException('Agent is busy', status: 409);
+      c.routes['PATCH /agents/a-bot'] = (_) => RaftApiException.response(
+        'Agent is busy',
+        status: 409,
+        body: {'error': 'Agent is busy'},
+      );
       await _pump(t, w);
       await t.tap(find.byKey(const ValueKey('admin-remove-agent:a-bot')));
       await t.pumpAndSettle();

@@ -280,7 +280,8 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
             setState(() {
               playback = value;
               if (value.error) {
-                error = 'The media could not be played. Download the original file.';
+                error =
+                    'The media could not be played. Download the original file.';
                 unawaited(player!.pause().catchError((_) {}));
               }
             });
@@ -464,7 +465,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
               : loading
               ? const Center(child: RaftSpinner())
               : error != null
-              ? Center(child: Text(raftText(context, error!)))
+              ? RaftLoadError(error!)
               : document != null
               ? RaftDocumentPreview(data: document!, truncated: truncated)
               : kind == 'pdf' && pageBytes != null

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'banner.dart';
 import 'dialog_card.dart';
+import 'error_presentation.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
@@ -122,7 +123,11 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
       if (mounted) {
         setState(() {
           sending = false;
-          error = e is StateError ? e.message : '$e';
+          error = raftErrorMessage(
+            context,
+            e,
+            fallback: 'Failed to send invites',
+          );
         });
       }
     }
@@ -151,10 +156,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
             children: [
               // `space-y-4`
               if (error != null && !seatReached) ...[
-                RaftBanner(
-                  description: error!,
-                  descriptionWeight: FontWeight.w700,
-                ),
+                RaftErrorBanner(error!, bold: true),
                 const SizedBox(height: 16),
               ],
               if (seatReached) ...[

@@ -163,6 +163,7 @@ void main() {
       addTearDown(w.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => RaftToastHost(child: child!),
           theme: raftTheme(RaftFamily.elegant),
           home: Scaffold(
             body: Builder(
@@ -198,7 +199,14 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       // One destination failed: the dialog stays and reports the unconfirmed forward.
       expect(find.byType(ForwardComposerPage), findsOneWidget);
-      expect(find.textContaining("couldn't confirm"), findsOneWidget);
+      expect(
+        find.text(
+          'Some destinations failed. Retry the remaining destinations.',
+        ),
+        findsWidgets,
+      );
+      // Web forwardToast.error: the same sentence also shows as a toast.
+      expect(find.byKey(const Key('toast-close')), findsOneWidget);
       await tester.tap(find.byKey(const Key('forward-send')));
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));

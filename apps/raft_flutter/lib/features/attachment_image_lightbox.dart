@@ -250,7 +250,8 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
             children: [
               RaftLightboxFailure(
                 title: widget.title,
-                message: 'Preview unavailable. Download the original file.',
+                // Web ImageLightbox: `common.lightbox.failedToLoad`.
+                message: 'Failed to load image',
               ),
               if (widget.acquire != null)
                 RaftTextButton(
@@ -288,8 +289,9 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
             key: widget.imageKey,
             fit: BoxFit.scaleDown,
             gaplessPlayback: true,
-            errorBuilder: (_, _, _) => const Center(
-              child: Text('Preview unavailable. Download the original file.'),
+            errorBuilder: (context, _, _) => RaftLightboxFailure(
+              title: widget.title,
+              message: 'Failed to load image',
             ),
           ),
         ),

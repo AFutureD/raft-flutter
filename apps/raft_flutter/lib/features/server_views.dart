@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/content_links.dart';
@@ -189,7 +190,15 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
         if (mounted) setState(() => saved = false);
       });
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: 'Failed to update server',
+            where: 'server profile',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -308,7 +317,8 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
               ),
               if (error != null) ...[
                 const SizedBox(height: RaftSpace.x3),
-                Text(error!, style: RaftSettingsText(t).alert),
+                // `<Banner intent="warning" density="sm" className="font-bold">`
+                RaftErrorBanner(error!, small: true, bold: true),
               ],
               if (canEdit) ...[
                 const SizedBox(height: RaftSpace.x3),
@@ -348,8 +358,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
         if (canLeave) ...[
           RaftSettingsActionCard(
             title: 'Leave Server',
-            description:
-                "You will lose access to this server's channels and DMs. You can rejoin if invited again.",
+            description: "You will lose access to this server's channels and DMs. You can rejoin if invited again.",
             action: RaftSettingsRecipeButton(
               key: const Key('server-danger-leave-button'),
               label: 'Leave Server',
@@ -364,8 +373,7 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
             key: const Key('server-danger-delete-card'),
             stacked: true,
             title: 'Delete Server',
-            description:
-                'Permanently remove this server and all its data. This cannot be undone.',
+            description: 'Permanently remove this server and all its data. This cannot be undone.',
             action: RaftSettingsRecipeButton(
               key: const Key('server-danger-delete-button'),
               label: 'Delete Server',
@@ -512,7 +520,9 @@ class _MembersViewState extends State<MembersView> {
         );
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(() => error = userErrorText(e, where: 'members'));
+      }
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -546,7 +556,9 @@ class _MembersViewState extends State<MembersView> {
                 }
               },
               onError: (Object e) {
-                if (mounted) setState(() => error = '$e');
+                if (mounted) {
+                  setState(() => error = userErrorText(e, where: 'member'));
+                }
               },
             ),
       );
@@ -569,7 +581,7 @@ class _MembersViewState extends State<MembersView> {
         ),
       );
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) setState(() => error = userErrorText(e, where: 'member'));
     }
   }
 
@@ -652,7 +664,7 @@ class _MembersViewState extends State<MembersView> {
                       ],
                     ),
                   if (error != null)
-                    Semantics(liveRegion: true, child: Text(error!)),
+                    RaftLoadError(error!, onRetry: load, expand: false),
                   for (final member in members)
                     ListTile(
                       leading: RaftAvatar(

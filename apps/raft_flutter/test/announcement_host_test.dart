@@ -8,12 +8,11 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/announcement_host.dart';
 import 'package:raft_ui/raft_ui.dart';
 
-typedef Route =
-    FutureOr<dynamic> Function(
-      String method,
-      String path,
-      Map<String, dynamic>? query,
-    );
+typedef Route = FutureOr<dynamic> Function(
+  String method,
+  String path,
+  Map<String, dynamic>? query,
+);
 
 class FixtureClient extends RaftClient {
   FixtureClient(this.route)
@@ -114,6 +113,8 @@ class Fixture {
 Widget app(Fixture f, {String deployment = 'production', Widget? home}) =>
     MaterialApp(
       theme: raftTheme(RaftFamily.elegant),
+      // The error notice is the app-wide toast (Web `toast.error`).
+      builder: (context, child) => RaftToastHost(child: child!),
       home: AnnouncementHost(
         controller: f.w,
         deployment: deployment,

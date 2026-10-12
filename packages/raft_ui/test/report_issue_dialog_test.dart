@@ -309,4 +309,33 @@ void main() {
       expect(closed, 1);
     },
   );
+
+  testWidgets('a raw exception never reaches the dialog; a step failure does', (
+    tester,
+  ) async {
+    var attempt = 0;
+    await _pump(
+      tester,
+      onSubmit: (_) async {
+        attempt++;
+        if (attempt == 1) throw const FormatException('secret://host?token=1');
+        throw const RaftReportIssueFailure(
+          'Create server attestation failed: HTTP 404: not found',
+        );
+      },
+    );
+    await tester.tap(_key('report-issue-consent'));
+    await tester.pump();
+    await tester.tap(_key('report-issue-submit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Failed to submit issue report'), findsOneWidget);
+    expect(find.textContaining('secret'), findsNothing);
+    expect(find.byType(RaftErrorBanner), findsOneWidget);
+    await tester.tap(_key('report-issue-submit'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Create server attestation failed: HTTP 404: not found'),
+      findsOneWidget,
+    );
+  });
 }

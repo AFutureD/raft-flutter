@@ -144,7 +144,8 @@ void main() {
         expect(
           find.byTooltip('Close preview'),
           findsOneWidget,
-          reason: 'Source opens the lightbox at intent while image bytes are pending.',
+          reason:
+              'Source opens the lightbox at intent while image bytes are pending.',
         );
         expect(tester.takeException(), isNull);
       },
@@ -232,10 +233,7 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 30)),
         );
         await tester.pump(const Duration(milliseconds: 300));
-        expect(
-          find.text('Preview unavailable. Download the original file.'),
-          findsOneWidget,
-        );
+        expect(find.text('Failed to load image'), findsOneWidget);
         expect(find.byTooltip('Close preview'), findsOneWidget);
         expect(tester.takeException(), isNull);
         expect(files.reads, 1);

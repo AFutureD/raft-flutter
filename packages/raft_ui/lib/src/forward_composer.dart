@@ -8,9 +8,9 @@ import 'raft_underline.dart';
 import 'attachment_card.dart';
 import 'attachment_transfer.dart';
 import 'avatar_content.dart';
-import 'banner.dart';
 import 'components.dart';
 import 'design_primitives.dart';
+import 'error_presentation.dart' show RaftErrorBanner;
 import 'icons.dart';
 import 'indicators.dart' show RaftCheckbox;
 import 'localization.dart';
@@ -268,10 +268,8 @@ class RaftForwardLinkAction extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: RaftUnderlinedText(label),
-  );
+  Widget build(BuildContext context) =>
+      GestureDetector(onTap: onTap, child: RaftUnderlinedText(label));
 }
 
 /// Search-mode placeholder rows: spinner, failure (+ retry), or no results
@@ -480,19 +478,6 @@ class RaftForwardPreviewStep extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: warning,
                 ),
-              if (error != null)
-                // Web reports a failed forward in a toast; the page keeps it
-                // as a warning banner (`mb-3 text-xs font-bold`) above the preview.
-                // The banner is already an alert; a live region on top of it
-                // is an assertion with semantics on.
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: RaftBanner(
-                    status: RaftBannerRecipeStatus.warning,
-                    description: error!,
-                    descriptionWeight: FontWeight.w700,
-                  ),
-                ),
               // `mb-2`, less the 4px the bundle / share card keeps above itself.
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -525,12 +510,26 @@ class RaftForwardPreviewStep extends StatelessWidget {
             ),
           ),
           child: action != null
-              ? action!
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (error != null) ...[
+                      RaftErrorBanner(error!, small: true, bold: true),
+                      const SizedBox(height: 8),
+                    ],
+                    action!,
+                  ],
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(noteLabel!, style: label),
                     const SizedBox(height: 6),
+                    // Web MessageInput's own error row (`density="sm" font-bold`).
+                    if (error != null) ...[
+                      RaftErrorBanner(error!, small: true, bold: true),
+                      const SizedBox(height: 8),
+                    ],
                     // With no [send] the editor carries its own submit (the
                     // compact MessageInput, as on Web).
                     if (send == null)

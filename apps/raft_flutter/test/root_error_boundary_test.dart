@@ -82,7 +82,10 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('Something went wrong'), findsOneWidget);
-      expect(find.textContaining('channel header broke'), findsWidgets);
+      // The raw exception is not printed on the page: it sits in the closed
+      // "Stack trace" disclosure.
+      expect(find.textContaining('channel header broke'), findsNothing);
+      expect(find.byKey(const ValueKey('root-error-message')), findsNothing);
       expect(find.text('Reload app'), findsOneWidget);
       expect(find.byType(_Bomb), findsNothing);
 
@@ -135,6 +138,10 @@ void main() {
       await tester.pump();
       expect(find.text('出了点问题'), findsOneWidget);
       expect(find.text('重新加载应用'), findsOneWidget);
+      expect(find.textContaining('boom'), findsNothing);
+      await tester.tap(find.text('错误堆栈'));
+      await tester.pump();
+      expect(find.textContaining('boom'), findsOneWidget);
     });
   });
 

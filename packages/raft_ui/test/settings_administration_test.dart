@@ -145,7 +145,7 @@ void main() {
                 title: 'Make public?',
                 message: 'Sure?',
                 confirmKey: const ValueKey('confirm'),
-                onConfirm: () async => throw StateError('Nope'),
+                onConfirm: () async => throw const RaftUserError('Nope'),
               ),
             ),
             child: const Text('open'),

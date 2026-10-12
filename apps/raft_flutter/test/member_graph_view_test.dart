@@ -159,7 +159,11 @@ void main() {
     tester,
   ) async {
     final client = _Client()
-      ..graph = () => const RaftApiException('Graph unavailable', status: 500);
+      ..graph = () => RaftApiException.response(
+        'Graph unavailable',
+        status: 500,
+        body: {'error': 'Graph unavailable'},
+      );
     await _pump(tester, client: client);
     expect(find.text('Graph unavailable'), findsOneWidget);
     expect(_node('human:h1'), findsNothing);
@@ -177,6 +181,15 @@ void main() {
     final client = _Client()..graph = () => const RaftApiException('');
     await _pump(tester, client: client);
     expect(find.text('Failed to load member graph'), findsOneWidget);
+  });
+
+  testWidgets('a raw exception never reaches the banner', (tester) async {
+    final client = _Client()
+      ..graph = () => const FormatException('https://host/x?token=secret');
+    await _pump(tester, client: client);
+    expect(find.text('Failed to load member graph'), findsOneWidget);
+    expect(find.textContaining('token'), findsNothing);
+    expect(find.byType(RaftErrorBanner), findsOneWidget);
   });
 
   testWidgets('a guest is sent home without reading the graph', (tester) async {

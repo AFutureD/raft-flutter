@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_metadata_catalog.dart';
 import 'private_route_guard.dart';
@@ -286,7 +287,13 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
       });
     } catch (e) {
       if (currentAuthority && ticket == machineTicket) {
-        setState(() => error = '$e');
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: raftGenericErrorText,
+            where: 'rescan runtimes',
+          ),
+        );
       }
     } finally {
       if (currentAuthority && ticket == machineTicket) {
@@ -421,7 +428,21 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        // Web: `data.error || agent.create.failedCreate`, and each `issues`
+        // pointer marks its runtime-form field.
+        setState(() {
+          f.serverErrors = runtimeFormIssueErrors(
+            e,
+            fallback: 'Failed to create agent',
+          );
+          error = userErrorText(
+            e,
+            fallback: 'Failed to create agent',
+            where: 'create agent',
+          );
+        });
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -571,6 +592,16 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
         RaftAgentBanner(
           status: RaftAgentBannerStatus.warning,
           description: error!,
+          // Web isQuotaError: the server's "... limit reached" text gets an
+          // inline View Plans link to Settings > Billing.
+          action: error!.contains('limit reached') ? 'View Plans' : null,
+          onAction: error!.contains('limit reached')
+              ? () {
+                  if (busy) return;
+                  close();
+                  w.setSection('billing');
+                }
+              : null,
         ),
       if (!widget.onboarding)
         RaftStableField(

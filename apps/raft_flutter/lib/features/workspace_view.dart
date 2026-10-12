@@ -10,6 +10,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'announcement_host.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/route_frame_diagnostics.dart';
 import '../data/workspace_entity_directory.dart';
@@ -632,6 +633,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
     restorePanels();
     w.addListener(syncSidebarAgents);
     w.addListener(syncBridgeFlag);
+    w.addListener(syncWorkspaceError);
+    syncWorkspaceError();
     syncSidebarAgents();
     if (mobileHost == null) {
       syncBridgeFlag();
@@ -786,12 +789,34 @@ class _WorkspaceViewState extends State<WorkspaceView>
       syncSavedIds();
       oldWidget.controller.removeListener(syncSidebarAgents);
       oldWidget.controller.removeListener(syncBridgeFlag);
+      oldWidget.controller.removeListener(syncWorkspaceError);
       w.addListener(syncSidebarAgents);
       w.addListener(syncBridgeFlag);
+      w.addListener(syncWorkspaceError);
+      syncWorkspaceError();
       bridgeScope = null;
       syncBridgeFlag();
       syncSidebarAgents();
     }
+  }
+
+  bool workspaceErrorScheduled = false;
+
+  /// A workspace-level failure (`w.error`) is Web's `toast.error`: it shows in
+  /// the app-wide toast and is cleared so it is not shown twice. Runs after the
+  /// frame because the controller can notify mid-build.
+  void syncWorkspaceError() {
+    if (w.error == null || workspaceErrorScheduled) return;
+    workspaceErrorScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      workspaceErrorScheduled = false;
+      if (!mounted) return;
+      final message = w.error;
+      if (message == null) return;
+      w.setError(null);
+      showRaftToast(context, message);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void chatSelectionChanged() {
@@ -897,6 +922,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     threadSelection.dispose();
     w.removeListener(syncSidebarAgents);
     w.removeListener(syncBridgeFlag);
+    w.removeListener(syncWorkspaceError);
     bridgeRequest++;
     LayoutHold.count.removeListener(layoutHoldChanged);
     super.dispose();
@@ -1613,18 +1639,6 @@ class _WorkspaceViewState extends State<WorkspaceView>
                       if (thread || !unresolvedChannelRoute)
                         mobilePageHeader(title, thread),
                     RaftToastPortal(controller: rowToast),
-                    if (w.error != null)
-                      MaterialBanner(
-                        content: Text(w.error!),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              w.setError(null);
-                            },
-                            child: Text(tr('Dismiss')),
-                          ),
-                        ],
-                      ),
                     Expanded(
                       child: ProfileOutsideTapDismiss(
                         controller: w,
@@ -2797,7 +2811,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
     try {
       await managementLaunch(WorkspaceSettings.documentationUrl);
     } catch (e) {
-      if (mounted && scope == mobileAuthority) w.setError('$e');
+      if (mounted && scope == mobileAuthority) {
+        w.setError(userErrorText(e, where: 'open documentation'));
+      }
     }
   }
 
@@ -2823,7 +2839,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
             .where((s) => s.string('slug') == 'community')
             .firstOrNull;
         if (joined == null) {
-          throw StateError('Community is missing after joining.');
+          throw const RaftUserError(
+            "Joined community server but it's missing from the list",
+          );
         }
       }
       if (joined.id == w.server?.id) {
@@ -2839,7 +2857,15 @@ class _WorkspaceViewState extends State<WorkspaceView>
         }
       }
     } catch (e) {
-      if (mounted && scope == mobileAuthority) w.setError('$e');
+      if (mounted && scope == mobileAuthority) {
+        w.setError(
+          userErrorText(
+            e,
+            fallback: 'Failed to join community server',
+            where: 'community from help',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => joiningCommunityFromHelp = false);
     }
@@ -3183,7 +3209,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
       if (!mounted || authority != workspaceAuthority(w)) return;
       await chooseChannel(RaftChannel(Map<String, dynamic>.from(result)));
     } catch (e) {
-      if (mounted && authority == workspaceAuthority(w)) w.setError('$e');
+      if (mounted && authority == workspaceAuthority(w)) {
+        w.setError(userErrorText(e, where: 'open agent conversation'));
+      }
     }
   }
 

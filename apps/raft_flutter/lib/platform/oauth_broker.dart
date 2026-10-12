@@ -56,6 +56,9 @@ class NativeOAuthBroker {
   Completer<String>? _completion;
   String? _nonce, _provider;
   bool _closed = false;
+
+  /// The user (or the host) cancelled this attempt: nothing to report.
+  bool get cancelled => _closed;
   Uri? returnUri;
   static Future<void> _open(Uri uri) async {
     if (!['http', 'https'].contains(uri.scheme) ||

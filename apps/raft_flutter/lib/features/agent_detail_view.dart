@@ -14,6 +14,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/runtime_config.dart';
 import '../data/source_time_formatter.dart';
+import '../data/runtime_error.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_apps_view.dart';
@@ -60,15 +62,13 @@ class SourceProfileLoadingPanel extends StatelessWidget {
           ],
         ),
         Expanded(
-          child: RaftPanelMessage(
-            raftText(
-              context,
-              error == null ? 'Loading...' : 'Profile could not be loaded.',
-            ),
-            action: error == null || onRetry == null
-                ? null
-                : RaftButton(label: 'Retry', onPressed: onRetry),
-          ),
+          child: error == null
+              ? RaftPanelMessage(raftText(context, 'Loading...'))
+              // Web page-level load failure: message + outline Retry.
+              : RaftLoadError(
+                  'Profile could not be loaded.',
+                  onRetry: onRetry,
+                ),
         ),
       ],
     ),
@@ -152,6 +152,7 @@ class AgentDetailPanel extends StatefulWidget {
     this.canControlRuntime = false,
     this.busy = false,
     this.error,
+    this.onDismissError,
     this.clock,
   });
   final WorkspaceController controller;
@@ -169,6 +170,9 @@ class AgentDetailPanel extends StatefulWidget {
   final AgentDetailTab initialTab;
   final bool canManage, canViewPrivate, canControlRuntime, busy;
   final String? error;
+
+  /// The `startError` strip's dismiss `X`.
+  final VoidCallback? onDismissError;
   final DateTime Function()? clock;
   @override
   State<AgentDetailPanel> createState() => _AgentDetailPanelState();
@@ -317,10 +321,11 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     } catch (e) {
       if (!mounted || externalStatusFor != id) return;
       setState(
-        () =>
-            externalStatusError = e is RaftApiException && e.message.isNotEmpty
-            ? e.message
-            : raftText(context, 'Failed to load external setup status'),
+        () => externalStatusError = userErrorText(
+          e,
+          fallback: 'Failed to load external setup status',
+          where: 'agent external status',
+        ),
       );
     }
   }
@@ -456,12 +461,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
                 ),
             ],
           ),
+          // Web `startError` strip: between the header and the tab bar.
+          if (widget.error != null)
+            RaftPanelErrorStrip(
+              widget.error!,
+              onDismiss: widget.onDismissError,
+            ),
           RaftPanelTabBar<AgentDetailTab>(
             tabs: [for (final id in visible) _tabSpec(context, id)],
             value: current,
             onChanged: (v) => setState(() => tab = v),
           ),
-          if (widget.error != null) RaftPanelError(widget.error!),
           Expanded(
             child: RaftSectionPager<AgentDetailTab>(
               key: ValueKey((
@@ -669,12 +679,22 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     final t = RaftTokens.of(context);
     final canEdit = widget.canManage && a['deletedAt'] == null;
     final display = _display;
-    final status = agentActivityText(
-      display.activity,
-      widget.canViewPrivate ? display.detail : '',
-      widget.canViewPrivate ? display.detailKind : null,
-      translate: (source, values) => raftFormat(context, source, values),
-    );
+    // Web AgentDetailPanel: a known runtime error shows its catalog message
+    // (`agent.runtimeError.*`); an unclassified one keeps the diagnostic text.
+    final runtimeKind = display.activity == 'error'
+        ? classifyTypedRuntimeError(a['lastRuntimeError']) ??
+              (display.detail.isNotEmpty
+                  ? classifyRuntimeError(display.detail)
+                  : null)
+        : null;
+    final status = widget.canViewPrivate && runtimeKind != null
+        ? raftText(context, runtimeErrorText(runtimeKind))
+        : agentActivityText(
+            display.activity,
+            widget.canViewPrivate ? display.detail : '',
+            widget.canViewPrivate ? display.detailKind : null,
+            translate: (source, values) => raftFormat(context, source, values),
+          );
     final agentId = '${a['id']}';
     final externalPresence = _externalPresence(context, t);
     final role = a['serverRole'];
@@ -1050,6 +1070,9 @@ class _AgentSkillsSectionState extends State<AgentSkillsSection>
           )
           as _SkillsSnapshot;
   @override
+  String get loadFailedFallback => 'Failed to load skills';
+
+  @override
   bool get hasContent => snapshot.loaded;
 
   @override
@@ -1126,6 +1149,9 @@ List<Map<String, dynamic>> agentCachedActivityEntries(
 
 class _ChatSnapshot extends _AgentTabSnapshot {
   List<Map<String, dynamic>> channels = [], dms = [];
+
+  /// Web keeps the channels and DMs reads (and their failures) separate.
+  String? channelsError, dmsError;
 }
 
 class _RemindersSnapshot extends _AgentTabSnapshot {
@@ -1151,6 +1177,10 @@ mixin _AgentTabLoader<T extends StatefulWidget> on State<T> {
   late bool loading = !hasContent;
   String? loadError;
   bool tabActive = true, reloadWhenActive = false;
+
+  /// Web's per-surface `... Failed` message for a read that carries no server
+  /// error text.
+  String get loadFailedFallback => raftGenericErrorText;
 
   @override
   void didChangeDependencies() {
@@ -1185,7 +1215,13 @@ mixin _AgentTabLoader<T extends StatefulWidget> on State<T> {
       setState(() {
         loading = false;
         // A failed background refresh never replaces rows already shown.
-        loadError = hasContent ? null : '$e';
+        loadError = hasContent
+            ? null
+            : userErrorText(
+                e,
+                fallback: loadFailedFallback,
+                where: 'agent tab load',
+              );
       });
     }
   }
@@ -1428,7 +1464,11 @@ class _AgentActivityTabState extends State<AgentActivityTab>
     final f = agentTimeFormatter(context, w);
     return RaftActivityLogView(
       entries: [for (final e in entries) _entry(context, t, f, e)],
-      emptyLabel: loading ? raftText(context, 'Loading…') : loadError,
+      emptyLabel: loading
+          ? raftText(context, 'Loading…')
+          : loadError == null
+          ? null
+          : raftText(context, loadError!),
       onCopy: () => Clipboard.setData(
         ClipboardData(
           text: [
@@ -1484,13 +1524,41 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
 
   @override
   Future<void> fetch() async {
-    final results = await Future.wait([
-      w.query('/agents/${widget.agentId}/channels'),
-      w.query('/agents/${widget.agentId}/agent-dms'),
+    // Web loads the two lists independently; each failure shows in its own
+    // section (`agent.detail.loadAgentChannelsFailed` / `loadAgentDmsFailed`).
+    final channelsRead = w.query('/agents/${widget.agentId}/channels');
+    final dmsRead = w.query('/agents/${widget.agentId}/agent-dms');
+    Object? channelsFailure, dmsFailure;
+    Object? channelsResult, dmsResult;
+    await Future.wait([
+      channelsRead.then<void>(
+        (v) => channelsResult = v,
+        onError: (Object e) => channelsFailure = e,
+      ),
+      dmsRead.then<void>(
+        (v) => dmsResult = v,
+        onError: (Object e) => dmsFailure = e,
+      ),
     ]);
     snapshot
-      ..channels = _rows(results[0], 'channels')
-      ..dms = _rows(results[1], 'dms')
+      ..channels = channelsFailure != null
+          ? const []
+          : _rows(channelsResult, 'channels')
+      ..dms = dmsFailure != null ? const [] : _rows(dmsResult, 'dms')
+      ..channelsError = channelsFailure == null
+          ? null
+          : userErrorText(
+              channelsFailure,
+              fallback: 'Failed to load agent channels',
+              where: 'agent channels',
+            )
+      ..dmsError = dmsFailure == null
+          ? null
+          : userErrorText(
+              dmsFailure,
+              fallback: 'Failed to load agent DMs',
+              where: 'agent dms',
+            )
       ..loaded = true;
   }
 
@@ -1499,7 +1567,7 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
     // Nothing accepted yet: no "Channels 0" counts that would then fill in.
     if (!hasContent) {
       return RaftPanelMessage(
-        loadError ?? raftText(context, 'Loading…'),
+        raftText(context, loadError ?? 'Loading…'),
         action: loadError == null
             ? null
             : RaftButton(label: raftText(context, 'Retry'), onPressed: reload),
@@ -1508,6 +1576,8 @@ class _AgentChatTabState extends State<AgentChatTab> with _AgentTabLoader {
     final origin = w.client.origin;
     final chinese = Localizations.localeOf(context).languageCode == 'zh';
     return RaftAgentChatView(
+      channelsError: snapshot.channelsError,
+      dmsError: snapshot.dmsError,
       // visibleAgentChatChannels: archived memberships are not listed.
       channels: [
         for (final c in channels)
@@ -1580,6 +1650,9 @@ class _AgentRemindersTabState extends State<AgentRemindersTab>
           as _RemindersSnapshot;
   List<Map<String, dynamic>> get reminders => snapshot.reminders;
   set reminders(List<Map<String, dynamic>> value) => snapshot.reminders = value;
+  @override
+  String get loadFailedFallback => 'Failed to load reminders';
+
   @override
   bool get hasContent => snapshot.loaded;
   StreamSubscription<RaftEvent>? events;
@@ -1660,6 +1733,7 @@ class _AgentRemindersTabState extends State<AgentRemindersTab>
     return RaftReminderListView(
       loading: loading,
       error: loadError,
+      onRetry: reload,
       reminders: [
         for (final r in reminders)
           RaftReminderItem(
@@ -1711,6 +1785,9 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
   set openFile(String? value) => snapshot.openFile = value;
   String? get openContent => snapshot.openContent;
   set openContent(String? value) => snapshot.openContent = value;
+  @override
+  String get loadFailedFallback => 'Failed to load files';
+
   @override
   bool get hasContent => snapshot.loaded;
 
@@ -1769,6 +1846,7 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
   }
 
   int openTicket = 0;
+  String? openError;
 
   Future<void> open(String path) async {
     // The preview opens at once: with the content read before when there is
@@ -1778,6 +1856,7 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     setState(() {
       openFile = path;
       openContent = known ?? '';
+      openError = null;
     });
     final Object? result;
     try {
@@ -1785,8 +1864,18 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
         '/agents/${widget.agentId}/workspace-files/read',
         query: {'path': path},
       );
-    } catch (_) {
-      // The preview keeps what it shows; the tree is still usable.
+    } catch (e) {
+      // Web `fileError || agent.workspace.fileLoadFailed` in the preview pane;
+      // the tree is still usable.
+      if (mounted && ticket == openTicket && openFile == path) {
+        setState(
+          () => openError = userErrorText(
+            e,
+            fallback: 'Failed to load file',
+            where: 'agent workspace file',
+          ),
+        );
+      }
       return;
     }
     if (!mounted) return;
@@ -1822,6 +1911,7 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
       return RaftWorkspaceFilePreview(
         path: openFile!,
         content: openContent ?? '',
+        error: openError,
         onBack: () => setState(() => openFile = null),
       );
     }
@@ -1832,6 +1922,7 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
               embedded: true,
               path: openFile!,
               content: openContent ?? '',
+              error: openError,
             ),
       path: path,
       nodes: nodes('', 0),

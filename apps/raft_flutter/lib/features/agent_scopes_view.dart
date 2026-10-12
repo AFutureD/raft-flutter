@@ -3,6 +3,7 @@ import 'page_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'management_support.dart'
     show pageIdentity, readPageSnapshot, writePageSnapshot;
@@ -48,6 +49,9 @@ class _AgentScopesViewState extends State<AgentScopesView> {
   String mode = 'default';
   bool loading = true, busy = false;
 
+  /// Permissions have been accepted at least once (snapshot or a read).
+  bool loaded = false;
+
   /// Unsaved checkbox edits; a background revalidation never overwrites them.
   bool edited = false;
   String? error;
@@ -63,6 +67,7 @@ class _AgentScopesViewState extends State<AgentScopesView> {
       scopes = Set.of(snapshot['scopes'] as Set<String>);
       mode = snapshot['mode'] as String;
       loading = false;
+      loaded = true;
     }
     load();
   }
@@ -88,13 +93,18 @@ class _AgentScopesViewState extends State<AgentScopesView> {
           mode = nextMode;
         }
         loading = false;
+        loaded = true;
         error = null;
       });
     } catch (e) {
       if (mounted) {
         setState(() {
           loading = false;
-          error = '$e';
+          error = userErrorText(
+            e,
+            fallback: 'Failed to load agent permissions',
+            where: 'agent scopes load',
+          );
         });
       }
     }
@@ -117,15 +127,24 @@ class _AgentScopesViewState extends State<AgentScopesView> {
       edited = false;
       await load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            showCloseIcon: true,
-            content: Text(raftText(context, 'Agent permissions saved')),
-          ),
+        showRaftToast(
+          context,
+          'Agent permissions saved',
+          tone: RaftToastRecipeTone.success,
         );
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        setState(
+          () => error = userErrorText(
+            e,
+            fallback: defaults
+                ? 'Failed to reset agent permissions'
+                : 'Failed to save agent permissions',
+            where: 'agent scopes save',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -139,12 +158,26 @@ class _AgentScopesViewState extends State<AgentScopesView> {
     ),
     body: loading
         ? Center(child: CircularProgressIndicator())
+        : error != null && !loaded
+        ? RaftLoadError(
+            error!,
+            onRetry: () {
+              setState(() {
+                loading = true;
+                error = null;
+              });
+              load();
+            },
+          )
         : ListView(
             key: const Key('agent-scope-list'),
             padding: raftScrollPadding(context, const EdgeInsets.all(24)),
             children: [
               if (error != null)
-                Semantics(liveRegion: true, child: Text(error!)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: RaftSpace.x3),
+                  child: RaftErrorBanner(error!),
+                ),
               Text(
                 raftText(
                   context,

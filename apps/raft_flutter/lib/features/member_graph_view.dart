@@ -5,8 +5,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
+
+import '../data/user_error.dart';
+
 import 'package:raft_ui/recipes.dart';
 
 import '../data/raft_location.dart';
@@ -114,9 +116,14 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
       // A failed revalidation keeps the graph already shown.
       if (data == null) {
         setState(
-          () => error = e is RaftApiException && e.message.isNotEmpty
-              ? e.message
-              : raftText(context, 'Failed to load member graph'),
+          () => error = raftText(
+            context,
+            userErrorText(
+              e,
+              fallback: 'Failed to load member graph',
+              where: 'member graph',
+            ),
+          ),
         );
       }
     } finally {

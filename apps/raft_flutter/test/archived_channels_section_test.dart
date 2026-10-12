@@ -30,7 +30,11 @@ class _Fixture {
       (method, path, query) {
         requests.add('$method $path');
         if (failUnarchive && path.endsWith('/unarchive')) {
-          throw const RaftApiException('Channel name is taken', status: 409);
+          throw RaftApiException.response(
+            'Channel name is taken',
+            status: 409,
+            body: {'error': 'Channel name is taken'},
+          );
         }
         if (method == 'POST' && path.endsWith('/unarchive')) {
           return hold?.future ?? <String, dynamic>{};

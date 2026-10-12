@@ -11,9 +11,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import 'agent_runtime_catalog.dart';
 import 'agent_runtime_draft.dart';
@@ -401,7 +401,15 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
         await patch(fields);
         if (current) widget.onClose();
       } catch (e) {
-        if (mounted) setState(() => saveError = '$e');
+        if (mounted) {
+          setState(
+            () => saveError = userErrorText(
+              e,
+              fallback: 'Runtime config is invalid.',
+              where: 'agent runtime save',
+            ),
+          );
+        }
       } finally {
         if (mounted) setState(() => saving = false);
       }
@@ -474,10 +482,18 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
         await patch(fields, restartMode: restartMode);
       } catch (e) {
         if (mounted) {
+          // Web: `data.error ?? runtimeConfigInvalid`, and each `issues`
+          // pointer marks its field.
+          f.serverErrors = runtimeFormIssueErrors(
+            e,
+            fallback: 'Runtime config is invalid.',
+          );
           setState(
-            () => saveError = e is RaftApiException && e.message.isNotEmpty
-                ? e.message
-                : tr('Runtime config is invalid.'),
+            () => saveError = userErrorText(
+              e,
+              fallback: 'Runtime config is invalid.',
+              where: 'agent runtime v2 save',
+            ),
           );
         }
         rethrow;
@@ -646,10 +662,12 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
         fields,
         if (saveError != null) ...[
           const SizedBox(height: raftAgentSectionGap),
-          RaftAgentBanner(
+          // Web `<Banner intent="warning" density="sm" className="font-bold">`.
+          RaftErrorBanner(
+            saveError!,
             key: const ValueKey('runtime-editor-error'),
-            status: RaftAgentBannerStatus.warning,
-            description: saveError!,
+            small: true,
+            bold: true,
           ),
         ],
         const SizedBox(height: raftAgentSectionGap),

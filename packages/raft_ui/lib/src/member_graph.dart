@@ -14,11 +14,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
 import 'agent_profile.dart' show RaftAvatarSlotContext;
-import 'banner.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'list_items.dart' show RaftSectionHeader;
+import 'error_presentation.dart';
 import 'localization.dart';
 import 'member_graph_layout.dart';
 import 'panel_layout.dart' show RaftCssText;
@@ -154,11 +154,11 @@ class RaftMemberGraphView extends StatelessWidget {
       children: [
         header,
         if (error != null)
-          RaftBanner(
+          RaftErrorBanner(
+            error!,
             key: const ValueKey('member-graph-error'),
-            description: error!,
-            size: RaftBannerRecipeSize.sm,
-            descriptionWeight: FontWeight.w700,
+            small: true,
+            bold: true,
           ),
         grid,
       ],

@@ -4,10 +4,46 @@ import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart' show WorkspaceEntityKind;
 import 'private_route_guard.dart';
 import 'create_agent_dialog.dart';
+
+/// Web `runtimeFormUnavailableMessageId`: the catalog message for a failed
+/// form-definition read. The server's own text is never shown here; the
+/// failure `code` picks the Built-in copy, anything else is the refresh hint.
+String runtimeFormLoadErrorText(Object error) {
+  final code = error is RaftApiException ? error.details['code'] : null;
+  logUserError(error, where: 'runtime form definition');
+  return switch (code) {
+    'builtin_catalog_capability_required' =>
+      'This Computer is too old to verify Built-in models. Your saved selection is preserved; update Raft Computer before changing it.',
+    'builtin_catalog_unavailable' ||
+    'builtin_catalog_stale' =>
+      'Built-in models cannot be verified right now. Your saved selection is preserved; reconnect this Computer and retry.',
+    _ => 'Runtime configuration is unavailable. Refresh and try again.',
+  };
+}
+
+/// Web CreateAgentDialog / AgentDetailPanel `issues` handling: every issue whose
+/// pointer is `/formValues/<key>` marks that field with the server's error text
+/// (else the issue code).
+Map<String, String> runtimeFormIssueErrors(Object error, {String? fallback}) {
+  if (error is! RaftApiException) return const {};
+  final issues = error.details['issues'];
+  if (issues is! List) return const {};
+  final text = userErrorText(error, fallback: fallback, where: 'form issues');
+  const prefix = '/formValues/';
+  return {
+    for (final issue in issues)
+      if (issue is Map &&
+          issue['pointer'] is String &&
+          (issue['pointer'] as String).startsWith(prefix) &&
+          (issue['pointer'] as String).length > prefix.length)
+        (issue['pointer'] as String).substring(prefix.length): text,
+  };
+}
 
 /// Protocol-v2 runtime form state for one computer + runtime (create) or one
 /// agent (edit). Shared by [RuntimeFormDialog] and the create-agent dialog.
@@ -38,6 +74,9 @@ class RuntimeFormController extends ChangeNotifier {
   /// The values as loaded (edit): what "changed" is measured against.
   Map<String, dynamic> initialValues = {};
   Map<String, String> validation = {};
+
+  /// Field messages from a failed save (server `issues`), keyed by field.
+  Map<String, String> serverErrors = {};
   final mapProblems = <String, String>{};
   final editors = <String, TextEditingController>{};
   bool loading = true, disposed = false;
@@ -127,7 +166,7 @@ class RuntimeFormController extends ChangeNotifier {
     } catch (e) {
       if (disposed) return;
       loading = false;
-      error = '$e';
+      error = runtimeFormLoadErrorText(e);
       _notify();
     }
   }
@@ -150,6 +189,7 @@ class RuntimeFormController extends ChangeNotifier {
     }
     values = next;
     validation = {};
+    serverErrors = {};
     _notify();
   }
 
@@ -275,7 +315,12 @@ class _RuntimeFormFieldsState extends State<RuntimeFormFields> {
       return const SizedBox.shrink();
     }
     if (f.kind == 'unsupported' && !f.required) return const SizedBox.shrink();
-    final error = runtimeFieldError(context, c.validation[f.key]);
+    final serverError = c.serverErrors[f.key];
+    final error =
+        runtimeFieldError(context, c.validation[f.key]) ??
+        (serverError == null || serverError.isEmpty
+            ? null
+            : raftText(context, serverError));
     final hint = f.kind == 'string_map'
         ? 'One KEY=value per line.'
         : f.copy['hint'] as String?;
@@ -498,7 +543,15 @@ class _RuntimeFormDialogState extends State<RuntimeFormDialog> {
         ];
       });
     } catch (e) {
-      if (currentAuthority) setState(() => onboardingLoadError = '$e');
+      if (currentAuthority) {
+        setState(
+          () => onboardingLoadError = userErrorText(
+            e,
+            fallback: raftGenericErrorText,
+            where: 'onboarding machines',
+          ),
+        );
+      }
     }
   }
 
@@ -550,7 +603,17 @@ class _RuntimeFormDialogState extends State<RuntimeFormDialog> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (mounted) {
+        // Web: `data.error ?? failedCreate` (edit: `runtimeConfigInvalid`),
+        // plus a message on each field the server's `issues` point at.
+        final fallback = editing
+            ? 'Runtime config is invalid.'
+            : 'Failed to create agent';
+        setState(() {
+          form.serverErrors = runtimeFormIssueErrors(e, fallback: fallback);
+          error = userErrorText(e, fallback: fallback, where: 'agent runtime form');
+        });
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }

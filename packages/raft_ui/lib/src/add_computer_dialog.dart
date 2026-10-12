@@ -23,7 +23,11 @@ class RaftAddComputerDialog extends StatefulWidget {
     required this.cancel,
     required this.done,
     this.connected,
+    this.onViewPlans,
   });
+
+  /// Web `nav.toSettings("billing")` for the quota error's View Plans link.
+  final VoidCallback? onViewPlans;
 
   /// (install, setup) for macOS/Linux or Windows; null without a slug.
   final (String, String)? Function(bool windows) commandsFor;
@@ -109,9 +113,10 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
     } catch (e) {
       if (mounted) {
         setState(
-          () => error = e is RaftComputerActionError
-              ? e.message
-              : 'Failed to register computer',
+          () => error = RaftErrorScope.of(context)(
+            e,
+            fallback: 'Failed to register computer',
+          ),
         );
       }
     } finally {
@@ -177,7 +182,22 @@ class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (error.isNotEmpty) ...[
-        RaftBanner(description: error),
+        // Web `<Banner intent="warning" className="mb-4 font-bold">`; a quota
+        // error ("... limit reached") adds the inline View Plans link.
+        RaftBanner(
+          description: raftText(context, error),
+          descriptionWeight: FontWeight.w700,
+          descriptionTail: error.contains('limit reached')
+              ? (
+                  label: raftText(context, 'View Plans'),
+                  onPressed: () {
+                    Navigator.of(context).maybePop();
+                    widget.onViewPlans?.call();
+                  },
+                )
+              : null,
+          descriptionTailWeight: FontWeight.w700,
+        ),
         const SizedBox(height: 16),
       ],
       Row(

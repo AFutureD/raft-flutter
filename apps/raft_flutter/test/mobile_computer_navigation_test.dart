@@ -134,8 +134,9 @@ void main() {
     final pages = t.widget<MobileWorkspacePages>(
       find.byType(MobileWorkspacePages),
     );
-    w.error = 'Live connection error';
-    w.notifyListeners();
+    // A workspace failure is Web's toast.error, shown after the frame.
+    w.setError('Live connection error');
+    await t.pump();
     await t.pump();
     expect(find.text('Live connection error'), findsOneWidget);
     expect(

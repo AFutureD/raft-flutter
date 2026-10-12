@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'dialog_card.dart';
@@ -72,6 +73,17 @@ class RaftToast extends StatelessWidget {
       tokens: rt,
     );
     final titleStyle = s.title.text(rt).copyWith(fontWeight: FontWeight.w400);
+    // Elegant (light) tone compound variants: `**:data-[slot=toast-icon]:
+    // text-info / text-success / text-warning / text-brutal-red` (dark keeps
+    // `text-foreground-muted`, brutal keeps `text-foreground-strong`).
+    final iconColor = !t.brutal && !t.dark
+        ? switch (tone) {
+            RaftToastRecipeTone.info => t.colors['info'],
+            RaftToastRecipeTone.success => t.colors['success'],
+            RaftToastRecipeTone.warning => t.colors['warning'],
+            RaftToastRecipeTone.error => t.product.brutalRed,
+          }
+        : null;
     final glyph = switch (tone) {
       RaftToastRecipeTone.success => RaftGlyph.checkCircle2,
       RaftToastRecipeTone.info => RaftGlyph.info,
@@ -89,55 +101,76 @@ class RaftToast extends StatelessWidget {
       ],
     );
     final Widget row = icon
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox.square(
-                dimension: 20,
-                child: Center(
-                  child: RaftIcon(
-                    glyph,
-                    size: t.brutal ? 16 : 18,
-                    color: s.icon.textStyle(rt).color,
+        ? LayoutBuilder(
+            // `grid-cols-[auto_minmax(0,1fr)_auto]`: when the content has a
+            // min width (elegant `min-w-[18rem]`) the body track takes the
+            // extra space and the close button stays at the trailing edge.
+            builder: (context, c) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox.square(
+                  dimension: 20,
+                  child: Center(
+                    child: RaftIcon(
+                      glyph,
+                      size: t.brutal ? 16 : 18,
+                      // `[&_svg]:stroke-[2.5]` (brutal) / `stroke-[1.5]` (elegant).
+                      strokeWidth: t.brutal ? 2.5 : 1.5,
+                      color: iconColor ?? s.icon.textStyle(rt).color,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(child: body),
-              const SizedBox(width: 12),
-              if (hasClose)
-                Semantics(
-                  button: true,
-                  label: raftText(context, 'Close'),
-                  child: GestureDetector(
-                    key: const Key('toast-close'),
-                    onTap: onClose,
-                    child: RaftRecipeBox(
-                      style: s.close,
-                      tokens: rt,
-                      width: 32,
-                      height: 32,
-                      child: Center(
-                        child: RaftIcon(
-                          RaftGlyph.x,
-                          size: 14,
-                          color: s.close.textStyle(rt).color,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: actionLabel == null
+                          ? math.max(
+                              0,
+                              c.minWidth - 20 - 12 - 12 - (hasClose ? 32 : 0),
+                            )
+                          : 0,
+                    ),
+                    child: body,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (hasClose)
+                  Semantics(
+                    button: true,
+                    label: raftText(context, 'Close'),
+                    child: _ToastPaintSnap(
+                      child: GestureDetector(
+                        key: const Key('toast-close'),
+                        onTap: onClose,
+                        child: RaftRecipeBox(
+                          style: s.close,
+                          tokens: rt,
+                          width: 32,
+                          height: 32,
+                          child: Center(
+                            child: RaftIcon(
+                              RaftGlyph.x,
+                              size: 14,
+                              color: s.close.textStyle(rt).color,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              if (actionLabel != null) ...[
-                if (hasClose) const SizedBox(width: 4),
-                RaftRecipeButton(
-                  key: const Key('toast-action'),
-                  variant: RaftButtonRecipeVariant.outline,
-                  size: RaftButtonRecipeSize.sm,
-                  label: actionLabel,
-                  onPressed: onAction,
-                ),
+                if (actionLabel != null) ...[
+                  if (hasClose) const SizedBox(width: 4),
+                  RaftRecipeButton(
+                    key: const Key('toast-action'),
+                    variant: RaftButtonRecipeVariant.outline,
+                    size: RaftButtonRecipeSize.sm,
+                    label: actionLabel,
+                    onPressed: onAction,
+                  ),
+                ],
               ],
-            ],
+            ),
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
@@ -156,17 +189,122 @@ class RaftToast extends StatelessWidget {
               const SizedBox(width: 24),
             ],
           );
+    Widget root = RaftRecipeBox(
+      style: s.root,
+      tokens: rt,
+      child: RaftRecipeBox(
+        style: s.content,
+        tokens: rt,
+        child: _ToastSnapWidth(child: row),
+      ),
+    );
+    // Elegant root `saturate-150` (`dark:saturate-100`): a CSS filter over the
+    // whole toast (fill, icon and text), standard sRGB saturate matrix.
+    if (!t.brutal && !t.dark) {
+      root = ColorFiltered(colorFilter: _saturate(1.5), child: root);
+    }
     return Semantics(
       liveRegion: true,
       container: true,
-      child: RaftRecipeBox(
-        style: s.root,
-        tokens: rt,
-        child: RaftRecipeBox(style: s.content, tokens: rt, child: row),
-      ),
+      child: _ToastPaintSnap(child: root),
     );
   }
 }
+
+/// Blink lays a `w-max` box out at its fractional width but snaps the painted
+/// edges (and so every border) to whole device pixels: the content width
+/// rounds up to a whole pixel here so the root and the close button borders stay
+/// crisp like Web.
+class _ToastSnapWidth extends SingleChildRenderObjectWidget {
+  const _ToastSnapWidth({required Widget super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderToastSnapWidth();
+}
+
+class _RenderToastSnapWidth extends RenderProxyBox {
+  @override
+  void performLayout() {
+    final c = child!;
+    c.layout(constraints, parentUsesSize: true);
+    final width = c.size.width;
+    final snapped = width.ceilToDouble();
+    if (snapped != width && constraints.isTight == false) {
+      c.layout(
+        constraints.copyWith(
+          minWidth: constraints.constrainWidth(snapped),
+          maxWidth: constraints.constrainWidth(snapped),
+        ),
+        parentUsesSize: true,
+      );
+    }
+    size = c.size;
+  }
+}
+
+/// Paints its child at the whole CSS pixel (round half up) of its global
+/// origin, like Blink's pixel-snapped box painting.
+class _ToastPaintSnap extends SingleChildRenderObjectWidget {
+  const _ToastPaintSnap({required Widget super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderToastPaintSnap();
+}
+
+class _RenderToastPaintSnap extends RenderProxyBox {
+  Offset _delta = Offset.zero;
+
+  Offset _snap() {
+    if (!attached) return Offset.zero;
+    final origin = localToGlobal(Offset.zero);
+    double round(double v) => (v + .5).floorToDouble() - v;
+    return Offset(round(origin.dx), round(origin.dy));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    _delta = _snap();
+    super.paint(context, offset + _delta);
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    transform.translateByDouble(_delta.dx, _delta.dy, 0, 1);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      result.addWithPaintOffset(
+        offset: _delta,
+        position: position,
+        hitTest: (result, transformed) =>
+            super.hitTestChildren(result, position: transformed),
+      );
+}
+
+/// CSS `saturate(amount)` as a colour matrix.
+ColorFilter _saturate(double a) => ColorFilter.matrix([
+  0.213 + 0.787 * a,
+  0.715 - 0.715 * a,
+  0.072 - 0.072 * a,
+  0,
+  0,
+  0.213 - 0.213 * a,
+  0.715 + 0.285 * a,
+  0.072 - 0.072 * a,
+  0,
+  0,
+  0.213 - 0.213 * a,
+  0.715 - 0.715 * a,
+  0.072 + 0.928 * a,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1,
+  0,
+]);
 
 /// UI-owned transient feedback. No payload persistence or app/API dependency.
 /// A new notice replaces this owner's old notice and restarts its timeout.

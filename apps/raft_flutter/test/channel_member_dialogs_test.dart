@@ -179,7 +179,11 @@ void main() {
 
     testWidgets('a failed add keeps the dialog with the error', (t) async {
       Object? failed;
-      w.commandError = const RaftApiException('Boom', status: 500);
+      w.commandError = RaftApiException.response(
+        'Boom',
+        status: 500,
+        body: {'error': 'Boom'},
+      );
       await open(t, (_) => dialog(failed: (e) => failed = e));
       await t.tap(find.text('Add 2 members'));
       await t.pumpAndSettle();

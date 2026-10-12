@@ -209,7 +209,10 @@ void main() {
   ) async {
     final client = _Client()..failStatus = true;
     await _pump(tester, client: client);
-    expect(find.text('Status unavailable'), findsOneWidget);
+    // Web: `data.error || agent.detail.loadExternalSetupStatusFailed`; a
+    // body-less 500 shows the fallback, never the exception text.
+    expect(find.text('Failed to load external setup status'), findsOneWidget);
+    expect(find.text('Status unavailable'), findsNothing);
     expect(find.text('WAITING FOR LOGIN'), findsOneWidget);
   });
 

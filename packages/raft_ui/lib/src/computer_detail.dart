@@ -135,11 +135,10 @@ class RaftComputerDetailData {
 }
 
 /// A failed request whose message the page shows as-is.
-class RaftComputerActionError implements Exception {
-  const RaftComputerActionError(this.message);
-  final String message;
-  @override
-  String toString() => message;
+/// A computer action failed with copy written for the user (an English
+/// catalog source string, localized by the display layer).
+class RaftComputerActionError extends RaftUserError {
+  const RaftComputerActionError(super.message);
 }
 
 class RaftComputerDetailActions {
@@ -519,9 +518,11 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       setState(
         () => operation = (
           done: true,
-          error: e is RaftComputerActionError
-              ? e.message
-              : 'Failed to request restart. The Computer must be online.',
+          error: RaftErrorScope.of(context)(
+            e,
+            fallback:
+                'Failed to request restart. The Computer must be online.',
+          ),
         ),
       );
       operationTimer = Timer(const Duration(seconds: 4), () {
@@ -592,8 +593,14 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
     setState(() {
       bulkAction = null;
       if (failed > 0) {
-        bulkError =
-            '$failed of ${targets.length} ${targets.length == 1 ? 'agent action' : 'agent actions'} failed. Try again or open an agent for details.';
+        // Web `machine.detail.bulkActionFailed` (ICU plural on `total`).
+        bulkError = raftFormat(
+          context,
+          targets.length == 1
+              ? '{failed} of {total} agent action failed. Try again or open an agent for details.'
+              : '{failed} of {total} agent actions failed. Try again or open an agent for details.',
+          {'failed': failed, 'total': targets.length},
+        );
       } else {
         selectionMode = false;
         selected.clear();
@@ -891,7 +898,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           ),
           if (nameError.isNotEmpty)
             RaftCssText(
-              nameError,
+              raftText(context, nameError),
               style: ink.body(12, 16, color: ink.orange, w: FontWeight.w700),
             ),
         ])
@@ -943,7 +950,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
           ),
           if (descriptionError.isNotEmpty)
             RaftCssText(
-              descriptionError,
+              raftText(context, descriptionError),
               style: ink.body(12, 16, color: ink.orange, w: FontWeight.w700),
             ),
         ])
@@ -1450,6 +1457,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                       const SizedBox(height: 8),
                       RaftBanner(
                         description: bulkError,
+                        descriptionWeight: FontWeight.w700,
                         size: RaftBannerRecipeSize.sm,
                       ),
                     ],
@@ -1639,7 +1647,7 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: RaftCssText(
-                          progress.error ?? 'Restarted.',
+                          raftText(context, progress.error ?? 'Restarted.'),
                           style: ink.mono(
                             12,
                             16,
