@@ -8,18 +8,32 @@ file; `--all-themes` (or RAFT_TEST_ALL_THEMES=1) runs the full theme matrix.
 Nothing is retried: a failing or timed-out test fails the gate and is listed in
 `.local/check-summary.txt`. Knobs: RAFT_CHECK_SHARDS, RAFT_CHECK_JOBS (flutter
 test `-j` per shard), RAFT_CHECK_SHARD_TIMEOUT_MINUTES (whole-shard watchdog).
+
+The gate fails fast so a broken branch does not hold the shared lock for a full
+run: the shards' output is watched while they run, and every process this run
+started is killed on the first compile/load error, once RAFT_CHECK_MAX_FAILURES
+tests have failed (default 3, 0 = never stop early), or when no shard printed
+anything for RAFT_CHECK_STALL_MINUTES (default 10, 0 = off). Each step is appended
+to /tmp/raft-flutter-gate-events.log (tool/gate_events.py), with a terminal
+PASS/FAIL/ERROR line on every path; RAFT_GATE_NOTIFY_TARGET also sends failures.
 """
+import codecs
 import concurrent.futures
 import json
 import os
 import pathlib
+import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 if sys.version_info < (3, 11):
     raise SystemExit('Engineering checks require Python 3.11 or newer.')
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))  # also when loaded by the host tests
+import gate_events  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent
 local = root / '.local'
@@ -29,6 +43,11 @@ app_dir = root / 'apps/raft_flutter'
 TEST_DIRS = ['apps/raft_flutter/test', 'packages/raft_client/test', 'packages/raft_sync/test', 'packages/raft_ui/test', 'packages/flutter_dynamic_icon_plus/test']
 SLOWEST_TESTS = 20
 DEFAULT_SHARD_TIMEOUT_MINUTES = 60
+DEFAULT_MAX_FAILURES = 3
+DEFAULT_STALL_MINUTES = 10
+POLL_SECONDS = 0.5
+COMPILE_GRACE_SECONDS = 3.0  # after the first compiler error: let the file name and more diagnostics arrive
+MAX_DIAGNOSTIC_LINES = 8
 
 
 def tool_command(name):
@@ -191,11 +210,14 @@ def slowest_tests(results, count=SLOWEST_TESTS):
     return [{'name': r['name'], 'file': r['file'], 'seconds': r['seconds']} for r in real[:count]]
 
 
-def format_summary(shards, failures, totals, slowest, limit=None, themes=None):
+def format_summary(shards, failures, totals, slowest, limit=None, themes=None, stop=None):
     """Human-readable gate summary; failures are listed by test name (first `limit` if given)."""
     lines = [f"Dart tests: {totals['passed']} passed, {totals['skipped']} skipped, {len(failures)} failed across {len(shards)} shard(s)" + (f' (themes: {themes}).' if themes else '.')]
+    if stop:
+        lines.append(f"Run stopped early: {stop['message']}")
+        lines.extend(f'  {line}' for line in stop['lines'])
     for shard in shards:
-        state = 'ok' if shard['passed'] else 'FAILED'
+        state = 'ok' if shard['passed'] else 'STOPPED' if shard.get('stopped') else 'FAILED'
         lines.append(f"  shard {shard['index']}: {state} {shard['seconds']:.0f}s, {len(shard['files'])} files (log {shard['log']})")
     if failures:
         lines.append('Failed tests:')
@@ -231,21 +253,216 @@ def history_weights(repo):
     return {}
 
 
-def run_logged(args, cwd, log_path, env, timeout=None):
-    """Run to completion with output in `log_path`; a timeout kills only this child's own group."""
+ANSI_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+PROGRESS_RE = re.compile(r'^\d+:\d+ [+~-]')
+# `00:05 +3 ~1 -1: <test> [E]`; with several suites running the test is `<path>.dart: <name>`.
+TEST_FAILED_RE = re.compile(r'^\d+:\d+ \+\d+(?: ~\d+)?(?: -\d+)?: (?P<name>.*) \[E\]$')
+PREFIXED_RE = re.compile(r'^(?P<file>\S+\.dart): (?P<test>.*)$')
+# Compiler diagnostics print before the `loading <file> [E]` line, e.g.
+# `lib/platform/macos_dock_unread.dart:24:7: Error: Undefined name 'AppBadgePlus'.`
+DIAGNOSTIC_RE = re.compile(r'^(?P<path>\S.*?\.dart):\d+:\d+: Error: ')
+LOAD_FAILED_RE = re.compile(r'Failed to load "(?P<file>[^"]+)"')
+TEST_PATH_RE = re.compile(r'testPath=(?P<file>\S+\.dart)')
+
+
+def to_repo_path(path):
+    return pathlib.Path(os.path.relpath(path, root)).as_posix() if os.path.isabs(path) else path
+
+
+def max_failures_reached(count, limit):
+    """`limit` 0 means never stop early."""
+    return limit > 0 and count >= limit
+
+
+def stalled(now, last_output, minutes):
+    """True when nothing was printed for `minutes` (0 disables the watchdog)."""
+    return minutes > 0 and now - last_output >= minutes * 60
+
+
+class StreamScanner:
+    """Incrementally scans one shard's reporter output (`\\n` or `\\r` progress lines).
+
+    `feed` returns new findings: `{'kind': 'test', file, name}` for a failed test, or
+    `{'kind': 'compile', file, lines, done}` for the first load/compile error. The
+    compile finding is returned once and keeps filling in (`file`, `lines`, `done`).
+    """
+
+    def __init__(self, files=(), to_repo=lambda p: p):
+        self.files, self.to_repo, self.partial, self.compile = list(files), to_repo, '', None
+
+    def feed(self, text):
+        pieces = re.split(r'[\r\n]+', self.partial + text)
+        self.partial = pieces.pop()  # incomplete last line
+        return [f for f in (self.line(ANSI_RE.sub('', piece).rstrip()) for piece in pieces) if f]
+
+    def line(self, line):
+        c = self.compile
+        failed = TEST_FAILED_RE.match(line)
+        if failed and failed['name'].startswith('loading '):
+            file = self.to_repo(failed['name'][len('loading '):])
+            if c is None:  # load failure without compiler output (e.g. file missing)
+                self.compile = {'kind': 'compile', 'file': file, 'lines': [], 'done': True, 'want': 3}
+                return self.compile
+            if not c['done']:  # a broken shared file fails every file loading beside it; the first is the culprit
+                c.update(file=file, done=True)
+            return None
+        if failed:
+            prefixed = PREFIXED_RE.match(failed['name'])
+            file = self.to_repo(prefixed['file']) if prefixed else (self.files[0] if len(self.files) == 1 else '?')
+            return {'kind': 'test', 'file': file, 'name': prefixed['test'] if prefixed else failed['name']}
+        if c is None:
+            diagnostic = DIAGNOSTIC_RE.match(line)
+            if diagnostic:
+                self.compile = {'kind': 'compile', 'file': diagnostic['path'], 'lines': [line], 'done': False, 'want': 0}
+                return self.compile
+            return None
+        named = LOAD_FAILED_RE.search(line) or TEST_PATH_RE.search(line)
+        if named and not c['done']:
+            c.update(file=self.to_repo(named['file']), done=True)
+        if line.strip() and not PROGRESS_RE.match(line) and len(c['lines']) < MAX_DIAGNOSTIC_LINES and (not c['done'] or c['want'] > 0):
+            c['lines'].append(line)
+            c['want'] = max(0, c['want'] - 1)
+        return None
+
+
+class GateWatch:
+    """Decides when the run must stop early; pure apart from the `emit` callback."""
+
+    def __init__(self, shard_files, now, max_failures, stall_minutes, emit=lambda *a, **k: None, to_repo=lambda p: p):
+        self.scanners = [StreamScanner(files, to_repo) for files in shard_files]
+        self.max_failures, self.stall_minutes, self.emit = max_failures, stall_minutes, emit
+        self.failures, self.compile, self.compile_seen, self.last_output, self.announced = [], None, None, now, False
+
+    def touch(self, now):
+        self.last_output = now
+
+    def feed(self, shard, text, now):
+        if text:
+            self.touch(now)
+        for finding in self.scanners[shard].feed(text):
+            if finding['kind'] == 'test':
+                self.failures.append({**finding, 'shard': shard})
+                details = {'file': finding['file'], 'test': finding['name']}
+            elif self.compile is None:
+                self.compile, self.compile_seen = finding, now
+                finding['shard'] = shard
+                details = {'file': finding['file'], 'test': '(load/compile error)', 'error': finding['lines'][0] if finding['lines'] else 'failed to load'}
+            else:
+                continue
+            if not self.announced:  # the moment the first failure is seen, before the run stops
+                self.announced = True
+                self.emit('FAIL-FIRST', **details)
+
+    def verdict(self, now):
+        """None to keep going, else {'reason', 'message', 'lines', 'fields'} to stop the run."""
+        c = self.compile
+        if c is not None and (c['done'] or now - self.compile_seen >= COMPILE_GRACE_SECONDS):
+            first = c['lines'][0] if c['lines'] else 'failed to load'
+            return {'reason': 'compile-error', 'message': f"load/compile error in {c['file']}", 'lines': list(c['lines']),
+                    'fields': {'file': c['file'], 'error': first}}
+        if max_failures_reached(len(self.failures), self.max_failures):
+            return {'reason': 'max-failures', 'lines': [], 'fields': {'failures': len(self.failures), 'limit': self.max_failures},
+                    'message': f'{len(self.failures)} tests failed (RAFT_CHECK_MAX_FAILURES={self.max_failures}); the remaining tests were not run'}
+        if stalled(now, self.last_output, self.stall_minutes):
+            return {'reason': 'stall', 'lines': [], 'fields': {'minutes': self.stall_minutes},
+                    'message': f'no shard printed anything for {self.stall_minutes:g} minutes (RAFT_CHECK_STALL_MINUTES)'}
+        return None
+
+
+class LogTail:
+    """Reads what a child appended to its log since the last call (UTF-8 safe across chunks)."""
+
+    def __init__(self, path):
+        self.path, self.offset, self.decoder = path, 0, codecs.getincrementaldecoder('utf-8')('replace')
+
+    def read(self):
+        try:
+            with open(self.path, 'rb') as f:
+                f.seek(self.offset)
+                data = f.read()
+        except OSError:
+            return ''
+        self.offset += len(data)
+        return self.decoder.decode(data)
+
+
+def file_size(path):
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
+
+
+def env_number(name, default, env=None):
+    """Non-negative number from the environment (0 is a valid 'off')."""
+    raw = (os.environ if env is None else env).get(name, '').strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        value = -1
+    if value < 0:
+        raise SystemExit(f'{name} must be a non-negative number, got {raw!r}.')
+    return value
+
+
+CHILDREN, CHILDREN_LOCK, STOPPED, STOP = {}, threading.Lock(), set(), threading.Event()
+
+
+def kill_group(child):
+    """Kill one child's own process group; never anything this run did not start."""
+    if child.poll() is not None:
+        return False
+    if os.name == 'nt':
+        subprocess.run(['taskkill', '/T', '/F', '/PID', str(child.pid)], capture_output=True)
+    else:
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            return False
+    return True
+
+
+def kill_children():
+    """Stop everything this run started (shards, analyze, host tests, pub get)."""
+    STOP.set()
+    with CHILDREN_LOCK:
+        live = list(CHILDREN.values())
+    for child in live:
+        if kill_group(child):
+            STOPPED.add(child.pid)
+
+
+def run_logged(args, cwd, log_path, env, timeout=None, outcome=None):
+    """Run to completion with output in `log_path`; a timeout kills only this child's own group.
+
+    `outcome['stopped']` is set when `kill_children` ended the child early.
+    """
     popen = {'start_new_session': True} if os.name != 'nt' else {}
+    outcome = {} if outcome is None else outcome
+    if STOP.is_set():
+        outcome['stopped'] = True
+        return -9
     with open(log_path, 'w', encoding='utf-8') as log:
         child = subprocess.Popen(args, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, **popen)
+        with CHILDREN_LOCK:
+            CHILDREN[child.pid] = child
+        if STOP.is_set():  # the stop arrived between the check above and registration
+            kill_children()
         try:
             return child.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            if os.name == 'nt':
-                subprocess.run(['taskkill', '/T', '/F', '/PID', str(child.pid)], capture_output=True)
-            else:
-                os.killpg(child.pid, signal.SIGKILL)
+            kill_group(child)
             child.wait()
             log.write(f'\ncheck-project: killed after {timeout:.0f}s (shard watchdog).\n')
             return -9
+        finally:
+            with CHILDREN_LOCK:
+                CHILDREN.pop(child.pid, None)
+            if child.pid in STOPPED:
+                outcome['stopped'] = True
+                log.write('\ncheck-project: stopped early (gate fail-fast).\n')
 
 
 def run_shard(index, files, jobs, env, timeout):
@@ -254,8 +471,10 @@ def run_shard(index, files, jobs, env, timeout):
     events.unlink(missing_ok=True)
     args = [*tool_command('flutter'), 'test', *files, '--no-pub', '-j', str(jobs), '--reporter', 'expanded', '--file-reporter', f'json:{events}']
     started = time.monotonic()
-    code = run_logged(args, app_dir, log, env, timeout)
-    return {'index': index, 'files': files, 'code': code, 'seconds': time.monotonic() - started, 'log': log.name, 'events': events}
+    outcome = {}
+    code = run_logged(args, app_dir, log, env, timeout, outcome)
+    return {'index': index, 'files': files, 'code': code, 'seconds': time.monotonic() - started, 'log': log.name, 'events': events,
+            'stopped': bool(outcome.get('stopped'))}
 
 
 def repo_path(app_relative):
@@ -268,7 +487,7 @@ def collect_shard(shard):
         lines = shard['events'].read_text(encoding='utf-8', errors='replace').splitlines()
     except OSError:
         lines = []
-    return parse_test_events(lines, lambda p: pathlib.Path(os.path.relpath(p, root)).as_posix() if os.path.isabs(p) else p)
+    return parse_test_events(lines, to_repo_path)
 
 
 def write_aggregate_log(shards, summary_text, passed):
@@ -285,15 +504,46 @@ def themes_mode(env):
     return 'all' if env.get('RAFT_TEST_ALL_THEMES') == '1' else 'sampled'
 
 
-def main():
-    check_env = dict(os.environ, PYTHONUTF8='1')
-    if '--all-themes' in sys.argv[1:]:
-        check_env['RAFT_TEST_ALL_THEMES'] = '1'
-    elif sys.argv[1:]:
-        raise SystemExit(f'check-project: unknown arguments {sys.argv[1:]}; the only option is --all-themes.')
+def abort_message(emit, verdict, failures):
+    """Chinese notification body for an early stop."""
+    summary = f'.local/check-summary.txt: {root / ".local/check-summary.txt"}'
+    if verdict['reason'] == 'compile-error':
+        return emit.message(f"编译/加载错误 {verdict['fields']['file']}（已提前终止）", *verdict['lines'][:3], summary)
+    if verdict['reason'] == 'max-failures':
+        tests = [f"{f['file']}: {f['name']}" for f in failures[:3]]
+        return emit.message(f"失败测试已达 {verdict['fields']['limit']} 个，已提前终止", *tests, summary)
+    return emit.message(f"超过 {verdict['fields']['minutes']:g} 分钟没有任何输出（疑似卡住），已终止", summary)
+
+
+def supervise(futures, shard_logs, event_files, watch, emit):
+    """Watch the shards' output until every future is done; stop the run on the first verdict.
+
+    Returns the verdict that stopped the run (None when it finished by itself).
+    """
+    tails, sizes, stop = [LogTail(p) for p in shard_logs], [0] * len(event_files), None
+    while True:
+        _, pending = concurrent.futures.wait(futures, timeout=POLL_SECONDS)
+        now = time.monotonic()
+        for i, tail in enumerate(tails):
+            watch.feed(i, tail.read(), now)
+            size = file_size(event_files[i])
+            if size != sizes[i]:  # the json reporter also counts as sign of life
+                sizes[i] = size
+                watch.touch(now)
+        if not pending:
+            return stop
+        verdict = None if stop else watch.verdict(now)
+        if verdict:
+            stop = verdict
+            emit('ABORT', notify=abort_message(emit, verdict, watch.failures), reason=verdict['reason'], **verdict['fields'])
+            sys.stderr.write(f"check-project: stopping early: {verdict['message']}\n" + ''.join(f'  {line}\n' for line in verdict['lines']))
+            kill_children()
+
+
+def run_gate(check_env, emit, started):
+    """Run every check; returns {'ok', 'failures', 'stop', 'failed_checks'}. Events: START, FAIL-FIRST, ABORT."""
     stamp = lambda: subprocess.check_output(tool_command('source-hash'), text=True, env=check_env).strip()
     source_hash = stamp()
-    started = time.monotonic()
     local.mkdir(exist_ok=True)
     results = {}
     cpu = os.cpu_count() or 2
@@ -303,7 +553,10 @@ def main():
     shard_count, jobs = plan_parallelism(cpu, load)
     plan = partition(files, history_weights(root), shard_count, sizes)
     shard_timeout = float(os.environ.get('RAFT_CHECK_SHARD_TIMEOUT_MINUTES') or DEFAULT_SHARD_TIMEOUT_MINUTES) * 60
+    max_failures = int(env_number('RAFT_CHECK_MAX_FAILURES', DEFAULT_MAX_FAILURES))
+    stall_minutes = env_number('RAFT_CHECK_STALL_MINUTES', DEFAULT_STALL_MINUTES)
     print(f'check-project: {len(files)} test files in {len(plan)} shard(s) x -j{jobs} on {cpu} CPUs (load {load:.1f}); themes: {themes_mode(check_env)}.', file=sys.stderr)
+    emit('START', shards=len(plan), jobs=jobs, files=len(files), cpus=cpu, load=f'{load:.1f}', themes=themes_mode(check_env))
 
     # A branch that merged new dependencies without `pub get` would fail every
     # test file at compile time, slowly; resolve the workspace first and stop.
@@ -329,6 +582,13 @@ def main():
         host_future = pool.submit(host_tests)
         analyze_future = pool.submit(analyze)
         shard_futures = [pool.submit(run_shard, i, bucket['files'], jobs, check_env, shard_timeout) for i, bucket in enumerate(plan)]
+        watch = GateWatch([[repo_path(f) for f in bucket['files']] for bucket in plan], time.monotonic(), max_failures, stall_minutes, emit, to_repo_path)
+        try:
+            stop = supervise([*shard_futures, host_future, analyze_future], [local / f'test-shard-{i}.txt' for i in range(len(plan))],
+                             [local / f'test-shard-{i}.json' for i in range(len(plan))], watch, emit)
+        except BaseException:
+            kill_children()  # the pool waits for its threads on the way out
+            raise
         shards = [future.result() for future in shard_futures]
         results['host-collector-tests.txt'] = host_future.result()
         results['analyze-all.txt'] = analyze_future.result()
@@ -339,7 +599,9 @@ def main():
         summary = summarize_shard(parsed)
         log_path = local / shard['log']
         log_text = log_path.read_text(encoding='utf-8', errors='replace') if log_path.exists() else ''
-        never_ran = unfinished_files([repo_path(f) for f in shard['files']], parsed)
+        if stop:  # killed shards leave unfinished tests and unloaded files behind; only real failures count
+            summary['failed'] = [f for f in summary['failed'] if f['status'] == 'failed']
+        never_ran = [] if stop else unfinished_files([repo_path(f) for f in shard['files']], parsed)
         marker = has_pass_marker(log_text)
         shard['passed'] = shard['code'] == 0 and marker and not summary['failed'] and not never_ran
         results[f"test-shard-{shard['index']}.txt"] = shard['passed']
@@ -347,12 +609,18 @@ def main():
         totals['skipped'] += summary['skipped']
         failures += [{**f, 'shard': shard['index']} for f in summary['failed']]
         failures += [{'name': '(file never ran)', 'file': f, 'status': 'incomplete', 'error': '', 'shard': shard['index']} for f in never_ran]
-        if not shard['passed'] and not summary['failed'] and not never_ran:
+        if not shard['passed'] and not summary['failed'] and not never_ran and not stop:
             reason = f"exit code {shard['code']}" if shard['code'] != 0 else f'no "{PASS_MARKER}" line in the log'
             failures.append({'name': f"shard stopped without a recorded test failure ({reason}); see {shard['log']}", 'file': '', 'status': 'failed', 'error': '', 'shard': shard['index']})
-        if shard['code'] in (0, 1):  # a killed or crashed shard has truncated file times
+        if shard['code'] in (0, 1) and not shard['stopped']:  # a killed or crashed shard has truncated file times
             durations.update(file_durations(parsed, shard['index']))
         all_results += parsed
+    # What the live watcher saw that the (possibly truncated) json stream did not.
+    known = {(f['file'], f['name']) for f in failures}
+    failures += [{'name': f['name'], 'file': f['file'], 'status': 'failed', 'error': '', 'shard': f['shard']} for f in watch.failures if (f['file'], f['name']) not in known]
+    if watch.compile and not any(f['file'] == watch.compile['file'] for f in failures):
+        failures.append({'name': '(load/compile error)', 'file': watch.compile['file'], 'status': 'failed', 'shard': watch.compile['shard'],
+                         'error': watch.compile['lines'][0] if watch.compile['lines'] else 'failed to load'})
     tests_passed = all(s['passed'] for s in shards) and bool(shards)
     results['all-project-tests.txt'] = tests_passed
     ordered = {key: results[key] for key in ['workspace-pub-get.txt', 'host-collector-tests.txt', 'bindings-generator-pub-get.txt', 'all-project-tests.txt', 'analyze-all.txt']}
@@ -360,7 +628,7 @@ def main():
     results = ordered
 
     slowest = slowest_tests(all_results)
-    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env))
+    summary_text = format_summary(shards, failures, totals, slowest, themes=themes_mode(check_env), stop=stop)
     (local / 'check-summary.txt').write_text(summary_text, encoding='utf-8')
     write_aggregate_log(shards, summary_text, tests_passed)
     previous = read_json(local / 'check-durations.json').get('files', {})
@@ -369,16 +637,66 @@ def main():
     (local / 'check-durations.json').write_text(json.dumps({
         'sourceHash': source_hash, 'wallSeconds': round(time.monotonic() - started, 1), 'shards': len(shards), 'jobsPerShard': jobs,
         'slowestTests': slowest, 'files': dict(sorted(merged.items()))}, indent=2), encoding='utf-8')
-    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env)))
+    sys.stderr.write(format_summary(shards, failures, totals, slowest, limit=40, themes=themes_mode(check_env), stop=stop))
 
     changed = stamp() != source_hash
-    ok = all(results.values()) and not changed
+    ok = all(results.values()) and not changed and not stop
     (local / 'engineering-run.json').write_text(json.dumps({
         'sourceHash': source_hash, 'completed': ok, 'themes': themes_mode(check_env), 'checks': results,
         'shards': [{'index': s['index'], 'passed': s['passed'], 'exitCode': s['code'], 'seconds': round(s['seconds'], 1), 'files': len(s['files']), 'log': s['log']} for s in shards],
+        'stoppedEarly': {'reason': stop['reason'], 'message': stop['message'], 'lines': stop['lines']} if stop else None,
         'failedTests': [{'shard': f['shard'], 'file': f['file'], 'name': f['name']} for f in failures]}, indent=2))
     print(json.dumps({'passed': ok, 'sourceChanged': changed, 'checks': results}))
-    sys.exit(0 if ok else 1)
+    return {'ok': ok, 'failures': failures, 'stop': stop, 'changed': changed, 'failed_checks': [k for k, v in results.items() if not v]}
+
+
+def finish(emit, started, outcome):
+    """Terminal PASS/FAIL event (and notification for FAIL unless ABORT already sent one)."""
+    seconds = f'{time.monotonic() - started:.0f}s'
+    if outcome['ok']:
+        emit('PASS', duration=seconds, failures=0)
+        return
+    failures, stop = outcome['failures'], outcome['stop']
+    notify = None
+    if not stop:
+        tests = [f"{f['file']}: {f['name']}" for f in failures[:3]]
+        reason = f'{len(failures)} 个测试失败' if failures else f"检查未通过：{', '.join(outcome['failed_checks']) or '源码在运行期间被修改'}"
+        notify = emit.message(reason, *tests, str(root / '.local/check-summary.txt'))
+    emit('FAIL', notify=notify, duration=seconds, failures=len(failures), **({'aborted': stop['reason']} if stop else {}),
+         **({'failed_checks': ','.join(outcome['failed_checks'])} if outcome['failed_checks'] else {}))
+
+
+def main():
+    check_env = dict(os.environ, PYTHONUTF8='1')
+    if '--all-themes' in sys.argv[1:]:
+        check_env['RAFT_TEST_ALL_THEMES'] = '1'
+    elif sys.argv[1:]:
+        raise SystemExit(f'check-project: unknown arguments {sys.argv[1:]}; the only option is --all-themes.')
+    emit, started = gate_events.Events(root), time.monotonic()
+    gate_events.raise_on_signals()
+    log = str(root / '.local')
+    try:
+        outcome = run_gate(check_env, emit, started)
+        finish(emit, started, outcome)
+    except BaseException as error:  # every other path still ends with a terminal event
+        kill_children()
+        if isinstance(error, SystemExit) and error.code in (0, None):
+            raise
+        if isinstance(error, gate_events.Interrupted):
+            reason, code = f'signal {error.name}', 128 + error.signum
+        elif isinstance(error, SystemExit):
+            reason, code = str(error.code), error.code
+        else:
+            reason, code = f'{type(error).__name__}: {error}', 1
+        emit('ERROR', notify=emit.message(f'check-project 异常中止（{reason}）', f'日志目录：{log}'), reason=reason, duration=f'{time.monotonic() - started:.0f}s')
+        gate_events.flush_notifications()
+        if isinstance(error, (KeyboardInterrupt, SystemExit, gate_events.Interrupted)):
+            sys.exit(code)
+        raise
+    finally:
+        kill_children()
+    gate_events.flush_notifications()
+    sys.exit(0 if outcome['ok'] else 1)
 
 
 if __name__ == '__main__':
