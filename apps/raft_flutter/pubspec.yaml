@@ -47,10 +47,10 @@ dependencies:
   html: ^0.15.6
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
-  media_kit_libs_android_video: ^1.3.8
-  media_kit_libs_linux: ^1.2.1
-  media_kit_libs_macos_video: ^1.1.4
-  media_kit_libs_windows_video: ^1.0.11
+  # Umbrella of the per-platform libmpv builds (Android, iOS, macOS, Windows,
+  # Linux); the same set miraa-app ships. Linux additionally bundles its own
+  # libmpv (tool/prepare-media-linux).
+  media_kit_libs_video: ^1.0.7
   flutter_svg: ^2.3.0
   desktop_drop:
     path: ../../packages/desktop_drop

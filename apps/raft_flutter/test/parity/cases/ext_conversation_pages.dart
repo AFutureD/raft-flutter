@@ -12,7 +12,9 @@
 // Data: tool/parity-ext/fixtures/conversation.json (fixtures['ext:conversation']):
 // `routes` + the case's `routeSet`.
 import 'dart:async';
+import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +24,10 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/external_identity.dart';
+import 'package:raft_flutter/features/inline_attachment_media.dart';
+import 'package:raft_flutter/platform/attachment_player.dart';
+import 'package:raft_flutter/platform/attachment_preview_files.dart';
+import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -733,6 +739,119 @@ ParityCase _rowCase({
   },
 );
 
+/// The message video card without a decoder: the inline card's files and player
+/// come from [InlineMediaTestHooks]. The fake player draws the fixture clip's
+/// flat first frame (the Web case plays the same colour as a 360x640 WebM) with
+/// `object-contain`, so the pillarbox geometry is the real card's.
+class _ParityVideoFiles extends AttachmentPreviewFiles {
+  _ParityVideoFiles(this.dir);
+  final Directory dir;
+  @override
+  Future<SharedFileLease?> load(
+    String url,
+    String filename, {
+    required CancelToken cancel,
+    required bool Function() authorized,
+    void Function(int, int)? onProgress,
+  }) async => SharedFileLease(
+    File('${dir.path}/clip.bin')..writeAsBytesSync([1, 2, 3]),
+    lifetime: const Duration(hours: 1),
+  );
+}
+
+class _ParityVideoPlayer implements AttachmentPlayer {
+  _ParityVideoPlayer({this.fail = false});
+  final bool fail;
+  final events = StreamController<AttachmentPlayback>.broadcast();
+  var playing = false;
+  AttachmentPlayback get state => AttachmentPlayback(
+    playing: playing,
+    position: Duration.zero,
+    duration: const Duration(seconds: 20),
+    hasFrame: true,
+  );
+  @override
+  Stream<AttachmentPlayback> get changes => events.stream;
+  @override
+  Widget video() => Center(
+    child: AspectRatio(
+      aspectRatio: 360 / 640,
+      child: const ColoredBox(color: Color(0xFF3D5A79)),
+    ),
+  );
+  @override
+  Future<void> open(File file) async {
+    if (fail) throw StateError('undecodable');
+    events.add(state);
+  }
+
+  @override
+  Future<void> toggle() async {
+    playing = !playing;
+    events.add(state);
+  }
+
+  @override
+  Future<void> pause() async {
+    playing = false;
+    events.add(state);
+  }
+
+  @override
+  Future<void> seek(Duration value) async {}
+  @override
+  Future<void> volume(double value) async {}
+  @override
+  Future<void> dispose() async {
+    unawaited(events.close());
+  }
+}
+
+/// A message-row case whose video card is prepared by the fake decoder; [act]
+/// runs after the card has loaded, and the hooks are always released.
+ParityCase _videoCase({
+  bool fail = false,
+  Future<void> Function(WidgetTester t)? act,
+}) {
+  final base = _rowCase(
+    widgets: const [
+      'raft_flutter:InlineVideoAttachment',
+      'raft_ui:RaftInlineVideo',
+    ],
+    act: (t, ctx, stage) async {
+      await _pumpFrames(t, 12);
+      await act?.call(t);
+      await _pumpFrames(t, 6);
+    },
+  );
+  return ParityCase(
+    widgets: base.widgets,
+    notes: base.notes,
+    settle: base.settle,
+    build: (ctx) {
+      InlineMediaTestHooks.files = _ParityVideoFiles(
+        Directory.systemTemp.createTempSync('parity-video'),
+      );
+      InlineMediaTestHooks.playerFactory = () => _ParityVideoPlayer(fail: fail);
+      return base.build(ctx);
+    },
+    interact: (t, ctx) async {
+      try {
+        await base.interact!(t, ctx);
+      } finally {
+        InlineMediaTestHooks.files = null;
+        InlineMediaTestHooks.playerFactory = null;
+      }
+    },
+  );
+}
+
+Future<void> _hoverVideo(WidgetTester t) async {
+  final mouse = await _mouse(t);
+  await mouse.moveTo(t.getCenter(find.byKey(const Key('inline-video'))));
+  await _pumpFrames(t, 8);
+}
+
 /// Every extension conversation-page case, keyed by id (3 themes each).
 final Map<String, ParityCase> extConversationCases = () {
   final cases = <String, ParityCase>{};
@@ -851,6 +970,21 @@ final Map<String, ParityCase> extConversationCases = () {
       add('attach', platform, kind, _rowCase());
     }
   }
+  for (final platform in const ['desktop', 'mobile']) {
+    add('attach', platform, 'video-poster', _videoCase());
+    add('attach', platform, 'video-error', _videoCase(fail: true));
+  }
+  add('attach', 'desktop', 'video-hover', _videoCase(act: _hoverVideo));
+  add(
+    'attach',
+    'desktop',
+    'video-playing',
+    _videoCase(
+      // The pointer is parked after a click (Playwright and the harness), so
+      // the playing picture carries no hover controls.
+      act: (t) => t.tap(find.byKey(const Key('inline-video-surface'))),
+    ),
+  );
   for (final platform in const ['desktop', 'mobile']) {
     for (final state in const [
       'translating',

@@ -39,6 +39,7 @@ class RaftAttachmentPreviewShell extends StatefulWidget {
     this.copyText,
     this.commentsBuilder,
     this.canvas = false,
+    this.dark = false,
     this.commentsOpenInitially = false,
     this.page = false,
   });
@@ -54,6 +55,9 @@ class RaftAttachmentPreviewShell extends StatefulWidget {
   final Widget Function(BuildContext context, RaftCommentsSheetControls? sheet)?
   commentsBuilder;
   final bool canvas;
+
+  /// Web `VideoPreviewBody`: the stage is solid black (`bg-black`).
+  final bool dark;
   final bool commentsOpenInitially;
 
   /// Mobile page route: a plain Material page with the shared page header
@@ -93,7 +97,9 @@ class _RaftAttachmentPreviewShellState
     final size = MediaQuery.sizeOf(context);
     final wide = size.width >= raftLightboxSmBreakpoint;
     final comments = widget.commentsBuilder;
-    final bodyColor = widget.canvas
+    final bodyColor = widget.dark
+        ? Colors.black
+        : widget.canvas
         ? (t.brutal
               ? t.components.brutalCream
               : t.colors['layer-canvas-muted']!)

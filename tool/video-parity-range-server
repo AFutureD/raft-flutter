@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""S3-like static server: Accept-Ranges, 206, HEAD, optional ?rate=<bytes/s>. Logs each request."""
+import os, re, sys, time
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+ROOT = sys.argv[1]; PORT = int(sys.argv[2])
+class H(BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+    def log_message(self, f, *a):
+        sys.stderr.write('%s %s\n' % (self.command, self.path) + ('   Range: %s\n' % self.headers.get('Range') if self.headers.get('Range') else ''))
+    def _serve(self, head):
+        from urllib.parse import urlparse, parse_qs
+        u = urlparse(self.path); q = parse_qs(u.query)
+        path = os.path.join(ROOT, os.path.basename(u.path))
+        if not os.path.isfile(path):
+            self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
+        size = os.path.getsize(path); start, end = 0, size - 1; status = 200
+        m = re.match(r'bytes=(\d*)-(\d*)', self.headers.get('Range', ''))
+        if m:
+            if m.group(1): start = int(m.group(1))
+            if m.group(2): end = min(int(m.group(2)), size - 1)
+            if not m.group(1) and m.group(2): start = max(0, size - int(m.group(2))); end = size - 1
+            status = 206
+        self.send_response(status)
+        self.send_header('Content-Type', 'video/mp4'); self.send_header('Accept-Ranges', 'bytes')
+        self.send_header('Content-Length', str(end - start + 1))
+        if status == 206: self.send_header('Content-Range', 'bytes %d-%d/%d' % (start, end, size))
+        self.end_headers()
+        if head: return
+        rate = int(q.get('rate', ['0'])[0])
+        with open(path, 'rb') as f:
+            f.seek(start); left = end - start + 1
+            try:
+                while left > 0:
+                    chunk = f.read(min(65536 if not rate else max(rate // 20, 1), left))
+                    self.wfile.write(chunk); left -= len(chunk)
+                    if rate: time.sleep(0.05)
+            except (BrokenPipeError, ConnectionResetError): pass
+    def do_GET(self): self._serve(False)
+    def do_HEAD(self): self._serve(True)
+ThreadingHTTPServer(('127.0.0.1', PORT), H).serve_forever()

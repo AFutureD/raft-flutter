@@ -267,8 +267,8 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-      expect(find.byType(RaftMediaControls), findsOneWidget);
-      await tester.tap(find.byTooltip('Play'));
+      expect(find.byType(RaftAudioPreview), findsOneWidget);
+      await tester.tap(find.byKey(const Key('audio-play-toggle')));
       expect(player.toggles, 1);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();

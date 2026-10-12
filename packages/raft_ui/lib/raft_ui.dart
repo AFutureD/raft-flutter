@@ -154,6 +154,8 @@ export 'src/quoted_message_card.dart';
 export 'src/external_identity_panel.dart';
 export 'src/avatar_button.dart';
 export 'src/inline_media.dart';
+export 'src/video_controls.dart';
+export 'src/video_viewer.dart';
 
 export 'src/attachment_tokens.dart';
 

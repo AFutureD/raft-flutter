@@ -7,7 +7,6 @@ import 'dialog_card.dart' show RaftShadowSet;
 import 'message_content_tokens.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
-import 'tooltip.dart' show RaftTooltip;
 
 /// Structured, server-bounded attachment content. Never executes document HTML.
 ///
@@ -420,71 +419,4 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
       ),
     );
   }
-}
-
-class RaftMediaControls extends StatelessWidget {
-  const RaftMediaControls({
-    super.key,
-    required this.playing,
-    required this.position,
-    required this.duration,
-    this.volume = 100,
-    this.onPlayPause,
-    this.onSeek,
-    this.onVolume,
-  });
-  final bool playing;
-  final Duration position, duration;
-  final double volume;
-  final VoidCallback? onPlayPause;
-  final ValueChanged<Duration>? onSeek;
-  final ValueChanged<double>? onVolume;
-  String clock(Duration value) =>
-      '${value.inMinutes}:${(value.inSeconds % 60).toString().padLeft(2, '0')}';
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Row(
-        children: [
-          RaftTooltip(
-            message: raftText(context, playing ? 'Pause' : 'Play'),
-            child: IconButton(
-              onPressed: onPlayPause,
-              icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-            ),
-          ),
-          Expanded(
-            child: Slider(
-              semanticFormatterCallback: (v) =>
-                  clock(Duration(milliseconds: v.round())),
-              value: position.inMilliseconds.toDouble().clamp(
-                0,
-                duration.inMilliseconds.toDouble().clamp(1, double.infinity),
-              ),
-              max: duration.inMilliseconds.toDouble().clamp(1, double.infinity),
-              onChanged: duration > Duration.zero && onSeek != null
-                  ? (v) => onSeek!(Duration(milliseconds: v.round()))
-                  : null,
-            ),
-          ),
-          Text('${clock(position)} / ${clock(duration)}'),
-        ],
-      ),
-      Row(
-        children: [
-          Icon(Icons.volume_up, semanticLabel: raftText(context, 'Volume')),
-          Expanded(
-            child: Slider(
-              value: volume.clamp(0, 100),
-              max: 100,
-              onChanged: onVolume,
-              semanticFormatterCallback: (v) => '${v.round()}%',
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
 }

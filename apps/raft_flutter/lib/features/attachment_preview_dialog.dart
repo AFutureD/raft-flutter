@@ -253,7 +253,8 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       } else if (['pdf', 'audio', 'video'].contains(kind)) {
         final url = await widget.controller.attachmentUrl(
           '${widget.metadata['id']}',
-          channelId: widget.channelId ?? widget.metadata['channelId'] as String?,
+          channelId:
+              widget.channelId ?? widget.metadata['channelId'] as String?,
         );
         if (!current || ticket != request) return;
         final prepared = await (widget.files ?? AttachmentPreviewFiles()).load(
@@ -440,7 +441,9 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     onDownload: current ? widget.onDownload : null,
     copyText: copyText,
     // Web lays text, csv, xlsx and markdown out on the canvas surface.
-    canvas: document != null,
+    canvas: document != null || kind == 'audio',
+    // Web VideoPreviewBody: a solid black stage.
+    dark: kind == 'video',
     // Web suppresses attachment comments for PDF and image surfaces.
     commentsBuilder: current && kind != 'pdf' && widget.metadata['id'] is String
         ? (_, sheet) => AttachmentCommentsView(
@@ -475,20 +478,33 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
                   ),
                 )
               : kind == 'video' && player != null
-              ? player!.video()
-              : const Center(child: RaftIcon(RaftGlyph.music, size: 72)),
+              ? RaftVideoViewer(
+                  filename: '${widget.metadata['filename'] ?? ''}',
+                  video: player!.video(),
+                  videoSize: playback.videoSize,
+                  playing: playback.playing,
+                  position: playback.position,
+                  duration: playback.duration,
+                  volume: playback.volume,
+                  onTogglePlay: () => action((p) => p.toggle()),
+                  onSeek: (v) => action((p) => p.seek(v)),
+                  onVolume: (v) => action((p) => p.volume(v)),
+                  onDownload: current ? widget.onDownload : null,
+                )
+              : kind == 'audio' && player != null
+              ? RaftAudioPreview(
+                  filename: '${widget.metadata['filename'] ?? ''}',
+                  playing: playback.playing,
+                  position: playback.position,
+                  duration: playback.duration,
+                  volume: (playback.volume / 100).clamp(0.0, 1.0),
+                  onTogglePlay: () => action((p) => p.toggle()),
+                  onSeek: (v) => action((p) => p.seek(v)),
+                  onVolume: (v) => action((p) => p.volume(v * 100)),
+                )
+              : const SizedBox.shrink(),
         ),
         if (current && kind == 'pdf' && pageCount > 0) pager(),
-        if (current && player != null && !loading && error == null)
-          RaftMediaControls(
-            playing: playback.playing,
-            position: playback.position,
-            duration: playback.duration,
-            volume: playback.volume,
-            onPlayPause: () => action((p) => p.toggle()),
-            onSeek: (v) => action((p) => p.seek(v)),
-            onVolume: (v) => action((p) => p.volume(v)),
-          ),
       ],
     ),
   );

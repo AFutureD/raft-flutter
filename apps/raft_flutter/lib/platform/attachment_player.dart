@@ -12,8 +12,16 @@ class AttachmentPlayback {
     this.duration = Duration.zero,
     this.volume = 100,
     this.error = false,
+    this.hasFrame = false,
+    this.videoSize,
   });
-  final bool playing, error;
+
+  /// [hasFrame]: the video surface has drawn its first decoded frame (the
+  /// poster), so a thumbnail beneath it can go.
+  final bool playing, error, hasFrame;
+
+  /// The video's own pixel size once mpv knows it.
+  final Size? videoSize;
   final Duration position, duration;
   final double volume;
 }
@@ -30,7 +38,14 @@ abstract interface class AttachmentPlayer {
 }
 
 class NativeAttachmentPlayer implements AttachmentPlayer {
-  NativeAttachmentPlayer({bool video = true}) {
+  /// [maxVideoSize] bounds the decoded picture on desktop (the surface is
+  /// resized to the video's aspect inside it): an inline card never needs a
+  /// 1080p software frame.
+  NativeAttachmentPlayer({
+    bool video = true,
+    this.maxVideoSize = const Size(1920, 1080),
+    this.transparentVideo = false,
+  }) {
     MediaKit.ensureInitialized();
     player = Player(
       configuration: const PlayerConfiguration(
@@ -46,9 +61,16 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
                     vo: 'mediacodec_embed',
                     hwdec: 'mediacodec',
                   )
-                : const VideoControllerConfiguration(
+                // Linux keeps the CPU renderer (no dependency on the host's
+                // GL stack, proven by the release evidence). macOS, iOS and
+                // Windows use media_kit's default GPU texture, as miraa-app
+                // does; forcing software there made 30 fps swscale the
+                // desktop default.
+                : Platform.isLinux
+                ? const VideoControllerConfiguration(
                     enableHardwareAcceleration: false,
-                  ),
+                  )
+                : const VideoControllerConfiguration(),
           )
         : null;
     for (final stream in <Stream<dynamic>>[
@@ -56,10 +78,33 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
       player.stream.position,
       player.stream.duration,
       player.stream.volume,
+      player.stream.width,
+      player.stream.height,
     ]) {
       subscriptions.add(stream.listen((_) => publish()));
     }
     subscriptions.add(player.stream.error.listen((_) => publish(error: true)));
+    if (controller != null) {
+      if (Platform.isLinux) {
+        // media_kit_video's Linux software renderer derives the frame size
+        // with an integer division (`width / height * 1080`) once a video is
+        // taller than 1080 px, so a 720x1280 clip rendered into a 720x1080
+        // texture and stayed black. Give the surface the video's own aspect
+        // explicitly instead; the bound also keeps the CPU frame small.
+        for (final stream in <Stream<int?>>[
+          player.stream.width,
+          player.stream.height,
+        ]) {
+          subscriptions.add(stream.listen((_) => fitSurface()));
+        }
+      }
+      unawaited(
+        controller!.waitUntilFirstFrameRendered.then((_) {
+          hasFrame = true;
+          publish();
+        }, onError: (_) {}),
+      );
+    }
     // media_kit's error stream omits fatal and video-output log events.
     // Preserve their failure without exposing decoder paths or file contents.
     subscriptions.add(
@@ -74,6 +119,50 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
   }
   late final Player player;
   late final VideoController? controller;
+  final Size maxVideoSize;
+
+  /// Nothing behind the picture, so a poster beneath it shows until the first
+  /// frame; otherwise media_kit's black backdrop.
+  final bool transparentVideo;
+  bool hasFrame = false;
+  Size? surface;
+
+  /// The decoded size bounded to [maxVideoSize], keeping the aspect ratio and
+  /// never enlarging; null while the size is unknown.
+  static Size? fitted(int? width, int? height, Size bound) {
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return null;
+    }
+    final scale = [
+      1.0,
+      bound.width / width,
+      bound.height / height,
+    ].reduce((a, b) => a < b ? a : b);
+    return Size(
+      (width * scale).roundToDouble().clamp(2, double.infinity),
+      (height * scale).roundToDouble().clamp(2, double.infinity),
+    );
+  }
+
+  void fitSurface() {
+    if (closed) return;
+    final size = fitted(player.state.width, player.state.height, maxVideoSize);
+    if (size == null || size == surface) return;
+    surface = size;
+    unawaited(() async {
+      try {
+        await controller!.setSize(
+          width: size.width.round(),
+          height: size.height.round(),
+        );
+        // The software renderer drew nothing (or the old size) before the
+        // surface had its final size, and a paused video never redraws by
+        // itself: seeking to the start paints the first frame again.
+        if (!closed && !player.state.playing) await player.seek(Duration.zero);
+      } catch (_) {}
+    }());
+  }
+
   final output = StreamController<AttachmentPlayback>.broadcast();
   final subscriptions = <StreamSubscription<dynamic>>[];
   bool closed = false, failed = false;
@@ -87,8 +176,17 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         duration: player.state.duration,
         volume: player.state.volume,
         error: failed,
+        hasFrame: hasFrame,
+        videoSize: _videoSize(),
       ),
     );
+  }
+
+  Size? _videoSize() {
+    final w = player.state.width, h = player.state.height;
+    return w == null || h == null || w <= 0 || h <= 0
+        ? null
+        : Size(w.toDouble(), h.toDouble());
   }
 
   @override
@@ -96,6 +194,8 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
   @override
   Widget video() => Video(
     controller: controller!,
+    // ds-allow: native video surface backdrop, not themed UI
+    fill: transparentVideo ? const Color(0x00000000) : const Color(0xFF000000),
     controls: NoVideoControls,
     pauseUponEnteringBackgroundMode: true,
     resumeUponEnteringForegroundMode: false,

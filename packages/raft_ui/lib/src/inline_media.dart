@@ -4,24 +4,44 @@
 import 'package:flutter/material.dart';
 
 import 'design_primitives.dart';
+import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
 import 'recipe_surface.dart';
 import 'recipes/message_video_preview.g.dart';
+import 'video_controls.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
 enum RaftInlineMediaState { idle, loading, failed, ready }
 
-/// The video card: a black 16:9 box, the player when [state] is ready, else the
-/// Play glyph / a spinner / the codec failure with a download action; the
-/// corner action opens the full preview.
+/// The video card (Web InlineVideoAttachmentCard): a black 16:9 box whose
+/// video is letterboxed (`object-contain`), so a portrait clip keeps its
+/// aspect between black bars. The poster is the first decoded frame (the
+/// paused video surface) or [poster] (a server thumbnail) beneath it.
+///
+/// Controls follow the native `<video controls>` Web renders: a centred Play
+/// button while paused (on hover with a mouse, always on touch), a bottom bar
+/// (play / pause, time, seek, volume) on hover, while paused after the first
+/// play, or for a few seconds after a tap on touch; clicking the picture
+/// toggles playback. The corner action opens the full preview. While loading
+/// a spinner shows, and a failure reads as the codec warning with a download
+/// action.
 class RaftInlineVideo extends StatefulWidget {
   const RaftInlineVideo({
     super.key,
     required this.state,
     required this.filename,
     this.video,
+    this.poster,
+    this.playing = false,
+    this.position = Duration.zero,
+    this.duration = Duration.zero,
+    this.volume = 100,
+    this.touch,
+    this.onTogglePlay,
+    this.onSeek,
+    this.onVolume,
     this.onOpenPreview,
     this.onDownload,
   });
@@ -30,14 +50,32 @@ class RaftInlineVideo extends StatefulWidget {
 
   /// The decoded video surface (state ready).
   final Widget? video;
-  final VoidCallback? onOpenPreview, onDownload;
+
+  /// Server thumbnail shown until the video surface has a frame.
+  final Widget? poster;
+  final bool playing;
+  final Duration position, duration;
+
+  /// 0..100 like the native player.
+  final double volume;
+
+  /// Touch input (controls without hover). Defaults to the mobile platforms.
+  final bool? touch;
+  final VoidCallback? onTogglePlay, onOpenPreview, onDownload;
+  final ValueChanged<Duration>? onSeek;
+
+  /// 0..100.
+  final ValueChanged<double>? onVolume;
 
   @override
   State<RaftInlineVideo> createState() => _RaftInlineVideoState();
 }
 
 class _RaftInlineVideoState extends State<RaftInlineVideo> {
-  bool hovered = false;
+  bool actionHovered = false;
+
+  bool get ready =>
+      widget.state == RaftInlineMediaState.ready && widget.video != null;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +87,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
     );
     final action = RaftMessageVideoPreviewRecipe.resolve(
       theme: t.recipeTheme,
-      states: t.recipeStates(hovered: hovered),
+      states: t.recipeStates(hovered: actionHovered),
       tokens: rt,
     ).action;
     final width = MediaQuery.sizeOf(context).width;
@@ -62,10 +100,11 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
         child: RaftSpinner(size: 24, inverse: true),
       ),
       RaftInlineMediaState.failed => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 256),
+        // `max-w-[256px] px-4`: the padding is inside the 256 px box.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 256),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               spacing: t.brutal ? 8 : 12,
@@ -90,6 +129,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
                   ),
                 ),
                 GestureDetector(
+                  key: const Key('inline-video-download'),
                   onTap: widget.onDownload,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -106,7 +146,9 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
                           fontFamily: t.headingFont,
                           fontSize: 12,
                           height: 16 / 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: t.brutal
+                              ? FontWeight.w700
+                              : FontWeight.w400,
                           color: Colors.white.withValues(alpha: .75),
                         ),
                       ),
@@ -126,23 +168,36 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
         ),
       ),
     };
+    final interactive =
+        widget.state == RaftInlineMediaState.idle ||
+        widget.state == RaftInlineMediaState.ready;
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: (width - 112).clamp(0, 448).toDouble(),
         ),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
+        child: _CardBox(
           child: RaftRecipeBox(
             key: const Key('inline-video'),
             style: s.root,
             tokens: rt,
             clip: true,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ColoredBox(color: Colors.black, child: fallback),
+            child: RaftVideoOverlay(
+              filename: widget.filename,
+              interactive: interactive,
+              ready: ready,
+              playing: widget.playing,
+              position: widget.position,
+              duration: widget.duration,
+              volume: widget.volume,
+              touch: widget.touch,
+              onTogglePlay: widget.onTogglePlay,
+              onSeek: widget.onSeek,
+              onVolume: widget.onVolume,
+              onOpen: widget.onOpenPreview,
+              onDownload: widget.onDownload,
+              extra: [
                 if (widget.onOpenPreview != null)
                   Positioned(
                     top: 6,
@@ -155,8 +210,8 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
                         label: openLabel,
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
-                          onEnter: (_) => setState(() => hovered = true),
-                          onExit: (_) => setState(() => hovered = false),
+                          onEnter: (_) => setState(() => actionHovered = true),
+                          onExit: (_) => setState(() => actionHovered = false),
                           child: GestureDetector(
                             key: const Key('inline-video-expand'),
                             behavior: HitTestBehavior.opaque,
@@ -176,12 +231,45 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
                     ),
                   ),
               ],
+              child: ColoredBox(
+                color: Colors.black,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (widget.poster != null &&
+                        widget.state != RaftInlineMediaState.failed)
+                      widget.poster!,
+                    fallback,
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// `aspect-video` as the browser lays it out: 16:9 with the height snapped to
+/// a whole pixel (a 440 px card is 248 px tall, not 247.5).
+class _CardBox extends StatelessWidget {
+  const _CardBox({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = constraints.maxWidth.isFinite
+          ? constraints.maxWidth
+          : 448.0;
+      return SizedBox(
+        width: width,
+        height: (width * 9 / 16).roundToDouble(),
+        child: child,
+      );
+    },
+  );
 }
 
 String raftAudioTimestamp(Duration value) {
@@ -403,6 +491,134 @@ class RaftInlineAudio extends StatelessWidget {
   }
 }
 
+/// Web `AudioPreviewBody` (modal variant): the `max-w-xl` bordered panel card
+/// with the 40 px music badge, name and "Audio file" over the audio rails, in
+/// the viewer's canvas.
+class RaftAudioPreview extends StatelessWidget {
+  const RaftAudioPreview({
+    super.key,
+    required this.filename,
+    this.playing = false,
+    this.position = Duration.zero,
+    this.duration = Duration.zero,
+    this.volume = 1,
+    this.onTogglePlay,
+    this.onSeek,
+    this.onVolume,
+  });
+  final String filename;
+  final bool playing;
+  final Duration position, duration;
+
+  /// 0..1.
+  final double volume;
+  final VoidCallback? onTogglePlay;
+  final ValueChanged<Duration>? onSeek;
+  final ValueChanged<double>? onVolume;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final brutal = t.brutal;
+    final line = brutal ? Colors.black : t.colors['line-muted']!;
+    final strong = brutal ? Colors.black : t.strong;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 576),
+          child: Container(
+            key: const Key('audio-preview'),
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: brutal ? Colors.white : t.panel,
+              border: Border.all(color: line, width: brutal ? 2 : 1),
+              boxShadow: brutal
+                  ? RaftShadowSet.brutalSm
+                  : t.themeShadows.sm.outer,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    spacing: 12,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: brutal
+                              ? t.product.softSignal
+                              : t.colors['primary-soft'],
+                          border: Border.all(
+                            color: line,
+                            width: brutal ? 2 : 1,
+                          ),
+                        ),
+                        child: RaftIcon(
+                          RaftGlyph.music,
+                          size: 20,
+                          color: strong,
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              filename,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: t.headingFont,
+                                fontSize: 14,
+                                height: 20 / 14,
+                                fontWeight: FontWeight.w700,
+                                color: strong,
+                              ),
+                            ),
+                            Text(
+                              raftText(context, 'Audio file'),
+                              style: TextStyle(
+                                fontFamily: t.headingFont,
+                                fontSize: 12,
+                                height: 16 / 12,
+                                fontWeight: FontWeight.w700,
+                                color: brutal
+                                    ? Colors.black.withValues(alpha: .5)
+                                    : t.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _AudioPlayer(
+                  filename: filename,
+                  playing: playing,
+                  position: position,
+                  duration: duration,
+                  volume: volume,
+                  onTogglePlay: onTogglePlay,
+                  onSeek: onSeek,
+                  onVolume: onVolume,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AudioPlayer extends StatelessWidget {
   const _AudioPlayer({
     required this.filename,
@@ -582,6 +798,14 @@ class _RailSlider extends StatelessWidget {
       label: semanticLabel,
       value: semanticValue,
       enabled: enabled,
+      increasedValue: semanticValue,
+      decreasedValue: semanticValue,
+      onIncrease: enabled
+          ? () => onChanged((value + .05).clamp(0.0, 1.0))
+          : null,
+      onDecrease: enabled
+          ? () => onChanged((value - .05).clamp(0.0, 1.0))
+          : null,
       child: LayoutBuilder(
         builder: (context, box) {
           final w = box.maxWidth;

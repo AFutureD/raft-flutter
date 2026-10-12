@@ -214,6 +214,15 @@ def attach_row(name, filename, mime, size, **extra):
 
 rows['attach-audio'] = attach_row('audio', 'standup-recording.mp3', 'audio/mpeg', 2411520)
 rows['attach-video'] = attach_row('video', 'capture-walkthrough.mp4', 'video/mp4', 18874368, width=1280, height=720)
+# Message video card states (components.conversation.attach.<platform>.video-*): a playable portrait
+# clip (a flat-colour 360x640 WebM the Web <video> decodes; the Flutter case draws the same colour in a
+# fake player) and an undecodable one. The data: URL answers GET /attachments/<id>/url.
+import base64  # noqa: E402
+VIDEO_OK = base64.b64encode((here / 'fixtures/message-video-portrait.webm').read_bytes()).decode()
+rows['attach-video-ok'] = attach_row('video-ok', 'phone-clip.webm', 'video/webm', 9000, width=360, height=640)
+rows['attach-video-bad'] = attach_row('video-bad', 'broken-clip.mp4', 'video/mp4', 4096)
+routes['GET /attachments/att-cv-video-ok/url'] = {'url': f'data:video/webm;base64,{VIDEO_OK}'}
+routes['GET /attachments/att-cv-video-bad/url'] = {'url': 'data:video/mp4;base64,AAAAAAAA'}
 rows['attach-pdf'] = attach_row('pdf', 'visual-parity-notes.pdf', 'application/pdf', 188416, commentCount=2)
 rows['attach-patch'] = attach_row('patch', 'composer-spacing.patch', 'text/x-diff', 6144)
 ACTIVITY_LOG = [
@@ -565,6 +574,30 @@ for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
         add('attach', platform, kind, f'Message attachment preview ({kind})', view='row',
             props={'row': f'attach-{kind}', 'boxWidth': box, 'padX': padx, 'padTop': 8},
             hint='packages/web/src/components/message/MessageItem.tsx')
+
+# ---- 3.26b message video card: idle poster, hover, playing, error ------------------------------------------
+VIDEO_CARD = '[data-message-affordance="inline-video-preview"]'
+for platform, box, padx in (('desktop', 560, 16), ('mobile', 390, 24)):
+    base = {'boxWidth': box, 'padX': padx, 'padTop': 8}
+    add('attach', platform, 'video-poster', 'Message video card, first-frame poster', view='row',
+        props={**base, 'row': 'attach-video-ok'},
+        interactions=[{'type': 'wait', 'ms': 1500}],
+        hint='packages/web/src/components/message/MessageItem.tsx InlineVideoAttachmentCard')
+    add('attach', platform, 'video-error', 'Message video card, codec failure', view='row',
+        props={**base, 'row': 'attach-video-bad'},
+        interactions=[{'type': 'wait', 'ms': 1500}],
+        hint='packages/web/src/components/message/MessageItem.tsx InlineVideoAttachmentCard')
+add('attach', 'desktop', 'video-hover', 'Message video card, pointer over the picture', view='row',
+    props={'boxWidth': 560, 'padX': 16, 'padTop': 8, 'row': 'attach-video-ok'},
+    interactions=[{'type': 'wait', 'ms': 1500}, {'type': 'hover', 'target': VIDEO_CARD}, {'type': 'wait', 'ms': 600}],
+    notes='Web shows the browser-native media controls on hover; Flutter draws its own bar (play, time, seek, volume) '
+          'plus the centred Play button, so the control strip differs by design.',
+    hint='packages/web/src/components/message/MessageItem.tsx InlineVideoAttachmentCard')
+add('attach', 'desktop', 'video-playing', 'Message video card, playing', view='row',
+    props={'boxWidth': 560, 'padX': 16, 'padTop': 8, 'row': 'attach-video-ok'},
+    interactions=[{'type': 'wait', 'ms': 1500}, {'type': 'click', 'target': VIDEO_CARD}, {'type': 'wait', 'ms': 900}],
+    notes='Clicking the picture plays it inline. Web shows the browser-native control bar; Flutter its own bar.',
+    hint='packages/web/src/components/message/MessageItem.tsx InlineVideoAttachmentCard')
 
 # ---- 3.14 forward composer dialog (desktop; the phone dialog is the official case) ----------------------
 FORWARD = SELECT + [{'type': 'click', 'target': f'#message-{ROW2}'}, {'type': 'wait', 'ms': 300},
