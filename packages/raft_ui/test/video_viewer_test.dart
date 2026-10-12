@@ -264,4 +264,43 @@ void main() {
     expect(calls, ['toggle', 'download']);
     handle.dispose();
   });
+
+  for (final width in const [1280.0, 1440.0, 1920.0]) {
+    testWidgets('header and stage share the window width at $width px', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(
+            body: RaftAttachmentPreviewShell(
+              filename: 'clip.mp4',
+              dark: true,
+              onClose: () {},
+              onDownload: () {},
+              child: const RaftVideoViewer(
+                filename: 'clip.mp4',
+                videoSize: Size(720, 1280),
+                video: ColoredBox(color: Color(0xFF3D5A79)),
+                touch: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final header = tester.getRect(find.byType(RaftLightboxHeader));
+      final stage = tester.getRect(find.byKey(const Key('video-viewer')));
+      expect(header.left, 0);
+      expect(stage.left, 0);
+      expect(header.width, width);
+      expect(stage.width, width);
+      // The stage runs from under the header to the window bottom.
+      expect(stage.bottom, 900);
+      expect(stage.top, greaterThanOrEqualTo(header.bottom - 1));
+    });
+  }
 }
