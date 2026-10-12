@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
+import 'status_bar.dart';
 
 /// Mounted ChatPanel and ordinary ThreadPanel surfaces. Read-only thread
 /// previews have their own canvas role and do not use this composition.
@@ -36,10 +37,14 @@ class RaftConversationSurface extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
-    color: RaftConversationSurfaceRecipe(
+  Widget build(BuildContext context) {
+    final color = RaftConversationSurfaceRecipe(
       RaftTokens.of(context),
-    ).background(role),
-    child: child,
-  );
+    ).background(role);
+    // The surface is the column's top surface under a transparent header.
+    return RaftStatusBarSource(
+      color: color,
+      child: ColoredBox(color: color, child: child),
+    );
+  }
 }
