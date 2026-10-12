@@ -289,6 +289,11 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
     super.initState();
     w.entityDirectory.addListener(changed);
     events = w.client.events.listen(event);
+    // A revisited card shows the activity it already read at its first frame.
+    if (widget.agent && private) {
+      final cached = w.agentTabCache.peek('hover-activity/${widget.id}');
+      if (cached is _HoverActivity) activity = cached;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) load();
     });
@@ -340,10 +345,9 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
       }
     }
     if (!mounted || !private) return;
-    final cache = w.agentTabCache.putIfAbsent(
-      'hover-activity/$id',
-      _HoverActivity.new,
-    ) as _HoverActivity;
+    final cache =
+        w.agentTabCache.putIfAbsent('hover-activity/$id', _HoverActivity.new)
+            as _HoverActivity;
     setState(() => activity = cache);
     if (cache.requested) return;
     cache.requested = true;

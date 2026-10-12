@@ -70,6 +70,56 @@ class PublicServerAccount {
   final void Function(RaftRecord server) onSelect;
 }
 
+/// What a visitor has already read of a public server, kept for the session
+/// so a revisit (or switching back to a channel) paints at once and
+/// revalidates quietly. Public pages carry no credentials; the key binds the
+/// server address, slug and the visitor's account.
+class PublicServerMemory {
+  PublicServerMemory._();
+  static const _servers = 8, _pages = 64;
+  static final _server = <String, Map<String, dynamic>>{};
+  static final _messages = <String, List<PublicServerMessage>>{};
+
+  static String key(RaftClient client, String slug) =>
+      '${client.origin}|${client.user?.id}|$slug';
+
+  static Map<String, dynamic>? server(String key) => _server[key];
+  static void rememberServer(String key, Map<String, dynamic> data) {
+    _server.remove(key);
+    _server[key] = data;
+    while (_server.length > _servers) {
+      _server.remove(_server.keys.first);
+    }
+  }
+
+  static List<PublicServerMessage>? messages(String key, String page) =>
+      _messages['$key|$page'];
+  static void rememberMessages(
+    String key,
+    String page,
+    List<PublicServerMessage> rows,
+  ) {
+    final id = '$key|$page';
+    _messages.remove(id);
+    _messages[id] = List.unmodifiable(rows);
+    while (_messages.length > _pages) {
+      _messages.remove(_messages.keys.first);
+    }
+  }
+
+  /// The server is no longer public (or the visitor lost access).
+  static void forget(String key) {
+    _server.remove(key);
+    _messages.removeWhere((id, _) => id.startsWith('$key|'));
+  }
+
+  @visibleForTesting
+  static void clear() {
+    _server.clear();
+    _messages.clear();
+  }
+}
+
 class PublicServerView extends StatefulWidget {
   const PublicServerView({
     super.key,
@@ -163,8 +213,36 @@ class _PublicServerViewState extends State<PublicServerView> {
     }
   }
 
+  /// Adopts the server answer [data]. [revalidating] keeps the channel the
+  /// visitor is already reading when it is still public.
+  void applyServer(Map<String, dynamic> data, {bool revalidating = false}) {
+    final list = managementRows(data['channels']);
+    final linked = list
+        .where((c) => c['id'] == widget.initialChannelId)
+        .firstOrNull;
+    final keep = revalidating && list.any((c) => c['id'] == selectedId)
+        ? selectedId
+        : null;
+    server = managementMap(data['server']);
+    channels = list;
+    canJoin = data['canJoinAsGuest'] == true;
+    final next = keep ?? '${(linked ?? list.firstOrNull)?['id'] ?? ''}';
+    selectedId = next.isEmpty ? null : next;
+    if (keep == null) {
+      final seen = selectedId == null
+          ? null
+          : PublicServerMemory.messages(memoryKey, 'channel:$selectedId');
+      messages = [...?seen];
+      hasOlder = seen != null && seen.length == 50;
+    }
+  }
+
+  String get memoryKey => PublicServerMemory.key(widget.client, widget.slug);
+
   Future<void> loadServer() async {
     final request = ++serverRequest;
+    final key = memoryKey;
+    final seen = PublicServerMemory.server(key);
     setState(() {
       server = null;
       channels = [];
@@ -174,36 +252,32 @@ class _PublicServerViewState extends State<PublicServerView> {
       hasOlder = false;
       error = '';
       threadChannelId = null;
+      if (seen != null) applyServer(seen);
     });
+    if (seen != null) unawaited(loadMessages());
     try {
       final data = managementMap(await widget.client.get(base));
       if (!mounted || request != serverRequest) return;
-      final list = managementRows(data['channels']);
-      final linked = list
-          .where((c) => c['id'] == widget.initialChannelId)
-          .firstOrNull;
-      setState(() {
-        server = managementMap(data['server']);
-        channels = list;
-        canJoin = data['canJoinAsGuest'] == true;
-        selectedId = '${(linked ?? list.firstOrNull)?['id'] ?? ''}'.isEmpty
-            ? null
-            : '${(linked ?? list.first)['id']}';
-      });
-      unawaited(loadMessages());
+      PublicServerMemory.rememberServer(key, data);
+      final reading = selectedId;
+      setState(() => applyServer(data, revalidating: seen != null));
+      if (seen == null || selectedId != reading) unawaited(loadMessages());
     } on RaftApiException catch (e) {
       if (!mounted || request != serverRequest) return;
       if (e.status == 404) {
+        PublicServerMemory.forget(key);
         widget.onUnavailable();
         return;
       }
+      // A failed revalidation keeps what the visitor is reading.
+      if (seen != null) return;
       setState(
         () => error = e.message.isNotEmpty
             ? e.message
             : tr('Failed to load this public server'),
       );
     } catch (_) {
-      if (mounted && request == serverRequest) {
+      if (mounted && request == serverRequest && seen == null) {
         setState(() => error = tr('Failed to load this public server'));
       }
     }
@@ -231,6 +305,7 @@ class _PublicServerViewState extends State<PublicServerView> {
       final rows = managementRows(
         data['messages'],
       ).map(PublicServerMessage.fromJson).toList();
+      PublicServerMemory.rememberMessages(memoryKey, 'channel:$id', rows);
       setState(() {
         loadingMessages = false;
         messages = rows;
@@ -281,10 +356,11 @@ class _PublicServerViewState extends State<PublicServerView> {
 
   void selectChannel(String id) {
     if (id == selectedId && !settings) return;
+    final seen = PublicServerMemory.messages(memoryKey, 'channel:$id');
     setState(() {
       selectedId = id;
-      messages = [];
-      hasOlder = false;
+      messages = [...?seen];
+      hasOlder = seen != null && seen.length == 50;
       threadChannelId = null;
       settings = false;
     });
@@ -295,12 +371,13 @@ class _PublicServerViewState extends State<PublicServerView> {
     final id = parent.threadId;
     if (id == null) return;
     final request = ++threadRequest;
+    final seen = PublicServerMemory.messages(memoryKey, 'thread:$id');
     setState(() {
       threadChannelId = id;
       threadParentId = parent.id;
-      threadMessages = [];
+      threadMessages = [...?seen];
       threadError = '';
-      threadHasOlder = false;
+      threadHasOlder = seen != null && seen.length == 50;
       threadLoading = true;
     });
     try {
@@ -314,6 +391,7 @@ class _PublicServerViewState extends State<PublicServerView> {
       final rows = managementRows(
         data['messages'],
       ).map(PublicServerMessage.fromJson).toList();
+      PublicServerMemory.rememberMessages(memoryKey, 'thread:$id', rows);
       setState(() {
         threadMessages = rows;
         threadHasOlder = rows.length == 50;
@@ -629,20 +707,20 @@ class _PublicServerViewState extends State<PublicServerView> {
       child: RaftDismissScope(
         onDismiss: closeThread,
         child: RaftPublicThreadPanel(
-      title: tr('Thread'),
-      channelContext: raftFormat(context, ' — #{name}', {
-        'name': channel?['name'],
-      }),
-      closeLabel: tr('Close thread'),
-      onClose: closeThread,
-      showClose: wide,
-      parent: row(parent, parent: true),
-      replies: [for (final m in threadMessages) row(m, thread: true)],
-      loading: threadLoading,
-      error: threadError.isEmpty ? null : threadError,
-      emptyTitle: tr('No replies yet'),
-      onLoadOlder: threadHasOlder ? loadOlderThread : null,
-      loadOlderLabel: tr('Load older messages'),
+          title: tr('Thread'),
+          channelContext: raftFormat(context, ' — #{name}', {
+            'name': channel?['name'],
+          }),
+          closeLabel: tr('Close thread'),
+          onClose: closeThread,
+          showClose: wide,
+          parent: row(parent, parent: true),
+          replies: [for (final m in threadMessages) row(m, thread: true)],
+          loading: threadLoading,
+          error: threadError.isEmpty ? null : threadError,
+          emptyTitle: tr('No replies yet'),
+          onLoadOlder: threadHasOlder ? loadOlderThread : null,
+          loadOlderLabel: tr('Load older messages'),
         ),
       ),
     );

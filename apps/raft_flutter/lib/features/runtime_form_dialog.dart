@@ -5,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart' show WorkspaceEntityKind;
 import 'private_route_guard.dart';
 import 'create_agent_dialog.dart';
 
@@ -472,6 +473,12 @@ class _RuntimeFormDialogState extends State<RuntimeFormDialog> {
       description.text = 'Onboarding Assistant';
     }
     if (widget.onboarding) {
+      // The directory's computers paint at once; the read revalidates them.
+      if (w.entityDirectory.state(WorkspaceEntityKind.computers).loaded) {
+        onboardingMachines = w.entityDirectory.rows(
+          WorkspaceEntityKind.computers,
+        );
+      }
       loadOnboardingMachines();
     } else {
       form.load();

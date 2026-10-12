@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import 'create_joint_channel_dialog.dart';
 import 'management_support.dart';
 
@@ -264,10 +265,21 @@ class _JointChannelsState extends _JointState<JointChannelsView> {
 
   Future<void> create() async {
     final scope = authority;
-    final values = await Future.wait([
-      w.client.get('/agents'),
-      w.client.get('/servers/${w.server!.id}/members'),
-    ]);
+    // The workspace directory already holds both lists (same endpoints), so
+    // the dialog opens at once; only a directory that never loaded is fetched.
+    final directory = w.entityDirectory;
+    final loaded =
+        directory.state(WorkspaceEntityKind.agents).loaded &&
+        directory.state(WorkspaceEntityKind.members).loaded;
+    final values = loaded
+        ? [
+            directory.rows(WorkspaceEntityKind.agents),
+            directory.rows(WorkspaceEntityKind.members),
+          ]
+        : await Future.wait([
+            w.client.get('/agents'),
+            w.client.get('/servers/${w.server!.id}/members'),
+          ]);
     if (!current(scope)) return;
     final agents = managementRows(
       values[0],

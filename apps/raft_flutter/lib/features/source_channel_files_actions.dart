@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,6 +10,7 @@ import '../data/source_channel_files_store.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_files.dart';
 import 'attachment_html_preview.dart';
+import 'attachment_preview_gate.dart';
 import 'attachment_preview_dialog.dart';
 
 /// Optional adapter to the controller-owned bounded image lease repository.
@@ -148,22 +148,20 @@ class SourceChannelFilesActions {
     final kind = attachmentPreviewKind(file.metadata);
     try {
       if (!raster && !svgRaster && (html || kind != null)) {
-        // Same mounted gate/error boundary as AttachmentView.openCurrent.
-        var enabled = true;
-        try {
-          final gate = await controller.client.get(
-            '/messages/attachment-preview/enabled',
-          );
-          if (!current(file)) return;
-          enabled = gate is Map && gate['enabled'] == true;
-        } on RaftApiException catch (error) {
-          if (!current(file) || [401, 403].contains(error.status)) return;
-        } catch (_) {
-          if (!current(file)) return;
-        }
-        if (!enabled) {
-          await download(file);
-          return;
+        // Same mounted gate/error boundary as AttachmentView.openCurrent: a
+        // gate this device has seen opens the preview at once (re-read behind
+        // it); only a gate never seen is read while the preview is on screen.
+        final known = knownAttachmentPreviewGate(controller);
+        final gate = readAttachmentPreviewGate(controller);
+        if (known == false) {
+          final decided = await gate;
+          if (!current(file) || decided == AttachmentPreviewGate.unauthorized) {
+            return;
+          }
+          if (decided == AttachmentPreviewGate.disabled) {
+            await download(file);
+            return;
+          }
         }
         if (!current(file)) return;
         late DialogRoute<void> route;
@@ -185,6 +183,19 @@ class SourceChannelFilesActions {
                   onDownload: () => download(file),
                 ),
         );
+        if (known == null) {
+          unawaited(
+            gate.then((decided) {
+              if (decided == AttachmentPreviewGate.enabled || !route.isActive) {
+                return;
+              }
+              _close(route);
+              if (decided == AttachmentPreviewGate.disabled && current(file)) {
+                unawaited(download(file));
+              }
+            }),
+          );
+        }
         await _show(route, file);
         return;
       }
@@ -193,106 +204,33 @@ class SourceChannelFilesActions {
           await download(file);
           return;
         }
-        if (acquireImage != null) {
-          final lease = await acquireImage!(
-            file,
-            () => current(file),
-            SourceChannelImageRendition.original,
-          );
-          if (lease == null) return;
-          try {
-            if (!current(file)) return;
-            late DialogRoute<void> route;
-            final imageKey = GlobalKey();
-            route = RaftFullBleedDialogRoute<void>(
-              context: context(),
-              builder: (_) => RaftAttachmentLightbox(
-                title: file.filename,
-                titleBold: true,
-                onClose: () => _close(route),
-                footer: RaftTextButton(
-                  label: raftText(context(), 'Download original'),
-                  glyph: RaftGlyph.download,
-                  onPressed: () => download(file),
-                ),
-                child: RaftLightboxStageTap(
-                  imageKey: imageKey,
-                  onClose: () => _close(route),
-                  child: Center(
-                    child: InteractiveViewer(
-                      child: Image(
-                        image: lease.provider,
-                        key: imageKey,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-            await _show(route, file);
-          } finally {
-            await lease.release();
-          }
-          return;
-        }
-        final cancel = CancelToken();
-        _transfers[cancel] = file;
-        Uint8List? image;
-        try {
-          final url = svgRaster
-              ? file.metadata['thumbnailUrl'] as String
-              : await resolve(file);
-          if (url == null || !current(file) || cancel.isCancelled) return;
-          image = await files.image(url, cancel: cancel);
-          if (!current(file) ||
-              cancel.isCancelled ||
-              image.length > 50 * 1024 * 1024) {
-            return;
-          }
-          final bytes = image;
-          late DialogRoute<void> route;
-          final imageKey = GlobalKey();
-          route = RaftFullBleedDialogRoute<void>(
-            context: context(),
-            builder: (_) => RaftAttachmentLightbox(
-              title: file.filename,
-              titleBold: true,
-              onClose: () => _close(route),
-              footer: RaftTextButton(
-                label: raftText(context(), 'Download original'),
-                glyph: RaftGlyph.download,
-                onPressed: () => download(file),
-              ),
-              child: RaftLightboxStageTap(
-                imageKey: imageKey,
-                onClose: () => _close(route),
-                child: Center(
-                  child: InteractiveViewer(
-                    child: RaftSizedImage.memory(
-                      bytes,
-                      key: imageKey,
-                      fit: BoxFit.contain,
-                      zoom: raftZoomableImageScale,
-                      evictOnDispose: true,
-                      errorBuilder: (_, _, _) => Text(
-                        raftText(
-                          context(),
-                          'Preview unavailable. Download the original file.',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+        // The lightbox opens at once; the original fills it when it arrives.
+        late DialogRoute<void> route;
+        final imageKey = GlobalKey();
+        final width = (file.metadata['width'] as num?)?.toDouble();
+        final height = (file.metadata['height'] as num?)?.toDouble();
+        route = RaftFullBleedDialogRoute<void>(
+          context: context(),
+          builder: (_) => RaftAttachmentLightbox(
+            title: file.filename,
+            titleBold: true,
+            onClose: () => _close(route),
+            footer: RaftTextButton(
+              label: raftText(context(), 'Download original'),
+              glyph: RaftGlyph.download,
+              onPressed: () => download(file),
             ),
-          );
-          await _show(route, file);
-        } finally {
-          _transfers.remove(cancel);
-          if (image != null) await raftEvictMemoryImage(image);
-          image = null;
-        }
+            child: _FileLightboxImage(
+              imageKey: imageKey,
+              onClose: () => _close(route),
+              size: width != null && height != null && width > 0 && height > 0
+                  ? Size(width, height)
+                  : null,
+              load: (cancel) => _loadImage(file, cancel, svgRaster),
+            ),
+          ),
+        );
+        await _show(route, file);
         return;
       }
       // Original non-previewable fallback opens one ephemeral signed URL after
@@ -311,6 +249,64 @@ class SourceChannelFilesActions {
     }
   }
 
+  Future<_LoadedFileImage?> _loadImage(
+    SourceChannelFileEntry file,
+    CancelToken cancel,
+    bool svgRaster,
+  ) async {
+    if (acquireImage != null) {
+      final lease = await acquireImage!(
+        file,
+        () => current(file),
+        SourceChannelImageRendition.original,
+      );
+      if (lease == null) return null;
+      if (!current(file) || cancel.isCancelled) {
+        await lease.release();
+        return null;
+      }
+      return _LoadedFileImage(
+        image: (key) =>
+            Image(image: lease.provider, key: key, fit: BoxFit.contain),
+        release: lease.release,
+      );
+    }
+    _transfers[cancel] = file;
+    Uint8List? image;
+    try {
+      final url = svgRaster
+          ? file.metadata['thumbnailUrl'] as String
+          : await resolve(file);
+      if (url == null || !current(file) || cancel.isCancelled) return null;
+      image = await files.image(url, cancel: cancel);
+      final bytes = image;
+      if (!current(file) ||
+          cancel.isCancelled ||
+          bytes.length > 50 * 1024 * 1024) {
+        await raftEvictMemoryImage(bytes);
+        return null;
+      }
+      return _LoadedFileImage(
+        image: (key) => RaftSizedImage.memory(
+          bytes,
+          key: key,
+          fit: BoxFit.contain,
+          zoom: raftZoomableImageScale,
+          evictOnDispose: true,
+          errorBuilder: (_, _, _) => Text(
+            raftText(
+              context(),
+              'Preview unavailable. Download the original file.',
+            ),
+          ),
+        ),
+        release: () => raftEvictMemoryImage(bytes),
+      );
+    } finally {
+      _transfers.remove(cancel);
+    }
+  }
+
   Future<void> _show(
     DialogRoute<void> route,
     SourceChannelFileEntry file,
@@ -326,5 +322,97 @@ class SourceChannelFilesActions {
 
   void _close(DialogRoute<void> route) {
     if (route.isCurrent) route.navigator?.removeRoute(route);
+  }
+}
+
+/// A decoded Files image and how to give it back.
+class _LoadedFileImage {
+  const _LoadedFileImage({required this.image, required this.release});
+  final Widget Function(Key key) image;
+  final Future<void> Function() release;
+}
+
+/// The Files lightbox stage: on screen from the first frame with a stand-in in
+/// the image's aspect ratio, replaced in place by the image when it is ready.
+/// Closing the lightbox cancels a load still in flight and gives the image back.
+class _FileLightboxImage extends StatefulWidget {
+  const _FileLightboxImage({
+    required this.imageKey,
+    required this.onClose,
+    required this.load,
+    this.size,
+  });
+  final GlobalKey imageKey;
+  final VoidCallback onClose;
+  final Size? size;
+  final Future<_LoadedFileImage?> Function(CancelToken cancel) load;
+  @override
+  State<_FileLightboxImage> createState() => _FileLightboxImageState();
+}
+
+class _FileLightboxImageState extends State<_FileLightboxImage> {
+  final cancel = CancelToken();
+  _LoadedFileImage? loaded;
+  bool failed = false, disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(run());
+  }
+
+  Future<void> run() async {
+    try {
+      final value = await widget.load(cancel);
+      if (disposed) {
+        await value?.release();
+        return;
+      }
+      if (value == null) {
+        widget.onClose();
+        return;
+      }
+      setState(() => loaded = value);
+    } catch (_) {
+      if (!disposed) setState(() => failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    disposed = true;
+    cancel.cancel();
+    final held = loaded;
+    loaded = null;
+    if (held != null) unawaited(held.release());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = loaded;
+    if (image != null) {
+      return RaftLightboxStageTap(
+        imageKey: widget.imageKey,
+        onClose: widget.onClose,
+        child: Center(
+          child: InteractiveViewer(child: image.image(widget.imageKey)),
+        ),
+      );
+    }
+    if (failed) {
+      return Center(
+        child: Text(
+          raftText(context, 'Preview unavailable. Download the original file.'),
+        ),
+      );
+    }
+    final size = widget.size;
+    return Center(
+      child: AspectRatio(
+        aspectRatio: size == null ? 4 / 3 : size.width / size.height,
+        child: const RaftTransferPlaceholder(),
+      ),
+    );
   }
 }

@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'layout_hold.dart';
 import 'package:raft_ui/raft_ui.dart';
-import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/attachment_image_repository.dart';
@@ -18,6 +17,7 @@ import 'attachment_preview_dialog.dart';
 import 'attachment_transfer_view.dart';
 import 'attachment_html_preview.dart';
 import 'attachment_image_lightbox.dart';
+import 'attachment_preview_gate.dart';
 import 'inline_attachment_media.dart';
 import 'private_route_guard.dart';
 
@@ -243,7 +243,10 @@ class _AttachmentViewState extends State<AttachmentView> {
         final status = error.response?.statusCode;
         if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
         controller.invalidateAttachmentUrl('$id');
-        final fresh = await controller.attachmentUrl('$id', channelId: channelId);
+        final fresh = await controller.attachmentUrl(
+          '$id',
+          channelId: channelId,
+        );
         if (cancel.isCancelled) throw const StaleAttachmentImage();
         return transfer.image(
           fresh,
@@ -640,18 +643,20 @@ class _AttachmentViewState extends State<AttachmentView> {
             'text/html' ||
         RegExp(r'\.html?$', caseSensitive: false).hasMatch(name);
     if (!isImage && (attachmentPreviewKind(widget.metadata) != null || html)) {
-      var enabled = true;
-      try {
-        enabled = await w.attachmentPreviewEnabled();
-        if (!current()) return;
-      } on RaftApiException catch (error) {
-        if (!current() || [401, 403].contains(error.status)) return;
-      } catch (_) {
-        if (!current()) return;
-      }
-      if (!enabled) {
-        await download();
-        return;
+      // The gate is a server setting: a value this device has seen opens the
+      // preview at once (re-read behind it); only a gate never seen is read
+      // while the preview is already on screen.
+      final known = knownAttachmentPreviewGate(w);
+      final gate = readAttachmentPreviewGate(w);
+      if (known == false) {
+        final decided = await gate;
+        if (!current() || decided == AttachmentPreviewGate.unauthorized) {
+          return;
+        }
+        if (decided == AttachmentPreviewGate.disabled) {
+          await download();
+          return;
+        }
       }
       if (!mounted || !current()) return;
       late final ModalRoute<void> operationRoute;
@@ -689,6 +694,21 @@ class _AttachmentViewState extends State<AttachmentView> {
               ),
       );
       previewRoute = operationRoute;
+      if (known == null) {
+        unawaited(
+          gate.then((decided) {
+            if (decided == AttachmentPreviewGate.enabled ||
+                !identical(previewRoute, operationRoute) ||
+                !operationRoute.isActive) {
+              return;
+            }
+            operationRoute.navigator?.removeRoute(operationRoute);
+            if (decided == AttachmentPreviewGate.disabled && current()) {
+              unawaited(download());
+            }
+          }),
+        );
+      }
       await Navigator.of(context, rootNavigator: true).push(operationRoute);
       if (identical(previewRoute, operationRoute)) previewRoute = null;
       return;
@@ -795,9 +815,11 @@ class _AttachmentViewState extends State<AttachmentView> {
     final lowerName = name.toLowerCase();
     if (lowerName.endsWith('.diff') ||
         lowerName.endsWith('.patch') ||
-        const ['text/x-diff', 'text/x-patch', 'application/x-patch'].contains(
-          type,
-        )) {
+        const [
+          'text/x-diff',
+          'text/x-patch',
+          'application/x-patch',
+        ].contains(type)) {
       // DiffPatchStatsLine: the stats need the fetched preview; until then
       // (and in this client) the summary line reads "Diff preview".
       return (

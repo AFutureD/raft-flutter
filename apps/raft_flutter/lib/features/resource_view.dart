@@ -32,6 +32,7 @@ import 'create_task_dialog.dart';
 import 'desktop_navigation_policy.dart'
     show DesktopContentKind, DesktopContentTarget;
 import 'search_home.dart';
+import 'search_snapshot.dart';
 import 'task_surface.dart';
 import 'task_surface_controller.dart';
 import 'resource_filters.dart';
@@ -254,19 +255,65 @@ class _ResourceViewState extends State<ResourceView> {
     }
   }
 
-  Future<void> activateSearchMemory({required bool restore}) async {
+  /// Applies the stored Search state before the first frame when the device
+  /// store can answer synchronously, so a revisit opens on its query (and the
+  /// results it already holds) instead of the home page. Returns false when
+  /// nothing is restored here; [activateSearchMemory] then restores it once
+  /// the store has been read. A restored sender needs the people catalog, so
+  /// it takes the asynchronous path.
+  bool restoreSearchMemorySync() {
+    final personal = memoryScope;
+    if (personal == null ||
+        !widget.restoreSearchState ||
+        widget.initialQuery != null ||
+        widget.initialSearchChannelId != null) {
+      return false;
+    }
+    final snapshot = searchMemory.loadSync(personal).state;
+    final empty = jsonEncode(const SearchStateSnapshot().toJson());
+    if (snapshot.senderKey != null || jsonEncode(snapshot.toJson()) == empty) {
+      return false;
+    }
+    query.text = snapshot.query;
+    advanced.scopes.addAll(snapshot.scopes);
+    advanced.timeRange = snapshot.range;
+    advanced.searchSort = snapshot.sort;
+    advanced.channelId =
+        [...w.channels, ...w.dms].any((c) => c.id == snapshot.channelId)
+        ? snapshot.channelId
+        : null;
+    memoryReadyKey = personal.key;
+    return true;
+  }
+
+  Future<void> activateSearchMemory({
+    required bool restore,
+    bool restored = false,
+  }) async {
     final personal = memoryScope, scope = authority;
     if (personal == null) return;
     final before = jsonEncode(currentSearchState.toJson());
     final data = await searchMemory.load(personal);
     if (!accepts(scope) || memoryScope?.key != personal.key) return;
     final untouched = before == jsonEncode(currentSearchState.toJson());
+    if (restored) {
+      // The first frame already carries the restored state and its load.
+      setState(() => memoryReadyKey = personal.key);
+      saveSearchState();
+      if (untouched) {
+        lastPublishedQuery = query.text.trim();
+        widget.onSearchQueryCommitted?.call(lastPublishedQuery!);
+      }
+      return;
+    }
+    final restoring =
+        restore &&
+        untouched &&
+        widget.initialQuery == null &&
+        widget.initialSearchChannelId == null;
     setState(() {
       memoryReadyKey = personal.key;
-      if (restore &&
-          untouched &&
-          widget.initialQuery == null &&
-          widget.initialSearchChannelId == null) {
+      if (restoring) {
         final snapshot = data.state;
         query.text = snapshot.query;
         advanced.scopes.addAll(snapshot.scopes);
@@ -281,14 +328,13 @@ class _ResourceViewState extends State<ResourceView> {
       }
     });
     saveSearchState();
-    if (restore &&
-        untouched &&
-        widget.initialQuery == null &&
-        widget.initialSearchChannelId == null) {
+    if (restoring) {
       lastPublishedQuery = query.text.trim();
       widget.onSearchQueryCommitted?.call(lastPublishedQuery!);
+      // Only a restored state asks for its own read; a page that already
+      // loaded what it was opened with keeps it (and its cached window).
+      if (jsonEncode(currentSearchState.toJson()) != before) await load();
     }
-    if (restore && untouched) await load();
   }
 
   void resolveRestoredSender() {
@@ -670,7 +716,48 @@ class _ResourceViewState extends State<ResourceView> {
     );
   }
 
+  /// Search keeps the results of its recently used queries across visits.
+  bool get searchSnapshotted =>
+      widget.section == 'search' && widget.channelId == null;
+
+  void restoreSearchWindows() {
+    final snapshot = w.resourceSnapshots.read<SearchSnapshot>(
+      widget.section,
+      identityAuthority,
+    );
+    if (snapshot == null) return;
+    viewWindows
+      ..clear()
+      ..addAll(snapshot.windows);
+    // Channels lost while the page was away never reappear from the cache.
+    refilterRows(lostChannels(snapshot.channelAccess, acceptedAccess));
+  }
+
+  void saveSearchWindows() {
+    if (identityAuthority != acceptedIdentity || error != null) {
+      w.resourceSnapshots.remove(widget.section);
+      return;
+    }
+    stashViewWindow();
+    if (viewWindows.isEmpty) {
+      w.resourceSnapshots.remove(widget.section);
+      return;
+    }
+    w.resourceSnapshots.write(
+      widget.section,
+      SearchSnapshot(
+        identity: acceptedIdentity!,
+        windows: Map.of(viewWindows),
+        channelAccess: acceptedAccess,
+      ),
+    );
+  }
+
   bool restoreSnapshot() {
+    if (searchSnapshotted) {
+      restoreSearchWindows();
+      return false;
+    }
     if (taskSnapshotted) return restoreTaskSnapshot();
     if (!snapshotted) return false;
     final snapshot = w.resourceSnapshots.read<ResourceSnapshot>(
@@ -715,6 +802,7 @@ class _ResourceViewState extends State<ResourceView> {
   }
 
   void saveSnapshot() {
+    if (searchSnapshotted) return saveSearchWindows();
     if (taskSnapshotted) return saveTaskSnapshot();
     if (!snapshotted) return;
     if (identityAuthority != acceptedIdentity ||
@@ -1629,9 +1717,19 @@ class _ResourceViewState extends State<ResourceView> {
         initialSearchUnavailable = true;
       }
     }
+    final restoredMemory = restoreSearchMemorySync();
+    if (restoredMemory) {
+      lastPublishedQuery = query.text.trim();
+      lastSearchEditingValue = query.value;
+    }
     w.addListener(authorityChanged);
     subscribeEvents();
-    unawaited(activateSearchMemory(restore: widget.restoreSearchState));
+    unawaited(
+      activateSearchMemory(
+        restore: widget.restoreSearchState,
+        restored: restoredMemory,
+      ),
+    );
     final restored = restoreSnapshot();
     final seed = sharedInboxSeed();
     if (seed != null) {
@@ -2836,6 +2934,21 @@ class _ResourceViewState extends State<ResourceView> {
       if (widget.onSearchEntity != null) {
         rememberSearchOpen(scope, entity: entity, queryText: committed);
         await widget.onSearchEntity!(entity);
+        return;
+      }
+      // The DM is usually already in the sidebar: open it at once; only a
+      // first conversation asks the server to create it.
+      final existing = w.dms
+          .where(
+            (c) =>
+                c.json['peerId'] == entity.id &&
+                c.json['peerType'] ==
+                    (entity.kind == 'agent' ? 'agent' : 'user'),
+          )
+          .firstOrNull;
+      if (existing != null) {
+        rememberSearchOpen(scope, entity: entity, queryText: committed);
+        await widget.onMessage(existing.id, null);
         return;
       }
       try {

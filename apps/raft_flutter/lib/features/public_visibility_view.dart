@@ -56,6 +56,9 @@ class _PublicVisibilitySectionState extends State<PublicVisibilitySection> {
     super.initState();
     readback =
         readPageSnapshot(w, snapshotKey)?['readback'] as Map<String, dynamic>?;
+    // The remembered flag shows the card at once; without a readback it
+    // renders its loading state instead of a wrong "off" first frame.
+    loading = owner && publicEnabled && readback == null;
     if (owner) unawaited(start());
   }
 
@@ -82,9 +85,9 @@ class _PublicVisibilitySectionState extends State<PublicVisibilitySection> {
           },
         ),
       );
-      bool on(String key) =>
-          managementRows(result['evaluations'])
-              .any((f) => f['key'] == key && f['enabled'] == true);
+      bool on(String key) => managementRows(
+        result['evaluations'],
+      ).any((f) => f['key'] == key && f['enabled'] == true);
       final public = on(publicFlag), guest = on(guestFlag);
       rememberServerFlag(w, publicFlag, public, identity);
       rememberServerFlag(w, guestFlag, guest, identity);
@@ -95,9 +98,13 @@ class _PublicVisibilitySectionState extends State<PublicVisibilitySection> {
       });
     } catch (_) {
       // An unresolved flag keeps the section hidden.
+      if (mounted && loading) setState(() => loading = false);
       return;
     }
-    if (!publicEnabled) return;
+    if (!publicEnabled) {
+      if (mounted && loading) setState(() => loading = false);
+      return;
+    }
     setState(() {
       loading = readback == null;
       error = null;

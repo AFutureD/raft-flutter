@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import 'management_support.dart';
 import 'provider_edit_dialog.dart';
 
@@ -137,7 +140,8 @@ class _ProviderConnectionsState
 
   Future<void> edit(Map<String, dynamic> connection) async {
     final gateway = options.any(
-      (p) => p['id'] == connection['providerId'] && p['providerKind'] == 'gateway',
+      (p) =>
+          p['id'] == connection['providerId'] && p['providerKind'] == 'gateway',
     );
     await scopedRaftModal<bool>(
       (dialogContext) => EditProviderConnectionDialog(
@@ -167,60 +171,72 @@ class _ProviderConnectionsState
           data: {'apiKey': v['apiKey']},
         );
       },
-      description: 'The new credential replaces the existing one. Agents must use the new credential version.',
+      description:
+          'The new credential replaces the existing one. Agents must use the new credential version.',
       submit: 'Rotate',
     );
   }
 
   Future<void> assigned(Map<String, dynamic> connection) async {
-    final data = managementMap(
-      await w.client.get('/provider-connections/${connection['id']}/agents'),
-    );
     if (!mounted) return;
     String? detachId;
+    // The dialog opens at once and fills in when the list answers.
     await scopedDialog<void>(
-      (context) => AlertDialog(
-        title: Text('Agents using ${connection['name']}'),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (managementRows(data['agents']).isEmpty)
-                  const Text('No agents use this connection.'),
-                for (final a in managementRows(data['agents']))
-                  ListTile(
-                    title: Text('${a['displayName'] ?? a['name']}'),
-                    subtitle: Text(
-                      '${a['runtime']} · ${a['status']}${a['computerName'] == null ? '' : ' · ${a['computerName']}'}',
-                    ),
-                    trailing: a['deleted'] == true
-                        ? RaftTooltip(
-                            message: 'Detach deleted agent',
-                            child: IconButton(
-                              icon: const RaftIcon(
-                                RaftGlyph.link2Off,
-                                size: 15,
-                              ),
-                              onPressed: () {
-                                detachId = a['id'];
-                                Navigator.pop(context);
-                              },
-                            ),
-                          )
-                        : null,
-                  ),
-              ],
-            ),
+      (dialog) => _LoadedDialog<Map<String, dynamic>>(
+        load: () async => managementMap(
+          await w.client.get(
+            '/provider-connections/${connection['id']}/agents',
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+        builder: (context, data, failure) => AlertDialog(
+          title: Text('Agents using ${connection['name']}'),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (data == null)
+                    Text(
+                      failure == null
+                          ? raftText(context, 'Loading…')
+                          : _loadFailure(failure),
+                    )
+                  else if (managementRows(data['agents']).isEmpty)
+                    const Text('No agents use this connection.'),
+                  for (final a in managementRows(data?['agents']))
+                    ListTile(
+                      title: Text('${a['displayName'] ?? a['name']}'),
+                      subtitle: Text(
+                        '${a['runtime']} · ${a['status']}${a['computerName'] == null ? '' : ' · ${a['computerName']}'}',
+                      ),
+                      trailing: a['deleted'] == true
+                          ? RaftTooltip(
+                              message: 'Detach deleted agent',
+                              child: IconButton(
+                                icon: const RaftIcon(
+                                  RaftGlyph.link2Off,
+                                  size: 15,
+                                ),
+                                onPressed: () {
+                                  detachId = a['id'];
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            )
+                          : null,
+                    ),
+                ],
+              ),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
       ),
     );
     if (detachId != null) {
@@ -237,11 +253,20 @@ class _ProviderConnectionsState
     }
   }
 
-  Future<void> verify(Map<String, dynamic> connection) async {
-    final machineData = managementMap(
-      await w.client.get('/servers/${w.server!.id}/machines'),
-    );
-    final candidates = managementRows(machineData['machines'])
+  /// The online Built-in Pi computers (the directory's copy when it has been
+  /// read, else the machines list) and the provider's model names.
+  Future<({List<Map<String, dynamic>> candidates, List<String> models})>
+  _verificationInputs(Map<String, dynamic> connection) async {
+    final directory = w.entityDirectory;
+    final local = directory.state(WorkspaceEntityKind.computers).loaded;
+    final machines = local
+        ? directory.rows(WorkspaceEntityKind.computers)
+        : managementRows(
+            managementMap(
+              await w.client.get('/servers/${w.server!.id}/machines'),
+            )['machines'],
+          );
+    final candidates = machines
         .where(
           (m) =>
               m['status'] == 'online' &&
@@ -265,75 +290,124 @@ class _ProviderConnectionsState
     } on RaftApiException catch (e) {
       if (e.status != 410) rethrow;
     }
+    return (candidates: candidates, models: models);
+  }
+
+  Future<void> verify(Map<String, dynamic> connection) async {
+    final generation = w.client.generation, sourceAuthority = authority;
     Map<String, dynamic> result = {};
     String? requestId, requestFingerprint;
-    final submitted = await form(
-      'Verify on a computer',
-      [
-        RaftFormField(
-          'computerId',
-          'Computer',
-          choices: {for (final m in candidates) '${m['id']}': '${m['name']}'},
-        ),
-        RaftFormField(
-          'model',
-          'Model',
-          initial: models.firstOrNull ?? '',
-          required: true,
-          help: models.isEmpty
-              ? 'Enter the model supported by this provider.'
-              : 'Available: ${models.join(', ')}',
-        ),
-      ],
-      (v) async {
-        final fingerprint = '${v['computerId']}\u0000${v['model']}';
-        if (requestFingerprint != fingerprint) {
-          requestFingerprint = fingerprint;
-          requestId = w.client.newRandomId();
-        }
-        result = managementMap(
-          await w.client.request(
-            'POST',
-            '/provider-connections/${connection['id']}/probes',
-            receiveTimeout: const Duration(seconds: 50),
-            data: {
-              'probeRequestId': requestId,
-              'requestDigest': providerProbeRequestDigest(
-                connectionId: connection['id'],
-                computerId: v['computerId']!,
-                model: v['model']!,
-              ),
-              'computerId': v['computerId'],
-              'runtime': 'builtin',
-              'model': v['model'],
-              'probeKind': 'canary',
-            },
+    // The form opens at once; its computer and model choices fill in when the
+    // inputs are read.
+    final submitted =
+        await scopedDialog<bool>(
+          (
+            dialog,
+          ) => _LoadedDialog<({List<Map<String, dynamic>> candidates, List<String> models})>(
+            load: () => _verificationInputs(connection),
+            builder: (dialogContext, inputs, failure) => inputs == null
+                ? RaftFormDialog(
+                    title: 'Verify on a computer',
+                    fields: const [],
+                    description: failure == null
+                        ? 'Loading…'
+                        : _loadFailure(failure),
+                    submitLabel: 'Verify',
+                    onSubmit: (_) async =>
+                        throw failure ??
+                            StateError('This form is still loading.'),
+                  )
+                : RaftFormDialog(
+                    title: 'Verify on a computer',
+                    fields: [
+                      RaftFormField(
+                        'computerId',
+                        'Computer',
+                        choices: {
+                          for (final m in inputs.candidates)
+                            '${m['id']}': '${m['name']}',
+                        },
+                      ),
+                      RaftFormField(
+                        'model',
+                        'Model',
+                        initial: inputs.models.firstOrNull ?? '',
+                        required: true,
+                        help: inputs.models.isEmpty
+                            ? 'Enter the model supported by this provider.'
+                            : 'Available: ${inputs.models.join(', ')}',
+                      ),
+                    ],
+                    onSubmit: (v) async {
+                      if (!accepts(generation) ||
+                          sourceAuthority != authority) {
+                        throw StateError(
+                          'The active workspace changed. Reopen this form.',
+                        );
+                      }
+                      try {
+                        final fingerprint =
+                            '${v['computerId']}\u0000${v['model']}';
+                        if (requestFingerprint != fingerprint) {
+                          requestFingerprint = fingerprint;
+                          requestId = w.client.newRandomId();
+                        }
+                        result = managementMap(
+                          await w.client.request(
+                            'POST',
+                            '/provider-connections/${connection['id']}/probes',
+                            receiveTimeout: const Duration(seconds: 50),
+                            data: {
+                              'probeRequestId': requestId,
+                              'requestDigest': providerProbeRequestDigest(
+                                connectionId: connection['id'],
+                                computerId: v['computerId']!,
+                                model: v['model']!,
+                              ),
+                              'computerId': v['computerId'],
+                              'runtime': 'builtin',
+                              'model': v['model'],
+                              'probeKind': 'canary',
+                            },
+                          ),
+                        );
+                        final receipt = managementMap(result['probe']);
+                        if (receipt['probeRequestId'] != requestId ||
+                            receipt['connectionId'] != connection['id'] ||
+                            receipt['computerId'] != v['computerId'] ||
+                            receipt['runtime'] != 'builtin' ||
+                            receipt['model'] != v['model'] ||
+                            receipt['probeKind'] != 'canary') {
+                          result = {};
+                          throw StateError(
+                            'The verification receipt does not match this request. Refresh and retry.',
+                          );
+                        }
+                        if (receipt['outcome'] == 'success' &&
+                            (receipt['verifiedAt'] is! String ||
+                                receipt['closedAt'] is! String)) {
+                          result = {};
+                          throw StateError(
+                            'The computer has not returned a completed verification receipt. Retry this request.',
+                          );
+                        }
+                      } catch (e) {
+                        if (accepts(generation) &&
+                            sourceAuthority == authority &&
+                            invalidateDeniedMutation(e) &&
+                            dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop(false);
+                        }
+                        rethrow;
+                      }
+                    },
+                    submitLabel: 'Verify',
+                    description:
+                        'Run one canary request through the selected computer. This may incur the provider’s normal usage charges.',
+                  ),
           ),
-        );
-        final receipt = managementMap(result['probe']);
-        if (receipt['probeRequestId'] != requestId ||
-            receipt['connectionId'] != connection['id'] ||
-            receipt['computerId'] != v['computerId'] ||
-            receipt['runtime'] != 'builtin' ||
-            receipt['model'] != v['model'] ||
-            receipt['probeKind'] != 'canary') {
-          result = {};
-          throw StateError(
-            'The verification receipt does not match this request. Refresh and retry.',
-          );
-        }
-        if (receipt['outcome'] == 'success' &&
-            (receipt['verifiedAt'] is! String ||
-                receipt['closedAt'] is! String)) {
-          result = {};
-          throw StateError(
-            'The computer has not returned a completed verification receipt. Retry this request.',
-          );
-        }
-      },
-      submit: 'Verify',
-      description: 'Run one canary request through the selected computer. This may incur the provider’s normal usage charges.',
-    );
+        ) ==
+        true;
     if (submitted && mounted) {
       final receipt = managementMap(result['probe']);
       await scopedDialog<void>(
@@ -369,46 +443,58 @@ class _ProviderConnectionsState
   }
 
   Future<void> history(Map<String, dynamic> connection) async {
-    final result = managementMap(
-      await w.client.get('/provider-connections/${connection['id']}/probes'),
-    );
-    final receipts = managementRows(result['receipts']);
+    // The dialog opens at once and fills in when the receipts answer.
     await scopedDialog<void>(
-      (dialog) => AlertDialog(
-        title: Text(raftText(context, 'Provider verification history')),
-        content: SizedBox(
-          width: 560,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (receipts.isEmpty)
-                  Text(
-                    raftText(context, 'No completed verification receipts.'),
-                  ),
-                for (final r in receipts)
-                  ListTile(
-                    leading: Icon(
-                      r['outcome'] == 'success'
-                          ? Icons.verified_outlined
-                          : Icons.error_outline,
+      (dialog) => _LoadedDialog<List<Map<String, dynamic>>>(
+        load: () async => managementRows(
+          managementMap(
+            await w.client.get(
+              '/provider-connections/${connection['id']}/probes',
+            ),
+          )['receipts'],
+        ),
+        builder: (dialog, receipts, failure) => AlertDialog(
+          title: Text(raftText(context, 'Provider verification history')),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (receipts == null)
+                    Text(
+                      failure == null
+                          ? raftText(context, 'Loading…')
+                          : _loadFailure(failure),
+                    )
+                  else if (receipts.isEmpty)
+                    Text(
+                      raftText(context, 'No completed verification receipts.'),
                     ),
-                    title: Text('${r['model']} · ${r['outcome']}'),
-                    subtitle: Text(
-                      '${r['verifiedAt']}\nComputer ${r['computerId']} · ${r['runtime']}\n${r['category'] ?? ''}${r['latencyMs'] == null ? '' : ' · ${r['latencyMs']} ms'}\nConfiguration ${r['configVersion']} · Credential version ${r['credentialVersion']}',
+                  for (final r in receipts ?? const <Map<String, dynamic>>[])
+                    ListTile(
+                      leading: Icon(
+                        r['outcome'] == 'success'
+                            ? Icons.verified_outlined
+                            : Icons.error_outline,
+                      ),
+                      title: Text('${r['model']} · ${r['outcome']}'),
+                      subtitle: Text(
+                        '${r['verifiedAt']}\nComputer ${r['computerId']} · ${r['runtime']}\n${r['category'] ?? ''}${r['latencyMs'] == null ? '' : ' · ${r['latencyMs']} ms'}\nConfiguration ${r['configVersion']} · Credential version ${r['credentialVersion']}',
+                      ),
+                      isThreeLine: true,
                     ),
-                    isThreeLine: true,
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: Text(raftText(context, 'Close')),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: Text(raftText(context, 'Close')),
-          ),
-        ],
       ),
     );
   }
@@ -460,7 +546,9 @@ class _ProviderConnectionsState
                         Wrap(
                           children: [
                             KeyedSubtree(
-                              key: ValueKey('provider-edit-${connection['id']}'),
+                              key: ValueKey(
+                                'provider-edit-${connection['id']}',
+                              ),
                               child: action(
                                 'Edit connection',
                                 () => run(() => edit(connection)),
@@ -514,4 +602,40 @@ class _ProviderConnectionsState
             ),
           ],
         );
+}
+
+String _loadFailure(Object failure) =>
+    '$failure'.replaceFirst('Bad state: ', '');
+
+/// Opens a dialog at once: [builder] gets no data (and, once the read failed,
+/// the [failure]) until [load] answers, then the data.
+class _LoadedDialog<T> extends StatefulWidget {
+  const _LoadedDialog({required this.load, required this.builder});
+  final Future<T> Function() load;
+  final Widget Function(BuildContext context, T? data, Object? failure) builder;
+  @override
+  State<_LoadedDialog<T>> createState() => _LoadedDialogState<T>();
+}
+
+class _LoadedDialogState<T> extends State<_LoadedDialog<T>> {
+  T? data;
+  Object? failure;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final value = await widget.load();
+      if (mounted) setState(() => data = value);
+    } catch (e) {
+      if (mounted) setState(() => failure = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, data, failure);
 }

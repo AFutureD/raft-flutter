@@ -21,6 +21,11 @@ String externalProfileSlug(String name, String id) {
   return slug.isEmpty ? id.substring(0, id.length < 8 ? id.length : 8) : slug;
 }
 
+class _CredentialList {
+  const _CredentialList(this.rows);
+  final List<Map<String, dynamic>> rows;
+}
+
 class ExternalAgentSetup extends StatefulWidget {
   const ExternalAgentSetup({
     super.key,
@@ -55,8 +60,21 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
   // ------------------------------------------------------ token manager
   String token = '';
   String tokenId = '';
-  List<Map<String, dynamic>> credentials = const [];
-  bool loading = true, listError = false, revokeError = false;
+  // The masked list (id, label, masked tail, dates; never a secret) of an
+  // earlier visit shows at the first frame and revalidates in place.
+  String get _credentialsKey => 'external-credentials/$agentId';
+  late List<Map<String, dynamic>>? _cachedCredentials = _readCredentials();
+  List<Map<String, dynamic>>? _readCredentials() {
+    final cached = w.agentTabCache.peek(_credentialsKey);
+    return cached is _CredentialList ? cached.rows : null;
+  }
+
+  late List<Map<String, dynamic>> credentials = _cachedCredentials ?? const [];
+  late bool loading = _cachedCredentials == null;
+
+  /// A list was accepted (or restored) for this agent.
+  late bool hasList = _cachedCredentials != null;
+  bool listError = false, revokeError = false;
   bool pending = false, error = false, copied = false;
   String? confirmId, revokingId;
   bool requesting = false;
@@ -83,8 +101,10 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
     openedScope = _scope;
     token = tokenId = '';
     copied = false;
-    credentials = const [];
-    loading = true;
+    _cachedCredentials = _readCredentials();
+    credentials = _cachedCredentials ?? const [];
+    loading = _cachedCredentials == null;
+    hasList = _cachedCredentials != null;
     listRevision++;
     unawaited(loadCredentials());
     if (mounted) setState(() {});
@@ -104,20 +124,24 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
           data['credentials'] is! List) {
         throw const FormatException('Invalid credential list');
       }
+      final accepted = [
+        for (final c in data['credentials'] as List)
+          if (c is Map) Map<String, dynamic>.from(c),
+      ];
+      w.agentTabCache.put(_credentialsKey, _CredentialList(accepted));
+      hasList = true;
       setState(() {
-        credentials = [
-          for (final c in data['credentials'] as List)
-            if (c is Map) Map<String, dynamic>.from(c),
-        ];
+        credentials = accepted;
         loading = false;
         listError = false;
       });
     } catch (_) {
       if (!live || opened != openedScope || revision != listRevision) return;
       setState(() {
-        credentials = const [];
+        // A failed revalidation keeps the list already shown.
+        if (!hasList) credentials = const [];
         loading = false;
-        listError = true;
+        listError = !hasList;
       });
     }
   }
@@ -148,7 +172,7 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
       setState(() {
         token = data['apiKey'] as String;
         tokenId = data['credentialId'] as String;
-        loading = true;
+        loading = credentials.isEmpty;
         listError = false;
       });
       unawaited(loadCredentials());
@@ -182,6 +206,7 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
                 ? {...c, 'revokedAt': DateTime.now().toUtc().toIso8601String()}
                 : c,
         ];
+        w.agentTabCache.put(_credentialsKey, _CredentialList(credentials));
         if (tokenId == credentialId) {
           token = tokenId = '';
           copied = false;

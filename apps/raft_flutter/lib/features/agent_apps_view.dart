@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -169,24 +170,47 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
         );
       },
       submit: 'Grant access',
-      description: 'Allow this app to send the approved events or notifications to this agent.',
+      description:
+          'Allow this app to send the approved events or notifications to this agent.',
     );
   }
 
   Future<void> eventDetail(Map<String, dynamic> event) async {
     final generation = w.client.generation;
-    final detail = managementMap(
-      await w.client.get('$base/events/${event['id']}'),
+    // The dialog opens at once with the event summary the list holds; the
+    // payload (read per event) fills in when it lands.
+    final payload = ValueNotifier<(Object?,)?>(null);
+    final failure = ValueNotifier<String?>(null);
+    unawaited(
+      w.client
+          .get('$base/events/${event['id']}')
+          .then<void>(
+            (value) {
+              if (accepts(generation)) {
+                payload.value = (managementMap(value)['payload'],);
+              }
+            },
+            onError: (Object e) {
+              if (accepts(generation)) failure.value = '$e';
+            },
+          ),
     );
-    if (!accepts(generation)) return;
     await scopedDialog<void>(
       (context) => AlertDialog(
         title: Text('${event['summary']}'),
         content: SizedBox(
           width: 560,
           child: SingleChildScrollView(
-            child: SelectableText(
-              const JsonEncoder.withIndent('  ').convert(detail['payload']),
+            child: ListenableBuilder(
+              listenable: Listenable.merge([payload, failure]),
+              builder: (context, _) => SelectableText(
+                failure.value ??
+                    (payload.value == null
+                        ? raftText(context, 'Loading…')
+                        : const JsonEncoder.withIndent(
+                            '  ',
+                          ).convert(payload.value!.$1)),
+              ),
             ),
           ),
         ),
@@ -200,14 +224,17 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
     );
   }
 
-  Widget _small(String label, VoidCallback? onPressed, {bool selected = false}) =>
-      RaftRecipeTextButton(
-        label: label,
-        // `<Button size="sm" variant="outline"|"default" className="text-[11px]">`.
-        variant: selected ? null : RaftButtonRecipeVariant.outline,
-        text: RaftButtonText.px11,
-        onPressed: onPressed,
-      );
+  Widget _small(
+    String label,
+    VoidCallback? onPressed, {
+    bool selected = false,
+  }) => RaftRecipeTextButton(
+    label: label,
+    // `<Button size="sm" variant="outline"|"default" className="text-[11px]">`.
+    variant: selected ? null : RaftButtonRecipeVariant.outline,
+    text: RaftButtonText.px11,
+    onPressed: onPressed,
+  );
 
   /// AgentAppAccessTab.tsx: `flex-1 overflow-y-auto bg-layer-panel px-5
   /// py-4 space-y-6 theme-brutal:bg-white` with Applications and App events
@@ -232,7 +259,10 @@ class _AgentAppsState extends ManagementState<AgentAppAccessView> {
         [
           RaftDescribedSectionHeader(
             label: raftText(context, 'Applications'),
-            description: raftText(context, 'Connected apps this agent can use.'),
+            description: raftText(
+              context,
+              'Connected apps this agent can use.',
+            ),
             action: loading
                 ? Text(
                     raftText(context, 'Loading…'),

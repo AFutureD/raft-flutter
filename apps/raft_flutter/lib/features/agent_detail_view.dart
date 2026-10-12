@@ -95,6 +95,7 @@ class AgentDetailActions {
     this.onPermissions,
     this.onReportIssue,
   });
+
   /// Keep the Back chevron at md+ (`backButtonVisibility="always"`).
   final bool backAlways;
   final VoidCallback? onBack,
@@ -254,7 +255,18 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   @override
   void initState() {
     super.initState();
+    _adoptCachedExternalStatus();
     unawaited(loadExternalStatus());
+  }
+
+  /// A revisit shows the last accepted setup state at its first frame (the
+  /// presence line and the setup block do not change when the read lands).
+  void _adoptCachedExternalStatus() {
+    if (!external) return;
+    final cached = widget.controller.agentTabCache.peek(
+      'external-status/${a['id']}',
+    );
+    if (cached is Map<String, dynamic>) externalStatus = cached;
   }
 
   @override
@@ -263,6 +275,10 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     if (oldWidget.agent['id'] != a['id'] ||
         oldWidget.agent['runtime'] != a['runtime'] ||
         oldWidget.agent['external'] != a['external']) {
+      if (oldWidget.agent['id'] != a['id']) {
+        externalStatus = null;
+        _adoptCachedExternalStatus();
+      }
       unawaited(loadExternalStatus());
     }
   }
@@ -277,8 +293,10 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
       );
       if (!mounted || externalStatusFor != id) return;
       if (status is Map) {
+        final accepted = Map<String, dynamic>.from(status);
+        widget.controller.agentTabCache.put('external-status/$id', accepted);
         setState(() {
-          externalStatus = Map<String, dynamic>.from(status);
+          externalStatus = accepted;
           externalStatusError = null;
         });
       }
@@ -1097,14 +1115,18 @@ class _WorkspaceSnapshot extends _AgentTabSnapshot {
   final expanded = <String>{};
   bool showHidden = false;
   String? openFile, openContent;
+
+  /// Last read content per file, shown at once when the file opens again.
+  final contents = <String, String>{};
 }
 
 mixin _AgentTabLoader<T extends StatefulWidget> on State<T> {
   WorkspaceController get w;
   int _ticket = 0;
 
-  /// Skeleton/"Loading…" only while there is nothing to show yet.
-  bool loading = true;
+  /// Skeleton/"Loading…" only while there is nothing to show yet (also before
+  /// the tab is first active: a snapshot is shown, never a skeleton).
+  late bool loading = !hasContent;
   String? loadError;
   bool tabActive = true, reloadWhenActive = false;
 
@@ -1724,16 +1746,32 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     }
   }
 
+  int openTicket = 0;
+
   Future<void> open(String path) async {
-    final result = await w.query(
-      '/agents/${widget.agentId}/workspace-files/read',
-      query: {'path': path},
-    );
-    if (!mounted) return;
+    // The preview opens at once: with the content read before when there is
+    // one, else empty until the read lands (never another file's content).
+    final ticket = ++openTicket;
+    final known = snapshot.contents[path];
     setState(() {
       openFile = path;
-      openContent = result is Map ? '${result['content'] ?? ''}' : '$result';
+      openContent = known ?? '';
     });
+    final Object? result;
+    try {
+      result = await w.query(
+        '/agents/${widget.agentId}/workspace-files/read',
+        query: {'path': path},
+      );
+    } catch (_) {
+      // The preview keeps what it shows; the tree is still usable.
+      return;
+    }
+    if (!mounted) return;
+    final content = result is Map ? '${result['content'] ?? ''}' : '$result';
+    snapshot.contents[path] = content;
+    if (ticket != openTicket || openFile != path) return;
+    setState(() => openContent = content);
   }
 
   List<RaftWorkspaceNode> nodes(String dir, int depth) => [

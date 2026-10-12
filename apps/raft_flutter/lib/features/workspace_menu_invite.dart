@@ -8,6 +8,13 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
+import 'management_support.dart'
+    show
+        cachedServerFlag,
+        pageIdentity,
+        readPageSnapshot,
+        rememberServerFlag,
+        writePageSnapshot;
 
 /// InviteHumanDialog.tsx: By email (one row per invitee, per-row role when
 /// guest invites are on) and By link (the server's join link with its limits).
@@ -58,9 +65,26 @@ class _InviteDialog extends StatefulWidget {
 
 class _InviteDialogState extends State<_InviteDialog> {
   WorkspaceController get w => widget.workspace;
-  bool guest = false, loading = true, copied = false, busy = false;
-  Map<String, dynamic>? link;
+  static const _guestFlag = 'server_guest_v0';
+  static const _linkKey = 'invite-dialog:link';
+  static const _billingKey = 'invite-dialog:billing';
+
+  // The last accepted guest gate, seat summary and join link (this session,
+  // in memory; the flag also from the device) paint at the first frame and
+  // are revalidated in place, so the dialog neither waits nor reflows.
+  late bool guest = cachedServerFlag(w, _guestFlag) ?? false;
+  bool copied = false, busy = false;
+  late Map<String, dynamic>? link = _cachedLink;
+  late bool loading = link == null;
   Timer? copiedTimer;
+
+  Map<String, dynamic>? get _cachedLink {
+    final value = readPageSnapshot(w, _linkKey)?['link'];
+    return value is Map ? Map<String, dynamic>.from(value) : null;
+  }
+
+  void _rememberLink() =>
+      writePageSnapshot(w, _linkKey, pageIdentity(w), {'link': link});
 
   @override
   void initState() {
@@ -72,12 +96,18 @@ class _InviteDialogState extends State<_InviteDialog> {
 
   /// Web `loadBilling` (GET /billing/subscription): a failed summary leaves the
   /// seat banner off.
-  Map<String, dynamic>? billing;
+  late Map<String, dynamic>? billing = () {
+    final value = readPageSnapshot(w, _billingKey)?['billing'];
+    return value is Map ? Map<String, dynamic>.from(value) : null;
+  }();
   Future<void> loadBilling() async {
+    final identity = pageIdentity(w);
     try {
       final value = await w.query('/billing/subscription');
       if (mounted && value is Map) {
-        setState(() => billing = Map<String, dynamic>.from(value));
+        final next = Map<String, dynamic>.from(value);
+        setState(() => billing = next);
+        writePageSnapshot(w, _billingKey, identity, {'billing': next});
       }
     } catch (_) {}
   }
@@ -90,10 +120,17 @@ class _InviteDialogState extends State<_InviteDialog> {
     String? label;
     num? used, limit;
     final maxHumans = capacity['maxHumans'], humans = usage['humans'];
-    final maxSeats = capacity['maxUniversalSeats'], seats = usage['universalSeats'];
-    if (maxHumans is num && humans is num && maxHumans != -1 && humans + 1 > maxHumans) {
+    final maxSeats = capacity['maxUniversalSeats'],
+        seats = usage['universalSeats'];
+    if (maxHumans is num &&
+        humans is num &&
+        maxHumans != -1 &&
+        humans + 1 > maxHumans) {
       (label, used, limit) = ('Human seat limit', humans, maxHumans);
-    } else if (maxSeats is num && seats is num && maxSeats != -1 && seats + 1 > maxSeats) {
+    } else if (maxSeats is num &&
+        seats is num &&
+        maxSeats != -1 &&
+        seats + 1 > maxSeats) {
       (label, used, limit) = ('Seat limit', seats, maxSeats);
     }
     if (label == null) return null;
@@ -109,6 +146,7 @@ class _InviteDialogState extends State<_InviteDialog> {
   // useServerFeatureFlag(SERVER_GUEST_FEATURE_FLAG_KEY): a client read of a
   // server-owned gate; it decides what to offer, never what is permitted.
   Future<void> loadGuestFlag() async {
+    final identity = pageIdentity(w);
     try {
       final result = await w.command(
         'POST',
@@ -124,12 +162,14 @@ class _InviteDialogState extends State<_InviteDialog> {
           (result['evaluations'] as List? ?? []).whereType<Map>().any(
             (f) => f['key'] == 'server_guest_v0' && f['enabled'] == true,
           );
+      rememberServerFlag(w, _guestFlag, on, identity);
       if (mounted) setState(() => guest = on);
     } catch (_) {}
   }
 
   // The first existing join link, else a fresh unlimited one.
   Future<void> loadLink() async {
+    final identity = pageIdentity(w);
     try {
       final links = await w.query('/servers/${widget.serverId}/join-links');
       var existing = links is List ? links.whereType<Map>().firstOrNull : null;
@@ -146,6 +186,7 @@ class _InviteDialogState extends State<_InviteDialog> {
           link = existing == null ? null : Map<String, dynamic>.from(existing);
           loading = false;
         });
+        if (identity == pageIdentity(w)) _rememberLink();
       }
     } catch (_) {
       if (mounted) setState(() => loading = false);
@@ -199,6 +240,7 @@ class _InviteDialogState extends State<_InviteDialog> {
         setState(
           () => link = next == null ? null : Map<String, dynamic>.from(next),
         );
+        _rememberLink();
       }
     } catch (_) {
     } finally {
@@ -212,7 +254,10 @@ class _InviteDialogState extends State<_InviteDialog> {
     setState(() => busy = true);
     try {
       await w.command('DELETE', '/servers/${widget.serverId}/join-links/$id');
-      if (mounted) setState(() => link = null);
+      if (mounted) {
+        setState(() => link = null);
+        _rememberLink();
+      }
     } catch (_) {
     } finally {
       if (mounted) setState(() => busy = false);

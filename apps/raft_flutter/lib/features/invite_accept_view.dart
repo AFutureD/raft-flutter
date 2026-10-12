@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -99,6 +101,33 @@ class InviteJoined {
 /// InviteAcceptPage.tsx: loads the invite (anonymously, the link is the
 /// credential), shows who invited the member and what is inside, and either
 /// joins (signed in) or sends the member to sign in / register (signed out).
+/// The invite details already read this session, so the page that comes back
+/// after the member signs in or registers paints at once and revalidates.
+/// Holds the public invite info only, in memory, and under a digest of the
+/// token: the link itself is the credential and is never kept here.
+class InviteInfoMemory {
+  InviteInfoMemory._();
+  static const _limit = 8;
+  static final _info = <String, Map<String, dynamic>>{};
+  static String _key(String token) =>
+      sha256.convert(utf8.encode(token)).toString();
+
+  static Map<String, dynamic>? read(String token) => _info[_key(token)];
+  static void remember(String token, Map<String, dynamic> info) {
+    final key = _key(token);
+    _info.remove(key);
+    _info[key] = info;
+    while (_info.length > _limit) {
+      _info.remove(_info.keys.first);
+    }
+  }
+
+  static void forget(String token) => _info.remove(_key(token));
+
+  @visibleForTesting
+  static void clear() => _info.clear();
+}
+
 class InviteAcceptView extends StatefulWidget {
   const InviteAcceptView({
     super.key,
@@ -134,8 +163,9 @@ class InviteAcceptView extends StatefulWidget {
 }
 
 class _InviteAcceptViewState extends State<InviteAcceptView> {
-  Map<String, dynamic>? info;
-  bool loading = true, accepting = false, accepted = false;
+  late Map<String, dynamic>? info = InviteInfoMemory.read(widget.token);
+  late bool loading = info == null;
+  bool accepting = false, accepted = false;
   String acceptedName = '', acceptedId = '', error = '';
 
   @override
@@ -148,8 +178,8 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
   void didUpdateWidget(covariant InviteAcceptView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.token != widget.token) {
-      info = null;
-      loading = true;
+      info = InviteInfoMemory.read(widget.token);
+      loading = info == null;
       error = '';
       unawaited(load());
     }
@@ -160,9 +190,17 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
     try {
       final data = await widget.loadInfo();
       if (!mounted || token != widget.token) return;
+      InviteInfoMemory.remember(token, data);
       info = data;
     } on RaftApiException catch (e) {
       if (!mounted || token != widget.token) return;
+      // A failed revalidation keeps the details on screen; the link is gone.
+      if (info != null && e.status != 404) {
+        setState(() => loading = false);
+        return;
+      }
+      InviteInfoMemory.forget(token);
+      info = null;
       error = switch (e.status) {
         404 => raftText(context, 'This invite link is invalid or has expired.'),
         429 => raftText(
@@ -173,10 +211,12 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
       };
     } catch (_) {
       if (!mounted || token != widget.token) return;
-      error = raftText(
-        context,
-        'Failed to load invite link. Please try again.',
-      );
+      if (info == null) {
+        error = raftText(
+          context,
+          'Failed to load invite link. Please try again.',
+        );
+      }
     }
     if (mounted) setState(() => loading = false);
   }
@@ -212,6 +252,7 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
     });
     try {
       final result = await widget.accept(agreement?['id'] as String?);
+      InviteInfoMemory.forget(widget.token);
       if (!mounted) return;
       setState(() {
         accepted = true;

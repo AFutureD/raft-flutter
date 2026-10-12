@@ -6,6 +6,8 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/source_time_formatter.dart';
 import '../data/workspace_controller.dart';
+import 'management_support.dart'
+    show pageIdentity, readPageSnapshot, writePageSnapshot;
 import 'private_route_guard.dart';
 import 'sender_avatar_projection.dart';
 
@@ -61,6 +63,8 @@ num? _anchorOrder(Map? anchor) {
   return number != null && number.isFinite ? number : null;
 }
 
+String _snapshotKey(String attachmentId) => 'attachment-comments:$attachmentId';
+
 class AttachmentCommentsView extends StatefulWidget {
   const AttachmentCommentsView({
     super.key,
@@ -103,6 +107,13 @@ class _AttachmentCommentsViewState extends State<AttachmentCommentsView> {
     revoked = false;
     comments = null;
     viewer = null;
+    // Comments this attachment showed before (same workspace authority) are
+    // on screen at once and revalidated in place.
+    final known = readPageSnapshot(w, _snapshotKey(widget.attachmentId));
+    if (known != null && known['authority'] == authority) {
+      comments = known['comments'] as List<Map<String, dynamic>>?;
+      viewer = known['viewer'] as Map<String, dynamic>?;
+    }
     error = null;
     anchorCleared = false;
     ++binding;
@@ -161,6 +172,7 @@ class _AttachmentCommentsViewState extends State<AttachmentCommentsView> {
     try {
       final data = await owner.query('/attachments/$id/comments');
       if (!accepts(owner, id, revision) || ticket != request) return;
+      final identity = pageIdentity(owner);
       setState(() {
         comments = [
           for (final c
@@ -172,8 +184,16 @@ class _AttachmentCommentsViewState extends State<AttachmentCommentsView> {
             : null;
         error = null;
       });
+      writePageSnapshot(owner, _snapshotKey(id), identity, {
+        'authority': authority,
+        'comments': comments,
+        'viewer': viewer,
+      });
     } catch (_) {
-      if (accepts(owner, id, revision) && ticket == request) {
+      // A failed revalidation keeps the comments already on screen.
+      if (accepts(owner, id, revision) &&
+          ticket == request &&
+          comments == null) {
         setState(() => error = raftText(context, 'Failed to load comments'));
       }
     }

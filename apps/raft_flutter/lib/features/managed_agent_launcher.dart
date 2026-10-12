@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import 'private_route_guard.dart';
 import 'create_agent_dialog.dart';
 
@@ -26,30 +27,136 @@ Future<Map<String, dynamic>?> showManagedAgentForm(
       authority == workspaceAuthority(w) &&
       w.can('createAgents');
   if (!context.mounted || !current()) return null;
-  final result = await w.query('/servers/${w.server!.id}/machines');
-  if (!context.mounted || !current()) return null;
-  // The endpoint answers `{machines: [...]}` or a bare array (Web accepts both).
-  final rows = result is Map ? result['machines'] : result;
-  final machines = [
-    for (final m in (rows is List ? rows : const []).whereType<Map>())
-      if (requiredComputer == null || m['id'] == requiredComputer)
-        Map<String, dynamic>.from(m),
-  ];
+  // The dialog opens at once. The computer list comes from the workspace
+  // directory's copy (revalidated in place); only a directory that cannot
+  // provide it is fetched, behind the already-open dialog.
   Map<String, dynamic>? created;
   await showRaftAgentModal<bool>(
     context,
-    builder: (_) => CreateAgentDialog(
+    builder: (_) => _ManagedAgentFormHost(
       controller: w,
-      machines: machines,
-      initialMachineId: suggestedComputer,
-      requiredMachineId: requiredComputer,
-      initialName: initialName,
-      initialDescription: initialDescription,
-      actionCardMessageId: actionCardMessageId,
-      actionCardConfirmationVersion: actionCardConfirmationVersion,
-      onCreated: (value) => created = value,
-      onConnectComputer: onConnectComputer,
+      requiredComputer: requiredComputer,
+      current: current,
+      dialog: (machines) => CreateAgentDialog(
+        controller: w,
+        machines: machines,
+        initialMachineId: suggestedComputer,
+        requiredMachineId: requiredComputer,
+        initialName: initialName,
+        initialDescription: initialDescription,
+        actionCardMessageId: actionCardMessageId,
+        actionCardConfirmationVersion: actionCardConfirmationVersion,
+        onCreated: (value) => created = value,
+        onConnectComputer: onConnectComputer,
+      ),
     ),
   );
   return current() ? created : null;
+}
+
+/// Supplies [CreateAgentDialog] with the account's computers: the directory
+/// copy at the first frame (a stable-size loading card only when nothing is
+/// local yet), then in-place updates from the directory (status, runtimes).
+class _ManagedAgentFormHost extends StatefulWidget {
+  const _ManagedAgentFormHost({
+    required this.controller,
+    required this.requiredComputer,
+    required this.current,
+    required this.dialog,
+  });
+  final WorkspaceController controller;
+  final String? requiredComputer;
+  final bool Function() current;
+  final Widget Function(List<Map<String, dynamic>> machines) dialog;
+  @override
+  State<_ManagedAgentFormHost> createState() => _ManagedAgentFormHostState();
+}
+
+class _ManagedAgentFormHostState extends State<_ManagedAgentFormHost> {
+  WorkspaceController get w => widget.controller;
+  List<Map<String, dynamic>>? machines;
+  Object? failure;
+  int ticket = 0;
+
+  bool get directoryLoaded =>
+      w.entityDirectory.state(WorkspaceEntityKind.computers).loaded;
+
+  @override
+  void initState() {
+    super.initState();
+    w.entityDirectory.addListener(adopt);
+    if (directoryLoaded) {
+      machines = filtered(
+        w.entityDirectory.rows(WorkspaceEntityKind.computers),
+      );
+    }
+    load();
+  }
+
+  @override
+  void dispose() {
+    w.entityDirectory.removeListener(adopt);
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> filtered(Iterable<dynamic> rows) => [
+    for (final m in rows.whereType<Map>())
+      if (widget.requiredComputer == null || m['id'] == widget.requiredComputer)
+        Map<String, dynamic>.from(m),
+  ];
+
+  void adopt() {
+    if (!mounted || !directoryLoaded) return;
+    final next = filtered(
+      w.entityDirectory.rows(WorkspaceEntityKind.computers),
+    );
+    setState(() {
+      machines = next;
+      failure = null;
+    });
+  }
+
+  Future<void> load() async {
+    final mine = ++ticket;
+    if (mounted && failure != null) setState(() => failure = null);
+    // Quiet revalidation of the copy shown (or the first read).
+    await w.entityDirectory.refresh(WorkspaceEntityKind.computers);
+    if (!mounted || mine != ticket || machines != null) return;
+    try {
+      final result = await w.query('/servers/${w.server!.id}/machines');
+      if (!mounted || mine != ticket || machines != null) return;
+      if (!widget.current()) {
+        Navigator.of(context).maybePop();
+        return;
+      }
+      // The endpoint answers `{machines: [...]}` or a bare array (Web accepts both).
+      final rows = result is Map ? result['machines'] : result;
+      setState(() => machines = filtered(rows is List ? rows : const []));
+    } catch (e) {
+      if (mounted && mine == ticket && machines == null) {
+        setState(() => failure = e);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = machines;
+    if (list != null) return widget.dialog(list);
+    return RaftAgentDialogCard(
+      title: 'Create Agent',
+      onClose: () => Navigator.of(context).maybePop(),
+      children: [
+        if (failure != null)
+          RaftAgentBanner(
+            status: RaftAgentBannerStatus.warning,
+            description: '$failure',
+            action: 'Retry',
+            onAction: load,
+          )
+        else
+          const Center(child: RaftSpinner()),
+      ],
+    );
+  }
 }

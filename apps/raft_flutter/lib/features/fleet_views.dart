@@ -654,6 +654,10 @@ class _FleetDetailState extends State<FleetDetail> {
   /// realtime patches show here exactly as in the list.
   Map<String, dynamic>? detail;
 
+  /// The last accepted detail read of this agent, kept for the session so a
+  /// revisit shows the detail-only rows at the first frame.
+  String get detailCacheKey => 'agent-detail/$id';
+
   /// Whether the shared directory has listed this entity in this scope; only
   /// then does its absence from an accepted list mean it was deleted.
   bool listed = false;
@@ -709,6 +713,10 @@ class _FleetDetailState extends State<FleetDetail> {
     serverId = w.server!.id;
     scope = _FleetScope(w);
     id = widget.initial['id'] as String;
+    if (!widget.computers) {
+      final cached = w.agentTabCache.peek(detailCacheKey);
+      if (cached is Map<String, dynamic>) detail = cached;
+    }
     row = compose();
     if (w.entityDirectory.state(WorkspaceEntityKind.computers).loaded) {
       machines = w.entityDirectory.rows(WorkspaceEntityKind.computers);
@@ -769,6 +777,7 @@ class _FleetDetailState extends State<FleetDetail> {
         return;
       }
       detail = Map<String, dynamic>.from(result);
+      w.agentTabCache.put(detailCacheKey, detail!);
       setState(() {
         gone = false;
         row = compose();
@@ -822,7 +831,14 @@ class _FleetDetailState extends State<FleetDetail> {
 
   /// Web AgentDetailHeader onMessage: open (or create) the DM and jump to it.
   Future<void> message() async {
-    final value = await w.client.post('/channels/dm', data: {'agentId': id});
+    // The DM with this agent is usually already in the sidebar: go there at
+    // once; only a first conversation asks the server to create it.
+    final existing = w.dms
+        .where((c) => c.json['peerId'] == id && c.json['peerType'] == 'agent')
+        .firstOrNull;
+    final value = existing != null
+        ? {'id': existing.id}
+        : await w.client.post('/channels/dm', data: {'agentId': id});
     if (!current || value is! Map || value['id'] is! String) return;
     await w.jumpToMessage(value['id'], null);
     if (mounted && widget.onClose == null) Navigator.of(context).maybePop();
@@ -1092,18 +1108,23 @@ class _FleetDetailState extends State<FleetDetail> {
 
   Future<void> runtimeCommand(String command) async {
     require(widget.computers ? 'controlComputers' : 'controlAgentRuntime');
-    await load();
-    if (!current) return;
-    final target = row['computerBroadcastPolicy'] is Map
-        ? row['computerBroadcastPolicy']['targetVersion']
-        : null;
-    if (widget.computers &&
-        command == 'upgrade' &&
-        (target is! String || row['computerUpgradeAvailable'] != true)) {
+    // The confirmation opens from the row on screen (the shared directory
+    // keeps it current); the fresh read happens when the user confirms.
+    String? upgradeTarget() {
+      final policy = row['computerBroadcastPolicy'];
+      final target = policy is Map ? policy['targetVersion'] : null;
+      return target is String && row['computerUpgradeAvailable'] == true
+          ? target
+          : null;
+    }
+
+    final upgrading = widget.computers && command == 'upgrade';
+    if (upgrading && upgradeTarget() == null) {
       throw const RaftApiException(
         'An upgrade is no longer available. Refresh this computer.',
       );
     }
+    final target = upgradeTarget();
     if (!mounted) return;
     if (!widget.computers && command == 'stop') {
       // AgentDetailPanel `ConfirmDialog` "Stop Agent" (confirm colour orange).
@@ -1127,15 +1148,24 @@ class _FleetDetailState extends State<FleetDetail> {
     }
     await confirm(
       '${command[0].toUpperCase()}${command.substring(1)} ${widget.computers ? 'computer' : 'agent'}?',
-      command == 'upgrade'
+      upgrading
           ? 'Upgrade this computer to $target. Active agent sessions may be interrupted.'
           : 'This action affects the selected runtime.',
       () async {
         require(widget.computers ? 'controlComputers' : 'controlAgentRuntime');
+        // Action time: re-read, then act only on what is still true.
+        await load();
+        if (!current) return;
+        final fresh = upgrading ? upgradeTarget() : null;
+        if (upgrading && fresh == null) {
+          throw const RaftApiException(
+            'An upgrade is no longer available. Refresh this computer.',
+          );
+        }
         final result = await w.command(
           'POST',
           widget.computers ? '$base/computer/$command' : '$base/$command',
-          data: command == 'upgrade' ? {'targetVersion': target} : {},
+          data: upgrading ? {'targetVersion': fresh} : {},
         );
         await load();
         if (mounted && current) {
@@ -1356,6 +1386,17 @@ class _FleetDetailState extends State<FleetDetail> {
         );
 }
 
+class _PendingFile {
+  const _PendingFile();
+}
+
+const _pendingFile = _PendingFile();
+
+class _FileReadFailed {
+  const _FileReadFailed(this.message);
+  final String message;
+}
+
 class FleetInspection extends StatefulWidget {
   const FleetInspection({
     super.key,
@@ -1481,39 +1522,53 @@ class _FleetInspectionState extends State<FleetInspection> {
       await load();
       return;
     }
-    try {
-      final data = await widget.controller.query(
-        '${widget.base}/workspace-files/read',
-        query: {'path': path},
-      );
-      if (!mounted || !current || ticket != fileRequest) return;
-      await _fleetDialog<void>(
-        context,
-        w,
-        () => current && ticket == fileRequest,
-        (dialog) => AlertDialog(
-          title: Text('${row['name']}'),
-          content: SizedBox(
-            width: 600,
-            child: SingleChildScrollView(
-              child: SelectableText(
-                data['binary'] == true
-                    ? 'Binary file · ${data['mimeType'] ?? ''} · ${data['size']} bytes'
-                    : '${data['content'] ?? ''}',
-              ),
+    // The dialog opens at once with the file name; the content (never held
+    // locally) fills in when the read lands.
+    final content = ValueNotifier<Object?>(_pendingFile);
+    unawaited(
+      widget.controller
+          .query('${widget.base}/workspace-files/read', query: {'path': path})
+          .then<void>(
+            (data) {
+              if (current && ticket == fileRequest) content.value = data;
+            },
+            onError: (Object e) {
+              if (current && ticket == fileRequest) {
+                content.value = _FileReadFailed('$e');
+              }
+            },
+          ),
+    );
+    await _fleetDialog<void>(
+      context,
+      w,
+      () => current && ticket == fileRequest,
+      (dialog) => AlertDialog(
+        title: Text('${row['name']}'),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: ValueListenableBuilder<Object?>(
+              valueListenable: content,
+              builder: (_, data, _) => SelectableText(switch (data) {
+                _PendingFile() => raftText(context, 'Loading…'),
+                _FileReadFailed(:final message) => message,
+                Map() when data['binary'] == true =>
+                  'Binary file · ${data['mimeType'] ?? ''} · ${data['size']} bytes',
+                Map() => '${data['content'] ?? ''}',
+                _ => '',
+              }),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => _closeFleetDialog(dialog),
-              child: Text(raftText(context, 'Close')),
-            ),
-          ],
         ),
-      );
-    } catch (e) {
-      if (current && ticket == fileRequest) setState(() => error = '$e');
-    }
+        actions: [
+          TextButton(
+            onPressed: () => _closeFleetDialog(dialog),
+            child: Text(raftText(context, 'Close')),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

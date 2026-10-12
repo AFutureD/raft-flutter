@@ -19,6 +19,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class MessageAdapter implements HttpClientAdapter {
   final calls = <RequestOptions>[];
   final Map<String, FutureOr<dynamic> Function(RequestOptions)> routes = {};
+
+  /// While set, every request is held forever and counted in [hung] (the
+  /// "network never answers" switch of the no-wait-UI guard tests).
+  bool hangAll = false;
+  int hung = 0;
   @override
   Future<ResponseBody> fetch(
     RequestOptions o,
@@ -26,6 +31,10 @@ class MessageAdapter implements HttpClientAdapter {
     Future<void>? c,
   ) async {
     calls.add(o);
+    if (hangAll) {
+      hung++;
+      return Completer<ResponseBody>().future;
+    }
     final route = routes['${o.method} ${o.path}'];
     return ResponseBody.fromString(
       jsonEncode(

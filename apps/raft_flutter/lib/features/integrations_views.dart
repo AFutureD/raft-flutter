@@ -973,10 +973,16 @@ class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
   String? error;
   String get path =>
       '/integrations/marketplace/${widget.clientId}/install/app-notifications';
+  String get _snapshotKey => 'integrations:installed:${widget.clientId}';
 
   @override
   void initState() {
     super.initState();
+    // A revisit paints the last accepted columns and revalidates in place.
+    state =
+        readPageSnapshot(widget.controller, _snapshotKey)?['state']
+            as Map<String, dynamic>?;
+    loading = state == null;
     load();
   }
 
@@ -988,6 +994,10 @@ class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
       setState(() {
         state = data;
         loading = false;
+        error = null;
+      });
+      writePageSnapshot(widget.controller, _snapshotKey, identity, {
+        'state': data,
       });
     } catch (e) {
       if (!mounted) return;

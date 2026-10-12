@@ -5,6 +5,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import '../data/workspace_entity_directory.dart';
 import '../platform/content_links.dart';
 import 'archived_channels_section.dart';
 import 'invite_accept_view.dart';
@@ -473,8 +474,15 @@ class MembersView extends StatefulWidget {
 
 class _MembersViewState extends State<MembersView> {
   WorkspaceController get w => widget.controller;
-  List<Map<String, dynamic>> members = [];
-  bool loading = true;
+  // The workspace directory already holds this list (same endpoint); the page
+  // opens with it and the read below revalidates in place.
+  late List<Map<String, dynamic>> members = [
+    if (w.server != null && w.client.user != null)
+      ...w.entityDirectory.rows(WorkspaceEntityKind.members),
+  ];
+  late bool loading =
+      members.isEmpty &&
+      !w.entityDirectory.state(WorkspaceEntityKind.members).loaded;
   String? error;
   StreamSubscription<RaftEvent>? events;
   @override
@@ -516,23 +524,47 @@ class _MembersViewState extends State<MembersView> {
       return;
     }
     try {
-      final value = await w.query(
-        '/servers/${w.server!.id}/members/${member['userId'] ?? member['id']}/profile',
+      final userId = '${member['userId'] ?? member['id']}';
+      // The dialog opens at once from the directory's row (else the list row);
+      // the profile read fills the detail fields in place.
+      final profile = ValueNotifier<Map<String, dynamic>>({
+        ...member,
+        ...?w.entityDirectory.member(userId),
+      });
+      final owner = w;
+      unawaited(
+        w
+            .query('/servers/${w.server!.id}/members/$userId/profile')
+            .then<void>(
+              (value) {
+                if (value is Map && identical(owner, w)) {
+                  profile.value = {
+                    ...profile.value,
+                    ...Map<String, dynamic>.from(value),
+                  };
+                }
+              },
+              onError: (Object e) {
+                if (mounted) setState(() => error = '$e');
+              },
+            ),
       );
-      if (!mounted) return;
       await showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text('${value['displayName'] ?? value['name']}'),
-          content: SelectableText(
-            '${value['description'] ?? ''}\n\n${value['email'] ?? ''}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(raftText(context, 'Close')),
+        builder: (context) => ValueListenableBuilder<Map<String, dynamic>>(
+          valueListenable: profile,
+          builder: (context, value, _) => AlertDialog(
+            title: Text('${value['displayName'] ?? value['name']}'),
+            content: SelectableText(
+              '${value['description'] ?? ''}\n\n${value['email'] ?? ''}',
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(raftText(context, 'Close')),
+              ),
+            ],
+          ),
         ),
       );
     } catch (e) {
