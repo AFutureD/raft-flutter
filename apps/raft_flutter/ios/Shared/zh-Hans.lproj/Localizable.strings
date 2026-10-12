@@ -13,3 +13,10 @@
 "Retry" = "重试";
 "Server" = "服务器";
 "Share to Raft" = "分享到 Raft";
+"Preparing share…" = "正在准备分享…";
+"Open Raft" = "打开 Raft";
+"Cancel" = "取消";
+"Close" = "关闭";
+"Opening Raft…" = "正在打开 Raft…";
+"Your share is saved. Open Raft to continue." = "分享内容已保存，请打开 Raft 继续。";
+"This content could not be prepared for sharing." = "无法准备此分享内容。";
