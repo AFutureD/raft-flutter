@@ -105,15 +105,16 @@ function ParityExtLpPanel({ props }: { props: ParityExtLpProps }) {
   const { width, height } = parityExtLpBox(props);
   useMemo(() => parityExtLpPrime(props), [props]);
   const body = panel === "saved" ? <SavedPanel /> : panel === "activity" ? <ThreadsInbox /> : panel === "tasks" ? <TasksPanel /> : <MessageSearchPage />;
-  // The app shell (not the panel) paints the page canvas and sets the shell header height
-  // (`--shell-header-height`: 56px Elegant, 62px Brutal); this host has no shell root.
+  // The app shell (not the panel) sets the shell header height (`--shell-header-height`: 56px
+  // Elegant, 62px Brutal); this host has no shell root. The page canvas is the document body,
+  // `--layer-canvas-muted` (index.css `body`): the Tasks panel is `dark:bg-transparent` over it.
   const brutal = props.params.get("parityTheme") === "brutal-light";
   const shell = { "--shell-header-height": brutal ? "62px" : "56px" } as Record<string, string>;
   return (
     <main className="min-h-screen bg-white p-0 font-display text-black">
       <div
         data-visual-case={props.raw}
-        style={{ ...shell, width, height, overflow: "hidden", display: "flex", flexDirection: "column", background: brutal ? "white" : "var(--layer-canvas, white)" }}
+        style={{ ...shell, width, height, overflow: "hidden", display: "flex", flexDirection: "column", background: brutal ? "white" : panel === "tasks" ? "var(--layer-canvas-muted, white)" : "var(--layer-canvas, white)" }}
       >
         {body}
       </div>
