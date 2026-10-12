@@ -9,6 +9,7 @@ import 'package:raft_client/raft_client.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/attachment_image_repository.dart';
+import '../data/attachment_url_cache.dart';
 import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
 import '../platform/system_bars.dart';
@@ -188,9 +189,10 @@ class _AttachmentViewState extends State<AttachmentView> {
     return Size(width * scale, height * scale);
   }
 
+  String get ownerChannel =>
+      '${widget.metadata['channelId'] ?? (w.presentsReply(widget.messageId) ? w.threadChannelId : w.channel?.id) ?? ''}';
+
   AttachmentImageKey keyFor({required bool preview}) {
-    final ownerChannel =
-        '${widget.metadata['channelId'] ?? (w.presentsReply(widget.messageId) ? w.threadChannelId : w.channel?.id) ?? ''}';
     final box = previewBox;
     return AttachmentImageKey.fromMetadata(
       scope: w.attachmentImageScope,
@@ -225,13 +227,29 @@ class _AttachmentViewState extends State<AttachmentView> {
           onProgress: cancel.progressSink,
         );
       }
-      final value = await controller.query(
-        '/attachments/$id/url',
-        query: {'disposition': 'inline'},
-      );
-      final url = value['url'] as String;
+      final channelId = key.channelId;
+      final url = await controller.attachmentUrl('$id', channelId: channelId);
       if (cancel.isCancelled) throw const StaleAttachmentImage();
-      return transfer.image(url, cancel: cancel, onProgress: cancel.progressSink);
+      try {
+        return await transfer.image(
+          url,
+          cancel: cancel,
+          onProgress: cancel.progressSink,
+        );
+      } on DioException catch (error) {
+        // A reused URL can outlive the server's view of it (clock skew,
+        // early expiry): drop it and sign once more.
+        final status = error.response?.statusCode;
+        if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
+        controller.invalidateAttachmentUrl('$id');
+        final fresh = await controller.attachmentUrl('$id', channelId: channelId);
+        if (cancel.isCancelled) throw const StaleAttachmentImage();
+        return transfer.image(
+          fresh,
+          cancel: cancel,
+          onProgress: cancel.progressSink,
+        );
+      }
     };
   }
 
@@ -259,6 +277,7 @@ class _AttachmentViewState extends State<AttachmentView> {
   }
 
   void beginImage() {
+    prefetchOriginalUrl();
     if (isImage &&
         (widget.metadata['sizeBytes'] as num? ?? 0) <= 50 * 1024 * 1024) {
       if (adoptReadyImage()) {
@@ -334,6 +353,8 @@ class _AttachmentViewState extends State<AttachmentView> {
   void scopeChanged() {
     if (!authorized) {
       invalidated = true;
+      urlPrefetch?.cancel();
+      urlPrefetch = null;
       if (sharedLease != null) unawaited(sharedLease!.dispose());
       sharedLease = null;
       imageCancel.cancel();
@@ -357,6 +378,8 @@ class _AttachmentViewState extends State<AttachmentView> {
     sharedLease = null;
     imageCancel.cancel();
     downloadCancel.cancel();
+    urlPrefetch?.cancel();
+    urlPrefetch = null;
     imageLease?.release();
     imageLease = null;
     for (final route in [previewRoute, progressRoute]) {
@@ -372,11 +395,11 @@ class _AttachmentViewState extends State<AttachmentView> {
   }
 
   Future<String> resolve(String disposition) async {
-    final data = await w.query(
-      '/attachments/${widget.metadata['id']}/url',
-      query: {'disposition': disposition},
+    return w.attachmentUrl(
+      '${widget.metadata['id']}',
+      disposition: disposition,
+      channelId: ownerChannel,
     );
-    return data['url'] as String;
   }
 
   Future<void> loadImage() async {
@@ -610,9 +633,8 @@ class _AttachmentViewState extends State<AttachmentView> {
     if (!isImage && (attachmentPreviewKind(widget.metadata) != null || html)) {
       var enabled = true;
       try {
-        final gate = await w.query('/messages/attachment-preview/enabled');
+        enabled = await w.attachmentPreviewEnabled();
         if (!current()) return;
-        enabled = gate is Map && gate['enabled'] == true;
       } on RaftApiException catch (error) {
         if (!current() || [401, 403].contains(error.status)) return;
       } catch (_) {
@@ -645,6 +667,7 @@ class _AttachmentViewState extends State<AttachmentView> {
                 page: page,
                 controller: w,
                 metadata: widget.metadata,
+                channelId: ownerChannel,
                 authorized: current,
                 onClose: () {
                   if (dialogContext.mounted &&
@@ -700,6 +723,7 @@ class _AttachmentViewState extends State<AttachmentView> {
                 fullKey,
                 authorized: current,
                 load: loaderFor(fullKey),
+                foreground: true,
               ),
               placeholder: imageProvider,
               previewFailed: error != null,
@@ -781,14 +805,82 @@ class _AttachmentViewState extends State<AttachmentView> {
   }
 
   /// Web MessageItem renders audio and video attachments as inline players.
+  /// Pointer intent (hover, press) resolves the signed URL ahead of the click
+  /// so the open starts at the storage request. A press fires on touch before
+  /// the tap completes; hover gives desktop a head start. Plain files are
+  /// saved with a one-shot `attachment` URL and are not prefetched.
+  void warmUrl() {
+    if (widget.exportMode || widget.messageId == null || !authorized) return;
+    final kind = attachmentPreviewKind(widget.metadata);
+    if (!isImage && kind == null && !isHtml) return;
+    if (kind == 'video' || kind == 'audio') return; // Inline loaders do it.
+    if (kind == 'document' || isHtml) return; // Previewed by text, not URL.
+    final now = DateTime.now();
+    final last = lastUrlWarm;
+    if (last != null && now.difference(last) < const Duration(seconds: 20)) {
+      return;
+    }
+    lastUrlWarm = now;
+    unawaited(
+      w.attachmentUrl('${widget.metadata['id']}', channelId: ownerChannel).then(
+        (url) {
+          if (mounted && authorized) w.attachmentHostWarmer?.call(url);
+        },
+        onError: (Object _) {},
+      ),
+    );
+  }
+
+  DateTime? lastUrlWarm;
+
+  /// The list shows a server thumbnail, so the original's URL is not resolved
+  /// by the preview itself; ask for it in the background (one batched request
+  /// per screenful) while the card is on screen.
+  void prefetchOriginalUrl() {
+    urlPrefetch?.cancel();
+    urlPrefetch = null;
+    if (widget.exportMode ||
+        widget.messageId == null ||
+        !authorized ||
+        !isImage ||
+        thumbnailUrl == null) {
+      return;
+    }
+    urlPrefetch = w.prefetchAttachmentUrl(
+      '${widget.metadata['id']}',
+      channelId: ownerChannel,
+    );
+  }
+
+  PrefetchHandle? urlPrefetch;
+
+  bool get isHtml =>
+      '${widget.metadata['mimeType'] ?? ''}'
+              .toLowerCase()
+              .split(';')
+              .first
+              .trim() ==
+          'text/html' ||
+      RegExp(r'\.html?$', caseSensitive: false).hasMatch(name);
+
   @override
   Widget build(BuildContext context) {
+    final child = buildAttachment(context);
+    if (widget.exportMode) return child;
+    return MouseRegion(
+      onEnter: (_) => warmUrl(),
+      child: Listener(onPointerDown: (_) => warmUrl(), child: child),
+    );
+  }
+
+  Widget buildAttachment(BuildContext context) {
     final kind = attachmentPreviewKind(widget.metadata);
     if (!widget.exportMode && !isImage && kind == 'video') {
       return InlineVideoAttachment(
         key: ValueKey('inline-video-${widget.metadata['id']}'),
         controller: w,
         metadata: widget.metadata,
+        channelId: ownerChannel,
         authorized: () => authorized,
         pending: widget.messageId == null,
         onOpenPreview: open,
@@ -800,6 +892,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         key: ValueKey('inline-audio-${widget.metadata['id']}'),
         controller: w,
         metadata: widget.metadata,
+        channelId: ownerChannel,
         authorized: () => authorized,
         pending: widget.messageId == null,
         onDownload: download,

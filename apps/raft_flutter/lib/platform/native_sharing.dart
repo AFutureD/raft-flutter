@@ -11,6 +11,7 @@ import 'package:receive_intent/receive_intent.dart' as intents;
 import 'package:uri_content/uri_content.dart';
 
 import 'attachment_files.dart';
+import 'attachment_http.dart';
 import 'incoming_share_inbox.dart';
 
 class IncomingSharedFile {
@@ -96,14 +97,7 @@ class NativeSharing {
     Stream<Uint8List> Function(Uri)? readContent,
     Future<Directory> Function()? incomingDirectory,
   }) : channel = channel ?? const MethodChannel('app.raft/sharing'),
-       _dio =
-           dio ??
-           Dio(
-             BaseOptions(
-               connectTimeout: const Duration(seconds: 15),
-               receiveTimeout: const Duration(seconds: 30),
-             ),
-           ),
+       _dio = dio ?? AttachmentHttp.shared,
        _readContent =
            readContent ??
            ((uri) =>

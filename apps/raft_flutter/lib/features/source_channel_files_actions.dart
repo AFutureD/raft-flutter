@@ -91,15 +91,12 @@ class SourceChannelFilesActions {
     bool download = false,
   }) async {
     if (!current(file)) return null;
-    final data = await controller.client.get(
-      '/attachments/${Uri.encodeComponent(file.id)}/url',
-      query: download ? {'disposition': 'attachment'} : null,
+    final value = await controller.attachmentUrl(
+      file.id,
+      disposition: download ? 'attachment' : null,
+      channelId: file.channelId,
     );
     if (!current(file)) return null;
-    if (data is! Map || data['url'] is! String) {
-      throw const FormatException('Invalid attachment response.');
-    }
-    final value = data['url'] as String;
     AttachmentFiles.attachmentUri(value); // HTTP(S), no user-info.
     return value; // Capability is confined to the active action.
   }
