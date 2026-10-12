@@ -143,10 +143,33 @@ class BackgroundInboxAlert {
                 !ContentTarget.validId(row['parentMessageId']))) {
       return null;
     }
-    final name =
-        '${row[thread ? 'parentChannelName' : 'channelName'] ?? 'Raft'}';
-    final body =
-        '${row[thread ? 'latestActivityPreview' : 'lastMessagePreview'] ?? 'New activity'}';
+    String? label(Object? value) {
+      if (value is! String) return null;
+      final text = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+      return text.isEmpty ? null : text;
+    }
+
+    final name = label(row[thread ? 'parentChannelName' : 'channelName']);
+    final sender = label(
+      row[thread ? 'latestActivitySenderName' : 'lastMessageSenderName'],
+    );
+    final dm = row['kind'] == 'dm';
+    final conversation = name == null
+        ? 'Channel'
+        : name.startsWith('#')
+        ? name
+        : '#$name';
+    final title = dm
+        ? sender ?? name ?? 'Direct message'
+        : thread
+        ? '$conversation · Thread'
+        : conversation;
+    final preview =
+        label(row[thread ? 'latestActivityPreview' : 'lastMessagePreview']) ??
+        'New activity';
+    final body = !dm && sender != null ? '$sender: $preview' : preview;
+    String bounded(String value, int limit) =>
+        String.fromCharCodes(value.runes.take(limit));
     return BackgroundInboxAlert(
       ContentTarget(
         channelId: channel,
@@ -160,8 +183,8 @@ class BackgroundInboxAlert {
         threadId: thread ? row['threadChannelId'] as String : null,
         parentMessageId: thread ? row['parentMessageId'] as String : null,
       ),
-      name.substring(0, name.length.clamp(0, 160)),
-      body.substring(0, body.length.clamp(0, 512)),
+      bounded(title, 160),
+      bounded(body, 512),
     );
   }
 }

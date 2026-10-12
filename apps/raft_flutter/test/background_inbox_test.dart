@@ -234,6 +234,60 @@ void main() {
       isNot(messageNotificationId('$scope-other', 'm')),
     );
   });
+  test('notification copy identifies channel, DM sender and thread without exposing IDs', () {
+    final since = DateTime.utc(2026, 10, 8, 1);
+    final channel = BackgroundInboxAlert.fromRow(
+      {...row('m'), 'lastMessageSenderName': 'Alice'},
+      's',
+      since,
+    )!;
+    expect(channel.title, '#general');
+    expect(channel.body, 'Alice: New message');
+    final dm = BackgroundInboxAlert.fromRow(
+      {
+        ...row('m'),
+        'kind': 'dm',
+        'channelName': 'Internal conversation label',
+        'lastMessageSenderName': '陈小明',
+      },
+      's',
+      since,
+    )!;
+    expect(dm.title, '陈小明');
+    expect(dm.body, 'New message');
+    final thread = BackgroundInboxAlert.fromRow(
+      {
+        'kind': 'thread',
+        'threadChannelId': 't',
+        'parentChannelId': 'c',
+        'parentChannelName': 'general',
+        'parentMessageId': 'p',
+        'latestActivityMessageId': 'm',
+        'latestActivityPreview': 'A reply',
+        'latestActivitySenderName': 'Bob',
+        'lastActivityAt': '2026-10-08T01:00:01Z',
+        'unreadCount': 1,
+        'isFollowing': true,
+      },
+      's',
+      since,
+    )!;
+    expect(thread.title, '#general · Thread');
+    expect(thread.body, 'Bob: A reply');
+    expect(thread.target.threadId, 't');
+    final unnamed = BackgroundInboxAlert.fromRow(
+      {...row('m'), 'kind': 'dm', 'channelName': '  '},
+      's',
+      since,
+    )!;
+    expect(unnamed.title, 'Direct message');
+    final unicode = BackgroundInboxAlert.fromRow(
+      {...row('m'), 'kind': 'dm', 'lastMessageSenderName': '😀' * 161},
+      's',
+      since,
+    )!;
+    expect(unicode.title, '😀' * 160);
+  });
   test('UI startup waits for existing worker session owner and delegates subsequent polling to one owner', () async {
     final worker = NativeSessionOwner(supported: true);
     await worker.acquire();

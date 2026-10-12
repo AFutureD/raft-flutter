@@ -378,7 +378,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
             ? null
             : () => nativeAction(
                 () => sendTest(
-                  raftText(context, 'Raft Desktop'),
+                  raftText(context, 'Test notification'),
                   raftText(
                     context,
                     'Test notification — desktop notifications are working.',
@@ -441,7 +441,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView> {
           : service.enabled
           ? () => nativeAction(
               () => sendTest(
-                'Raft',
+                raftText(context, 'Test notification'),
                 raftText(
                   context,
                   'System notifications are enabled. Tap to return to Raft.',

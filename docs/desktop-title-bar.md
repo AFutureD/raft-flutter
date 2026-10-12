@@ -23,7 +23,8 @@ so the strip can never drift from the rail and follows live theme changes.
 - `apps/raft_flutter/lib/platform/desktop_title_bar.dart` -
   `DesktopTitleBarController` (channel `app.raft/titlebar`) and the
   `DesktopTitleBar` wrapper installed in `MaterialApp.builder` (below the
-  theme). Mode per platform: macOS `strip`, Linux/Windows `native`, others none.
+  theme). Mode per platform: macOS `strip`, Linux `native`, Windows
+  `nativeWithRule`, others none.
 - Channel `app.raft/titlebar`. Dart to native: `status` (`{height, fullscreen}`),
   `setStyle` (`background`, `foreground`, `rule` as 0xAARRGGBB ints, `ruleWidth`,
   `dark`), macOS `startDragging`, `doubleClick`. Native to Dart (macOS): `state`.
@@ -70,16 +71,20 @@ Xfce, tiling WMs, non-GNOME X11) the app cannot paint it and the strip is not
 shown. `RAFT_LINUX_HEADER_BAR=1` forces the header bar (used for Xvfb
 captures); `=0` forces the window manager's bar.
 
-### Windows (implemented, not built or run here)
+### Windows
 `windows/runner/flutter_window.cpp`: `DwmSetWindowAttribute` with
 `DWMWA_CAPTION_COLOR` (35) and `DWMWA_TEXT_COLOR` (36, set to the caption colour
 so the bar shows no text) plus `DWMWA_USE_IMMERSIVE_DARK_MODE` (20) for the
 caption button glyphs. These need Windows 11 (build 22000+); on Windows 10 they
-are rejected and the system caption stays. The rule is not drawn: DWM has no
-caption bottom rule (only a whole-window border colour). A full custom frame
-(`WM_NCCALCSIZE`, caption buttons drawn by the app, as RemoteSurface's Windows
-runner does) is the route to the exact design and is a larger, separate
-change that needs a Windows machine.
+are rejected and the system caption stays. DWM has no caption bottom rule
+(only a whole-window border colour), so Flutter draws the rule at the top of
+the client area. It reuses `RaftDesktopTitleBar` with the strip height equal to
+`RaftTitleBarRecipe.ruleWidth`: 2 logical pixels in Brutal and 1 in Elegant.
+The same recipe supplies the colour and blends the translucent dark divider
+over the rail background. Content and its `MediaQuery` start below the rule;
+live theme changes update it. This rule has no drag or double-click handlers:
+the caption's height, buttons, dragging, double-click and resizing stay native.
+Linux already draws its rule in GTK and does not receive an additional one.
 
 ## What was reused from RemoteSurface
 

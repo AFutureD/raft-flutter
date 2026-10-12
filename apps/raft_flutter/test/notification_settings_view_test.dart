@@ -435,7 +435,7 @@ void main() {
       await t.pumpAndSettle();
       expect(s.tests, 1);
       expect(s.enables, 0);
-      expect(s.testTitle, 'Raft Desktop');
+      expect(s.testTitle, 'Test notification');
       expect(
         s.testBody,
         'Test notification — desktop notifications are working.',

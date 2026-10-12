@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/platform/desktop_title_bar.dart';
@@ -55,11 +58,12 @@ Widget _app(
   DesktopTitleBarController controller, {
   RaftFamily family = RaftFamily.elegant,
   bool dark = false,
+  Widget child = const SizedBox.expand(key: Key('content')),
 }) => MaterialApp(
   theme: raftTheme(family, dark: dark),
-  home: DesktopTitleBar(
-    controller: controller,
-    child: const SizedBox.expand(key: Key('content')),
+  home: RepaintBoundary(
+    key: const Key('titlebar-surface'),
+    child: DesktopTitleBar(controller: controller, child: child),
   ),
 );
 
@@ -151,26 +155,117 @@ void main() {
     expect(runner.named('setStyle'), hasLength(before));
   });
 
-  for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
-    testWidgets('$platform: the system draws the bar, the app sends colours', (
-      tester,
-    ) async {
-      final runner = _Runner(tester, height: 0);
-      final controller = DesktopTitleBarController(
-        platform: platform,
-        web: false,
+  testWidgets('Linux: GTK draws the bar and rule, the app sends colours', (
+    tester,
+  ) async {
+    final runner = _Runner(tester, height: 0);
+    final controller = DesktopTitleBarController(
+      platform: TargetPlatform.linux,
+      web: false,
+    );
+    await tester.pumpWidget(_app(controller, family: RaftFamily.brutal));
+    await tester.pump();
+    expect(find.byType(RaftDesktopTitleStrip), findsNothing);
+    expect(tester.getRect(find.byKey(const Key('content'))).top, 0);
+    expect(runner.named('setStyle'), hasLength(1));
+    // Even a runner that wrongly reported a height cannot make the app
+    // draw a second strip over the system's bar.
+    await runner.push(height: 28);
+    expect(find.byType(RaftDesktopTitleStrip), findsNothing);
+  });
+
+  testWidgets('Windows: only the rule is painted across every theme', (
+    tester,
+  ) async {
+    final runner = _Runner(tester);
+    final controller = DesktopTitleBarController(
+      platform: TargetPlatform.windows,
+      web: false,
+    );
+    for (final (family, dark) in [
+      (RaftFamily.brutal, false),
+      (RaftFamily.elegant, false),
+      (RaftFamily.elegant, true),
+    ]) {
+      final tokens = raftTheme(family, dark: dark).extension<RaftTokens>()!;
+      final rail = RaftRailRecipe(tokens, viewportHeight: 600);
+      final width = family == RaftFamily.brutal ? 2.0 : 1.0;
+      double? viewportHeight;
+      await tester.pumpWidget(
+        _app(
+          controller,
+          family: family,
+          dark: dark,
+          child: Builder(
+            builder: (context) {
+              viewportHeight = MediaQuery.sizeOf(context).height;
+              return ColoredBox(
+                color: tokens.canvas,
+                child: const SizedBox.expand(key: Key('content')),
+              );
+            },
+          ),
+        ),
       );
-      await tester.pumpWidget(_app(controller, family: RaftFamily.brutal));
-      await tester.pump();
-      expect(find.byType(RaftDesktopTitleStrip), findsNothing);
-      expect(tester.getRect(find.byKey(const Key('content'))).top, 0);
-      expect(runner.named('setStyle'), hasLength(1));
-      // Even a runner that wrongly reported a height cannot make the app
-      // draw a second strip over the system's bar.
-      await runner.push(height: 28);
-      expect(find.byType(RaftDesktopTitleStrip), findsNothing);
-    });
-  }
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(RaftDesktopTitleStrip)),
+        Rect.fromLTWH(0, 0, 800, width),
+      );
+      expect(tester.getRect(find.byKey(const Key('content'))).top, width);
+      expect(viewportHeight, 600 - width);
+      // Inspect the painted pixels, including both ends of the full-width
+      // rule and the first content row, rather than only its decoration.
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const Key('titlebar-surface')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        try {
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          Color pixel(int x, int y) {
+            final index = (y * image.width + x) * 4;
+            return Color.fromARGB(
+              bytes.getUint8(index + 3),
+              bytes.getUint8(index),
+              bytes.getUint8(index + 1),
+              bytes.getUint8(index + 2),
+            );
+          }
+
+          final rule = Color.alphaBlend(rail.border.color, rail.background);
+          for (final x in [0, 400, 799]) {
+            for (var y = 0; y < width; y++) {
+              expect(pixel(x, y).toARGB32(), rule.toARGB32());
+            }
+            expect(
+              pixel(x, width.toInt()).toARGB32(),
+              tokens.canvas.toARGB32(),
+            );
+          }
+        } finally {
+          image.dispose();
+        }
+      });
+    }
+    await tester.dragFrom(const Offset(400, .5), const Offset(60, 0));
+    await tester.tapAt(const Offset(400, .5));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(const Offset(400, .5));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(runner.named('startDragging'), isEmpty);
+    expect(runner.named('doubleClick'), isEmpty);
+    // Native caption measurements do not add a second title bar.
+    await runner.push(height: 28);
+    expect(tester.getSize(find.byType(RaftDesktopTitleStrip)).height, 1);
+    await runner.push(fullscreen: true);
+    expect(find.byType(RaftDesktopTitleStrip), findsNothing);
+    expect(tester.getRect(find.byKey(const Key('content'))).top, 0);
+    await runner.push(fullscreen: false);
+    expect(tester.getSize(find.byType(RaftDesktopTitleStrip)).height, 1);
+  });
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets('$platform: nothing is drawn or sent', (tester) async {

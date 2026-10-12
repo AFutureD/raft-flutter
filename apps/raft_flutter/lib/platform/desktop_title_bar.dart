@@ -14,9 +14,12 @@ enum DesktopTitleBarMode {
   /// draws the strip itself in the space the native bar leaves and reports.
   strip,
 
-  /// Linux and Windows: the system draws the bar (a GTK header bar, a DWM
-  /// caption); the app only tells it which colours to use.
+  /// Linux: GTK draws both the bar and its rule in the supplied colours.
   native,
+
+  /// Windows: DWM draws the caption; Flutter supplies its missing bottom rule
+  /// at the top of the client area, using the same strip recipe as macOS.
+  nativeWithRule,
 }
 
 /// What the native window reports about its title bar.
@@ -110,8 +113,8 @@ class DesktopTitleBarController {
     if (web) return DesktopTitleBarMode.none;
     return switch (platform) {
       TargetPlatform.macOS => DesktopTitleBarMode.strip,
-      TargetPlatform.linux ||
-      TargetPlatform.windows => DesktopTitleBarMode.native,
+      TargetPlatform.linux => DesktopTitleBarMode.native,
+      TargetPlatform.windows => DesktopTitleBarMode.nativeWithRule,
       _ => DesktopTitleBarMode.none,
     };
   }
@@ -179,9 +182,9 @@ class DesktopTitleBarController {
   }
 }
 
-/// Gives the desktop window its title strip above [child] (macOS), or colours
-/// the system's own title bar to match the rail (Linux, Windows). Sits below
-/// the theme so it follows every theme change.
+/// Gives macOS its title strip, Linux its native bar colours, and Windows its
+/// native caption colours plus a Flutter rule above [child]. Sits below the
+/// theme so it follows every theme change.
 class DesktopTitleBar extends StatefulWidget {
   const DesktopTitleBar({super.key, this.controller, required this.child});
 
@@ -216,14 +219,23 @@ class _DesktopTitleBarState extends State<DesktopTitleBar> {
     final controller = _controller;
     if (controller.mode == DesktopTitleBarMode.none) return widget.child;
     if (controller.mode == DesktopTitleBarMode.native) return widget.child;
+    final nativeCaption = controller.mode == DesktopTitleBarMode.nativeWithRule;
     return ValueListenableBuilder<DesktopTitleBarState>(
       valueListenable: controller.state,
       child: widget.child,
       builder: (context, state, child) => RaftDesktopTitleBar(
-        height: state.height,
+        // A strip only as tall as its border paints just the rule. DWM keeps
+        // the actual caption height and all native window interactions.
+        height: nativeCaption
+            ? RaftTitleBarRecipe(RaftTokens.of(context)).ruleWidth
+            : state.height,
         fullscreen: state.fullscreen,
-        onDragStart: () => unawaited(controller.startDragging()),
-        onDoubleTap: () => unawaited(controller.doubleClick()),
+        onDragStart: nativeCaption
+            ? null
+            : () => unawaited(controller.startDragging()),
+        onDoubleTap: nativeCaption
+            ? null
+            : () => unawaited(controller.doubleClick()),
         child: child!,
       ),
     );
