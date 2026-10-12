@@ -193,38 +193,43 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
     if (guest) return const SizedBox.shrink();
     final t = RaftTokens.of(context);
     final narrow = MediaQuery.sizeOf(context).width < 768;
+    final headerFill = t.brutal
+        ? RaftPrimitiveColors.white
+        : t.colors['layer-canvas-muted']!;
     return RaftPanelTextScope(
       child: Column(
         key: const ValueKey('member-graph-page'),
         children: [
           // PanelHeader: GitBranch 18, `bg-primary-soft theme-brutal:bg-soft-signal`
           // (Elegant `border-0 bg-fill-muted`), `Badge.Experimental` suffix.
-          Container(
-            color: t.brutal
-                ? RaftPrimitiveColors.white
-                : t.colors['layer-canvas-muted'],
-            child: RaftPanelHeaderBar(
-              title: raftText(context, 'Graph'),
-              onBack: narrow ? widget.onBack : null,
-              backTooltip: raftText(context, 'Back'),
-              backKey: const ValueKey('member-graph-mobile-back'),
-              titleSuffix: Transform.translate(
-                offset: const Offset(0, -1),
-                // `<Badge.Experimental>`: solid success variant, uppercase.
-                child: RaftRecipeBadge(
-                  // Web `Badge.Experimental` is untranslated English.
-                  'Experimental',
-                  appearance: RaftBadgeRecipeAppearance.solid,
-                  variant: RaftBadgeRecipeVariant.success,
-                  uppercase: true,
+          RaftStatusBarSource(
+            // The header's own fill continues up through the status bar band.
+            color: headerFill,
+            child: Container(
+              color: headerFill,
+              child: RaftPanelHeaderBar(
+                title: raftText(context, 'Graph'),
+                onBack: narrow ? widget.onBack : null,
+                backTooltip: raftText(context, 'Back'),
+                backKey: const ValueKey('member-graph-mobile-back'),
+                titleSuffix: Transform.translate(
+                  offset: const Offset(0, -1),
+                  // `<Badge.Experimental>`: solid success variant, uppercase.
+                  child: RaftRecipeBadge(
+                    // Web `Badge.Experimental` is untranslated English.
+                    'Experimental',
+                    appearance: RaftBadgeRecipeAppearance.solid,
+                    variant: RaftBadgeRecipeVariant.success,
+                    uppercase: true,
+                  ),
                 ),
-              ),
-              iconSlot: RaftPanelHeaderIconTile(
-                glyph: RaftGlyph.gitBranch,
-                background: t.brutal
-                    ? t.product.softSignal
-                    : t.colors['fill-muted']!,
-                borderless: !t.brutal,
+                iconSlot: RaftPanelHeaderIconTile(
+                  glyph: RaftGlyph.gitBranch,
+                  background: t.brutal
+                      ? t.product.softSignal
+                      : t.colors['fill-muted']!,
+                  borderless: !t.brutal,
+                ),
               ),
             ),
           ),
