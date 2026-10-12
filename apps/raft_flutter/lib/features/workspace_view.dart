@@ -2441,6 +2441,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
             controller: w,
             mobile: false,
             onBilling: () => select('billing'),
+            onFeedback: () => openHelpSettings('feedback'),
           ),
           RaftWorkspaceHelpMenu(
             key: const Key('rail-help'),
@@ -2525,6 +2526,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 key: const Key('mobile-home-notifications'),
                 controller: w,
                 onBilling: () => select('billing'),
+                onFeedback: () => openHelpSettings('feedback'),
               ),
             ]
           : const [],

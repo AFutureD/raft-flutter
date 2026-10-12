@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
@@ -10,9 +10,12 @@ import 'package:raft_flutter/data/navigation_registry.dart';
 import 'package:raft_flutter/data/raft_location.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_navigation.dart';
+import 'package:raft_flutter/features/create_agent_dialog.dart';
 import 'package:raft_flutter/features/create_channel_dialog.dart';
 import 'package:raft_flutter/features/create_joint_channel_dialog.dart';
+import 'package:raft_flutter/features/desktop_navigation_policy.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
+import 'package:raft_flutter/features/managed_agent_launcher.dart';
 import 'package:raft_flutter/features/resource_view.dart';
 import 'package:raft_flutter/features/settings_page.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
@@ -174,6 +177,18 @@ void main() {
       }
     });
 
+    test('every registered page section has a desktop rail mode', () {
+      for (final s in NavigationRegistry.sections) {
+        // Settings sub-pages are rendered under the 'settings' rail mode.
+        final rail = s.settingsTab == null ? s.id : 'settings';
+        expect(() => DesktopNavigationPolicy.forSection(rail), returnsNormally);
+      }
+      expect(
+        () => DesktopNavigationPolicy.forSection('billing'),
+        throwsA(isA<FlutterError>()),
+      );
+    });
+
     test('every registered section builds its own location', () {
       for (final s in NavigationRegistry.sections) {
         final location = WorkspaceNavigation.locationForSection('s', s.id);
@@ -249,7 +264,10 @@ void main() {
     });
   });
 
-  for (final layout in const [('phone', Size(390, 844)), ('wide', Size(1280, 800))]) {
+  for (final layout in const [
+    ('phone', Size(390, 844)),
+    ('wide', Size(1280, 800)),
+  ]) {
     final (name, size) = layout;
     final phone = name == 'phone';
 
@@ -385,8 +403,9 @@ void main() {
       }
 
       /// The settings page's destinations (what the user can open).
-      List<RaftSettingsDestination> destinations(WidgetTester tester) =>
-          tester.widget<RaftSettingsPage>(find.byType(RaftSettingsPage)).destinations;
+      List<RaftSettingsDestination> destinations(WidgetTester tester) => tester
+          .widget<RaftSettingsPage>(find.byType(RaftSettingsPage))
+          .destinations;
 
       Finder pageOf(String tab) => find.descendant(
         of: find.byType(RaftSettingsPage),
@@ -480,10 +499,7 @@ void main() {
           w.setSection('settings');
           await tester.pumpAndSettle();
           final list = find.byType(RaftSettingsSidebarList);
-          final row = find.descendant(
-            of: list,
-            matching: find.text(d.label),
-          );
+          final row = find.descendant(of: list, matching: find.text(d.label));
           expect(row, findsWidgets, reason: '$name: ${d.id} row');
           await tester.ensureVisible(row.first);
           await tester.tap(row.first);
@@ -610,9 +626,11 @@ void main() {
     Finder? opens(String label) => switch (label) {
       'Create Channel' => find.byType(CreateChannelDialog),
       'Create Joint Channel' => find.byType(CreateJointChannelDialog),
-      'New section…' ||
-      'Rename / change icon…' => find.byKey(const ValueKey('sidebar-section-dialog')),
-      'Archive' || 'Delete section' => find.byKey(const ValueKey('shell-dialog')),
+      'New section…' || 'Rename / change icon…' => find.byKey(
+        const ValueKey('sidebar-section-dialog'),
+      ),
+      'Archive' ||
+      'Delete section' => find.byKey(const ValueKey('shell-dialog')),
       _ => null,
     };
 
@@ -674,30 +692,18 @@ void main() {
 
     testWidgets('Channels and Joint section menus', (tester) async {
       await setup(tester);
-      await walkMenu(
-        tester,
-        () async {
-          await tester.longPressAt(tester.getCenter(header('channels')));
-          await tester.pumpAndSettle();
-        },
-        expectLabels: {'Create Channel', 'New section…'},
-      );
-      await walkMenu(
-        tester,
-        () async {
-          await tester.longPressAt(tester.getCenter(header('joint')));
-          await tester.pumpAndSettle();
-        },
-        expectLabels: {'Create Joint Channel', 'New section…'},
-      );
-      await walkMenu(
-        tester,
-        () async {
-          await tester.longPressAt(tester.getCenter(header('dms')));
-          await tester.pumpAndSettle();
-        },
-        expectLabels: {'New section…'},
-      );
+      await walkMenu(tester, () async {
+        await tester.longPressAt(tester.getCenter(header('channels')));
+        await tester.pumpAndSettle();
+      }, expectLabels: {'Create Channel', 'New section…'});
+      await walkMenu(tester, () async {
+        await tester.longPressAt(tester.getCenter(header('joint')));
+        await tester.pumpAndSettle();
+      }, expectLabels: {'Create Joint Channel', 'New section…'});
+      await walkMenu(tester, () async {
+        await tester.longPressAt(tester.getCenter(header('dms')));
+        await tester.pumpAndSettle();
+      }, expectLabels: {'New section…'});
     });
 
     // Each item of the list-surface menu (long press on empty list space) in
@@ -737,15 +743,72 @@ void main() {
         ('d1', {'Pin', 'Close Chat'}),
         ('d2', {'Pin', 'Close Chat'}),
       ]) {
-        await walkMenu(
-          tester,
-          () async {
-            await tester.longPress(row(id));
-            await tester.pumpAndSettle();
-          },
-          expectLabels: labels,
-        );
+        await walkMenu(tester, () async {
+          await tester.longPress(row(id));
+          await tester.pumpAndSettle();
+        }, expectLabels: labels);
       }
+    });
+
+    testWidgets('a feedback notice opens Settings > Feedback (Web toSettings)', (
+      tester,
+    ) async {
+      await setup(tester);
+      api.routes['GET /product-feedback/tickets'] = (_) => {
+        'unread_total': 2,
+        'tickets': [],
+      };
+      api.routes['GET /servers/s1/machines'] = (_) => {'machines': []};
+      // The bell reads on mount; rebuild the page so it sees the unread count.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.brutal),
+          home: WorkspaceView(
+            controller: w,
+            appearance: RaftAppearance(light: RaftFamily.brutal),
+            onAppearance: (_) async {},
+            onLogout: () async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(RaftMobileNotificationButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('View feedback'));
+      await tester.pumpAndSettle();
+      expect(w.location.route, RaftRoute.settings);
+      expect(w.location.settingsPath, ['feedback']);
+      expect(find.byKey(const ValueKey('feedback')), findsOneWidget);
+    });
+
+    testWidgets('Create Agent "Upgrade for more" closes and opens Billing', (
+      tester,
+    ) async {
+      await setup(tester);
+      api.routes['GET /servers/s1/machines'] = (_) => {
+        'machines': [
+          {
+            'id': 'm1',
+            'name': 'Computer',
+            'status': 'online',
+            'runtimes': ['codex'],
+          },
+        ],
+      };
+      api.routes['GET /billing/subscription'] = (_) => {
+        'displayName': 'Free',
+        'capacity': {'maxAgents': 2},
+        'usage': {'agents': 2},
+      };
+      final context = tester.element(find.byType(WorkspaceView));
+      unawaited(showManagedAgentForm(context, w));
+      await tester.pumpAndSettle();
+      await tester.tapOnText(find.textRange.ofSubstring('Upgrade for more'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CreateAgentDialog), findsNothing);
+      expect(w.location.route, RaftRoute.settings);
+      expect(w.location.settingsPath, ['billing']);
     });
 
     testWidgets('Search, Activity and Saved entries open their own pages', (
@@ -767,4 +830,3 @@ void main() {
     });
   });
 }
-

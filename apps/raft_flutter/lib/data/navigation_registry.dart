@@ -134,11 +134,7 @@ abstract final class NavigationRegistry {
 
   /// Literals the settings location is built from outside `select(...)`
   /// (`openHelpSettings`, invite dialog billing link).
-  static const settingsPathLiterals = <String>{
-    'about',
-    'feedback',
-    'billing',
-  };
+  static const settingsPathLiterals = <String>{'about', 'feedback', 'billing'};
 
   static NavigationSection? section(String id) =>
       sections.where((s) => s.id == id).firstOrNull;
