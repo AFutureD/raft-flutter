@@ -23,6 +23,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -52,6 +53,23 @@ MAX_DIAGNOSTIC_LINES = 8
 
 def tool_command(name):
     return ([sys.executable] if os.name == 'nt' else []) + [str(root / 'tool' / name)]
+
+
+def clear_unit_test_assets(root: pathlib.Path) -> list[pathlib.Path]:
+    """Drop cached test assets so every run compiles shaders for the test backend.
+
+    A device build in the same worktree (an APK, say) leaves
+    build/unit_test_assets with Vulkan-only shader stages; `flutter test` then
+    reuses them and every ink-sparkle widget throws "does not contain
+    appropriate runtime stage data for current backend (SkSL)".
+    """
+    removed = []
+    for build in [root / 'apps/raft_flutter/build', *sorted((root / 'packages').glob('*/build'))]:
+        assets = build / 'unit_test_assets'
+        if assets.is_dir():
+            shutil.rmtree(assets, ignore_errors=True)
+            removed.append(assets)
+    return removed
 
 
 def discover_tests(base, dirs=TEST_DIRS):
@@ -565,6 +583,8 @@ def run_gate(check_env, emit, started):
         local / 'workspace-pub-get.txt', check_env) == 0
     if not results['workspace-pub-get.txt']:
         raise SystemExit('check-project: `flutter pub get --enforce-lockfile` failed; see .local/workspace-pub-get.txt.')
+
+    clear_unit_test_assets(root)
 
     # The bindings generator must be initialised before whole-project analysis.
     results['bindings-generator-pub-get.txt'] = run_logged(

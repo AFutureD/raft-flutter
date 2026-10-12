@@ -179,3 +179,21 @@ class DiscoveryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class UnitTestAssetsTests(unittest.TestCase):
+    def test_clears_cached_test_assets_and_keeps_other_build_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = root / 'apps/raft_flutter/build/unit_test_assets/shaders'
+            pkg = root / 'packages/raft_ui/build/unit_test_assets'
+            apk = root / 'apps/raft_flutter/build/app/outputs'
+            for d in (app, pkg, apk):
+                d.mkdir(parents=True)
+            (app / 'ink_sparkle.frag').write_text('vulkan only')
+            removed = check.clear_unit_test_assets(root)
+            self.assertEqual(len(removed), 2)
+            self.assertFalse(app.parent.exists())
+            self.assertFalse(pkg.exists())
+            self.assertTrue(apk.is_dir())
+            self.assertEqual(check.clear_unit_test_assets(root), [])
