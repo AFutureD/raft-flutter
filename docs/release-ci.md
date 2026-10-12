@@ -1,7 +1,7 @@
 # GitHub build and release
 
 `.github/workflows/release.yml` builds on GitHub-hosted runners using the exact
-Flutter version in `.fvmrc` and the checked-in pub lockfile. Windows x64 is enabled
+Flutter version in `.fvmrc` and the checked-in pub lockfile. Windows x64 and signed Android ARM64 are enabled
 by default. Builds use `lib/main.dart` and produce no private test fixtures or
 test feature defines. This pipeline is separate from the local native-acceptance
 packager `tool/build-deliverables`; compilation does not imply full-app acceptance.
@@ -27,9 +27,9 @@ No second release-event workflow is needed.
 Pull requests touching release tooling, the lockfile or Windows host run a Windows
 build and retain artifacts for 14 days. **PR and manual runs never publish.** From
 Actions → Build and release → Run workflow, leave `platforms` blank for the enabled
-set, or select e.g. `windows,macos` to test builders before enabling them. Fork PRs
-cannot access signing secrets; keep Android out of the default set until the
-project's signing and contributor workflow is ready.
+set, or select e.g. `windows,macos` to test builders before enabling them. Pull request plans exclude Android so neither fork nor same-repository PR builds
+receive the persistent signing secrets. Android changes are tested by a manual
+Android build on a reviewed branch; tags build all enabled platforms.
 
 Concurrency is serialized per event/ref. Published assets are never overwritten.
 If upload fails, a draft remains; inspect it, delete that incomplete draft (retain
@@ -58,6 +58,40 @@ Android repository **Actions secrets**:
 - `RAFT_ANDROID_STORE_PASSWORD`: keystore password.
 - `RAFT_ANDROID_KEY_ALIAS`: signing key alias.
 - `RAFT_ANDROID_KEY_PASSWORD`: key password.
+
+### Prepare the Android release key locally
+
+Run `python3 tool/android-release-signing.py init` once. This creates an RSA-4096
+JKS key with 10,000-day validity at `.local/android-release-signing/release.jks`
+and random store/key passwords in `.local/android-release-signing/credentials.json`.
+The directory is ignored by Git, accessible only to its owner, and cannot be
+replaced by running `init` again. Back up both files securely together and retain
+the same key for every released Android update.
+
+`python3 tool/android-release-signing.py export` prints a JSON object containing
+the four secret names above and their values, including the base64-encoded key.
+For a private file instead, run:
+
+```sh
+python3 tool/android-release-signing.py export --output .local/android-release-secrets.json
+```
+
+Create each entry under repository **Settings → Secrets and variables → Actions
+→ Secrets → New repository secret**. These are Secrets, not Variables; copy each
+JSON string's value without quotes. To copy one value on macOS, for example:
+
+```sh
+python3 tool/android-release-signing.py export --secret RAFT_ANDROID_KEYSTORE_BASE64 | pbcopy
+```
+
+The helper refuses to generate/export secrets in CI, overwrite existing exports,
+or save an export outside `.local/`. Keep its output out of logs and commits.
+Android is enabled in `tool/release-platforms.json` for version-tag releases.
+Use a manual run with `platforms: android` to test signing without publishing.
+The build verifies the compiled package, version name, ARM64-only libraries,
+non-debuggable manifest and APK signature against the configured JKS certificate.
+The manifest records the certificate SHA-256 and actual APK version code (the
+pinned Flutter split-APK builder adds 2000 to the pubspec build number for ARM64).
 
 The keystore is decoded into a temporary directory and removed after the build.
 Passwords stay in environment variables and are never written to source or

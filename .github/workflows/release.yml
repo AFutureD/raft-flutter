@@ -8,9 +8,12 @@ on:
       - '.github/workflows/release.yml'
       - 'tool/release*'
       - 'tool/tests/test_release.py'
+      - 'tool/android-release-signing.py'
+      - 'tool/tests/test_android_release_signing.py'
       - '.fvmrc'
       - 'pubspec.lock'
       - 'apps/raft_flutter/windows/**'
+      - 'apps/raft_flutter/android/**'
   workflow_dispatch:
     inputs:
       platforms:
@@ -92,8 +95,8 @@ jobs:
       - name: Build and package desktop
         if: matrix.platform != 'android'
         run: python tool/release.py build ${{ matrix.platform }}
-      - name: Build and package signed Android APK
-        if: matrix.platform == 'android'
+      - name: Build and verify signed ARM64 Android APK
+        if: matrix.platform == 'android' && github.event_name != 'pull_request'
         env:
           RAFT_ANDROID_KEYSTORE_BASE64: ${{ secrets.RAFT_ANDROID_KEYSTORE_BASE64 }}
           RAFT_ANDROID_STORE_PASSWORD: ${{ secrets.RAFT_ANDROID_STORE_PASSWORD }}

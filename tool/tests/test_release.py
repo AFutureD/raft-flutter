@@ -1,8 +1,11 @@
+import base64
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location('release', Path(__file__).resolve().parents[1] / 'release.py')
@@ -14,8 +17,13 @@ class ReleaseTests(unittest.TestCase):
     def setUp(self):
         self.config = json.loads((release.ROOT / 'tool/release-platforms.json').read_text())
 
-    def test_default_only_enables_windows(self):
+    def test_default_enables_windows_and_arm64_android(self):
         result = release.release_plan(self.config, '', '0.1.0')
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android'])
+        self.assertEqual(result['include'][1]['arch'], 'arm64')
+
+    def test_pull_requests_do_not_build_with_android_signing_secrets(self):
+        result = release.release_plan(self.config, '', '0.1.0', event='pull_request')
         self.assertEqual([r['platform'] for r in result['include']], ['windows'])
 
     def test_manual_can_test_future_platforms(self):
@@ -53,6 +61,64 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn(f'--build-number={number}', command)
                 self.assertNotIn('DART_DEFINES', commands.call_args.kwargs['env'])
 
+    def test_android_missing_secrets_never_invokes_flutter(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
+                patch.dict(release.os.environ, {}, clear=True), patch.object(release, 'run') as commands:
+            with self.assertRaisesRegex(ValueError, 'all four'):
+                release.build('android')
+            commands.assert_not_called()
+
+    def test_android_build_is_arm64_only_and_temp_key_is_cleaned_on_failure(self):
+        with tempfile.TemporaryDirectory() as temp:
+            environment = {'RAFT_ANDROID_KEYSTORE_BASE64': base64.b64encode(b'key bytes').decode(),
+                           'RAFT_ANDROID_STORE_PASSWORD': 'store', 'RAFT_ANDROID_KEY_PASSWORD': 'key',
+                           'RAFT_ANDROID_KEY_ALIAS': 'release'}
+            with patch.object(release, 'OUT', Path(temp)), \
+                    patch.dict(release.os.environ, environment, clear=True), \
+                    patch.object(release, 'run', side_effect=RuntimeError('build failed')) as commands:
+                with self.assertRaisesRegex(RuntimeError, 'build failed'):
+                    release.build('android')
+                command = commands.call_args.args[0]
+                env = commands.call_args.kwargs['env']
+                self.assertIn('--target-platform=android-arm64', command)
+                self.assertIn('--split-per-abi', command)
+                self.assertEqual(env['RAFT_ANDROID_SIGNING_REQUIRED'], 'true')
+                self.assertNotIn('RAFT_ANDROID_KEYSTORE_BASE64', env)
+                self.assertFalse(Path(env['RAFT_ANDROID_KEYSTORE_PATH']).exists())
+
+    def test_android_verification_rejects_wrong_identity_version_abi_debug_and_certificate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            apk = Path(temp) / 'release.apk'
+            cert = b'release certificate'
+            badging = "package: name='app.raft.raft_flutter' versionCode='2001' versionName='0.1.0'\n"
+            signatures = f'Signer #1 certificate SHA-256 digest: {hashlib.sha256(cert).hexdigest()}\n'
+            env = {'ANDROID_HOME': temp, 'RAFT_ANDROID_KEY_ALIAS': 'release'}
+
+            def write_apk(abi):
+                with zipfile.ZipFile(apk, 'w') as archive:
+                    archive.writestr(f'lib/{abi}/libapp.so', b'native bytes')
+
+            write_apk('arm64-v8a')
+            with patch.object(release.subprocess, 'check_output', side_effect=[badging, cert, signatures]):
+                result = release.verify_android(apk, Path(temp) / 'key.jks', env, '0.1.0', '1')
+            self.assertEqual(result['versionCode'], 2001)
+            self.assertEqual(result['certificateSHA256'], hashlib.sha256(cert).hexdigest())
+            for invalid in [badging.replace('app.raft.raft_flutter', 'app.raft.raft_flutter.linkperf'),
+                            badging.replace('2001', '2002'), badging.replace('0.1.0', '0.2.0'),
+                            badging + 'application-debuggable\n']:
+                with self.subTest(badging=invalid), \
+                        patch.object(release.subprocess, 'check_output', return_value=invalid), \
+                        self.assertRaises(ValueError):
+                    release.verify_android(apk, Path(temp) / 'key.jks', env, '0.1.0', '1')
+            write_apk('x86_64')
+            with patch.object(release.subprocess, 'check_output', return_value=badging), \
+                    self.assertRaisesRegex(ValueError, 'only ARM64'):
+                release.verify_android(apk, Path(temp) / 'key.jks', env, '0.1.0', '1')
+            write_apk('arm64-v8a')
+            with patch.object(release.subprocess, 'check_output', side_effect=[badging, cert, '']), \
+                    self.assertRaisesRegex(ValueError, 'signature differs'):
+                release.verify_android(apk, Path(temp) / 'key.jks', env, '0.1.0', '1')
+
     def fixture(self, directory, platform='windows'):
         artifact = directory / 'raft.zip'
         artifact.write_bytes(b'compiled bundle')
@@ -66,7 +132,7 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
             artifact, receipt = self.fixture(directory)
-            matrix = release.release_plan(self.config, '', '0.1.0')
+            matrix = release.release_plan(self.config, 'windows', '0.1.0')
             _, files, checksums = release.verify_artifacts(directory, matrix, '0.1.0', 'abc')
             self.assertEqual(files, [artifact])
             self.assertEqual(checksums, f"{receipt['sha256']}  raft.zip\n")
@@ -83,7 +149,7 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
             artifact, _ = self.fixture(directory)
-            matrix = release.release_plan(self.config, '', '0.1.0')
+            matrix = release.release_plan(self.config, 'windows', '0.1.0')
             for version, commit in [('0.2.0', 'abc'), ('0.1.0', 'def')]:
                 with self.assertRaises(ValueError):
                     release.verify_artifacts(directory, matrix, version, commit)
@@ -98,7 +164,7 @@ class ReleaseTests(unittest.TestCase):
             receipt['artifact'] = '../raft.zip'
             (directory / 'receipt.json').write_text(json.dumps(receipt))
             with self.assertRaises(ValueError):
-                release.verify_artifacts(directory, release.release_plan(self.config, '', '0.1.0'), '0.1.0', 'abc')
+                release.verify_artifacts(directory, release.release_plan(self.config, 'windows', '0.1.0'), '0.1.0', 'abc')
 
     def test_manual_run_cannot_publish(self):
         with patch.dict(release.os.environ, {'GITHUB_EVENT_NAME': 'workflow_dispatch'}):
@@ -114,7 +180,7 @@ class ReleaseTests(unittest.TestCase):
             receipt['signing'] = 'unsigned'
             (directory / 'receipt.json').write_text(json.dumps(receipt))
             environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v0.1.0',
-                           'RELEASE_MATRIX': json.dumps(release.release_plan(self.config, '', '0.1.0'))}
+                           'RELEASE_MATRIX': json.dumps(release.release_plan(self.config, 'windows', '0.1.0'))}
             with patch.object(release, 'OUT', directory), patch.object(release, 'capture', return_value='abc'), \
                     patch.dict(release.os.environ, environment), patch.object(release, 'run') as commands:
                 commands.side_effect = [None, release.subprocess.CalledProcessError(1, 'upload')]
