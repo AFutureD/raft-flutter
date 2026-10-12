@@ -182,7 +182,7 @@ void main() {
     testWidgets(
       cancel
           ? 'Continue then Cancel while the copy is slow: nothing is staged and the files are removed'
-          : 'Continue while the copy is slow: checks run in parallel and the hand-off finishes with the copy',
+          : 'Continue while the copy is slow: no request is awaited and the hand-off finishes with the copy',
       (t) async {
         final directory = (await t.runAsync(
           () => Directory.systemTemp.createTemp('raft-share-slow-test-'),
@@ -232,10 +232,11 @@ void main() {
         for (var i = 0; i < 4; i++) {
           await f.flush(t);
         }
-        // The copy is still waiting, yet membership and the destination row
-        // were already read, and the page says what it waits for.
+        // The copy is the only thing Continue waits for: no request is made
+        // (or awaited) for the hand-off, and the page says what it waits for.
         final reads = f.adapter.calls.skip(before).map((c) => c.path).toList();
-        expect(reads, contains('/channels/cb'));
+        expect(reads, isNot(contains('/channels/cb')));
+        expect(reads, isNot(contains('/servers')));
         expect(find.byType(IncomingSharePicker), findsOneWidget);
         expect(find.text('Preparing files'), findsOneWidget);
         expect(find.text('Cancel'), findsOneWidget);

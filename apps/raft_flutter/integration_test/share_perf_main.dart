@@ -103,10 +103,23 @@ List<Map<String, dynamic>> _dms(String server) => [
   ),
 ];
 
+final _joined = <String>{};
+
 Map<String, dynamic>? _row(String id) {
+  if (id == 'dm-bob') {
+    return _channel(
+      'dm-bob',
+      'bob',
+      'a',
+      type: 'dm',
+      extra: {'peerDisplayName': 'Bob', 'peerId': 'bob', 'peerType': 'user'},
+    );
+  }
   for (final s in ['a', 'b']) {
     for (final c in [..._channels(s), ..._dms(s)]) {
-      if (c['id'] == id) return c;
+      if (c['id'] == id) {
+        return {...c, if (_joined.contains(id)) 'joined': true};
+      }
     }
   }
   return null;
@@ -175,7 +188,7 @@ class _QaAdapter implements HttpClientAdapter {
       case 'POST /feature-flags/evaluate':
         return {'evaluations': []};
       case 'POST /channels/dm':
-        return _dms('${o.headers['X-Server-Id'] ?? 'a'}').first;
+        return {'id': 'dm-bob'};
     }
     final path = o.path;
     final channel = RegExp(r'^/channels/([^/]+)$').firstMatch(path);
@@ -184,6 +197,7 @@ class _QaAdapter implements HttpClientAdapter {
       if (row != null) return row;
     }
     if (o.method == 'POST' && path.endsWith('/join')) {
+      _joined.add(path.split('/')[2]);
       return {...?_row(path.split('/')[2]), 'joined': true};
     }
     if (path.endsWith('/setup-projection')) {
@@ -360,6 +374,7 @@ Future<void> _serve() async {
       final q = request.uri.queryParameters;
       switch (request.uri.path) {
         case '/scenario':
+          _joined.clear();
           _fx.theme = (q['theme'] ?? 'brutal') == 'brutal'
               ? 'brutal'
               : 'elegant';

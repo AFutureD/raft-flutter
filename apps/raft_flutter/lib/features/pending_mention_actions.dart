@@ -179,6 +179,9 @@ Widget? raftComposerAccessory(
   bool thread = false,
 }) {
   final error = w.composerErrorFor(thread: thread);
+  // Shared content added before its destination was re-checked: the check
+  // refused it. The draft and files stay; Send is off (chat_view `canSend`).
+  final shared = w.shareNoticeFor(thread: thread);
   // Web `billingUploadQuotaError`: the quota failure keeps its chip and
   // leaves the message in its own banner.
   final quota = w
@@ -193,10 +196,20 @@ Widget? raftComposerAccessory(
   final dm = !thread && w.channel?.type == 'dm';
   final stopped = dm && warnings.agentStopped;
   final unresolved = !dm && warnings.unresolved.isNotEmpty;
-  if (error == null && quota == null && !stopped && !unresolved && !mentions) {
+  if (error == null &&
+      shared == null &&
+      quota == null &&
+      !stopped &&
+      !unresolved &&
+      !mentions) {
     return null;
   }
   final banners = <Widget>[
+    if (shared != null)
+      RaftComposerNotice(
+        key: const Key('shared-destination-notice'),
+        message: raftText(context, shared),
+      ),
     if (error != null) RaftComposerNotice(message: error),
     if (quota != null) RaftComposerNotice(message: quota),
     if (stopped)

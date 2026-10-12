@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/incoming_share_picker.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
@@ -66,8 +67,53 @@ void _routes(RootFixture f) {
           'joined': true,
           'latestSeq': '1',
         },
+      if (id == 'a')
+        {
+          'id': 'cp',
+          'name': 'public-p',
+          'type': 'channel',
+          'serverId': 'a',
+          'joined': false,
+          'latestSeq': '1',
+        },
     ];
   };
+  f.overrides['GET /servers/a/members'] = (_) => [
+    {'userId': 'alice', 'displayName': 'Alice'},
+    {'userId': 'bob', 'displayName': 'Bob'},
+  ];
+  f.overrides['POST /channels/dm'] = (_) => {'id': 'dmbob'};
+  f.overrides['GET /channels/dmbob'] = (_) => {
+    'id': 'dmbob',
+    'name': 'bob',
+    'type': 'dm',
+    'serverId': 'a',
+    'joined': true,
+    'peerDisplayName': 'Bob',
+    'peerId': 'bob',
+  };
+  f.overrides['GET /messages/channel/dmbob'] = (_) => {
+    'messages': [],
+    'hasMore': false,
+    'hasNewer': false,
+  };
+  f.overrides['POST /channels/dmbob/read'] = (_) => {};
+  f.overrides['GET /channels/dmbob/members'] = (_) => [];
+  f.overrides['POST /channels/cp/join'] = (_) => {};
+  f.overrides['GET /channels/cp'] = (_) => {
+    'id': 'cp',
+    'name': 'public-p',
+    'type': 'channel',
+    'serverId': 'a',
+    'joined': true,
+  };
+  f.overrides['GET /messages/channel/cp'] = (_) => {
+    'messages': [],
+    'hasMore': false,
+    'hasNewer': false,
+  };
+  f.overrides['POST /channels/cp/read'] = (_) => {};
+  f.overrides['GET /channels/cp/members'] = (_) => [];
   f.overrides['GET /channels/cx'] = (_) => {
     'id': 'cx',
     'name': 'general-x',
@@ -88,10 +134,20 @@ void _routes(RootFixture f) {
   };
   f.overrides['POST /channels/cx/read'] = (_) => {};
   f.overrides['GET /channels/cx/members'] = (_) => [];
+  f.overrides['GET /channels/cb'] = (_) => {
+    'id': 'cb',
+    'name': 'general-b',
+    'type': 'channel',
+    'serverId': 'b',
+    'joined': true,
+  };
 }
 
 /// First process: open Alpha's two channels so their windows are on disk.
-Future<RootCache> _firstProcess(WidgetTester t) async {
+Future<RootCache> _firstProcess(
+  WidgetTester t, {
+  bool bothServers = false,
+}) async {
   final f = RootFixture();
   _routes(f);
   await f.mount(t, 'elegant-light', 1280);
@@ -100,6 +156,17 @@ Future<RootCache> _firstProcess(WidgetTester t) async {
   await t.tap(find.text('general-x').first);
   await f.flush(t);
   expect(find.text('Accepted x'), findsOneWidget);
+  if (bothServers) {
+    // Beta's channels are on the device too (a cross-server share).
+    unawaited(f.workspace(t).selectServer(RaftRecord(f.servers[1])));
+    for (var i = 0; i < 4; i++) {
+      await f.flush(t);
+    }
+    unawaited(f.workspace(t).selectServer(RaftRecord(f.servers[0])));
+    for (var i = 0; i < 4; i++) {
+      await f.flush(t);
+    }
+  }
   await f.workspace(t).flushCache();
   await f.close(t);
   return f.cache;
@@ -226,8 +293,6 @@ Iterable<String> sentAnything(RootFixture f) => f.adapter.calls
     )
     .map((c) => '${c.method} ${c.path}');
 
-const _revokedNotice = 'The selected destination is no longer available.';
-
 /// A running app on a second process over the device cache of a first one.
 /// Every read is slow: warm (settled workspace, then everything slowed) or
 /// cold (the startup reads and the rest held until [gate] opens).
@@ -247,8 +312,9 @@ Future<Scene> boot(
   NativeSharing? sharing,
   bool coordinator = false,
   bool gated = true,
+  bool bothServers = false,
 }) async {
-  final cache = await _firstProcess(t);
+  final cache = await _firstProcess(t, bothServers: bothServers);
   final holds = <String, Completer<dynamic>>{
     if (cold)
       for (final key in _startupReads) key: Completer<dynamic>(),
@@ -347,7 +413,7 @@ void main() {
               )
               .busy,
           isTrue,
-          reason: 'waiting for fresh authority and the copy',
+          reason: 'waiting for the copy',
         );
         expect(sentAnything(f), isEmpty);
         copy.open();
@@ -370,85 +436,455 @@ void main() {
     );
   }
 
+  bool composerHasShare(Scene s, String scope) =>
+      !pickerVisible() &&
+      s.w.channel?.id == scope &&
+      s.w.drafts[scope] == 'Shared caption' &&
+      s.w.uploads().isNotEmpty;
+
+  /// Polls [done] with the API closed and *no virtual time passing*: real
+  /// time lets the inbox's file IO finish, each poll is one zero-length frame.
+  /// A hand-off that awaited a request (gated until virtual time advances or
+  /// the gate opens) would never get there. Returns the polls it took.
+  Future<int> framesClosed(
+    WidgetTester t,
+    bool Function() done, {
+    int max = 60,
+  }) async {
+    for (var poll = 0; poll <= max; poll++) {
+      if (done()) return poll;
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await t.pump();
+    }
+    return -1;
+  }
+
+  /// The draft is staged in [scope] and the page left, API still closed.
+  /// Returns the zero-time polls the staging took (each sequential file read
+  /// or write of the inbox needs one), or -1.
+  Future<int> landed(WidgetTester t, Scene s, String scope, {Gate? api}) async {
+    final polls = await framesClosed(
+      t,
+      () =>
+          s.w.channel?.id == scope &&
+          s.w.drafts[scope] == 'Shared caption' &&
+          s.w.uploads().isNotEmpty,
+    );
+    if (polls < 0) return -1;
+    // The page's route animation needs time, not the network.
+    for (var i = 0; i < 40 && pickerVisible(); i++) {
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    return composerHasShare(s, scope) && !(api ?? s.gate).done.isCompleted
+        ? polls
+        : -1;
+  }
+
+  /// Lets the picker's own directory read finish, then closes the API again
+  /// (a new gate): the hand-off that follows has only the device to use.
+  Future<Gate> regate(WidgetTester t, Scene s) async {
+    await settle(t, s, 6);
+    final closed = Gate();
+    slow(s.f, closed);
+    return closed;
+  }
+
+  /// Opens the copy and waits until it has been staged (all on this device).
+  Future<void> copyDone(WidgetTester t, Gate copy) async {
+    copy.open();
+    expect(
+      await framesClosed(
+        t,
+        () => find
+            .byKey(const Key('incoming-share-preparing'))
+            .evaluate()
+            .isEmpty,
+      ),
+      greaterThanOrEqualTo(0),
+    );
+  }
+
+  /// The picker with the copy finished (it is on this device), then Continue
+  /// on [key]. The API stays closed throughout: what follows is the hand-off
+  /// itself.
+  Future<void> continueOn(
+    WidgetTester t,
+    Scene s,
+    Gate copy,
+    String key,
+  ) async {
+    await framesUntil(t, pickerVisible, gate: null);
+    await copyDone(t, copy);
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tap(find.byKey(ValueKey('incoming-target-$key')));
+    await t.pump();
+    await t.tap(find.byKey(const Key('incoming-share-continue')));
+  }
+
+  for (final cold in [false, true]) {
+    final mode = cold ? 'cold' : 'warm';
+    testWidgets(
+      'share $mode: Continue reaches the composer with every request pending, then the destination is checked behind it',
+      (t) async {
+        final copy = Gate();
+        copyGates.add(copy);
+        final sharing = slowSharing(dir, copy);
+        if (cold) sharing.receive(_share);
+        final s = await boot(t, dir, cold: cold, sharing: sharing);
+        if (!cold) sharing.receive(_share);
+        await continueOn(t, s, copy, 'cx');
+        // Only the copy ended. The API stays closed for this whole wait.
+        final polls = await landed(t, s, 'cx');
+        metric('share $mode: composer with API closed', polls);
+        expect(polls, greaterThanOrEqualTo(0));
+        expect(s.gate.done.isCompleted, isFalse);
+        final w = s.w;
+        expect(w.uploads().single.queued, isTrue);
+        // Held until checked: Send is off, nothing is said yet.
+        expect(w.sharedBlocked(), isTrue);
+        expect(w.shareNoticeFor(), isNull);
+        expect(await w.send('hello'), isFalse);
+        expect(sentAnything(s.f), isEmpty);
+        // The API answers: the destination is confirmed and Send comes back.
+        await settle(t, s);
+        expect(w.sharedBlocked(), isFalse);
+        expect(
+          find.byKey(const Key('shared-destination-notice')),
+          findsNothing,
+        );
+        expect(
+          s.f.adapter.calls.map((c) => c.path),
+          containsAll(['/servers', '/channels/cx']),
+        );
+        expect(w.drafts['cx'], 'Shared caption');
+        expect(sentAnything(s.f), isEmpty);
+        await s.f.close(t);
+      },
+    );
+  }
+
+  // iPhone: the Share Extension publishes the files into the shared inbox
+  // before it opens the app, so the app receives an already-staged share
+  // (a token, no copy). It is the same picker and the same hand-off.
   testWidgets(
-    'share: a cached destination the fresh directory drops is deselected and never added',
+    'share iOS: an extension-published share reaches the composer with every request pending',
     (t) async {
-      final copy = Gate();
-      copyGates.add(copy);
-      final sharing = slowSharing(dir, copy);
+      final token = 'a' * 32;
+      final folder = Directory('${dir.path}/$token')..createSync();
+      File('${folder.path}/item-0').writeAsBytesSync([1, 2, 3]);
+      File('${folder.path}/envelope.json').writeAsStringSync(
+        jsonEncode({
+          'token': token,
+          'created': DateTime.now().millisecondsSinceEpoch,
+          'pending': true,
+          'text': 'Shared caption',
+          'files': [
+            {
+              'file': 'item-0',
+              'filename': 'photo.jpg',
+              'mimeType': 'image/jpeg',
+              'sizeBytes': 3,
+            },
+          ],
+        }),
+      );
+      final sharing = NativeSharing(
+        supported: false,
+        incomingDirectory: () async => dir,
+      );
       final s = await boot(t, dir, cold: false, sharing: sharing);
-      final openChannel = s.w.channel?.id;
-      sharing.receive(_share);
-      final f = s.f;
-      f.adapter.routes['GET /channels'] = (o) async {
-        await s.gate.done.future;
-        return [
-          {
-            'id': 'ca',
-            'name': 'general-a',
-            'type': 'channel',
-            'serverId': 'a',
-            'joined': true,
-          },
-        ];
-      };
-      await framesUntil(t, pickerVisible);
+      sharing.receive(
+        IncomingShare(
+          token: token,
+          text: 'Shared caption',
+          files: const [
+            IncomingSharedFile('item-0', 'photo.jpg', 'image/jpeg', 3),
+          ],
+        ),
+      );
+      await framesUntil(t, pickerVisible, gate: null);
       await t.pump(const Duration(milliseconds: 400));
       await t.tap(find.byKey(const ValueKey('incoming-target-cx')));
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
-      await t.pump();
-      copy.open();
+      final polls = await landed(t, s, 'cx');
+      metric('share iOS: composer with API closed', polls);
+      expect(polls, greaterThanOrEqualTo(0));
+      expect(s.w.sharedBlocked(), isTrue);
       await settle(t, s);
-      expect(pickerVisible(), isTrue, reason: 'hand-off was refused');
-      expect(find.text(_revokedNotice), findsOneWidget);
-      expect(row('cx'), isFalse);
-      expect(row('ca'), isTrue);
-      // The dropped destination returns the flow to the destinations page.
-      expect(find.byKey(const Key('incoming-share-continue')), findsNothing);
-      final w = s.w;
-      expect(w.drafts['cx'], isNull);
-      expect(w.channel?.id, openChannel);
-      expect(sentAnything(f), isEmpty);
-      expect(f.adapter.calls.where((c) => c.path == '/channels/cx'), isEmpty);
-      await t.pageBack();
-      await f.close(t);
+      expect(s.w.sharedBlocked(), isFalse);
+      expect(sentAnything(s.f), isEmpty);
+      await s.f.close(t);
     },
   );
 
   testWidgets(
-    'share: a server the account lost is dropped with its destinations before anything is added',
+    'share: a destination the server refuses after the hand-off keeps the draft and files, says so on the composer, and never sends',
     (t) async {
       final copy = Gate();
       copyGates.add(copy);
       final sharing = slowSharing(dir, copy);
       final s = await boot(t, dir, cold: false, sharing: sharing);
-      final openChannel = s.w.channel?.id;
       sharing.receive(_share);
-      final f = s.f;
-      f.adapter.routes['GET /servers'] = (o) async {
+      s.f.adapter.statuses['GET /channels/cx'] = 404;
+      await continueOn(t, s, copy, 'cx');
+      expect(await landed(t, s, 'cx'), greaterThanOrEqualTo(0));
+      await settle(t, s);
+      final w = s.w;
+      expect(w.sharedBlocked(), isTrue);
+      expect(
+        find.text(
+          'This conversation is no longer available. Your draft and files are kept.',
+        ),
+        findsOneWidget,
+      );
+      expect(w.drafts['cx'], 'Shared caption');
+      expect(w.uploads().single.queued, isTrue);
+      expect(await w.send('hello'), isFalse);
+      expect(sentAnything(s.f), isEmpty);
+      await s.f.close(t);
+    },
+  );
+
+  testWidgets(
+    'share: a server the account lost is reported on the composer after the hand-off; nothing is dropped or sent',
+    (t) async {
+      final copy = Gate();
+      copyGates.add(copy);
+      final sharing = slowSharing(dir, copy);
+      final s = await boot(t, dir, cold: false, sharing: sharing);
+      sharing.receive(_share);
+      s.f.adapter.routes['GET /servers'] = (o) async {
         await s.gate.done.future;
-        return [f.servers[1]];
+        return [s.f.servers[1]];
       };
-      await framesUntil(t, pickerVisible);
-      expect(row('cx'), isTrue);
+      await continueOn(t, s, copy, 'cx');
+      expect(await landed(t, s, 'cx'), greaterThanOrEqualTo(0));
+      await settle(t, s);
+      final w = s.w;
+      expect(w.sharedBlocked(), isTrue);
+      expect(
+        find.text(
+          'You are no longer a member of this server. Your draft and files are kept.',
+        ),
+        findsOneWidget,
+      );
+      expect(w.drafts['cx'], 'Shared caption');
+      expect(w.uploads(), isNotEmpty);
+      expect(sentAnything(s.f), isEmpty);
+      await s.f.close(t);
+    },
+  );
+
+  testWidgets(
+    'share: a destination on another server opens from the device with every request pending',
+    (t) async {
+      final copy = Gate();
+      copyGates.add(copy);
+      final sharing = slowSharing(dir, copy);
+      final s = await boot(
+        t,
+        dir,
+        cold: false,
+        sharing: sharing,
+        bothServers: true,
+      );
+      sharing.receive(_share);
+      await framesUntil(t, pickerVisible, gate: null);
+      await copyDone(t, copy);
       await t.pump(const Duration(milliseconds: 400));
-      await t.tap(find.byKey(const ValueKey('incoming-target-cx')));
+      await t.tap(find.text('Beta').last);
+      await t.pump(const Duration(milliseconds: 100));
+      expect(row('cb'), isTrue, reason: 'Beta destinations from the device');
+      await t.tap(find.byKey(const ValueKey('incoming-target-cb')));
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
       await t.pump();
-      copy.open();
-      await settle(t, s);
-      expect(pickerVisible(), isTrue);
-      expect(row('cx'), isFalse);
-      expect(row('cb'), isTrue, reason: 'redirected to the remaining server');
-      expect(find.text(_revokedNotice), findsOneWidget);
+      final polls = await landed(t, s, 'cb');
+      metric('share cross-server: composer with API closed', polls);
+      expect(polls, greaterThanOrEqualTo(0));
       final w = s.w;
-      expect(w.drafts['cx'], isNull);
-      expect(w.channel?.id, openChannel);
-      expect(sentAnything(f), isEmpty);
-      await t.pageBack();
-      await f.close(t);
+      expect(w.server?.id, 'b');
+      expect(w.drafts['cb'], 'Shared caption');
+      expect(w.uploads().single.queued, isTrue);
+      expect(w.sharedBlocked(), isTrue);
+      await settle(t, s, 20);
+      expect(w.server?.id, 'b');
+      expect(w.channel?.id, 'cb');
+      expect(w.drafts['cb'], 'Shared caption');
+      expect(w.sharedBlocked(), isFalse);
+      expect(sentAnything(s.f), isEmpty);
+      await s.f.close(t);
+    },
+  );
+
+  testWidgets(
+    'share: a brand-new DM opens an optimistic composer and resolves behind it',
+    (t) async {
+      final copy = Gate();
+      copyGates.add(copy);
+      final sharing = slowSharing(dir, copy);
+      final s = await boot(t, dir, cold: false, sharing: sharing);
+      sharing.receive(_share);
+      await framesUntil(t, pickerVisible, gate: null);
+      final api = await regate(t, s);
+      await copyDone(t, copy);
+      await t.pump(const Duration(milliseconds: 400));
+      final bob = find.byWidgetPredicate(
+        (w) =>
+            w.key is ValueKey &&
+            '${(w.key as ValueKey).value}'.startsWith(
+              'incoming-target-user:bob',
+            ),
+      );
+      expect(bob, findsOneWidget, reason: 'a member without a DM yet');
+      await t.tap(bob);
+      await t.pump();
+      await t.tap(find.byKey(const Key('incoming-share-continue')));
+      await t.pump();
+      const pendingId = 'pending-dm:user:bob:agent:null';
+      final polls = await landed(t, s, pendingId, api: api);
+      metric('share new DM: composer with API closed', polls);
+      expect(polls, greaterThanOrEqualTo(0));
+      final w = s.w;
+      expect(w.sharedBlocked(), isTrue);
+      expect(api.done.isCompleted, isFalse);
+      // The request to create the DM is out, unanswered; nothing else is.
+      expect(sentAnything(s.f), everyElement('POST /channels/dm'));
+      // The conversation exists: draft, files and selection move to it.
+      api.open();
+      await settle(t, s, 20);
+      expect(w.channel?.id, 'dmbob');
+      expect(w.drafts['dmbob'], 'Shared caption');
+      expect(w.drafts[pendingId], isNull);
+      expect(w.uploads().single.queued, isTrue);
+      expect(w.sharedBlocked(), isFalse);
+      expect(sentAnything(s.f), [
+        'POST /channels/dm',
+      ], reason: 'the DM is created; nothing is sent');
+      await s.f.close(t);
+    },
+  );
+
+  testWidgets(
+    'share: a DM that cannot be created keeps the draft and files and says so',
+    (t) async {
+      final copy = Gate();
+      copyGates.add(copy);
+      final sharing = slowSharing(dir, copy);
+      final s = await boot(t, dir, cold: false, sharing: sharing);
+      sharing.receive(_share);
+      s.f.adapter.statuses['POST /channels/dm'] = 403;
+      await framesUntil(t, pickerVisible, gate: null);
+      final api = await regate(t, s);
+      await copyDone(t, copy);
+      await t.pump(const Duration(milliseconds: 400));
+      await t.tap(
+        find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey &&
+              '${(w.key as ValueKey).value}'.startsWith(
+                'incoming-target-user:bob',
+              ),
+        ),
+      );
+      await t.pump();
+      await t.tap(find.byKey(const Key('incoming-share-continue')));
+      await t.pump();
+      expect(
+        await landed(t, s, 'pending-dm:user:bob:agent:null', api: api),
+        greaterThanOrEqualTo(0),
+      );
+      api.open();
+      await settle(t, s, 20);
+      final w = s.w;
+      expect(w.channel?.id, 'pending-dm:user:bob:agent:null');
+      expect(w.sharedBlocked(), isTrue);
+      expect(
+        find.text(
+          'Could not open this conversation. Your draft and files are kept.',
+        ),
+        findsOneWidget,
+      );
+      expect(w.drafts['pending-dm:user:bob:agent:null'], 'Shared caption');
+      expect(w.uploads(), isNotEmpty);
+      await s.f.close(t);
+    },
+  );
+
+  testWidgets(
+    'share: a public channel asks to join at once, opens joined from the device, and joins behind the composer',
+    (t) async {
+      final copy = Gate();
+      copyGates.add(copy);
+      final sharing = slowSharing(dir, copy);
+      final s = await boot(t, dir, cold: false, sharing: sharing);
+      sharing.receive(_share);
+      await framesUntil(t, pickerVisible, gate: null);
+      await copyDone(t, copy);
+      await t.pump(const Duration(milliseconds: 400));
+      await t.tap(find.byKey(const ValueKey('incoming-target-cp')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('incoming-share-continue')));
+      await t.pump(const Duration(milliseconds: 100));
+      await t.pump(const Duration(milliseconds: 400));
+      // The dialog needs no request.
+      expect(
+        find.text('Join #public-p to add shared content?'),
+        findsOneWidget,
+      );
+      expect(s.gate.done.isCompleted, isFalse);
+      await t.tap(find.text('Join channel').last);
+      await t.pump();
+      final polls = await landed(t, s, 'cp');
+      metric('share public channel: composer with API closed', polls);
+      expect(polls, greaterThanOrEqualTo(0));
+      final w = s.w;
+      expect(w.channel?.joined, isTrue);
+      expect(w.sharedBlocked(), isTrue);
+      await settle(t, s, 20);
+      expect(
+        s.f.adapter.calls.where((c) => c.path == '/channels/cp/join'),
+        hasLength(1),
+      );
+      expect(w.sharedBlocked(), isFalse);
+      expect(w.drafts['cp'], 'Shared caption');
+      expect(sentAnything(s.f), ['POST /channels/cp/join']);
+      await s.f.close(t);
+    },
+  );
+
+  testWidgets(
+    'share: a join that fails returns the Join button; the draft and files stay',
+    (t) async {
+      final copy = Gate();
+      copyGates.add(copy);
+      final sharing = slowSharing(dir, copy);
+      final s = await boot(t, dir, cold: false, sharing: sharing);
+      sharing.receive(_share);
+      s.f.adapter.statuses['POST /channels/cp/join'] = 403;
+      await framesUntil(t, pickerVisible, gate: null);
+      await copyDone(t, copy);
+      await t.pump(const Duration(milliseconds: 400));
+      await t.tap(find.byKey(const ValueKey('incoming-target-cp')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('incoming-share-continue')));
+      await t.pump(const Duration(milliseconds: 500));
+      await t.tap(find.text('Join channel').last);
+      await t.pump();
+      await settle(t, s, 20);
+      final w = s.w;
+      expect(w.channel?.joined, isFalse);
+      expect(w.sharedBlocked(), isFalse);
+      expect(w.drafts['cp'], 'Shared caption');
+      expect(w.uploads(), isNotEmpty);
+      expect(w.error, 'Could not join this channel.');
+      await s.f.close(t);
     },
   );
 

@@ -35,6 +35,25 @@ class _Client extends RaftClient {
   }
 }
 
+/// Every directory read hangs: only the device's rows are on screen.
+class _Silent extends RaftClient {
+  _Silent()
+    : super(origin: 'https://example.test', sessionStore: MemorySessionStore());
+  int reads = 0;
+  @override
+  Future<dynamic> getForServer(
+    String server,
+    String path, {
+    Map<String, dynamic>? query,
+  }) {
+    reads++;
+    return Completer<dynamic>().future;
+  }
+
+  @override
+  Future<List<RaftRecord>> servers() => Completer<List<RaftRecord>>().future;
+}
+
 const _files = [
   IncomingSharedFile('content://f/a', 'IMG_2041.jpg', 'image/jpeg', 2000000),
   IncomingSharedFile('content://f/b', 'VID_0932.mp4', 'video/mp4', 12000000),
@@ -355,6 +374,57 @@ void main() {
       );
     });
   }
+
+  testWidgets(
+    'Continue hands off from the device rows without waiting for any read',
+    (t) async {
+      t.view.physicalSize = const Size(390, 844) * 3;
+      t.view.devicePixelRatio = 3;
+      addTearDown(t.view.reset);
+      final client = _Silent();
+      final received = <String>[];
+      final staging = IncomingShareStaging(_staged());
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: IncomingSharePicker(
+            client: client,
+            staging: staging,
+            servers: [
+              RaftRecord({'id': 's', 'name': 'S', 'role': 'owner'}),
+            ],
+            valid: () => true,
+            cachedTargets: (server) => [
+              IncomingShareTarget(
+                '#general',
+                channel: RaftChannel({
+                  'id': 'c1',
+                  'name': 'general',
+                  'type': 'channel',
+                  'joined': true,
+                }),
+              ),
+            ],
+            onContinue: (server, target) async =>
+                received.add('${server.id}:${target.key}'),
+          ),
+        ),
+      );
+      await t.pump();
+      // The directory and membership reads are in flight and never answer.
+      expect(client.reads, greaterThan(0));
+      await t.tap(find.byKey(const ValueKey('incoming-target-c1')));
+      await t.pump(const Duration(milliseconds: 400));
+      await t.tap(find.byKey(const Key('incoming-share-continue')));
+      await t.pump();
+      expect(received, ['s:c1']);
+      await t.pump(const Duration(milliseconds: 600));
+      addTearDown(() async {
+        await t.pumpWidget(const SizedBox());
+        await client.dispose();
+      });
+    },
+  );
 
   testWidgets('zh: waiting and error strings are Chinese', (t) async {
     final staging = IncomingShareStaging(_raw);

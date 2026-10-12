@@ -276,19 +276,8 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
         !widget.valid()) {
       return;
     }
-    // A device-cached or authority-stale row authorizes nothing: wait for the
-    // fresh directory (it may drop the row) before joining or adding.
-    for (var wait = 0; revalidating && wait < 3; wait++) {
-      setState(() {
-        busy = true;
-        handoffError = null;
-      });
-      await validation;
-      if (!mounted || !widget.valid()) return;
-      setState(() => busy = false);
-    }
     final destination = selected, scope = server;
-    if (destination == null || scope == null || revalidating) return;
+    if (destination == null || scope == null) return;
     if (destination.requiresJoin) {
       final accepted = await RaftConfirmDialog.show(
         context,

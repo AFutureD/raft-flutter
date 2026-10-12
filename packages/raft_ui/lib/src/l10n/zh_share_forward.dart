@@ -30,4 +30,15 @@ const Map<String, String> zhCatalogShareForward = <String, String>{
   "Empty file": "空文件",
   "Over the 100 MB total": "超出 100 MB 总量",
   "Could not be read": "无法读取",
+
+  // Shared content opened from device data; the destination is checked after.
+  "You are no longer a member of this server. Your draft and files are kept.":
+      "你已不再是此服务器的成员。草稿和文件已保留。",
+  "This conversation cannot receive shared content. Your draft and files are kept.":
+      "此会话无法接收分享内容。草稿和文件已保留。",
+  "This conversation is no longer available. Your draft and files are kept.":
+      "此会话已不可用。草稿和文件已保留。",
+  "Could not open this conversation. Your draft and files are kept.":
+      "无法打开此会话。草稿和文件已保留。",
+  "Could not join this channel.": "无法加入此频道。",
 };
