@@ -162,6 +162,16 @@ jobs:
           path: build/appimage-smoke/
           if-no-files-found: warn
           retention-days: 14
+      - name: Preserve macOS dependency diagnostics
+        if: matrix.platform == 'macos' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-podspec-diagnostics
+          path: |
+            apps/raft_flutter/macos/Pods/Local Podspecs/*.json
+            apps/raft_flutter/macos/Podfile.lock
+          if-no-files-found: warn
+          retention-days: 14
       - name: Ensure tracked dependencies stayed locked
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
