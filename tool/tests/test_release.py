@@ -22,14 +22,15 @@ class ReleaseTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
-    def test_default_enables_windows_and_arm64_android(self):
+    def test_default_enables_windows_android_and_flatpak(self):
         result = release.release_plan(self.config, '')
-        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android'])
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android', 'flatpak'])
         self.assertEqual(result['include'][1]['arch'], 'arm64')
 
     def test_pull_requests_do_not_build_with_android_signing_secrets(self):
         result = release.release_plan(self.config, '', event='pull_request')
-        self.assertEqual([r['platform'] for r in result['include']], ['windows'])
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'flatpak'])
+
 
     def test_manual_can_test_future_platforms(self):
         result = release.release_plan(self.config, 'windows, macos,linux,android')
@@ -137,6 +138,16 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn(f'--dart-define=RAFT_APP_VERSION={version}', command)
                 self.assertIn(f'--build-number={number}', command)
                 self.assertNotIn('DART_DEFINES', commands.call_args.kwargs['env'])
+
+    def test_flatpak_compiles_linux_without_android_keys(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
+                patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands:
+            with self.assertRaisesRegex(RuntimeError, 'captured'):
+                release.build('flatpak')
+            command = commands.call_args.args[0]
+            self.assertIn('linux', command)
+            self.assertNotIn('flatpak', command)
+            self.assertIn('--target=lib/main.dart', command)
 
     def test_android_missing_secrets_never_invokes_flutter(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \

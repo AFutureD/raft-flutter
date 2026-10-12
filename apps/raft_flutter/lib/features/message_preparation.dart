@@ -26,16 +26,8 @@ class MessagePreparation {
   MessagePreparation({
     required this.isIdle,
     void Function(VoidCallback)? scheduleIdle,
-  }) : _scheduleIdle = scheduleIdle ?? _submitIdle;
+  }) : _scheduleIdle = scheduleIdle ?? ((task) => task());
   final void Function(VoidCallback) _scheduleIdle;
-
-  static void _submitIdle(VoidCallback task) {
-    SchedulerBinding.instance.scheduleTask<void>(
-      task,
-      Priority.idle,
-      debugLabel: 'Raft message preparation',
-    );
-  }
 
   final bool Function() isIdle;
   final _jobs = Queue<VoidCallback>();
@@ -67,7 +59,14 @@ class MessagePreparation {
   void _run() {
     _timer = null;
     if (_disposed || _jobs.isEmpty) return;
-    if (!isIdle()) {
+    final scheduler = SchedulerBinding.instance;
+    // Flutter's rejected Priority.idle tasks are retried through Timer.run.
+    // On the Windows platform/UI thread that can starve native messages while
+    // a ticker remains active. Our positive-delay timer already yields; check
+    // the same animation gate before executing one bounded preparation job.
+    if (!isIdle() ||
+        scheduler.schedulerPhase != SchedulerPhase.idle ||
+        scheduler.transientCallbackCount > 0) {
       _arm(const Duration(milliseconds: 250));
       return;
     }
