@@ -33,6 +33,7 @@ import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
+import 'platform/launch_theme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/native_sharing.dart';
@@ -507,6 +508,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       DevicePreferences.adopt(p);
       origin = p.getString('raft.origin') ?? origin;
       appearance = storedAppearance(p);
+      // Heals the native splash theme (app update, restored preferences).
+      unawaited(NativeLaunchTheme.instance.set(appearance));
       cache =
           await (widget.openWorkspaceCache?.call() ??
               DriftWorkspaceCache.open());
@@ -1698,6 +1701,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     final p = await SharedPreferences.getInstance();
     await p.setString('raft.mode', value.mode.name);
     await p.setString('raft.light', value.light.name);
+    // The next cold start's native splash needs the new canvas.
+    await NativeLaunchTheme.instance.set(value);
   }
 
   @override

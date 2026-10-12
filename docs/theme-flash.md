@@ -36,7 +36,7 @@ So the "default theme" the owner sees is the icon-colour splash (native), not a 
 
 ## Splash
 
-The icon-colour splash is an owner requirement for the icon feature and is unchanged. Options if the splash colour itself must not differ from the chosen theme are listed in the hand-off notes.
+The icon-colour splash was the visible "default theme". It is replaced by the stored theme's canvas plus the chosen icon as a tile; see "Launch screen" in [custom-app-icons.md](custom-app-icons.md). Device frame evidence: `/tmp/splash/<case>/sheet.png` and `frames.txt` (Android API 37 emulator).
 
 ## Desktop (Linux profile build under xvfb; macOS needs a Mac recording)
 

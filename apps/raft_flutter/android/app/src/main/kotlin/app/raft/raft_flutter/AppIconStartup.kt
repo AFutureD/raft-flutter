@@ -23,8 +23,6 @@ internal object AppIconPalette {
         val active = colors.filter { enabled(context, it) }
         return active.firstOrNull() ?: "yellow"
     }
-    fun background(context: Context): Int = context.resources.getIdentifier(
-        "launch_" + selected(context), "drawable", context.packageName)
 }
 
 /** Theme-bound native entry points transfer the splash to ONE permanent
