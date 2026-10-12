@@ -107,3 +107,32 @@ Sources: [GitHub runner labels](https://docs.github.com/en/actions/reference/run
 [Flutter SDK action / FVM pinning](https://github.com/subosito/flutter-action),
 [GitHub CLI release creation](https://cli.github.com/manual/gh_release_create),
 [release asset upload](https://cli.github.com/manual/gh_release_upload).
+
+## Android CI verification (2026-10-12)
+
+The [manual Android run](https://github.com/kevinzhow/raft-flutter/actions/runs/38229094176)
+passed on source `95d161f7d122167b58e223bd9c6b6091ddd7a5f5`. The downloaded
+`raft-flutter-0.1.0-android-arm64.apk` was independently checked with Build Tools 37:
+package `app.raft.raft_flutter`, version `0.1.0`, version code `2001`, only
+`arm64-v8a`, and certificate SHA-256
+`565c29877e7edc82ff449b8f4406e7b98ef2fce11e67a2555d142be1306ccd33`.
+Its 54,590,020 bytes matched SHA-256
+`675241868000a8b4fbb4f15c126c36320e4803e9706a8765e63dfc668e827a9f`.
+This source also passed the integration gate: 5,320 Dart tests, 261 host tests,
+analysis and the design-system ratchet (36 Dart tests skipped; sampled themes).
+
+Earlier failed runs remain available: missing SDK command-line PATH
+[38226748717](https://github.com/kevinzhow/raft-flutter/actions/runs/38226748717),
+removed `tools` package
+[38227008234](https://github.com/kevinzhow/raft-flutter/actions/runs/38227008234),
+wrong platform package name
+[38227279262](https://github.com/kevinzhow/raft-flutter/actions/runs/38227279262),
+and old certificate-output parsing
+[38227596272](https://github.com/kevinzhow/raft-flutter/actions/runs/38227596272).
+The workflow now initializes SDK command-line tools explicitly and installs
+`platforms;android-37.0` / `build-tools;37.0.0`; both CI and installation preflight
+recognize versioned signer labels such as `V3.0 Signer`.
+
+SDK setup: [setup-android](https://github.com/android-actions/setup-android).
+Signature verification: [Android apksigner](https://developer.android.com/tools/apksigner).
+Compilation, signatures and asset publication do not establish device functional acceptance.
