@@ -32,10 +32,11 @@ class RootAdapter extends MessageAdapter {
     calls.add(options);
     final key = '${options.method} ${options.path}',
         route = routes['${options.method} ${options.path}'];
-    final status = route == null ? 404 : statuses[key] ?? 200;
     var body = route == null
         ? {'error': 'Unexpected endpoint'}
         : await route(options);
+    // Read after the route ran: a route may set its own status while it runs.
+    final status = route == null ? 404 : statuses[key] ?? 200;
     // The server answers every rejected credential with its JSON error
     // (routes/auth.ts respondInvalidOrExpiredToken); only that body makes a
     // 401 a definitive rejection for the client.

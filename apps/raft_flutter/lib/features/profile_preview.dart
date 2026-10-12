@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/runtime_config.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_detail_view.dart' show agentTimeFormatter;
@@ -32,17 +33,6 @@ const _runtimeNames = <String, String>{
   'pi': 'Pi',
 };
 const _deprecatedRuntimes = {'antigravity', 'kimi', 'gemini'};
-
-/// shared REASONING_EFFORT_RUNTIMES.
-const _reasoningRuntimes = {
-  'builtin',
-  'claude',
-  'codex',
-  'grok',
-  'copilot',
-  'pi',
-  'kimi-sdk',
-};
 
 String runtimeLabelWithStatus(BuildContext context, String runtime) {
   final name = _runtimeNames[runtime] ?? runtime;
@@ -443,11 +433,14 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
         description: description,
       );
     }
+    // Web ProfilePreviewCardContent: hydrate only when the projection carried
+    // a private `runtimeConfig`; otherwise the public flat columns. The
+    // structured `model` is an object ({kind, id|name}), never a string.
     final config = row['runtimeConfig'] is Map
-        ? row['runtimeConfig'] as Map
+        ? RuntimeConfig.fromAgent(row)
         : null;
-    final runtime = '${config?['runtime'] ?? row['runtime'] ?? 'unknown'}';
-    final model = '${config?['model'] ?? row['model'] ?? ''}';
+    final runtime = config?.runtime ?? '${row['runtime'] ?? 'unknown'}';
+    final model = config?.model ?? '${row['model'] ?? ''}';
     final external = row['external'] == true || runtime == 'external';
     final activityValue = '${row['activity'] ?? 'offline'}';
     final statusText = private
@@ -465,10 +458,9 @@ class _ProfilePreviewContentState extends State<ProfilePreviewContent> {
         : machineId is String && !computers.loaded
         ? null
         : raftText(context, 'No computer assigned');
-    final reasoning = _reasoningRuntimes.contains(runtime)
-        ? (config?['reasoningEffort'] is String &&
-                  (config!['reasoningEffort'] as String).isNotEmpty
-              ? config['reasoningEffort'] as String
+    final reasoning = runtimeSupportsReasoning(runtime)
+        ? (config?.reasoningEffort?.isNotEmpty == true
+              ? config!.reasoningEffort!
               : raftText(context, 'Default'))
         : null;
     return RaftProfilePreviewCard(

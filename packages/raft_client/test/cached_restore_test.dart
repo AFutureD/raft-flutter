@@ -128,6 +128,51 @@ void main() {
     await client.dispose();
   });
 
+  for (final status in [400, 404, 408, 429]) {
+    test(
+      'cached-first restore preserves credentials on HTTP $status',
+      () async {
+        final (client, adapter, store) = await _restore({
+          'error': 'Validation temporarily unavailable',
+        }, status: status);
+        final before = await store.read(client.origin);
+        final events = <String>[];
+        client.events.listen((e) => events.add(e.name));
+        adapter.gate.complete();
+        await client.sessionValidated;
+        await Future<void>.delayed(Duration.zero);
+        expect(client.user?.id, 'alice');
+        expect(client.signedIn, isTrue);
+        expect(client.restoredOffline, isTrue);
+        expect(await store.read(client.origin), same(before));
+        expect(events, isNot(contains('session:ended')));
+        expect(adapter.paths, isNot(contains('POST /auth/logout')));
+        await client.dispose();
+      },
+    );
+  }
+
+  // The server never answers 403 on /auth/me (a retired account or revoked
+  // session is `401 {"error":...}`), so a 403 is a proxy or WAF and says
+  // nothing about the credentials: keep them (docs/logout-audit.md).
+  test(
+    'cached-first restore preserves credentials on forbidden validation',
+    () async {
+      final (client, adapter, store) = await _restore({
+        'error': 'Forbidden',
+      }, status: 403);
+      final before = await store.read(client.origin);
+      adapter.gate.complete();
+      await client.sessionValidated;
+      expect(client.user?.id, 'alice');
+      expect(client.signedIn, isTrue);
+      expect(client.restoredOffline, isTrue);
+      expect(await store.read(client.origin), same(before));
+      expect(adapter.paths, isNot(contains('POST /auth/logout')));
+      await client.dispose();
+    },
+  );
+
   test(
     'requests and the cached account never wait for a guest to settle',
     () async {

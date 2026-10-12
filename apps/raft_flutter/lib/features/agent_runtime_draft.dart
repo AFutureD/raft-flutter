@@ -8,18 +8,20 @@
 // Built-in Pi, Pi and Kimi Code carry provider machinery (connections, API
 // keys, gateways, schema forms) of their own; those runtimes stay on the
 // protocol-v2 form (see [legacyRuntimeEditorSupports]).
+import '../data/runtime_config.dart';
 import 'agent_runtime_catalog.dart';
 
 /// Runtimes whose settings the legacy editor can present and save.
 bool legacyRuntimeEditorSupports(String runtime) =>
     !const {'builtin', 'pi', 'kimi-sdk', 'external'}.contains(runtime);
 
-bool supportsRuntimeApiUrl(String runtime) => runtime == 'claude';
-bool supportsRuntimeCommand(String runtime) => runtime == 'claude';
+// One definition of the supported-runtime sets: data/runtime_config.dart.
+bool supportsRuntimeApiUrl(String runtime) => runtimeSupportsApiUrl(runtime);
+bool supportsRuntimeCommand(String runtime) => runtimeSupportsCommand(runtime);
 bool supportsRuntimeFastMode(String runtime) =>
-    fastModeRuntimes.contains(runtime);
+    runtimeSupportsFastMode(runtime);
 bool supportsRuntimeReasoning(String runtime) =>
-    reasoningEffortRuntimes.contains(runtime);
+    runtimeSupportsReasoning(runtime);
 
 /// `supportsRuntimeCustomModelName`.
 bool supportsRuntimeCustomModelName(String runtime) => const {
@@ -331,40 +333,23 @@ class RuntimeDraft {
     envVars: [...envVars],
   );
 
-  /// `hydrateRuntimeConfigForm(agent)`: the structured runtimeConfig when the
-  /// profile carries it, else the agent's legacy columns.
+  /// `hydrateRuntimeConfigForm(agent)` -> the draft seed: the shared
+  /// [RuntimeConfig.fromAgent] (structured runtimeConfig, flat columns as the
+  /// fallback) so the editor opens on exactly what the profile shows.
   factory RuntimeDraft.hydrate(Map<String, dynamic> agent) {
-    final cfg = agent['runtimeConfig'] is Map
-        ? Map<String, dynamic>.from(agent['runtimeConfig'] as Map)
-        : const <String, dynamic>{};
-    final runtime = '${cfg['runtime'] ?? agent['runtime'] ?? 'claude'}';
-    final modelCfg = cfg['model'] is Map ? cfg['model'] as Map : null;
-    final custom = modelCfg?['kind'] == 'custom';
-    final provider = cfg['provider'] is Map ? cfg['provider'] as Map : null;
-    final modeCfg = cfg['mode'] is Map ? cfg['mode'] as Map : null;
-    final env = cfg['envVars'] is Map ? cfg['envVars'] : agent['envVars'];
+    final config = RuntimeConfig.fromAgent(agent);
     return RuntimeDraft(
-      runtime: runtime,
-      model: custom
-          ? '${modelCfg?['name'] ?? ''}'
-          : '${modelCfg?['id'] ?? agent['model'] ?? defaultRuntimeModel(runtime)}',
-      customModelMode: custom,
-      providerCustom: provider?['kind'] == 'custom',
-      providerApiUrl: provider?['kind'] == 'custom'
-          ? '${provider?['apiUrl'] ?? ''}'
-          : '',
-      providerApiKey: provider?['kind'] == 'custom'
-          ? '${provider?['apiKey'] ?? ''}'
-          : '',
-      fastMode: modeCfg != null
-          ? modeCfg['kind'] == 'fast'
-          : agent['fastMode'] == true,
-      command: '${cfg['command'] ?? ''}'.trim(),
-      reasoning:
-          (cfg['reasoningEffort'] ?? agent['reasoningEffort']) as String?,
+      runtime: config.runtime,
+      model: config.model,
+      customModelMode: config.customModel,
+      providerCustom: config.customProvider,
+      providerApiUrl: config.providerApiUrl,
+      providerApiKey: config.customProvider ? config.apiKey : '',
+      fastMode: config.fastMode,
+      command: config.commandText,
+      reasoning: config.reasoningEffort,
       envVars: [
-        if (env is Map)
-          for (final e in env.entries) MapEntry('${e.key}', '${e.value}'),
+        for (final e in config.envVarMap.entries) MapEntry(e.key, e.value),
       ],
     );
   }

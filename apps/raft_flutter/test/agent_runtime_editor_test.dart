@@ -52,6 +52,9 @@ class _Client extends RaftClient {
   Map<String, dynamic>? form;
   Completer<void>? patchGate;
   Object? patchError;
+
+  /// Applies a PATCH body to the stored agent like the server does.
+  void Function(Map body)? onPatch;
   final stream = StreamController<RaftEvent>.broadcast(sync: true);
   @override
   Stream<RaftEvent> get events => stream.stream;
@@ -77,6 +80,7 @@ class _Client extends RaftClient {
     if (path == '/agents/a1' && method == 'PATCH') {
       await patchGate?.future;
       if (patchError case final Exception e) throw e;
+      if (data is Map) onPatch?.call(data);
       return agent;
     }
     if (path.endsWith('/skills')) return {'global': [], 'workspace': []};
@@ -112,6 +116,7 @@ Future<(WorkspaceController, _Client)> _open(
   Map<String, dynamic>? agent,
   void Function(_Client)? setup,
   bool v2Flag = false,
+  bool openEditor = true,
 }) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(900, 2400);
@@ -140,8 +145,10 @@ Future<(WorkspaceController, _Client)> _open(
     ),
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('agent-edit-runtime')));
-  await tester.pumpAndSettle();
+  if (openEditor) {
+    await tester.tap(find.byKey(const ValueKey('agent-edit-runtime')));
+    await tester.pumpAndSettle();
+  }
   return (w, c);
 }
 
@@ -169,7 +176,115 @@ bool _saveEnabled(WidgetTester tester) =>
         .onPressed !=
     null;
 
+/// A real server `GET /agents/:id` payload: the structured runtimeConfig next
+/// to the flat columns (there is no flat fast-mode column).
+Map<String, dynamic> _fastAgent({bool fast = true, String effort = 'medium'}) =>
+    _agent(
+      extra: {
+        'reasoningEffort': effort,
+        'runtimeConfig': {
+          'version': 1,
+          'runtime': 'codex',
+          'model': {'kind': 'preset', 'id': 'gpt-5-codex'},
+          'mode': {'kind': fast ? 'fast' : 'default'},
+          'reasoningEffort': effort,
+          'envVars': null,
+        },
+      },
+    );
+
+Finder _modeRow() =>
+    find.ancestor(of: find.text('Mode'), matching: find.byType(RaftInfoRow));
+
 void main() {
+  testWidgets('the profile shows Fast mode from runtimeConfig.mode.kind', (
+    tester,
+  ) async {
+    await _open(tester, agent: _fastAgent(), openEditor: false);
+    expect(_modeRow(), findsOneWidget);
+    expect(
+      find.descendant(of: _modeRow(), matching: find.text('Fast mode')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the profile shows Default when the mode is default', (
+    tester,
+  ) async {
+    await _open(tester, agent: _fastAgent(fast: false), openEditor: false);
+    expect(
+      find.descendant(of: _modeRow(), matching: find.text('Default')),
+      findsOneWidget,
+    );
+    expect(find.text('Fast mode'), findsNothing);
+  });
+
+  testWidgets('a legacy flat fastMode flag is not a saved mode', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      agent: _agent(extra: {'fastMode': true}),
+      openEditor: false,
+    );
+    expect(find.text('Fast mode'), findsNothing);
+  });
+
+  testWidgets('the profile shows every reasoning effort of the ladder', (
+    tester,
+  ) async {
+    await _open(tester, agent: _fastAgent(effort: 'ultra'), openEditor: false);
+    expect(find.text('Ultra'), findsOneWidget);
+  });
+
+  testWidgets('the editor opens with Fast mode checked from runtimeConfig', (
+    tester,
+  ) async {
+    await _open(tester, agent: _fastAgent());
+    expect(
+      tester
+          .widget<RaftAgentOptionCard>(_k('runtime-editor-fast-mode'))
+          .checked,
+      isTrue,
+    );
+    // Opened on the saved state: nothing to save yet.
+    expect(_saveEnabled(tester), isFalse);
+  });
+
+  testWidgets('saving a mode change updates the profile immediately', (
+    tester,
+  ) async {
+    final (_, client) = await _open(
+      tester,
+      agent: _fastAgent(fast: false),
+      setup: (c) => c.onPatch = (body) {
+        c.agent = {
+          ...c.agent,
+          'runtimeConfig': body['runtimeConfig'],
+          'reasoningEffort': body['reasoningEffort'],
+        };
+      },
+    );
+    expect(
+      tester
+          .widget<RaftAgentOptionCard>(_k('runtime-editor-fast-mode'))
+          .checked,
+      isFalse,
+    );
+    await tester.tap(_k('runtime-editor-fast-mode'));
+    await tester.pump();
+    await tester.tap(_k('runtime-editor-save'));
+    await tester.pumpAndSettle();
+    final body = client.calls.where((c) => c.$1 == 'PATCH').single.$3 as Map;
+    expect((body['runtimeConfig'] as Map)['mode'], {'kind': 'fast'});
+    expect(find.text('EDIT RUNTIME CONFIG'), findsNothing);
+    // The profile behind the closed modal now reads the saved mode.
+    expect(
+      find.descendant(of: _modeRow(), matching: find.text('Fast mode')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('without the v2 flag the legacy fields are presented', (
     tester,
   ) async {
