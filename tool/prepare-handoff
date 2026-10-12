@@ -3,7 +3,9 @@
 
 1. fetch origin and merge origin/cindy/integration into the current branch
    (stops on conflicts so the branch owner resolves them, not the integrator);
-2. run tool/check-project under the shared gate lock;
+2. run tool/check-project under the shared gate lock (waiting, holder, start,
+   first failure, abort and result are appended to /tmp/raft-flutter-gate-events.log;
+   check-project stops early on compile errors, repeated failures or a stall);
 3. print one line to paste into the handoff message: branch, commit, base,
    source hash and the gate result.
 
@@ -13,13 +15,18 @@ Default gate runs the sampled theme matrix; --all-themes (or RAFT_TEST_ALL_THEME
 runs every theme variant of every test (use it before merging to main).
 """
 import argparse
+import datetime
 import errno
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import gate_events  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent
 gate_lock = pathlib.Path('/tmp/raft-flutter-check.lock')
@@ -30,7 +37,38 @@ def git(*args, check=True):
                           capture_output=True).stdout.strip()
 
 
-def run_gate(all_themes=False):
+def holder_text(lock):
+    """What the current lock holder wrote (branch, pid, start), flagged when its pid is gone."""
+    try:
+        lock.seek(0)
+        text = ' '.join(lock.read().decode('utf-8', 'replace').split())
+        pid = re.search(r'pid=(\d+)', text)
+        if pid:
+            os.kill(int(pid[1]), 0)
+    except ProcessLookupError:
+        text += ' (holder pid not running)'
+    except (OSError, ValueError):
+        pass
+    return text or 'unknown'
+
+
+def run_check(command, state):
+    """check-project as a child we can stop: on SIGTERM/SIGINT here it gets SIGTERM, cleans up and logs ERROR itself."""
+    child = subprocess.Popen(command, cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    state['child'] = True
+    try:
+        out, err = child.communicate()
+    except BaseException:
+        child.terminate()  # only the pid we started
+        try:
+            child.wait(60)
+        except subprocess.TimeoutExpired:
+            child.kill()
+        raise
+    return subprocess.CompletedProcess(command, child.returncode, out, err)
+
+
+def run_gate(emit, state, all_themes=False):
     command = [sys.executable, str(root / 'tool/check-project')] + (['--all-themes'] if all_themes else [])
     gate_lock.parent.mkdir(parents=True, exist_ok=True)
     with gate_lock.open('a+b') as lock:
@@ -39,6 +77,7 @@ def run_gate(all_themes=False):
             if lock.seek(0, os.SEEK_END) == 0:
                 lock.write(b'0')
                 lock.flush()
+            waiting = False
             while True:
                 lock.seek(0)
                 try:
@@ -47,17 +86,32 @@ def run_gate(all_themes=False):
                 except OSError as error:
                     if error.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
                         raise
+                    if not waiting:  # the holder's note is unreadable under the byte lock
+                        waiting = True
+                        emit('WAITING', holder='unknown')
                     time.sleep(0.2)
             try:
-                return subprocess.run(command, cwd=root, text=True, capture_output=True)
+                return run_check(command, state)
             finally:
                 lock.seek(0)
                 msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
         else:
             # Same flock(2) lock on macOS/Linux, including Linux CLI callers.
             import fcntl
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            return subprocess.run(command, cwd=root, text=True, capture_output=True)
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                emit('WAITING', holder=holder_text(lock))
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            # Who holds the lock, for the next WAITING line.
+            started = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            lock.truncate(0)
+            lock.write(f'branch={emit.branch} pid={os.getpid()} started={started} wt={root}\n'.encode())
+            lock.flush()
+            try:
+                return run_check(command, state)
+            finally:
+                lock.truncate(0)
 
 
 def main():
@@ -68,6 +122,7 @@ def main():
     parser.add_argument('--no-check', action='store_true',
                         help='merge only (docs-only branches)')
     args = parser.parse_args()
+    emit = gate_events.Events(root)
     if git('status', '--porcelain'):
         sys.exit('Working tree is not clean; commit first.')
     git('fetch', '-q', 'origin')
@@ -83,7 +138,23 @@ def main():
     if args.no_check:
         print(f'handoff: {branch} {head} (contains {args.base} {base}); gate skipped')
         return
-    gate = run_gate(args.all_themes)
+    emit.branch, emit.sha = gate_events.identity(root)  # after the merge
+    state = {'child': False}
+    gate_events.raise_on_signals()
+    try:
+        gate = run_gate(emit, state, args.all_themes)
+    except BaseException as error:
+        # Once check-project runs it logs its own terminal event; before that (waiting for the lock) we do.
+        if not state['child'] and not (isinstance(error, SystemExit) and error.code in (0, None)):
+            reason = f'signal {error.name}' if isinstance(error, gate_events.Interrupted) else f'{type(error).__name__}: {error}'
+            emit('ERROR', notify=emit.message(f'prepare-handoff 异常中止（{reason}）'), reason=reason, phase='waiting-for-lock')
+            gate_events.flush_notifications()
+        if isinstance(error, gate_events.Interrupted):
+            sys.exit(128 + error.signum)
+        raise
+    if gate.returncode < 0:  # killed outright: it could not log anything itself
+        emit('ERROR', notify=emit.message(f'check-project 被信号 {-gate.returncode} 杀死'), reason=f'check-project killed by signal {-gate.returncode}')
+        gate_events.flush_notifications()
     result = gate.stdout.strip().splitlines()[-1] if gate.stdout.strip() else '{}'
     try:
         passed = json.loads(result).get('passed')
