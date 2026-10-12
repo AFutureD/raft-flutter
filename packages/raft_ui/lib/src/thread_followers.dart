@@ -3,7 +3,6 @@
 // rows (remove / retry / loading / empty). The app adapter owns the roster,
 // removal, undo and profile opening.
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'anchored_popup.dart';
 import 'design_primitives.dart';
@@ -159,10 +158,10 @@ class _RaftThreadFollowersState extends State<RaftThreadFollowers> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: CallbackShortcuts(
-                  bindings: {
-                    const SingleActivator(LogicalKeyboardKey.escape): close,
-                  },
+                // Escape closes the popover, not the thread panel under it.
+                child: RaftDismissScope(
+                  onDismiss: close,
+                  takeFocus: true,
                   child: RaftAnchoredPopup(
                     anchorKey: anchor,
                     alignRight: true,

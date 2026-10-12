@@ -57,13 +57,16 @@ Future<T?> _fleetDialog<T>(
   BuildContext context,
   WorkspaceController w,
   bool Function() authorized,
-  WidgetBuilder builder,
-) async {
+  WidgetBuilder builder, {
+  bool dismissible = false,
+}) async {
   if (!context.mounted || !authorized()) return null;
   // Web `Dialog` layer: the recipe overlay (Brutal black/65, Elegant backdrop + blur).
   final navigator = Navigator.of(context, rootNavigator: true);
   final route = RaftDialogRoute<T>(
     builder: builder,
+    // Web `DialogCard` / `ConfirmDialog`: no scrim close, Escape closes.
+    dismissible: dismissible,
     capturedThemes: InheritedTheme.capture(
       from: context,
       to: navigator.context,
@@ -877,6 +880,8 @@ class _FleetDetailState extends State<FleetDetail> {
           await load();
         },
       ),
+      // Web `Dialog`: an outside press runs `requestClose`.
+      dismissible: true,
     );
   }
 
@@ -1159,7 +1164,9 @@ class _FleetDetailState extends State<FleetDetail> {
     final route = DialogRoute<void>(
       context: context,
       barrierColor: overlay.backgroundColor?.resolve(rt),
-      barrierDismissible: false,
+      // Web `Dialog`: an outside press runs `requestClose` (the PopScope in
+      // the dialog asks before discarding a staged change).
+      barrierDismissible: true,
       builder: (_) => AgentAvatarDialog(
         controller: w,
         agent: row,

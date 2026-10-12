@@ -333,6 +333,7 @@ class _AuthState extends State<AuthView> {
     // ds-allow: native-only server origin editor (no Web counterpart); opens the shared RaftFormDialog.
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => RaftFormDialog(
         title: raftText(context, 'Server URL'),
         fields: [

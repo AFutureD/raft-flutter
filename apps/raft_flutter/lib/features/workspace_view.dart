@@ -800,6 +800,13 @@ class _WorkspaceViewState extends State<WorkspaceView>
     super.dispose();
   }
 
+  /// Escape for the content inside the shell's Scaffold. The Scaffold
+  /// registers its own `DismissIntent` action (close the drawer), and the
+  /// nearest registered action wins even while it is disabled, so a scope
+  /// above the Scaffold never sees Escape once a control inside it has focus.
+  Widget dismissInScaffold(VoidCallback? onEscape, Widget child) =>
+      RaftDismissScope(onDismiss: onEscape ?? escapePanel, child: child);
+
   /// Escape: closes the topmost closable layer and nothing else (Web's
   /// document listeners do not navigate Back from a plain page).
   void escapePanel() {
@@ -1449,7 +1456,8 @@ class _WorkspaceViewState extends State<WorkspaceView>
           onPopInvokedWithResult: (didPop, _) {
             // A channel page may consume Back internally (e.g. Add Members).
             // Its hidden workspace must not also advance the business history.
-            if (!didPop && w.location.channelPage == null) dismissPanel();
+            if (didPop || raftDismissTopPopup(context)) return;
+            if (w.location.channelPage == null) dismissPanel();
           },
           child: Scaffold(
             key: scaffold,
@@ -1459,7 +1467,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
             // No drawer: phones reach the sidebar through the Home tab (as Web
             // does). A drawer here would open from a left-edge swipe, racing
             // Android's back gesture, with nothing in the app opening it.
-            body: RaftSystemBarSurface(
+            body: dismissInScaffold(onLegacyEscape, RaftSystemBarSurface(
               statusBarFallback: t.canvas,
               child: SafeArea(
                 bottom: false,
@@ -1734,7 +1742,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
                   ],
                 ),
               ),
-            ),
+            )),
           ),
         ),
       );

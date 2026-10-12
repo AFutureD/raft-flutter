@@ -298,6 +298,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   }) async {
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: title,
         description: description,
@@ -417,6 +418,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     if (c.archived || !cap('editChannelMetadata')) return;
     await showRaftDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: 'Edit channel',
         fields: [
@@ -818,24 +820,28 @@ class _ChannelSettingsState extends State<ChannelSettings> {
     await showRaftModal<void>(
       context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialog) => RaftUnsavedChangesPrompt(
-          message: 'The channel name or description has unsaved edits. Save them before closing?',
-          busy: busy,
-          onKeepEditing: () => Navigator.of(dialogContext).pop(),
-          onDiscard: () {
-            Navigator.of(dialogContext).pop();
-            resetDraft();
-            transition();
-          },
-          onSaveAndClose: () async {
-            setDialog(() => busy = true);
-            final saved = await saveChanges();
-            if (!dialogContext.mounted) return;
-            setDialog(() => busy = false);
-            if (!saved) return;
-            Navigator.of(dialogContext).pop();
-            transition();
-          },
+        // Web `Modal onClose`: Escape does nothing while the save runs.
+        builder: (dialogContext, setDialog) => PopScope(
+          canPop: !busy,
+          child: RaftUnsavedChangesPrompt(
+            message: 'The channel name or description has unsaved edits. Save them before closing?',
+            busy: busy,
+            onKeepEditing: () => Navigator.of(dialogContext).pop(),
+            onDiscard: () {
+              Navigator.of(dialogContext).pop();
+              resetDraft();
+              transition();
+            },
+            onSaveAndClose: () async {
+              setDialog(() => busy = true);
+              final saved = await saveChanges();
+              if (!dialogContext.mounted) return;
+              setDialog(() => busy = false);
+              if (!saved) return;
+              Navigator.of(dialogContext).pop();
+              transition();
+            },
+          ),
         ),
       ),
     );
@@ -1454,7 +1460,16 @@ class _ChannelSettingsState extends State<ChannelSettings> {
                   onTap: guardedClose,
                 ),
               ),
-              sheet,
+              // Web OverflowSheet `swipeDirection="right"`: a fling to the right
+              // dismisses the drawer (through the same unsaved-draft guard).
+              GestureDetector(
+                key: const ValueKey('channel-overflow-swipe'),
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragEnd: (details) {
+                  if ((details.primaryVelocity ?? 0) > 400) guardedClose();
+                },
+                child: sheet,
+              ),
             ],
           );
     return RaftDismissScope(
@@ -1518,6 +1533,8 @@ class _ChannelSettingsState extends State<ChannelSettings> {
         error is RaftApiException ? error.message : fallback;
     await showRaftDialog<void>(
       context: context,
+      // Web `DialogCard` (SOSDialog): no scrim close, Escape and X close.
+      barrierDismissible: false,
       builder: (dialogContext) {
         String tr(String text) => raftText(dialogContext, text);
         return Center(
@@ -1566,6 +1583,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   Future<void> deleteChannel() async {
     final accepted = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => RaftFormDialog(
         title: 'Delete channel?',
         description:

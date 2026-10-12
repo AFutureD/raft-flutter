@@ -177,4 +177,24 @@ void main() {
     },
   };
   registerCloseTests(panelSurfaces, harness);
+
+  // Web OverflowSheet `swipeDirection="right"`: a fling to the right closes
+  // the wide channel drawer (touch).
+  for (final (name, size) in closeSizes.skip(1)) {
+    testWidgets('channel-settings @ $name closes on a swipe to the right', (
+      t,
+    ) async {
+      final probe = await harness['channel-settings']!(t, size);
+      expect(probe.isOpen(), isTrue);
+      // From the header row: the body holds horizontally scrolling strips.
+      final sheet = find.byKey(const Key('channel-overflow-sheet'));
+      await t.flingFrom(
+        t.getTopLeft(sheet) + const Offset(120, 30),
+        const Offset(200, 0),
+        3000,
+      );
+      await frames(t, 20);
+      expect(probe.isOpen(), isFalse);
+    });
+  }
 }

@@ -626,7 +626,10 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
       barrierColor: RaftTokens.of(context).brutal
           ? Colors.black.withValues(alpha: .6)
           : RaftTokens.of(context).colors['layer-backdrop'],
-      builder: (_) => _BulkResetDialog(count: count),
+      // Web `DialogCard` without `closeOnBackdrop`: a stray press on the
+      // scrim keeps the choice; Escape and Back still close it.
+      barrierDismissible: false,
+      builder: (_) => RaftDismissScope(child: _BulkResetDialog(count: count)),
     );
     if (mode != null) await runBulk(mode);
   }

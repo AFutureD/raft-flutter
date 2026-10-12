@@ -1127,7 +1127,12 @@ class _ResourceViewState extends State<ResourceView> {
     try {
       return sourceModal
           ? await showRaftModal<V>(context, builder: buildOwned)
-          : await showDialog<V>(context: context, builder: buildOwned);
+          : await showDialog<V>(
+              context: context,
+              // Web `DialogCard` / `ConfirmDialog`: no scrim close.
+              barrierDismissible: false,
+              builder: buildOwned,
+            );
     } finally {
       dialogs.remove(owned);
     }

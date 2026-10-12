@@ -228,8 +228,10 @@ class _RaftSelectFieldState<T> extends State<RaftSelectField<T>> {
     return Positioned.fill(
       child: TapRegion(
         onTapOutside: (_) => close(),
-        child: CallbackShortcuts(
-          bindings: {const SingleActivator(LogicalKeyboardKey.escape): close},
+        // Escape closes even while focus is still on the trigger.
+        child: RaftDismissScope(
+          onDismiss: close,
+          takeFocus: true,
           child: Stack(
             children: [
               CompositedTransformFollower(

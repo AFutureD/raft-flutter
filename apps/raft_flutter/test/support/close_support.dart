@@ -56,6 +56,7 @@ Future<(WorkspaceController, MessageAdapter)> mountWorkspace(
   Size size, {
   String section = 'chat',
   RaftFamily family = RaftFamily.elegant,
+  TargetPlatform? platform,
 }) async {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
@@ -104,7 +105,7 @@ Future<(WorkspaceController, MessageAdapter)> mountWorkspace(
   w.visibleIds['c1'] = {for (final r in closeRows()) r['id'] as String};
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(family),
+      theme: raftTheme(family).copyWith(platform: platform),
       home: WorkspaceView(
         controller: w,
         appearance: RaftAppearance(light: family),

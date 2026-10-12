@@ -564,7 +564,10 @@ class _RaftChatViewState extends State<RaftChatView>
           mounted &&
           authority == workspaceAuthority(w) &&
           revision == selection.revision) {
-        selectionToast.show(raftText(context, 'Copied'));
+        selectionToast.show(
+          raftText(context, 'Copied'),
+          dismissible: false,
+        );
       }
     } catch (_) {
       if (mounted &&
@@ -605,7 +608,10 @@ class _RaftChatViewState extends State<RaftChatView>
             setState(() => copiedSelectionMarkdown = false);
           }
         });
-        selectionToast.show(raftText(context, 'Copied Markdown'));
+        selectionToast.show(
+          raftText(context, 'Copied Markdown'),
+          dismissible: false,
+        );
       }
     } catch (_) {
       if (current()) {
@@ -1230,18 +1236,31 @@ class _RaftChatViewState extends State<RaftChatView>
   Future<void> previewDraftImage(UploadDraft draft) async {
     final zoom = TransformationController();
     late final DialogRoute<void> route;
+    final imageKey = GlobalKey();
+    void close() {
+      if (route.isActive) route.navigator?.removeRoute(route);
+    }
+
     route = DialogRoute<void>(
       context: context,
       builder: (_) => RaftAttachmentLightbox(
         title: draft.filename,
         titleBold: true,
         onResetZoom: () => zoom.value = Matrix4.identity(),
-        onClose: () {
-          if (route.isActive) route.navigator?.removeRoute(route);
-        },
-        child: InteractiveViewer(
-          transformationController: zoom,
-          child: Center(child: Image.memory(draft.bytes, fit: BoxFit.contain)),
+        onClose: close,
+        child: RaftLightboxStageTap(
+          imageKey: imageKey,
+          onClose: close,
+          child: InteractiveViewer(
+            transformationController: zoom,
+            child: Center(
+              child: Image.memory(
+                draft.bytes,
+                key: imageKey,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
         ),
       ),
     );

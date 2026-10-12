@@ -16,12 +16,13 @@ import 'package:flutter/widgets.dart';
 /// happens. The nested [FocusScope] holds the route's initial focus, so
 /// Escape reaches the action before the user has focused anything; a field
 /// with `autofocus` inside still takes focus first.
-class RaftDismissScope extends StatelessWidget {
+class RaftDismissScope extends StatefulWidget {
   const RaftDismissScope({
     super.key,
     required this.child,
     this.onDismiss,
     this.enabled = true,
+    this.takeFocus = false,
   });
   final Widget child;
 
@@ -29,15 +30,44 @@ class RaftDismissScope extends StatelessWidget {
   final VoidCallback? onDismiss;
   final bool enabled;
 
+  /// A popup inside an existing route (an `OverlayPortal` / `OverlayEntry`):
+  /// the opener (a trigger) usually holds focus, and `autofocus` does not move
+  /// it, so Escape would never reach this scope. Moves focus into the scope
+  /// once it is built (a route-level dialog gets its focus from the route).
+  final bool takeFocus;
+
+  @override
+  State<RaftDismissScope> createState() => _RaftDismissScopeState();
+}
+
+class _RaftDismissScopeState extends State<RaftDismissScope> {
+  final node = FocusScopeNode(debugLabel: 'RaftDismissScope');
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.takeFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !node.hasFocus) node.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    node.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!enabled) return child;
+    if (!widget.enabled) return widget.child;
     return Actions(
       actions: {
         DismissIntent: CallbackAction<DismissIntent>(
           onInvoke: (_) {
-            if (onDismiss != null) {
-              onDismiss!();
+            if (widget.onDismiss != null) {
+              widget.onDismiss!();
             } else {
               Navigator.maybePop(context);
             }
@@ -45,7 +75,7 @@ class RaftDismissScope extends StatelessWidget {
           },
         ),
       },
-      child: FocusScope(autofocus: true, child: child),
+      child: FocusScope(node: node, autofocus: true, child: widget.child),
     );
   }
 }
@@ -78,6 +108,30 @@ class RaftBackDismiss extends StatefulWidget {
   State<RaftBackDismiss> createState() => _RaftBackDismissState();
 }
 
+/// The popups that are open now, oldest first (see [raftDismissTopPopup]).
+final _openBackPopups = <_RaftBackDismissState>[];
+
+/// Closes the newest popup that belongs to the route of [context], and says
+/// whether there was one.
+///
+/// A route holding `PopScope(canPop: false)` (the workspace shell with a panel
+/// open, a dirty form) vetoes Back before the navigator looks at the route's
+/// local history, so a popup's [RaftBackDismiss] entry is never reached. That
+/// route's `onPopInvokedWithResult` calls this first and leaves its own
+/// handling alone when it returns true.
+bool raftDismissTopPopup(BuildContext context) {
+  final route = ModalRoute.of(context);
+  for (final popup in _openBackPopups.reversed.toList()) {
+    if (!popup.mounted) continue;
+    if (ModalRoute.of(popup.widget.routeContext ?? popup.context) != route) {
+      continue;
+    }
+    popup.widget.onDismiss();
+    return true;
+  }
+  return false;
+}
+
 class _RaftBackDismissState extends State<RaftBackDismiss> {
   ModalRoute<dynamic>? _route;
   LocalHistoryEntry? _entry;
@@ -86,6 +140,7 @@ class _RaftBackDismissState extends State<RaftBackDismiss> {
   @override
   void initState() {
     super.initState();
+    _openBackPopups.add(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _attach());
   }
 
@@ -109,6 +164,7 @@ class _RaftBackDismissState extends State<RaftBackDismiss> {
   @override
   void dispose() {
     _gone = true;
+    _openBackPopups.remove(this);
     final entry = _entry, route = _route;
     _entry = null;
     if (entry != null && route != null) {

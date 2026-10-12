@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import 'dialog_card.dart';
 import 'icons.dart';
+import 'localization.dart';
 import 'recipe_surface.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipes/toast_styles.g.dart';
@@ -105,24 +106,37 @@ class RaftToast extends StatelessWidget {
               Flexible(child: body),
               const SizedBox(width: 12),
               if (hasClose)
-                GestureDetector(
-                  onTap: onClose,
-                  child: RaftRecipeBox(
-                    style: s.close,
-                    tokens: rt,
-                    width: 32,
-                    height: 32,
-                    child: Center(
-                      child: RaftIcon(
-                        RaftGlyph.x,
-                        size: 14,
-                        color: s.close.textStyle(rt).color,
+                Semantics(
+                  button: true,
+                  label: raftText(context, 'Close'),
+                  child: GestureDetector(
+                    key: const Key('toast-close'),
+                    onTap: onClose,
+                    child: RaftRecipeBox(
+                      style: s.close,
+                      tokens: rt,
+                      width: 32,
+                      height: 32,
+                      child: Center(
+                        child: RaftIcon(
+                          RaftGlyph.x,
+                          size: 14,
+                          color: s.close.textStyle(rt).color,
+                        ),
                       ),
                     ),
                   ),
-                )
-              else
-                const SizedBox(width: 0),
+                ),
+              if (actionLabel != null) ...[
+                if (hasClose) const SizedBox(width: 4),
+                RaftRecipeButton(
+                  key: const Key('toast-action'),
+                  variant: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  label: actionLabel,
+                  onPressed: onAction,
+                ),
+              ],
             ],
           )
         : Row(
@@ -321,6 +335,9 @@ class _RaftToastPortalState extends State<RaftToastPortal> {
                 child: RaftToast(
                   title: title,
                   tone: widget.controller.tone,
+                  // LocalizedToastProvider: the icon and the close button are
+                  // both on by default; the selection toast drops both.
+                  icon: widget.controller.dismissible,
                   onClose: widget.controller.dismissible
                       ? widget.controller.clear
                       : null,
