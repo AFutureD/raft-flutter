@@ -89,7 +89,7 @@ class RaftMessageRowRecipe {
   double get attachmentGap => 4;
   double get translationLine => tokens.brutal ? 20 : 21;
   // Baseline alignment puts the status' centre just above the line's centre.
-  double get translationLift => tokens.brutal ? 1.9 : 1;
+  double get translationLift => tokens.brutal ? 2.6 : 1;
   double get footerGap =>
       6; // Mounted MessageItemFooter overrides generic Elegant desktop mt10.
   double get toolbarTop => tokens.brutal ? -14 : 4;
