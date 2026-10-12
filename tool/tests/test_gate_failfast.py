@@ -78,6 +78,8 @@ class NotifyTests(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, env)
         patcher.start()
         self.addCleanup(patcher.stop)
+        if not target:  # a gate run exports its own target to these tests
+            os.environ.pop('RAFT_GATE_NOTIFY_TARGET', None)
         return gate_events.Events(self.dir)
 
     def test_failure_is_sent_through_stdin_not_argv(self):
