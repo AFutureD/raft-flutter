@@ -106,6 +106,14 @@ abstract final class NavigationRegistry {
       reason: 'Phone-only device preference (no Web counterpart).',
     ),
     NavigationSettingsTab('notifications'),
+    NavigationSettingsTab(
+      'desktop',
+      phone: false,
+      wide: false,
+      reason:
+          'Linux AppImage only (raft:// link handler); absent everywhere '
+          'else, no Web counterpart.',
+    ),
     NavigationSettingsTab('server'),
     NavigationSettingsTab('billing'),
     NavigationSettingsTab('administration'),

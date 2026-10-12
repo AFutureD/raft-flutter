@@ -153,6 +153,14 @@ configure_file(packaging/app.raft.raft_flutter.desktop.in
 install(FILES "${CMAKE_BINARY_DIR}/app.raft.raft_flutter.desktop"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/applications" COMPONENT Runtime)
 
+# The launcher icon travels with the bundle: Linux notifications reference it
+# and an AppImage copies it into the member's icon theme when it registers
+# raft:// (lib/platform/linux_uri_scheme.dart).
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/../macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/icons/hicolor/256x256/apps"
+  RENAME "${APPLICATION_ID}.png" COMPONENT Runtime)
+
 # Native media binaries remain generated/ignored; notices travel with the app.
 install(DIRECTORY "${RAFT_MEDIA_BUNDLE}/libs/"
   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)

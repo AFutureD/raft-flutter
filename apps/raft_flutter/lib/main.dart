@@ -37,6 +37,7 @@ import 'platform/auth_audit_log.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
 import 'platform/launch_theme.dart';
+import 'platform/linux_uri_scheme.dart';
 import 'platform/local_network_access.dart';
 import 'platform/session_persistence.dart';
 import 'platform/attachment_http.dart';
@@ -274,6 +275,13 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     content.onIncomingShare = () => unawaited(sharing.resume());
     unawaited(sharing.init());
     unawaited(content.init(initialArguments: widget.initialArguments));
+    // An AppImage installs nothing, so xdg-open cannot find it: after the
+    // first frame, claim raft:// for it (never over another handler).
+    if (LinuxUriSchemeRegistration.instance.supported) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => unawaited(LinuxUriSchemeRegistration.instance.ensure()),
+      );
+    }
     restore();
   }
 

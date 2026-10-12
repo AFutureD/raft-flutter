@@ -7,8 +7,10 @@ import '../data/mobile_tabbar_preferences.dart';
 import '../data/personal_presentation.dart';
 import '../data/workspace_controller.dart';
 import '../platform/content_links.dart';
+import '../platform/linux_uri_scheme.dart';
 import '../platform/native_notifications.dart';
 import 'account_settings.dart';
+import 'desktop_links_settings.dart';
 import 'administration_view.dart';
 import 'appearance_section.dart';
 import 'billing_view.dart';
@@ -182,6 +184,13 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
               service: widget.notifications!,
               controller: w,
             ),
+          ),
+        if (LinuxUriSchemeRegistration.instance.supported)
+          RaftSettingsDestination(
+            'desktop',
+            'Desktop',
+            RaftGlyph.monitor,
+            (_) => const DesktopLinksSettings(),
           ),
         if (w.server != null) ...[
           RaftSettingsDestination(
