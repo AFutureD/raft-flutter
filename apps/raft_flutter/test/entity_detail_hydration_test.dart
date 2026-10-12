@@ -8,6 +8,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/workspace_entity_directory.dart';
 import 'package:raft_flutter/features/fleet_views.dart';
 import 'package:raft_flutter/features/member_profile_view.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'workspace_entity_directory_test.dart' show agent, computer, member;
 
@@ -75,11 +76,11 @@ void main() {
       home: Scaffold(body: child),
     ),
   );
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final kind in ['agent', 'computer', 'human']) {
       Widget detail(VoidCallback onBack) => kind == 'human'
           ? MemberProfileView(

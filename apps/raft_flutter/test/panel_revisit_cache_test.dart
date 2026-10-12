@@ -8,6 +8,7 @@ import 'package:raft_flutter/features/conversation_panel.dart';
 import 'package:raft_flutter/features/task_surface.dart';
 import 'package:raft_flutter/features/task_surface_controller.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'message_presentation_test.dart' show fixture;
 import 'task_surface_test.dart' show modernTask, taskRoutes;
@@ -53,7 +54,7 @@ const _themes = [
 ];
 
 void main() {
-  for (final (family, dark) in _themes) {
+  for (final (family, dark) in raftThemeMatrix(_themes)) {
     testWidgets(
       '$family/$dark Files tab: revisit and thread open show cached rows at the first frame; refresh replaces in place; identity change drops them',
       (t) async {
@@ -210,7 +211,7 @@ void main() {
     ),
   );
 
-  for (final (family, dark) in _themes) {
+  for (final (family, dark) in raftThemeMatrix(_themes)) {
     testWidgets(
       '$family/$dark agent Chat tab: no 0 counts on revisit, in-place refresh, identity change drops it',
       (t) async {
@@ -454,7 +455,7 @@ void main() {
     );
   }
 
-  for (final (family, dark) in _themes) {
+  for (final (family, dark) in raftThemeMatrix(_themes)) {
     testWidgets(
       '$family/$dark task detail: known row and cached history at the first frame, background refresh in place, identity change drops history',
       (t) async {

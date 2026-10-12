@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 void main() {
-  for (final theme in [
+  for (final theme in raftThemeMatrix([
     raftTheme(RaftFamily.brutal),
     raftTheme(RaftFamily.elegant),
     raftTheme(RaftFamily.elegant, dark: true),
-  ]) {
+  ])) {
     testWidgets(
       'Mobile headers align navigation and accept keyboard in ${theme.brightness}/${theme.extension<RaftTokens>()?.family}',
       (tester) async {

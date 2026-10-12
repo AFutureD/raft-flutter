@@ -7,6 +7,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_detail_view.dart';
 import 'package:raft_flutter/features/agent_trajectory_log.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Map<String, dynamic> row(
   int time,
@@ -174,11 +175,11 @@ void main() {
       secondary: 'verbatim',
     ));
   });
-  for (final (family, mode) in [
+  for (final (family, mode) in raftThemeMatrix([
     (RaftFamily.brutal, ThemeMode.light),
     (RaftFamily.elegant, ThemeMode.light),
     (RaftFamily.elegant, ThemeMode.dark),
-  ]) {
+  ])) {
     testWidgets(
       'activity inline paragraph ignores host 24px line $family $mode',
       (t) async {

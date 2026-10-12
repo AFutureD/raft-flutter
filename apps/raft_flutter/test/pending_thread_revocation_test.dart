@@ -10,6 +10,7 @@ import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/platform/workspace_cache.dart';
 import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chat_focus_receipt_test.dart' show paintedMessage;
@@ -289,11 +290,11 @@ void main() {
     });
   }
 
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final revokeParent in [true, false]) {
       testWidgets(
         '[N24a] $family/$dark held-parent private rows retire only on parent revocation=$revokeParent',

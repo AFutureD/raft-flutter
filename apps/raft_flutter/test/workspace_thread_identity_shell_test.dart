@@ -4,16 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'message_presentation_test.dart' show fixture;
 
 void main() {
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     for (final width in [390.0, 1280.0]) {
       testWidgets(
         '$family/$dark/$width pending identity keeps actual plain thread shell',
@@ -104,11 +105,13 @@ void main() {
           });
           // The resolved parent reaches the header within a few frames even
           // on a loaded host; from then on it must hold still.
-          for (var settle = 0;
-              settle < 30 &&
-                  tester.widget<RaftThreadHeader>(headerFinder).parentLabel ==
-                      null;
-              ++settle) {
+          for (
+            var settle = 0;
+            settle < 30 &&
+                tester.widget<RaftThreadHeader>(headerFinder).parentLabel ==
+                    null;
+            ++settle
+          ) {
             await tester.pump(const Duration(milliseconds: 16));
           }
           for (var frame = 0; frame < 4; ++frame) {

@@ -18,6 +18,8 @@ import {
   AppShellSidebarSlot as ParityExtShSidebarSlot,
 } from "raft-ui";
 import { LeftRail as ParityExtShLeftRail } from "../src/components/layout/LeftRail";
+import { MobileTabBar as ParityExtShMobileTabBar } from "../src/components/layout/MainLayout";
+import ParityExtShMobileBottomBarStack from "../src/components/layout/MobileBottomBarStack";
 import ParityExtShConfirmDialog from "../src/components/ConfirmDialog";
 import ParityExtShBanner from "../src/components/ui/Banner";
 import ParityExtShEmptyState from "../src/components/ui/EmptyState";
@@ -214,11 +216,26 @@ function ParityExtShView({ p }: { p: ParityExtShProps }) {
         <div
           data-visual-case={p.raw}
           data-testid="shell-mobile-home"
-          style={{ ...parityExtShShellVars(p.theme), width: 390, height: 844, display: "flex", overflow: "hidden", background: "white" }}
+          style={{ ...parityExtShShellVars(p.theme), width: 390, height: 844, display: "flex", flexDirection: "column", overflow: "hidden", background: "white" }}
         >
-          <Routes>
-            <Route path="/s/:serverSlug/*" element={<Sidebar mobileInline />} />
-          </Routes>
+          <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+            <Routes>
+              <Route path="/s/:serverSlug/*" element={<Sidebar mobileInline />} />
+            </Routes>
+          </div>
+          {/* MainLayout MobileBottomBarStack: Brutal keeps the tab bar in flow
+              under the page, Elegant floats the capsule over it (the list
+              clears it with `mobile-nav-clearance`). */}
+          <div style={{ pointerEvents: "none" }}>
+            {/* The capture parks the mouse in the viewport's bottom-right corner,
+                which would paint the Settings tab hovered; Flutter has no hover. */}
+            <ParityExtShMobileBottomBarStack
+              showLiveActivity={false}
+              liveActivity={null}
+              tabBar={<ParityExtShMobileTabBar />}
+              floating={p.theme !== "brutal-light"}
+            />
+          </div>
         </div>
       </main>
     );

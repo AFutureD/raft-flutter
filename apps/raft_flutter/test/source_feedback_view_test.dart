@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:raft_flutter/data/source_feedback_store.dart';
 import 'package:raft_flutter/features/source_feedback_view.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 import 'source_feedback_store_test.dart' as fixture;
 
@@ -34,7 +35,8 @@ void main() {
         );
         String format(DateTime value) =>
             '${DateFormat.yMMMd('en').format(value)}, '
-            '${DateFormat.jm('en').format(value)}'.replaceAll('\u202f', ' ');
+                    '${DateFormat.jm('en').format(value)}'
+                .replaceAll('\u202f', ' ');
         expect(find.text(format(updated)), findsOneWidget);
         expect(find.text(format(created)), findsNothing);
         expect(find.text('First line 中文'), findsOneWidget);
@@ -53,11 +55,11 @@ void main() {
       }
     },
   );
-  for (final (family, dark) in [
+  for (final (family, dark) in raftThemeMatrix([
     (RaftFamily.brutal, false),
     (RaftFamily.elegant, false),
     (RaftFamily.elegant, true),
-  ]) {
+  ])) {
     testWidgets(
       '$family/$dark real ticket action opens GET replies and back preserves inbox',
       (tester) async {

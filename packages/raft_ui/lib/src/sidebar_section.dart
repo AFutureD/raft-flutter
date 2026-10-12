@@ -187,6 +187,8 @@ class RaftSidebarSectionHeader extends StatelessWidget {
     if (onContextMenu == null) return header;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      // Sidebar.tsx SidebarSectionHeader `onContextMenu`: right click, and on
+      // touch the browser's long-press `contextmenu`.
       onSecondaryTapDown: (d) => onContextMenu!(d.globalPosition),
       onLongPressStart: (d) => onContextMenu!(d.globalPosition),
       child: header,

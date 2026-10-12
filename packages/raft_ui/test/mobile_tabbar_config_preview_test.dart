@@ -10,6 +10,7 @@ import '../../../tool/testing/system_fonts.dart';
 
 import 'package:raft_ui/mobile_tabbar_config_previews.dart';
 import 'package:raft_ui/raft_ui.dart';
+import 'package:raft_ui/test_themes.dart';
 
 Future<void> loadFonts(WidgetTester t) => t.runAsync(() async {
   for (final family in ['HankenGrotesk', 'Inter', 'Geist', 'GeistMono']) {
@@ -130,7 +131,7 @@ bool anyTruncated(WidgetTester t, Finder root) {
 
 void main() {
   const zh = Locale('zh'), en = Locale('en');
-  for (final (name, family, dark) in _themes) {
+  for (final (name, family, dark) in raftThemeMatrix(_themes)) {
     for (final (loc, locale) in [('zh', zh), ('en', en)]) {
       if (loc == 'en' && dark) continue;
       for (final (page, build) in <(String, Widget Function())>[
