@@ -124,15 +124,33 @@ final class RaftTitleBar: NSObject {
       result(nil)
     case "doubleClick":
       // The user's System Settings choice for a title bar double-click.
-      let action = UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick")
-      if action == "Minimize" {
-        window?.miniaturize(nil)
-      } else if action != "None" {
-        window?.zoom(nil)
+      // "Fill" (macOS 15+) fills the screen's usable area and a second
+      // double-click restores; older systems only have the Minimize bool.
+      let defaults = UserDefaults.standard
+      let action = defaults.string(forKey: "AppleActionOnDoubleClick")
+        ?? (defaults.bool(forKey: "AppleMiniaturizeOnDoubleClick") ? "Minimize" : "Maximize")
+      switch action {
+      case "Minimize": window?.miniaturize(nil)
+      case "None": break
+      case "Fill": fill()
+      default: window?.zoom(nil)
       }
       result(nil)
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private var frameBeforeFill: NSRect?
+
+  private func fill() {
+    guard let window, let visible = window.screen?.visibleFrame else { return }
+    if window.frame == visible, let previous = frameBeforeFill {
+      frameBeforeFill = nil
+      window.setFrame(previous, display: true, animate: true)
+    } else {
+      frameBeforeFill = window.frame
+      window.setFrame(visible, display: true, animate: true)
     }
   }
 }

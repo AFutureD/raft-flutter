@@ -46,7 +46,9 @@ where the system puts them (vertically centred in the 28 pt bar). It reports
 and `fullscreen`, pushed on resize and on will/did enter/exit fullscreen. The
 Dart strip is the drag area: pan start calls `performDrag(with:)` with the
 current event; a double tap applies the system's `AppleActionOnDoubleClick`
-(Maximize/zoom by default, Minimize, None). `setStyle` also sets
+(Maximize/zoom by default, Minimize, None, and macOS 15's Fill, which fills
+the screen's usable area and restores on a second double-click; before macOS
+15 only the `AppleMiniaturizeOnDoubleClick` bool exists). `setStyle` also sets
 `window.backgroundColor` so a resize shows the strip colour. No new file in the
 Xcode project and no toolbar (RemoteSurface adds an NSToolbar for a 52 pt row;
 the approved design keeps the standard bar height).
@@ -108,8 +110,8 @@ Build and run `apps/raft_flutter` on macOS (`tool/flutter run -d macos`), then:
 4. Drag: press and drag on the empty strip moves the window (also from a
    cold window with the app inactive). Drag on the rail or content does not.
 5. Double-click on the strip: zooms by default. Change System Settings >
-   Desktop & Dock > "Double-click a window's title bar to" to Minimize and None
-   and confirm each is followed.
+   Desktop & Dock > "Double-click a window's title bar to" to Fill, Minimize and
+   None and confirm each is followed (Fill: a second double-click restores).
 6. Fullscreen (green button or Ctrl-Cmd-F): no empty coloured strip; the content
    fills the screen; moving the pointer to the top shows the system bar over the
    content. Leaving fullscreen restores the strip with no gap or double strip.
