@@ -22,7 +22,7 @@ def digest(path):
 
 
 def exclusions():
-    return {line.split('#')[0].strip() for line in
+    return {'libGLESv2.so.2', 'libvulkan.so.1'} | {line.split('#')[0].strip() for line in
             (ROOT / 'packaging/appimage/excludelist').read_text().splitlines()
             if line.split('#')[0].strip()}
 

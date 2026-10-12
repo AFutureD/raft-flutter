@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the downloaded production AppImage in a disposable CI desktop."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,51 @@ def main():
         raise ValueError('Production startup checks are limited to disposable CI environments')
     args.output.mkdir(parents=True, exist_ok=True)
     artifact = args.artifact.resolve()
+    receipt = json.loads(artifact.with_suffix('.json').read_text())
+    if hashlib.sha256(artifact.read_bytes()).hexdigest() != receipt['sha256']:
+        raise ValueError('Downloaded AppImage differs from the source-bound receipt')
+    if args.mode == 'extract':
+        with tempfile.TemporaryDirectory(prefix='raft-appimage-pdf-ci-') as temporary:
+            subprocess.run([str(artifact), '--appimage-extract'], cwd=temporary,
+                           stdout=subprocess.DEVNULL, check=True)
+            payload = Path(temporary) / 'squashfs-root/raft'
+            checked = 0
+            for path in payload.rglob('*'):
+                if not path.is_file():
+                    continue
+                with path.open('rb') as stream:
+                    if stream.read(4) != b'\x7fELF':
+                        continue
+                listing = capture(['ldd', path])
+                if 'not found' in listing or 'version `' in listing:
+                    raise ValueError(f'Downloaded payload cannot resolve {path}: {listing}')
+                checked += 1
+            for name in ('pdfinfo', 'pdftoppm'):
+                subprocess.run([str(payload / 'bin' / name), '-v'], check=True)
+            # A real page conversion, rather than accepting a helper's existence.
+            pdf = Path(temporary) / 'page.pdf'
+            objects = [b'<< /Type /Catalog /Pages 2 0 R >>',
+                       b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+                       b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>']
+            drawing = b'0 0 1 rg 10 10 80 80 re f\n'
+            objects.append(b'<< /Length ' + str(len(drawing)).encode() + b' >>\nstream\n' + drawing + b'endstream')
+            data = b'%PDF-1.4\n'
+            offsets = [0]
+            for index, obj in enumerate(objects, 1):
+                offsets.append(len(data))
+                data += str(index).encode() + b' 0 obj\n' + obj + b'\nendobj\n'
+            startxref = len(data)
+            data += b'xref\n0 5\n0000000000 65535 f \n'
+            data += b''.join(f'{offset:010d} 00000 n \n'.encode() for offset in offsets[1:])
+            data += f'trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{startxref}\n%%EOF\n'.encode()
+            pdf.write_bytes(data)
+            subprocess.run([str(payload / 'bin/pdftoppm'), '-png', '-singlefile', str(pdf), str(Path(temporary) / 'page')], check=True)
+            colors = int(capture(['identify', '-format', '%k', Path(temporary) / 'page.png']))
+            if colors < 2:
+                raise ValueError('Bundled PDF tool did not render the colored page')
+            (args.output / 'payload-check.json').write_text(json.dumps({
+                'commit': receipt['commit'], 'elfFilesChecked': checked,
+                'pdfPageRendered': True, 'pdfColors': colors}, indent=2) + '\n')
     if args.mode != 'direct' and Path('/dev/fuse').exists():
         # Extract mode still never opens /dev/fuse; containers additionally prove
         # it works when the device itself does not exist.
@@ -56,9 +102,15 @@ def main():
                     if args.mode == 'wayland':
                         log.flush()
                         text = logfile.read_text()
-                        if re.search(r'wl_surface[^\n]*\.attach\(wl_buffer', text) and \
-                                re.search(r'wl_surface[^\n]*\.commit\(', text):
-                            window = 'native Wayland attached and committed buffer'
+                        # Tie the painted surface to Raft's toplevel, not a cursor buffer.
+                        surfaces = re.findall(r'get_xdg_surface\(new id xdg_surface[#@](\d+), wl_surface[#@](\d+)\)', text)
+                        toplevels = dict(re.findall(r'xdg_surface[#@](\d+)\.get_toplevel\(new id xdg_toplevel[#@](\d+)\)', text))
+                        for surface, wl_surface in surfaces:
+                            toplevel = toplevels.get(surface)
+                            if toplevel and re.search(rf'xdg_toplevel[#@]{toplevel}\.set_title\("Raft"\)', text) and \
+                                    re.search(rf'wl_surface[#@]{wl_surface}\.attach\(wl_buffer', text) and \
+                                    re.search(rf'wl_surface[#@]{wl_surface}\.commit\(', text):
+                                window = f'Raft toplevel {toplevel}, painted Wayland surface {wl_surface}'
                     else:
                         matches = re.findall(r'(0x[0-9a-f]+) "Raft"', capture(['xwininfo', '-root', '-tree']))
                         if matches:
@@ -75,18 +127,23 @@ def main():
                 text = logfile.read_text()
                 if 'libsecret_error:' in text or 'error while loading shared libraries:' in text:
                     raise ValueError('AppImage startup contains a missing library or secure-storage failure')
-                result = {'artifact': artifact.name, 'mode': args.mode, 'fuseDevice': fuse_state,
+                result = {'artifact': artifact.name, 'commit': receipt['commit'], 'sha256': receipt['sha256'],
+                          'mode': args.mode, 'fuseDevice': fuse_state,
                           'window': window, 'GDK_SCALE': 2, 'GDK_DPI_SCALE': 1,
                           'osRelease': Path('/etc/os-release').read_text(),
                           'scope': 'production first screen; no account or messaging acceptance',
                           'softwareRenderingForced': env.get('LIBGL_ALWAYS_SOFTWARE') == '1'}
-                if args.mode != 'wayland':
-                    png = args.output / f'raft-linux-appimage-{args.mode}-hidpi.png'
+                png = args.output / f'raft-linux-appimage-{args.mode}-hidpi.png'
+                if args.mode == 'wayland':
+                    subprocess.run(['spectacle', '--background', '--nonotify', '--fullscreen',
+                                    '--output', str(png)], check=True, timeout=30, env=env)
+                else:
                     subprocess.run(['import', '-window', window, png], check=True)
-                    width, height, colors = map(int, capture(['identify', '-format', '%w %h %k', png]).split())
-                    if width < 1000 or height < 600 or colors < 32:
-                        raise ValueError('Screenshot lacks a full painted HiDPI window')
-                    result.update(file=png.name, width=width, height=height, colors=colors)
+                width, height, colors = map(int, capture(['identify', '-format', '%w %h %k', png]).split())
+                if width < 1000 or height < 600 or colors < 32:
+                    raise ValueError('Screenshot lacks a full painted HiDPI window')
+                result.update(file=png.name, width=width, height=height, colors=colors,
+                              capture='KDE fullscreen' if args.mode == 'wayland' else 'X11 Raft window')
                 (args.output / f'{args.mode}.json').write_text(json.dumps(result, indent=2) + '\n')
             finally:
                 try:
