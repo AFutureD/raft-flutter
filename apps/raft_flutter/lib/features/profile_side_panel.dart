@@ -130,8 +130,11 @@ class _ProfileOutsideTapDismissState extends State<ProfileOutsideTapDismiss> {
 
   void onDown(PointerDownEvent e) {
     final profile = widget.controller.location.profile;
+    final panel = widget.panelKey.currentContext?.findRenderObject();
     if (!widget.enabled ||
         profile == null ||
+        panel is! RenderBox ||
+        !panel.attached ||
         e.kind == PointerDeviceKind.mouse && e.buttons != kPrimaryButton ||
         insidePanel(e.position)) {
       pointer = null;
@@ -139,7 +142,7 @@ class _ProfileOutsideTapDismissState extends State<ProfileOutsideTapDismiss> {
     }
     pointer = e.pointer;
     down = e.position;
-    target = profile.toString();
+    target = widget.controller.location.uri.toString();
   }
 
   void onUp(PointerUpEvent e) {
@@ -153,7 +156,9 @@ class _ProfileOutsideTapDismissState extends State<ProfileOutsideTapDismiss> {
     // this event; decide afterwards whether the profile was retargeted.
     scheduleMicrotask(() {
       if (!mounted || !widget.enabled) return;
-      if (widget.controller.location.profile?.toString() == was) {
+      // Any location change (another profile, a thread or task opened /
+      // closed, a message jump) is the tapped control's own effect: keep it.
+      if (widget.controller.location.uri.toString() == was) {
         widget.onDismiss();
       }
     });
