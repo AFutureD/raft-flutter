@@ -1576,18 +1576,23 @@ class _RaftSpinnerState extends State<RaftSpinner>
               ? Colors.white
               : Colors.black
         : IconTheme.of(context).color ?? t.ink;
+    // The spinner repaints every frame while it is mounted. Its own repaint
+    // boundary keeps that to the spinner's layer instead of re-recording the
+    // button, page or list that happens to contain it.
     return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: dimension,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([spin, dash]),
-          builder: (_, _) => CustomPaint(
-            painter: _SpinnerPainter(
-              brutal: t.brutal,
-              color: color,
-              rotation: reduced ? 0 : spin.value,
-              phase: reduced ? .5 : dash.value,
-              reduced: reduced,
+      child: RepaintBoundary(
+        child: SizedBox.square(
+          dimension: dimension,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([spin, dash]),
+            builder: (_, _) => CustomPaint(
+              painter: _SpinnerPainter(
+                brutal: t.brutal,
+                color: color,
+                rotation: reduced ? 0 : spin.value,
+                phase: reduced ? .5 : dash.value,
+                reduced: reduced,
+              ),
             ),
           ),
         ),

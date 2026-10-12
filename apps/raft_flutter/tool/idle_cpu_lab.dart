@@ -38,12 +38,29 @@ int _cpuTicks() {
 }
 
 int zeroTimers = 0, timers = 0, microtasks = 0;
+// Timer creations by duration and creator (first app frames of the stack).
+final timerSites = <String, int>{};
+bool _recording = false;
+
+String _site(Duration d) {
+  final frames = StackTrace.current
+      .toString()
+      .split('\n')
+      .where((l) => l.contains('package:raft') || l.contains('package:flutter/'))
+      .take(3)
+      .map((l) => l.replaceAll(RegExp(r'^#\d+\s+'), '').trim());
+  return '${d.inMilliseconds}ms ${frames.join(' < ')}';
+}
 
 void main() {
   runZoned(_main, zoneSpecification: ZoneSpecification(
     createTimer: (self, parent, zone, d, f) {
       timers++;
       if (d <= Duration.zero) zeroTimers++;
+      if (_recording) {
+        final site = _site(d);
+        timerSites[site] = (timerSites[site] ?? 0) + 1;
+      }
       return parent.createTimer(zone, d, f);
     },
     scheduleMicrotask: (self, parent, zone, f) {
@@ -58,9 +75,18 @@ Future<void> _main() async {
   // Desktop reads the environment; Android has none, so the same settings can
   // be compiled in with --dart-define / --dart-define-from-file
   // (RAFT_IDLE_FIXTURE_JSON carries the fixture itself).
-  String setting(String name, String fallback) =>
-      Platform.environment[name] ??
-      String.fromEnvironment(name, defaultValue: fallback);
+  // String.fromEnvironment only works with a const name in AOT builds.
+  const defines = <String, String>{
+    'RAFT_IDLE_FIXTURE_JSON': String.fromEnvironment('RAFT_IDLE_FIXTURE_JSON'),
+    'RAFT_IDLE_SECONDS': String.fromEnvironment('RAFT_IDLE_SECONDS'),
+    'RAFT_IDLE_ONLY': String.fromEnvironment('RAFT_IDLE_ONLY'),
+    'RAFT_IDLE_LABEL': String.fromEnvironment('RAFT_IDLE_LABEL'),
+    'RAFT_IDLE_OUT': String.fromEnvironment('RAFT_IDLE_OUT'),
+  };
+  String setting(String name, String fallback) {
+    final v = Platform.environment[name] ?? defines[name] ?? '';
+    return v.isEmpty ? fallback : v;
+  }
   final fixtureText = setting('RAFT_IDLE_FIXTURE_JSON', '');
   final fixture = jsonDecode(
     fixtureText.isNotEmpty
@@ -89,6 +115,7 @@ Future<void> _main() async {
     'channel-unfocused', 'channel-hidden', 'channel-paused',
   ].where((s) => only.isEmpty || only.contains(s)).toList();
 
+  // ignore: invalid_use_of_visible_for_testing_member
   SharedPreferences.setMockInitialValues({});
   final results = <Map<String, dynamic>>[];
   final host = GlobalKey<_HostState>();
@@ -201,6 +228,8 @@ Future<void> _main() async {
     final startDrawn = drawn, startIdle = idleAdmissions;
     final t0 = timers, z0 = zeroTimers, m0 = microtasks;
     final c0 = _cpuTicks();
+    timerSites.clear();
+    _recording = true;
     final watch = Stopwatch()..start();
     var scheduledSamples = 0, samples = 0, maxTransient = 0;
     while (watch.elapsed < Duration(seconds: seconds)) {
@@ -220,6 +249,13 @@ Future<void> _main() async {
     }
     final secs = watch.elapsedMicroseconds / 1e6;
     final c1 = _cpuTicks();
+    _recording = false;
+    final topSites = (timerSites.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .where((e) => !e.key.trim().endsWith('ms') && e.value >= secs * 0.5)
+        .take(4)
+        .map((e) => '${(e.value / secs).toStringAsFixed(1)}/s ${e.key}')
+        .toList();
     String f(double v, [int d = 2]) => v.toStringAsFixed(d);
     final result = <String, dynamic>{
       'scenario': scenario,
@@ -238,6 +274,9 @@ Future<void> _main() async {
       'scheduledSamplePct': double.parse(f(scheduledSamples * 100 / samples, 1)),
       'lifecycle': '${binding.lifecycleState}'.replaceFirst('AppLifecycleState.', ''),
       'note': note,
+      // ignore: invalid_use_of_visible_for_testing_member
+      'warmUpPending': RaftFontWarmUp.pending,
+      'timerSites': topSites,
     };
     results.add(result);
     // ignore: avoid_print
@@ -248,7 +287,7 @@ Future<void> _main() async {
     host.currentState!.clear();
     await wait(400);
   }
-  if (out != null && out.isNotEmpty) {
+  if (out.isNotEmpty) {
     File(out).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(results));
   }
   // ignore: avoid_print
