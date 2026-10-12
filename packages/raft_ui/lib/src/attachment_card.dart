@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
 import 'icons.dart';
 import 'design_primitives.dart';
 import 'attachment_tokens.dart';
+import 'attachment_transfer.dart';
 import 'localization.dart';
 import 'hover_card.dart';
 import 'tooltip.dart';
@@ -30,6 +32,9 @@ class RaftAttachmentCard extends StatelessWidget {
     this.metaLabel,
     this.previewAffordance = false,
     this.previewPending = false,
+    this.transfer,
+    this.transferFallbackTotal,
+    this.downloadFailed = false,
   });
   final String filename, mimeType;
 
@@ -46,6 +51,17 @@ class RaftAttachmentCard extends StatelessWidget {
   /// Image cards only: the preview is still being fetched/decoded. The
   /// reserved box stays a neutral surface (no spinner, no filename flash).
   final bool previewPending;
+
+  /// Bytes of the pending image preview as they arrive. The bar and size chip
+  /// listen to it themselves; the card is not rebuilt per update.
+  final ValueListenable<RaftTransferProgress?>? transfer;
+
+  /// Stands in for an unknown content length (the original's `sizeBytes`);
+  /// null when the transferred bytes are a smaller rendition (thumbnail).
+  final int? transferFallbackTotal;
+
+  /// File cards: the last explicit download failed; tapping the card retries.
+  final bool downloadFailed;
   final int? sizeBytes;
   final double? imageWidth, imageHeight;
   final Size? imageExtent;
@@ -69,6 +85,7 @@ class RaftAttachmentCard extends StatelessWidget {
         mimeType.toLowerCase().split(';').first.trim().startsWith('image/') &&
         mimeType.toLowerCase().split(';').first.trim() != 'image/svg+xml';
     final extension = filename.split('.').last.toUpperCase();
+    final failedColor = RaftTransferRecipe(t).dangerText;
     final badge = component.semantics.badgeBackground(extension);
     Widget title() => Row(
       children: [
@@ -142,11 +159,16 @@ class RaftAttachmentCard extends StatelessWidget {
             if (metaLabel != null) const Spacer(),
             if (metaLabel != null)
               _WebMeta(
-                label: metaLabel!,
+                label: downloadFailed
+                    ? raftText(context, 'Download failed · tap to retry')
+                    : metaLabel!,
                 size: sizeBytes == null || sizeBytes! <= 0
                     ? null
                     : formatSize(sizeBytes!),
-                style: component.metadata.copyWith(height: 20 / 14),
+                style: component.metadata.copyWith(
+                  height: 20 / 14,
+                  color: downloadFailed ? failedColor : null,
+                ),
                 separator: t.brutal
                     ? Colors.black.withValues(alpha: .35)
                     : t.colors['foreground-placeholder']!,
@@ -158,8 +180,12 @@ class RaftAttachmentCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      sizeBytes == null ? '' : formatSize(sizeBytes!),
-                      style: component.metadata,
+                      downloadFailed
+                          ? '${sizeBytes == null ? '' : '${formatSize(sizeBytes!)} · '}${raftText(context, 'Download failed')}'
+                          : (sizeBytes == null ? '' : formatSize(sizeBytes!)),
+                      style: downloadFailed
+                          ? component.metadata.copyWith(color: failedColor)
+                          : component.metadata,
                       maxLines: 1,
                     ),
                   ),
@@ -216,6 +242,11 @@ class RaftAttachmentCard extends StatelessWidget {
                           onTap: exportMode ? null : onOpen,
                           child:
                               preview ??
+                              (transfer != null &&
+                                      (previewPending ||
+                                          error != null && onRetry != null)
+                                  ? const RaftTransferPlaceholder()
+                                  : null) ??
                               (previewPending && error == null
                                   ? const SizedBox.expand()
                                   : null) ??
@@ -231,6 +262,23 @@ class RaftAttachmentCard extends StatelessWidget {
                               ),
                         ),
                       ),
+                      if (!exportMode && preview == null)
+                        if (error != null && onRetry != null)
+                          // Option A: tap the failed chip's band to retry;
+                          // the rest of the tile still opens the viewer,
+                          // which fetches the original itself.
+                          Positioned.fill(
+                            child: RaftImageTransferOverlay.failed(
+                              onRetry: onRetry,
+                            ),
+                          )
+                        else if (previewPending && transfer != null)
+                          Positioned.fill(
+                            child: RaftImageTransferOverlay(
+                              progress: transfer!,
+                              fallbackTotal: transferFallbackTotal,
+                            ),
+                          ),
                       if (!exportMode)
                         Positioned(
                           right: 4,
@@ -266,15 +314,6 @@ class RaftAttachmentCard extends StatelessWidget {
                                   ),
                               ],
                             ),
-                          ),
-                        ),
-                      if (error != null && !exportMode && onRetry != null)
-                        Align(
-                          alignment: Alignment.bottomLeft,
-                          child: RaftTextButton(
-                            label: 'Retry preview',
-                            onPressed: onRetry,
-                            variant: RaftControlVariant.ghost,
                           ),
                         ),
                     ],
@@ -340,6 +379,8 @@ class RaftAttachmentCard extends StatelessWidget {
               ],
             ),
             if (busy && !exportMode) const LinearProgressIndicator(),
+            if (downloadFailed && !busy && !exportMode)
+              const RaftTransferBar(failed: true),
             if (!exportMode && busy && onCancel != null)
               RaftTextButton(
                 label: 'Cancel',

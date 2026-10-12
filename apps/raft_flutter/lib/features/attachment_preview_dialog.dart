@@ -9,7 +9,9 @@ import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_preview_files.dart';
 import '../platform/native_sharing.dart';
+import '../data/attachment_transfer.dart';
 import 'attachment_comments_view.dart';
+import 'attachment_transfer_view.dart';
 
 String? attachmentPreviewKind(Map<String, dynamic> metadata) {
   final name = '${metadata['filename'] ?? ''}'.toLowerCase();
@@ -167,7 +169,15 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   Uint8List? pageBytes;
   int page = 0, pageCount = 0, request = 0;
   bool loading = true, truncated = false, invalidated = false;
+
+  /// The file itself could not be fetched (as opposed to decoded or played):
+  /// the download panel offers a retry.
+  bool fetchFailed = false;
   String? error;
+
+  /// Bytes of the preview download, throttled; the panel's bar listens.
+  final transfer = AttachmentTransfer();
+  late final transferView = AttachmentTransferView(transfer);
   Future<void>? cleanup;
   String get kind => attachmentPreviewKind(widget.metadata) ?? 'unsupported';
   bool get current =>
@@ -200,6 +210,18 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     if (state != AppLifecycleState.resumed && player != null) {
       unawaited(action((p) => p.pause()));
     }
+  }
+
+  /// Fetch again after a failure; the same panel returns to progress.
+  void retry() {
+    if (!current) return;
+    transfer.value = null;
+    setState(() {
+      loading = true;
+      error = null;
+      fetchFailed = false;
+    });
+    load();
   }
 
   Future<void> load() async {
@@ -237,6 +259,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           '${widget.metadata['filename'] ?? 'attachment'}',
           cancel: cancel,
           authorized: () => current,
+          onProgress: transfer.report,
         );
         if (!current || ticket != request || prepared == null) {
           await prepared?.dispose();
@@ -266,9 +289,12 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       }
     } catch (_) {
       if (current && ticket == request) {
-        setState(
-          () => error = 'Preview unavailable. Download the original file.',
-        );
+        setState(() {
+          error = 'Preview unavailable. Download the original file.';
+          // Nothing was prepared: the bytes never arrived (or the preview
+          // service failed), so a retry can still help.
+          fetchFailed = lease == null && document == null;
+        });
       }
     } finally {
       if (current && ticket == request) setState(() => loading = false);
@@ -323,6 +349,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     invalidated = true;
     request++;
     cancel.cancel();
+    transfer.dispose();
     widget.controller.removeListener(scopeChanged);
     WidgetsBinding.instance.removeObserver(this);
     if (pageBytes != null) unawaited(MemoryImage(pageBytes!).evict());
@@ -352,6 +379,30 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       'markdown' => '${data['markdown'] ?? ''}',
       _ => null,
     };
+  }
+
+  /// Initial fetch of the file or its preview data (not a PDF page turn).
+  bool get fetching => loading && lease == null && document == null;
+
+  /// File head, bar and `1.7 / 2.8 MB · 62%` with Cancel (leaving the
+  /// preview cancels the download), or the failed state with Retry.
+  Widget transferPanel(BuildContext context) {
+    final name = '${widget.metadata['filename'] ?? ''}';
+    final size = (widget.metadata['sizeBytes'] as num?)?.toInt();
+    final extension = name.contains('.')
+        ? name.split('.').last.toUpperCase()
+        : '${widget.metadata['mimeType'] ?? ''}';
+    return RaftFileTransferPanel(
+      filename: name,
+      meta: size == null || size <= 0
+          ? extension
+          : '$extension · ${RaftAttachmentCard.formatSize(size)}',
+      progress: transferView,
+      fallbackTotal: size,
+      failed: fetchFailed,
+      onCancel: widget.onClose,
+      onRetry: retry,
+    );
   }
 
   Widget pager() => Row(
@@ -403,6 +454,8 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         Expanded(
           child: !current
               ? const SizedBox.shrink()
+              : fetching || fetchFailed
+              ? Center(child: transferPanel(context))
               : loading
               ? const Center(child: RaftSpinner())
               : error != null

@@ -200,6 +200,15 @@ keeps Web's 1 s activity gate. Everything else matches Web: opening clears the
 local unread, scrolling back to the bottom and returning to the foreground send
 the read receipt.
 
+## Activity master-detail threshold: intended difference from Web (owner decision 2026-10-12)
+
+Owner decision 2026-10-12: Activity master-detail (single tap = side preview,
+same-row double tap = open) applies at every multi-column width (>= 768 dp,
+`RaftLayoutMetrics.desktopBreakpoint`) regardless of the
+`activity_sidebar_inbox_v0` flag; Web uses 768 with the flag and 1024 without.
+(`DesktopActivityFlag.masterDetail`; covered by
+`test/activity_fold_widths_test.dart`.)
+
 ## One command
 
 ```bash
