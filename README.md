@@ -20,7 +20,7 @@ Native desktop windows on Windows, Linux and macOS. Click a screenshot to view t
   <tbody>
     <tr>
       <td valign="top">
-        <a href="screenshots/raft-windows-2026-10-12.jpg">
+        <a href="screenshots/raft-windows-2026-10-12.png">
           <img src="screenshots/raft-windows-2026-10-12.png" alt="Raft on Windows, showing a workspace chat and an Agent card in the Elegant theme" width="400">
         </a>
       </td>
