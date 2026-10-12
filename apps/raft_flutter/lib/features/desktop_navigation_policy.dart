@@ -99,7 +99,7 @@ class DesktopNavigationPolicy {
 }
 
 /// Identifiers only. Private entity payloads remain owned by authorized loaders.
-enum DesktopContentKind { channel, thread, agent, human, computer }
+enum DesktopContentKind { channel, thread, agent, human, computer, graph }
 
 class DesktopContentTarget {
   const DesktopContentTarget(
@@ -137,6 +137,10 @@ class DesktopNavigationState {
 
   DesktopContentTarget? get target {
     final location = navigation.location;
+    // `/members/graph` has no entity id: the page itself is the target.
+    if (location.route == RaftRoute.memberGraph) {
+      return const DesktopContentTarget(DesktopContentKind.graph, 'graph');
+    }
     final entityKind = switch (location.route) {
       RaftRoute.agent => DesktopContentKind.agent,
       RaftRoute.human => DesktopContentKind.human,
@@ -205,9 +209,10 @@ class DesktopNavigationState {
             DesktopContentKind.agent => RaftRoute.agent,
             DesktopContentKind.human => RaftRoute.human,
             DesktopContentKind.computer => RaftRoute.computer,
+            DesktopContentKind.graph => RaftRoute.memberGraph,
             _ => RaftRoute.channel,
           },
-          entityId: value.id,
+          entityId: value.kind == DesktopContentKind.graph ? null : value.id,
         ),
       );
     } else {
@@ -238,6 +243,7 @@ class DesktopNavigationState {
       RaftRoute.agent,
       RaftRoute.human,
       RaftRoute.computer,
+      RaftRoute.memberGraph,
     }.contains(navigation.location.route)) {
       navigation.navigate(
         navigation.location.tabHome(),

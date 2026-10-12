@@ -49,7 +49,8 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
   /// Machines and agents the notices project from. Agent presence patches
   /// (activity, last seen) do not change them.
   WorkspaceEntitySelection? entities;
-  Timer? poll, coalesce, closeDelay;
+  Timer? coalesce, closeDelay;
+  RaftForegroundPeriodic? poll;
   OverlayEntry? popup;
   bool popupKeyboard = false;
   bool keyboardInput = false;
@@ -111,7 +112,11 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
         coalesce = Timer(const Duration(milliseconds: 150), store.refresh);
       }
     });
-    poll = Timer.periodic(const Duration(seconds: 60), (_) => store.refresh());
+    // Stops while hidden/paused; resume refreshes (didChangeAppLifecycleState).
+    poll = RaftForegroundPeriodic(
+      const Duration(seconds: 60),
+      () => unawaited(store.refresh()),
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -190,7 +195,7 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
     entities = null;
     store.removeListener(updated);
     events?.cancel();
-    poll?.cancel();
+    poll?.dispose();
     coalesce?.cancel();
     closeDelay?.cancel();
     WidgetsBinding.instance.removeObserver(this);

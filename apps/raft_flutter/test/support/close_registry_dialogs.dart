@@ -358,18 +358,19 @@ const dialogSurfaces = <CloseSurface>[
     files: ['lib/features/channel_settings.dart'],
   ),
   CloseSurface(
-    'runtime-form-dialog',
+    'agent-runtime-editor',
     kind: SurfaceKind.dialog,
     web: 'AgentDetailPanel.tsx:2094 Modal layer=1 + CloseButton (closeRuntimeConfigEditor): X + Esc, no backdrop close',
     phone: {_x, _esc, _sys},
     fold: {_x, _esc, _sys},
     desktop: {_x, _esc, _sys},
     files: [
+      'lib/features/agent_runtime_editor.dart',
       'lib/features/runtime_form_dialog.dart',
       'lib/features/fleet_views.dart',
     ],
     status: 'fixed',
-    fix: 'fleet dialogs stop closing on a scrim tap (RaftDialogRoute dismissible false)',
+    fix: 'fleet dialogs stop closing on a scrim tap; the profile Edit runtime config opens AgentRuntimeEditor (legacy fields or the v2 form), which replaced RuntimeFormDialog there',
   ),
   CloseSurface(
     'feedback-close-dialog',
@@ -408,5 +409,17 @@ const dialogSurfaces = <CloseSurface>[
     ],
     status: 'fixed',
     fix: 'fleet dialogs no longer close on a scrim press',
+  ),
+  CloseSurface(
+    'report-issue-dialog',
+    kind: SurfaceKind.dialog,
+    web: 'ReportIssueDialog.tsx:552-559 DialogCard (no closeOnBackdrop): X + Esc, form and submitted states',
+    phone: {_x, _esc, _sys},
+    fold: {_x, _esc, _sys},
+    desktop: {_x, _esc, _sys},
+    files: [
+      'lib/features/report_issue.dart',
+      '../../packages/raft_ui/lib/src/report_issue_dialog.dart',
+    ],
   ),
 ];

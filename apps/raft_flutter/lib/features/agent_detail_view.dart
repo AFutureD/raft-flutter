@@ -16,6 +16,7 @@ import '../data/source_time_formatter.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import 'agent_apps_view.dart';
+import 'external_agent_setup.dart';
 import 'channel_form_fields.dart' show ChannelCandidateAvatar;
 import 'create_channel_dialog.dart' show ChannelMemberCandidate;
 import 'agent_trajectory_log.dart';
@@ -90,6 +91,7 @@ class AgentDetailActions {
     this.onMessage,
     this.onMigrate,
     this.onPermissions,
+    this.onReportIssue,
   });
   /// Keep the Back chevron at md+ (`backButtonVisibility="always"`).
   final bool backAlways;
@@ -105,7 +107,10 @@ class AgentDetailActions {
       onDelete,
       onMessage,
       onMigrate,
-      onPermissions;
+      onPermissions,
+      /// Report Issue (offered only when the build names a feedback export
+      /// worker, Web `FEEDBACK_EXPORT_ENABLED`).
+      onReportIssue;
 }
 
 /// Shared runtime catalog (packages/shared/src/runtimeCatalog.ts RUNTIMES).
@@ -250,6 +255,54 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
 
   bool diagnosticCopied = false;
   Timer? diagnosticTimer;
+
+  /// GET /agents/:id/external-status (external agents): the setup state the
+  /// presence line and the External setup block share.
+  Map<String, dynamic>? externalStatus;
+  String? externalStatusError;
+  String? externalStatusFor;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(loadExternalStatus());
+  }
+
+  @override
+  void didUpdateWidget(AgentDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.agent['id'] != a['id'] ||
+        oldWidget.agent['runtime'] != a['runtime'] ||
+        oldWidget.agent['external'] != a['external']) {
+      unawaited(loadExternalStatus());
+    }
+  }
+
+  Future<void> loadExternalStatus() async {
+    final id = '${a['id']}';
+    if (!external || externalStatusFor == id) return;
+    externalStatusFor = id;
+    try {
+      final status = await widget.controller.client.get(
+        '/agents/$id/external-status',
+      );
+      if (!mounted || externalStatusFor != id) return;
+      if (status is Map) {
+        setState(() {
+          externalStatus = Map<String, dynamic>.from(status);
+          externalStatusError = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted || externalStatusFor != id) return;
+      setState(
+        () =>
+            externalStatusError = e is RaftApiException && e.message.isNotEmpty
+            ? e.message
+            : raftText(context, 'Failed to load external setup status'),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -542,6 +595,55 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
     ).format(agentTimeFormatter(context, widget.controller).wallTime(date));
   }
 
+  /// EXTERNAL_AGENT_ONLINE_WINDOW_MS (store/presenceClock.ts).
+  static const _externalOnlineWindow = Duration(milliseconds: 120000);
+
+  /// Web `AgentStatusBadge` for an external agent: presence is the credential
+  /// seen within the online window, and managers also see the setup state.
+  /// While seen with a non-idle activity the badge reads like a managed
+  /// agent's (null here).
+  (Color, String)? _externalPresence(BuildContext context, RaftTokens t) {
+    if (!external) return null;
+    final seen = a['lastSeenAt'] is String
+        ? DateTime.tryParse(a['lastSeenAt'] as String)
+        : null;
+    final now = (widget.clock ?? DateTime.now)();
+    final online = seen != null && now.difference(seen) < _externalOnlineWindow;
+    final live = widget.liveActivity?['activity'];
+    if (online && live is String && live != 'online' && live != 'offline') {
+      return null;
+    }
+    final setup = externalStatus?['setupState'];
+    final detail = widget.canViewPrivate;
+    final color = online
+        ? t.product.brutalLime
+        : setup == 'waiting_for_login'
+        ? raftGray400
+        : t.product.brutalCyan;
+    final chinese = Localizations.localeOf(context).languageCode == 'zh';
+    final relative = !online && seen != null
+        ? resourceRelativeTime(
+            a['lastSeenAt'] as String,
+            now: now,
+            chinese: chinese,
+          )
+        : null;
+    final text = detail && setup == 'waiting_for_login'
+        ? raftText(context, 'External · Setup required')
+        : online
+        ? raftText(context, 'External · Online')
+        : relative != null
+        ? raftFormat(context, 'External · Last active {time}', {
+            'time': relative,
+          })
+        : detail && (setup == 'credential_minted' || setup == 'connected')
+        ? raftText(context, 'External · No Raft activity yet')
+        : detail && externalStatus != null
+        ? raftText(context, 'External · Not configured')
+        : raftText(context, 'External');
+    return (color, text);
+  }
+
   Widget _profile(BuildContext context) {
     final t = RaftTokens.of(context);
     final canEdit = widget.canManage && a['deletedAt'] == null;
@@ -550,6 +652,8 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         widget.canViewPrivate && detail is String && detail.isNotEmpty
         ? detail
         : raftText(context, _activityLabels[activity] ?? activity);
+    final agentId = '${a['id']}';
+    final externalPresence = _externalPresence(context, t);
     final role = a['serverRole'];
     final pending =
         a['machineId'] is String && widget.machines == null && !external;
@@ -608,6 +712,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
         expand: true,
         onPressed: copyDiagnosticInfo,
       ),
+      // `FEEDBACK_EXPORT_ENABLED && <Button variant="warning">` (Bug icon).
+      if (widget.actions.onReportIssue != null)
+        RaftButton(
+          key: const ValueKey('agent-report-issue'),
+          label: raftText(context, 'Report Issue'),
+          glyph: RaftGlyph.bug,
+          tone: RaftButtonRecipeVariant.warning,
+          size: RaftButtonRecipeSize.md,
+          expand: true,
+          onPressed: widget.busy ? null : widget.actions.onReportIssue,
+        ),
       if (widget.actions.onDelete != null)
         RaftButton(
           label: raftText(context, 'Delete Agent'),
@@ -632,8 +747,11 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
           avatarButton: canEdit,
           onAvatar: canEdit ? widget.actions.onEditAvatar : null,
           onEditName: canEdit ? widget.actions.onEditName : null,
-          statusColor: raftActivityDotColor(t, activity),
-          statusText: a['deletedAt'] == null ? status : null,
+          statusColor:
+              externalPresence?.$1 ?? raftActivityDotColor(t, activity),
+          statusText: a['deletedAt'] == null
+              ? externalPresence?.$2 ?? status
+              : null,
           // `min-h-[66px] theme-brutal:min-h-[72px]`.
           minHeight: t.brutal ? 72 : 66,
         ),
@@ -649,6 +767,17 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
             ),
           ],
         ),
+        // `showOperationalInfo && isExternalAgent && canManageAgent`
+        if (external && widget.canManage)
+          ExternalAgentSetup(
+            key: ValueKey('external-setup-$agentId'),
+            controller: widget.controller,
+            agent: a,
+            setupState: externalStatus?['setupState'] as String?,
+            credentialLastUsedAt:
+                externalStatus?['credentialLastUsedAt'] as String?,
+            statusError: externalStatusError,
+          ),
         RaftPanelSection(
           children: [
             RaftSectionEyebrow(raftText(context, 'Info')),
@@ -950,6 +1079,16 @@ abstract class _AgentTabSnapshot {
 
 class _ActivitySnapshot extends _AgentTabSnapshot {
   List<Map<String, dynamic>> entries = [];
+}
+
+/// The agent's live activity window the Activity tab holds (Web
+/// `getActivityLog`); empty until that tab was opened.
+List<Map<String, dynamic>> agentCachedActivityEntries(
+  WorkspaceController w,
+  String agentId,
+) {
+  final snapshot = w.agentTabCache.peek('activity/$agentId');
+  return snapshot is _ActivitySnapshot ? snapshot.entries : const [];
 }
 
 class _ChatSnapshot extends _AgentTabSnapshot {

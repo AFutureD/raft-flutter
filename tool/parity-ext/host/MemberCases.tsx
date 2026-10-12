@@ -23,7 +23,6 @@ import "../src/components/member/HumanDetailPanel";
 import "../src/components/profile/ExternalIdentityDetailPanel";
 import parityExtMbActivityFixture from "../../visual-testing/shared/activityResultsFixture.json";
 import parityExtMbFixture from "virtual:parity-ext/members";
-import { useLayoutEffect as parityExtMbUseLayoutEffect } from "react";
 import type { CSSProperties as ParityExtMbCSSProperties } from "react";
 
 type ParityExtMbProps = {
@@ -92,15 +91,6 @@ function parityExtMbShellVars(): ParityExtMbCSSProperties {
   return { ["--shell-header-height" as string]: theme === "brutal-light" ? "62px" : "56px" } as ParityExtMbCSSProperties;
 }
 
-// Web-only entry with no Flutter equivalent (the Members graph view is not ported):
-// hide the "Graph" row so the rows below it are comparable.
-function parityExtMbHideGraphRow(root: HTMLElement | null) {
-  if (!root) return;
-  for (const el of Array.from(root.querySelectorAll('button, a, [data-slot="sidebar-item"]'))) {
-    if ((el.textContent ?? "").trim() === "Graph") (el as HTMLElement).style.display = "none";
-  }
-}
-
 // InviteHumanDialog like the official host: owner (so `inviteMembers` holds) and the
 // Guest server flag from the case.
 function ParityExtMbInvite({ props, caseId }: { props: ParityExtMbProps; caseId: string }) {
@@ -157,9 +147,6 @@ function ParityExtMbView({ props }: { props: ParityExtMbProps }) {
   if (props.extKind === "invite") return <ParityExtMbInvite props={props} caseId={caseId} />;
   if (props.extKind === "resource") return <ParityExtMbResource props={props} caseId={caseId} />;
   useMemo(() => parityExtMbPrimeStores(props), [props]);
-  parityExtMbUseLayoutEffect(() => {
-    if (props.extKind === "list") parityExtMbHideGraphRow(document.querySelector("[data-visual-case]"));
-  });
   if (props.extKind === "list") {
     // Sidebar column of the desktop shell: 240 x viewport height.
     return (
