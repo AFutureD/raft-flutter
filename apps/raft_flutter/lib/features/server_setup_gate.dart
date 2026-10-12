@@ -413,7 +413,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   Widget stepPage(Widget step) => LayoutBuilder(
     builder: (context, box) {
       final padding = raftScrollPadding(context, const EdgeInsets.all(16));
-      return SingleChildScrollView(
+      return RaftKeyboardScrollView(
         padding: padding,
         child: ConstrainedBox(
           constraints: BoxConstraints(

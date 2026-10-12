@@ -65,6 +65,7 @@ export 'src/icons.dart';
 export 'src/recipes/toast_styles.g.dart' show RaftToastRecipeTone;
 export 'src/brand.dart';
 export 'src/auth_page.dart';
+export 'src/keyboard_reveal.dart';
 export 'src/root_error_fallback.dart';
 export 'src/server_access_denied.dart';
 export 'src/archived_channels_section.dart';

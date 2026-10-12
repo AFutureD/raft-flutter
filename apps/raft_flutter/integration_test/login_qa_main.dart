@@ -288,6 +288,23 @@ class _QaAdapter implements HttpClientAdapter {
     }
     final path = o.path;
     if (path.endsWith('/setup-projection')) {
+      if (_fx.setup == 'survey') {
+        return {
+          'phase': 'complete',
+          'surface': 'complete',
+          'blocksChat': false,
+          'postSetup': {'surveyPending': true},
+        };
+      }
+      if (_fx.setup == 'cindy') {
+        return {
+          'phase': 'in_progress',
+          'surface': 'create_agent',
+          'blocksChat': true,
+          'allowedExits': <String>[],
+          'sideEffectState': {'transitions': 'enabled', 'completion': 'enabled'},
+        };
+      }
       return _fx.setup == 'deferred'
           ? {
               'phase': 'deferred',
@@ -301,7 +318,20 @@ class _QaAdapter implements HttpClientAdapter {
             }
           : {'phase': 'complete', 'surface': 'complete', 'blocksChat': false};
     }
-    if (path.endsWith('/machines')) return {'machines': []};
+    if (path.endsWith('/machines')) {
+      return {
+        'machines': _fx.setup == 'cindy'
+            ? [
+                {
+                  'id': 'm1',
+                  'name': 'Studio Mac',
+                  'isComputer': true,
+                  'status': 'online',
+                },
+              ]
+            : [],
+      };
+    }
     if (path.endsWith('/members')) return [];
     if (path.endsWith('/sidebar-order')) return {};
     if (path.endsWith('/translation-settings')) {
@@ -412,6 +442,8 @@ const _scenarios = <String, void Function(_Fx)>{
   // First workspace frame.
   'workspace': _workspace,
   'workspace-setup-bar': _workspaceSetup,
+  'workspace-setup-survey': _workspaceSetupSurvey,
+  'workspace-setup-cindy': _workspaceSetupCindy,
   'root-error': _serversTwo,
 };
 
@@ -553,6 +585,16 @@ void _resolutionLoading(_Fx f) {
 void _workspace(_Fx f) {
   _in(f);
   f.location = '/s/raft-design';
+}
+
+void _workspaceSetupSurvey(_Fx f) {
+  _workspace(f);
+  f.setup = 'survey';
+}
+
+void _workspaceSetupCindy(_Fx f) {
+  _workspace(f);
+  f.setup = 'cindy';
 }
 
 void _workspaceSetup(_Fx f) {

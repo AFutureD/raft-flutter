@@ -45,6 +45,7 @@ class AuthView extends StatefulWidget {
     this.bootError,
     this.onOAuth,
     this.anonymousClientFactory,
+    this.oauthBrokerFactory,
     this.initialMode = 'login',
     this.resetToken,
   });
@@ -60,6 +61,9 @@ class AuthView extends StatefulWidget {
   /// page also asks for the link or code (native clients have no URL).
   final String? resetToken;
   final RaftClient Function(String)? anonymousClientFactory;
+
+  /// The browser sign-in broker (tests inject a fake launcher).
+  final NativeOAuthBroker Function()? oauthBrokerFactory;
   final String origin;
   final String? bootError;
   final Future<void> Function(String, String, String) onLogin;
@@ -147,8 +151,13 @@ class _AuthState extends State<AuthView> {
           origin: base.text.trim(),
           sessionStore: MemorySessionStore(),
         );
-    final active = NativeOAuthBroker();
+    final active = widget.oauthBrokerFactory?.call() ?? NativeOAuthBroker();
     broker = active;
+    void helpChanged() {
+      if (mounted) setState(() {});
+    }
+
+    active.helpUrl.addListener(helpChanged);
     try {
       await const LocalNetworkAccess().ensure(base.text.trim(), request: true);
       if (!mounted) return;
@@ -166,6 +175,7 @@ class _AuthState extends State<AuthView> {
     } catch (e) {
       if (mounted) setState(() => error = '$e');
     } finally {
+      active.helpUrl.removeListener(helpChanged);
       await active.cancel();
       await client.dispose();
       broker = null;
@@ -497,6 +507,18 @@ class _AuthState extends State<AuthView> {
         ],
         onProvider: (id) => social(id),
         onCancelBrowser: broker == null ? null : () => broker!.cancel(),
+        // "Browser didn't open?": the launcher failed or nothing came back
+        // after a few seconds (desktop). The URL stays out of logs.
+        onCopyLink: broker?.helpUrl.value == null
+            ? null
+            : () => unawaited(
+                Clipboard.setData(
+                  ClipboardData(text: broker!.helpUrl.value.toString()),
+                ),
+              ),
+        onOpenAgain: broker?.helpUrl.value == null
+            ? null
+            : () => unawaited(broker!.openAgain()),
         onMode: (next) => switchMode(next.name),
         onTerms: () => managementLaunch('https://raft.build/terms'),
         onPrivacy: () => managementLaunch('https://raft.build/privacy'),

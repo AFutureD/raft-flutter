@@ -15,6 +15,7 @@ import 'css_pixel_snap.dart';
 import 'design_primitives.dart';
 import 'form_controls.dart';
 import 'icons.dart';
+import 'keyboard_reveal.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
@@ -124,13 +125,15 @@ class RaftSetupSurveyCard extends StatelessWidget {
     String tr(String s) => raftText(context, s);
     final wide = _wide(context, available);
     final canContinue = !saving && role != null && source != null;
-    final cont = RaftButton(
-      key: const Key('server-setup-survey-continue'),
-      label: saving ? tr('Saving…') : tr('Continue'),
-      tone: RaftButtonRecipeVariant.accent,
-      size: RaftButtonRecipeSize.lg,
-      expand: !wide,
-      onPressed: canContinue ? onContinue : null,
+    final cont = RaftPrimaryAction(
+      child: RaftButton(
+        key: const Key('server-setup-survey-continue'),
+        label: saving ? tr('Saving…') : tr('Continue'),
+        tone: RaftButtonRecipeVariant.accent,
+        size: RaftButtonRecipeSize.lg,
+        expand: !wide,
+        onPressed: canContinue ? onContinue : null,
+      ),
     );
     final footer = wide
         ? Row(

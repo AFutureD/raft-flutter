@@ -133,14 +133,14 @@ The login/auth pages of a signed-out device follow the device locale (English on
 | 7 | (Caught by this pass, fixed in the same change.) The widget links lost the space in "No account?Create one" and "Signed in as x.Log out". | an intermediate build | Wrap children trim a trailing space. | Non-breaking space after the prefix. |
 
 Checked and fine (no change): safe areas and status bar colour on every auth page (brand bar colour reaches the status
-bar), keyboard insets on the login form (focused field stays visible, page scrolls), Retry / error banners for wrong
+bar), keyboard insets on the login form on a tall emulator (superseded: it hid the field on short phones, docs/auth-keyboard.md), Retry / error banners for wrong
 password, network down, 500, 429, unverified account, failed server list and failed create, disabled/busy buttons,
 zh-CN strings of the signed-in pages, the Web parity of the covered cases (below).
 
 Notes, not changed (Web behaviour or out of scope):
 
-- The first-server page autofocuses the name field, so the IME opens at once and covers the URL field and the
-  button until dismissed. Web autofocuses the same field; a product decision, not a defect of the frame.
+- The first-server page autofocuses the name field, so the IME opens at once (Web autofocuses the same field). The
+  keyboard no longer covers the URL field and button: see docs/auth-keyboard.md.
 - The two legal links (Terms of Service, Privacy Policy) stay inline spans inside their paragraph (Web look, text-height
   hit area, no pressed state).
 - Hit areas below 48dp next to another control are limited by the neighbour (the next sibling wins the overlap).
@@ -173,3 +173,14 @@ elegant-dark 95.95/95.37%, setup survey 94.8-95.7%.
 
 Test run before and after the fixes: the new guards fail on `c88601bc` (splash paragraphs in fallback style, server
 row without pressed feedback, saved theme ignored on the first frame) and pass after.
+
+## Desktop browser sign-in that never opens
+
+`NativeOAuthBroker` (desktop loopback flow, unchanged) exposes `helpUrl`: set when the launcher throws / returns false
+(immediately) or when no callback has arrived after 3 s (`launchUrl` can return true while nothing opens, e.g. the
+Linux AppImage when GIO cannot exec the browser). `RaftAuthPage` then shows, above "Cancel browser sign-in", "Browser
+didn't open?" with "Copy sign-in link" (copies the exact authorization URL, then reads "Link copied") and "Open again"
+(`launchUrl` on the same attempt). The attempt keeps waiting (10 min); cancelling removes the help. The URL carries the
+provider state: it is never logged or put in an error message. zh strings: `l10n/zh_oauth_browser.dart`. Guard:
+`test/oauth_browser_help_test.dart` (a launcher that never opens: nothing before 3 s, help after; a launcher that
+throws: help at once; copy puts the exact URL on the clipboard; open again launches again; cancel clears it).

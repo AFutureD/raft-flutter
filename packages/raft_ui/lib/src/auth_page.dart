@@ -12,6 +12,7 @@ import 'components.dart';
 import 'css_pixel_snap.dart';
 import 'design_primitives.dart';
 import 'icons.dart';
+import 'keyboard_reveal.dart';
 import 'localization.dart';
 import 'onboarding_previews.dart';
 import 'recipes/button_variants.g.dart';
@@ -60,6 +61,7 @@ class RaftAuthShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final safe = MediaQuery.paddingOf(context);
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final wide = MediaQuery.sizeOf(context).width >= 640; // Tailwind `sm`
     final content = Padding(
       padding:
@@ -86,7 +88,15 @@ class RaftAuthShell extends StatelessWidget {
         ),
         child: Padding(
           // `safe-top`; `safe-bottom` = inset + 1rem (index.css .safe-bottom).
-          padding: EdgeInsets.only(top: safe.top, bottom: safe.bottom + 16),
+          // The page is the window (no resizing Scaffold above it): it spends
+          // the keyboard inset itself, so the viewport ends at the keyboard and
+          // the form scrolls (RaftKeyboardScrollView reveals the focused field
+          // and the submit button). The padding the system bar needed is the
+          // keyboard's while it is up (`padding` is already 0 then).
+          padding: EdgeInsets.only(
+            top: safe.top,
+            bottom: keyboard > 0 ? keyboard : safe.bottom + 16,
+          ),
           child: LayoutBuilder(
             builder: (context, box) {
               final bar = RaftAuthTopBar(server: server, onServer: onServer);
@@ -98,7 +108,7 @@ class RaftAuthShell extends StatelessWidget {
                 );
               }
               const barHeight = RaftAuthTopBar.height;
-              return SingleChildScrollView(
+              return RaftKeyboardScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -340,6 +350,69 @@ class RaftAuthField extends StatelessWidget {
   }
 }
 
+/// Native-only secondary line under a waiting browser sign-in: "Browser didn't
+/// open? Copy sign-in link", with "Open again". Centred muted text and two
+/// text links; the copy link confirms with "Link copied".
+class RaftAuthBrowserHelp extends StatefulWidget {
+  const RaftAuthBrowserHelp({
+    super.key,
+    required this.onCopyLink,
+    required this.onOpenAgain,
+  });
+  final VoidCallback onCopyLink, onOpenAgain;
+
+  @override
+  State<RaftAuthBrowserHelp> createState() => _RaftAuthBrowserHelpState();
+}
+
+class _RaftAuthBrowserHelpState extends State<RaftAuthBrowserHelp> {
+  bool _copied = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    String tr(String s) => raftText(context, s);
+    return Column(
+      key: const ValueKey('auth-browser-help'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          tr("Browser didn't open?"),
+          textAlign: TextAlign.center,
+          style: RaftTypography.heading(
+            t,
+            size: 14,
+            line: 20,
+            weight: FontWeight.w400,
+          ).copyWith(color: t.muted),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 16,
+          children: [
+            RaftAuthTextLink(
+              key: const ValueKey('auth-copy-sign-in-link'),
+              label: tr(_copied ? 'Link copied' : 'Copy sign-in link'),
+              onTap: () {
+                widget.onCopyLink();
+                setState(() => _copied = true);
+              },
+              bold: true,
+            ),
+            RaftAuthTextLink(
+              key: const ValueKey('auth-open-again'),
+              label: tr('Open again'),
+              onTap: widget.onOpenAgain,
+              bold: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// `<Button type="submit" size="lg" variant="accent" className="w-full">`.
 class RaftAuthSubmit extends StatelessWidget {
   const RaftAuthSubmit({super.key, required this.label, this.onPressed});
@@ -373,15 +446,21 @@ class RaftAuthWideButton extends StatelessWidget {
   final double? gap;
 
   @override
-  Widget build(BuildContext context) => RaftButton(
-    label: label,
-    variant: variant,
-    size: RaftButtonRecipeSize.lg,
-    expand: true,
-    onPressed: onPressed,
-    leading: leading,
-    gap: gap,
-  );
+  Widget build(BuildContext context) {
+    final button = RaftButton(
+      label: label,
+      variant: variant,
+      size: RaftButtonRecipeSize.lg,
+      expand: true,
+      onPressed: onPressed,
+      leading: leading,
+      gap: gap,
+    );
+    // The accent button of a form is its submit: kept above the keyboard.
+    return variant == RaftControlVariant.accent
+        ? RaftPrimaryAction(child: button)
+        : button;
+  }
 }
 
 /// `my-4 flex items-center gap-3`; rules `h-0.5 flex-1 bg-line-strong
@@ -983,6 +1062,8 @@ class RaftAuthPage extends StatelessWidget {
     this.providers = const [],
     this.onProvider,
     this.onCancelBrowser,
+    this.onCopyLink,
+    this.onOpenAgain,
     required this.onMode,
     required this.onTerms,
     required this.onPrivacy,
@@ -1000,6 +1081,10 @@ class RaftAuthPage extends StatelessWidget {
   final List<RaftAuthProviderEntry> providers;
   final ValueChanged<String>? onProvider;
   final VoidCallback? onCancelBrowser;
+
+  /// Both set: the browser sign-in is waiting and the browser may not have
+  /// opened (native only): "Browser didn't open? Copy sign-in link / Open again".
+  final VoidCallback? onCopyLink, onOpenAgain;
   final ValueChanged<RaftAuthMode> onMode;
   final VoidCallback onTerms, onPrivacy;
   final String? server;
@@ -1120,6 +1205,15 @@ class RaftAuthPage extends StatelessWidget {
                 ],
               ],
             ),
+            if (onCancelBrowser != null &&
+                onCopyLink != null &&
+                onOpenAgain != null) ...[
+              const SizedBox(height: 12),
+              RaftAuthBrowserHelp(
+                onCopyLink: onCopyLink!,
+                onOpenAgain: onOpenAgain!,
+              ),
+            ],
             if (onCancelBrowser != null) ...[
               const SizedBox(height: 8),
               RaftAuthTextLink(
@@ -1337,9 +1431,8 @@ class RaftAuthVerifyPage extends StatelessWidget {
                     final color = active ? t.strong : t.muted;
                     return Text.rich(
                       TextSpan(
-                        style: _linkStyle(
-                          t,
-                        ).copyWith(color: color, decorationColor: color),
+                        style: _linkStyle(t)
+                            .copyWith(color: color, decorationColor: color),
                         children: [
                           WidgetSpan(
                             alignment: PlaceholderAlignment.middle,
@@ -1372,12 +1465,14 @@ class RaftAuthVerifyPage extends StatelessWidget {
               children: [
                 Expanded(child: tokenField),
                 const SizedBox(width: 8), // gap-2
-                RaftButton(
-                  key: const Key('verify-submit'),
-                  label: verifying ? '…' : tr('Verify'),
-                  tone: RaftButtonRecipeVariant.success,
-                  size: RaftButtonRecipeSize.sm,
-                  onPressed: verifying || !canVerify ? null : onVerify,
+                RaftPrimaryAction(
+                  child: RaftButton(
+                    key: const Key('verify-submit'),
+                    label: verifying ? '…' : tr('Verify'),
+                    tone: RaftButtonRecipeVariant.success,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: verifying || !canVerify ? null : onVerify,
+                  ),
                 ),
               ],
             ),
@@ -1488,6 +1583,7 @@ class RaftOnboardingShell extends StatelessWidget {
     }
     final t = RaftTokens.of(context);
     final safe = MediaQuery.paddingOf(context);
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     const brutalBorder = BorderSide(color: Color(0xFF000000), width: 2);
     final divider = t.brutal
         ? brutalBorder
@@ -1500,8 +1596,11 @@ class RaftOnboardingShell extends StatelessWidget {
           color: t.semantic.foreground,
         ),
         child: Padding(
-          // `safe-top`; `safe-bottom` = inset + 1rem.
-          padding: EdgeInsets.only(top: safe.top, bottom: safe.bottom + 16),
+          // `safe-top`; `safe-bottom` = inset + 1rem (the keyboard's while up).
+          padding: EdgeInsets.only(
+            top: safe.top,
+            bottom: keyboard > 0 ? keyboard : safe.bottom + 16,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1516,7 +1615,7 @@ class RaftOnboardingShell extends StatelessWidget {
                   child: Stack(
                     children: [
                       LayoutBuilder(
-                        builder: (context, box) => SingleChildScrollView(
+                        builder: (context, box) => RaftKeyboardScrollView(
                           padding: const EdgeInsets.all(40),
                           child: ConstrainedBox(
                             constraints: BoxConstraints(

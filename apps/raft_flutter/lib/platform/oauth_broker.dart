@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:crypto/crypto.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -31,9 +32,23 @@ class NativeOAuthBroker {
     Future<void> Function(Uri)? launch,
     this.links,
     bool? android,
+    this.helpDelay = const Duration(seconds: 3),
   }) : _launch = launch ?? _open,
        _android = android ?? Platform.isAndroid;
   final Future<void> Function(Uri) _launch;
+
+  /// How long a desktop sign-in waits for the browser before the page offers
+  /// the link (a `launchUrl` that returned true can still open nothing, e.g.
+  /// the Linux AppImage when GIO cannot exec the browser).
+  final Duration helpDelay;
+
+  /// The authorization URL while the page should show "Browser didn't open?"
+  /// (the launcher failed, or [helpDelay] passed without a callback); null
+  /// otherwise. The URL carries the provider's state: it is shown only to the
+  /// copy / open-again actions and is never logged.
+  final ValueNotifier<Uri?> helpUrl = ValueNotifier<Uri?>(null);
+  Uri? _url;
+  Timer? _helpTimer;
   final Stream<Uri>? links;
   final bool _android;
   HttpServer? _server;
@@ -118,7 +133,15 @@ class NativeOAuthBroker {
           'The server did not return a valid authentication address.',
         );
       }
-      await _launch(url);
+      _url = url;
+      if (!_android) _helpTimer = Timer(helpDelay, _showHelp);
+      try {
+        await _launch(url);
+      } catch (_) {
+        // The browser did not open: keep waiting (the link can be opened by
+        // hand, the loopback / deep link completes the same attempt).
+        _showHelp();
+      }
       final code = await completion.timeout(
         const Duration(minutes: 10),
         onTimeout: () => throw const RaftApiException(
@@ -127,11 +150,36 @@ class NativeOAuthBroker {
       );
       return OAuthHandoff(code, verifier);
     } finally {
+      _clearHelp();
       await _closeResources();
       _completion = null;
       _nonce = null;
       _provider = null;
       returnUri = null;
+    }
+  }
+
+  void _showHelp() {
+    final completion = _completion;
+    if (_closed || completion == null || completion.isCompleted) return;
+    helpUrl.value = _url;
+  }
+
+  void _clearHelp() {
+    _helpTimer?.cancel();
+    _helpTimer = null;
+    _url = null;
+    helpUrl.value = null;
+  }
+
+  /// Tries the system browser again with the same attempt (same URL).
+  Future<void> openAgain() async {
+    final url = _url;
+    if (_closed || url == null) return;
+    try {
+      await _launch(url);
+    } catch (_) {
+      _showHelp();
     }
   }
 
@@ -211,6 +259,7 @@ class NativeOAuthBroker {
 
   Future<void> cancel() async {
     _closed = true;
+    _clearHelp();
     _fail('Authentication cancelled.');
     await _closeResources();
   }
