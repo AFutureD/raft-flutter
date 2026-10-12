@@ -523,6 +523,7 @@ void main() {
       await frames(t, 20);
       await t.tap(find.byKey(const ValueKey('composer-attachment-0')));
       await frames(t, 20);
+      await settleImage(t); // display-size decode is real async work
       return SurfaceProbe(
         isOpen: lightboxOpen,
         x: find.byTooltip('Close preview'),
@@ -585,6 +586,7 @@ void main() {
         ),
       );
       await frames(t, 20);
+      await settleImage(t); // display-size decode is real async work
       return SurfaceProbe(
         isOpen: lightboxOpen,
         x: find.byTooltip('Close preview'),

@@ -218,7 +218,7 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
         : RaftAvatarSlot(
             name: '${widget.agent['name']}',
             slot: RaftAvatarSlotContext.profileTile,
-            content: Image.memory(
+            content: RaftSizedImage.memory(
               upload!.bytes,
               fit: BoxFit.cover,
               errorBuilder: (_, e, s) =>
