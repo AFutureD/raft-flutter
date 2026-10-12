@@ -610,8 +610,12 @@ class RaftAuthTextLink extends StatelessWidget {
     this.primary = false,
     this.bold = false,
     this.centeredLine = false,
+    this.centered = false,
   });
   final String label;
+
+  /// `<div className="text-center">` / `Center`: the link centred in its row.
+  final bool centered;
 
   /// `<div className="text-center"><button …>` in a `text-base` block: the
   /// link is centred in a 24px line box.
@@ -629,26 +633,69 @@ class RaftAuthTextLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    final link = Opacity(
-      opacity: onTap == null ? .5 : 1,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Text(
-          label,
-          style: _linkStyle(
-            t,
-            primary: primary,
-            bold: bold,
-            size: small ? 12 : 14,
+    // RaftInteractive: hover / pressed / focus-visible states and, on touch
+    // density, a 48dp hit area around the unchanged Web text box.
+    final link = RaftInteractive(
+      onPressed: onTap,
+      semanticLabel: label,
+      builder: (context, state) {
+        final strong = !primary && (state.hovered || state.pressed);
+        final style = _linkStyle(
+          t,
+          primary: primary,
+          bold: bold,
+          size: small ? 12 : 14,
+        );
+        final color = strong ? t.strong : style.color;
+        return Opacity(
+          opacity: !state.enabled
+              ? .5
+              : primary && state.pressed
+              ? .7
+              : 1,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              boxShadow: [
+                if (state.focusVisible)
+                  BoxShadow(
+                    color: (t.brutal ? Colors.black : t.ink).withValues(
+                      alpha: .8,
+                    ),
+                    spreadRadius: 2,
+                  ),
+              ],
+            ),
+            child: Text(
+              label,
+              style: style.copyWith(color: color, decorationColor: color),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
-    if (!centeredLine) return link;
-    return SizedBox(height: 24, child: Center(child: link));
+    if (centeredLine) {
+      return _touchLine(
+        context,
+        SizedBox(height: 24, child: Center(child: link)),
+      );
+    }
+    if (centered) return _touchLine(context, Center(child: link));
+    return link;
   }
 }
+
+/// A one-line row of text links keeps the Web geometry, yet on touch density
+/// a tap up to 24dp above or below the line reaches the link under it (a 48dp
+/// target). The expansion must sit outside every shrink-wrapped parent, which
+/// would otherwise reject a pointer outside its own box.
+Widget _touchLine(BuildContext context, Widget row) =>
+    RaftDensityScope.of(context) == RaftDensity.touch
+    ? RaftTouchTarget(
+        minSize: const Size(0, RaftMetrics.touchTarget),
+        child: row,
+      )
+    : row;
 
 TextStyle _linkStyle(
   RaftTokens t, {
@@ -672,7 +719,7 @@ TextStyle _linkStyle(
     );
 
 /// `<p className="mt-4 text-center text-sm">` prompt + primary TextLink.
-class RaftAuthPrompt extends StatefulWidget {
+class RaftAuthPrompt extends StatelessWidget {
   const RaftAuthPrompt({
     super.key,
     required this.prefix,
@@ -681,39 +728,26 @@ class RaftAuthPrompt extends StatefulWidget {
   });
   final String prefix, link;
   final VoidCallback? onTap;
-  @override
-  State<RaftAuthPrompt> createState() => _RaftAuthPromptState();
-}
-
-class _RaftAuthPromptState extends State<RaftAuthPrompt> {
-  final tap = TapGestureRecognizer();
-
-  @override
-  void dispose() {
-    tap.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    tap.onTap = widget.onTap;
-    return Text.rich(
-      textAlign: TextAlign.center,
-      TextSpan(
-        style: RaftTypography.heading(
-          t,
-          size: 14,
-          line: 20,
-          weight: FontWeight.w400,
-        ).copyWith(color: t.semantic.foreground),
+    return _touchLine(
+      context,
+      Wrap(
+        alignment: WrapAlignment.center,
         children: [
-          TextSpan(text: '${widget.prefix} '),
-          TextSpan(
-            text: widget.link,
-            style: _linkStyle(t, primary: true),
-            recognizer: tap,
+          Text(
+            '$prefix ',
+            textAlign: TextAlign.center,
+            style: RaftTypography.heading(
+              t,
+              size: 14,
+              line: 20,
+              weight: FontWeight.w400,
+            ).copyWith(color: t.semantic.foreground),
           ),
+          RaftAuthTextLink(label: link, primary: true, onTap: onTap),
         ],
       ),
     );
@@ -889,20 +923,26 @@ class RaftAuthSessionFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
-    return Wrap(
-      alignment: WrapAlignment.center,
-      children: [
-        Text(
-          '${raftText(context, 'Signed in as')} $name. ',
-          style: RaftTypography.heading(
-            t,
-            size: 14,
-            line: 20,
-            weight: FontWeight.w400,
-          ).copyWith(color: t.muted),
-        ),
-        RaftAuthTextLink(label: raftText(context, 'Log out'), onTap: onSignOut),
-      ],
+    return _touchLine(
+      context,
+      Wrap(
+        alignment: WrapAlignment.center,
+        children: [
+          Text(
+            '${raftText(context, 'Signed in as')} $name. ',
+            style: RaftTypography.heading(
+              t,
+              size: 14,
+              line: 20,
+              weight: FontWeight.w400,
+            ).copyWith(color: t.muted),
+          ),
+          RaftAuthTextLink(
+            label: raftText(context, 'Log out'),
+            onTap: onSignOut,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1082,11 +1122,10 @@ class RaftAuthPage extends StatelessWidget {
             ),
             if (onCancelBrowser != null) ...[
               const SizedBox(height: 8),
-              Center(
-                child: RaftAuthTextLink(
-                  label: tr('Cancel browser sign-in'),
-                  onTap: onCancelBrowser,
-                ),
+              RaftAuthTextLink(
+                label: tr('Cancel browser sign-in'),
+                onTap: onCancelBrowser,
+                centered: true,
               ),
             ],
           ],
@@ -1094,11 +1133,10 @@ class RaftAuthPage extends StatelessWidget {
             const SizedBox(height: 16), // mt-4
             RaftAuthLegalNotice(onTerms: onTerms, onPrivacy: onPrivacy),
             const SizedBox(height: 12), // mt-3
-            Center(
-              child: RaftAuthTextLink(
-                label: tr('Forgot password?'),
-                onTap: () => onMode(RaftAuthMode.forgot),
-              ),
+            RaftAuthTextLink(
+              label: tr('Forgot password?'),
+              onTap: () => onMode(RaftAuthMode.forgot),
+              centered: true,
             ),
             const SizedBox(height: 8), // mt-2
             RaftAuthPrompt(
@@ -1117,12 +1155,11 @@ class RaftAuthPage extends StatelessWidget {
             // `<p className="mt-4 text-center text-sm"><button font-bold
             // underline accent>Back to sign in</button></p>`
             const SizedBox(height: 16),
-            Center(
-              child: RaftAuthTextLink(
-                label: tr('Back to sign in'),
-                primary: true,
-                onTap: busy ? null : () => onMode(RaftAuthMode.login),
-              ),
+            RaftAuthTextLink(
+              label: tr('Back to sign in'),
+              primary: true,
+              onTap: busy ? null : () => onMode(RaftAuthMode.login),
+              centered: true,
             ),
           ],
         ],
@@ -1284,35 +1321,46 @@ class RaftAuthVerifyPage extends StatelessWidget {
           const SizedBox(height: 12), // space-y-3
           // `<div className="text-center"><button …>`: the inline button sits
           // in a 24px line (the block's `text-base` strut).
-          SizedBox(
-            height: 24,
-            child: Center(
-              child: GestureDetector(
-                key: const Key('verify-manual-toggle'),
-                onTap: onToggleManual,
-                behavior: HitTestBehavior.opaque,
-                child: Text.rich(
-                  TextSpan(
-                    style: _linkStyle(t),
-                    children: [
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: RaftIcon(
-                            RaftGlyph.keyRound,
-                            size: 12,
-                            color: t.muted,
-                          ),
-                        ),
-                      ),
+          _touchLine(
+            context,
+            SizedBox(
+              height: 24,
+              child: Center(
+                child: RaftInteractive(
+                  key: const Key('verify-manual-toggle'),
+                  onPressed: onToggleManual,
+                  semanticLabel: manualOpen
+                      ? tr('Hide manual entry')
+                      : tr('Enter code manually'),
+                  builder: (context, state) {
+                    final active = state.hovered || state.pressed;
+                    final color = active ? t.strong : t.muted;
+                    return Text.rich(
                       TextSpan(
-                        text: manualOpen
-                            ? tr('Hide manual entry')
-                            : tr('Enter code manually'),
+                        style: _linkStyle(
+                          t,
+                        ).copyWith(color: color, decorationColor: color),
+                        children: [
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: RaftIcon(
+                                RaftGlyph.keyRound,
+                                size: 12,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                          TextSpan(
+                            text: manualOpen
+                                ? tr('Hide manual entry')
+                                : tr('Enter code manually'),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ),

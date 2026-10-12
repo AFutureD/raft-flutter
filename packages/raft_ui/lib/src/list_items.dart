@@ -183,6 +183,97 @@ class _RaftSurfaceListItemState extends State<RaftSurfaceListItem> {
   }
 }
 
+/// Web ServerSelector option: raft-ui `Card variant="option"` rendered as a
+/// `<button class="w-full text-left">`. The raft-ui option recipe itself has
+/// no hover, active or focus styles, so a touch client would show no response
+/// at all. This is the design-system interactive form of that card: the
+/// recipe box plus [RaftInteractive] states, with the same treatment the
+/// other interactive cards use (`RaftSurfaceListItem` hover) and a pressed
+/// fill. The 48dp hit area comes from [RaftInteractive] on touch density.
+///
+/// - hover: elegant `border-line-strong shadow-raft-sm`; the idle brutal card
+///   already carries `shadow-brutal-sm`.
+/// - pressed: filled with the muted canvas (elegant) or the brutal cream;
+///   brutal drops its shadow, like a pressed brutal button.
+/// - focus-visible: a 2px ring.
+class RaftChoiceCard extends StatelessWidget {
+  const RaftChoiceCard({
+    super.key,
+    required this.child,
+    this.onPressed,
+    this.semanticLabel,
+    this.padding = const EdgeInsets.all(12),
+  });
+
+  final Widget child;
+  final VoidCallback? onPressed;
+  final String? semanticLabel;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = RaftTokens.of(context);
+    final rt = t.recipeTokens;
+    return RaftInteractive(
+      onPressed: onPressed,
+      semanticLabel: semanticLabel,
+      builder: (context, state) {
+        final active = state.enabled && (state.hovered || state.pressed);
+        final root = RaftCardRecipe.resolve(
+          theme: t.recipeTheme,
+          variant: RaftCardRecipeVariant.option,
+          states: t.recipeStates(
+            hovered: state.hovered,
+            pressed: state.pressed,
+            focusVisible: state.focusVisible,
+            disabled: !state.enabled,
+          ),
+          tokens: rt,
+        ).root;
+        return RaftRecipeBox(
+          style: root,
+          tokens: rt,
+          width: double.infinity,
+          padding: padding,
+          decorationOverride: (base) {
+            final pressed = state.enabled && state.pressed;
+            return base.copyWith(
+              color: pressed
+                  ? (t.brutal
+                        ? t.product.brutalCream
+                        : t.colors['layer-canvas-muted'])
+                  : base.color,
+              border: active && !t.brutal
+                  ? Border.all(color: t.colors['line-strong']!)
+                  : base.border,
+              boxShadow: [
+                if (t.brutal)
+                  // The idle brutal card already carries `shadow-brutal-sm`;
+                  // pressing it in removes the shadow.
+                  ...(pressed
+                      ? const <BoxShadow>[]
+                      : base.boxShadow ?? const [])
+                else ...[
+                  ...?base.boxShadow,
+                  if (active) ...t.shadows,
+                ],
+                if (state.focusVisible)
+                  BoxShadow(
+                    color: (t.brutal ? Colors.black : t.ink).withValues(
+                      alpha: .8,
+                    ),
+                    spreadRadius: 2,
+                  ),
+              ],
+            );
+          },
+          child: child,
+        );
+      },
+    );
+  }
+}
+
 /// Web `AvatarListRow` (`align="center"`): a [RaftSurfaceListItem] with
 /// `px-3 py-2`, avatar, name (`truncate text-sm font-bold
 /// text-foreground-strong theme-brutal:text-black`) + subtitle (`text-xs
