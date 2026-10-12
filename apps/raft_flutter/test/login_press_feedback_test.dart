@@ -13,19 +13,18 @@ class _Taps {
   final log = <String>[];
 }
 
-Widget _selector(_Taps taps, {int servers = 2, bool create = false}) =>
-    GlobalServerSelector(
-      servers: [
-        for (var i = 0; i < servers; i++)
-          RaftRecord({'id': 's$i', 'name': 'Server $i', 'slug': 'server-$i'}),
-      ],
-      user: RaftRecord({'id': 'u', 'email': 'alice@example.invalid'}),
-      loading: false,
-      onSelect: (s) async => taps.log.add('select ${s.id}'),
-      onCreate: (_, _) async => taps.log.add('create'),
-      onLogout: () async => taps.log.add('logout'),
-      onRetry: () async => taps.log.add('retry'),
-    );
+Widget _selector(_Taps taps, {int servers = 2}) => GlobalServerSelector(
+  servers: [
+    for (var i = 0; i < servers; i++)
+      RaftRecord({'id': 's$i', 'name': 'Server $i', 'slug': 'server-$i'}),
+  ],
+  user: RaftRecord({'id': 'u', 'email': 'alice@example.invalid'}),
+  loading: false,
+  onSelect: (s) async => taps.log.add('select ${s.id}'),
+  onCreate: (_, _) async => taps.log.add('create'),
+  onLogout: () async => taps.log.add('logout'),
+  onRetry: () async => taps.log.add('retry'),
+);
 
 /// The painted look of [target]: decorations, opacity and text colours below it.
 List<Object?> _look(WidgetTester t, Finder target) {
@@ -48,7 +47,7 @@ void main() {
     'brutal',
     'elegant-light',
     'elegant-dark',
-  ])) {
+  ], full: true)) {
     final (family, dark) = switch (theme) {
       'brutal' => (RaftFamily.brutal, false),
       'elegant-light' => (RaftFamily.elegant, false),
@@ -82,10 +81,7 @@ void main() {
         matching: find.byType(RaftInteractive),
       ),
     };
-    final expected = {
-      'server row': 'select s0',
-      'Log out': 'logout',
-    };
+    final expected = {'server row': 'select s0', 'Log out': 'logout'};
 
     for (final MapEntry(key: what, value: find_) in targets.entries) {
       testWidgets('$what shows pressed feedback ($theme)', (t) async {

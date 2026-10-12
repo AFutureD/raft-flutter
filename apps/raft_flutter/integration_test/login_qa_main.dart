@@ -20,12 +20,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
@@ -40,7 +40,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'perf_lab/navigation_host.dart';
 
 const _port = int.fromEnvironment('QA_PORT', defaultValue: 8791);
-const _origin = 'https://qa.invalid';
+const _apiPort = int.fromEnvironment('QA_API_PORT', defaultValue: 8792);
+const _origin = 'http://qa.invalid';
 
 /// Mutable fixture state; every route reads it at request time.
 class _Fx {
@@ -154,6 +155,7 @@ Map<String, dynamic> _inviteInfo() => {
 class _QaAdapter implements HttpClientAdapter {
   FutureOr<dynamic> route(RequestOptions o) async {
     final key = '${o.method} ${o.path}';
+    debugPrint('qa-api $key');
     switch (key) {
       case 'GET /auth/me':
         if (_fx.me == 'pending') await _fx.hold();
@@ -209,6 +211,8 @@ class _QaAdapter implements HttpClientAdapter {
       case 'POST /servers/join-community':
         if (_fx.community == 'pending') await _fx.hold();
         throw _Status(500, {'error': 'Could not join the community.'});
+      case 'POST /auth/resend-verification':
+      case 'POST /auth/verify-email':
       case 'POST /auth/forgot-password':
       case 'POST /auth/reset-password':
       case 'POST /auth/logout':
@@ -218,7 +222,7 @@ class _QaAdapter implements HttpClientAdapter {
           case 'pending':
             await _fx.hold();
           case 'expired':
-            throw _Status(410, {'error': 'This invite has expired.'});
+            throw _Status(404, {'error': 'This invite has expired.'});
           case 'throttled':
             throw _Status(429, {'error': 'Too many requests. Try again later.'});
           case 'notfound':
@@ -574,7 +578,22 @@ Future<void> _start(String name, String theme) async {
     'raft.light': _fx.theme,
   });
   final generation = ++_generation;
-  runApp(_root(store, generation, Uri.parse(_fx.location)));
+  // A restart inside one process does not honour the initial location of a
+  // `/s/...` route, so it arrives as a deep link once the directory loaded.
+  final deepLink = _fx.location.startsWith('/s/') ? _fx.location : null;
+  runApp(_root(store, generation, Uri.parse(deepLink == null ? _fx.location : '/')));
+  if (deepLink != null) {
+    await Future<void>.delayed(const Duration(milliseconds: 2500));
+    if (generation == _generation) {
+      ServicesBinding.instance.channelBuffers.push(
+        'flutter/navigation',
+        const JSONMethodCodec().encodeMethodCall(
+          MethodCall('pushRouteInformation', {'location': deepLink}),
+        ),
+        (_) {},
+      );
+    }
+  }
   if (name == 'root-error') {
     await Future<void>.delayed(const Duration(seconds: 2));
     RootErrors.instance.report(
@@ -607,8 +626,67 @@ Widget _root(MemorySessionStore store, int generation, Uri location) =>
       ),
     );
 
+/// Anonymous clients (providers, forgot password) are built inside the app
+/// with the default transport. Every connection to this process' fixture
+/// origin goes to a loopback server answering from [_QaAdapter.route].
+class _QaHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) =>
+      super.createHttpClient(context)
+        ..connectionFactory = (uri, proxyHost, proxyPort) =>
+            Socket.startConnect(InternetAddress.loopbackIPv4, _apiPort);
+}
+
+Future<void> _serveApi() async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, _apiPort);
+  final adapter = _QaAdapter();
+  server.listen((request) async {
+    try {
+      final text = await utf8.decoder.bind(request).join();
+      Object? data;
+      try {
+        data = text.isEmpty ? null : jsonDecode(text);
+      } catch (_) {}
+      final headers = <String, dynamic>{};
+      request.headers.forEach((name, values) {
+        headers[name == 'x-server-id' ? 'X-Server-Id' : name] = values.first;
+      });
+      final options = RequestOptions(
+        // The client's base URL is `<origin>/api`.
+        path: request.uri.path.replaceFirst(RegExp('^/api'), ''),
+        method: request.method,
+        data: data,
+        queryParameters: request.uri.queryParameters,
+        headers: headers,
+      );
+      try {
+        final body = await adapter.route(options);
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode(body));
+      } on _Status catch (e) {
+        request.response
+          ..statusCode = e.code
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode(e.body));
+      } on _Net {
+        (await request.response.detachSocket()).destroy();
+        return;
+      }
+    } catch (error) {
+      request.response
+        ..statusCode = 500
+        ..write('$error');
+    }
+    await request.response.close();
+  });
+}
+
 Future<void> main() async {
   RaftWidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = _QaHttpOverrides();
+  await _serveApi();
   RootErrors.instance.install();
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
@@ -670,6 +748,9 @@ Future<void> _serve() async {
               ..statusCode = 404
               ..write('not found');
           } else {
+            if (q['at'] == 'left') {
+              r['cx'] = (r['left'] as double) + 12 * (r['dpr'] as double);
+            }
             final dy = double.tryParse(q['dy'] ?? '') ?? 0;
             await _pointer(r, dy, hold: false);
             request.response.write('tapped');
@@ -713,7 +794,7 @@ double get _dpr =>
 /// Physical-pixel rect of the first visible element matching `text`
 /// (exact paragraph text) or `key` (ValueKey/Key string).
 Map<String, dynamic>? _find(Map<String, String> q) {
-  final text = q['text'], key = q['key'];
+  final text = q['text'], key = q['key'], contains = q['contains'];
   Element? hit;
   void visit(Element e) {
     if (hit != null) return;
@@ -721,9 +802,11 @@ Map<String, dynamic>? _find(Map<String, String> q) {
     final matches = key != null
         ? (w.key is ValueKey && '${(w.key as ValueKey).value}' == key) ||
               w.key.toString() == "[<'$key'>]"
-        : text != null &&
+        : (text != null || contains != null) &&
               w is RichText &&
-              w.text.toPlainText().replaceAll('￼', '') == text;
+              (text != null
+                  ? w.text.toPlainText().replaceAll('￼', '') == text
+                  : w.text.toPlainText().contains(contains!));
     if (matches) {
       final ro = e.renderObject;
       if (ro is RenderBox && ro.attached && ro.hasSize) {
@@ -767,7 +850,7 @@ Future<void> _pointer(
     (r['cx'] as double) / s,
     (r['cy'] as double) / s + dyLogical,
   );
-  final physical = at * s;
+  final physical = at; // handlePointerEvent takes logical positions
   final id = _pointerId++;
   final binding = GestureBinding.instance;
   final view = WidgetsBinding.instance.platformDispatcher.views.first.viewId;

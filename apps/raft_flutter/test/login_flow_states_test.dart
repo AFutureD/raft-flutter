@@ -6,8 +6,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:raft_flutter/features/global_server_selector.dart';
-import 'package:raft_flutter/features/workspace_view.dart';
+import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
 import 'app_global_server_selector_test.dart' show RootFixture;
@@ -17,19 +16,11 @@ typedef _Prepare = void Function(RootFixture f);
 typedef _Act = Future<void> Function(WidgetTester t, RootFixture f);
 
 class _State {
-  const _State(
-    this.name, {
-    this.prepare,
-    this.act,
-    this.uri,
-    this.cached = false,
-    this.expectText,
-  });
+  const _State(this.name, {this.prepare, this.act, this.uri, this.expectText});
   final String name;
   final _Prepare? prepare;
   final _Act? act;
   final Uri? uri;
-  final bool cached;
   final String? expectText;
 }
 
@@ -48,6 +39,11 @@ Map<String, dynamic> _me({bool verified = true, bool profile = true}) => {
 void _hold(RootFixture f, String route) =>
     f.holds[route] = _held[route] = Completer<dynamic>();
 
+Future<void> _enter(WidgetTester t) async {
+  await t.enterText(find.byKey(const Key('login-email')), 'a@example.invalid');
+  await t.enterText(find.byKey(const Key('login-password')), 'password-1234');
+}
+
 final _states = <_State>[
   _State(
     'restoring',
@@ -60,14 +56,134 @@ final _states = <_State>[
     expectText: 'Sign In',
   ),
   _State(
+    'login-wrong-password',
+    prepare: (f) {
+      f.adapter.statuses['GET /auth/me'] = 401;
+      f.overrides['POST /auth/login'] = (_) => {
+        'error': 'Invalid credentials',
+        'code': 'AUTH_INVALID_CREDENTIALS',
+      };
+      f.adapter.statuses['POST /auth/login'] = 401;
+    },
+    act: (t, f) async {
+      await _enter(t);
+      await t.tap(find.byKey(const Key('login-submit')));
+      await f.flush(t);
+    },
+    expectText: 'Incorrect email or password.',
+  ),
+  _State(
+    'login-busy',
+    prepare: (f) {
+      f.adapter.statuses['GET /auth/me'] = 401;
+      _hold(f, 'POST /auth/login');
+    },
+    act: (t, f) async {
+      await _enter(t);
+      await t.tap(find.byKey(const Key('login-submit')));
+      await f.flush(t);
+    },
+  ),
+  _State(
+    'login-network-down',
+    prepare: (f) {
+      f.adapter.statuses['GET /auth/me'] = 401;
+      f.adapter.statuses['POST /auth/login'] = 503;
+      f.overrides['POST /auth/login'] = (_) => {'error': 'Service unavailable'};
+    },
+    act: (t, f) async {
+      await _enter(t);
+      await t.tap(find.byKey(const Key('login-submit')));
+      await f.flush(t);
+    },
+  ),
+  _State(
+    'register',
+    prepare: (f) => f.adapter.statuses['GET /auth/me'] = 401,
+    act: (t, f) async {
+      await t.tap(find.text('Create one'));
+      await f.flush(t);
+    },
+  ),
+  _State(
+    'forgot',
+    prepare: (f) => f.adapter.statuses['GET /auth/me'] = 401,
+    act: (t, f) async {
+      await t.tap(find.text('Forgot password?'));
+      await f.flush(t);
+    },
+  ),
+  _State(
+    'invite-signed-out',
+    uri: Uri.parse('/join/abc123'),
+    prepare: (f) {
+      f.adapter.statuses['GET /auth/me'] = 401;
+      f.overrides['GET /auth/invite-info'] = (_) => {
+        'kind': 'email',
+        'serverName': 'Raft Design',
+        'inviterName': 'Wenyi',
+        'memberCount': 12,
+        'agentCount': 5,
+        'insideCountsHidden': false,
+        'humanSeatLimitReached': false,
+        'agreement': null,
+      };
+    },
+  ),
+  _State(
+    'invite-expired',
+    uri: Uri.parse('/join/abc123'),
+    prepare: (f) {
+      f.adapter.statuses['GET /auth/me'] = 401;
+      f.adapter.statuses['GET /auth/invite-info'] = 410;
+      f.overrides['GET /auth/invite-info'] = (_) => {'error': 'expired'};
+    },
+  ),
+  _State(
+    'invite-loading',
+    uri: Uri.parse('/join/abc123'),
+    prepare: (f) {
+      f.adapter.statuses['GET /auth/me'] = 401;
+      _hold(f, 'GET /auth/invite-info');
+    },
+  ),
+  _State(
+    'server-create-error',
+    prepare: (f) {
+      f.overrides['POST /servers'] = (_) => {'error': 'That URL is taken.'};
+      f.adapter.statuses['POST /servers'] = 409;
+    },
+    act: (t, f) async {
+      await t.tap(find.text('+ Create New Server'));
+      await t.pump();
+      await t.enterText(
+        find.byKey(const ValueKey('global-server-name')),
+        'Taken',
+      );
+      await t.tap(find.byKey(const ValueKey('global-server-create-submit')));
+      await f.flush(t);
+    },
+  ),
+  _State(
+    'server-create-busy',
+    prepare: (f) => _hold(f, 'POST /servers'),
+    act: (t, f) async {
+      await t.tap(find.text('+ Create New Server'));
+      await t.pump();
+      await t.enterText(
+        find.byKey(const ValueKey('global-server-name')),
+        'Busy',
+      );
+      await t.tap(find.byKey(const ValueKey('global-server-create-submit')));
+      await f.flush(t);
+    },
+  ),
+  _State(
     'servers-loading',
     prepare: (f) => _hold(f, 'GET /servers'),
     expectText: 'Loading servers…',
   ),
-  _State(
-    'servers-many',
-    expectText: 'Choose server',
-  ),
+  _State('servers-many', expectText: 'Choose server'),
   _State(
     'servers-none',
     prepare: (f) => f.servers.clear(),
@@ -93,18 +209,13 @@ final _states = <_State>[
     'onboarding-verify',
     prepare: (f) => f.overrides['GET /auth/me'] = (_) => _me(verified: false),
   ),
-  _State(
-    'invite-signed-in',
-    uri: Uri.parse('/join/abc123'),
-  ),
-  _State(
-    'access-denied',
-    uri: Uri.parse('/s/unknown'),
-  ),
+  _State('invite-signed-in', uri: Uri.parse('/join/abc123')),
+  _State('access-denied', uri: Uri.parse('/s/unknown')),
   _State(
     'joining-community',
     uri: Uri.parse('/s/community'),
-    prepare: (f) => _hold(f, 'POST /servers/community/join'),
+    prepare: (f) => _hold(f, 'POST /servers/join-community'),
+    expectText: 'Joining community…',
   ),
   _State(
     'workspace',
@@ -120,14 +231,15 @@ void main() {
     'brutal',
     'elegant-light',
     'elegant-dark',
-  ])) {
+  ], full: true)) {
     for (final state in _states) {
-      testWidgets('login flow state ${state.name} ($theme, 390x844)', (t) async {
+      testWidgets('login flow state ${state.name} ($theme, 390x844)', (
+        t,
+      ) async {
         _held.clear();
         final f = RootFixture();
         state.prepare?.call(f);
         await f.mount(t, theme, 390, uri: state.uri, settle: false);
-        await t.view.physicalSize;
         await f.flush(t);
         await state.act?.call(t, f);
         if (state.expectText != null) {
@@ -140,5 +252,74 @@ void main() {
         await f.close(t);
       });
     }
+  }
+
+  // Pages the app mounts without an auth shell around them.
+  for (final theme in raftThemeMatrix([
+    'brutal',
+    'elegant-light',
+    'elegant-dark',
+  ], full: true)) {
+    final (family, dark) = switch (theme) {
+      'brutal' => (RaftFamily.brutal, false),
+      'elegant-light' => (RaftFamily.elegant, false),
+      _ => (RaftFamily.elegant, true),
+    };
+    Future<void> pump(WidgetTester t, Widget page) async {
+      t.view.physicalSize = const Size(390, 844);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      // The page as the app routes it: a bare MaterialPage child.
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(family, dark: dark),
+          home: page,
+        ),
+      );
+      await t.pump(const Duration(milliseconds: 100));
+    }
+
+    for (final label in [
+      'Restoring session…',
+      'Loading…',
+      'Loading servers…',
+      'Joining community…',
+    ]) {
+      testWidgets('splash "$label" has a page frame ($theme)', (t) async {
+        await pump(t, RaftServerResolutionBody(label: label));
+        expect(find.text(label), findsOneWidget);
+        expectNoFallbackTextStyle(label);
+        // The splash paints the theme's canvas (brutal: its cream), never a
+        // hard-coded cream over elegant dark.
+        final context = t.element(find.text(label));
+        final tokens = RaftTokens.of(context);
+        final material = t.widget<Material>(
+          find
+              .descendant(
+                of: find.byType(RaftServerResolutionBody),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(
+          material.color,
+          tokens.brutal ? tokens.product.brutalCream : tokens.canvas,
+        );
+      });
+    }
+
+    testWidgets('root error fallback has a page frame ($theme)', (t) async {
+      await pump(
+        t,
+        RaftRootErrorFallback(
+          message: 'Bad state',
+          stack: '#0 main',
+          componentStack: '\n  in Widget',
+          onReload: () {},
+        ),
+      );
+      expectNoFallbackTextStyle('root error fallback');
+    });
   }
 }

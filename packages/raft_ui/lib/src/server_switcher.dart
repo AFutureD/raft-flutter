@@ -433,11 +433,14 @@ class RaftServerResolutionBody extends StatelessWidget {
     // The splash is a page of its own (Material + page text style), never bare
     // text: outside a Material Flutter paints the debug fallback style (yellow
     // double underline). `safe-top` pads the status bar like the Web div.
+    // Brutal keeps the Web `bg-brutal-cream`; elegant (light and dark) uses
+    // the theme canvas, so the splash never flashes cream in dark mode.
+    final canvas = t.brutal ? t.product.brutalCream : t.canvas;
     return RaftStatusBarHost(
-      fallback: t.product.brutalCream,
+      fallback: canvas,
       expand: true,
       child: Material(
-        color: t.product.brutalCream,
+        color: canvas,
         child: DefaultTextStyle.merge(
           style: TextStyle(
             fontFamily: t.headingFont,

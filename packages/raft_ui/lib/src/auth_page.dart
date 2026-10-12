@@ -738,7 +738,7 @@ class RaftAuthPrompt extends StatelessWidget {
         alignment: WrapAlignment.center,
         children: [
           Text(
-            '$prefix ',
+            '$prefix\u00A0',
             textAlign: TextAlign.center,
             style: RaftTypography.heading(
               t,
@@ -929,7 +929,7 @@ class RaftAuthSessionFooter extends StatelessWidget {
         alignment: WrapAlignment.center,
         children: [
           Text(
-            '${raftText(context, 'Signed in as')} $name. ',
+            '${raftText(context, 'Signed in as')} $name.\u00A0',
             style: RaftTypography.heading(
               t,
               size: 14,

@@ -151,10 +151,52 @@ def st_register_exists(d, theme):
     d.tap(key='login-email'); d.type('new@example.invalid')
     d.tap(key='login-password'); d.type('longenoughpassword'); d.hide_keyboard()
     # tick the terms checkbox (the row's label text) then submit
-    r = json.loads(call('/texts'))
-    d.tap(text='I agree to the Terms of Service and Privacy Policy.') if any('I agree' in t for t in r['texts']) else None
+    d.tap(contains='I agree', at='left')
     signin(d); time.sleep(1.2)
     d.shot(f'register-exists.{theme}')
+
+
+def st_login_success(d, theme):
+    d.scenario('login', theme)
+    call('/set', servers='two')
+    fill(d)
+    signin(d); time.sleep(3)
+    d.shot(f'login-success-servers.{theme}')
+
+
+def st_login_success_first(d, theme):
+    d.scenario('login', theme)
+    call('/set', servers='none')
+    fill(d)
+    signin(d); time.sleep(3)
+    d.shot(f'login-success-first-server.{theme}')
+
+
+def st_login_success_verify(d, theme):
+    d.scenario('login', theme)
+    call('/set', account='verify')
+    fill(d)
+    signin(d); time.sleep(3)
+    d.shot(f'login-success-verify.{theme}')
+
+
+def st_verify(d, theme):
+    d.scenario('onboarding-verify', theme, 4)
+    d.shot(f'onboarding-verify.{theme}')
+    d.tap(text='Enter code manually'); time.sleep(.6)
+    d.shot(f'onboarding-verify-manual.{theme}')
+    d.tap(text='Resend Verification Email'); time.sleep(1.2)
+    d.shot(f'onboarding-verify-resend.{theme}')
+
+
+def st_profile(d, theme):
+    d.scenario('onboarding-profile', theme, 4)
+    d.shot(f'onboarding-profile.{theme}')
+    r = json.loads(call('/texts'))
+    d.tap(key='onboarding-username')
+    time.sleep(.8)
+    d.shot(f'onboarding-profile-keyboard.{theme}')
+    d.hide_keyboard()
 
 
 def st_forgot(d, theme):
@@ -208,6 +250,13 @@ def st_servers_first_pressed(d, theme):
     call('/up')
 
 
+def st_setup_bar(d, theme):
+    d.scenario('workspace-setup-bar', theme, 4)
+    d.shot(f'workspace-setup-bar-home.{theme}')
+    d.tap(text='general'); time.sleep(2.5)
+    d.shot(f'workspace-setup-bar.{theme}')
+
+
 def st_workspace_tap(d, theme):
     d.scenario('servers-two', theme, 5)
     d.tap(key='global-server-a'); time.sleep(3)
@@ -243,8 +292,11 @@ STATES = {
     'invite-throttled': st_simple('invite-throttled', 4),
     'invite-seat-limit': st_simple('invite-seat-limit', 4),
     'invite-agreement': st_simple('invite-agreement', 4),
-    'onboarding-verify': st_simple('onboarding-verify', 4),
-    'onboarding-profile': st_simple('onboarding-profile', 4),
+    'onboarding-verify': st_verify,
+    'onboarding-profile': st_profile,
+    'login-success': st_login_success,
+    'login-success-first': st_login_success_first,
+    'login-success-verify': st_login_success_verify,
     'servers-loading': st_simple('servers-loading', 4),
     'servers-many': st_simple('servers-many', 5),
     'servers-two': st_simple('servers-two', 5),
@@ -253,11 +305,11 @@ STATES = {
     'servers-failed': st_simple('servers-failed', 5),
     'servers-create': st_servers_create,
     'servers-pressed': st_servers_pressed,
-    'access-denied': st_simple('access-denied', 5),
-    'joining-community': st_simple('joining-community', 5),
-    'resolution-loading': st_simple('resolution-loading', 5),
-    'workspace': st_simple('workspace', 6),
-    'workspace-setup-bar': st_simple('workspace-setup-bar', 6),
+    'access-denied': st_simple('access-denied', 1.0),
+    'joining-community': st_simple('joining-community', 1.5),
+    'resolution-loading': st_simple('resolution-loading', 1.5),
+    'workspace': st_simple('workspace', 4),
+    'workspace-setup-bar': st_setup_bar,
     'workspace-after-select': st_workspace_tap,
     'root-error': st_root_error,
 }
