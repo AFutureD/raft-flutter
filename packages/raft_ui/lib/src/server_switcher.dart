@@ -18,6 +18,7 @@ import 'recipes/context_menu.g.dart';
 import 'recipes/popover.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'theme.dart';
+import 'sized_image.dart';
 import 'tooltip.dart' show RaftTooltip;
 
 /// Accepted records and actions are supplied by the application, never the SDK.
@@ -721,7 +722,7 @@ class _ServerAvatar extends StatelessWidget {
       sizeOverride: size,
       content: avatarUrl == null
           ? initial
-          : Image.network(
+          : RaftSizedImage.network(
               avatarUrl!,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => initial,

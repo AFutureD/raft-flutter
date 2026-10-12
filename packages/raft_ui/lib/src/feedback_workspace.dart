@@ -35,6 +35,7 @@ import 'recipes/textarea_counter.g.dart';
 import 'system_inset.dart';
 import 'theme.dart';
 import 'tooltip.dart' show RaftTooltip;
+import 'sized_image.dart';
 
 /// Reporter close reasons (`completed` / `no_longer_needed`).
 enum RaftFeedbackCloseReason { completed, noLongerNeeded }
@@ -566,7 +567,11 @@ class _PendingAttachment extends StatelessWidget {
         ),
       ),
       child: image
-          ? Image.memory(file.bytes!, fit: BoxFit.cover, gaplessPlayback: true)
+          ? RaftSizedImage.memory(
+              file.bytes!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+            )
           : Center(
               child: RaftIcon(
                 RaftGlyph.paperclip,

@@ -233,7 +233,6 @@ class SourceChannelFilesActions {
         final cancel = CancelToken();
         _transfers[cancel] = file;
         Uint8List? image;
-        MemoryImage? provider;
         try {
           final url = svgRaster
               ? file.metadata['thumbnailUrl'] as String
@@ -245,7 +244,7 @@ class SourceChannelFilesActions {
               image.length > 50 * 1024 * 1024) {
             return;
           }
-          provider = MemoryImage(image);
+          final bytes = image;
           late DialogRoute<void> route;
           route = RaftFullBleedDialogRoute<void>(
             context: context(),
@@ -260,9 +259,11 @@ class SourceChannelFilesActions {
               ),
               child: Center(
                 child: InteractiveViewer(
-                  child: Image(
-                    image: provider!,
+                  child: RaftSizedImage.memory(
+                    bytes,
                     fit: BoxFit.contain,
+                    zoom: raftZoomableImageScale,
+                    evictOnDispose: true,
                     errorBuilder: (_, _, _) => Text(
                       raftText(
                         context(),
@@ -277,7 +278,7 @@ class SourceChannelFilesActions {
           await _show(route, file);
         } finally {
           _transfers.remove(cancel);
-          if (provider != null) await provider.evict();
+          if (image != null) await raftEvictMemoryImage(image);
           image = null;
         }
         return;
