@@ -265,7 +265,8 @@ void main() {
   for (final size in _sizes.entries) {
     final wide = size.value.width >= 768;
     final routes = [
-      for (final p in pages) p,
+      for (final p in pages)
+        if (!wide || !p.phoneOnly) p,
       for (final r in registry)
         if (wide ? r.wide : r.phone) r.page,
     ];

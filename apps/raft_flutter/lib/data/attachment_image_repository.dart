@@ -447,6 +447,9 @@ class _ImageEntry {
   /// The token handed to this entry's network loader; cancelled on drop.
   CancelToken? fetchCancel;
   bool retired = false, fromStore = false;
+
+  /// Requested by an explicit open rather than background list work.
+  bool foreground = false;
 }
 
 /// One network fetch of a source shared by every decode of it (list preview
@@ -484,6 +487,7 @@ class AttachmentImageRepository {
     this.maxEncodedBytes = 64 * 1024 * 1024,
     this.maxDecodedBytes = 96 * 1024 * 1024,
     this.maxConcurrentLoads = 4,
+    this.foregroundExtra = 2,
   }) : _decoder =
            decoder ??
            ((bytes, target) => decodeAttachmentImage(
@@ -506,6 +510,9 @@ class AttachmentImageRepository {
   /// pass [canRead] and an active lease, written only after a good decode.
   final AttachmentImageByteStore? store;
   final int maxEntries, maxEncodedBytes, maxDecodedBytes, maxConcurrentLoads;
+
+  /// Extra concurrent loads granted to foreground (explicitly opened) images.
+  final int foregroundExtra;
   final LinkedHashMap<AttachmentImageKey, _ImageEntry> _entries =
       LinkedHashMap();
   final Map<AttachmentImageKey, _SourceFetch> _fetches = {};
@@ -539,6 +546,7 @@ class AttachmentImageRepository {
     AttachmentImageKey key, {
     required AttachmentImageLoader load,
     required bool Function() authorized,
+    bool foreground = false,
   }) {
     if (!canRead(key) || !authorized()) throw const StaleAttachmentImage();
     // A same attachment/message slot with a changed projected revision retires
@@ -562,9 +570,19 @@ class AttachmentImageRepository {
       _makeRoom(entries: 1);
       e = _ImageEntry(key, load);
       _entries[key] = e;
-      _queue.add(e);
+      if (foreground) {
+        e.foreground = true;
+        _queue.addFirst(e);
+      } else {
+        _queue.add(e);
+      }
     } else {
       _entries[key] = e;
+      // An explicit open outranks background list work still waiting.
+      if (foreground && !e.foreground && _queue.remove(e)) {
+        e.foreground = true;
+        _queue.addFirst(e);
+      }
     }
     final lease = AttachmentImageLease._(this, e, authorized);
     e.leases.add(lease);
@@ -604,7 +622,13 @@ class AttachmentImageRepository {
   }
 
   void _pump() {
-    while (!_disposed && _running < maxConcurrentLoads && _queue.isNotEmpty) {
+    while (!_disposed && _queue.isNotEmpty) {
+      // A user-opened image does not wait behind list thumbnails: it may use
+      // [foregroundExtra] slots beyond the background limit.
+      final limit = _queue.first.foreground
+          ? maxConcurrentLoads + foregroundExtra
+          : maxConcurrentLoads;
+      if (_running >= limit) break;
       final e = _queue.removeFirst();
       if (!_live(e) || !e.leases.any((lease) => lease.active)) {
         _drop(e);

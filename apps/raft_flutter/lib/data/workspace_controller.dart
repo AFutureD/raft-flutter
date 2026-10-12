@@ -26,6 +26,8 @@ import 'workspace_navigation.dart';
 import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
+import 'attachment_url_cache.dart';
+import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
 
 class WorkspaceAttachmentImageLease {
@@ -116,6 +118,16 @@ String _mergeFailedSendIntoDraft(String failed, String current) {
 
 /// Why a jump target's message context could not be shown.
 enum MessageContextLoadError { notFound, beyondHistory }
+
+/// A message row and the distance of its top below the timeline's top edge.
+class ReadingAnchor {
+  ReadingAnchor(this.messageKey, this.top) : _saved = Stopwatch()..start();
+  final String messageKey;
+  final double top;
+  final Stopwatch _saved;
+  static const lifetime = Duration(seconds: 3);
+  bool get fresh => _saved.elapsed <= lifetime;
+}
 
 class WorkspaceController extends ChangeNotifier {
   void synchronizePagePresentation(
@@ -234,7 +246,10 @@ class WorkspaceController extends ChangeNotifier {
     WorkspaceEntityDirectory? entityDirectory,
     FollowedThreadsStore? followedThreads,
     AttachmentImageByteStore? attachmentImageStore,
-  }) : _presentationAuthority = presentationSource?.navigationAuthority,
+    this.attachmentHostWarmer = AttachmentHttp.warmHost,
+    AttachmentUrlCache? attachmentUrls,
+  }) : _attachmentUrls = attachmentUrls ?? AttachmentUrlCache(),
+       _presentationAuthority = presentationSource?.navigationAuthority,
        attachmentImageStore =
            attachmentImageStore ?? AttachmentImageDiskCache.installed {
     _ownsFollowedThreads = followedThreads == null;
@@ -689,12 +704,14 @@ class WorkspaceController extends ChangeNotifier {
     AttachmentImageKey key, {
     required AttachmentImageLoader load,
     required bool Function() authorized,
+    bool foreground = false,
   }) {
     if (presentationSource != null) {
       return presentationSource!.acquireAttachmentImage(
         key,
         load: load,
         authorized: authorized,
+        foreground: foreground,
       );
     }
     final releaseAuthority = _registerImageAuthority(key, authorized);
@@ -706,7 +723,12 @@ class WorkspaceController extends ChangeNotifier {
       );
       repository.synchronize(attachmentImageScope);
       return WorkspaceAttachmentImageLease(
-        repository.acquire(key, load: load, authorized: authorized),
+        repository.acquire(
+          key,
+          load: load,
+          authorized: authorized,
+          foreground: foreground,
+        ),
         releaseAuthority,
       );
     } catch (_) {
@@ -1640,6 +1662,7 @@ class WorkspaceController extends ChangeNotifier {
   void notifyListeners() {
     _stateStamp++;
     _attachmentImages?.synchronize(attachmentImageScope);
+    _attachmentUrls.synchronize(attachmentImageScope);
     if (!_disposed) {
       _ensureSyncIdentity();
       super.notifyListeners();
@@ -3159,6 +3182,7 @@ class WorkspaceController extends ChangeNotifier {
       _attachmentImages
         ?..synchronize(attachmentImageScope)
         ..invalidateChannel(scope);
+      _attachmentUrls.invalidateChannel(scope);
       ledger.revokeChannel(scope);
       messageSync.revokeChannel(scope);
       threadRepliesSync.revokeChannel(scope);
@@ -4315,6 +4339,25 @@ class WorkspaceController extends ChangeNotifier {
     } else {
       _scrolledAway.add(id);
     }
+  }
+
+  final Map<String, ReadingAnchor> _readingAnchors = {};
+
+  /// Where the reader was in a conversation when its timeline is about to be
+  /// rebuilt for another layout (fold / unfold). The next timeline that
+  /// mounts for [conversationId] shortly after resumes there; an anchor that
+  /// is not claimed promptly is a stale position and is ignored.
+  void saveReadingAnchor(String conversationId, ReadingAnchor anchor) {
+    final source = presentationSource;
+    if (source != null) return source.saveReadingAnchor(conversationId, anchor);
+    _readingAnchors[conversationId] = anchor;
+  }
+
+  ReadingAnchor? takeReadingAnchor(String conversationId) {
+    final source = presentationSource;
+    if (source != null) return source.takeReadingAnchor(conversationId);
+    final anchor = _readingAnchors.remove(conversationId);
+    return anchor != null && anchor.fresh ? anchor : null;
   }
 
   /// Read receipts sent per scope: lets an optimistic open-time clear know
@@ -5525,6 +5568,147 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.sharedQuery(path, query: query) ??
       client.get(path, query: query);
 
+  // ---- Signed attachment URLs -------------------------------------------
+  // One cache and one resolve path for every attachment surface (list preview,
+  // lightbox, document/media preview, inline players, Files panel). Memory
+  // only; see [AttachmentUrlCache] for the lifetime rules.
+  final AttachmentUrlCache _attachmentUrls;
+
+  /// Opens the storage connection for a freshly prefetched URL (the app wires
+  /// `AttachmentHttp.warmHost` by default); null disables warming.
+  final void Function(String url)? attachmentHostWarmer;
+  int _attachmentUrlRequests = 0;
+
+  /// Number of `/attachments/<id>/url` + batch requests this controller sent.
+  @visibleForTesting
+  int get debugAttachmentUrlRequests =>
+      presentationSource?.debugAttachmentUrlRequests ?? _attachmentUrlRequests;
+  @visibleForTesting
+  AttachmentUrlCache get debugAttachmentUrls =>
+      presentationSource?.debugAttachmentUrls ?? _attachmentUrls;
+
+  /// The signed URL of attachment [id]. Reuses a fresh cached URL and joins a
+  /// request already in flight; otherwise asks the API once. [disposition]
+  /// null sends no disposition (server default). `attachment` URLs are
+  /// one-shot downloads and are never retained. [channelId] ties the entry to
+  /// its channel so revocation drops it.
+  Future<String> attachmentUrl(
+    String id, {
+    String? disposition = 'inline',
+    String? channelId,
+    bool refresh = false,
+  }) {
+    final source = presentationSource;
+    if (source != null) {
+      return source.attachmentUrl(
+        id,
+        disposition: disposition,
+        channelId: channelId,
+        refresh: refresh,
+      );
+    }
+    final scope = attachmentImageScope;
+    Future<dynamic> fetch() {
+      _attachmentUrlRequests++;
+      return client.get(
+        '/attachments/${Uri.encodeComponent(id)}/url',
+        query: disposition == null ? null : {'disposition': disposition},
+      );
+    }
+
+    if (disposition == 'attachment' || _revokedChannels.contains(channelId)) {
+      return fetch().then(_urlOf);
+    }
+    if (refresh) _attachmentUrls.invalidate(id, disposition: disposition ?? '');
+    return _attachmentUrls.resolve(
+      id,
+      disposition: disposition ?? '',
+      scope: scope,
+      channelId: channelId,
+      fetch: fetch,
+    );
+  }
+
+  static String _urlOf(dynamic body) {
+    final url = body is Map ? body['url'] : null;
+    if (url is! String || url.isEmpty) {
+      throw const FormatException('Invalid attachment response.');
+    }
+    return url;
+  }
+
+  /// A transfer rejected [id]'s cached URL (expired): forget it.
+  void invalidateAttachmentUrl(String id) {
+    final source = presentationSource;
+    if (source != null) {
+      source.invalidateAttachmentUrl(id);
+    } else {
+      _attachmentUrls.invalidate(id);
+    }
+  }
+
+  /// Background-resolves [id]'s inline URL (and opens its storage connection)
+  /// so the next open starts at once. Batched, bounded and cancellable; call
+  /// the handle's `cancel` when the surface that asked goes away.
+  PrefetchHandle prefetchAttachmentUrl(String id, {String? channelId}) {
+    final source = presentationSource;
+    if (source != null) {
+      return source.prefetchAttachmentUrl(id, channelId: channelId);
+    }
+    if (_disposed || _revokedChannels.contains(channelId)) {
+      return PrefetchHandle.none();
+    }
+    return _attachmentUrls.prefetch(
+      id,
+      scope: attachmentImageScope,
+      channelId: channelId,
+      fetchMany: (ids) async {
+        _attachmentUrlRequests++;
+        final body = await client.post(
+          '/attachments/urls',
+          data: {'attachmentIds': ids},
+        );
+        final warm = attachmentHostWarmer;
+        if (warm != null && body is Map && body['urls'] is List) {
+          for (final entry in body['urls'] as List) {
+            if (entry is Map && entry['url'] is String) {
+              warm(entry['url'] as String);
+              break;
+            }
+          }
+        }
+        return body;
+      },
+    );
+  }
+
+  DateTime? _previewGateAt;
+  bool? _previewGate;
+  Object? _previewGateScope;
+
+  /// Whether document/media previews are enabled on the server. The flag is
+  /// per server, so a short per-scope memory removes a serial round trip from
+  /// every preview open; a failed read is never remembered.
+  Future<bool> attachmentPreviewEnabled() async {
+    final source = presentationSource;
+    if (source != null) return source.attachmentPreviewEnabled();
+    final scope = attachmentImageScope;
+    final at = _previewGateAt;
+    if (_previewGate != null &&
+        _previewGateScope == scope &&
+        at != null &&
+        DateTime.now().difference(at) < const Duration(minutes: 2)) {
+      return _previewGate!;
+    }
+    final gate = await client.get('/messages/attachment-preview/enabled');
+    final enabled = gate is Map && gate['enabled'] == true;
+    if (_disposed || scope != attachmentImageScope) return enabled;
+    _previewGate = enabled;
+    _previewGateScope = scope;
+    _previewGateAt = DateTime.now();
+    return enabled;
+  }
+
   final _sharedReads = <String, Future<dynamic>>{};
 
   /// Coalesce identical concurrent reads of the same window. The Activity
@@ -6030,6 +6214,7 @@ class WorkspaceController extends ChangeNotifier {
     _announcementGate?.dispose();
     _imageAuthorities.clear();
     _attachmentImages?.dispose();
+    _attachmentUrls.dispose();
     _channelFilesStores.clear();
     for (final drafts in _uploads.values) {
       for (final draft in drafts) {

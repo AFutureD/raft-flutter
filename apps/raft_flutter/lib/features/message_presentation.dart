@@ -161,7 +161,13 @@ class MessagePresentation extends StatelessWidget {
     this.foregroundColor,
     this.searchHighlight,
     this.unavailablePermalink,
+    this.onOpenTask,
   });
+
+  /// Web `onOpenTaskRef`: an in-body `#N` / `task #N` reference opens the task
+  /// slot (the same surface as the footer task chip). A host with no task slot
+  /// (the exported image, previews) falls back to a read-only summary dialog.
+  final ValueChanged<Map<String, dynamic>>? onOpenTask;
 
   /// The raw URL of the message permalink whose preview could not be read
   /// (Web `unavailableQuotedPermalinkUrl`): its chip reads "Unavailable linked
@@ -479,6 +485,10 @@ class MessagePresentation extends StatelessWidget {
         final out = await w.query('/tasks/channel/$carrier/number/$number');
         data = Map<String, dynamic>.from(out['task']);
         heading = 'task #$number · ${data['title'] ?? ''}';
+        if (onOpenTask != null && context.mounted && current()) {
+          onOpenTask!(data);
+          return;
+        }
       } else {
         return;
       }
