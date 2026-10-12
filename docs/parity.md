@@ -1281,7 +1281,8 @@ from Web). "On mobile, don't draw the black line on the left anywhere." Web's
 `Panel edge="attached"` (`border-l-2 border-black`, Elegant `border-l
 border-line-muted`) and the Brutal drawer `border-l-2` carry no breakpoint, so
 Web draws them on phones too, 2px (Brutal) / 1px (Elegant) inside the screen
-edge. Flutter draws them only at width >= 768 (`RaftLayoutMetrics.desktopBreakpoint`):
+edge. Flutter draws them only at width >= 768 (`RaftLayoutMetrics.desktopBreakpoint`,
+now decided in one place, see "Panel left edge" below):
 `RaftSettingsPanelFrame`, the channel overflow/settings drawer frames
 (`_OverflowDrawerFrame`, `RaftChannelSettingsSheet`; the full-width phone page
 and the members page's `RaftOverflowBareSheet(page: true)` draw none), and the
@@ -1296,6 +1297,49 @@ owner decision overrides the Web analysis (this reverses the phone half of
 `docs/alignment-audit.md` fixes 1-4; their desktop halves stay).
 `packages/raft_ui/test/phone_no_left_border_test.dart` pins the absence on
 phone and the presence on desktop.
+
+### Panel left edge: one rule, one place (`RaftPanelEdge`)
+
+Rule: **the attached left edge shows everywhere except when the surface is
+rendered as a full-width standalone phone page** (width below 768 dp, the same
+cut as `RaftAdaptiveWorkspace.compactOf`). A foldable (816 / 841) and a desktop
+window always draw it. `packages/raft_ui/lib/src/panel_edge.dart` is the only
+place that decides: `RaftPanelEdge.presentationOf(context)` returns
+`attached` or `phonePage`, `RaftPanelEdge.left(context, style)` returns the
+border (`attachedPanel` Brutal 2px black / Elegant 1px line-muted,
+`activityInbox` 1px, `drawer` Brutal-only 2px line-strong) and
+`RaftPanelEdge.masterRight` the master/detail divider. A surface never compares
+a width or reads its own "mobile" / "page" / "detail" flag for its edge.
+
+Surfaces on the rule (registry `apps/raft_flutter/test/support/panel_edge_registry.dart`):
+Settings panel (`RaftSettingsPanelFrame`), channel / DM settings drawer and
+members page (`_OverflowDrawerFrame`, `RaftChannelSettingsSheet`), the task
+thread panel inside its modal, the workspace thread and profile panels
+(`RaftAdaptiveWorkspace`), the Activity inbox panel (`ResourceView`), and the
+Activity / Search detail divider (`DesktopMasterDetail.masterEdge`, Web
+`MainLayout` col-2 `border-r`: Activity 1px, Search Brutal 2px, drawn inside
+the master's width). Guards: `panel_edge_matrix_test.dart` mounts each surface
+at 390 / 816 / 841 / 1280 in Brutal, Elegant and Elegant dark and checks the
+painted rule (absent only on the phone page); `panel_edge_registry_test.dart`
+fails on an unregistered `RaftPanelEdge` user, a listed file that does not use
+it, and any `left: BorderSide` whose neighbouring lines test a width /
+`compactOf` / `mobile` flag (allowlist: the legacy docked task panel).
+
+Why the Activity / Search detail lost its divider (owner report 2026-10-12,
+macOS desktop, Brutal, Activity list beside a Thread panel): the Flutter port
+of the master/detail layout (`DesktopMasterDetail`) never drew it. On Web the
+detail column has no border of its own (`renderContentSlot`: "no
+width/border/resize chrome needed") and the line is the right border of the
+col-2 wrapper (`masterDetailShellClassName`); the port copied the columns and
+widths but not that wrapper border, and no test looked between the two columns
+(`shell_border_placement_test` only has the Activity page without a detail).
+Checked by rendering the same Activity + thread preview at 85997b8a (before the
+phone decision) and at the branch base: no rule between list and detail in
+either, so the phone commit (65cdd952) did not remove it. What did keep the
+class of bug alive: every panel decided its own edge (an `attached` flag, a
+`MediaQuery` width, a `mobile` bool, `compactOf`), the 2026-10-11 / 10-12 fixes
+patched surfaces one by one, and the pinned tests covered only the surfaces
+that had already been reported (Settings, drawer, task).
 
 Remaining gaps: the OverflowSheet (Drawer) shell, the emoji picker popover
 (third-party grid), the Electron-only "Find a conversation" sidebar box, the
@@ -1543,6 +1587,85 @@ Left: the `@mention` highlight is 1/255 lighter in Chromium over the content ban
 counted as fill, 5% of that crop); tab-strip and chip widths follow fractional text advances
 (hairline); phone composer shadow (Web headless phone autofocuses the composer, a real phone does not);
 Elegant themes (sampled) still carry 1-2px row-pitch and blend deltas in the popups.
+
+## Phone forward page and incoming share (cindy/share-forward)
+
+One Web page, two Flutter modes. Web's phone forward flow (`ForwardComposerDialog` below md ->
+`ForwardComposerMobile.tsx` + `ForwardComposerTargetList.tsx`) is the only reference: the
+destinations page (header, search, "Recent" list, "Select multiple"), the note page ("Message
+preview" card + note composer) and the search loading / failed / empty rows. Flutter mounts it twice
+with the same `raft_ui` pieces (`RaftForwardPage`, `RaftForwardPageHeader`, `RaftForwardTargetsBody`,
+`RaftForwardSearchInput`, `RaftForwardTargetRow`, `RaftForwardPreviewStep`, `RaftForwardSearchStatus`,
+`RaftForwardTargetBadge`): `ForwardComposerPage` (forward mode) and `IncomingSharePicker` (share mode,
+Android external SEND / SEND_MULTIPLE). The two controllers keep their own state machines (forward
+request / retry; share staging, server membership, join confirmation, hand-off) because those are
+product logic, not chrome; everything the user sees that exists in both is one widget.
+
+Cases: `components.forward-mobile.page.<state>.<theme>` (7 states x 3 themes = 21; states targets, search,
+search-empty, search-error, search-loading, multi, note). React mounts the real `ForwardComposerDialog`
+at 390x844 (`tool/parity-ext/host/ForwardMobileCases.tsx`, data `fixtures/forwardmobile.json`, builder
+`build-forward-mobile.py`); Flutter mounts the real `ForwardComposerPage` (`cases/ext_forward_mobile.dart`).
+Run: `PARITY_EXT_WEB_PORT=<port> PARITY_EXT_ALL_THEMES=1 tool/parity-ext/run run --cases 'components.forward-mobile.*'`.
+
+| | official 96% | geometry (non-text >= 99.5%) | mean exact | mean non-text |
+| --- | --- | --- | --- | --- |
+| before (f6133720) | 12/21 | 10/21 | 96.32% | 97.65% |
+| after | 19/21 | 13/21 | 98.29% | 99.25% |
+
+After, per theme (geometry): brutal-light 7/7 (non-text 99.54-99.98%), elegant-light 6/7 (99.63-99.78%; the
+note page is 97.93%), elegant-dark 0/7 (98.45-98.71%; note 97.36%).
+
+Forward mode, differences found against Web and fixed:
+
+1. Dark search input: the recipe was resolved without the `dark` flag (flat fill, bright ring, no inset
+   shadow). It now uses `recipeTheme` / `recipeStates` like `RaftInput`, and `RaftRecipeBox` paints the inset layers.
+2. Peer avatars: DM / search rows showed a plain placeholder. They now show the peer's pixel / uploaded / Gravatar
+   artwork, and an agent without one wears the default robot (Web `AvatarSlot context="compact-list"`).
+3. Multi-select checkbox: it was built without `onChanged`, so it painted the disabled style when checked. It is
+   enabled (Web `pointer-events-none`, not `disabled`) and only disabled for an unchecked row at the 10-target limit.
+4. Focus: choosing a row or "Select multiple" moves focus off the search input (Web's row / button takes focus), so
+   the ring and the keyboard go away.
+5. Note page: the note editor was a one-line field with the send icon beside it. Web mounts
+   `MessageInput variant="compact"` (box with the send action inside, taller). Flutter now mounts the shared
+   compact `RaftComposer` (the attachment-comment composer) with an empty note allowed.
+6. Note page spacing: "Message preview" label line box 16px with 4px less gap above the card (the card keeps its own
+   4px), and the bundle header line is 16.5px (`RaftForwardedBundle.headerLine`) because outside a message row the
+   Web header inherits `leading-normal`; in a message row it stays 20px.
+7. Header title / subtitle and the preview label use even leading (CSS half-leading) like the rows.
+
+Still different (measured, not fixed): elegant-light note page has about 1.7dp less vertical room inside the bundle
+card; elegant-dark outline icon buttons differ in the top highlight rows (shared `RaftControl`, not forward specific);
+header title ink sits about 1dp lower than Web (text rasterization bucket); Web's "Not joined" / "New DM"
+rows join / open the DM through the Web composer's own warnings, Flutter joins at send (unchanged).
+
+Share mode (`IncomingSharePicker`), what it was and what it is now. Kevin's phone screenshots (header "Forward - 1 message
+selected", untranslated "Server", chevrons, bottom sheet with a target chip and "Continue") come from an older build;
+integration HEAD already used the forward list, but still had its own `RaftPanelHeaderBar`, a boxed segmented server
+control, checkbox rows, a selection chip + Continue footer and no empty state. Now:
+
+| Share need | Web element used | Difference |
+| --- | --- | --- |
+| Header | `ForwardComposerMobile` header (28px outline back button, 16/24 title "Select destinations", 12px mono subtitle) | The subtitle says what is shared ("Sharing 3 files", "Sharing text", "Sharing 2 files and text") instead of "{n} selected from {source}". No "Select multiple": exactly one target. |
+| Server choice | none in the forward page (it lists the current server); closest is its own `Button size="sm" variant="outline"` | Chip row above the search, selected chip `accent`, hidden with a single server. A semantic "Server" label only; no visible caption. |
+| Rows | `ForwardComposerTargetList` row, single-select form (no checkbox, no chevron) | Channels show the bare name; DMs `@name`; "Not joined" / "New DM" badges for rows that need a join / a new DM. Order: latest activity, then label (Web `getForwardTargets`), list label "Recent". |
+| Select | Web single-select on a phone: tapping a row goes straight to the note page | Opens "Add shared content" (the note page layout). Back keeps the choice. |
+| Preview of the share | note page "Message preview" + `ForwardedBundleCard` | "Shared content" label and a bundle-framed card (header strip with glyph, "Shared", file count; text body; attachment chips). No author / time row (the content is not a message). Images are listed as file chips with name and size: the content URI is not readable until the private copy exists, so there are no thumbnails. |
+| Final step | note page send action (accent) | Full-width accent "Continue" bar. There is no note editor: the composer the user lands in is the editor. A hint states that files are added to the composer for review. |
+| Empty / loading / error | `RaftForwardSearchStatus` | "No destinations match your search." / "No destinations available." / the load error with Retry / the spinner. |
+
+Device check (Android emulator, isolated `app.raft.raft_flutter.linkperf` release x86_64, local stack through
+`10.0.2.2`; not a phone): a real `am start -a android.intent.action.SEND -t image/png --eu EXTRA_STREAM
+content://media/external/images/media/<id>` into the logged-in app opens the picker ("Sharing 1 file", server chips,
+Recent list with pixel avatars and "New DM" badges), search filters, a row opens "Add shared content" (PNG chip, name and
+size), and Continue lands in that channel's composer with the file queued; no message was sent. A text share shows the
+snippet. Two observations: a SEND without a URI grant (EXTRA_STREAM only, no `-d` / ClipData, unlike a real sender)
+cannot be read, so the chip shows "attachment.bin" and Continue ends with the "could not be added" banner; after an
+`adb install -r` the restored session stayed in "Background session recovery" until the process was restarted
+(pre-existing, not part of this change). Real-phone Chrome / Photos / Files shares remain unverified.
+
+Hand-off, staging limits, join confirmation, membership re-check and "no upload / send" are unchanged
+(docs/sharing-evidence.md). Contact sheet (Web | before | after, 3 themes): `tool/share-forward-sheet`;
+share-mode captures come from `apps/raft_flutter/test/share_forward_capture_test.dart` (set `SHARE_SHEET_OUT`).
 
 ## Navigation audit (cindy/nav-audit)
 

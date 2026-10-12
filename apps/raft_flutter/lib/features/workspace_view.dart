@@ -1519,6 +1519,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
           master: content,
           detail: desktopContentDetail(),
           compact: thread,
+          masterEdge: route == 'search',
           wideWidth: masterWideWidth,
           compactWidth: masterCompactWidth,
           onWidthChanged: saveMasterPanel,

@@ -336,13 +336,13 @@ void main() {
         expect(find.text('Preparing 0 of 1 files'), findsOneWidget);
         // Let the page transition finish (the API and the copy stay pending).
         await t.pump(const Duration(milliseconds: 400));
-        await t.tap(find.text('#general-x'));
+        await t.tap(find.byKey(const ValueKey('incoming-target-cx')));
         await t.pump();
         await t.tap(find.byKey(const Key('incoming-share-continue')));
         await t.pump();
         expect(
           t
-              .widget<RaftButton>(
+              .widget<RaftForwardContinueAction>(
                 find.byKey(const Key('incoming-share-continue')),
               )
               .busy,
@@ -394,7 +394,7 @@ void main() {
       };
       await framesUntil(t, pickerVisible);
       await t.pump(const Duration(milliseconds: 400));
-      await t.tap(find.text('#general-x'));
+      await t.tap(find.byKey(const ValueKey('incoming-target-cx')));
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
       await t.pump();
@@ -404,14 +404,8 @@ void main() {
       expect(find.text(_revokedNotice), findsOneWidget);
       expect(row('cx'), isFalse);
       expect(row('ca'), isTrue);
-      expect(
-        t
-            .widget<RaftButton>(
-              find.byKey(const Key('incoming-share-continue')),
-            )
-            .onPressed,
-        isNull,
-      );
+      // The dropped destination returns the flow to the destinations page.
+      expect(find.byKey(const Key('incoming-share-continue')), findsNothing);
       final w = s.w;
       expect(w.drafts['cx'], isNull);
       expect(w.channel?.id, openChannel);
@@ -439,7 +433,7 @@ void main() {
       await framesUntil(t, pickerVisible);
       expect(row('cx'), isTrue);
       await t.pump(const Duration(milliseconds: 400));
-      await t.tap(find.text('#general-x'));
+      await t.tap(find.byKey(const ValueKey('incoming-target-cx')));
       await t.pump();
       await t.tap(find.byKey(const Key('incoming-share-continue')));
       await t.pump();

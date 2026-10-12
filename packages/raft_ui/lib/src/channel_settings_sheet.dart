@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import 'system_inset.dart';
+import 'panel_edge.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart';
 import 'icons.dart';
@@ -414,16 +415,9 @@ class RaftChannelSettingsSheet extends StatelessWidget {
           // like the CSS border box.
           child: Container(
             decoration: BoxDecoration(
-              // Desktop drawer only: no left edge line on the phone (owner
-              // decision 2026-10-12).
-              border: t.brutal && width >= RaftLayoutMetrics.desktopBreakpoint
-                  ? Border(
-                      left: BorderSide(
-                        color: t.colors['line-strong']!,
-                        width: 2,
-                      ),
-                    )
-                  : null,
+              // The shared rule (RaftPanelEdge): only the full-width phone
+              // page draws no `theme-brutal:border-l-2`.
+              border: RaftPanelEdge.left(context, RaftPanelEdgeStyle.drawer),
             ),
             child: DefaultTextStyle.merge(
               style: TextStyle(fontFamily: t.headingFont, color: t.strong),

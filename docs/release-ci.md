@@ -10,15 +10,27 @@ packager `tool/build-deliverables`; compilation does not imply full-app acceptan
 
 1. Review and merge the source through the normal integration batch and
    `tool/check-project` gate.
-2. Set `apps/raft_flutter/pubspec.yaml` to `version: X.Y.Z+N`. Increase `N` for each
-   Android update; keep the same release keystore for all updates. Commit and merge
-   the version change before tagging.
-3. Push a matching version tag, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
-   Prerelease versions such as `0.1.0-rc.1+2` use tag `v0.1.0-rc.1`.
+2. Push a version tag such as `v0.1.1`. For another build of the same app version,
+   push a new tag such as `v0.1.1+1`, then `v0.1.1+2`. Prerelease tags such as
+   `v0.1.1-rc.1+2` are also accepted.
+3. The tag selects the compiled app version (`0.1.1` above), overriding the
+   pubspec version via Flutter build flags without modifying tracked files.
+   CI uses `GITHUB_RUN_NUMBER` as the build number, as in the local Miraa Google
+   Play workflow. New workflow runs increase it automatically; rerunning the
+   same run keeps it. There is no need to edit the pubspec for each tagged build.
 
-A mismatched tag stops before building. All enabled platforms must succeed before
+For example, `v0.1.1+2` on workflow run 47 builds app version `0.1.1` with build
+number `47` (ARM64 split APK version code `2047`). The `+2` distinguishes the
+release and is kept in the asset name, e.g.
+`raft-flutter-0.1.1+2-android-arm64.apk`, and the Release tag/title. Each tag creates
+its own Release, so earlier builds remain available; a stable release is marked
+as Latest, while prereleases are not. Keep the same release key
+for Android updates. Branch PR/manual runs use the pubspec app version and the
+workflow counter; local runs without GitHub context fall back to the pubspec.
+
+Malformed tags or invalid/missing tag-run counters stop before building. All enabled platforms must succeed before
 the publication job runs. It verifies each artifact's SHA-256, architecture,
-version and source commit, creates a draft, uploads every asset plus
+version, build number, release tag and source commit, creates a draft, uploads every asset plus
 `CHECKSUMS.txt` and `build-manifest.json`, then publishes it. Tags containing a
 prerelease suffix become GitHub prereleases. Only the publish job has
 `contents: write`; it uses the built-in `GITHUB_TOKEN`, without a personal token.
@@ -34,7 +46,7 @@ Android build on a reviewed branch; tags build all enabled platforms.
 Concurrency is serialized per event/ref. Published assets are never overwritten.
 If upload fails, a draft remains; inspect it, delete that incomplete draft (retain
 the tag), then rerun the workflow. An existing published release must be corrected
-with a new version/tag, rather than reusing a version for different bytes.
+with a new tag (incrementing `+N` is sufficient), rather than overwriting old assets.
 On repositories with immutable releases, the draft-first sequence also ensures
 assets are present before publication locks them.
 
@@ -177,3 +189,4 @@ are retained even when smoke testing fails.
 References: [Flatpak manifests](https://docs.flatpak.org/en/latest/manifests.html),
 [bundle distribution](https://docs.flatpak.org/en/latest/single-file-bundles.html),
 [Flatpak build commands](https://docs.flatpak.org/en/latest/flatpak-command-reference.html).
+Build counter semantics: [GitHub default variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables).

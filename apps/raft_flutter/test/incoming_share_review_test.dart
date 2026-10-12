@@ -67,27 +67,29 @@ void main() {
           {'id': 'a-c', 'name': 'a-channel', 'joined': true},
         ]);
         await t.pumpAndSettle();
-        expect(find.text('#a-channel'), findsNothing);
-        await t.tap(find.text('#b-channel'));
-        await t.pump();
+        expect(find.text('a-channel'), findsNothing);
+        // Web's single-select flow: choosing a row opens the second page,
+        // whose action is Continue.
+        await t.tap(find.byKey(const ValueKey('incoming-target-b-c')));
+        await t.pumpAndSettle();
+        expect(find.text('Add shared content'), findsOneWidget);
         expect(
           t
-              .widget<RaftButton>(
+              .widget<RaftForwardContinueAction>(
                 find.byKey(const Key('incoming-share-continue')),
               )
               .onPressed,
           isNotNull,
         );
-        await t.tap(find.widgetWithText(RaftButton, '#b-channel'));
-        await t.pump();
-        expect(
-          t
-              .widget<RaftButton>(
-                find.byKey(const Key('incoming-share-continue')),
-              )
-              .onPressed,
-          isNull,
-        );
+        // Back keeps the choice highlighted; switching server clears it.
+        await t.tap(find.byType(RaftIconButton).first);
+        await t.pumpAndSettle();
+        expect(find.byKey(const Key('incoming-share-continue')), findsNothing);
+        await t.tap(find.text('Server A'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('Server B'));
+        await t.pumpAndSettle();
+        expect(find.byKey(const Key('incoming-share-continue')), findsNothing);
         expect(received, isEmpty);
         expect(
           c.calls.where((s) => s.contains('upload') || s.contains('forward')),
