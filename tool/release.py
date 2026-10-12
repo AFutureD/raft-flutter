@@ -286,12 +286,18 @@ def build(platform):
                     archive.add(stage, arcname=name)
                 signing = 'not signed; Ubuntu 26.04 amd64 runtime'
         elif platform == 'macos':
+            import macos_release
             apps = list((APP / 'build/macos/Build/Products/Release').glob('*.app'))
             if len(apps) != 1:
                 raise ValueError('Expected one macOS app bundle')
             artifact = OUT / f'{name}.zip'
+            entitlements = APP / 'macos/Runner/Release.entitlements'
+            macos_checks = macos_release.package(apps[0], stage, entitlements, version, number, arch)
+            copy_docs(stage)
             # ditto preserves app symlinks, executable permissions and metadata.
-            run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', apps[0], artifact])
+            run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', stage, artifact])
+            macos_release.verify_archive(artifact, work / 'extracted', apps[0].name,
+                                         entitlements, version, number, arch)
             signing = 'ad-hoc; no Developer ID or notarization'
         else:
             artifact = OUT / f'{name}.apk'
@@ -308,6 +314,8 @@ def build(platform):
         receipt['android'] = android
     if platform == 'appimage':
         receipt['appimage'] = appimage_checks
+    if platform == 'macos':
+        receipt['macos'] = macos_checks
     (OUT / f'{name}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     (OUT / f'{name}.sha256').write_text(f"{receipt['sha256']}  {artifact.name}\n", encoding='utf-8')
     print(json.dumps(receipt, indent=2))
@@ -354,7 +362,9 @@ def publish():
                      + '\n\nSee `CHECKSUMS.txt` and `build-manifest.json` for source and SHA-256 provenance. '
                      'Hosted CI compiles and packages; platform functional acceptance is separate.\n'
                      '\nWindows requires Windows App Runtime 1.7 x64; extract the whole ZIP. '
-                     'macOS builds are not notarized. Linux tar.gz requires compatible Ubuntu 26.04 runtime dependencies; Flatpak installs its GNOME 51 runtime from Flathub.\n',
+                     'macOS ARM64 builds have ad-hoc signatures and are not notarized; '
+                     'see READ-ME-FIRST.txt in the ZIP for first-launch instructions. '
+                     'Linux tar.gz requires compatible Ubuntu 26.04 runtime dependencies.\n',
                      encoding='utf-8')
     # Never clobber published assets. Create a draft, upload everything, then publish.
     # A failed upload leaves a draft for inspection; reruns fail rather than replace bytes.

@@ -23,6 +23,9 @@ on:
       - 'pubspec.lock'
       - 'apps/raft_flutter/windows/**'
       - 'apps/raft_flutter/android/**'
+      - 'apps/raft_flutter/macos/**'
+      - 'tool/macos_release.py'
+      - 'tool/tests/test_macos_release.py'
   workflow_dispatch:
     inputs:
       platforms:
@@ -56,6 +59,7 @@ jobs:
           python -m unittest discover -s tool/tests -p test_release.py -v
           python -m unittest discover -s tool/tests -p test_appimage.py -v
           python -m unittest discover -s tool/tests -p test_media_linux_sources.py -v
+          python -m unittest discover -s tool/tests -p test_macos_release.py -v
       - id: plan
         env:
           RELEASE_PLATFORMS: ${{ inputs.platforms }}
@@ -103,6 +107,12 @@ jobs:
         if: matrix.platform == 'android'
         shell: bash
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+      - name: Check macOS packaging tools
+        if: matrix.platform == 'macos'
+        run: |
+          xcodebuild -version
+          pod --version
+          command -v codesign
       - name: Install Linux build and media dependencies
         if: matrix.platform == 'linux' || matrix.platform == 'appimage'
         run: |

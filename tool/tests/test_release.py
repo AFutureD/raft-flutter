@@ -22,14 +22,14 @@ class ReleaseTests(unittest.TestCase):
         environment.start()
         self.addCleanup(environment.stop)
 
-    def test_default_enables_windows_android_and_appimage(self):
+    def test_default_enables_windows_android_appimage_and_macos(self):
         result = release.release_plan(self.config, '')
-        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android', 'appimage'])
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'android', 'appimage', 'macos'])
         self.assertEqual(result['include'][1]['arch'], 'arm64')
 
     def test_pull_requests_do_not_build_with_android_signing_secrets(self):
         result = release.release_plan(self.config, '', event='pull_request')
-        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'appimage'])
+        self.assertEqual([r['platform'] for r in result['include']], ['windows', 'appimage', 'macos'])
 
 
     def test_manual_can_test_future_platforms(self):
