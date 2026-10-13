@@ -12,6 +12,7 @@
 - 首次安装只在用户明确要求时追加 `--first-install`，同样先做 `--check-only`；该模式必须确认设备上不存在此包（含其他用户与保留数据），禁止用作更新失败后的自动兜底。
 - Android profile 测试只通过 `tool/performance/lab.py`，只接受预编译且实际包名为 `app.raft.raft_flutter.linkperf` 的 APK，并强制 `--keep-app-running`。只改 `applicationId` 不足以隔离：Flutter drive 的 source 包名可能取 namespace，结束时自动卸载。测试前后检查正式 App 仍在，不得把“找不到包”当成正常状态继续安装。
 - 视觉对齐扩展套件（tool/parity-ext）的新增 / 修复流程见 docs/parity-ext-quickstart.md。
+- 状态对齐：每个页面/面板的 loading / empty / error / partial 状态登记在 docs/state-parity.json（有无 Web 对应、有无 parity case、差距大小）。`test/state_parity_guard_test.dart` 要求每个已登记状态要么有 parity case id，要么写明 intentional / NA 理由；新增页面或面板时同时登记。只盯默认（有数据）状态的 case 会漏掉加载 / 空 / 错误的差异，而且这些状态的 case 必须先确认 Web 侧真的渲染出该状态（React host 不得用预置 store 数据盖住它）。
 - 空闲 CPU：禁止 `scheduleTask`/`Priority.idle` 与零延迟自重排的 Timer（被拒绝的 idle 任务会经 `Timer.run` 热循环，见 docs/idle-cpu.md）；延后工作用 `RaftIdleTimer`，仅屏幕可见才有意义的轮询用 `RaftForegroundPeriodic`；常驻动画必须用 State vsync 并随 TickerMode/减弱动效停止。`test/idle_work_guard_test.dart` 扫描并要求白名单理由。
 - 按功能矩阵报告实际覆盖；Widget Preview 不能替代Linux/Android平台无障碍、输入法、生命周期或通知测试。
 

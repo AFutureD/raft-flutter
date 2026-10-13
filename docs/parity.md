@@ -1788,3 +1788,38 @@ similarity at 1280x800 (brutal / elegant / elegant-dark): index 1 of 3 99.71 / 9
 99.72 / 99.67 / 99.62 %. Before the arrows were removed (Web unmasked) the same two cases measured
 99.71 / 99.43 / 99.50 % and 99.72 / 99.44 / 99.51 %, so the arrows cost the elegant themes about 0.2 points (just under the 99.5 bar) and nothing visible in brutal; the
 phone-width gallery cases (~96 %, hairline bucket on the stage image) are unchanged by this.
+
+## Agent Activity / Workspace states and the state-parity guard (cindy/agent-activity-parity)
+
+Kevin found the Activity log rows and the Workspace "加载中…" line differing from Web, and asked why the style
+parity never caught it. Causes and fixes:
+
+- **Cases only covered the populated default.** Added 18 cases per platform (desktop + phone, 3 themes):
+  `components.members-pages.<platform>.agent.activity-{empty,loading,error,status,subagent,tools,text,slock,long-path}`
+  and `agent.workspace-{loading,empty,error,rows,truncated,dir-loading,dir-open,file-loading,file-error}`
+  (`tool/parity-ext/agent_activity_data.py`, `build-members-pages.py`).
+- **The old state cases were false passes.** `components.members-ext.agent.activity-{empty,loading,error}` compared a
+  Flutter "Loading..." against a React page that still showed rows: both React hosts (`MemberCases.tsx`,
+  `MembersPagesCases.tsx`) primed `trajectoryLogs` from the official host and the case route merged into them. The hosts now
+  clear the primed trajectory; the log comes only from the case route. A state case must show the state on the React side.
+- **Fixture routes can differ by query** (`{"$when": [{"query": {...}, "answer": ...}], "$default": ...}`, applied by
+  `tool/parity-ext/run` for React and `test/parity/cases/fixture_when.dart` for Flutter), so the workspace root and one folder
+  can answer differently (folder loading / folder error).
+- **What differed** (all fixed): no Subagent badge; `#channel` / `#channel:shortid` tokens in action/system rows are plain mono
+  text (Web: pink / cyan reference pills, channels only, DMs never resolve there); "Using update_task_status" (Web
+  `getToolLogLabel`, `features/tool_display.dart`, `send_message` rows hidden); Output rows labelled "Message"; compaction rows
+  showed the raw kind; long (> 200) rows had no chevron / expand; empty/loading/error showed text instead of the EmptyState;
+  the log did not start at the newest row; workspace loading line unpadded and left-aligned, no "No files yet", no folder
+  loading row, no truncation hint, no selected-row highlight, no file-pane loading, server error text instead of the fixed
+  "Failed to load files", hidden files filtered by name instead of `includeHidden`; the phone tab strip did not centre the
+  active tab on a route that opens on it; reference chips ignored the dark theme (no `dark` recipe state).
+- **Result** (all three themes, run 20261013): 123 cases (incl. the 5 existing `components.members-ext.agent.activity*` /
+  `workspace` ones), 101 with non-text >= 99.5%, mean non-text 99.60%, min 98.82%. The 22 below are long-text rows
+  (`activity-long-path`, `slock`, `subagent`, `tools`, `text`): `break-all` mono lines wrap 1-2 characters differently
+  (a zero-width break point per glyph makes Flutter advance whole pixels; `letterSpacing` only approximates Blink), 16.41px
+  reference chips grow a line by 0.41px that `RaftCssText` rounds away, and the Elegant panel header avatar/actions area
+  carries a shared ~0.3% floor.
+- **State inventory and guard.** `docs/state-parity.json` lists every screen/panel's loading / empty / error / partial states
+  (does Web have it, does Flutter, which parity case covers it, gap size). `test/state_parity_guard_test.dart` fails when a
+  listed state has neither a resolvable case id nor an intentional / NA justification, when a navigation-registry section is
+  not mapped, or when a `flutterEntry` file is gone. A new screen or panel must add its states there.
