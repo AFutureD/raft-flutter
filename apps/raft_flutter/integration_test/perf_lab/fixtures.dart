@@ -318,8 +318,8 @@ List<String> mixKinds(int count) => [for (var i = 0; i < count; i++) mixCycle[i 
 
 /// Signs in a fixture workspace with the lab's routes. Every channel's rows
 /// arrive through the product's own network page path.
-Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false, bool ownsClient = true, String origin = 'https://example.invalid'}) async {
-  final api = LabAdapter();
+Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false, bool ownsClient = true, String origin = 'https://example.invalid', LabAdapter? adapter}) async {
+  final api = adapter ?? LabAdapter();
   api.routes['POST /auth/login'] = (_) => {'accessToken': 'fixture-only', 'refreshToken': 'fixture-only', 'user': {
     'id': 'alice', 'name': 'Alice Zhang', 'email': 'alice@example.invalid', 'emailVerified': true, 'displayLanguage': 'en',
   }};
