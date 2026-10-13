@@ -12,6 +12,7 @@ import 'package:uri_content/uri_content.dart';
 
 import 'attachment_files.dart';
 import 'attachment_http.dart';
+import 'cache_staging.dart';
 import 'incoming_share_inbox.dart';
 
 class IncomingSharedFile {
@@ -86,6 +87,7 @@ class SharedFileLease {
     _timer?.cancel();
     _timer = null;
   }
+
   Future<void> dispose() => _disposal ??= _dispose();
   Future<void> _dispose() async {
     _timer?.cancel();
@@ -99,6 +101,7 @@ class NativeSharing {
     MethodChannel? channel,
     Dio? dio,
     Future<Directory> Function()? temporaryDirectory,
+    Future<Directory> Function()? stagingDirectory,
     bool? supported,
     bool? ios,
     Stream<Uint8List> Function(Uri)? readContent,
@@ -110,6 +113,7 @@ class NativeSharing {
            ((uri) =>
                UriContent().getContentStream(uri, bufferSize: 256 * 1024)),
        _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory,
+       _stagingDirectory = stagingDirectory ?? cacheStagingDirectory,
        _ios = ios ?? Platform.isIOS,
        supported = supported ?? (Platform.isAndroid || Platform.isIOS) {
     inbox = IncomingShareInbox(
@@ -162,7 +166,13 @@ class NativeSharing {
 
   final MethodChannel channel;
   final Dio _dio;
+
+  /// Where received shares go when the host has no inbox directory of its own
+  /// (user data: never swept, see [sweepStaging]).
   final Future<Directory> Function() _temporaryDirectory;
+
+  /// Where share-sheet copies are staged.
+  final Future<Directory> Function() _stagingDirectory;
   final bool supported;
   final bool _ios;
   final _deliveredInboxTokens = <String>{};
@@ -411,7 +421,7 @@ class NativeSharing {
     required bool Function() authorized,
   }) async {
     if (!supported || !authorized()) return null;
-    final root = await _temporaryDirectory();
+    final root = await _stagingDirectory();
     final folder = await Directory(
       p.join(
         root.path,
@@ -443,7 +453,7 @@ class NativeSharing {
     required bool Function() authorized,
   }) async {
     if (!supported || !authorized()) return null;
-    final root = await _temporaryDirectory();
+    final root = await _stagingDirectory();
     final folder = await Directory(
       p.join(
         root.path,
@@ -475,7 +485,7 @@ class NativeSharing {
     required void Function(int, int) onProgress,
   }) async {
     if (!supported || !authorized() || cancel.isCancelled) return null;
-    final root = await _temporaryDirectory();
+    final root = await _stagingDirectory();
     final folder = await Directory(
       p.join(
         root.path,

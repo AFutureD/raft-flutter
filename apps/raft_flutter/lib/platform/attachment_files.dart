@@ -4,10 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'attachment_http.dart';
+import 'cache_staging.dart';
 
 /// Attachment URLs are capabilities. They live only in an active transfer,
 /// never in preferences, logs, or the workspace database.
@@ -15,13 +15,13 @@ class AttachmentFiles {
   AttachmentFiles({
     Dio? dio,
     this.pickDestination,
-    Future<Directory> Function()? temporaryDirectory,
+    Future<Directory> Function()? stagingDirectory,
     bool? gallerySupported,
     this.writeToGallery,
   }) : gallerySupported =
            gallerySupported ?? (Platform.isAndroid || Platform.isIOS),
        _dio = dio ?? AttachmentHttp.shared,
-       _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
+       _stagingDirectory = stagingDirectory ?? cacheStagingDirectory;
   final Dio _dio;
   final Future<String?> Function(String, String)? pickDestination;
 
@@ -36,7 +36,7 @@ class AttachmentFiles {
   /// Label of the long-press item that saves into [gallerySupported]'s library.
   static String get galleryLabel =>
       Platform.isIOS ? 'Save to Photos' : 'Save to Gallery';
-  final Future<Directory> Function() _temporaryDirectory;
+  final Future<Directory> Function() _stagingDirectory;
   static const channel = MethodChannel('app.raft/attachment-files');
 
   static String safeFilename(String name) {
@@ -100,10 +100,10 @@ class AttachmentFiles {
     if (destination == null || cancel.isCancelled || !authorized()) return null;
     final folder = await Directory(
       p.join(
-        (await _temporaryDirectory()).path,
+        (await _stagingDirectory()).path,
         'raft-attachment-${DateTime.now().microsecondsSinceEpoch}',
       ),
-    ).create();
+    ).create(recursive: true);
     final temporary = File(p.join(folder.path, name));
     try {
       if (Platform.isLinux) {
@@ -191,10 +191,10 @@ class AttachmentFiles {
     if (destination == null || !authorized()) return null;
     final folder = await Directory(
       p.join(
-        (await _temporaryDirectory()).path,
+        (await _stagingDirectory()).path,
         'raft-export-${DateTime.now().microsecondsSinceEpoch}',
       ),
-    ).create();
+    ).create(recursive: true);
     try {
       if (Platform.isLinux) {
         if ((await Process.run('chmod', ['700', folder.path])).exitCode != 0) {
@@ -235,10 +235,10 @@ class AttachmentFiles {
     final name = safeFilename(filename);
     final folder = await Directory(
       p.join(
-        (await _temporaryDirectory()).path,
+        (await _stagingDirectory()).path,
         'raft-gallery-${DateTime.now().microsecondsSinceEpoch}',
       ),
-    ).create();
+    ).create(recursive: true);
     try {
       if (Platform.isLinux) {
         if ((await Process.run('chmod', ['700', folder.path])).exitCode != 0) {

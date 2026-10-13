@@ -183,7 +183,7 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     final cache = widget.controller.attachmentDiskCache;
     if (cache == null) return null;
     try {
-      final bytes = await cache.read(sourceKey);
+      final bytes = await cache.readPreview(sourceKey);
       return bytes == null ? null : utf8.decode(bytes, allowMalformed: true);
     } catch (_) {
       return null;
@@ -194,7 +194,10 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     final cache = widget.controller.attachmentDiskCache;
     if (cache == null) return;
     try {
-      await cache.write(sourceKey, Uint8List.fromList(utf8.encode(source)));
+      await cache.writePreview(
+        sourceKey,
+        Uint8List.fromList(utf8.encode(source)),
+      );
     } catch (_) {
       // Caching is best effort.
     }

@@ -288,7 +288,7 @@ void main() {
     final sharing = NativeSharing(
       dio: dio,
       supported: true,
-      temporaryDirectory: () async => folder,
+      stagingDirectory: () async => folder,
     );
     final lease = await sharing.prepareAttachment(
       url: 'http://127.0.0.1:${server.port}/file?signature=private',
@@ -327,7 +327,7 @@ void main() {
       final bytes = Uint8List.fromList([137, 80, 78, 71, 13, 10, 26, 10]);
       final sharing = NativeSharing(
         supported: true,
-        temporaryDirectory: () async => folder,
+        stagingDirectory: () async => folder,
       );
       final lease = await sharing.prepareBytes(
         bytes,
@@ -338,7 +338,7 @@ void main() {
       await lease.dispose();
       final files = AttachmentFiles(
         pickDestination: (_, _) async => null,
-        temporaryDirectory: () async => folder,
+        stagingDirectory: () async => folder,
       );
       expect(
         await files.saveBytes(
@@ -352,7 +352,7 @@ void main() {
       final output = File('${folder.path}/chosen.png');
       final accepted = AttachmentFiles(
         pickDestination: (_, _) async => output.path,
-        temporaryDirectory: () async => folder,
+        stagingDirectory: () async => folder,
       );
       expect(
         await accepted.saveBytes(

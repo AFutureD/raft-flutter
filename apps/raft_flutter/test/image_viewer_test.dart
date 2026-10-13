@@ -60,7 +60,7 @@ class _Files extends AttachmentFiles {
   _Files(this.out, {required bool gallery})
     : super(
         gallerySupported: gallery,
-        temporaryDirectory: () async => Directory(out.path).parent,
+        stagingDirectory: () async => Directory(out.path).parent,
         pickDestination: (name, mime) async => '${out.path}/$name',
         writeToGallery: null,
       );

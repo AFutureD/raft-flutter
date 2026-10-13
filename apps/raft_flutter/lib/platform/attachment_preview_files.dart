@@ -5,23 +5,23 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../data/attachment_disk_cache.dart';
 import '../data/attachment_image_store.dart';
 import 'attachment_files.dart';
 import 'attachment_http.dart';
+import 'cache_staging.dart';
 import 'native_sharing.dart';
 
 /// Private local inputs prevent native decoders retaining signed URL handles.
 class AttachmentPreviewFiles {
   AttachmentPreviewFiles({
     Dio? dio,
-    Future<Directory> Function()? temporaryDirectory,
+    Future<Directory> Function()? stagingDirectory,
   }) : dio = dio ?? AttachmentHttp.shared,
-       temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
+       stagingDirectory = stagingDirectory ?? cacheStagingDirectory;
   final Dio dio;
-  final Future<Directory> Function() temporaryDirectory;
+  final Future<Directory> Function() stagingDirectory;
   static const maxBytes = 50 * 1024 * 1024;
   Future<SharedFileLease?> load(
     String url,
@@ -31,7 +31,7 @@ class AttachmentPreviewFiles {
     void Function(int received, int total)? onProgress,
   }) async {
     if (!authorized() || cancel.isCancelled) return null;
-    final root = await temporaryDirectory();
+    final root = await stagingDirectory();
     if (!authorized() || cancel.isCancelled) return null;
     final previews = await Directory(
       p.join(root.path, 'raft-previews'),

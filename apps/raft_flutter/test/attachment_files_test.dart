@@ -19,7 +19,7 @@ void main() {
     final url = 'http://127.0.0.1:${server.port}/fixture';
     final cancelled = AttachmentFiles(
       pickDestination: (_, _) async => null,
-      temporaryDirectory: () async => base,
+      stagingDirectory: () async => base,
     );
     expect(
       await cancelled.save(
@@ -34,7 +34,7 @@ void main() {
     );
     final revoked = AttachmentFiles(
       pickDestination: (_, _) async => p.join(base.path, 'report.txt'),
-      temporaryDirectory: () async => base,
+      stagingDirectory: () async => base,
     );
     expect(
       await revoked.save(
@@ -64,7 +64,7 @@ void main() {
     });
     final files = AttachmentFiles(
       pickDestination: (_, _) async => existing.path,
-      temporaryDirectory: () async => base,
+      stagingDirectory: () async => base,
     );
     await expectLater(
       files.save(
@@ -92,7 +92,7 @@ void main() {
     });
     final files = AttachmentFiles(
       pickDestination: (_, _) async => saved.path,
-      temporaryDirectory: () async => base,
+      stagingDirectory: () async => base,
     );
     expect(
       await files.save(

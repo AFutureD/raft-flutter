@@ -14,6 +14,19 @@ import 'attachment_image_store.dart';
 /// device). The one place the number is defined; eviction trims to 90 % of it.
 const int attachmentCacheMaxBytes = 1024 * 1024 * 1024;
 
+/// A private entry nobody opened for this long is deleted (lazily when
+/// touched, and by the scan at start). Opening an entry restarts the clock.
+const Duration attachmentCacheIdleExpiry = Duration(days: 30);
+
+/// The format of the cached preview JSON / static HTML entries (the
+/// [AttachmentDiskCache.readPreview] family). Raise it when the client reads
+/// those documents differently: older entries then count as misses.
+const int attachmentPreviewFormatVersion = 1;
+
+/// A preview entry is refetched this long after it was stored, however
+/// recently it was opened (the server may have changed what it renders).
+const Duration attachmentPreviewFreshness = Duration(days: 14);
+
 /// The two kinds of entry in the cache, which share one root, one index and one
 /// size figure but not their lifetime.
 enum AttachmentCacheNamespace {
@@ -84,7 +97,12 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     this.maxEntryBytes = 64 * 1024 * 1024,
     int? publicMaxBytes,
     this.publicMaxEntryBytes = 4 * 1024 * 1024,
-  }) : publicMaxBytes =
+    this.idleExpiry = attachmentCacheIdleExpiry,
+    this.previewFreshness = attachmentPreviewFreshness,
+    this.previewFormatVersion = attachmentPreviewFormatVersion,
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now,
+       publicMaxBytes =
            publicMaxBytes ?? math.min(64 * 1024 * 1024, maxBytes ~/ 8);
 
   /// The process-wide cache installed by the app entry point. Controllers use
@@ -97,6 +115,14 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
 
   final Future<Directory> Function() _root;
   final int maxBytes, maxEntryBytes;
+
+  /// How long a private entry may go unopened, and how old a preview entry
+  /// may be, and the preview format this client reads. [_clock] is injectable
+  /// for tests; there is no timer: expiry is checked on access and once at
+  /// start.
+  final Duration idleExpiry, previewFreshness;
+  final int previewFormatVersion;
+  final DateTime Function() _clock;
 
   /// The public namespace's own cap (default the smaller of 64 MiB and an
   /// eighth of [maxBytes]; it counts toward [maxBytes]) and entry size limit.
@@ -181,6 +207,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
           }
         }
       }
+      await _expireIdle(index);
       return index;
     } catch (_) {
       return null; // No platform cache directory: run memory-only.
@@ -189,6 +216,29 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
 
   /// Starts indexing now (app start), so the first lookups do not wait for it.
   Future<void> warm() => _open().then<void>((_) {}, onError: (Object _) {});
+
+  /// True when the private entry at [path] was last opened [idleExpiry] ago
+  /// or more and nothing holds it open. The public namespace follows its own
+  /// rules and never expires here.
+  bool _expired(_DiskIndex index, String path, DateTime lastUsed) =>
+      !index.isPublic(path) &&
+      !_pins.containsKey(path) &&
+      _clock().difference(lastUsed) >= idleExpiry;
+
+  /// The start-up pass: deletes every private entry unopened for
+  /// [idleExpiry]. One walk over the in-memory index; the only disk work is
+  /// deleting what expired.
+  Future<void> _expireIdle(_DiskIndex index) async {
+    final expired = [
+      for (final entry in index.files.entries)
+        if (_expired(index, entry.key, entry.value.$2)) entry.key,
+    ];
+    if (expired.isEmpty) return;
+    for (final path in expired) {
+      await _delete(index, path);
+    }
+    await _pruneEmpty(index.directory);
+  }
 
   /// Serializes mutations so concurrent writes/evictions see one index.
   Future<T> _serial<T>(Future<T> Function() task) {
@@ -233,10 +283,15 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     final index = await _open();
     if (index == null) return null;
     final path = _path(index, key);
-    if (!index.files.containsKey(path)) return null;
+    final entry = index.files[path];
+    if (entry == null) return null;
+    if (_expired(index, path, entry.$2)) {
+      await _serial(() => _delete(index, path));
+      return null;
+    }
     try {
       final bytes = await File(path).readAsBytes();
-      final now = DateTime.now();
+      final now = _clock();
       index.files[path] = (bytes.length, now);
       unawaited(_quietly(() => File(path).setLastModified(now)));
       return bytes;
@@ -270,7 +325,59 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   /// True when the bytes entry is stored; no read and no LRU touch.
   Future<bool> contains(AttachmentImageStoreKey key) async {
     final index = await _open();
-    return index != null && index.files.containsKey(_path(index, key));
+    return index != null && await _stored(index, _path(index, key));
+  }
+
+  /// True when the index has [path], it has not expired and the file is still
+  /// on disk. A file the OS removed underneath is dropped from the index (and
+  /// the totals) here instead of being promised to the caller.
+  Future<bool> _stored(_DiskIndex index, String path) async {
+    final entry = index.files[path];
+    if (entry == null || _expired(index, path, entry.$2)) return false;
+    if (await File(path).exists()) return true;
+    await _serial(() => _delete(index, path));
+    return false;
+  }
+
+  // ---- Preview documents ---------------------------------------------------
+
+  /// Reads a preview JSON / static HTML entry written by [writePreview].
+  /// An entry stored by another preview format version, older than
+  /// [previewFreshness], or without the header is deleted and reported as a
+  /// miss.
+  Future<Uint8List?> readPreview(AttachmentImageStoreKey key) async {
+    final bytes = await read(key);
+    if (bytes == null) return null;
+    final body = _previewBody(bytes);
+    if (body == null) {
+      await remove(key);
+      return null;
+    }
+    return body;
+  }
+
+  /// Stores a preview JSON / static HTML entry with the client's format
+  /// version and the time it was written (the freshness clock; opening the
+  /// entry later does not restart it).
+  Future<void> writePreview(AttachmentImageStoreKey key, Uint8List bytes) {
+    final header = utf8.encode(
+      'RPV$previewFormatVersion:'
+      '${_clock().millisecondsSinceEpoch}\n',
+    );
+    return write(key, Uint8List.fromList([...header, ...bytes]));
+  }
+
+  Uint8List? _previewBody(Uint8List bytes) {
+    final end = bytes.indexOf(0x0a);
+    if (end < 0 || end > 40) return null;
+    final header = ascii.decode(bytes.sublist(0, end), allowInvalid: true);
+    final match = RegExp(r'^RPV(\d{1,9}):(\d{1,15})$').firstMatch(header);
+    if (match == null || int.parse(match[1]!) != previewFormatVersion) {
+      return null;
+    }
+    final written = DateTime.fromMillisecondsSinceEpoch(int.parse(match[2]!));
+    if (_clock().difference(written) >= previewFreshness) return null;
+    return Uint8List.sublistView(bytes, end + 1);
   }
 
   @override
@@ -293,7 +400,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     if (!index.files.containsKey(path)) return null;
     try {
       final bytes = await File(path).readAsBytes();
-      final now = DateTime.now();
+      final now = _clock();
       index.files[path] = (bytes.length, now);
       unawaited(_quietly(() => File(path).setLastModified(now)));
       return bytes;
@@ -342,7 +449,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   }) async {
     final index = await _open();
     return index != null &&
-        index.files.containsKey(_filePath(index, key, filename));
+        await _stored(index, _filePath(index, key, filename));
   }
 
   /// The stored file for [key], pinned, or null on a miss. A file whose size
@@ -371,6 +478,10 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
   ) async {
     final entry = index.files[path];
     if (entry == null) return null;
+    if (_expired(index, path, entry.$2)) {
+      await _serial(() => _delete(index, path));
+      return null;
+    }
     _pin(path); // Before touching the disk: eviction must not win the race.
     try {
       if (expectedBytes != null && entry.$1 != expectedBytes) {
@@ -380,7 +491,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
       if (stat.type != FileSystemEntityType.file || stat.size != entry.$1) {
         throw const FileSystemException('stored file changed');
       }
-      final now = DateTime.now();
+      final now = _clock();
       index.files[path] = (stat.size, now);
       unawaited(_quietly(() => File(path).setLastModified(now)));
       return AttachmentCachedFile._(this, File(path));
@@ -501,7 +612,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     final before = index.files[path]?.$1 ?? 0;
     index.total += length - before;
     if (index.isPublic(path)) index.publicTotal += length - before;
-    index.files[path] = (length, DateTime.now());
+    index.files[path] = (length, _clock());
   }
 
   /// Trims the least recently used unpinned attachment entries (never [keep])
@@ -598,6 +709,33 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     for (final directory in directories) {
       await _quietly(directory.delete); // Non-recursive: only when empty.
     }
+  }
+
+  /// Removes the account folders of the attachments namespace that belong to
+  /// none of [keep] (`(origin, principal)` of every saved session): what
+  /// sign-outs and removed sessions that happened while the app was not
+  /// running left behind. Returns the number of folders removed. The caller
+  /// passes only a complete, verified list; an empty one removes every
+  /// account.
+  Future<int> removeOrphanAccounts(
+    Iterable<(String origin, String principal)> keep,
+  ) async {
+    final index = await _open();
+    if (index == null) return 0;
+    final keepNames = {for (final (o, pr) in keep) _accountSegment(o, pr)};
+    final orphans = <String>[];
+    try {
+      await for (final entity in index.directory.list()) {
+        final name = p.basename(entity.path);
+        if (!keepNames.contains(name)) orphans.add(name);
+      }
+    } on FileSystemException {
+      return 0;
+    }
+    for (final name in orphans) {
+      await _purge(name);
+    }
+    return orphans.length;
   }
 
   @override

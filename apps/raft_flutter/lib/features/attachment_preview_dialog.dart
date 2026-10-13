@@ -658,7 +658,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     final cache = widget.controller.attachmentDiskCache;
     if (cache == null) return null;
     try {
-      final bytes = await cache.read(documentKey);
+      final bytes = await cache.readPreview(documentKey);
       if (bytes == null) return null;
       final value = jsonDecode(utf8.decode(bytes));
       if (value is Map &&
@@ -680,7 +680,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     final cache = widget.controller.attachmentDiskCache;
     if (cache == null) return;
     try {
-      await cache.write(
+      await cache.writePreview(
         documentKey,
         Uint8List.fromList(
           utf8.encode(jsonEncode({'data': data, 'truncated': truncated})),

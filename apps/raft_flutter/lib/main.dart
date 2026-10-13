@@ -37,6 +37,7 @@ import 'features/account_onboarding.dart';
 import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/auth_audit_log.dart';
+import 'platform/cache_hygiene.dart';
 import 'platform/file_selection.dart' show configureAndroidPhotoPicker;
 import 'platform/memory_release.dart';
 import 'platform/session_store.dart';
@@ -88,6 +89,9 @@ Future<void> main([List<String> args = const []]) async {
     getApplicationCacheDirectory,
   );
   unawaited(AttachmentDiskCache.installed!.warm());
+  // Once per start: old staging copies and the cache of accounts that are no
+  // longer signed in. No timers.
+  unawaited(runStartupCacheHygiene(cache: AttachmentDiskCache.installed!));
   // Avatars and icons: stable-key bytes in that same cache, proxy-aware
   // fetch, hot decoded bitmaps (raft_ui avatar_image_cache.dart).
   installAvatarImageCache(AttachmentDiskCache.installed!);

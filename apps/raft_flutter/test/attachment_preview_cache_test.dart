@@ -327,7 +327,7 @@ void main() {
       final folder = await Directory.systemTemp.createTemp('raft-nocache');
       addTearDown(() => folder.delete(recursive: true));
       final files = AttachmentPreviewFiles(
-        temporaryDirectory: () async => folder,
+        stagingDirectory: () async => folder,
       );
       final lease = await files.loadCached(
         cache: null,

@@ -45,7 +45,7 @@ class SecureSessionStore implements SessionStore {
   }
 
   String key(String origin) =>
-      'raft.session.${base64Url.encode(utf8.encode(origin))}';
+      '$_prefix${base64Url.encode(utf8.encode(origin))}';
   @override
   Future<Session?> read(String origin) => _serialized(() async {
     final item = key(origin);
@@ -66,6 +66,31 @@ class SecureSessionStore implements SessionStore {
     }
     return value == null ? null : _decode(value);
   });
+
+  /// Every saved session by origin (the keys carry the origin, so the list
+  /// needs no other index). Throws when the store cannot be read or a record
+  /// is damaged: callers that delete data on the strength of this list must
+  /// then delete nothing.
+  Future<Map<String, Session>> readAll() => _serialized(() async {
+    final result = <String, Session>{};
+    Future<void> collect(Map<String, String> items) async {
+      for (final MapEntry(:key, :value) in items.entries) {
+        if (!key.startsWith(_prefix)) continue;
+        final origin = utf8.decode(
+          base64Url.decode(base64Url.normalize(key.substring(_prefix.length))),
+        );
+        result.putIfAbsent(origin, () => _decode(value));
+      }
+    }
+
+    await collect(await storage.readAll());
+    if (_migrateLegacy) {
+      await collect(await storage.readAll(mOptions: _legacyOptions));
+    }
+    return result;
+  });
+
+  static const _prefix = 'raft.session.';
 
   Session _decode(String value) =>
       Session.fromJson(Map<String, dynamic>.from(jsonDecode(value)));

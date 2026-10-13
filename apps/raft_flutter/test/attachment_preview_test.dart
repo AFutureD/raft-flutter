@@ -185,7 +185,7 @@ void main() {
       });
       try {
         final files = AttachmentPreviewFiles(
-          temporaryDirectory: () async => folder,
+          stagingDirectory: () async => folder,
         );
         await expectLater(
           files.load(

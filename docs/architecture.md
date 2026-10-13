@@ -163,6 +163,16 @@ NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消�
 
 Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNotifications／原生宿主提供稳定身份、官方 Windows App SDK 投递、ToastNotifier.Setting 及窗口恢复；业务授权与导航仍在 NativeContentCoordinator。系统权限在每次投递时重新读取，桌面不保存私有 opt-in。ETW 确认本机在显示前拒绝默认 foreground 激活（0x80070032），官方 SDK 的 protocol 对照已由用户确认在通知中心显示。因此产品使用 raft-notification 协议：暖点击转交同 exe 的现有窗口，冷点击经参数启动后等待回调初始化，仍保留全部账户／授权检查。主应用设置按钮发送已确认显示；本机另经用户授权登记机器级 Raft 协议后，用户确认品牌图标和暖点击返回正常。冷点击仍待实测，不以接口接受、历史、fixture 或旧 COM 探针代替。当前 x64 bundle 需要 Windows App Runtime 1.7。具体矩阵、独立身份和边界见 [Windows 通知](windows-notifications.md)。
 
+## 附件磁盘缓存的清理（2026-10-14）
+
+`AttachmentDiskCache` 的 `attachments` 命名空间（按账号 / 服务器 / 频道）除 1 GiB 的 LRU 外还有四项清理，全部只在启动或访问时做，没有定时器（见 `docs/idle-cpu.md`）：
+
+- 闲置过期：条目 30 天没被打开就删除。访问时惰性检查（过期按未命中处理并删除，正在被预览持有的文件不算过期），启动建索引后再整体扫一遍；打开条目会重新计时。`public` 命名空间不适用（它按服务器声明的有效期）。时钟可注入（测试）。
+- 预览文档（`preview` JSON、`html` 静态页）通过 `readPreview` / `writePreview` 读写，条目头里带客户端预览格式版本（`attachmentPreviewFormatVersion`）和写入时间：版本不同、缺头、或写入超过 14 天都按未命中处理并删除；14 天从写入算起，打开不续期。
+- 孤儿账号：启动时 `runStartupCacheHygiene` 用 `SecureSessionStore.readAll()`（钥匙串里 `raft.session.<base64url(origin)>` 的全部会话）取得 `(origin, cachedUser.id)`，删除 `raft-attachments/v2/` 下不属于任何已保存会话的账号目录（目录名即 `hash(jsonEncode([origin, principal]))`）。读取失败、或任一会话没有 `cachedUser.id` 时什么都不删。
+- 临时 staging 清扫：启动时删除超过 1 小时的 `raft-previews/*`、`raft-share/*`、`raft-attachment-*`、`raft-export-*`、`raft-gallery-*`（按文件夹或其中文件的最新修改时间），只按这些名字匹配，**不碰 `raft-incoming`**（收到的分享是用户数据）。桌面平台的 staging 位于 `<应用缓存>/staging/`（Linux 的 `/tmp` 常是内存盘），并顺带清理旧版本留在系统临时目录里的同名目录；Android / iOS 的临时目录本来就是缓存目录，且原生桥（FileProvider、`ShareInboxWriter.exportFile`、`NativePdfPreviewBridge`）按 `cacheDir/raft-share`、`raft-previews` 放行，所以保持在缓存目录顶层。
+- 索引总量在 OS 于运行期间删除文件时保持一致：读取、`contains` / `containsFile`、打开发现文件已不在时，从索引和总量中扣除，下一次访问即恢复正确。
+
 ## 头像与图标图片缓存（2026-10-14）
 
 头像 / 图标（用户、Agent、服务器、应用）走独立于附件的缓存，目标是和 Web 一样“加载过一次就即时出现”：`RaftSizedImage.avatar`（`RaftAvatarContent` 与 `RaftAvatar(imageUrl:)` 都用它）→ 已解码位图 → 编码字节 → 磁盘 → 网络。
