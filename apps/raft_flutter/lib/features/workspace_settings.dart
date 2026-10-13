@@ -7,6 +7,7 @@ import '../data/mobile_tabbar_preferences.dart';
 import '../data/personal_presentation.dart';
 import '../data/workspace_controller.dart';
 import '../platform/app_update.dart';
+import '../platform/client_release_notes.dart';
 import '../platform/content_links.dart';
 import '../platform/linux_uri_scheme.dart';
 import '../platform/native_notifications.dart';
@@ -387,7 +388,10 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           'release-notes',
           'Release Notes',
           RaftGlyph.fileText,
-          (_) => ReleaseNotesView(controller: w),
+          (_) => ReleaseNotesView(
+            controller: w,
+            source: widget.appUpdate?.releaseNotes,
+          ),
           group: WorkspaceSettings.resources,
           // /release-notes renders outside SettingsPanel's attached Panel.
           attached: false,
@@ -513,12 +517,18 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
   }
 }
 
-/// ReleaseNotesPanel.tsx: every published page of GET /release-notes
-/// (cursor-paged, limit 100), validated like `parseReleaseNotesPage`; the
-/// first published release is Current.
+/// ReleaseNotesPanel.tsx body over the client's own release notes (the
+/// `release-notes.json` asset of the latest GitHub release, in the shape of a
+/// Web `GET /release-notes` page and validated like `parseReleaseNotesPage`);
+/// the first published release is Current. Intended difference from Web,
+/// which lists the server's release notes.
 class ReleaseNotesView extends StatefulWidget {
-  const ReleaseNotesView({super.key, required this.controller});
+  const ReleaseNotesView({super.key, required this.controller, this.source});
   final WorkspaceController controller;
+
+  /// Where the notes come from: the client's own release notes (GitHub
+  /// release asset). Null (tests, previews) shows the unavailable state.
+  final ClientReleaseNotes? source;
   @override
   State<ReleaseNotesView> createState() => _ReleaseNotesViewState();
 }
@@ -539,97 +549,13 @@ class _ReleaseNotesViewState extends State<ReleaseNotesView> {
     load();
   }
 
-  static const _kinds = {
-    'feature': RaftReleaseNoteKind.feature,
-    'improvement': RaftReleaseNoteKind.improvement,
-    'fix': RaftReleaseNoteKind.fix,
-    'breaking': RaftReleaseNoteKind.breaking,
-    'deprecated': RaftReleaseNoteKind.deprecated,
-  };
-
-  /// parseRelease: a malformed page fails the whole load (Web shows the
-  /// unavailable banner rather than a partial list).
-  static ({String id, RaftReleaseNote note, bool published}) _parse(
-    Object? raw,
-  ) {
-    if (raw is! Map) throw const FormatException('release');
-    final id = raw['releaseId'], date = raw['date'], state = raw['state'];
-    final version = raw['version'], entries = raw['entries'];
-    if (id is! String ||
-        id.isEmpty ||
-        date is! String ||
-        !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date) ||
-        (state != 'published' && state != 'retracted') ||
-        (version != null && version is! String) ||
-        entries is! List) {
-      throw const FormatException('release');
-    }
-    final parsed = [
-      for (final e in entries)
-        if (e is Map &&
-            _kinds[e['type']] != null &&
-            e['text'] is String &&
-            e['emphasis'] is bool)
-          RaftReleaseNoteEntry(
-            _kinds[e['type']]!,
-            e['text'] as String,
-            emphasis: e['emphasis'] as bool,
-          )
-        else
-          throw const FormatException('release entry'),
-    ];
-    return (
-      id: id,
-      published: state == 'published',
-      note: RaftReleaseNote(
-        id: id,
-        date: date,
-        version: version as String?,
-        retracted: state == 'retracted',
-        entries: parsed,
-      ),
-    );
-  }
-
   Future<void> load() async {
     final w = widget.controller;
     final identity = pageIdentity(w);
     final ticket = ++attempt;
     try {
-      final rows = <({String id, RaftReleaseNote note, bool published})>[];
-      final seen = <String>{};
-      String? cursor;
-      for (var page = 0; ; page++) {
-        if (page >= 100) throw const FormatException('pagination bound');
-        final raw = await w.client.get(
-          '/release-notes',
-          query: {'limit': 100, 'cursor': ?cursor},
-        );
-        if (raw is! Map || raw['items'] is! List) {
-          throw const FormatException('release notes page');
-        }
-        rows.addAll((raw['items'] as List).map(_parse));
-        final next = raw['nextCursor'];
-        if (next == null) break;
-        if (next is! String || !seen.add(next)) {
-          throw const FormatException('release notes cursor');
-        }
-        cursor = next;
-      }
-      final current = rows.where((r) => r.published).firstOrNull?.id;
-      final next = [
-        for (final r in rows)
-          r.id == current
-              ? RaftReleaseNote(
-                  id: r.note.id,
-                  date: r.note.date,
-                  version: r.note.version,
-                  current: true,
-                  retracted: r.note.retracted,
-                  entries: r.note.entries,
-                )
-              : r.note,
-      ];
+      final next = await widget.source?.load();
+      if (next == null) throw const FormatException('no release notes source');
       if (identity != pageIdentity(w) || ticket != attempt) return;
       writePageSnapshot(w, snapshotKey, identity, {'releases': next});
       if (mounted) {

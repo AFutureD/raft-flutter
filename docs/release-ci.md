@@ -6,6 +6,36 @@ by default. Builds use `lib/main.dart` and produce no private test fixtures or
 test feature defines. This pipeline is separate from the local native-acceptance
 packager `tool/build-deliverables`; compilation does not imply full-app acceptance.
 
+## Release notes (before tagging)
+
+The app's Settings > Release Notes page shows the client's own notes, not the
+Raft server's. Every release must have a notes file before its tag is pushed:
+
+1. Add `docs/release-notes/<tag>.md`, e.g. `docs/release-notes/v0.1.1+1.md`
+   (the file name is the tag; keep the older files, they are the history):
+
+   ```
+   ---
+   date: 2026-10-20
+   ---
+   - feature: A user-facing sentence in English.
+   - improvement!: A trailing `!` after the type emphasises the entry.
+   - fix: Types are feature, improvement, fix, breaking and deprecated.
+   ```
+
+   `version:` is optional (it must equal the tag's version); `state: retracted`
+   marks a withdrawn release. Check it locally with
+   `python3 tool/release_notes.py <tag> --out /tmp/release-notes.json`.
+2. Merge it, then push the tag. `prepare-release` runs `tool/release_notes.py`
+   and attaches `release-notes.json` to the draft release before any platform
+   build starts; a missing or malformed file stops the release there. The asset
+   has the shape of one Web `GET /release-notes` page and holds the full
+   history, so the latest release always carries every earlier entry.
+3. The app downloads `releases/latest/download/release-notes.json` (through the
+   Settings > Network proxy), keeps the last copy for offline use and refreshes
+   it at most every 6 hours. English entries are shown as written; there is no
+   translation of the notes themselves.
+
 ## Trigger a release
 
 1. Review and merge the source through the normal integration batch and

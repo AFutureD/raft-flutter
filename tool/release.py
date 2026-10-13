@@ -15,6 +15,9 @@ import tempfile
 import zipfile
 from urllib.parse import quote
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import release_notes  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / 'apps/raft_flutter'
 OUT = ROOT / 'build/release'
@@ -448,7 +451,12 @@ def prepare():
                      'AppImage has an Ubuntu 24.04 ABI baseline.\n\n'
                      '<!-- raft-release:' + json.dumps(metadata, sort_keys=True, separators=(',', ':')) + ' -->\n',
                      encoding='utf-8')
-    command = ['gh', 'release', 'create', tag, '--verify-tag', '--draft', '--target', commit,
+    # The client's own release notes: written once here (the only creator of the
+    # draft), so concurrent platform publishers never touch it. Fails before any
+    # platform build starts when docs/release-notes/<tag>.md is missing.
+    client_notes = OUT / 'release-notes.json'
+    release_notes.write(client_notes, tag)
+    command = ['gh', 'release', 'create', tag, client_notes, '--verify-tag', '--draft', '--target', commit,
                '--title', f'Raft Flutter {tag}', '--notes-file', notes, '--latest=false']
     if '-' in version:
         command.append('--prerelease')

@@ -70,10 +70,28 @@ class IndependentPublishTests(unittest.TestCase):
         for context in [patch.dict(release.os.environ, environment, clear=True),
                         patch.object(release, 'OUT', self.directory),
                         patch.object(release, 'capture', return_value='abc'),
+                        patch.object(release.release_notes, 'write', side_effect=self.write_notes),
                         patch.object(release, 'read_release', side_effect=self.github.read),
                         patch.object(release, 'run', side_effect=self.github.run)]:
             context.start()
             self.addCleanup(context.stop)
+
+    def write_notes(self, path, tag, directory=None):
+        Path(path).write_text('{"items": [], "nextCursor": null}\n')
+
+    def test_prepare_attaches_client_release_notes_to_the_draft_only_once(self):
+        release.prepare()
+        create = self.github.commands[0]
+        self.assertIn(str(self.directory / 'release-notes.json'), create)
+        self.assertLess(create.index(str(self.directory / 'release-notes.json')), create.index('--verify-tag'))
+        release.prepare()
+        self.assertEqual(len(self.github.commands), 1, 'an existing draft is reused untouched')
+
+    def test_prepare_stops_before_creating_a_draft_without_release_notes(self):
+        with patch.object(release.release_notes, 'write', side_effect=ValueError('Add release notes')):
+            with self.assertRaisesRegex(ValueError, 'Add release notes'):
+                release.prepare()
+        self.assertEqual(self.github.commands, [])
 
     def fixture(self, platform='windows'):
         folder = self.directory / platform

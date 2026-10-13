@@ -15,11 +15,13 @@ import 'package:raft_flutter/features/provider_views.dart';
 import 'package:raft_flutter/features/public_server_view.dart';
 import 'package:raft_flutter/features/sidebar_preferences_view.dart';
 import 'package:raft_flutter/features/workspace_settings.dart';
+import 'package:raft_flutter/platform/client_release_notes.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'message_presentation_test.dart' show MessageAdapter;
 import 'notification_settings_view_test.dart' as notif;
 import 'support/close_support.dart' show frames;
+import 'support/memory_storage.dart';
 import 'workspace_source_location_contract_test.dart' show pageFixture;
 
 /// Settings, account, integrations and public pages open from what the app
@@ -104,24 +106,31 @@ void main() {
 
   testWidgets('release notes keep their list on a revisit', (t) async {
     final (w, api) = await _workspace(t);
-    api.routes['GET /release-notes'] = (_) => {
-      'items': [
-        {
-          'releaseId': 'r1',
-          'date': '2026-10-01',
-          'state': 'published',
-          'version': '1.0',
-          'entries': [
-            {'type': 'feature', 'text': 'Instant settings', 'emphasis': false},
-          ],
-        },
-      ],
-      'nextCursor': null,
-    };
+    final source = ClientReleaseNotes(
+      storage: MemoryStorage(),
+      fetch: (_) async => jsonEncode({
+        'items': [
+          {
+            'releaseId': 'v1.0.0+1',
+            'date': '2026-10-01',
+            'state': 'published',
+            'version': '1.0',
+            'entries': [
+              {
+                'type': 'feature',
+                'text': 'Instant settings',
+                'emphasis': false,
+              },
+            ],
+          },
+        ],
+        'nextCursor': null,
+      }),
+    );
     await _revisit(
       t,
       api,
-      () => ReleaseNotesView(controller: w),
+      () => ReleaseNotesView(controller: w, source: source),
       () => expect(find.text('Instant settings'), findsOneWidget),
     );
   });

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:raft_client/system_proxy.dart';
 
 import '../data/search_memory.dart';
+import 'client_release_notes.dart';
 
 /// The GitHub release that CI published for one platform (one entry of that
 /// platform's `build-manifest-<platform>-<arch>.json`, see tool/release.py).
@@ -182,6 +183,7 @@ class AppUpdateService extends ChangeNotifier {
     this.interval = const Duration(hours: 6),
     this.retryAfterFailure = const Duration(minutes: 30),
     this.scheduleTimer = true,
+    this.releaseNotes,
     void Function(String message)? log,
   }) : storage = storage ?? PreferencesSearchMemoryStorage(),
        _clock = clock ?? DateTime.now,
@@ -197,6 +199,7 @@ class AppUpdateService extends ChangeNotifier {
     AppUpdateFetcher fetch = fetchManifestOverHttp,
     SearchMemoryStorage? storage,
   }) => AppUpdateService(
+    releaseNotes: ClientReleaseNotes(fetch: fetch, storage: storage),
     currentVersion: version,
     currentBuild: int.tryParse(buildNumber),
     platformKey: platformKey ?? appUpdatePlatformKey(),
@@ -211,6 +214,10 @@ class AppUpdateService extends ChangeNotifier {
   final String currentVersion;
   final int? currentBuild;
   final String? platformKey;
+
+  /// The client's release notes (Settings > Release Notes); independent of
+  /// whether update checks are enabled for this build.
+  final ClientReleaseNotes? releaseNotes;
   final AppUpdateFetcher fetch;
   final SearchMemoryStorage storage;
   final DateTime Function() _clock;

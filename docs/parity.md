@@ -1699,6 +1699,11 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
   dev builds and Linux outside an AppImage. Build numbers: CI passes `--build-number=<run>` and
   `--dart-define=RAFT_BUILD_NUMBER=<run>`; the manifest `buildNumber` is compared with that define (Android's
   `versionCode` is 2000 + the same number for the arm64 split APK).
+* Settings > Release Notes lists the client's own release notes (the `release-notes.json` asset of the latest
+  GitHub release, built by `tool/release_notes.py` from `docs/release-notes/<tag>.md`), not Web's server
+  `GET /release-notes`. The asset has the same item shape and the view reuses Web's parser, layout and
+  Current/retracted rules; the last downloaded copy is kept for offline use. Intended difference: the notes
+  describe this app's builds, are English only, and make no `/api/release-notes` request.
 * Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
   in debug and test.
 

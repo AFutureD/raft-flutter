@@ -16,7 +16,10 @@ import 'package:raft_flutter/features/joint_channel_views.dart';
 import 'package:raft_flutter/features/management_support.dart';
 import 'package:raft_flutter/features/sidebar_preferences_view.dart';
 import 'package:raft_flutter/features/workspace_settings.dart';
+import 'package:raft_flutter/platform/client_release_notes.dart';
 import 'package:raft_ui/raft_ui.dart';
+
+import 'support/memory_storage.dart';
 
 /// Routes answer at once unless [gate] is set; then every GET/POST waits for
 /// it, so a test can observe the frames before any response lands.
@@ -440,36 +443,41 @@ void main() {
     testWidgets('release notes', (t) async {
       final (w, a) = (await t.runAsync(_fixture))!;
       addTearDown(w.dispose);
-      a.routes['GET /release-notes'] = (_) => {
-        'items': [
-          // The published-release contract ReleaseNotesPanel validates.
-          {
-            'releaseId': 'rel-120',
-            'releaseKey': 'web-1.2.0',
-            'version': '1.2.0',
-            'tag': 'v1.2.0',
-            'date': '2026-10-01',
-            'revision': 1,
-            'snapshotHash': 'ab' * 32,
-            'publishedAt': '2026-10-01T00:00:00.000Z',
-            'state': 'published',
-            'entries': [
-              {
-                'entryId': 'e1',
-                'type': 'improvement',
-                'text': 'Faster revisits',
-                'emphasis': false,
-                'ordinal': 0,
-              },
-            ],
-          },
-        ],
-        'nextCursor': null,
-      };
+      final source = ClientReleaseNotes(
+        storage: MemoryStorage(),
+        fetch: (_) async => jsonEncode({
+          'items': [
+            // The published-release contract ReleaseNotesPanel validates.
+            {
+              'releaseId': 'rel-120',
+              'releaseKey': 'web-1.2.0',
+              'version': '1.2.0',
+              'tag': 'v1.2.0',
+              'date': '2026-10-01',
+              'revision': 1,
+              'snapshotHash': 'ab' * 32,
+              'publishedAt': '2026-10-01T00:00:00.000Z',
+              'state': 'published',
+              'entries': [
+                {
+                  'entryId': 'e1',
+                  'type': 'improvement',
+                  'text': 'Faster revisits',
+                  'emphasis': false,
+                  'ordinal': 0,
+                },
+              ],
+            },
+          ],
+          'nextCursor': null,
+        }),
+      );
       await revisit(
         t,
         a,
-        () => SingleChildScrollView(child: ReleaseNotesView(controller: w)),
+        () => SingleChildScrollView(
+          child: ReleaseNotesView(controller: w, source: source),
+        ),
         find.text('Faster revisits'),
         // ReleaseNotesPanel's loading state is a status line, not a spinner.
         loading: find.text('Loading release notes…'),
