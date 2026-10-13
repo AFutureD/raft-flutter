@@ -474,7 +474,7 @@ def run(args):
                'RAFT_LAB_SEMANTICS': args.semantics, 'RAFT_LAB_PHASES': str(not args.no_trace).lower()}
     child = dict(os.environ, RAFT_PERF_OUT=str(out), RAFT_LAB_ROOT=str(ROOT), **defines)
     if device == 'linux':
-        child['GDK_BACKEND'] = 'x11'
+        child['GDK_BACKEND'] = os.environ.get('RAFT_LAB_GDK_BACKEND', 'x11')  # 'wayland' with WAYLAND_DISPLAY measures native Wayland
     argv += [f'--dart-define={k}={v}' for k, v in defines.items()]
     print('Running:', ' '.join(argv), flush=True)
     for attempt in range(1, 4):
