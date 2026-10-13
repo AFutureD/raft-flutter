@@ -60,6 +60,9 @@ type ParityExtMpAgent = Record<string, unknown> & { id: string };
 
 function parityExtMpPrimeStores(props: ParityExtMpProps) {
   primeAgentDetailStores("screens.members.agent-detail.profile");
+  // The Activity tab reads its rows from the case route (GET /agents/:id/activity-log) only: the official host's
+  // primed trajectory rows would merge into them and show rows the Flutter fixture never has.
+  useAgentStore.setState({ trajectoryLogs: {}, activityLogs: {} });
   const rosterKey = props.params.get("roster") ?? "default";
   const agents = ((parityExtMpFixture.rosters as Record<string, ParityExtMpAgent[]>)[rosterKey] ?? []);
   const humans = parityExtMpFixture.humans as Record<string, unknown>[];

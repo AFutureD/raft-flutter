@@ -10,6 +10,8 @@
 // set answer the API on both providers. Cases whose Web page the Flutter app
 // does not have are NOT registered here (the builder lists them as
 // "Flutter page missing").
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/raft_location.dart';
@@ -26,6 +28,7 @@ import '../parity_harness.dart';
 import 'ext_channel_settings.dart' show extChannelSettingsCases;
 import 'ext_members_pages_keys.g.dart';
 import 'members_settings/runtime_forms.dart' show msRuntimeForms;
+import 'fixture_when.dart';
 import 'screens/screen_fixture.dart';
 
 const _serverId = 'visual-server';
@@ -48,7 +51,7 @@ Object? _answer(
   Map<String, dynamic>? query,
 ) {
   final routes = _routes(ctx);
-  var answer = routes['$method $path'];
+  var answer = resolveFixtureWhen(routes['$method $path'], query);
   // The agent's runtime form (v2 protocol) the edit dialog loads: the shared
   // codex form of the official create-agent cases (the Web host edits the same
   // config through its bundled catalog, which has no wire counterpart here).
@@ -56,8 +59,9 @@ Object? _answer(
   if (method == 'GET' && answer == null && form) {
     return Map<String, dynamic>.from(msRuntimeForms['forms']['codex'] as Map);
   }
-  final source = RegExp(r'/runtime-form(s/v2/codex)?/option-sources/([^/]+)$')
-      .firstMatch(path);
+  final source = RegExp(
+    r'/runtime-form(s/v2/codex)?/option-sources/([^/]+)$',
+  ).firstMatch(path);
   if (method == 'GET' && answer == null && source != null) {
     final found =
         (msRuntimeForms['staticSources'] as Map)['codex.${source[2]}'];
@@ -90,6 +94,11 @@ WorkspaceController _workspace(ParityContext ctx, {bool mobile = false}) {
     ..servers = [server]
     ..server = server;
   w.ledger.switchServer(_serverId);
+  // The app always holds the channel lists; the Activity tab's reference pills
+  // resolve against them.
+  if ('${ctx.props['routeSet']}'.startsWith('act-')) {
+    unawaited(w.refreshChannels());
+  }
   return w;
 }
 
@@ -270,8 +279,9 @@ ParityCase _case(String kind) => ParityCase(
   build: (ctx) => switch (ctx.props['extKind']) {
     'main' =>
       ctx.props['platform'] == 'mobile' &&
-              RegExp(r'^/(human/|agent/|members/graph)')
-                  .hasMatch('${ctx.props['route']}')
+              RegExp(
+                r'^/(human/|agent/|members/graph)',
+              ).hasMatch('${ctx.props['route']}')
           ? _phoneDetail(ctx)
           : _Shell(ctx: ctx),
     'invite' => _InviteHost(ctx: ctx),

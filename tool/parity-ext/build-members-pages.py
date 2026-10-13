@@ -90,6 +90,12 @@ ROUTES[f'GET /servers/{SID}/member-graph'] = {
 ROUTES[f'GET /agents/{AGENT_ID}/activity-log'] = [
     {'timestamp': 1781872080000, 'entry': {'kind': 'status', 'activity': 'working', 'detail': 'Capturing deterministic state'}}]
 
+# Agent Activity / Workspace tab states (tool/parity-ext/agent_activity_data.py): every Activity row kind and
+# variant, the empty / loading / error states and the workspace tree states.
+import agent_activity_data as aad  # noqa: E402
+ROUTE_SETS.update(aad.activity_routes(AGENT_ID))
+ROUTE_SETS.update(aad.workspace_routes(AGENT_ID))
+
 # Billing summary of the Free plan with every human seat used (Flutter reads it over the API; the React host
 # seeds the same numbers into the server store).
 BILLING_SEAT_LIMIT = {'plan': 'free', 'displayName': 'Free', 'serverPlan': 'free', 'source': 'server',
@@ -228,6 +234,42 @@ for platform in ('desktop', 'phone'):
         ]:
             agent_main(platform, key, title, interactions=[click(f'button[aria-label="{label}"]')],
                        android_interactions=[tap_here(fkey)])
+
+    # ---- agent Activity tab: empty / loading / error and every row kind (AgentActivityLog.tsx)
+    ACT_HINT = SRC + 'agent/AgentActivityLog.tsx (+ RefText.tsx)'
+    for key, title, rs in [
+        ('activity-empty', 'Agent Activity tab: no entries', 'act-empty'),
+        ('activity-loading', 'Agent Activity tab: loading (Web shows the empty state)', 'act-loading'),
+        ('activity-error', 'Agent Activity tab: failed to load (Web shows the empty state)', 'act-error'),
+        ('activity-status', 'Agent Activity tab: status rows (every status label and detail)', 'act-status'),
+        ('activity-subagent', 'Agent Activity tab: Subagent badge on status and tool rows', 'act-subagent'),
+        ('activity-tools', 'Agent Activity tab: humanised tool names and inputs', 'act-tools'),
+        ('activity-text', 'Agent Activity tab: Thinking and Output rows (short, long, multi-line)', 'act-text'),
+        ('activity-slock', 'Agent Activity tab: action / system / compaction rows with reference pills', 'act-slock'),
+        ('activity-long-path', 'Agent Activity tab: long unbreakable paths and commands', 'act-long-path'),
+    ]:
+        agent_main(platform, f'agent.{key}', title, tab='activity', hint=ACT_HINT, route_set=rs)
+
+    # ---- agent Workspace tab: loading / empty / error and the tree states (AgentWorkspace.tsx)
+    WS_HINT = SRC + 'agent/AgentWorkspace.tsx'
+    WS_FILE = 'button:has(> span:text-is("summary.md"))'
+    for key, title, rs, steps_web, steps_flutter in [
+        ('workspace-loading', 'Agent Workspace tab: file tree loading', 'ws-loading', [], []),
+        ('workspace-empty', 'Agent Workspace tab: no files', 'ws-empty', [], []),
+        ('workspace-error', 'Agent Workspace tab: file tree failed to load (Retry)', 'ws-error', [], []),
+        ('workspace-rows', 'Agent Workspace tab: tree rows (memory.md, long names, folders)', 'ws-rows', [], []),
+        ('workspace-truncated', 'Agent Workspace tab: truncated listing hint', 'ws-truncated', [], []),
+        ('workspace-dir-loading', 'Agent Workspace tab: folder listing loading', 'ws-dir-loading',
+         [click('button:has(> span:text-is("notes"))'), wait(300)], [tap_text('notes'), wait(300)]),
+        ('workspace-dir-open', 'Agent Workspace tab: folder expanded', 'ws-rows',
+         [click('button:has(> span:text-is("notes"))'), wait(300)], [tap_text('notes'), wait(300)]),
+        ('workspace-file-loading', 'Agent Workspace tab: file preview loading', 'ws-file-loading',
+         [click(WS_FILE), wait(300)], [tap_text('summary.md'), wait(300)]),
+        ('workspace-file-error', 'Agent Workspace tab: file failed to load', 'ws-file-error',
+         [click(WS_FILE), wait(300)], [tap_text('summary.md'), wait(300)]),
+    ]:
+        agent_main(platform, f'agent.{key}', title, tab='workspace', hint=WS_HINT, route_set=rs,
+                   interactions=steps_web, android_interactions=steps_flutter)
 
     # ---- 7.17 runtime config editor
     agent_main(platform, 'agent.runtime-edit', 'Agent profile: runtime config editor open',
