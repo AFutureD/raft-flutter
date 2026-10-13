@@ -20,6 +20,9 @@ class RaftLintsPlugin extends Plugin {
     registry.registerLintRule(AvoidCaughtExceptionText());
     registry.registerLintRule(AvoidImperativeNoticeState());
     registry.registerLintRule(AvoidUnreleasedResource());
+    registry.registerLintRule(AvoidTextScaleFactor());
+    registry.registerLintRule(AvoidFixedHeightText());
+    registry.registerLintRule(AvoidPixelTextHeight());
     for (final api in bannedApis) {
       registry.registerLintRule(BannedApiRule(api));
     }

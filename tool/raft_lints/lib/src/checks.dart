@@ -8,6 +8,7 @@ import 'error_leak.dart';
 import 'notice_state.dart';
 import 'resource_release.dart';
 import 'render_scope.dart';
+import 'text_scale.dart';
 
 /// Rule names (also the `// ignore: raft_lints/<name>` keys).
 const indexAssertionRule = 'avoid_render_index_assertion';
@@ -91,9 +92,11 @@ void checkWhere(MethodInvocation node, Report report) {
 /// the plugin registers the same functions per node type instead).
 class AllChecksVisitor extends RecursiveAstVisitor<void> {
   AllChecksVisitor(this.report, {required String path})
-    : _errorLeakScope = errorLeakScope(path);
+    : _errorLeakScope = errorLeakScope(path),
+      _fixedHeightScope = !isLegacyFixedHeightTextFile(path);
   final Report report;
   final bool _errorLeakScope;
+  final bool _fixedHeightScope;
 
   @override
   void visitPostfixExpression(PostfixExpression node) {
@@ -126,6 +129,7 @@ class AllChecksVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
     checkBannedApi(node, node.constructorName.element, report);
+    if (_fixedHeightScope) checkFixedHeightText(node, report);
     super.visitInstanceCreationExpression(node);
   }
 
@@ -160,8 +164,16 @@ class AllChecksVisitor extends RecursiveAstVisitor<void> {
   }
 
   @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    checkTextScaleFactorReference(node, report);
+    super.visitSimpleIdentifier(node);
+  }
+
+  @override
   void visitNamedArgument(NamedArgument node) {
     checkBannedNamedArgument(node, report);
+    checkTextScaleFactorArgument(node, report);
+    checkPixelTextHeight(node, report);
     super.visitNamedArgument(node);
   }
 }

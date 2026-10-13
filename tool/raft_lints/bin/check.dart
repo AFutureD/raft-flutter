@@ -35,6 +35,7 @@ import 'package:raft_lints/src/checks.dart';
 import 'package:raft_lints/src/error_leak.dart';
 import 'package:raft_lints/src/notice_state.dart';
 import 'package:raft_lints/src/resource_release.dart';
+import 'package:raft_lints/src/text_scale.dart';
 import 'package:raft_lints/src/ignores.dart';
 
 Future<void> main(List<String> args) async {
@@ -115,7 +116,8 @@ Future<void> main(List<String> args) async {
 final _mayMatch = RegExp(
   r'\]\s*\)*\s*!|\.single\b|\b(?:first|last|single)Where\b|'
   r'Controller|FocusNode|ValueNotifier|\.listen\b|Observer|addListener|Timer|[eE]rror|[nN]otice|[wW]arning|[fF]ailure|\bcatch\b|catchError|onError|SnackBar|MaterialBanner|ScaffoldMessenger|'
-  r'Scheduler|Timer|Future|scheduleMicrotask|repeat|Ticker|addPostFrame|\bTimer\b|Client|Dio\b|HttpClient|WebSocket|\bio\b|findProxy|Image|Slider|underline',
+  r'Scheduler|Timer|Future|scheduleMicrotask|repeat|Ticker|addPostFrame|\bTimer\b|Client|Dio\b|HttpClient|WebSocket|\bio\b|findProxy|Image|Slider|underline|'
+  r'textScaleFactor|SizedBox|Container|ConstrainedBox|TextStyle',
 );
 
 String _message(String rule) => switch (rule) {
@@ -125,5 +127,8 @@ String _message(String rule) => switch (rule) {
   errorLeakRule => errorLeakMessage,
   noticeStateRule => noticeStateMessage,
   resourceRule => resourceMessage,
+  textScaleFactorRule => textScaleFactorMessage,
+  fixedHeightTextRule => fixedHeightTextMessage,
+  pixelTextHeightRule => pixelTextHeightMessage,
   _ => bannedApis.firstWhere((a) => a.rule == rule).message,
 };

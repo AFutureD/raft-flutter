@@ -21,3 +21,6 @@ plugins:
       avoid_unreviewed_idle_work: error
       avoid_imperative_notice_state: error
       avoid_unreleased_resource: error
+      avoid_text_scale_factor: error
+      avoid_fixed_height_text: error
+      avoid_pixel_text_height: error

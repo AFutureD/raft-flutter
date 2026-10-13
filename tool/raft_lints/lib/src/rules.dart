@@ -10,6 +10,7 @@ import 'checks.dart';
 import 'error_leak.dart';
 import 'notice_state.dart';
 import 'resource_release.dart';
+import 'text_scale.dart';
 
 /// `expr[key]!` in render code.
 class AvoidRenderIndexAssertion extends AnalysisRule {
@@ -329,4 +330,128 @@ class _ResourceVisitor extends SimpleAstVisitor<void> {
   @override
   void visitCompilationUnit(CompilationUnit node) =>
       checkResourceRelease(node, (_, n) => rule.reportAtNode(n));
+}
+
+/// `textScaleFactor` in any form; text sizes come from `TextScaler`.
+class AvoidTextScaleFactor extends AnalysisRule {
+  AvoidTextScaleFactor()
+    : super(
+        name: textScaleFactorRule,
+        description:
+            'No `textScaleFactor` (getter, `MediaQuery.textScaleFactorOf`, '
+            '`textScaleFactor:` argument); use `TextScaler`.',
+      );
+
+  static const LintCode code = LintCode(
+    textScaleFactorRule,
+    textScaleFactorMessage,
+    correctionMessage: textScaleFactorCorrection,
+  );
+
+  @override
+  LintCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    if (!context.isInLibDir) return;
+    final visitor = _TextScaleVisitor(this);
+    registry.addSimpleIdentifier(this, visitor);
+    registry.addNamedArgument(this, visitor);
+  }
+}
+
+class _TextScaleVisitor extends SimpleAstVisitor<void> {
+  _TextScaleVisitor(this.rule);
+  final AnalysisRule rule;
+
+  void _report(String _, AstNode node) => rule.reportAtNode(node);
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) =>
+      checkTextScaleFactorReference(node, _report);
+
+  @override
+  void visitNamedArgument(NamedArgument node) =>
+      checkTextScaleFactorArgument(node, _report);
+}
+
+/// A fixed-height box whose child is directly a text widget.
+class AvoidFixedHeightText extends AnalysisRule {
+  AvoidFixedHeightText()
+    : super(
+        name: fixedHeightTextRule,
+        description:
+            'No `SizedBox` / `Container` / `ConstrainedBox` with a fixed '
+            'height whose child is directly a text widget.',
+      );
+
+  static const LintCode code = LintCode(
+    fixedHeightTextRule,
+    fixedHeightTextMessage,
+    correctionMessage: fixedHeightTextCorrection,
+  );
+
+  @override
+  LintCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    if (!context.isInLibDir ||
+        isLegacyFixedHeightTextFile(context.definingUnit.file.path)) {
+      return;
+    }
+    registry.addInstanceCreationExpression(this, _FixedHeightVisitor(this));
+  }
+}
+
+class _FixedHeightVisitor extends SimpleAstVisitor<void> {
+  _FixedHeightVisitor(this.rule);
+  final AnalysisRule rule;
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) =>
+      checkFixedHeightText(node, (_, n) => rule.reportAtNode(n));
+}
+
+/// `TextStyle(height: <pixel literal>)`.
+class AvoidPixelTextHeight extends AnalysisRule {
+  AvoidPixelTextHeight()
+    : super(
+        name: pixelTextHeightRule,
+        description:
+            '`TextStyle.height` is a ratio; no numeric literal above 3.',
+      );
+
+  static const LintCode code = LintCode(
+    pixelTextHeightRule,
+    pixelTextHeightMessage,
+    correctionMessage: pixelTextHeightCorrection,
+  );
+
+  @override
+  LintCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    if (!context.isInLibDir) return;
+    registry.addNamedArgument(this, _PixelHeightVisitor(this));
+  }
+}
+
+class _PixelHeightVisitor extends SimpleAstVisitor<void> {
+  _PixelHeightVisitor(this.rule);
+  final AnalysisRule rule;
+
+  @override
+  void visitNamedArgument(NamedArgument node) =>
+      checkPixelTextHeight(node, (_, n) => rule.reportAtNode(n));
 }
