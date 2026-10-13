@@ -72,6 +72,12 @@ costs several ms at 2x scale: frames of 3 ms of work missed a 120 Hz refresh abo
 a headless 120 Hz, 2x compositor: frame interval p99 14.4 ms (platform thread) vs 9.2 ms (own thread).
 `RAFT_LINUX_IMPELLER=0|1` selects Skia or Impeller for A/B measurements.
 
+Flutter upgrade: upstream is moving all desktop embedders to merged platform/UI threads (macOS and Windows already
+log a deprecation warning when unmerged). In 3.47.6 Linux `fl_dart_project_set_ui_thread_policy(
+FL_UI_THREAD_POLICY_RUN_ON_SEPARATE_THREAD)` is public and warns about nothing. After an upgrade confirm the
+policy still exists (the runner stops compiling if it is removed) and re-run the Linux pacing lab if its behaviour
+changes.
+
 On a Flutter upgrade, re-check that `FlutterEngineProcTable` / `FlutterProjectArgs` still match the vendored
 `flutter_embedder.h` (the driver refuses to patch an engine whose layout it does not recognise and leaves the
 60 Hz timer).
