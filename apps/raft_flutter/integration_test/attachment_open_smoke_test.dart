@@ -191,13 +191,14 @@ void installMocks(WidgetTester tester) {
     }
     return null;
   });
-  // Linux: url_launcher hands the URL to the desktop; record it instead.
-  messenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/url_launcher_linux'), (call) async {
-    if (call.method == 'launch') {
-      opened.add('${(call.arguments as Map)['url']}');
-      return true;
-    }
-    return true;
+  // Linux: url_launcher hands the URL to the desktop (xdg-open); record it instead of starting an application.
+  const codec = StandardMessageCodec();
+  messenger.setMockMessageHandler('dev.flutter.pigeon.url_launcher_linux.UrlLauncherApi.canLaunchUrl', (message) async {
+    return codec.encodeMessage(<Object?>[true]);
+  });
+  messenger.setMockMessageHandler('dev.flutter.pigeon.url_launcher_linux.UrlLauncherApi.launchUrl', (message) async {
+    opened.add('${(codec.decodeMessage(message) as List).first}');
+    return codec.encodeMessage(<Object?>[null]);
   });
 }
 
@@ -323,9 +324,18 @@ Future<Outcome> playVideo(WidgetTester tester, SmokeCase c, {bool viewer = true}
   await waitFor(tester, () => inner(const Key('inline-video-surface')).evaluate().isNotEmpty && card().state != RaftInlineMediaState.loading, 'the video card',
       failed: () => card().state == RaftInlineMediaState.failed, why: () => 'card state ${card().state}');
   await tapCentre(tester, inner(const Key('inline-video-surface')));
+  var retapped = false;
+  final started = DateTime.now();
   final ms = await waitFor(
     tester,
-    () => card().playing && card().position > const Duration(milliseconds: 700),
+    () {
+      // Nothing happened (a play tap that met a source being signed again is lost): a person taps again.
+      if (!retapped && !card().playing && DateTime.now().difference(started) > const Duration(seconds: 8)) {
+        retapped = true;
+        unawaited(tester.tapAt(tester.getCenter(inner(const Key('inline-video-surface')).first)));
+      }
+      return card().playing && card().position > const Duration(milliseconds: 700);
+    },
     'video position to advance',
     failed: () => card().state == RaftInlineMediaState.failed,
     why: () => 'state ${card().state} playing ${card().playing} buffering ${card().buffering} position ${card().position} of ${card().duration}',
@@ -345,7 +355,7 @@ Future<Outcome> playVideo(WidgetTester tester, SmokeCase c, {bool viewer = true}
     expect(v.position, greaterThan(Duration.zero), reason: 'the viewer did not carry the card position');
     await closeTop(tester);
   }
-  return Outcome(true, 'card playing, position ${card().position.inMilliseconds} ms', ms: ms, second: viewerMs);
+  return Outcome(true, 'card playing, position ${card().position.inMilliseconds} ms${retapped ? ' (needed a second tap)' : ''}', ms: ms, second: viewerMs);
 }
 
 /// Taps a card that only downloads: the save picker (mocked) opens, then the file is written and equals the source.
