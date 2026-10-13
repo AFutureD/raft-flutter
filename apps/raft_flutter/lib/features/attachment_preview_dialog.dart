@@ -275,7 +275,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         } else {
           player =
               (widget.playerFactory ??
-              () => createAttachmentPlayer(video: kind == 'video'))();
+              () => createAttachmentPlayer(
+                video: kind == 'video',
+                hdr: kind == 'video',
+              ))();
           playbackEvents = player!.changes.listen((value) {
             if (!current) return;
             setState(() {

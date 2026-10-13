@@ -6,9 +6,9 @@ Inline video cards, the media viewer and audio attachments play through one inte
 
 | Platform | Engine | Why |
 | -------- | ------ | --- |
-| Android  | `video_player` -> ExoPlayer (Media3), `VideoPlayerAttachmentPlayer` | System codecs, hardware decoding and colour handling; no libmpv in the APK |
-| iOS      | `video_player` -> AVPlayer | Same; HDR/EDR handled by the system |
-| macOS    | `video_player` -> AVPlayer | Same |
+| Android  | `video_player` -> ExoPlayer (Media3), `VideoPlayerAttachmentPlayer` | System codecs, hardware decoding and colour handling; no libmpv in the APK; viewer HDR through a `SurfaceView` |
+| iOS      | `video_player` -> AVPlayer | Same; viewer HDR/EDR through `AVPlayerLayer` (cards are SDR) |
+| macOS    | `video_player` -> AVPlayer | Same; viewer HDR through `AVPlayerLayer` |
 | Windows  | media_kit (libmpv + bundled FFmpeg), `NativeAttachmentPlayer` | Media Foundation needs the optional HEVC extension |
 | Linux    | media_kit (libmpv + bundled FFmpeg), `NativeAttachmentPlayer` | Stock GStreamer (Fedora) has no H.264/HEVC; `tool/prepare-media-linux` still supplies the runtime ([Linux runtime](linux-media-runtime.md)) |
 
@@ -35,14 +35,36 @@ sources and its Android plugin is a small Java class, and nothing initialises me
   resumes, is disabled with `allowBackgroundPlayback`.
 * No timers of its own (`idle_work_guard_test`); video_player polls the position every 100 ms only while playing.
 * The picture is `VideoPlayer` in an `AspectRatio`, centred (contain) inside the box the card gives it.
-* Android surface: the default texture view (`VideoViewType.textureView`). A platform view (SurfaceView) can show HDR
-  without tone mapping but breaks clipping, overlays and list scrolling for inline cards; ExoPlayer/MediaCodec
-  tone-map HDR to SDR for the texture, which is the expected look on SDR screens.
+* Colour and HDR. Two surfaces, chosen by the caller (`createAttachmentPlayer(hdr: ...)`):
+  * Inline cards (and any list) use the plugin's texture (`VideoViewType.textureView`). The texture is SDR on every
+    platform: Android's ExoPlayer/MediaCodec tone-map HDR to SDR for the texture, and `video_player_avfoundation`
+    (2.12.1) declares BT.709 8-bit BGRA output settings, which makes AVFoundation tone-map on iOS and macOS. HDR clips
+    therefore look SDR (tone-mapped) in the message list, which is the expected look there. A platform view in a
+    scrolling list would break clipping, overlays and scroll sync and cost battery.
+  * The full-screen media viewer (`AttachmentPreviewDialog`, opened from the eye button; its fullscreen toggle is the
+    same widget tree) asks for the native view (`VideoViewType.platformView`): a `SurfaceView` on Android and an
+    `AVPlayerLayer` on iOS and macOS. They hand the picture to the system compositor untouched, so HDR (HDR10, HLG,
+    Dolby Vision) is shown as HDR on an HDR-capable display. Pending device verification on a real HDR phone, iPhone
+    and Mac. The overlay controls (`RaftVideoOverlay`) are Flutter
+    widgets drawn above the platform view; the audio-only viewer builds no picture and keeps the texture setting.
+  * Android needs no window colour mode (`COLOR_MODE_HDR`) and the runner is unchanged: Android's HDR playback guide
+    (developer.android.com/media/grow/hdr-playback) says standard `MediaCodec` playback into a `SurfaceView` displays
+    HDR without special handling, and that `TextureView` transcodes HDR to SDR (the reason cards stay SDR). The colour
+    mode is for HDR content the app draws itself (UI, bitmaps, GL).
+  * Apple: the plugin's native view is a plain `AVPlayerLayer` (a layer-backed `NSView` on macOS) and sets no
+    `wantsExtendedDynamicRangeContent`; AVPlayerLayer presents HDR on EDR-capable displays by itself. If a Mac shows
+    the viewer as SDR, that flag on the layer is the thing to try (needs a plugin override, not applied). macOS uses the
+    shared Dart code, which embeds the view with `UiKitView` (supported since video_player_avfoundation 2.8.0 per its
+    changelog); not exercised on a Mac from the Linux host.
+  * Windows and Linux (media_kit) are unchanged and ignore the flag.
 * Formats are the system's: AVPlayer does not play WebM/MKV/Ogg, so those show the failure state on iOS and macOS with
   "Download to view" (media_kit played them).
 
 ## Verification record
 
+* Viewer surface tests (`viewer_video_surface_test`, `video_player_attachment_player_test`): the viewer creates its player
+  with `VideoViewType.platformView` and the cards with `textureView` on Android, iOS and macOS; closing the viewer
+  disposes the native player.
 * Android emulator (API 36, x86_64, isolated `app.raft.raft_flutter.linkperf`), 2026-10-13, with
   `integration_test/video_parity_main.dart` (`VP_LOC=/s/lab`, then open the channel; samples served by
   `tool/video-parity-range-server`): H.264 720p landscape and portrait, 1080p HEVC Main and Kevin's 4K HEVC Main 8-bit

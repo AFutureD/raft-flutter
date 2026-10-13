@@ -15,6 +15,7 @@ class _Platform extends VideoPlayerPlatform {
   final volumes = <double>[];
   final seeks = <Duration>[];
   final sources = <DataSource>[];
+  final viewTypes = <VideoViewType>[];
   bool failOpen = false;
   Size size = const Size(1280, 720);
   Duration duration = const Duration(seconds: 10);
@@ -25,6 +26,7 @@ class _Platform extends VideoPlayerPlatform {
   Future<int?> createWithOptions(VideoCreationOptions options) async {
     calls.add('create');
     sources.add(options.dataSource);
+    viewTypes.add(options.viewType);
     final stream = StreamController<VideoEvent>();
     streams[0] = stream;
     if (failOpen) {
@@ -129,6 +131,28 @@ void main() {
         );
       }
     });
+  });
+
+  test('only the viewer asks for the native view (HDR), on every system '
+      'platform; cards keep the texture', () async {
+    for (final p in [
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    ]) {
+      final card = createAttachmentPlayer(platform: p);
+      final viewer = createAttachmentPlayer(platform: p, hdr: true);
+      await card.open(File('/tmp/raft-test/c.mp4'));
+      await viewer.open(File('/tmp/raft-test/c.mp4'));
+      await card.dispose();
+      await viewer.dispose();
+    }
+    expect(fake.viewTypes, [
+      for (var i = 0; i < 3; i++) ...[
+        VideoViewType.textureView,
+        VideoViewType.platformView,
+      ],
+    ]);
   });
 
   group('VideoPlayerAttachmentPlayer', () {

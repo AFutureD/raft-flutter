@@ -20,7 +20,19 @@ class VideoPlayerAttachmentPlayer
     implements AttachmentPlayer {
   /// An audio-only attachment is opened the same way; it never builds
   /// [video], so no picture surface exists for it.
-  VideoPlayerAttachmentPlayer({this.transparentVideo = false});
+  VideoPlayerAttachmentPlayer({
+    this.transparentVideo = false,
+    this.platformView = false,
+  });
+
+  /// Render into the plugin's native view ([VideoViewType.platformView]:
+  /// `SurfaceView` on Android, `AVPlayerLayer` on iOS and macOS) instead of a
+  /// Flutter texture. The texture path tone-maps HDR to SDR on every
+  /// platform; the native view hands HDR to the compositor untouched, so an
+  /// HDR clip stays HDR on an HDR screen. A platform view does not clip,
+  /// scroll or animate like Flutter content, so only the full-screen viewer
+  /// asks for it, never a card in a list.
+  final bool platformView;
 
   /// Nothing behind the picture, so a poster beneath it shows until the first
   /// frame; otherwise a black backdrop.
@@ -54,6 +66,9 @@ class VideoPlayerAttachmentPlayer
     _last = null;
     final controller = VideoPlayerController.file(
       file,
+      viewType: platformView
+          ? VideoViewType.platformView
+          : VideoViewType.textureView,
       videoPlayerOptions: VideoPlayerOptions(
         // The lifecycle observer of video_player resumes playback when the app
         // returns; a video that was paused by leaving must stay paused (see

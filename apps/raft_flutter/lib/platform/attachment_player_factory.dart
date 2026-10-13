@@ -30,15 +30,22 @@ AttachmentBackend attachmentBackendFor(TargetPlatform platform) =>
 
 /// The player for one attachment on [platform] (the running platform by
 /// default). media_kit is only touched when the platform uses it.
+///
+/// [hdr] asks for the surface that keeps HDR (the full-screen viewer only,
+/// never a card in a list): the native view (`SurfaceView` on Android,
+/// `AVPlayerLayer` on iOS and macOS) instead of the Flutter texture, which
+/// both plugins tone-map to SDR. media_kit platforms ignore it.
 AttachmentPlayer createAttachmentPlayer({
   bool video = true,
   Size maxVideoSize = const Size(1920, 1080),
   bool transparentVideo = false,
+  bool hdr = false,
   TargetPlatform? platform,
   @visibleForTesting AttachmentPlayer Function()? debugMediaKit,
 }) => switch (attachmentBackendFor(platform ?? defaultTargetPlatform)) {
   AttachmentBackend.system => VideoPlayerAttachmentPlayer(
     transparentVideo: transparentVideo,
+    platformView: hdr,
   ),
   AttachmentBackend.mediaKit =>
     debugMediaKit?.call() ??
