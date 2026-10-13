@@ -122,7 +122,7 @@ reopen. Now:
   left behind). A card therefore releases its player (`InlineMediaLoader.releasePlayer`) and keeps a downscaled still
   (`RepaintBoundary.toImage`, 1.5x of the card) when playback **ends**; when it is **scrolled out** of view, its page is
   **hidden** (`TickerMode` off) or the app **backgrounded**, after a 3 s grace (coming back inside it cancels); and when
-  the cap of **2 live players** is exceeded (it shows its still and waits for a tap). A card does **not** prepare a
+  the soft cap of **2 live players** is exceeded (it shows its still and waits for a tap; playing players and the one a viewer holds are never evicted, so the count can go above 2 when all of them are). A card does **not** prepare a
   released player again by itself, and a card built again for an attachment already prepared this session (a list drops
   rows far from the viewport) shows the session's still and prepares on a tap, at the position it stopped at
   (`resumeAt`): a new stream every time a clip scrolled back into view would spend the server's attachment limit (the
@@ -154,7 +154,7 @@ reopen. Now:
   after the 30 s `maxWait`, which the card shows as "Download to view") and the usual one to three requests of a
   progressive MP4 stay inside the governor's 25 % headroom. ExoPlayer opens one open-ended `GET` (plus one for a `moov`
   at the end of the file); AVPlayer makes more, short range requests. Seeks add one request each. A column of auto-loading
-  cards is bounded by the 250 ms settle rule, the 24 MB auto-load size and the cap of 2 live players.
+  cards is bounded by the 250 ms settle rule, the 24 MB auto-load size and the soft cap of 2 live players (playing or viewer-held players are exempt).
 * **Proxy.** mpv (Windows/Linux) gets `http-proxy` from the app's decision at run time; ExoPlayer and AVPlayer follow the
   OS proxy only, so Settings > Network *Manual*/*No proxy* do not apply to streamed media on Android/iOS/macOS (see
   [system proxy](system-proxy.md)).

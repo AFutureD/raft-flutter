@@ -14,11 +14,12 @@ import 'attachment_player.dart';
 /// viewer it opened). Nothing here touches the disk: a stream is the player's
 /// own bounded read-ahead.
 ///
-/// At most [maxLive] players exist at once (a native decoder holds tens of
-/// megabytes of frame buffers, 4K ones several times that): a new one evicts
-/// the least recently used player that no viewer holds and that is not
-/// playing; its holder is told ([PlayerHold.onEvicted]) and falls back to a
-/// still picture. A card also releases its player when playback ends or when
+/// [maxLive] is a soft cap (a native decoder holds tens of megabytes of frame
+/// buffers, 4K ones several times that): a new player evicts the least
+/// recently used one that no viewer holds and that is not playing; its holder
+/// is told ([PlayerHold.onEvicted]) and falls back to a still picture. Players
+/// that are playing or held by a viewer are never evicted, so when every live
+/// player is one of those the count can exceed [maxLive]. A card also releases its player when playback ends or when
 /// it leaves the screen (see `InlineMediaLoader`): holding a decoder is for
 /// what the user is looking at.
 ///
