@@ -57,8 +57,9 @@ sources and its Android plugin is a small Java class, and nothing initialises me
     shared Dart code, which embeds the view with `UiKitView` (supported since video_player_avfoundation 2.8.0 per its
     changelog); not exercised on a Mac from the Linux host.
   * Windows and Linux (media_kit) are unchanged and ignore the flag.
-* Formats are the system's: AVPlayer does not play WebM/MKV/Ogg, so those show the failure state on iOS and macOS with
-  "Download to view" (media_kit played them).
+* Formats are the system's: AVPlayer does not play WebM or MKV, so those show the failure state on iOS and macOS with
+  "Download to view" (media_kit played them). Ogg/Vorbis audio did play on macOS (CodexMac, 2026-10-13), so Ogg is not
+  assumed unsupported; check per file.
 
 ## Verification record
 
