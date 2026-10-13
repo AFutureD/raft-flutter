@@ -34,6 +34,20 @@ class RaftAboutMobileApp {
   final String? qrUrl;
 }
 
+/// Native-only "new version available" row under the Version card (the Web
+/// client updates itself). [message] is already localized; [actionLabel] is a
+/// catalog key that the button localizes.
+@immutable
+class RaftAboutUpdate {
+  const RaftAboutUpdate({
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+  final String message, actionLabel;
+  final VoidCallback onAction;
+}
+
 /// AboutSection: `space-y-4` of `space-y-2` sections (SectionHeader +
 /// non-interactive SurfaceListItem): Version, Mobile app, Workspace.
 class RaftSettingsAbout extends StatelessWidget {
@@ -42,10 +56,12 @@ class RaftSettingsAbout extends StatelessWidget {
     required this.version,
     this.productName = 'Raft',
     this.mobileApp,
+    this.update,
     this.workspaceName,
     this.workspaceDetail,
   });
   final String productName, version;
+  final RaftAboutUpdate? update;
   final RaftAboutMobileApp? mobileApp;
 
   /// Workspace card (`showWorkspace`); null hides the section.
@@ -85,7 +101,41 @@ class RaftSettingsAbout extends StatelessWidget {
           'version',
           'Version',
           RaftGlyph.tag,
-          card(productName, version),
+          update == null
+              ? card(productName, version)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    card(productName, version),
+                    const SizedBox(height: 8),
+                    RaftSurfaceListItem(
+                      key: const ValueKey('settings-about-update'),
+                      interactive: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const RaftAttentionDot(),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(update!.message, style: text.title),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          RaftButton(
+                            key: const ValueKey('settings-about-update-action'),
+                            label: update!.actionLabel,
+                            variant: RaftControlVariant.outline,
+                            size: RaftButtonRecipeSize.sm,
+                            onPressed: update!.onAction,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
         ),
         if (app != null) ...[
           const SizedBox(height: 16),

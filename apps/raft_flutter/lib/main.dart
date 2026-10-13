@@ -52,6 +52,7 @@ import 'platform/workspace_cache.dart';
 import 'platform/desktop_title_bar.dart';
 import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
+import 'platform/app_update.dart';
 import 'platform/background_notifications.dart';
 import 'platform/android_performance_hint.dart';
 
@@ -100,11 +101,23 @@ Future<void> main([List<String> args = const []]) async {
   }
 
   RootErrors.instance.addListener(releaseOnError);
+  // Release builds only: dev/local builds and platforms without a GitHub
+  // release asset get a disabled service. Starts after the first frame.
+  final appUpdate = AppUpdateService.forThisBuild();
   runApp(
     RootErrorBoundary(
       child: ProviderScope(
-        child: RaftApp(initialArguments: args, onStartupReady: allowFirstFrame),
+        child: RaftApp(
+          initialArguments: args,
+          onStartupReady: allowFirstFrame,
+          appUpdate: appUpdate,
+        ),
       ),
+    ),
+  );
+  unawaited(
+    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
+      (_) => appUpdate.start(),
     ),
   );
 }
@@ -139,7 +152,11 @@ class RaftApp extends StatefulWidget {
     this.nativeSharing,
     this.nativeSessionOwner,
     this.onStartupReady,
+    this.appUpdate,
   });
+
+  /// Null in tests and previews: no update check, no red dot.
+  final AppUpdateService? appUpdate;
   final List<String> initialArguments;
   final SessionStore? sessionStore;
   final Uri? initialLocation;
@@ -1894,6 +1911,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       onSwitchServer: switchServerFromMenu,
       notifications: content.notifications,
       sharing: sharing,
+      appUpdate: widget.appUpdate,
     );
   }
 
@@ -2053,6 +2071,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       unawaited(NativeSystemFonts.instance.refresh());
       // The network (and its proxy) often changed while the app was away.
       unawaited(SystemProxy.instance.refresh());
+      // At most once per 6 h; a no-op for dev builds and in tests.
+      unawaited(widget.appUpdate?.checkIfDue());
       unawaited(content.notifications.refreshPermission());
       final w = workspace;
       if (w == null) return;

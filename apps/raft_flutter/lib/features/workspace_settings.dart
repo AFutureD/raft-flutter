@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/mobile_tabbar_preferences.dart';
 import '../data/personal_presentation.dart';
 import '../data/workspace_controller.dart';
+import '../platform/app_update.dart';
 import '../platform/content_links.dart';
 import '../platform/linux_uri_scheme.dart';
 import '../platform/native_notifications.dart';
@@ -56,8 +57,13 @@ class WorkspaceSettings extends StatefulWidget {
     this.frontendOrigin,
     this.workspaceModeCard,
     this.now,
+    this.appUpdate,
   });
   final WorkspaceController controller;
+
+  /// Native update check: the red dot on About and the update row inside it.
+  /// Null (tests, previews) shows neither.
+  final AppUpdateService? appUpdate;
 
   /// Clock for date-dependent copy (the billing trial notice); tests and the
   /// parity harness freeze it.
@@ -112,10 +118,30 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
     }
   }
 
+  void _updateChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    widget.appUpdate?.addListener(_updateChanged);
     loadFeedbackUnread();
+  }
+
+  @override
+  void didUpdateWidget(WorkspaceSettings old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.appUpdate, widget.appUpdate)) {
+      old.appUpdate?.removeListener(_updateChanged);
+      widget.appUpdate?.addListener(_updateChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.appUpdate?.removeListener(_updateChanged);
+    super.dispose();
   }
 
   Future<void> loadFeedbackUnread() async {
@@ -308,8 +334,10 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
             controller: w,
             appVersion: widget.appVersion,
             frontendOrigin: widget.frontendOrigin,
+            appUpdate: widget.appUpdate,
           ),
           group: WorkspaceSettings.resources,
+          attention: widget.appUpdate?.hasUnseen ?? false,
         ),
         // Native-only (no Web counterpart): Web uses the browser's proxy.
         if (!kIsWeb)
@@ -371,15 +399,20 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
 
 /// SettingsPanel.tsx AboutSection: Version, Mobile app (desktop: download
 /// buttons + the /download QR), and the current Workspace.
-class WorkspaceAboutSection extends StatelessWidget {
+class WorkspaceAboutSection extends StatefulWidget {
   const WorkspaceAboutSection({
     super.key,
     required this.controller,
     this.appVersion,
     this.frontendOrigin,
     this.showMobileApp,
+    this.appUpdate,
   });
   final WorkspaceController controller;
+
+  /// Native-only: shows the newer release (if any) and, once this page is
+  /// open, marks it as seen so the red dots clear.
+  final AppUpdateService? appUpdate;
   final String? appVersion;
   final Uri? frontendOrigin;
 
@@ -393,7 +426,54 @@ class WorkspaceAboutSection extends StatelessWidget {
   );
 
   @override
+  State<WorkspaceAboutSection> createState() => _WorkspaceAboutSectionState();
+}
+
+class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
+  @override
+  void initState() {
+    super.initState();
+    // Opening About is what marks the release as seen. Deferred: the dots
+    // listen to the service and must not rebuild during this build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.appUpdate?.markSeen();
+    });
+  }
+
+  RaftAboutUpdate? update(BuildContext context) {
+    final release = widget.appUpdate?.available;
+    if (release == null) return null;
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    return RaftAboutUpdate(
+      message: raftFormat(
+        context,
+        'New version available: {version} ({build})',
+        {'version': release.version, 'build': release.buildNumber},
+      ),
+      actionLabel: android ? 'Download update' : 'View release',
+      onAction: () => launchUrl(
+        android ? release.downloadUrl : release.releasePage,
+        mode: LaunchMode.externalApplication,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (widget.appUpdate case final service?) {
+      return ListenableBuilder(
+        listenable: service,
+        builder: (context, _) => body(context),
+      );
+    }
+    return body(context);
+  }
+
+  Widget body(BuildContext context) {
+    final controller = widget.controller,
+        appVersion = widget.appVersion,
+        frontendOrigin = widget.frontendOrigin,
+        showMobileApp = widget.showMobileApp;
     final server = controller.server;
     final api = controller.client.origin;
     Future<void> open(String platform) => launchUrl(
@@ -409,7 +489,8 @@ class WorkspaceAboutSection extends StatelessWidget {
     final web = frontendOrigin ?? ContentLinks.originFor(api);
     final slug = server?.string('slug') ?? '';
     return RaftSettingsAbout(
-      version: appVersion ?? _version,
+      version: appVersion ?? WorkspaceAboutSection._version,
+      update: update(context),
       mobileApp: showMobileApp ?? desktop
           ? RaftAboutMobileApp(
               onAndroid: () => open('android'),

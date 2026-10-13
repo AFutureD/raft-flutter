@@ -1692,6 +1692,13 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
   counterpart (the browser owns its HTTP cache). The app keeps opened attachments in one on-disk cache under
   the platform cache directory (1 GB, least recently used out; `AttachmentDiskCache`), so a second open makes
   no request. Clearing it never touches the session, drafts, settings or files the user saved.
+* Update check (native only, intended difference): a release build looks up the latest GitHub release's
+  `build-manifest-<platform>-<arch>.json` (never the REST API) at start and at most every 6 h, and shows a red dot
+  on the Settings entry and the About row plus a "New version available: X (build)" row in About with a download
+  (Android) or release-page (desktop) button. Web updates itself and has no equivalent. Skipped for iOS,
+  dev builds and Linux outside an AppImage. Build numbers: CI passes `--build-number=<run>` and
+  `--dart-define=RAFT_BUILD_NUMBER=<run>`; the manifest `buildNumber` is compared with that define (Android's
+  `versionCode` is 2000 + the same number for the arm64 split APK).
 * Unknown external routes still land on Home (Web catch-all); unknown internal targets now throw
   in debug and test.
 

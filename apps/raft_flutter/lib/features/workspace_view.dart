@@ -76,6 +76,7 @@ import 'system_notification_center.dart';
 import 'workspace_browser.dart';
 import 'management_support.dart' show managementLaunch;
 import 'sender_avatar_projection.dart';
+import '../platform/app_update.dart';
 import '../platform/native_sharing.dart';
 import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
@@ -100,8 +101,12 @@ class WorkspaceView extends StatefulWidget {
     this.onSwitchServer,
     this.mobileRoutePage = false,
     this.mobileHost,
+    this.appUpdate,
   });
   final WorkspaceController controller;
+
+  /// Native update check: red dot on the Settings entry and About row.
+  final AppUpdateService? appUpdate;
   final bool mobileRoutePage;
   final Object? mobileHost;
   final NativeNotificationService? notifications;
@@ -2707,16 +2712,28 @@ class _WorkspaceViewState extends State<WorkspaceView>
                 capturedAuthority: workspaceMode.authority,
               ),
             ),
-          RaftWorkspaceRailAction(
-            key: const Key('rail-settings'),
-            label: tr('Settings'),
-            selected: w.location.route == RaftRoute.settings,
-            onPressed: () => select('settings'),
-            glyph: RaftGlyph.settings,
-          ),
+          settingsRailAction(),
         ],
       ),
     );
+  }
+
+  Widget settingsRailAction() {
+    Widget action() => RaftWorkspaceRailAction(
+      key: const Key('rail-settings'),
+      label: tr('Settings'),
+      selected: w.location.route == RaftRoute.settings,
+      onPressed: () => select('settings'),
+      glyph: RaftGlyph.settings,
+      attention: widget.appUpdate?.hasUnseen ?? false,
+    );
+    final update = widget.appUpdate;
+    return update == null
+        ? action()
+        : ListenableBuilder(
+            listenable: update,
+            builder: (context, _) => action(),
+          );
   }
 
   Widget workspaceServerMenu({bool mobile = false}) {
@@ -3018,6 +3035,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       selectedId: w.navigation.mobileRootTabOf(w.location) ?? 'chat',
       tabs: mobileTabIds,
       activityUnread: activityUnread,
+      appUpdate: widget.appUpdate,
       // Native tab bars consume the system inset once, outside the nav recipe.
       bottomInset: 0,
       onSelected: (tab) => selectMobileTab(tab, scope),
@@ -3881,6 +3899,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
         ),
         controller: w,
         initialTab: tab,
+        appUpdate: widget.appUpdate,
         workspaceModeCard: modeCard(),
         appearance: widget.appearance,
         onAppearance: (appearance) => widget.onAppearance(appearance),

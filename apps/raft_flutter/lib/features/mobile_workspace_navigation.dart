@@ -7,6 +7,7 @@ import '../data/source_activity_unread_store.dart';
 import '../data/workspace_controller.dart';
 import '../data/raft_location.dart';
 import '../data/workspace_navigation.dart';
+import '../platform/app_update.dart';
 import 'system_notification_center.dart';
 
 /// Route-level mobile navigation, following MainLayout.tsx's root/detail cuts.
@@ -55,8 +56,12 @@ class WorkspaceMobileTabBar extends StatelessWidget {
     this.bottomInset = 0,
     this.tabs,
     this.activityUnread,
+    this.appUpdate,
   });
   final WorkspaceController controller;
+
+  /// Red dot on the Settings tab while a newer release is unseen.
+  final AppUpdateService? appUpdate;
 
   /// The configurable tabs to show, in order (Settings is appended). Null is
   /// the default bar; callers pass the account-filtered device choice.
@@ -71,12 +76,15 @@ class WorkspaceMobileTabBar extends StatelessWidget {
   final double bottomInset;
 
   @override
-  Widget build(BuildContext context) => activityUnread == null
-      ? bar(context)
-      : ListenableBuilder(
-          listenable: activityUnread!,
-          builder: (context, _) => bar(context),
-        );
+  Widget build(BuildContext context) {
+    final listenables = [?activityUnread, ?appUpdate];
+    return listenables.isEmpty
+        ? bar(context)
+        : ListenableBuilder(
+            listenable: Listenable.merge(listenables),
+            builder: (context, _) => bar(context),
+          );
+  }
 
   Widget bar(BuildContext context) {
     String tr(String s) => raftText(context, s);
@@ -137,6 +145,7 @@ class WorkspaceMobileTabBar extends StatelessWidget {
           label: tr('Settings'),
           glyph: RaftGlyph.settings,
           key: const Key('mobile-tab-settings'),
+          attention: appUpdate?.hasUnseen ?? false,
         ),
       ],
     );

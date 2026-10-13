@@ -93,6 +93,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn('--build-name=1.2.3', command)
             self.assertIn('--build-number=214', command)
             self.assertIn('--dart-define=RAFT_APP_VERSION=1.2.3', command)
+            self.assertIn('--dart-define=RAFT_BUILD_NUMBER=214', command)
             self.assertNotIn('--build-number=9', command)
         self.assertEqual((release.APP / 'pubspec.yaml').read_bytes(), original)
 

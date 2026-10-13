@@ -247,13 +247,16 @@ def build(platform):
     arch = config['arch']
     name = f'raft-flutter-{identity["asset_version"]}-{platform}-{arch}'
     # No test entry points, inherited Dart defines or private local fixtures in hosted CI.
-    # The only define supplied here is the public release version shown in About.
+    # The only defines supplied here are the public release version shown in About
+    # and the CI build number the update check compares.
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
     android = None
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else 'linux' if platform == 'appimage' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
-               f'--dart-define=RAFT_APP_VERSION={version}']
+               f'--dart-define=RAFT_APP_VERSION={version}',
+               # The update check compares this with the manifest's buildNumber.
+               f'--dart-define=RAFT_BUILD_NUMBER={number}']
     with tempfile.TemporaryDirectory(prefix='raft-release-') as temporary:
         work = Path(temporary)
         if platform == 'android':
