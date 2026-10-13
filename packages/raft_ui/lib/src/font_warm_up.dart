@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'design_primitives.dart';
 import 'idle_work.dart';
+import 'inline_thread_surface.dart' show RaftInlineThreadRecipe;
 import 'dialog_card.dart' show raftRecipeThemeOf;
 import 'message_content_tokens.dart';
 import 'message_row_recipe.dart';
@@ -189,6 +190,28 @@ List<TextStyle> raftFontWarmUpStyles(ThemeData theme) {
           tokens: recipeTokens,
         ).root.textStyle(recipeTokens),
     RaftTooltipRecipe(t).text,
+    // Inline thread replies under a message (the first one scrolled in used
+    // to resolve these combinations during layout).
+    RaftInlineThreadRecipe(t).summary,
+    RaftInlineThreadRecipe(t).sender,
+    RaftInlineThreadRecipe(t).preview,
+    RaftInlineThreadRecipe(t).clock,
+    // Transfer chips over images, and the headings task cards and the composer
+    // place in the heading family (each optical size is its own instance).
+    RaftTypography.mono(
+      t,
+      size: 11,
+      line: 14,
+    ).copyWith(fontWeight: FontWeight.w600),
+    for (final size in const [14.0, 16.0, 18.0]) ...[
+      RaftTypography.heading(t, size: size, line: size + 6),
+      RaftTypography.heading(
+        t,
+        size: size,
+        line: size + 6,
+        weight: FontWeight.w400,
+      ),
+    ],
     row.body,
     row.author,
     row.time,
@@ -229,8 +252,24 @@ List<TextStyle> raftFontWarmUpStyles(ThemeData theme) {
     ])
       ?style,
   ];
+  // Markdown and the page merge a declared style into the Material text
+  // style they sit in (a heading into titleLarge, ...), and whatever that
+  // supplies (fallback list, optical-size axis) is part of the engine's key.
+  final parents = <TextStyle>[
+    ambient,
+    for (final parent in [
+      theme.textTheme.headlineSmall,
+      theme.textTheme.titleLarge,
+      theme.textTheme.titleMedium,
+      theme.textTheme.bodyLarge,
+    ])
+      ?parent,
+  ];
   return [
-    for (final style in declared) ...[style, ambient.merge(style)],
+    for (final style in declared) ...[
+      style,
+      for (final parent in parents) parent.merge(style),
+    ],
   ];
 }
 
