@@ -31,8 +31,9 @@ public class RaftUpdaterPlugin: NSObject, FlutterPlugin, SPUUpdaterDelegate {
                 return
             }
             // Foreground check with Sparkle's own UI: "update available",
-            // release notes, download progress, install and relaunch.
-            NSApp.activate(ignoringOtherApps: true)
+            // release notes, download progress, install and relaunch. The
+            // user driver activates the app itself when it shows the alert
+            // (SPUStandardUserDriver _activateApplication), so no activate here.
             controller.checkForUpdates(nil)
             result(true)
         default:
