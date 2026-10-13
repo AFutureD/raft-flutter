@@ -93,7 +93,13 @@ Future<Map<String, Object?>> serverRequests(WidgetTester tester, SmokeFixture fi
   };
 }
 
-Finder attachment(SmokeCase c) => find.byKey(ValueKey('attachment-${c.attachmentId}'));
+/// The attachment's widget: a message row's `attachment-<id>` or a forwarded bundle's `forwarded-attachment-<msg>-<id>`.
+Finder attachment(SmokeCase c) => find.byWidgetPredicate((w) {
+  final key = w.key;
+  if (key is! ValueKey<String>) return false;
+  return key.value == 'attachment-${c.attachmentId}' ||
+      (key.value.startsWith('forwarded-attachment-') && key.value.endsWith('-${c.attachmentId}'));
+});
 
 /// The visible text of the screen, for the failure report.
 String screenText(WidgetTester tester) => [
@@ -115,12 +121,14 @@ Future<int> waitFor(
   Duration timeout = const Duration(seconds: 25),
   bool Function()? failed,
   String Function()? why,
+  Future<void> Function()? poll,
 }) async {
   final watch = Stopwatch()..start();
   // A failure state that is left again (the player signs the URL again after its first 403) is not a failure: it must
   // hold for [failureGrace].
   DateTime? failingSince;
   while (true) {
+    if (poll != null) await poll();
     if (done()) return watch.elapsedMilliseconds;
     if (failed != null && failed()) {
       failingSince ??= DateTime.now();
@@ -413,7 +421,7 @@ Future<Launch> launchSearch(WidgetTester tester, SmokeCase c, {bool mobile = tru
     all: manifest,
     channelId: 'oa',
     rows: rows,
-    location: '/s/lab/search',
+    location: Uri(path: '/s/lab/search', queryParameters: {'q': 'Open ${c.id}'}).toString(),
     mobile: mobile,
     extra: (api) {
       api.routes['GET /messages/context/oa-15'] = (_) => {
@@ -450,15 +458,10 @@ Future<Launch> launchSearch(WidgetTester tester, SmokeCase c, {bool mobile = tru
     },
   );
   await tester.pumpWidget(fixture.app);
-  final field = find.byType(TextField);
-  await waitFor(tester, () => field.evaluate().isNotEmpty, 'the search field');
-  await tester.enterText(field.first, 'Open ${c.id}');
-  await tester.pump(const Duration(milliseconds: 100));
-  await tester.testTextInput.receiveAction(TextInputAction.search);
   final hit = find.textContaining('Open ${c.id}');
-  await waitFor(tester, () => hit.evaluate().length > 1 || (hit.evaluate().isNotEmpty && !shown(EditableText)), 'the search result');
+  await waitFor(tester, () => find.descendant(of: find.byType(Scrollable), matching: hit).evaluate().isNotEmpty, 'the search result');
   await tester.pump(const Duration(milliseconds: 500));
-  // The field holds the same words: tap the result row, which is the last match on screen.
+  // The field may hold the same words: tap the result row, which is the last match on screen.
   await tester.tapAt(tester.getCenter(hit.last));
   await waitFor(tester, () => attachment(c).evaluate().isNotEmpty, 'the searched message with ${c.id}', timeout: const Duration(seconds: 40));
   await tester.pump(const Duration(milliseconds: 500));
@@ -572,6 +575,20 @@ Future<Launch> launchJoint(WidgetTester tester, SmokeCase c, {bool mobile = true
   return pump(tester, fixture, () => attachment(c), 'the joint channel message with ${c.id}');
 }
 
+Future<Launch> launchTwoImages(WidgetTester tester, SmokeCase c, {bool mobile = true}) async {
+  final other = manifest.firstWhere((m) => m.id == 'img-jpg');
+  final fixture = await buildSmokeFixture(
+    base: _base,
+    all: manifest,
+    channelId: 'oa',
+    rows: [smokeRow(_base, 'oa', 0, 'Two images', [c, other])],
+    location: '/s/lab/channel/oa',
+    mobile: mobile,
+    listStart: mobile,
+  );
+  return pump(tester, fixture, () => attachment(c), 'the message with two images');
+}
+
 /// The Files tab of the channel: a row per attachment.
 Future<Launch> launchFiles(WidgetTester tester, SmokeCase c, {bool mobile = true}) async {
   final fixture = await buildSmokeFixture(
@@ -644,6 +661,24 @@ Future<Outcome> openFromFiles(WidgetTester tester, SmokeCase c, Launch launch) a
       // Not previewable: the row hands a signed URL to the operating system.
       opened.clear();
       await tap();
+      if (Platform.isAndroid) {
+        // The real url_launcher: the app the OS picks (a browser, the download manager) asks the server for the file.
+        final ms = await waitFor(
+          tester,
+          () => lastNativeRequests.isNotEmpty,
+          'the OS app to request the file',
+          timeout: const Duration(seconds: 20),
+          poll: () async {
+            final stats = await tester.runAsync(() => serverGet(_base, '/__stats'));
+            lastNativeRequests = [
+              for (final e in (stats!['log'] as List).cast<Map>())
+                if (!'${e['ua']}'.startsWith('Dart') && '${e['path']}'.contains(c.id) || '${e['path']}'.contains(c.file) && !'${e['ua']}'.startsWith('Dart')) e,
+            ];
+          },
+        );
+        final ok = lastNativeRequests.any((e) => e['status'] == 200 || e['status'] == 206);
+        return Outcome(ok, ok ? 'an OS app fetched the file from the handed URL' : 'the OS app got ${lastNativeRequests.map((e) => e['status'])}', ms: ms);
+      }
       final ms = await waitFor(tester, () => opened.isNotEmpty, 'the OS handoff', timeout: const Duration(seconds: 10));
       final url = Uri.parse(opened.last);
       final probe = await tester.runAsync(() async {
@@ -660,6 +695,8 @@ Future<Outcome> openFromFiles(WidgetTester tester, SmokeCase c, Launch launch) a
       return Outcome(ok, ok ? 'URL handed to the OS and it serves the file' : 'URL handed to the OS answers $probe', ms: ms, extra: {'url': '${url.replace(query: '')}'});
   }
 }
+
+List<Map> lastNativeRequests = [];
 
 Future<Outcome> openFromViewerDownload(WidgetTester tester, SmokeCase c, Launch launch) async {
   Future<void> tap() => tapCentre(tester, launch.target());
@@ -682,6 +719,28 @@ Future<Outcome> openFromViewerDownload(WidgetTester tester, SmokeCase c, Launch 
   );
   await closeTop(tester);
   return Outcome(true, 'saved ${c.size} bytes from the viewer', ms: ms);
+}
+
+/// Rows covered by a viewer are released after a few seconds; closing the viewer brings their previews back.
+Future<Outcome> hiddenRowRelease(WidgetTester tester, SmokeCase c, Launch launch) async {
+  final other = manifest.firstWhere((m) => m.id == 'img-jpg');
+  Finder tile(SmokeCase m) => find.descendant(of: attachment(m), matching: find.byType(Image));
+  await waitFor(tester, () => tile(c).evaluate().isNotEmpty && tile(other).evaluate().isNotEmpty, 'both tiles painted');
+  await tapCentre(tester, attachment(c));
+  await waitFor(tester, () => find.byKey(const ValueKey('lightbox-stage')).evaluate().isNotEmpty, 'the lightbox image');
+  // The other tile is covered for longer than the release delay.
+  await tester.pump(const Duration(seconds: 7));
+  await closeTop(tester);
+  final back = await waitFor(
+    tester,
+    () => tile(c).evaluate().isNotEmpty && tile(other).evaluate().isNotEmpty,
+    'the covered tile to paint again',
+    timeout: const Duration(seconds: 15),
+  );
+  await tapCentre(tester, attachment(other));
+  final reopen = await waitFor(tester, () => find.byKey(const ValueKey('lightbox-stage')).evaluate().isNotEmpty, 'the released tile opens');
+  await closeTop(tester);
+  return Outcome(true, 'released tile painted again and opened', ms: back, second: reopen);
 }
 
 // ---- the run ------------------------------------------------------------------------------------------------
@@ -738,6 +797,9 @@ void main() {
     }
 
     Future<Outcome> viaList(WidgetTester t, SmokeCase c, Launch l) => opener(c)(t, c, () => tapCentre(t, l.target()));
+    // A forwarded bundle projects the attachment without its thumbnail: an SVG there is a download card.
+    Future<Outcome> viaForward(WidgetTester t, SmokeCase c, Launch l) =>
+        c.kind == 'svg' ? downloadOnly(t, c, tap: () => tapCentre(t, l.target())) : viaList(t, c, l);
     final launchers = <String, Future<Launch> Function(WidgetTester, SmokeCase)>{
       'list': (t, c) => launchList(t, c, mobile: mobile),
       'search': (t, c) => launchSearch(t, c, mobile: mobile),
@@ -749,9 +811,11 @@ void main() {
       for (final c in manifest) {
         if (!wanted(entry, c)) continue;
         if (launchers.containsKey(entry)) {
-          await scenario(entry, c, launchers[entry]!, viaList);
+          await scenario(entry, c, launchers[entry]!, entry == 'forward' ? viaForward : viaList);
         } else if (entry == 'files') {
           await scenario(entry, c, (t, c) => launchFiles(t, c, mobile: mobile), openFromFiles);
+        } else if (entry == 'hidden' && c.id == 'img-png') {
+          await scenario(entry, c, (t, c) => launchTwoImages(t, c, mobile: mobile), hiddenRowRelease);
         } else if (entry == 'viewer') {
           await scenario(entry, c, (t, c) => launchList(t, c, mobile: mobile), openFromViewerDownload);
         }

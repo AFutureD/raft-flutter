@@ -90,7 +90,7 @@ Tests that are about theme differences (per-family tokens, audits, recipes) pass
 
 ## Player changes
 
-Anything under `platform/*player*`, `platform/attachment_stream.dart`, the inline media cards, the media viewer or the raft_ui video controls is verified on an Android emulator with the real `video_player`, not only with fake players: run the interaction suite (`tool/player-interactions`) and keep its recordings and log with the change. The full checklist is in [media playback](media-playback.md#checklist-for-player-changes).
+Anything under `platform/*player*`, `platform/attachment_stream.dart`, the inline media cards, the media viewer or the raft_ui video controls is verified on an Android emulator with the real `video_player`, not only with fake players: run the interaction suite (`tool/player-interactions`) and keep its recordings and log with the change. The full checklist is in [media playback](media-playback.md#checklist-for-player-changes). Attachment changes of any kind also run `tool/attachment-open-smoke/run` ([attachment open smoke](media-playback.md#attachment-open-smoke)).
 
 ## Behaviour parity checklists
 

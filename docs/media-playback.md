@@ -252,5 +252,23 @@ Run before merging anything under `platform/*player*`, `platform/attachment_stre
    that only passes with a fake player is not verified. Keep the recordings of the viewer close (button, back key, back
    swipe) and the suite log with the change.
 4. `tool/flutter build linux` (media_kit streaming compiles) and, with Xvfb, `integration_test/native_player_test.dart`.
-5. iOS/macOS cannot be built on the Linux host: say so in the hand-off and list what a Mac must check (handoff, native
+5. **The attachment open smoke** (`tool/attachment-open-smoke/run`, below): every attachment kind from every entry point on
+   an Android emulator and on Linux. Run it before merging anything under `features/attachment_*`,
+   `features/inline_attachment_media.dart`, `platform/attachment_*`, `data/attachment_*` or the workspace controller's
+   attachment URL code, and fix every FAIL it reports.
+6. iOS/macOS cannot be built on the Linux host: say so in the hand-off and list what a Mac must check (handoff, native
    view HDR switch, back swipe, memory).
+
+### Attachment open smoke
+
+`tool/attachment-open-smoke/run --platform android --serial <your emulator> --out <dir> --build` (or `--platform linux`)
+runs `integration_test/attachment_open_smoke_test.dart` against the production app and a fixture server that behaves like
+Raft's storage and API: presigned storage URLs, the server streaming the bytes itself (token in the query), a 302 to
+storage, thumbnails (ok, missing, expired), a first signature that is already expired, and range reads. Cases: jpg, png,
+webp, gif, heic, SVG (rasterised thumbnail and without), PDF (also 30 MB), text, Markdown (also Chinese and two real
+report.md files), CSV, XLSX, code, JSON, HTML (WebView on Android, close and reopen), m4a, mp3, wav, ogg, H.264, HEVC,
+WebM, a 30 MB clip, zip, unknown binary, a 30 MB zip, DOCX. Entry points (`--entries`): `list`, `search`, `thread`,
+`forward`, `joint`, `files`, `viewer` (Download pressed inside the viewer), `hidden` (a row released while a viewer covers it).
+Each case reports whether it opened, the time to the first content, a reopen time and the requests the server saw;
+failures come with a screenshot. `--only id,id` filters; `--tree <checkout>` runs the same suite on an older build.
+The Android save picker (Kotlin) is replaced by a mock that writes to a temp directory; everything else is real.

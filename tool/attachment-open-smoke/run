@@ -80,8 +80,31 @@ class Host(threading.Thread):
             subprocess.run(['import', '-display', self.display, '-window', 'root', str(target)], capture_output=True)
         return f'shot:{target.name}'
 
+    def foreground(self):
+        """Android: a case that hands a URL to the OS opens a browser over the app (the app then draws no frames and the
+        test waits forever). Close that app and bring ours back; only the browsers/download apps the handoff starts."""
+        out = subprocess.run(['adb', '-s', self.serial, 'shell', 'dumpsys', 'activity', 'activities'], capture_output=True, text=True).stdout
+        top = re.search(r'topResumedActivity=ActivityRecord\{\S+ \S+ ([\w.]+)/', out)
+        if not top or top.group(1) == PACKAGE:
+            self.away = 0
+            return
+        self.away = getattr(self, 'away', 0) + 1
+        if self.away >= 2 and top.group(1) in ('com.android.chrome', 'com.google.android.apps.chrome', 'com.android.documentsui',
+                                              'com.google.android.documentsui', 'com.android.providers.downloads.ui',
+                                              'com.google.android.apps.docs', 'com.android.vending'):
+            subprocess.run(['adb', '-s', self.serial, 'shell', 'am', 'force-stop', top.group(1)], capture_output=True)
+            subprocess.run(['adb', '-s', self.serial, 'shell', 'am', 'start', '-n', f'{PACKAGE}/app.raft.raft_flutter.MainActivity'], capture_output=True)
+            self.away = 0
+
     def run(self):
+        ticks = 0
         while not self.stop:
+            ticks += 1
+            if self.platform == 'android' and ticks % 20 == 0:
+                try:
+                    self.foreground()
+                except Exception:
+                    pass
             try:
                 state = self.get('/__cmd')
             except Exception:
@@ -122,6 +145,7 @@ def main():
     ap.add_argument('--data', type=Path, default=Path(os.environ.get('AOS_DATA', '/tmp/attachment-open-smoke/data')))
     ap.add_argument('--port', type=int, default=0)
     args = ap.parse_args()
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))  # run the cleanup below
     tree = args.tree.resolve()
     app = tree / 'apps/raft_flutter'
     out = args.out.resolve()
