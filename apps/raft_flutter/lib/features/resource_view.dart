@@ -28,6 +28,7 @@ import '../data/source_read_all_transport.dart';
 import '../data/resource_row_reconcile.dart';
 import '../data/resource_snapshot_cache.dart';
 import '../data/task_board_reconcile.dart';
+import 'activity_find_scope.dart';
 import 'create_task_dialog.dart';
 import 'desktop_navigation_policy.dart'
     show DesktopContentKind, DesktopContentTarget;
@@ -2467,16 +2468,12 @@ class _ResourceViewState extends State<ResourceView> {
             border: surface.border is Border ? surface.border as Border : null,
             child: box,
           );
-    return enabledActivity
-        ? CallbackShortcuts(
-            // Activity find: Cmd+F on Apple platforms, Ctrl+F elsewhere.
-            bindings: {
-              SingleActivator(
-                LogicalKeyboardKey.keyF,
-                control: !usesCommandShortcuts(),
-                meta: usesCommandShortcuts(),
-              ): showActivitySearch,
-            },
+    // Activity find: Cmd+F on Apple platforms, Ctrl+F elsewhere, while the
+    // keyboard scope is the Activity panel (ActivityFindScope).
+    return widget.section == 'activity'
+        ? ActivityFindScope(
+            enabled: enabledActivity && widget.compactActivitySidebar,
+            onFind: showActivitySearch,
             child: body,
           )
         : body;
@@ -3547,9 +3544,15 @@ class _ResourceViewState extends State<ResourceView> {
   void showActivitySearch() {
     if (!mounted || !enabledActivity || !widget.compactActivitySidebar) return;
     setState(() => activitySearchVisible = true);
+    // keydown-focus-on-open: focus the field and select its text, so the next
+    // keystroke replaces the previous query.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && enabledActivity) {
         queryFocus.requestFocus();
+        query.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: query.text.length,
+        );
       }
     });
   }
