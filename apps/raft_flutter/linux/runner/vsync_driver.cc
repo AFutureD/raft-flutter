@@ -2,6 +2,7 @@
 
 #include <gtk/gtk.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -28,6 +29,12 @@ constexpr gint64 kTickSlackDivisor = 8;
 // probed once per kProbeEvery deliveries.
 constexpr guint kTickGiveUpAfter = 30;
 constexpr guint kProbeEvery = 60;
+// Ticks without a waiting request before the tick callback is dropped.
+constexpr guint kIdleTicksBeforeStop = 4;
+// A request up to this far (percent of the interval) after a tick that found no
+// waiting request is served at once instead of at the next tick: the frame
+// would be presented at the same refresh either way.
+constexpr gint64 kLatePercent = 100;
 
 struct State {
   GtkWidget* view = nullptr;
@@ -44,8 +51,18 @@ struct State {
   gint64 last_delivery_us = 0;  // main thread only
   guint ticks_delivered = 0;   // main thread only, per stats period
   guint ticks_early = 0;
+  guint late_delivered = 0;
+  guint long_gaps = 0;
+  guint requests = 0;            // guarded by lock, per stats period
+  gint64 lateness_us[512];       // main thread, per stats period
+  guint lateness_count = 0;
+  guint idle_ticks = 0;         // main thread only
+  gint64 last_tick_us = 0;      // main thread only
+  bool boundary_used = true;    // main thread only: the last tick's refresh already released a frame
+  gint64 interval_us = 0;       // main thread only (read by the engine thread for stats, racy but harmless)
   guint timer_delivered = 0;
   bool stats = false;
+  bool timer_only = false;  // RAFT_LINUX_VSYNC=timer: never use frame-clock ticks
   gint64 stats_start_us = 0;
   guint stats_frames = 0;
   gint64 requested_us = 0;     // guarded by lock
@@ -128,39 +145,61 @@ void on_view_realize(GtkWidget* view, gpointer) {
   if (clock != nullptr) g_signal_connect(clock, "before-paint", G_CALLBACK(on_before_paint), nullptr);
 }
 
-void clear_sources() {
+enum class Source { kTick, kTimer, kLate };
+
+void remove_tick() {
   if (state.tick_id != 0) {
-    gtk_widget_remove_tick_callback(state.view, state.tick_id);
+    if (state.view != nullptr) gtk_widget_remove_tick_callback(state.view, state.tick_id);
     state.tick_id = 0;
   }
+}
+
+void remove_watchdog() {
   if (state.watchdog_id != 0) {
     g_source_remove(state.watchdog_id);
     state.watchdog_id = 0;
   }
 }
 
+void clear_sources() {
+  remove_tick();
+  remove_watchdog();
+}
+
 // Hand every waiting baton back to the engine. Main thread only (the thread
 // that ran the engine: FlutterEngineOnVsync must be called there).
-void deliver(GdkFrameClock* clock, bool from_tick, gint64 boundary_us) {
-  clear_sources();
+// [boundary_us] is the frame boundary this delivery belongs to (the tick, or
+// the timer's grid point); a late delivery is started after it but still
+// targets the following one.
+void deliver(GdkFrameClock* clock, Source source, gint64 boundary_us) {
+  remove_watchdog();
   gint64 now_us = g_get_monotonic_time();
-  state.last_delivery_us = now_us;
-  if (from_tick) {
-    // The compositor's own cadence: keep the timer grid on it.
-    state.grid_origin_us = now_us;
-    state.timer_streak = 0;
-    state.ticks_delivered++;
-  } else {
-    state.grid_origin_us = boundary_us;
-    state.timer_streak++;
-    state.timer_delivered++;
+  state.last_delivery_us = boundary_us;
+  switch (source) {
+    case Source::kTick:
+      state.boundary_used = true;
+      state.grid_origin_us = boundary_us;
+      state.timer_streak = 0;
+      state.ticks_delivered++;
+      break;
+    case Source::kLate:
+      state.boundary_used = true;
+      state.timer_streak = 0;
+      state.late_delivered++;
+      break;
+    case Source::kTimer:
+      state.boundary_used = true;
+      state.grid_origin_us = boundary_us;
+      state.timer_streak++;
+      state.timer_delivered++;
+      break;
   }
   g_mutex_lock(&state.lock);
   g_autoptr(GArray) taken = state.batons;
   state.batons = g_array_new(FALSE, FALSE, sizeof(intptr_t));
   state.scheduled = false;
   if (state.stats) {
-    state.delivered_us = g_get_monotonic_time();
+    state.delivered_us = now_us;
     state.wait_total_us += state.delivered_us - state.requested_us;
   }
   g_mutex_unlock(&state.lock);
@@ -169,7 +208,13 @@ void deliver(GdkFrameClock* clock, bool from_tick, gint64 boundary_us) {
   if (engine == nullptr) return;
   uint64_t start = state.table->GetCurrentTime();
   gint64 interval = state.view != nullptr ? interval_us(state.view, clock) : kDefaultIntervalUs;
-  uint64_t target = start + static_cast<uint64_t>(interval) * 1000;
+  state.interval_us = interval;
+  // The frame is shown at the first boundary after it starts.
+  if (state.stats && state.lateness_count < 512) {
+    state.lateness_us[state.lateness_count++] = now_us - boundary_us;
+  }
+  gint64 to_next = interval - (now_us - boundary_us) % interval;
+  uint64_t target = start + static_cast<uint64_t>(to_next) * 1000;
   for (guint i = 0; i < taken->len; i++) {
     state.table->OnVsync(engine, g_array_index(taken, intptr_t, i), start, target);
   }
@@ -179,13 +224,23 @@ void deliver(GdkFrameClock* clock, bool from_tick, gint64 boundary_us) {
     if (state.stats_start_us == 0) state.stats_start_us = now;
     if (now - state.stats_start_us >= G_USEC_PER_SEC) {
       GdkDisplay* display = gdk_display_get_default();
-      g_printerr("raft.vsync: [%s %s] %u deliveries in %.0f ms (%u by tick, %u by timer, %u early ticks ignored), interval %.2f ms, wait for tick %.2f ms, engine gap %.2f ms\n",
+      g_mutex_lock(&state.lock);
+      guint requests = state.requests;
+      state.requests = 0;
+      g_mutex_unlock(&state.lock);
+      std::sort(state.lateness_us, state.lateness_us + state.lateness_count);
+      double late_median = state.lateness_count ? state.lateness_us[state.lateness_count / 2] / 1000.0 : 0;
+      double late_max = state.lateness_count ? state.lateness_us[state.lateness_count - 1] / 1000.0 : 0;
+      state.lateness_count = 0;
+      g_printerr("raft.vsync: [%s %s] requested %u, delivered %u in %.0f ms (%u by tick, %u late after a tick, %u by timer; %u early ticks ignored; %u engine gaps over one interval), lateness vs vblank median %.2f max %.2f ms, interval %.2f ms, wait for tick %.2f ms, engine gap %.2f ms\n",
                  display != nullptr ? G_OBJECT_TYPE_NAME(display) : "none",
-                 display != nullptr ? gdk_display_get_name(display) : "none", state.stats_frames, (now - state.stats_start_us) / 1000.0,
-                 state.ticks_delivered, state.timer_delivered, state.ticks_early,
+                 display != nullptr ? gdk_display_get_name(display) : "none", requests, state.stats_frames,
+                 (now - state.stats_start_us) / 1000.0, state.ticks_delivered, state.late_delivered,
+                 state.timer_delivered, state.ticks_early, state.long_gaps, late_median, late_max,
                  interval / 1000.0, state.wait_total_us / 1000.0 / state.stats_frames,
                  state.gap_total_us / 1000.0 / state.stats_frames);
-      state.ticks_delivered = state.timer_delivered = state.ticks_early = 0;
+      state.ticks_delivered = state.timer_delivered = state.late_delivered = state.ticks_early = 0;
+      state.long_gaps = 0;
       state.wait_total_us = state.gap_total_us = 0;
       state.stats_start_us = now;
       state.stats_frames = 0;
@@ -193,20 +248,40 @@ void deliver(GdkFrameClock* clock, bool from_tick, gint64 boundary_us) {
   }
 }
 
+bool engine_waiting() {
+  g_mutex_lock(&state.lock);
+  bool waiting = state.scheduled;
+  g_mutex_unlock(&state.lock);
+  return waiting;
+}
+
+// Frame-clock tick. The callback stays registered while frames are being
+// requested, so the clock keeps ticking on every refresh instead of being
+// restarted (and re-synchronised) for each frame; a few ticks with no request
+// end it, which lets an idle window fall back to zero frames.
 gboolean on_tick(GtkWidget*, GdkFrameClock* clock, gpointer) {
+  gint64 now = g_get_monotonic_time();
   // A frame clock that is not paced by the display (it can tick back to back)
   // must not release frames faster than the refresh rate: a tick earlier than
-  // three quarters of an interval after the previous delivery is ignored and
-  // the timer releases the frame on the next boundary.
-  gint64 now = g_get_monotonic_time();
-  if (state.last_delivery_us != 0 &&
-      now - state.last_delivery_us < interval_us(state.view, clock) * 3 / 4) {
+  // three quarters of an interval after the previous frame boundary is ignored.
+  if (state.last_delivery_us != 0 && now - state.last_delivery_us < interval_us(state.view, clock) * 3 / 4) {
     state.ticks_early++;
     return G_SOURCE_CONTINUE;
   }
-  state.tick_id = 0;  // returning REMOVE drops it
-  deliver(clock, true, 0);
-  return G_SOURCE_REMOVE;
+  state.last_tick_us = now;
+  if (engine_waiting()) {
+    state.idle_ticks = 0;
+    deliver(clock, Source::kTick, now);
+    return G_SOURCE_CONTINUE;
+  }
+  // The grid follows the compositor even while the engine is quiet.
+  state.boundary_used = false;
+  state.grid_origin_us = now;
+  if (++state.idle_ticks >= kIdleTicksBeforeStop) {
+    state.tick_id = 0;  // returning REMOVE drops it
+    return G_SOURCE_REMOVE;
+  }
+  return G_SOURCE_CONTINUE;
 }
 
 // The frame boundary the timer targets, in monotonic microseconds.
@@ -218,33 +293,54 @@ gint64 pending_boundary_us = 0;
 // the same grid, never slower than the engine's own fixed timer.
 gboolean on_watchdog(gpointer) {
   state.watchdog_id = 0;
-  deliver(state.view != nullptr ? gtk_widget_get_frame_clock(state.view) : nullptr, false,
+  if (!engine_waiting()) return G_SOURCE_REMOVE;
+  deliver(state.view != nullptr ? gtk_widget_get_frame_clock(state.view) : nullptr, Source::kTimer,
           pending_boundary_us);
+  if (state.timer_streak >= kTickGiveUpAfter && state.timer_streak % kProbeEvery != 0) remove_tick();
   return G_SOURCE_REMOVE;
 }
 
 gboolean schedule_on_main(gpointer) {
-  if (state.view == nullptr) return G_SOURCE_REMOVE;
+  if (state.view == nullptr || !engine_waiting()) return G_SOURCE_REMOVE;
   GdkFrameClock* clock = gtk_widget_get_frame_clock(state.view);
   gint64 interval = interval_us(state.view, clock);
+  state.interval_us = interval;
   gint64 now = g_get_monotonic_time();
-  // Next boundary of the grid anchored on the last delivery (a tick, or the
-  // timer's own previous boundary); a first or long-idle request lands on the
-  // next boundary of that grid.
+  bool use_ticks = !state.timer_only && clock != nullptr && gtk_widget_get_mapped(state.view) &&
+                   (state.timer_streak < kTickGiveUpAfter || state.timer_streak % kProbeEvery == 0);
+  if (use_ticks && state.tick_id == 0) {
+    state.idle_ticks = 0;
+    state.tick_id = gtk_widget_add_tick_callback(state.view, on_tick, nullptr, nullptr);
+  }
+  // The request came just after a refresh whose tick found nothing to
+  // release (the engine asks for the next frame a few ms after the last one
+  // was released, and a frame that finishes slightly late asks after the next
+  // boundary): start the frame now, within the same refresh, rather than
+  // idling a whole period. Frames are cheap (a few ms), so the remainder of
+  // the period is enough to finish before the next boundary.
+  // Each refresh releases at most one frame: only a refresh whose tick found
+  // nothing waiting can be served late, so the rate never exceeds the display's.
+  if (use_ticks && state.tick_id != 0 && !state.boundary_used && state.last_tick_us != 0 &&
+      now >= state.last_tick_us) {
+    gint64 since = now - state.last_tick_us;
+    if (since < interval * kLatePercent / 100) {
+      deliver(clock, Source::kLate, state.last_tick_us);
+      return G_SOURCE_REMOVE;
+    }
+  }
+  // Next boundary of the grid anchored on the last tick (or the timer's own
+  // previous boundary); a first or long-idle request lands on the next
+  // boundary of that grid.
   gint64 boundary = now + interval;
   if (state.grid_origin_us != 0 && now >= state.grid_origin_us) {
     boundary = now + interval - (now - state.grid_origin_us) % interval;
   }
   pending_boundary_us = boundary;
-  bool probe_ticks = state.timer_streak < kTickGiveUpAfter;
-  bool probe = probe_ticks || state.timer_streak % kProbeEvery == 0;
-  if (clock != nullptr && probe && gtk_widget_get_mapped(state.view)) {
-    state.tick_id = gtk_widget_add_tick_callback(state.view, on_tick, nullptr, nullptr);
-  }
   // The slack only protects a working tick; once ticks have stopped arriving the
   // timer is the pacing source and fires on the boundary itself.
-  gint64 wait_us = boundary - now + (probe_ticks ? interval / kTickSlackDivisor : 0);
+  gint64 wait_us = boundary - now + (use_ticks ? interval / kTickSlackDivisor : 0);
   if (wait_us < 1000) wait_us = 1000;
+  remove_watchdog();
   state.watchdog_id = g_timeout_add(static_cast<guint>((wait_us + 500) / 1000), on_watchdog, nullptr);
   return G_SOURCE_REMOVE;
 }
@@ -252,9 +348,13 @@ gboolean schedule_on_main(gpointer) {
 // Engine-managed thread.
 void on_engine_vsync(void*, intptr_t baton) {
   g_mutex_lock(&state.lock);
+  state.requests++;
   if (state.stats) {
     gint64 now = g_get_monotonic_time();
-    if (state.delivered_us != 0 && !state.scheduled) state.gap_total_us += now - state.delivered_us;
+    if (state.delivered_us != 0 && !state.scheduled) {
+      state.gap_total_us += now - state.delivered_us;
+      if (state.interval_us != 0 && now - state.delivered_us > state.interval_us) state.long_gaps++;
+    }
     state.requested_us = now;
   }
   g_array_append_val(state.batons, baton);
@@ -325,6 +425,7 @@ void raft_vsync_install(FlView* view) {
   state.table = table;
   state.initialize = table->Initialize;
   state.stats = g_strcmp0(g_getenv("RAFT_LINUX_VSYNC_STATS"), "1") == 0;
+  state.timer_only = g_strcmp0(g_getenv("RAFT_LINUX_VSYNC"), "timer") == 0;
   table->Initialize = initialize_with_vsync;
   g_signal_connect(view, "destroy", G_CALLBACK(on_view_destroy), nullptr);
   g_signal_connect_after(view, "realize", G_CALLBACK(on_view_realize), nullptr);

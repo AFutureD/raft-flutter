@@ -44,7 +44,34 @@ Flutter 3.47.6's GTK embedder installs no vsync callback, so the engine paces fr
 and GDK 3 caps a GL-rendered window's frame clock at 60 Hz (a window committed through `eglSwapBuffers` never gets
 a measured refresh interval). `apps/raft_flutter/linux/runner/vsync_driver.cc` fixes both: it releases each engine
 frame on the GTK frame clock and fills the clock's refresh interval from the monitor's mode. It only reacts to an
-engine request, so idle stays at 0 frames and no tick callback is installed. `RAFT_LINUX_VSYNC=0` restores the
-engine's timer; `RAFT_LINUX_VSYNC_STATS=1` prints delivered frames per second. On a Flutter upgrade, re-check
-that `FlutterEngineProcTable` / `FlutterProjectArgs` still match the vendored `flutter_embedder.h`
-(the driver refuses to patch an engine whose layout it does not recognise and leaves the 60 Hz timer).
+engine request: the tick callback stays registered while frames are requested and is dropped after a few ticks
+without a request, so idle stays at 0 frames.
+
+Delivery rules (a count in `RAFT_LINUX_VSYNC_STATS=1` output for each):
+
+- **tick**: the engine asked, the next frame-clock tick releases the frame.
+- **late after a tick**: the engine asked after a tick that found nothing waiting (the previous frame took a
+  little longer than one refresh to finish): the frame starts at once instead of idling a whole period. A refresh
+  releases at most one frame, so the rate never exceeds the display's.
+- **timer**: no tick by the next boundary (hidden or occluded window, a compositor that sends no frame
+  callbacks, Xwayland where the GDK clock never ticks): a timer on the same boundary grid releases the frame, so
+  pacing is never slower than the engine's own timer. After 30 timer deliveries in a row ticks are only probed
+  every 60th delivery.
+- A tick less than 3/4 of an interval after the previous boundary is ignored ("early ticks ignored"): a frame
+  clock that is not paced by the display must not release frames faster than the refresh rate.
+
+`RAFT_LINUX_VSYNC=0` restores the engine's timer, `RAFT_LINUX_VSYNC=timer` never uses ticks.
+`RAFT_LINUX_VSYNC_STATS=1` prints once a second: GDK backend, requested and delivered counts, the split above,
+the median/max lateness of a delivery against its refresh, and the mean wait for the tick and the engine's gap
+between a delivery and its next request. A delivered count is not a completed-frame count: judge jank by
+FrameTiming (`tool/performance/lab.py`).
+
+The UI isolate runs on its own thread (`RAFT_LINUX_UI_THREAD=platform` restores the engine default, the GTK
+main thread). On the main thread each frame's build starts only after GTK has painted the previous frame, which
+costs several ms at 2x scale: frames of 3 ms of work missed a 120 Hz refresh about one time in ten. Measured on
+a headless 120 Hz, 2x compositor: frame interval p99 14.4 ms (platform thread) vs 9.2 ms (own thread).
+`RAFT_LINUX_IMPELLER=0|1` selects Skia or Impeller for A/B measurements.
+
+On a Flutter upgrade, re-check that `FlutterEngineProcTable` / `FlutterProjectArgs` still match the vendored
+`flutter_embedder.h` (the driver refuses to patch an engine whose layout it does not recognise and leaves the
+60 Hz timer).

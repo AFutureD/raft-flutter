@@ -128,6 +128,16 @@ static void my_application_activate(GApplication* application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+  // The Dart UI isolate runs on its own thread (RAFT_LINUX_UI_THREAD=platform
+  // restores the engine default, which runs it on the GTK main thread). With
+  // the default every frame's build waits behind the GTK paint of the previous
+  // frame on the same thread, which takes several ms at 2x scale and turned a
+  // 3 ms frame into a missed 120 Hz refresh; see docs/idle-cpu.md.
+  const gchar* ui_thread = g_getenv("RAFT_LINUX_UI_THREAD");
+  fl_dart_project_set_ui_thread_policy(
+      project, g_strcmp0(ui_thread, "platform") == 0
+                   ? FL_UI_THREAD_POLICY_RUN_ON_PLATFORM_THREAD
+                   : FL_UI_THREAD_POLICY_RUN_ON_SEPARATE_THREAD);
   // RAFT_LINUX_IMPELLER=0 renders with Skia and =1 with Impeller; unset keeps
   // the engine's default (Impeller in Flutter 3.47). For A/B measurements.
   const gchar* impeller = g_getenv("RAFT_LINUX_IMPELLER");

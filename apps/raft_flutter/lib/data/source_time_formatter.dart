@@ -89,11 +89,22 @@ class SourceTimeFormatter {
   /// Preferred-zone calendar identity, also used by timeline grouping and
   /// sticky day headers. Not UTC duration buckets or device-local DateTimes.
   String dayKey(DateTime instant) {
+    // Timeline rows ask for the same few instants repeatedly (each row compares
+    // itself with both neighbours); the key is a pure function of the instant.
+    final epoch = instant.microsecondsSinceEpoch;
+    final cached = _dayKeys[epoch];
+    if (cached != null) return cached;
     final date = wallTime(instant);
-    return '${date.year.toString().padLeft(4, '0')}-'
+    final key =
+        '${date.year.toString().padLeft(4, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
+    if (_dayKeys.length >= _dayKeyLimit) _dayKeys.clear();
+    return _dayKeys[epoch] = key;
   }
+
+  static const _dayKeyLimit = 4096;
+  final _dayKeys = <int, String>{};
 
   DateTime? _date(Object? value) {
     if (value is DateTime) return value;
