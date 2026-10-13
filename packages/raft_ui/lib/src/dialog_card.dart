@@ -33,7 +33,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/token_binding.dart';
 import 'status_bar.dart';
-import 'text_scaling.dart' show RaftScaled;
+import 'text_scaling.dart';
 import 'theme.dart';
 
 /// Tailwind v4 text steps used by the dialogs (`--text-*` and its
@@ -492,8 +492,14 @@ class RaftDialogCard extends StatelessWidget {
     required this.child,
     this.maxWidth = 448, // max-w-md = 28rem
     this.titleGlyph,
+    this.actions,
   });
   final String title;
+
+  /// The action row (buttons) under [child]. Above the default text size the
+  /// card is capped to the viewport and only [child] scrolls, so these stay on
+  /// screen; at the default size it simply follows [child].
+  final Widget? actions;
 
   /// A leading `<Icon size={18} />` in the title (`flex min-w-0 items-center
   /// gap-2` + `truncate` title span).
@@ -515,50 +521,102 @@ class RaftDialogCard extends StatelessWidget {
       weight: FontWeight.w700,
       color: t.ink,
     );
+    final grows = RaftScaled.grows(context);
+    final header = Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        // CardHeader `gap-4` between the title and the close button.
+        spacing: 16,
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: titleGlyph == null
+                  ? Text(
+                      // CardTitle has no `truncate`: a long title wraps.
+                      raftText(context, title).toUpperCase(),
+                      style: titleStyle,
+                    )
+                  : Row(
+                      spacing: 8,
+                      children: [
+                        RaftIcon(titleGlyph!, size: 18, color: t.ink),
+                        Expanded(
+                          child: Text(
+                            raftText(context, title).toUpperCase(),
+                            // The title wraps above the default text size.
+                            maxLines: grows ? null : 1,
+                            overflow: grows
+                                ? TextOverflow.clip
+                                : TextOverflow.ellipsis,
+                            style: titleStyle,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          RaftCloseButton(onPressed: onClose),
+        ],
+      ),
+    );
+    if (grows) {
+      // Text above the default size: the dialog never outgrows the viewport
+      // (minus the system insets and the modal's 16px margin); the actions
+      // stay put and the body scrolls above them.
+      final media = MediaQuery.of(context);
+      final cap = math.max(
+        0.0,
+        media.size.height - 32 - media.padding.vertical,
+      );
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: cap),
+        child: RaftRecipeCard(
+          maxWidth: maxWidth,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Without pinned actions the close button stays reachable;
+              // with them the header scrolls so a short viewport keeps room
+              // for the body.
+              if (actions == null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: header,
+                ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    actions == null ? 0 : 24,
+                    24,
+                    actions == null ? 24 : 0,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [if (actions != null) header, child],
+                  ),
+                ),
+              ),
+              if (actions != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: actions,
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     return RaftRecipeCard(
       maxWidth: maxWidth,
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              // CardHeader `gap-4` between the title and the close button.
-              spacing: 16,
-              children: [
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: titleGlyph == null
-                        ? Text(
-                            // CardTitle has no `truncate`: a long title wraps.
-                            raftText(context, title).toUpperCase(),
-                            style: titleStyle,
-                          )
-                        : Row(
-                            spacing: 8,
-                            children: [
-                              RaftIcon(titleGlyph!, size: 18, color: t.ink),
-                              Expanded(
-                                child: Text(
-                                  raftText(context, title).toUpperCase(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: titleStyle,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-                RaftCloseButton(onPressed: onClose),
-              ],
-            ),
-          ),
-          child,
-        ],
+        children: [header, child, ?actions],
       ),
     );
   }

@@ -138,6 +138,42 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
             : 'Agents Stopped',
         onClose: widget.onClose,
         maxWidth: 384, // max-w-sm
+        // Pinned under the scrolling body at large text sizes.
+        actions: phase == RaftSosPhase.confirm
+            ? actions([
+                RaftButton(
+                  key: const ValueKey('sos-cancel'),
+                  label: 'Cancel',
+                  tone: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: widget.onClose,
+                ),
+                RaftButton(
+                  key: const ValueKey('sos-stop'),
+                  label: stopping ? 'Stopping…' : 'Stop',
+                  tone: RaftButtonRecipeVariant.warning,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: stopping ? null : stop,
+                ),
+              ])
+            : actions([
+                RaftButton(
+                  key: const ValueKey('sos-keep-stopped'),
+                  label: 'Keep Stopped',
+                  tone: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: resuming ? null : widget.onClose,
+                ),
+                RaftButton(
+                  key: const ValueKey('sos-resume'),
+                  label: resuming ? 'Resuming…' : 'Resume All',
+                  tone: RaftButtonRecipeVariant.success,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: guidance.text.trim().isEmpty || resuming
+                      ? null
+                      : resume,
+                ),
+              ]),
         child: phase == RaftSosPhase.confirm
             ? Column(
                 mainAxisSize: MainAxisSize.min,
@@ -160,22 +196,6 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
                     ),
                   ),
                   ?errorText,
-                  actions([
-                    RaftButton(
-                      key: const ValueKey('sos-cancel'),
-                      label: 'Cancel',
-                      tone: RaftButtonRecipeVariant.outline,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: widget.onClose,
-                    ),
-                    RaftButton(
-                      key: const ValueKey('sos-stop'),
-                      label: stopping ? 'Stopping…' : 'Stop',
-                      tone: RaftButtonRecipeVariant.warning,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: stopping ? null : stop,
-                    ),
-                  ]),
                 ],
               )
             : Column(
@@ -215,24 +235,6 @@ class _RaftSosDialogState extends State<RaftSosDialog> {
                     ),
                   ),
                   ?errorText,
-                  actions([
-                    RaftButton(
-                      key: const ValueKey('sos-keep-stopped'),
-                      label: 'Keep Stopped',
-                      tone: RaftButtonRecipeVariant.outline,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: resuming ? null : widget.onClose,
-                    ),
-                    RaftButton(
-                      key: const ValueKey('sos-resume'),
-                      label: resuming ? 'Resuming…' : 'Resume All',
-                      tone: RaftButtonRecipeVariant.success,
-                      size: RaftButtonRecipeSize.sm,
-                      onPressed: guidance.text.trim().isEmpty || resuming
-                          ? null
-                          : resume,
-                    ),
-                  ]),
                 ],
               ),
       ),

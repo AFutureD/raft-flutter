@@ -12,6 +12,7 @@ import 'recipes/button_variants.g.dart';
 import 'shortcut_platform.dart';
 import 'system_inset.dart';
 import 'status_bar.dart';
+import 'text_scaling.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -43,20 +44,29 @@ class RaftFileTypeBadge extends StatelessWidget {
     final extension = filename.split('.').last.toUpperCase();
     final background = component.semantics.badgeBackground(extension);
     if (background == null) return const SizedBox.shrink();
-    return Container(
-      width: size.width,
-      height: size.height,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
-        border: component.badgeBorder,
-        borderRadius: component.badgeRadius,
-        boxShadow: component.badgeShadows,
+    // A minimum box: it grows with its label above the default text size so
+    // the extension is never cut.
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: RaftScaled.extent(context, size.width, fontSize: 9),
+        minHeight: RaftScaled.extent(context, size.height, fontSize: 9),
       ),
-      child: Text(
-        extension,
-        maxLines: 1,
-        style: component.badgeLabel(extension),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          border: component.badgeBorder,
+          borderRadius: component.badgeRadius,
+          boxShadow: component.badgeShadows,
+        ),
+        child: Center(
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Text(
+            extension,
+            maxLines: 1,
+            style: component.badgeLabel(extension),
+          ),
+        ),
       ),
     );
   }

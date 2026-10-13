@@ -7,6 +7,7 @@ import 'attachment_lightbox.dart' show RaftFileTypeBadge;
 import 'design_primitives.dart';
 import 'icons.dart';
 import 'localization.dart';
+import 'text_scaling.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -585,6 +586,43 @@ class RaftFileTransferPanel extends StatelessWidget {
     );
     final mono = RaftTypography.mono(t, size: 12, line: 16, color: t.muted);
     final retryTap = failed ? onRetry : null;
+    final grows = RaftScaled.grows(context);
+    final Widget status = failed
+        ? Text(
+            raftText(context, 'Download failed · tap to retry'),
+            style: metaStyle.copyWith(color: recipe.dangerText),
+          )
+        : ValueListenableBuilder<RaftTransferProgress?>(
+            valueListenable: progress,
+            builder: (context, value, _) {
+              final resolved = (value ?? RaftTransferProgress.connecting)
+                  .withFallbackTotal(fallbackTotal);
+              final fraction = resolved.fraction;
+              return Text(
+                resolved.waiting
+                    ? raftText(context, 'Connecting…')
+                    : fraction == null || resolved.percentOnly
+                    ? resolved.sizeLabel
+                    : '${resolved.sizeLabel} · ${(fraction * 100).floor()}%',
+                style: mono,
+              );
+            },
+          );
+    final Widget? action = failed && onRetry != null
+        ? RaftTextButton(
+            label: raftText(context, 'Retry'),
+            glyph: RaftGlyph.refreshCw,
+            onPressed: onRetry,
+            visualHeight: 32,
+          )
+        : !failed && onCancel != null
+        ? RaftTextButton(
+            label: raftText(context, 'Cancel'),
+            glyph: RaftGlyph.x,
+            onPressed: onCancel,
+            visualHeight: 32,
+          )
+        : null;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 280),
       child: Column(
@@ -597,9 +635,11 @@ class RaftFileTransferPanel extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 72,
-                  height: 88,
-                  alignment: Alignment.center,
+                  // The file tile is a minimum: it grows with the type badge.
+                  constraints: BoxConstraints(
+                    minWidth: RaftScaled.extent(context, 72, fontSize: 9),
+                    minHeight: RaftScaled.extent(context, 88, fontSize: 9),
+                  ),
                   decoration: BoxDecoration(
                     color: t.brutal ? Colors.white : t.card,
                     border: Border.all(
@@ -611,16 +651,21 @@ class RaftFileTransferPanel extends StatelessWidget {
                     borderRadius: BorderRadius.circular(t.brutal ? 0 : 8),
                     boxShadow: t.brutal ? t.shadows : null,
                   ),
-                  child: RaftFileTypeBadge(
-                    filename: filename,
-                    size: const Size(40, 20),
+                  child: Center(
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: RaftFileTypeBadge(
+                      filename: filename,
+                      size: const Size(40, 20),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
                 Text(
                   filename,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  // The name wraps fully above the default text size.
+                  maxLines: grows ? null : 2,
+                  overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: nameStyle,
                 ),
@@ -653,48 +698,23 @@ class RaftFileTransferPanel extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: failed
-                    ? Text(
-                        raftText(context, 'Download failed · tap to retry'),
-                        style: metaStyle.copyWith(color: recipe.dangerText),
-                      )
-                    : ValueListenableBuilder<RaftTransferProgress?>(
-                        valueListenable: progress,
-                        builder: (context, value, _) {
-                          final resolved =
-                              (value ?? RaftTransferProgress.connecting)
-                                  .withFallbackTotal(fallbackTotal);
-                          final fraction = resolved.fraction;
-                          return Text(
-                            resolved.waiting
-                                ? raftText(context, 'Connecting…')
-                                : fraction == null || resolved.percentOnly
-                                ? resolved.sizeLabel
-                                : '${resolved.sizeLabel} · ${(fraction * 100).floor()}%',
-                            style: mono,
-                          );
-                        },
-                      ),
-              ),
-              if (failed && onRetry != null)
-                RaftTextButton(
-                  label: raftText(context, 'Retry'),
-                  glyph: RaftGlyph.refreshCw,
-                  onPressed: onRetry,
-                  visualHeight: 32,
-                )
-              else if (!failed && onCancel != null)
-                RaftTextButton(
-                  label: raftText(context, 'Cancel'),
-                  glyph: RaftGlyph.x,
-                  onPressed: onCancel,
-                  visualHeight: 32,
-                ),
-            ],
-          ),
+          // Size line and Cancel / Retry: side by side at the default text
+          // size, stacked above it so neither is squeezed.
+          if (grows)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                status,
+                if (action != null) ...[const SizedBox(height: 8), action],
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(child: status),
+                if (action != null) action,
+              ],
+            ),
         ],
       ),
     );
@@ -719,16 +739,26 @@ class RaftPreviewTransferStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    final panel = RaftFileTransferPanel(
+      filename: filename,
+      meta: meta,
+      progress: progress,
+      onCancel: onCancel,
+    );
     return ColoredBox(
       color: t.brutal ? Colors.white : t.panel,
-      child: Center(
-        child: RaftFileTransferPanel(
-          filename: filename,
-          meta: meta,
-          progress: progress,
-          onCancel: onCancel,
-        ),
-      ),
+      // Above the default text size the panel can outgrow the stage: it
+      // scrolls instead of overflowing (still centred when it fits).
+      child: RaftScaled.grows(context)
+          ? LayoutBuilder(
+              builder: (context, box) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: box.maxHeight),
+                  child: Center(child: panel),
+                ),
+              ),
+            )
+          : Center(child: panel),
     );
   }
 }

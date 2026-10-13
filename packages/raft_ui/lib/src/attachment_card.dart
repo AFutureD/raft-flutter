@@ -1,12 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
 import 'icons.dart';
 import 'design_primitives.dart';
+import 'attachment_lightbox.dart' show RaftFileTypeBadge;
 import 'attachment_tokens.dart';
 import 'attachment_transfer.dart';
 import 'localization.dart';
 import 'hover_card.dart';
+import 'text_scaling.dart';
 import 'tooltip.dart';
 
 class RaftAttachmentCard extends StatelessWidget {
@@ -74,6 +78,18 @@ class RaftAttachmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!RaftScaled.grows(context)) return _card(context, double.infinity);
+    return LayoutBuilder(
+      builder: (context, constraints) => _card(
+        context,
+        constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width,
+      ),
+    );
+  }
+
+  Widget _card(BuildContext context, double availableWidth) {
     final t = RaftTokens.of(context);
     final recipe = RaftAttachmentRecipe(t);
     final component = AttachmentComponentRecipe(t);
@@ -83,24 +99,13 @@ class RaftAttachmentCard extends StatelessWidget {
     final extension = filename.split('.').last.toUpperCase();
     final failedColor = RaftTransferRecipe(t).dangerText;
     final badge = component.semantics.badgeBackground(extension);
+    final grows = RaftScaled.grows(context);
     Widget title() => Row(
       children: [
         if (badge != null) ...[
-          Container(
-            width: AttachmentPrimitive.badgeSize.width,
-            height: AttachmentPrimitive.badgeSize.height,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: badge,
-              border: component.badgeBorder,
-              borderRadius: component.badgeRadius,
-              boxShadow: component.badgeShadows,
-            ),
-            child: Text(
-              extension,
-              maxLines: 1,
-              style: component.badgeLabel(extension),
-            ),
+          RaftFileTypeBadge(
+            filename: filename,
+            size: AttachmentPrimitive.badgeSize,
           ),
           const SizedBox(width: AttachmentPrimitive.badgeGap),
         ],
@@ -112,17 +117,40 @@ class RaftAttachmentCard extends StatelessWidget {
             excludeFromSemantics: true,
             child: Text(
               filename,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              // Above the default text size the name wraps instead of
+              // being cut.
+              maxLines: grows ? null : 1,
+              overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
               style: recipe.title.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ),
       ],
     );
-    final content = SizedBox(
-      width: recipe.size.width,
-      height: recipe.size.height,
+    // The 176x80 chip is a minimum above the default text size: its height
+    // follows the text and its width grows with it (capped to the space the
+    // card is given).
+    final cardWidth = grows
+        ? math.min(
+            RaftScaled.extent(context, recipe.size.width, fontSize: 12),
+            math.max(recipe.size.width, availableWidth),
+          )
+        : recipe.size.width;
+    Widget sized({required Widget child}) => grows
+        ? ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: cardWidth,
+              maxWidth: cardWidth,
+              minHeight: recipe.size.height,
+            ),
+            child: child,
+          )
+        : SizedBox(
+            width: recipe.size.width,
+            height: recipe.size.height,
+            child: child,
+          );
+    final content = sized(
       child: Padding(
         padding: component.contentInset,
         child: Column(
@@ -140,8 +168,8 @@ class RaftAttachmentCard extends StatelessWidget {
                   excludeFromSemantics: true,
                   child: Text(
                     summary!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: grows ? null : 1,
+                    overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
                     style: component.metadata.copyWith(
                       height: metaLineHeight(t),
                       fontWeight: FontWeight.w500,
@@ -152,7 +180,10 @@ class RaftAttachmentCard extends StatelessWidget {
                   ),
                 ),
               ),
-            if (metaLabel != null) const Spacer(),
+            // The Spacer needs a bounded height; the grown chip has only a
+            // minimum, so it keeps a small gap instead.
+            if (metaLabel != null)
+              if (grows) const SizedBox(height: 4) else const Spacer(),
             if (metaLabel != null)
               _WebMeta(
                 label: downloadFailed
@@ -170,6 +201,7 @@ class RaftAttachmentCard extends StatelessWidget {
                     : t.colors['foreground-placeholder']!,
                 glyph: previewAffordance ? RaftGlyph.eye : RaftGlyph.download,
                 glyphColor: component.actionForeground,
+                wrap: grows,
               )
             else
               Row(
@@ -312,7 +344,7 @@ class RaftAttachmentCard extends StatelessWidget {
         },
       );
     return SizedBox(
-      width: recipe.size.width,
+      width: cardWidth,
       child: _AttachmentSurface(
         recipe: recipe,
         child: Column(
@@ -444,7 +476,11 @@ class _WebMeta extends StatelessWidget {
     required this.separator,
     required this.glyph,
     required this.glyphColor,
+    this.wrap = false,
   });
+
+  /// Above the default text size the label wraps instead of being cut.
+  final bool wrap;
   final String label;
   final String? size;
   final TextStyle style;
@@ -458,8 +494,8 @@ class _WebMeta extends StatelessWidget {
       Expanded(
         child: Text(
           label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: wrap ? null : 1,
+          overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
           style: style,
         ),
       ),
