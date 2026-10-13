@@ -338,8 +338,12 @@ Future<DecodedAttachmentImage> decodeAttachmentImage(
         width: frame.image.width,
         height: frame.image.height,
         release: () async {
-          await provider.evict();
+          // Retire first, synchronously: the bitmap is gone when a drop returns,
+          // not after the eviction's microtask (which a test zone, or a loaded
+          // machine, may run after the owner is already torn down).
+          final eviction = provider.evict();
           provider._retire();
+          await eviction;
         },
       );
     }

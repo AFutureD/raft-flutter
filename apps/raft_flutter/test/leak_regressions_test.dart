@@ -141,6 +141,42 @@ void main() {
     });
   });
 
+  testWidgets('a dropped decoded image is disposed before the drop returns', (
+    t,
+  ) async {
+    final repository = AttachmentImageRepository(
+      scope: _scope,
+      retainedAuthority: (_) => true,
+    );
+    // Acquire and decode on the real event loop (the decoder needs it).
+    late AttachmentImageLease lease;
+    final provider = (await t.runAsync(() async {
+      lease = repository.acquire(
+        _key('decoded'),
+        authorized: () => true,
+        load: (_) async => _png,
+      );
+      await lease.ready;
+      return lease.value;
+    }))!;
+    expect(provider, isA<AttachmentBitmapImage>());
+    repository.invalidate(_key('decoded'));
+    // No pump, no await: the decoded bitmap must already be retired. (It used
+    // to be retired after `await provider.evict()`, a microtask that did not
+    // always run before the test's owner was torn down: a flaky leak report.)
+    expect(
+      // ignore: invalid_use_of_protected_member
+      () => provider.loadImage(
+        provider as AttachmentBitmapImage,
+        (buffer, {getTargetSize}) => throw StateError('unused'),
+      ),
+      throwsA(isA<StaleAttachmentImage>()),
+    );
+    lease.release();
+    repository.dispose();
+    imageCache.clear();
+  });
+
   testWidgets('the lightbox disposes the ImageInfo clone it measures', (
     t,
   ) async {
@@ -159,12 +195,17 @@ void main() {
         ),
       ),
     );
-    // Decode on the real event loop, then deliver the frame.
-    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-    await t.pump();
+    // Decode on the real event loop (until the listener has run, however long
+    // a loaded machine takes), then deliver the frame.
     final state = t.state<AttachmentLightboxImageState>(
       find.byType(AttachmentLightboxImage),
     );
+    for (var i = 0; i < 500 && state.decoded == null; i++) {
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await t.pump();
+    }
     expect(state.decoded, const Size(16, 16), reason: 'the listener ran');
     await t.pumpWidget(const SizedBox());
     imageCache.clear();
