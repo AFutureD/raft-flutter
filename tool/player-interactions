@@ -202,10 +202,12 @@ def main():
     ap.add_argument('--port', type=int, default=8791)
     ap.add_argument('--build', action='store_true', help='build the profile APK first (isolated app id .linkperf)')
     ap.add_argument('--only', default='', help='run the scenarios whose name contains this text (baked into the build)')
+    ap.add_argument('--define', action='append', default=[], help='extra --dart-define (NAME=value), e.g. VP_BACKGROUND=true')
     ap.add_argument('--no-host', action='store_true', help='skip the host-driven steps (back key, recordings, save dialog)')
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     defines = [f'--dart-define=VP_BASE=http://127.0.0.1:{args.port}', f'--dart-define=VP_HOST={str(not args.no_host).lower()}']
+    defines += [f'--dart-define={d}' for d in args.define]
     if args.only:
         defines.append(f'--dart-define=VP_ONLY={args.only}')
     if args.build:

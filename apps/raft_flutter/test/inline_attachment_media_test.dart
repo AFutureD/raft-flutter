@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -609,6 +610,23 @@ void main() {
       'sizeBytes': 1000000,
     };
 
+    // The pictures a card takes of its video for the still, counted (a real
+    // snapshot needs the engine's raster thread).
+    var stillSnapshots = 0;
+    setUp(() {
+      stillSnapshots = 0;
+      InlineMediaTestHooks.stillSnapshot = (boundary, ratio) async {
+        stillSnapshots++;
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawRect(const Rect.fromLTWH(0, 0, 1, 1), Paint());
+        final picture = recorder.endRecording();
+        final image = picture.toImageSync(1, 1);
+        picture.dispose();
+        return image;
+      };
+    });
+    tearDown(() => InlineMediaTestHooks.stillSnapshot = null);
+
     /// A card whose players are made one per request, so a release and a
     /// replay can be told apart.
     Future<(List<_VideoPlayer>, ValueNotifier<bool>)> mountCard(
@@ -700,6 +718,8 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await settle(tester);
       expect(made.single.disposed, isTrue);
+      // In the foreground the release keeps a picture of the last frame.
+      expect(stillSnapshots, 2, reason: 'the first picture and the last one');
       // Visible again: the card waits for a tap (a new stream per scroll-back
       // would spend requests), then prepares at the position it stopped at.
       shown.value = true;
@@ -757,6 +777,46 @@ void main() {
       expect(made, hasLength(2));
       expect((made.last.sources.single.start), const Duration(seconds: 40));
       expect(made.last.playing, isTrue);
+      await unmount(tester);
+    });
+
+    testWidgets('a card frees its player after the app was in the background, and takes no picture '
+        'of the screen then', (tester) async {
+      final (made, _) = await mountCard(tester);
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      await tester.pump(const Duration(milliseconds: 50));
+      made.single.position = const Duration(seconds: 40);
+      made.single.events.add(made.single.state);
+      await tester.pump(const Duration(milliseconds: 50));
+      final w = _mounted;
+      // The first picture is the card's still (taken in the foreground).
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(stillSnapshots, 1, reason: 'the first picture was not kept as the still');
+      expect(w.playerSessions.hasStill('a1|'), isTrue);
+      final binding = tester.binding;
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(const Duration(seconds: 2));
+      expect(made.single.disposed, isFalse, reason: 'inside the grace period');
+      await tester.pump(const Duration(seconds: 2));
+      await settle(tester);
+      expect(made.single.disposed, isTrue, reason: 'the decoder stayed while the app was away');
+      // No snapshot is taken from the background (Impeller OpenGL ES dies on it,
+      // flutter/flutter#192365): the card keeps the still it had.
+      expect(stillSnapshots, 1, reason: 'a snapshot of the screen was taken in the background');
+      expect(w.playerSessions.hasStill('a1|'), isTrue);
+      // Back in the foreground the card waits for a tap and resumes where it was.
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(made, hasLength(1));
+      await tester.tap(find.byKey(const Key('inline-video-surface')));
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(made, hasLength(2));
+      expect(made.last.sources.single.start, const Duration(seconds: 40));
       await unmount(tester);
     });
 

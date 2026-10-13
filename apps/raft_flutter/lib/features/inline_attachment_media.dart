@@ -18,6 +18,10 @@ import 'media_failure_text.dart';
 /// explicit override. Null in the product.
 abstract final class InlineMediaTestHooks {
   static AttachmentPlayer Function()? playerFactory;
+
+  /// Takes the picture of a card's video for its still (`toImage` of the
+  /// boundary in the product); a test counts the calls.
+  static Future<ui.Image> Function(RenderRepaintBoundary boundary, double pixelRatio)? stillSnapshot;
 }
 
 /// Why a card gave its player back (see `InlineMediaLoader.releasePlayer`).
@@ -281,7 +285,14 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     if (stillQueued || sessions.hasStill(mediaKey)) return;
     stillQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final image = mounted && !disposed ? await captureStill() : null;
+      if (!mounted || disposed) return;
+      if (!stillCaptureSafe) {
+        // The app left the foreground between the frame and now: try again
+        // with the next picture.
+        stillQueued = false;
+        return;
+      }
+      final image = await captureStill();
       if (image == null) return;
       if (disposed) {
         image.dispose();
@@ -292,12 +303,31 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     });
   }
 
-  /// A downscaled still of the picture on screen, or null.
+  /// Whether a picture of the screen may be taken now. Only while the app is
+  /// in the foreground: from the background (`hidden`, `paused`; Android's
+  /// surface is already gone then, and `inactive` can still end in a lost
+  /// surface) the snapshot of the Impeller OpenGL ES backend dies with
+  /// SIGSEGV on the raster thread (`DeviceBufferGLES::OnGetContents`, see
+  /// flutter/flutter#192365: a stale upload of the throwaway context the
+  /// snapshot builds without a surface). Vulkan, Metal and Skia are not
+  /// affected; the OpenGL ES backend is what Android devices without a usable
+  /// Vulkan driver and many emulators get. Null (no binding state yet) counts
+  /// as foreground.
+  bool get stillCaptureSafe {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  /// A downscaled still of the picture on screen, or null (also when the app
+  /// is not in the foreground: see [stillCaptureSafe]; the card then keeps the
+  /// still it has, the first picture of the clip).
   Future<ui.Image?> captureStill() async {
+    if (!stillCaptureSafe) return null;
     final boundary = stillKey.currentContext?.findRenderObject();
     if (boundary is! RenderRepaintBoundary || !playback.hasFrame) return null;
     try {
-      return await boundary.toImage(pixelRatio: 1.5);
+      final snapshot = InlineMediaTestHooks.stillSnapshot;
+      return await (snapshot != null ? snapshot(boundary, 1.5) : boundary.toImage(pixelRatio: 1.5));
     } on Object {
       return null;
     }

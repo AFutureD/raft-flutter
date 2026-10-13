@@ -24,9 +24,9 @@ const _base = String.fromEnvironment('VP_BASE', defaultValue: 'http://127.0.0.1:
 const _hostDriven = bool.fromEnvironment('VP_HOST');
 const _only = String.fromEnvironment('VP_ONLY');
 
-/// The background scenarios (R14) take the app out of the foreground; on the
-/// emulators tried the app dies with SIGSEGV in the raster thread then (also for
-/// an inline card alone), so they only run on request.
+/// The background scenarios take the app out of the foreground (another app in
+/// front, then back), which a test on the device cannot do itself: they need
+/// the host runner and `--define VP_BACKGROUND=true`.
 const _background = bool.fromEnvironment('VP_BACKGROUND');
 
 const _portrait = VideoClip('vp-portrait', 'portrait.mp4', 'portrait.mp4', size: 5416578);
@@ -1162,6 +1162,31 @@ void main() {
       expect(playing, startsWith('started=1'), reason: 'the audio session was not visible while playing: $playing');
       expect(off, startsWith('started=0'), reason: 'audio still started after paging off: $off');
     }
+    await shutdown(tester);
+  });
+
+  scenario('background: the app in the background while an inline card plays does not crash; it comes back paused', (tester) async {
+    if (!_background) return markTestSkipped('run with --define VP_BACKGROUND=true (see _background)');
+    await launch(tester, [_portrait]);
+    await playInline(tester, 'portrait.mp4', past: const Duration(milliseconds: 800));
+    final before = cardOf(tester, 'portrait.mp4').position;
+    // 4 s away is longer than the card's release grace (3 s): the player is
+    // released in the background, where a snapshot of the screen for the still
+    // killed the app on the Impeller OpenGL ES backend (flutter/flutter#192365).
+    final result = await lab.hostQuiet('background:4');
+    if (result == null) {
+      markTestSkipped('needs the host runner');
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 800));
+    report('background-inline', {'cardPlaying': cardOf(tester, 'portrait.mp4').playing, 'live': VideoPlayerAttachmentPlayer.debugLive});
+    expect(cardOf(tester, 'portrait.mp4').playing, false, reason: 'returning resumed playback');
+    expect(VideoPlayerAttachmentPlayer.debugLive, 0, reason: 'the decoder stayed while the app was away');
+    // A tap plays again from where the card was.
+    final surface = find.descendant(of: card('portrait.mp4'), matching: find.byKey(const Key('inline-video-surface')));
+    await until(tester, () => surface.evaluate().isNotEmpty, 'the idle card');
+    await tapCentre(tester, surface);
+    await until(tester, () => cardOf(tester, 'portrait.mp4').playing && cardOf(tester, 'portrait.mp4').position > before, 'playback to continue past $before');
     await shutdown(tester);
   });
 

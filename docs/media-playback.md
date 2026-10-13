@@ -337,7 +337,7 @@ reverse`s it, builds the profile APK of the isolated app `app.raft.raft_flutter.
 it with `flutter drive` and answers the test's host commands: Android back key, a back swipe from the left edge,
 screenshots, `screenrecord` of the close animation, `dumpsys meminfo`, the system save dialog. Output in `--out`:
 `suite.log` (test output and logcat), `server.log`, `host.log`, recordings and screenshots. `--only <part of a
-scenario name>` builds a subset in; `--no-host` skips the host-driven steps. Start your own emulator on a free port
+scenario name>` builds a subset in; `--define NAME=value` passes a `--dart-define` (`VP_BACKGROUND=true` enables the background scenario, which sends the app to the background with the host command `background:<seconds>`); `--no-host` skips the host-driven steps. Start your own emulator on a free port
 (`-read-only` when the AVD is shared) and never point it at a phone with the real app.
 
 Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
@@ -352,6 +352,7 @@ Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
 | cancelled open | eye and an immediate back: the card keeps playing, one player |
 | reopen | open and close the viewer twice on a 16 MB / 287 s clip: zero new requests, under 35 % of the file read |
 | HDR | an HLG-tagged clip: native view at the card's position, exit without a native view on the first frames of the pop, card resumes; handoff time and requested ranges reported |
+| background | an inline card plays, the app goes to the background for 4 s (longer than the card's 3 s release grace) and returns: no crash (the still is not photographed from the background, flutter/flutter#192365), the decoder is released, the card is not playing, a tap plays on from the position it had |
 | Download | system save dialog, whole file written to Downloads, size matches |
 | expired URL | the host answers 403 once: signed again once, plays |
 | undecodable | "Download to view" |
