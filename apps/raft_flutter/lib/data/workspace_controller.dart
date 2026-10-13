@@ -28,6 +28,7 @@ import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'attachment_url_cache.dart';
+import '../platform/memory_release.dart';
 import '../platform/inline_media_files.dart';
 import '../platform/attachment_http.dart';
 import 'upload_mime.dart';
@@ -719,6 +720,31 @@ class WorkspaceController extends ChangeNotifier {
     };
   }
 
+  AttachmentImageRepository _newImageRepository() {
+    final repository = AttachmentImageRepository(
+      scope: attachmentImageScope,
+      retainedAuthority: _retainsAttachment,
+      store: attachmentImageStore,
+    );
+    // Decoded bitmaps are rebuildable from the byte store: let go of the
+    // unleased ones under memory pressure and while the app is hidden.
+    _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer(
+      (reason) {
+        final dropped = repository.trimIdle();
+        if (!kReleaseMode) {
+          debugPrint(
+            '[raft-memory] ${reason.name}: dropped $dropped decoded images, '
+            '${repository.entryCount} held '
+            '(${repository.decodedByteCount} B decoded)',
+          );
+        }
+      },
+    );
+    return repository;
+  }
+
+  VoidCallback? _removeImageTrimmer;
+
   WorkspaceAttachmentImageLease acquireAttachmentImage(
     AttachmentImageKey key, {
     required AttachmentImageLoader load,
@@ -735,11 +761,7 @@ class WorkspaceController extends ChangeNotifier {
     }
     final releaseAuthority = _registerImageAuthority(key, authorized);
     try {
-      final repository = _attachmentImages ??= AttachmentImageRepository(
-        scope: attachmentImageScope,
-        retainedAuthority: _retainsAttachment,
-        store: attachmentImageStore,
-      );
+      final repository = _attachmentImages ??= _newImageRepository();
       repository.synchronize(attachmentImageScope);
       return WorkspaceAttachmentImageLease(
         repository.acquire(
@@ -6724,6 +6746,8 @@ class WorkspaceController extends ChangeNotifier {
     _announcements?.dispose();
     _announcementGate?.dispose();
     _imageAuthorities.clear();
+    _removeImageTrimmer?.call();
+    _removeImageTrimmer = null;
     _attachmentImages?.dispose();
     _attachmentUrls.dispose();
     _inlineMedia.dispose();

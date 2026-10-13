@@ -136,9 +136,64 @@ class _AttachmentViewState extends State<AttachmentView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     devicePixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1;
-    if (begun) return;
+    tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (begun) {
+      retentionChanged();
+      return;
+    }
     begun = true;
     beginImage();
+  }
+
+  /// A row on a covered route, an offstage tab or a folded panel (TickerMode
+  /// is off there) keeps no decoded bitmap after [hiddenImageDelay]: it lets
+  /// go of its lease and its image stream. The repository keeps the decoded
+  /// image for a quick return (first-frame paint) until its idle sweep or a
+  /// memory trim, and a returning row adopts it synchronously.
+  ///
+  /// Rows that are on screen when the app goes to the background keep theirs:
+  /// no frames run while the app is hidden, so a released row could not drop
+  /// its bitmap, and would only blink on return.
+  static const hiddenImageDelay = Duration(seconds: 5);
+  bool tickerEnabled = true;
+
+  /// The preview was released for memory and must be adopted again.
+  bool memoryReleased = false;
+  Timer? hiddenTimer;
+
+  void retentionChanged() {
+    if (!mounted || widget.exportMode) return;
+    if (tickerEnabled) {
+      hiddenTimer?.cancel();
+      hiddenTimer = null;
+      if (memoryReleased) {
+        memoryReleased = false;
+        beginImage();
+      }
+      return;
+    }
+    if (memoryReleased || imageLease == null || imageProvider == null) return;
+    hiddenTimer ??= Timer(hiddenImageDelay, () {
+      hiddenTimer = null;
+      if (!tickerEnabled) releaseImageForMemory();
+    });
+  }
+
+  void releaseImageForMemory() {
+    final lease = imageLease;
+    // An open lightbox shows this preview as its stand-in, and a load in
+    // flight owns the lease; both call back here when they finish.
+    if (!mounted ||
+        lease == null ||
+        imageProvider == null ||
+        loading ||
+        previewRoute != null) {
+      return;
+    }
+    memoryReleased = true;
+    imageLease = null;
+    lease.release();
+    setState(() => imageProvider = null);
   }
 
   String fingerprint({bool withMessage = true}) => jsonEncode([
@@ -364,6 +419,9 @@ class _AttachmentViewState extends State<AttachmentView> {
     imageTransfer = null;
     error = null;
     downloadFailed = false;
+    memoryReleased = false;
+    hiddenTimer?.cancel();
+    hiddenTimer = null;
     loading = saving = opening = invalidated = exportReadyReported = false;
     fadeIn = false;
     captureAuthority();
@@ -406,6 +464,8 @@ class _AttachmentViewState extends State<AttachmentView> {
   @override
   void dispose() {
     ++bindingRevision;
+    hiddenTimer?.cancel();
+    hiddenTimer = null;
     w.removeListener(scopeChanged);
     if (sharedLease != null) unawaited(sharedLease!.dispose());
     sharedLease = null;
@@ -475,6 +535,7 @@ class _AttachmentViewState extends State<AttachmentView> {
           (imageProvider != null || error != null)) {
         exportReady();
       }
+      if (mounted && revision == bindingRevision) retentionChanged();
     }
   }
 
@@ -872,6 +933,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     await operationRoute.completed;
     zoom.dispose();
     if (identical(previewRoute, operationRoute)) previewRoute = null;
+    retentionChanged();
   }
 
   /// The original's pixel size from the attachment metadata, when valid.

@@ -36,6 +36,7 @@ import 'features/private_route_guard.dart';
 import 'features/root_error_boundary.dart';
 import 'platform/auth_audit_log.dart';
 import 'platform/file_selection.dart' show configureAndroidPhotoPicker;
+import 'platform/memory_release.dart';
 import 'platform/session_store.dart';
 import 'platform/keyboard_inset_guard.dart';
 import 'platform/launch_theme.dart';
@@ -293,6 +294,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       widget.sessionStore ?? SecureSessionStore(),
     );
     WidgetsBinding.instance.addObserver(this);
+    RaftMemoryRelease.instance.install();
     NativeSystemFonts.instance.addListener(systemFontsChanged);
     removeShareReceiver = sharing.registerReceiver(receiveSharedContent);
     content.onIncomingShare = () => unawaited(sharing.resume());

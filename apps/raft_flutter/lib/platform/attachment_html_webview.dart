@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart'
+    show PlatformWebViewController;
 import 'package:webview_flutter_android/webview_flutter_android.dart';
+// ignore: implementation_imports
+import 'package:webview_flutter_android/src/android_webkit.g.dart'
+    as android_webview;
 
 import 'attachment_html_webview_data.dart';
 
@@ -157,7 +162,47 @@ class _AttachmentHtmlWebViewState extends State<AttachmentHtmlWebView> {
           .loadRequest(Uri.parse(blank))
           .then((_) => data.purge(), onError: (_) => data.purge()),
     );
+    destroyAndroidWebView(controller.platform);
     super.dispose();
+  }
+
+  /// How long the platform view needs to leave the view hierarchy before the
+  /// native WebView is destroyed.
+  static const destroyDelay = Duration(milliseconds: 750);
+
+  /// webview_flutter keeps the native Android `WebView` (its renderer, DOM and
+  /// GPU memory, tens of MB for a heavy page) until Dart garbage collection
+  /// reaches the controller; closing the preview did not return that memory.
+  /// `WebView.destroy()` frees it once the view is detached. The plugin does
+  /// not expose the call, so the pigeon proxy is reached through its instance
+  /// manager (pinned by pubspec.lock).
+  @visibleForTesting
+  static void destroyAndroidWebView(
+    PlatformWebViewController platform, {
+    Duration delay = destroyDelay,
+    Future<void> Function(int identifier)? destroy,
+  }) {
+    if (platform is! AndroidWebViewController) return;
+    final id = platform.webViewIdentifier;
+    Timer(delay, () {
+      Future<void> run() async {
+        if (destroy != null) return destroy(id);
+        final view = android_webview.PigeonInstanceManager.instance
+            .getInstanceWithWeakReference<android_webview.WebView>(id);
+        await view?.destroy();
+        if (!kReleaseMode) {
+          debugPrint('[raft-memory] WebView $id destroyed: ${view != null}');
+        }
+      }
+
+      unawaited(
+        run().catchError((Object error) {
+          if (!kReleaseMode) {
+            debugPrint('[raft-memory] WebView $id destroy failed: $error');
+          }
+        }),
+      );
+    });
   }
 
   @override
