@@ -33,5 +33,6 @@
 - 启动 subagent 时显式指定模型，不默认继承。
 - 默认一律用 Sonnet 5.5：调研、视觉对齐、页面移植、底层绘制、功能开发都用 Sonnet。
 - 只有 Kevin 明确要求时才用 Opus 5.5。
-- subagent 只跑与改动相关的测试、`tool/flutter analyze` 和设计系统审计，不跑全量检查。
+- subagent 只跑与改动相关的测试、`tool/flutter analyze`、设计系统审计和 `tool/raft-lints --changed`（每轮编辑后跑，几秒出结果），不跑全量检查。
+- 每个 clone 首次使用时运行一次 `tool/install-git-hooks`：提交前自动 lint 暂存的 lib 文件，pull / rebase / 切分支后自动按 pubspec.lock 重跑 `pub get`。
 - 全量检查每个分支一次：负责人审核后用 `tool/prepare-handoff`（rebase + `tool/check-project`），通过后 fast-forward 推送到 cindy/integration，不再攒批次分支整批检查。
