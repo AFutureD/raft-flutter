@@ -61,18 +61,49 @@ class RaftFormDialog extends StatefulWidget {
 
 class _RaftFormDialogState extends State<RaftFormDialog> {
   final form = GlobalKey<FormState>();
-  late final editors = {
-    for (final field in widget.fields)
-      field.id: TextEditingController(text: field.initial),
-  };
-  late final choices = {
-    for (final field in widget.fields.where((f) => f.choices != null))
-      field.id: field.initial.isEmpty
-          ? field.choices!.keys.first
-          : field.initial,
-  };
+  final editors = <String, TextEditingController>{};
+  final choices = <String, String>{};
   bool busy = false;
   String? error;
+
+  /// Keeps one editor / selection per current field: the dialog can be rebuilt
+  /// with another field set (e.g. after its inputs load) and submit() and the
+  /// field widgets read these maps by field id.
+  void _sync() {
+    final ids = {for (final f in widget.fields) f.id};
+    for (final id in editors.keys.toList()) {
+      if (!ids.contains(id)) editors.remove(id)!.dispose();
+    }
+    for (final id in choices.keys.toList()) {
+      if (!ids.contains(id)) choices.remove(id);
+    }
+    for (final field in widget.fields) {
+      editors.putIfAbsent(
+        field.id,
+        () => TextEditingController(text: field.initial),
+      );
+      if (field.choices != null) {
+        choices.putIfAbsent(
+          field.id,
+          () =>
+              field.initial.isEmpty ? field.choices!.keys.first : field.initial,
+        );
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(RaftFormDialog old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
   @override
   void dispose() {
     for (final editor in editors.values) {
@@ -239,7 +270,10 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                   if (widget.extra != null)
                     ExcludeFocus(
                       excluding: busy,
-                      child: IgnorePointer(ignoring: busy, child: widget.extra!),
+                      child: IgnorePointer(
+                        ignoring: busy,
+                        child: widget.extra!,
+                      ),
                     ),
                   if (error != null) RaftErrorBanner(error!),
                 ],
@@ -260,7 +294,6 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
             destructive: widget.destructive,
           ),
         ],
-
       ),
     ),
   );
