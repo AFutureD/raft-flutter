@@ -252,23 +252,24 @@ Future<Outcome> openPdf(WidgetTester tester, SmokeCase c, {required Future<void>
 }
 
 Future<Outcome> openDocument(WidgetTester tester, SmokeCase c, {required Future<void> Function() tap}) async {
+  // A document the app cannot draw shows the reason and the system-app action; every other one shows its content.
+  bool ready() {
+    if (c.panel) return shown(RaftPreviewUnavailable) && find.byKey(const ValueKey('preview-open-system')).evaluate().isNotEmpty;
+    final text = c.shows;
+    return shown(RaftDocumentPreview) &&
+        (text == null || find.text(text).evaluate().isNotEmpty) &&
+        (!c.notice || shown(RaftPreviewNotice));
+  }
+
+  bool failed() => shown(RaftLoadError) || (!c.panel && shown(RaftPreviewUnavailable));
+  final what = c.panel ? 'the reason with Open with system app' : 'the document preview';
   await tap();
-  final ms = await waitFor(
-    tester,
-    () => shown(RaftDocumentPreview),
-    'the document preview',
-    failed: () => shown(RaftLoadError),
-  );
+  final ms = await waitFor(tester, ready, what, failed: failed);
   await closeTop(tester);
   await tap();
-  final reopen = await waitFor(
-    tester,
-    () => shown(RaftDocumentPreview),
-    'the document preview (reopen)',
-    failed: () => shown(RaftLoadError),
-  );
+  final reopen = await waitFor(tester, ready, '$what (reopen)', failed: failed);
   await closeTop(tester);
-  return Outcome(true, 'document preview shown', ms: ms, second: reopen);
+  return Outcome(true, c.panel ? 'reason and system-app action shown' : 'document preview shown', ms: ms, second: reopen);
 }
 
 bool htmlReady() => shown(RaftHtmlPreview) || (shown(AttachmentHtmlWebView) && !shown(RaftPreviewTransferStage));

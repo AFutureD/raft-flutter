@@ -32,6 +32,17 @@ class SmokeCase {
   String get url => json['url'] as String;
   String? get thumb => json['thumb'] as String?;
   bool get expireFirst => json['expireFirst'] == true;
+  /// The preview service answers HTTP 200 `{status: unsupported, reason}` instead of a preview.
+  String? get previewRefusal => json['previewRefusal'] as String?;
+
+  /// The viewer cannot draw it: it shows the reason with "Open with system app".
+  bool get panel => json['panel'] == true;
+
+  /// Only the first part of the file is shown, with the large-file notice.
+  bool get notice => json['notice'] == true;
+
+  /// Text that must be on screen once the document is shown.
+  String? get shows => json['shows'] as String?;
   Map<String, dynamic>? get preview => (json['preview'] as Map?)?.cast<String, dynamic>();
 
   /// The attachment object of a message in [channel].
@@ -215,6 +226,8 @@ Future<SmokeFixture> buildSmokeFixture({
     (o) => o.method == 'GET' && o.path.startsWith('/attachments/aos-') && o.path.endsWith('/preview'),
     (o) {
       final c = signer.cases[o.path.split('/')[2]]!;
+      final refusal = c.previewRefusal;
+      if (refusal != null) return {'status': 'unsupported', 'reason': refusal};
       return {'status': 'ok', 'data': c.preview, 'truncated': false};
     },
   ));

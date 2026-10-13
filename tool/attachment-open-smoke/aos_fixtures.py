@@ -67,6 +67,34 @@ def minimal_xlsx():
     return buf.getvalue()
 
 
+def big_markdown(size):
+    out, i = ['# Quarterly report\n\n'], 0
+    while sum(map(len, out)) < size:
+        i += 1
+        out.append(f'## Section {i}\n\nParagraph {i} of the report with some **bold** words and `code`, long enough to look like prose.\n\n- item one of {i}\n- item two of {i}\n\n')
+    return ''.join(out)
+
+
+def huge_log(size):
+    out, n, i = [], 0, 0
+    while n < size:
+        i += 1
+        line = f'line {i} of a very long log file with some text\n'
+        out.append(line)
+        n += len(line)
+    return ''.join(out)
+
+
+def big_csv(size):
+    out, n, i = ['id,name,amount\n'], 15, 0
+    while n < size:
+        i += 1
+        line = f'{i},"Name, {i}",{i * 3}\n'
+        out.append(line)
+        n += len(line)
+    return ''.join(out)
+
+
 HTML_PAGE = '<!doctype html><html><head><meta charset="utf-8"><title>Smoke page</title></head><body><h1 id="smoke-h1">Smoke HTML preview</h1><p>Open, close, open again.</p></body></html>'
 SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240"><rect width="320" height="240" fill="#2255cc"/><circle cx="160" cy="120" r="70" fill="#ffcc33"/></svg>'
 MARKDOWN = '# Smoke markdown\n\n- one\n- two\n\n```dart\nvoid main() {}\n```\n'
@@ -116,6 +144,11 @@ def generate(directory: Path):
     make('script.py', lambda p: p.write_text(CODE_PY))
     make('data.json', lambda p: p.write_text(JSON_DOC))
     make('memo.docx', lambda p: p.write_bytes(minimal_docx()))
+    # Documents the preview service refuses (HTTP 200 {"status":"unsupported","reason":...}): the app reads them itself.
+    make('big.md', lambda p: p.write_text(big_markdown(184 * 1024)))
+    make('huge.log', lambda p: p.write_text(huge_log(3 * MB)))
+    make('big.csv', lambda p: p.write_text(big_csv(6 * MB)))
+    make('big.xlsx', lambda p: p.write_bytes(minimal_xlsx() + b'\0' * (12 * MB)))
     make('page.html', lambda p: p.write_text(HTML_PAGE))
     # Audio.
     def tone(name, codec_args):
@@ -203,6 +236,14 @@ def manifest(directory):
         preview={'kind': 'csv', 'headers': ['name', 'qty'], 'rows': [['apple', '3'], ['pear', '5']], 'rowCount': 2, 'columnCount': 2})
     add('doc-xlsx', 'table.xlsx', 'table.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'document',
         preview={'kind': 'xlsx', 'sheetCount': 1, 'sheets': [{'name': 'Sheet1', 'headers': ['name', 'qty'], 'rows': [['apple', '3']], 'rowCount': 1, 'columnCount': 2}]})
+    add('doc-md-too-large', 'big.md', 'big-report.md', 'text/markdown', 'document',
+        previewRefusal='too_large', shows='Quarterly report')
+    add('doc-log-huge', 'huge.log', 'build.log', 'text/plain', 'document',
+        previewRefusal='too_large', shows='line 1 of a very long log file with some text', notice=True)
+    add('doc-csv-large', 'big.csv', 'big.csv', 'text/csv', 'document',
+        previewRefusal='too_large', shows='Name, 1', notice=True)
+    add('doc-xlsx-too-large', 'big.xlsx', 'big.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'document',
+        previewRefusal='too_large', panel=True)
     add('doc-code', 'script.py', 'script.py', 'text/x-python', 'document',
         preview={'kind': 'text', 'text': CODE_PY})
     add('doc-json', 'data.json', 'data.json', 'application/json', 'document',
