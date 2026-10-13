@@ -15,6 +15,7 @@ import 'recipes/card.g.dart';
 import 'recipes/recipe_utilities.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'panel_layout.dart';
+import 'text_measure.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -345,15 +346,14 @@ class RaftAvatarListRow extends StatelessWidget {
         : LayoutBuilder(
             builder: (context, constraints) {
               final scale = MediaQuery.textScalerOf(context);
-              double widthOf(String v, TextStyle st) => (TextPainter(
-                text: TextSpan(
+              double widthOf(String v, TextStyle st) => raftTextWidth(
+                TextSpan(
                   text: v,
                   style: DefaultTextStyle.of(context).style.merge(st),
                 ),
-                textDirection: TextDirection.ltr,
                 textScaler: scale,
                 maxLines: 1,
-              )..layout()).width;
+              );
               final fits =
                   widthOf(name, nameStyle) +
                       8 +

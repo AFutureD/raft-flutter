@@ -343,6 +343,8 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     final listener = ImageStreamListener((info, _) {
       final image = info.image;
       decoded = Size(image.width.toDouble(), image.height.toDouble());
+      // The stream hands every listener its own clone; only the size is kept.
+      info.dispose();
     });
     stream.addListener(listener);
     _sizeStream = stream;

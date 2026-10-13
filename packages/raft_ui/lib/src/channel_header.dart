@@ -15,6 +15,7 @@ import 'recipes/panel_header.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/token_binding.dart';
 import 'status_bar.dart';
+import 'text_measure.dart';
 import 'theme.dart';
 import 'tooltip.dart';
 
@@ -437,12 +438,12 @@ class _RaftCssShrinkRow extends StatelessWidget {
     final scaler = MediaQuery.textScalerOf(context);
     final widths = [
       for (final (text, style) in texts)
-        (TextPainter(
-          text: TextSpan(text: text, style: style),
+        raftTextWidth(
+          TextSpan(text: text, style: style),
           textDirection: Directionality.of(context),
           textScaler: scaler,
           maxLines: 1,
-        )..layout()).width,
+        ),
     ];
     // Fixed items: the dot (10px) and trailing icons (12px).
     const dot = 10.0, icon = 12.0;

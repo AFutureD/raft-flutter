@@ -101,7 +101,9 @@ Future<bool?> previewMessageImage(
   void revoke() {
     if (!current()) {
       if (!revoked.isCompleted) revoked.complete();
-      entry?.remove();
+      entry
+        ?..remove()
+        ..dispose();
       entry = null;
     }
   }
@@ -273,7 +275,9 @@ Future<bool?> previewMessageImage(
     } finally {
       image.dispose();
     }
-    entry?.remove();
+    entry
+      ?..remove()
+      ..dispose();
     entry = null;
     if (!current() || !context.mounted) return false;
     final filename = AttachmentFiles.safeFilename(

@@ -9,6 +9,7 @@ import 'theme.dart';
 import 'icons.dart';
 import 'message_row_recipe.dart' show RaftMessageBodyMargin;
 import 'rich_card_tokens.dart';
+import 'text_measure.dart';
 
 /// A safe presentation of server-owned action metadata. Execution and current
 /// permissions belong to the application adapter, never this component.
@@ -68,10 +69,8 @@ class RaftActionCard extends StatelessWidget {
     if (badge == null) return items();
     return LayoutBuilder(
       builder: (context, constraints) {
-        double width(String text, [TextStyle? textStyle]) => (TextPainter(
-          text: TextSpan(text: text, style: textStyle ?? style),
-          textDirection: TextDirection.ltr,
-        )..layout()).width;
+        double width(String text, [TextStyle? textStyle]) =>
+            raftTextWidth(TextSpan(text: text, style: textStyle ?? style));
         final used =
             parts.fold<double>(0, (a, p) => a + width(p)) +
             8 * (parts.length - 1);

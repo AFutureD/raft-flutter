@@ -477,7 +477,9 @@ class _WorkspaceViewState extends State<WorkspaceView>
 
   /// Read synchronously from the preloaded device preferences, so the first
   /// frame already has the configured bar.
-  late final ownedMobileTabbar = MobileTabbarStore();
+  MobileTabbarStore? _ownedMobileTabbar;
+  MobileTabbarStore get ownedMobileTabbar =>
+      _ownedMobileTabbar ??= MobileTabbarStore();
   MobileTabbarStore get mobileTabbar =>
       widget.mobileTabbar ?? ownedMobileTabbar;
 
@@ -900,6 +902,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
     w.removeListener(syncMobileAppBadge);
     mobileAppBadge.removeListener(chatSelectionChanged);
     mobileAppBadge.dispose();
+    _ownedMobileTabbar?.dispose();
     activityUnread.removeListener(activityUnreadChanged);
     w.releaseActivityUnread(this);
     w.removeListener(syncServerMenu);

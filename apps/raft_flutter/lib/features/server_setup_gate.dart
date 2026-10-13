@@ -18,9 +18,16 @@ import 'resource_cards.dart';
 /// Settings and the setup surface of one workspace share an invalidation
 /// signal, never a verdict. It belongs to the controller (account / server
 /// session) it was raised on, so another controller's gate does not reload.
-final _setupSignals = Expando<ValueNotifier<int>>('serverSetupSignal');
+final _setupSignals = Expando<_SetupSignal>('serverSetupSignal');
+
+/// A named type so the test leak ignore list can name it: it is held by an
+/// Expando on the controller and released by GC, never disposed.
+class _SetupSignal extends ValueNotifier<int> {
+  _SetupSignal() : super(0);
+}
+
 ValueNotifier<int> _setupSignal(WorkspaceController w) =>
-    _setupSignals[w] ??= ValueNotifier<int>(0);
+    _setupSignals[w] ??= _SetupSignal();
 void refreshServerSetup(WorkspaceController w) => _setupSignal(w).value++;
 
 const setupSurveyRoles = {

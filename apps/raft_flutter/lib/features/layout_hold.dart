@@ -6,11 +6,17 @@ import 'package:flutter/widgets.dart';
 /// the layout beneath it catches up the moment it closes.
 abstract final class LayoutHold {
   // ignore: raft_lints/avoid_unreleased_resource -- Process-wide singleton counter, never torn down.
-  static final ValueNotifier<int> count = ValueNotifier(0);
+  static final ValueNotifier<int> count = _HoldCount();
   static bool get held => count.value > 0;
 
   static void hold(TransitionRoute<dynamic> route) {
     count.value++;
     route.completed.whenComplete(() => count.value--);
   }
+}
+
+/// The process-wide hold counter (never disposed). A named type so the test
+/// leak ignore list can name this one notifier and not every `ValueNotifier<int>`.
+class _HoldCount extends ValueNotifier<int> {
+  _HoldCount() : super(0);
 }

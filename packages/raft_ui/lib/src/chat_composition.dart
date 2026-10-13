@@ -218,10 +218,11 @@ class _LoadingRowsState extends State<RaftChatSidebarLoadingRows>
     vsync: this,
     duration: const Duration(seconds: 1),
   );
-  late final opacity = Tween<double>(
-    begin: 1,
-    end: .5,
-  ).animate(CurvedAnimation(parent: pulse, curve: const Cubic(.4, 0, .6, 1)));
+  late final curve = CurvedAnimation(
+    parent: pulse,
+    curve: const Cubic(.4, 0, .6, 1),
+  );
+  late final opacity = Tween<double>(begin: 1, end: .5).animate(curve);
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -236,6 +237,7 @@ class _LoadingRowsState extends State<RaftChatSidebarLoadingRows>
 
   @override
   void dispose() {
+    curve.dispose();
     pulse.dispose();
     super.dispose();
   }

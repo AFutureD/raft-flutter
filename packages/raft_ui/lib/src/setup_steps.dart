@@ -20,6 +20,7 @@ import 'keyboard_reveal.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
 import 'recipe_surface.dart' show RaftCssBoxDecoration;
+import 'text_measure.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -1611,21 +1612,27 @@ class _BalancedText extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      TextPainter painter(double width) => TextPainter(
-        text: TextSpan(text: text, style: style),
-        textAlign: TextAlign.center,
+      int lineCount(double width) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textAlign: TextAlign.center,
+          textDirection: Directionality.of(context),
+        )..layout(maxWidth: width);
+        final lines = painter.computeLineMetrics().length;
+        painter.dispose();
+        return lines;
+      }
+
+      final zeroWidth = raftTextWidth(
+        TextSpan(text: '0', style: style),
         textDirection: Directionality.of(context),
-      )..layout(maxWidth: width);
-      final zero = TextPainter(
-        text: TextSpan(text: '0', style: style),
-        textDirection: Directionality.of(context),
-      )..layout();
-      final limit = (maxChars * zero.width).clamp(0.0, box.maxWidth);
-      final lines = painter(limit).computeLineMetrics().length;
+      );
+      final limit = (maxChars * zeroWidth).clamp(0.0, box.maxWidth);
+      final lines = lineCount(limit);
       var low = 0.0, high = limit;
       for (var i = 0; i < 24; i++) {
         final mid = (low + high) / 2;
-        if (painter(mid).computeLineMetrics().length <= lines) {
+        if (lineCount(mid) <= lines) {
           high = mid;
         } else {
           low = mid;

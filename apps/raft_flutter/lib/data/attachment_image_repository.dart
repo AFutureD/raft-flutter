@@ -448,6 +448,26 @@ class AttachmentImageLease {
   }
 }
 
+/// An entry's progress mirror. A lease can outlive its dropped entry (and the
+/// drop disposes this), so a late listener gets a quiet no-op instead of the
+/// "used after disposed" assertion; nothing publishes after the drop anyway.
+class _EntryProgress extends ValueNotifier<AttachmentTransferProgress?> {
+  _EntryProgress() : super(null);
+  bool _gone = false;
+
+  @override
+  void addListener(VoidCallback listener) {
+    if (!_gone) super.addListener(listener);
+  }
+
+  @override
+  void dispose() {
+    if (_gone) return;
+    _gone = true;
+    super.dispose();
+  }
+}
+
 class _ImageEntry {
   _ImageEntry(this.key, this.load) {
     // A retired last consumer can legitimately abandon the shared completion.
@@ -463,8 +483,13 @@ class _ImageEntry {
   final Set<AttachmentImageLease> leases = {};
 
   /// Mirror of the joined fetch's progress for this entry's consumers.
-  // ignore: raft_lints/avoid_unreleased_resource -- Per-entry progress mirror; it has no listener once the entry is dropped and is collected with it.
-  final transfer = ValueNotifier<AttachmentTransferProgress?>(null);
+  final transfer = _EntryProgress();
+
+  /// Publishes progress unless the entry was dropped (its [transfer] is
+  /// disposed then).
+  void report(AttachmentTransferProgress? progress) {
+    if (!retired) transfer.value = progress;
+  }
   DecodedAttachmentImage? value;
   _SourceFetch? fetch;
 
@@ -488,7 +513,7 @@ class _SourceFetch {
     cancel = AttachmentFetchToken(transfer.report);
     transfer.addListener(() {
       for (final waiter in waiters) {
-        waiter.transfer.value = transfer.value;
+        waiter.report(transfer.value);
       }
     });
   }
@@ -498,6 +523,15 @@ class _SourceFetch {
   final Set<_ImageEntry> waiters = {};
   late final Future<Uint8List> bytes;
   bool persisted = false;
+  bool _disposed = false;
+
+  /// Ends the progress sink for good; safe to call from both the end of the
+  /// transfer and the abandonment of it.
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    transfer.dispose();
+  }
 }
 
 /// One workspace/controller owns one bounded volatile repository. Retention
@@ -756,9 +790,11 @@ class AttachmentImageRepository {
           bytes = await _untilDropped(e, fetch.bytes);
           // Complete: hold the bar full while decoding; a loader that never
           // reported has nothing to show.
-          e.transfer.value = fetch.transfer.value == null
-              ? null
-              : AttachmentTransferProgress(bytes.length, bytes.length);
+          e.report(
+            fetch.transfer.value == null
+                ? null
+                : AttachmentTransferProgress(bytes.length, bytes.length),
+          );
         } finally {
           fetch.waiters.remove(e);
           e.fetch = null;
@@ -832,13 +868,15 @@ class AttachmentImageRepository {
           ..flush()
           ..close();
         if (identical(_fetches[source], next)) _fetches.remove(source);
+        // The transfer is over (finished, failed or cancelled): nothing
+        // reports to it again, and the last value stays readable.
+        next.dispose();
       });
       // Abandoned fetches may fail after every waiter left.
       unawaited(next.bytes.then<void>((_) {}, onError: (Object _) {}));
     }
     fetch.waiters.add(e);
-    e.transfer.value =
-        fetch.transfer.value ?? AttachmentTransferProgress.connecting;
+    e.report(fetch.transfer.value ?? AttachmentTransferProgress.connecting);
     e.fetch = fetch;
     e.fetchCancel = fetch.cancel;
     return fetch;
@@ -855,6 +893,9 @@ class AttachmentImageRepository {
     e.fetch = null;
     if (fetch != null && fetch.waiters.remove(e) && fetch.waiters.isEmpty) {
       if (identical(_fetches[fetch.key], fetch)) _fetches.remove(fetch.key);
+      // Abandoned: a loader that never finishes would never reach the
+      // completion handler that normally ends the transfer.
+      fetch.dispose();
     }
     // Shared work is only abandoned once no other entry waits on it; a
     // completed fetch ignores the cancellation.
@@ -870,6 +911,7 @@ class AttachmentImageRepository {
       _decoded -= value.decodedBytes;
       unawaited(value.dispose());
     }
+    e.transfer.dispose();
   }
 
   void invalidate(AttachmentImageKey key) {

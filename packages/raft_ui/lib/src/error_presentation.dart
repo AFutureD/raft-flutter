@@ -246,8 +246,25 @@ class _RaftToastHostState extends State<RaftToastHost> {
   late final RaftToastController _own = RaftToastController();
   RaftToastController get controller => widget.controller ?? _own;
 
+  /// One entry for the host's lifetime. `Overlay.initialEntries` is read once,
+  /// so building a fresh entry per rebuild left every later one un-inserted
+  /// and never disposed.
+  late final OverlayEntry _portal = OverlayEntry(
+    builder: (_) => RaftToastPortal(controller: controller),
+  );
+
+  @override
+  void didUpdateWidget(RaftToastHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) _portal.markNeedsBuild();
+  }
+
   @override
   void dispose() {
+    // The Overlay below is already gone; it never clears its entries itself.
+    _portal
+      ..remove()
+      ..dispose();
     _own.dispose();
     super.dispose();
   }
@@ -263,11 +280,7 @@ class _RaftToastHostState extends State<RaftToastHost> {
         // Web's portal. The Overlay only paints the toast.
         Positioned.fill(
           child: Overlay(
-            initialEntries: [
-              OverlayEntry(
-                builder: (_) => RaftToastPortal(controller: controller),
-              ),
-            ],
+            initialEntries: [_portal],
           ),
         ),
       ],

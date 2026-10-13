@@ -6,6 +6,7 @@ import 'message_body.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'message_content_tokens.dart';
+import 'text_measure.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -81,11 +82,8 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
     List<List> rows,
     double available,
   ) {
-    double measure(String text, TextStyle style) => (TextPainter(
-      text: TextSpan(text: text, style: style),
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-    )..layout()).width;
+    double measure(String text, TextStyle style) =>
+        raftTextWidth(TextSpan(text: text, style: style), maxLines: 1);
     final inset = recipe.cellInset.horizontal;
     final bold = recipe.tableText.copyWith(fontWeight: FontWeight.w700);
     final intrinsic = <double>[
