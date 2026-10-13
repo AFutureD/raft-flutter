@@ -88,6 +88,10 @@ Set `RAFT_TEST_ALL_THEMES=1` to run every variant of every test. `python3 tool/c
 
 Tests that are about theme differences (per-family tokens, audits, recipes) pass `full: true` to `raftThemeMatrix`, or iterate the theme set themselves, and always run the whole matrix: `design_tokens_test`, `dimension_contract_test`, `statusbar_audit_test`, `statusbar_standard_test`, `edge_to_edge_audit_test`, `system_bars_test`, `packages/raft_ui/test/recipes/*` and the `*_recipe_test.dart` files. A new per-theme test loop should use `raftThemeMatrix` with the default variant first; use `full: true` only when the test compares or audits themes.
 
+## Player changes
+
+Anything under `platform/*player*`, `platform/attachment_stream.dart`, the inline media cards, the media viewer or the raft_ui video controls is verified on an Android emulator with the real `video_player`, not only with fake players: run the interaction suite (`tool/player-interactions`) and keep its recordings and log with the change. The full checklist is in [media playback](media-playback.md#checklist-for-player-changes).
+
 ## Behaviour parity checklists
 
 Logic parity with the Web client (what happens on which event, not how it looks) is tracked row by row in `docs/behavior-parity/<domain>.md` (`read.md`, `realtime.md`). Each domain file is written only by its domain auditor; fix branches never edit it.
