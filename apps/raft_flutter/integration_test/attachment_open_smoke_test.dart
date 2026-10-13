@@ -338,7 +338,7 @@ Future<Outcome> playVideo(WidgetTester tester, SmokeCase c, {bool viewer = true}
     },
     'video position to advance',
     failed: () => card().state == RaftInlineMediaState.failed,
-    why: () => 'state ${card().state} playing ${card().playing} buffering ${card().buffering} position ${card().position} of ${card().duration}',
+    why: () => 'state ${card().state} playing ${card().playing} position ${card().position} of ${card().duration}',
     timeout: const Duration(seconds: 40),
   );
   int? viewerMs;
