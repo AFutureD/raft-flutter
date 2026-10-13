@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/attachment_image_store.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_files.dart';
 import '../platform/attachment_http.dart';
@@ -341,6 +342,16 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
             channelId: owner ?? '',
           ),
           resolveUrl: resolveUrl,
+          refreshUrl: () {
+            widget.controller.invalidateAttachmentUrl(
+              '${widget.metadata['id']}',
+            );
+            return widget.controller.attachmentUrl(
+              '${widget.metadata['id']}',
+              channelId: owner,
+              refresh: true,
+            );
+          },
           filename: filename,
           expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
           cancel: cancel,
@@ -366,10 +377,16 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       } else {
         throw const FormatException('The file cannot be previewed.');
       }
-    } catch (_) {
+    } catch (failure) {
       if (current && ticket == request) {
         setState(() {
-          error = 'Preview unavailable. Download the original file.';
+          // The server's own reason when it sent one (rate limited, not found,
+          // too large); otherwise the generic text, with the cause logged.
+          error = userErrorText(
+            failure,
+            fallback: 'Preview unavailable. Download the original file.',
+            where: 'attachment preview ${widget.metadata['id']}',
+          );
           // Nothing was prepared: the bytes never arrived (or the preview
           // service failed), so a retry can still help.
           fetchFailed =

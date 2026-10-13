@@ -29,6 +29,7 @@ class AttachmentPreviewFiles {
     required CancelToken cancel,
     required bool Function() authorized,
     void Function(int received, int total)? onProgress,
+    Future<String> Function()? refreshUrl,
   }) async {
     if (!authorized() || cancel.isCancelled) return null;
     final root = await temporaryDirectory();
@@ -51,7 +52,23 @@ class AttachmentPreviewFiles {
         }
       }
       if (!authorized() || cancel.isCancelled) return null;
-      await _download(url, file, cancel, authorized, onProgress);
+      try {
+        await _download(url, file, cancel, authorized, onProgress);
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        if (refreshUrl == null ||
+            cancel.isCancelled ||
+            (status != 401 && status != 403)) {
+          rethrow;
+        }
+        await _download(
+          await refreshUrl(),
+          file,
+          cancel,
+          authorized,
+          onProgress,
+        );
+      }
       if (!authorized() ||
           cancel.isCancelled ||
           await file.length() > maxBytes) {
@@ -97,6 +114,7 @@ class AttachmentPreviewFiles {
     required AttachmentDiskCache? cache,
     required AttachmentImageStoreKey key,
     required Future<String> Function() resolveUrl,
+    Future<String> Function()? refreshUrl,
     required String filename,
     int? expectedBytes,
     required CancelToken cancel,
@@ -104,14 +122,44 @@ class AttachmentPreviewFiles {
     void Function(int received, int total)? onProgress,
   }) async {
     if (!authorized() || cancel.isCancelled) return null;
+    // The storage host refused the signature (it lapsed early, clock skew):
+    // [refreshUrl] signs once more and the transfer is tried once again.
+    Future<void> download(
+      String url,
+      File destination,
+      CancelToken token,
+      bool Function() allowed,
+      void Function(int, int)? progress,
+    ) async {
+      try {
+        await _download(url, destination, token, allowed, progress);
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        if (refreshUrl == null ||
+            token.isCancelled ||
+            (status != 401 && status != 403)) {
+          rethrow;
+        }
+        await _download(
+          await refreshUrl(),
+          destination,
+          token,
+          allowed,
+          progress,
+        );
+      }
+    }
+
     if (cache == null) {
-      return load(
+      final temporary = await load(
         await resolveUrl(),
         filename,
         cancel: cancel,
         authorized: authorized,
         onProgress: onProgress,
+        refreshUrl: refreshUrl,
       );
+      return temporary;
     }
     final AttachmentCachedFile? cached;
     try {
@@ -126,7 +174,7 @@ class AttachmentPreviewFiles {
           if (shared.isCancelled) throw const FileSystemException('cancelled');
           // The download is shared: each caller's own cancel token detaches it,
           // so one caller's authority must not abort the others'.
-          await _download(
+          await download(
             url,
             destination,
             shared,
@@ -145,6 +193,7 @@ class AttachmentPreviewFiles {
         cancel: cancel,
         authorized: authorized,
         onProgress: onProgress,
+        refreshUrl: refreshUrl,
       );
     }
     if (cached == null) return null;

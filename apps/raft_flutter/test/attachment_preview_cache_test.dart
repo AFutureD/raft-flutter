@@ -21,6 +21,9 @@ class _Storage {
   Duration delay = Duration.zero;
   int status = 200;
 
+  /// `sig` values the host refuses with 403 (a lapsed signature).
+  final forbidden = <String>{};
+
   static Future<_Storage> start() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final storage = _Storage._(server);
@@ -28,7 +31,10 @@ class _Storage {
       storage.hits[request.uri.path] =
           (storage.hits[request.uri.path] ?? 0) + 1;
       await Future<void>.delayed(storage.delay);
-      request.response.statusCode = storage.status;
+      request.response.statusCode =
+          storage.forbidden.contains(request.uri.queryParameters['sig'])
+          ? 403
+          : storage.status;
       request.response.add(storage.body);
       await request.response.close();
     });
@@ -49,9 +55,15 @@ class _Client extends RaftClient {
   final _Storage storage;
   final paths = <String>[];
   int urlRequests = 0;
+
+  /// When set, `/preview` fails with it.
+  Object? previewFailure;
   @override
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
     paths.add(path);
+    if (path.endsWith('/preview') && previewFailure != null) {
+      throw previewFailure!;
+    }
     if (path.endsWith('/url')) {
       urlRequests++;
       // A new signature every time, like the real server.
@@ -232,6 +244,64 @@ void main() {
       expect(await cache.sizeBytes(), storage.body.length);
     });
 
+    test('a signature the host refuses is signed again once', () async {
+      final files = AttachmentPreviewFiles();
+      storage.forbidden.add('1');
+      var signed = 0;
+      Future<String> sign() async {
+        signed++;
+        return storage.url('/blob/a.pdf?sig=$signed');
+      }
+
+      final lease = await files.loadCached(
+        cache: cache,
+        key: _key('a'),
+        resolveUrl: sign,
+        refreshUrl: sign,
+        filename: 'a.pdf',
+        expectedBytes: storage.body.length,
+        cancel: CancelToken(),
+        authorized: () => true,
+      );
+      expect(lease, isNotNull, reason: 'the second signature is accepted');
+      expect((signed, storage.total), (2, 2));
+      await lease!.dispose();
+      // Without a way to sign again the refusal is the failure it was.
+      storage.forbidden.add('9');
+      await expectLater(
+        files.loadCached(
+          cache: cache,
+          key: _key('b'),
+          resolveUrl: () async => storage.url('/blob/b.pdf?sig=9'),
+          filename: 'b.pdf',
+          cancel: CancelToken(),
+          authorized: () => true,
+        ),
+        throwsA(isA<DioException>()),
+      );
+    });
+
+    test('a signature refused twice is a failure, not a loop', () async {
+      final files = AttachmentPreviewFiles();
+      storage.forbidden.addAll({'1', '2', '3'});
+      var signed = 0;
+      Future<String> sign() async => storage.url('/blob/a.pdf?sig=${++signed}');
+      await expectLater(
+        files.loadCached(
+          cache: cache,
+          key: _key('a'),
+          resolveUrl: sign,
+          refreshUrl: sign,
+          filename: 'a.pdf',
+          cancel: CancelToken(),
+          authorized: () => true,
+        ),
+        throwsA(isA<DioException>()),
+      );
+      expect(signed, 2);
+      expect(await cache.sizeBytes(), 0);
+    });
+
     test('a revoked caller gets nothing', () async {
       final files = AttachmentPreviewFiles();
       expect(
@@ -329,6 +399,72 @@ void main() {
       w.dispose();
       await client.dispose();
     });
+
+    testWidgets(
+      'a document the server refuses says why, not just "unavailable"',
+      (tester) async {
+        final client = _Client(storage)
+          ..previewFailure = RaftApiException.response(
+            'Too many requests, please try again later.',
+            status: 429,
+            body: {'error': 'Too many requests, please try again later.'},
+          );
+        final w = WorkspaceController(client, attachmentImageStore: cache);
+        const metadata = {
+          'id': 'n',
+          'channelId': 'c1',
+          'filename': 'report.md',
+        };
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AttachmentPreviewDialog(
+              controller: w,
+              metadata: metadata,
+              channelId: 'c1',
+              authorized: () => true,
+              onClose: () {},
+              onDownload: () async {},
+            ),
+          ),
+        );
+        await settle(
+          tester,
+          () => find.textContaining('Too many requests').evaluate().isNotEmpty,
+        );
+        expect(find.textContaining('Too many requests'), findsOneWidget);
+        // Anything the server did not say in its own words stays the generic text.
+        client.previewFailure = const FormatException(
+          'The file cannot be previewed.',
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AttachmentPreviewDialog(
+              key: UniqueKey(),
+              controller: w,
+              metadata: metadata,
+              channelId: 'c1',
+              authorized: () => true,
+              onClose: () {},
+              onDownload: () async {},
+            ),
+          ),
+        );
+        await settle(
+          tester,
+          () =>
+              find.textContaining('Preview unavailable').evaluate().isNotEmpty,
+        );
+        expect(
+          find.text('Preview unavailable. Download the original file.'),
+          findsOneWidget,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 5));
+        w.dispose();
+        await client.dispose();
+      },
+    );
 
     testWidgets('a document preview opens from the cache and is stored', (
       tester,
