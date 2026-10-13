@@ -1,6 +1,9 @@
 # Raft Flutter 工程约定
 
 - 本仓库为独立 Flutter 客户端；Web参照版本记录于 docs/source-reference.json。实现前阅读 docs/architecture.md 和当前用户指令。
+- 合入与 PR：每个分支开 PR 指向 cindy/integration。PR 描述写清改了什么、怎么验证的（命令与结果、设备、哪些没验证）和 `tool/prepare-handoff` 输出的全量检查结果行；验证证据只放 PR 描述，不进 docs/（docs/README.md 是索引，新文档必须登记，见 tool/tests/test_docs_index.py）。仓库是公开的：PR 里不放私有 URL、服务器名、token、用户数据；真实 workspace 的截图/录屏留在 Raft。线性合入：rebase 到 origin/cindy/integration，跑全量检查，fast-forward 推送到 cindy/integration（GitHub 自动标记 PR 已合并）。`tool/prepare-handoff --pr --pr-body <文件>` 可在检查通过后推分支并创建/更新 PR。
+- 设备/原生/播放器问题要在模拟器或真机复现并验证（widget 测试不算）；新增回归测试先在旧代码上跑红；结论只写测到的范围。
+- 对没 @ 你的请求先读话题，看有没有人认领；打 tag、发布、推共享分支前先在话题里认领。
 - raft_ui 只拥有设计tokens与交互组件，不依赖API/数据库/原生系统服务。每个新组件同时提供 SDK Widget Preview 和适用的主题、状态、键盘、语义验收。
 - 客户端协议、同步reducer、持久化、平台服务与业务页面分离。Flutter chat UI 的 model/controller 是展示适配，不是Raft消息或同步权威。
 - 公共 source mirror 的 experimental/未挂载合同不能当现网接口。以已挂载服务端路径与 Web 当前启用行为验证。
@@ -28,5 +31,5 @@
 - 启动 subagent 时显式指定模型，不默认继承。
 - 默认一律用 Sonnet 5.5：调研、视觉对齐、页面移植、底层绘制、功能开发都用 Sonnet。
 - 只有 Kevin 明确要求时才用 Opus 5.5。
-- 每个任务只跑与改动相关的测试、`tool/flutter analyze` 和设计系统审计，不单独跑全量检查。
-- 负责人审核后把一批完成的分支合到批次分支上，整批只跑一次 `python3 tool/check-project`，通过后再合进主线并推送。
+- subagent 只跑与改动相关的测试、`tool/flutter analyze` 和设计系统审计，不跑全量检查。
+- 全量检查每个分支一次：负责人审核后用 `tool/prepare-handoff`（rebase + `tool/check-project`），通过后 fast-forward 推送到 cindy/integration，不再攒批次分支整批检查。

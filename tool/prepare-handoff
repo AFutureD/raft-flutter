@@ -10,7 +10,16 @@
 3. print one line to paste into the handoff message: branch, commit, base,
    source hash and the gate result.
 
+4. with --pr (after a passing gate only): push the branch to origin and create or
+   update its pull request against cindy/integration with `gh`, using the body file
+   from --pr-body plus the gate result line. The push is a normal push; only when the
+   branch was rebased past what origin has is it force-with-lease, and only for the
+   branch's own ref, never cindy/integration or main. If `gh auth status` fails the
+   script says so and exits non-zero before fetching, rebasing or running anything;
+   it never logs in or uses another credential.
+
 Usage: tool/prepare-handoff [--base origin/cindy/integration] [--no-check] [--all-themes]
+                            [--pr --pr-body FILE [--pr-title TITLE]]
 
 Default gate runs the sampled theme matrix; --all-themes (or RAFT_TEST_ALL_THEMES=1)
 runs every theme variant of every test (use it before merging to main).
@@ -24,6 +33,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -36,6 +46,83 @@ gate_lock = pathlib.Path('/tmp/raft-flutter-check.lock')
 def git(*args, check=True):
     return subprocess.run(['git', *args], cwd=root, check=check, text=True,
                           capture_output=True).stdout.strip()
+
+
+PR_BASE = 'cindy/integration'
+PROTECTED_BRANCHES = {'cindy/integration', 'main', 'master', ''}
+
+
+def run(args):
+    return subprocess.run(args, cwd=root, text=True, capture_output=True)
+
+
+def gh_authenticated():
+    try:
+        return run(['gh', 'auth', 'status']).returncode == 0
+    except OSError:
+        return False
+
+
+def preflight_pr(args):
+    """Refuse --pr before anything is fetched, rebased or run."""
+    if args.no_check:
+        sys.exit('--pr needs the gate; do not combine it with --no-check.')
+    if not args.pr_body:
+        sys.exit('--pr needs --pr-body <file> with the PR description.')
+    if not pathlib.Path(args.pr_body).is_file():
+        sys.exit(f'--pr-body file not found: {args.pr_body}')
+    if not gh_authenticated():
+        sys.exit('gh is not authenticated (`gh auth status` failed): nothing was fetched, rebased, '
+                 'pushed or run. Log in with gh yourself, then run tool/prepare-handoff --pr again.')
+
+
+def push_branch(branch):
+    """Push only the branch's own ref: normal push, force-with-lease if it was rebased past origin's copy."""
+    if branch in PROTECTED_BRANCHES:
+        sys.exit(f'Refusing to push {branch or "a detached HEAD"}: --pr is for feature branches.')
+    ref = f'refs/heads/{branch}'
+    remote = run(['git', 'rev-parse', '--verify', '-q', f'refs/remotes/origin/{branch}'])
+    remote_sha = remote.stdout.strip() if remote.returncode == 0 else ''
+    command = ['git', 'push', 'origin', f'{ref}:{ref}']
+    if remote_sha and run(['git', 'merge-base', '--is-ancestor', remote_sha, 'HEAD']).returncode != 0:
+        command = ['git', 'push', f'--force-with-lease={ref}:{remote_sha}', 'origin', f'{ref}:{ref}']
+    pushed = run(command)
+    if pushed.returncode != 0:
+        sys.exit(f'Push of {branch} failed:\n{pushed.stdout}{pushed.stderr}')
+
+
+def pr_body_with_gate(body_file, result_line):
+    body = pathlib.Path(body_file).read_text(encoding='utf-8').rstrip()
+    return f'{body}\n\n## 全量检查\n\n```\n{result_line}\n```\n'
+
+
+def publish_pr(branch, body_file, result_line, title=None):
+    """Push the branch, then create or update its PR against cindy/integration."""
+    push_branch(branch)
+    explicit_title = title
+    if not title:
+        subjects = run(['git', 'log', '--format=%s', f'origin/{PR_BASE}..HEAD']).stdout.splitlines()
+        title = subjects[0] if len(subjects) == 1 else branch
+    with tempfile.TemporaryDirectory() as tmp:
+        body = pathlib.Path(tmp) / 'pr-body.md'
+        body.write_text(pr_body_with_gate(body_file, result_line), encoding='utf-8')
+        listed = run(['gh', 'pr', 'list', '--head', branch, '--base', PR_BASE, '--state', 'open', '--json', 'number'])
+        if listed.returncode != 0:
+            sys.exit(f'gh pr list failed:\n{listed.stdout}{listed.stderr}')
+        try:
+            existing = json.loads(listed.stdout or '[]')
+        except json.JSONDecodeError:
+            sys.exit(f'gh pr list returned unreadable output:\n{listed.stdout}')
+        if existing:
+            command = ['gh', 'pr', 'edit', str(existing[0]['number']), '--base', PR_BASE, '--body-file', str(body)]
+            if explicit_title:  # an existing PR keeps its (possibly hand-edited) title otherwise
+                command += ['--title', explicit_title]
+        else:
+            command = ['gh', 'pr', 'create', '--base', PR_BASE, '--head', branch, '--title', title, '--body-file', str(body)]
+        done = run(command)
+        if done.returncode != 0:
+            sys.exit(f'{" ".join(command[:3])} failed:\n{done.stdout}{done.stderr}')
+        print(done.stdout.strip() or f'PR for {branch} updated')
 
 
 def holder_text(lock):
@@ -122,7 +209,14 @@ def main():
                         help='run the full theme matrix (also set by RAFT_TEST_ALL_THEMES=1)')
     parser.add_argument('--no-check', action='store_true',
                         help='merge only (docs-only branches)')
+    parser.add_argument('--pr', action='store_true',
+                        help='after a passing gate: push the branch and create/update its PR against '
+                             'cindy/integration (needs an authenticated gh and --pr-body)')
+    parser.add_argument('--pr-body', metavar='FILE', help='PR description; the gate result line is appended')
+    parser.add_argument('--pr-title', metavar='TITLE', help='PR title (default: the commit subject for a one-commit branch, else the branch name)')
     args = parser.parse_args()
+    if args.pr:
+        preflight_pr(args)
     # A machine-local default, so gates started from any shell here report failures
     # to the same place; check-project inherits it.
     notify_file = pathlib.Path.home() / '.config/raft-flutter/gate-notify-target'
@@ -170,9 +264,12 @@ def main():
         passed = json.loads(result).get('passed')
     except json.JSONDecodeError:
         passed = False
-    run = json.loads((root / '.local/engineering-run.json').read_text())
-    print(f'handoff: {branch} {head} (contains {args.base} {base}); '
-          f'check-project {"PASSED" if passed else "FAILED"} (themes: {run.get("themes", "?")}); sourceHash {run.get("sourceHash", "?")[:12]}')
+    run_info = json.loads((root / '.local/engineering-run.json').read_text())
+    line = (f'handoff: {branch} {head} (contains {args.base} {base}); '
+            f'check-project {"PASSED" if passed else "FAILED"} (themes: {run_info.get("themes", "?")}); sourceHash {run_info.get("sourceHash", "?")[:12]}')
+    print(line)
+    if passed and args.pr:
+        publish_pr(branch, args.pr_body, line, args.pr_title)
     sys.exit(0 if passed else 1)
 
 
