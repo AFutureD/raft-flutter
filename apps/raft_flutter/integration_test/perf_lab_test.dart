@@ -1174,6 +1174,8 @@ void main() {
       // window stays visible with no input; the record's cpuSeconds, frames
       // (FrameTimings: none expected) and the embedder's vsync lines in the log
       // show what an untouched window costs. RAFT_LAB_IDLE_SECONDS (default 30).
+      // The test binding re-schedules a frame after every frame, so this is not
+      // an idle proof; tool/idle-cpu/run.sh measures idle with a plain binding.
       if (name == themes.last && only.contains('idle-final')) {
         final idleSeconds = int.tryParse(_cfg('RAFT_LAB_IDLE_SECONDS')) ?? 30;
         await run('idle-final', () async {
