@@ -35,4 +35,24 @@ void main() {
       expect(NativeAttachmentPlayer.fitted(0, 0, full), isNull);
     },
   );
+
+  test(
+    'a re-signed source that never played reopens at its requested start',
+    () {
+      // Regression (CodexMac's review): an expired URL on the first open lost
+      // the resume position and playback restarted from zero.
+      const start = Duration(seconds: 7);
+      expect(
+        NativeAttachmentPlayer.resignPosition(Duration.zero, start),
+        start,
+      );
+      expect(
+        NativeAttachmentPlayer.resignPosition(
+          const Duration(seconds: 12),
+          start,
+        ),
+        const Duration(seconds: 12),
+      );
+    },
+  );
 }

@@ -533,6 +533,9 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         await resumeShared();
         return;
       }
+      // The native player starts at full volume: it carries the shared
+      // player's level (a muted video stays muted).
+      await native.player.volume(base.volume);
       if (base.playing) await native.player.toggle();
       debugLastHdrHandoff = HdrHandoff(
         started.elapsedMilliseconds,
@@ -571,6 +574,8 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     if (shared != null && !shared.orphaned) {
       try {
         await shared.player.seek(last.position);
+        // Volume changed in the viewer belongs to the card as well.
+        await shared.player.volume(last.volume);
         if (last.playing) await shared.player.toggle();
       } on Object {
         // best effort

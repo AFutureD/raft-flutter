@@ -1,6 +1,8 @@
-// Regression (CodexMac repro): when the HDR native-view player fails to start,
-// the viewer must resume the shared player it paused for the handoff.
+// Regressions (CodexMac repros): when the HDR native-view player fails to start,
+// the viewer must resume the shared player it paused for the handoff; and the
+// handoff must carry the shared player's volume (a muted video stays muted).
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
@@ -23,14 +25,21 @@ class Client extends RaftClient {
 }
 
 class Player implements AttachmentPlayer {
-  Player({this.fail = false, this.native = false, this.playing = false});
+  Player({
+    this.fail = false,
+    this.native = false,
+    this.playing = false,
+    this.level = 100,
+  });
   final bool fail, native;
   bool playing, closed = false;
+  double level;
   final events = StreamController<AttachmentPlayback>.broadcast();
   @override
   Stream<AttachmentPlayback> get changes => events.stream;
   @override
   AttachmentPlayback get playback => AttachmentPlayback(
+    volume: level,
     playing: playing,
     position: const Duration(seconds: 4),
     duration: const Duration(seconds: 60),
@@ -61,7 +70,10 @@ class Player implements AttachmentPlayer {
   @override
   Future<void> seek(Duration d) async {}
   @override
-  Future<void> volume(double v) async {}
+  Future<void> volume(double v) async {
+    level = v;
+  }
+
   @override
   Future<void> dispose() async {
     closed = true;
@@ -113,9 +125,50 @@ void main() {
       expect(
         stillPlaying,
         isTrue,
-        reason:
-            'HDR is a refinement; failure should fall back to uninterrupted SDR playback.',
+        reason: 'HDR is a refinement; failure should fall back to uninterrupted SDR playback.',
       );
     },
   );
+
+  testWidgets('HDR handoff preserves the muted shared stream', (t) async {
+    final c = Client();
+    final w = WorkspaceController(c);
+    final base = Player(playing: true, level: 0), native = Player(native: true);
+    final key = attachmentMediaKey({'id': 'a', 'filename': 'clip.mp4'});
+    final card = w.playerSessions.acquire(
+      key,
+      scope: w.attachmentImageScope,
+      create: () => base,
+      source: () async =>
+          AttachmentSource.network(Uri.parse('https://example.invalid/signed')),
+    );
+    await card.ready;
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: AttachmentPreviewDialog(
+          controller: w,
+          metadata: {'id': 'a', 'filename': 'clip.mp4'},
+          authorized: () => true,
+          onClose: () {},
+          onDownload: () async {},
+          playerFactory: () => native,
+          hdrDetector: (_) async => true,
+        ),
+      ),
+    );
+    for (var i = 0; i < 20; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    final volume = native.playback.volume;
+    await t.pumpWidget(const SizedBox());
+    card.release();
+    w.dispose();
+    await c.dispose();
+    expect(
+      volume,
+      0,
+      reason: 'Opening HDR preview must not unmute a muted video.',
+    );
+  });
 }

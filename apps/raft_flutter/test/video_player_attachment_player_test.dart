@@ -399,6 +399,27 @@ void main() {
       await player.dispose();
     });
 
+    // Regression (CodexMac's review repro): the first open of a resumed
+    // stream failed on an expired URL and the re-sign reopened at zero.
+    test('re-sign during open preserves requested resume position', () async {
+      final player = VideoPlayerAttachmentPlayer();
+      fake.failures = 1;
+      await player.open(
+        AttachmentSource.network(
+          url,
+          start: const Duration(seconds: 7),
+          refresh: () async => Uri.parse('https://storage.invalid/a.mp4?sig=2'),
+        ),
+      );
+      final seeks = fake.seeks.toList();
+      await player.dispose();
+      expect(
+        seeks,
+        contains(const Duration(seconds: 7)),
+        reason: 'Expired URL at resume must not restart from zero.',
+      );
+    });
+
     test('a second failure is final: one re-sign per source', () async {
       final player = VideoPlayerAttachmentPlayer();
       fake.failures = 2;

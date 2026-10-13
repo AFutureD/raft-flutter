@@ -131,8 +131,9 @@ class VideoPlayerAttachmentPlayer
       if (_closed || _active != controller) return;
       // video_player reports "Source error" for a rejected request without the
       // status, so an expired signature cannot be told from other failures:
-      // sign once more and try again before giving up.
-      if (await _retryWithFreshUrl(source, Duration.zero)) return;
+      // sign once more and try again before giving up, at the position this
+      // open was asked for (a resume), not at zero.
+      if (await _retryWithFreshUrl(source, source.start)) return;
       _log('open failed: ${_describe(error)}');
       _publish(error: true);
       rethrow;

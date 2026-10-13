@@ -407,6 +407,13 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     return '';
   }
 
+  /// Where a re-signed source reopens: where playback got to, or, for a
+  /// source that failed before it played (no position yet), the start it was
+  /// asked for.
+  @visibleForTesting
+  static Duration resignPosition(Duration position, Duration start) =>
+      position > Duration.zero ? position : start;
+
   /// A streamed source that failed to open or play (typically a host that
   /// answered 401/403/410 for an expired signature): sign again once and
   /// continue from the current position.
@@ -420,7 +427,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     try {
       final url = await refresh();
       if (closed) return false;
-      final at = player.state.position;
+      final at = resignPosition(player.state.position, current.start);
       failed = false;
       await open(
         AttachmentSource.network(url, headers: current.headers, start: at),
