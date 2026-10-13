@@ -294,6 +294,32 @@ void main() {
       ok!.release();
     });
 
+    test(
+      'a metadata size of 0 means unknown, not "every download is short"',
+      () async {
+        final downloads = _Downloads();
+        final first = await cache.fetchFile(
+          key('z'),
+          filename: 'doc.pdf',
+          expectedBytes: 0,
+          download: downloads.call,
+        );
+        expect(first, isNotNull);
+        first!.release();
+        final again = await cache.openFile(
+          key('z'),
+          filename: 'doc.pdf',
+          expectedBytes: 0,
+        );
+        expect(
+          again,
+          isNotNull,
+          reason: 'the stored copy is not called corrupt',
+        );
+        again!.release();
+      },
+    );
+
     test('a corrupt stored file is ignored and fetched again', () async {
       final downloads = _Downloads();
       final first = await cache.fetchFile(

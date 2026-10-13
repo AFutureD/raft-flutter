@@ -256,10 +256,16 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     required String filename,
     int? expectedBytes,
   }) async {
+    expectedBytes = _knownSize(expectedBytes);
     final index = await _open();
     if (index == null) return null;
     return _openPath(index, _filePath(index, key, filename), expectedBytes);
   }
+
+  /// Attachment metadata without a size (0, negative) promises nothing: it must
+  /// not make every download look incomplete.
+  static int? _knownSize(int? bytes) =>
+      bytes != null && bytes > 0 ? bytes : null;
 
   Future<AttachmentCachedFile?> _openPath(
     _DiskIndex index,
@@ -303,6 +309,7 @@ class AttachmentDiskCache implements AttachmentImageByteStore {
     CancelToken? cancel,
     void Function(int received, int total)? onProgress,
   }) async {
+    expectedBytes = _knownSize(expectedBytes);
     final index = await _open();
     if (index == null) throw const AttachmentCacheUnavailable();
     final path = _filePath(index, key, filename);
