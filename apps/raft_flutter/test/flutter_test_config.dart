@@ -69,7 +69,11 @@ void _enableLeakTracking() {
   if (Platform.environment['RAFT_LEAK_STACKS'] == '1') {
     LeakTesting.settings = LeakTesting.settings.withCreationStackTrace();
   }
+  // Not-GC'ed tracking stays off (the default; stated so a newer leak_tracker
+  // default cannot turn it on): it forces GC cycles in the end-of-file report,
+  // which is slow and load-dependent. Only 'notDisposed' is reported.
   LeakTesting.settings = LeakTesting.settings.withIgnored(
+    allNotGCed: true,
     classes: const [
       // Process-wide singletons (static `shared` / `instance`).
       '_RaftFocusVisible',
