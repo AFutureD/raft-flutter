@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
@@ -115,12 +117,16 @@ Future<void> _mount(
   WidgetTester t,
   WorkspaceController w, {
   bool thread = false,
+  Locale? locale,
 }) async {
   t.view.physicalSize = const Size(1280, 800);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
+      locale: locale,
+      supportedLocales: const [Locale('en'), Locale('zh')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: raftTheme(RaftFamily.elegant),
       home: Scaffold(
         body: RaftChatView(controller: w, thread: thread),
@@ -140,6 +146,16 @@ Future<void> _tapSend(WidgetTester t) => t.tap(
     (widget) => widget is RaftComposerAction && widget.glyph == RaftGlyph.send,
   ),
 );
+
+/// Web `handleSubmit` from the keyboard: the shortcut that reaches the
+/// blocked-send notice (the disabled Send button itself does nothing).
+Future<void> _keySend(WidgetTester t) async {
+  await t.tap(_editor());
+  await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+  await t.sendKeyEvent(LogicalKeyboardKey.enter);
+  await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  await t.pump();
+}
 
 /// Pumps frames (the mocked HTTP layer runs on fake time) until [done],
 /// running [eachFrame] after every painted frame.
@@ -450,6 +466,198 @@ void main() {
       expect(t.takeException(), isNull);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
+    },
+  );
+
+  group(
+    'an attachment-only send (Kevin: "Channel ID and content are required")',
+    () {
+      const file = {
+        'id': 'att-1',
+        'filename': '11606.mp4',
+        'mimeType': 'video/mp4',
+        'sizeBytes': 5,
+      };
+
+      Future<RequestOptions?> sendOnlyFiles(
+        WidgetTester t,
+        WorkspaceController w,
+        _Api api, {
+        int files = 1,
+        Locale? locale,
+      }) async {
+        api.routes['POST /attachments/upload'] = (_) => (
+          200,
+          {
+            'attachments': [
+              {...file, 'id': 'att-${api.calls.length}'},
+            ],
+          },
+        );
+        RequestOptions? request;
+        api.routes['POST /v2/messages'] = (o) {
+          request = o;
+          return (200, {'message': _accepted(o, 'sent-9')});
+        };
+        await _mount(t, w, locale: locale);
+        for (var i = 0; i < files; i++) {
+          unawaited(w.attachUpload('11606.mp4', Uint8List.fromList([1, 2, 3])));
+        }
+        await _frames(t, () => w.uploads().length == files && w.uploadsReady());
+        await _tapSend(t);
+        await t.pump();
+        return request;
+      }
+
+      testWidgets(
+        'sends "[1 attachment]" as the content with the attachment id',
+        (t) async {
+          final (w, api, _) = (await t.runAsync(_fixture))!;
+          addTearDown(w.dispose);
+          await sendOnlyFiles(t, w, api);
+          await _frames(
+            t,
+            () => api.calls.any((c) => c.path == '/v2/messages'),
+          );
+          final request = api.calls.lastWhere((c) => c.path == '/v2/messages');
+          expect(request.data['content'], '[1 attachment]');
+          expect(request.data['attachmentIds'], hasLength(1));
+          expect(request.data['channelId'], 'c1');
+          // The optimistic row shows the same body as the server copy.
+          expect(w.timeline().last.content, '[1 attachment]');
+          await t.pumpWidget(const SizedBox());
+          await t.pump(const Duration(seconds: 1));
+        },
+      );
+
+      testWidgets('pluralises and localizes the body like Web', (t) async {
+        final (w, api, _) = (await t.runAsync(_fixture))!;
+        addTearDown(w.dispose);
+        await sendOnlyFiles(t, w, api, files: 2, locale: const Locale('zh'));
+        await _frames(t, () => api.calls.any((c) => c.path == '/v2/messages'));
+        final request = api.calls.lastWhere((c) => c.path == '/v2/messages');
+        expect(request.data['content'], '[2 个附件]');
+        expect(request.data['attachmentIds'], hasLength(2));
+        await t.pumpWidget(const SizedBox());
+        await t.pump(const Duration(seconds: 1));
+      });
+
+      testWidgets('typed text still wins over the placeholder', (t) async {
+        final (w, api, _) = (await t.runAsync(_fixture))!;
+        addTearDown(w.dispose);
+        api.routes['POST /attachments/upload'] = (_) => (
+          200,
+          {
+            'attachments': [file],
+          },
+        );
+        api.routes['POST /v2/messages'] = (o) =>
+            (200, {'message': _accepted(o, 'sent-9')});
+        await _mount(t, w);
+        unawaited(w.attachUpload('11606.mp4', Uint8List.fromList([1, 2, 3])));
+        await _frames(t, () => w.uploads().isNotEmpty && w.uploadsReady());
+        await t.enterText(_editor(), 'look');
+        await t.pump();
+        await _tapSend(t);
+        await _frames(t, () => api.calls.any((c) => c.path == '/v2/messages'));
+        expect(
+          api.calls.lastWhere((c) => c.path == '/v2/messages').data['content'],
+          'look',
+        );
+        await t.pumpWidget(const SizedBox());
+        await t.pump(const Duration(seconds: 1));
+      });
+
+      testWidgets(
+        'send while an upload runs posts nothing and shows the notice',
+        (t) async {
+          final (w, api, _) = (await t.runAsync(_fixture))!;
+          addTearDown(w.dispose);
+          final transfer = Completer<(int, dynamic)>();
+          api.routes['POST /attachments/upload'] = (_) => transfer.future;
+          api.routes['POST /v2/messages'] = (o) =>
+              (200, {'message': _accepted(o, 'sent-9')});
+          await _mount(t, w);
+          unawaited(w.attachUpload('11606.mp4', Uint8List.fromList([1, 2, 3])));
+          await _frames(t, () => w.uploads().isNotEmpty);
+          expect(w.uploadsReady(), isFalse);
+          await _tapSend(t);
+          await _keySend(t);
+          await t.pump(const Duration(milliseconds: 50));
+          expect(api.calls.where((c) => c.path == '/v2/messages'), isEmpty);
+          expect(
+            w.composerErrorFor(),
+            'Wait for attachments to finish uploading before sending.',
+          );
+          transfer.complete((
+            200,
+            {
+              'attachments': [file],
+            },
+          ));
+          await _frames(t, () => w.uploadsReady());
+          await _tapSend(t);
+          await _frames(
+            t,
+            () => api.calls.any((c) => c.path == '/v2/messages'),
+          );
+          expect(
+            api.calls
+                .lastWhere((c) => c.path == '/v2/messages')
+                .data['content'],
+            '[1 attachment]',
+          );
+          await t.pumpWidget(const SizedBox());
+          await t.pump(const Duration(seconds: 1));
+        },
+      );
+
+      testWidgets('send with a failed upload posts nothing and asks to retry', (
+        t,
+      ) async {
+        final (w, api, _) = (await t.runAsync(_fixture))!;
+        addTearDown(w.dispose);
+        api.routes['POST /attachments/upload'] = (_) =>
+            (500, {'error': 'File storage unavailable.'});
+        await _mount(t, w);
+        unawaited(w.attachUpload('11606.mp4', Uint8List.fromList([1, 2, 3])));
+        await _frames(t, () => w.uploads().any((u) => u.error != null));
+        await _tapSend(t);
+        await _keySend(t);
+        await t.pump(const Duration(milliseconds: 50));
+        expect(api.calls.where((c) => c.path == '/v2/messages'), isEmpty);
+        expect(
+          w.composerErrorFor(),
+          'Remove or retry failed attachments before sending.',
+        );
+        await t.pumpWidget(const SizedBox());
+        await t.pump(const Duration(seconds: 1));
+      });
+
+      testWidgets(
+        'a rejected attachment-only send restores the files, not the body',
+        (t) async {
+          final (w, api, _) = (await t.runAsync(_fixture))!;
+          addTearDown(w.dispose);
+          api.routes['POST /attachments/upload'] = (_) => (
+            200,
+            {
+              'attachments': [file],
+            },
+          );
+          api.routes['POST /v2/messages'] = (_) =>
+              (500, {'error': 'Something went wrong on the server'});
+          await _mount(t, w);
+          unawaited(w.attachUpload('11606.mp4', Uint8List.fromList([1, 2, 3])));
+          await _frames(t, () => w.uploads().isNotEmpty && w.uploadsReady());
+          await _tapSend(t);
+          await _frames(t, () => w.error != null);
+          expect(w.uploads(), hasLength(1));
+          expect(w.drafts[w.draftScope()] ?? '', isEmpty);
+          await t.pumpWidget(const SizedBox());
+          await t.pump(const Duration(seconds: 1));
+        },
+      );
     },
   );
 }

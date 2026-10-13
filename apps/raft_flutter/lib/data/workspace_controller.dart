@@ -110,6 +110,10 @@ class _PendingSend {
   final List<UploadDraft> uploads;
 }
 
+/// Web `message.composer.attachmentsOnlyBody` in English.
+String _attachmentsOnlyBody(int count) =>
+    count == 1 ? '[1 attachment]' : '[$count attachments]';
+
 /// Web `mergeFailedSendIntoDraft`.
 String _mergeFailedSendIntoDraft(String failed, String current) {
   if (current.isEmpty) return failed;
@@ -5078,6 +5082,7 @@ class WorkspaceController extends ChangeNotifier {
     List<Map<String, dynamic>>? mentions,
     String? randomId,
     bool asTask = false,
+    String Function(int count)? attachmentsOnlyBody,
     void Function(int window)? onWindowRefreshed,
   }) async {
     final source = presentationSource;
@@ -5089,6 +5094,7 @@ class WorkspaceController extends ChangeNotifier {
         mentions: mentions,
         randomId: randomId,
         asTask: asTask,
+        attachmentsOnlyBody: attachmentsOnlyBody,
         onWindowRefreshed: onWindowRefreshed,
       );
     }
@@ -5168,6 +5174,13 @@ class WorkspaceController extends ChangeNotifier {
       return false;
     }
     final ids = selectedAttachments ?? uploaded.map((u) => u.id!).toList();
+    // The server rejects an empty `content` even with `attachmentIds`; Web
+    // MessageInput sends `message.composer.attachmentsOnlyBody` ("[1
+    // attachment]") for a message that has files and no text. The draft keeps
+    // the typed text, so a failed send restores an empty draft, not the body.
+    final body = text.trim().isEmpty && ids.isNotEmpty
+        ? (attachmentsOnlyBody ?? _attachmentsOnlyBody)(ids.length)
+        : text;
     final fingerprint = jsonEncode([
       text,
       ids,
@@ -5207,7 +5220,7 @@ class WorkspaceController extends ChangeNotifier {
         // missing).
         'senderName': user?.firstNonEmpty(const ['displayName', 'name']) ?? '',
         'messageType': 'chat',
-        'content': text,
+        'content': body,
         if (selectedMentions.isNotEmpty) 'mentions': selectedMentions,
         'createdAt': DateTime.now().toUtc().toIso8601String(),
         if (selectedUploads.isNotEmpty)
@@ -5297,7 +5310,7 @@ class WorkspaceController extends ChangeNotifier {
       if (!currentSend()) return fail();
       final sent = await client.sendWithReceipt(
         id,
-        text,
+        body,
         attachments: ids,
         mentions: selectedMentions.isEmpty ? null : selectedMentions,
         randomId: sentId,

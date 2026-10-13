@@ -3363,6 +3363,12 @@ class _RaftChatViewState extends State<RaftChatView>
         composeAuthority == workspaceAuthority(w) &&
         composeWindow ==
             (widget.thread ? w.threadGeneration : w.channelGeneration);
+    // Web `message.composer.attachmentsOnlyBody`, resolved while the context
+    // is live: the controller picks the form once it knows the file count.
+    final onlyOne = raftFormat(context, '[{count} attachment]', {'count': 1});
+    final manyBody = raftText(context, '[{count} attachments]');
+    String attachmentsOnlyBody(int count) =>
+        count == 1 ? onlyOne : manyBody.replaceAll('{count}', '$count');
     Future<bool> sendCurrent(
       String text,
       List<Map<String, dynamic>> mentions, {
@@ -3376,6 +3382,7 @@ class _RaftChatViewState extends State<RaftChatView>
         thread: widget.thread,
         mentions: mentions,
         asTask: submittedTask,
+        attachmentsOnlyBody: attachmentsOnlyBody,
         onWindowRefreshed: (window) {
           if (mounted &&
               composeScope == w.draftScope(thread: widget.thread) &&

@@ -6,6 +6,8 @@ const Map<String, String> zhCatalogFollowersAttachments = <String, String>{
   "Remove {agent} from followers": "将 {agent} 移出关注者",
   "{count} images": "{count} 张图片",
   "{count} attachments": "{count} 个附件",
+  "[{count} attachment]": "[{count} 个附件]",
+  "[{count} attachments]": "[{count} 个附件]",
   "Open {filename} in preview": "在预览中打开 {filename}",
   "Download {filename}": "下载 {filename}",
   "Loading {filename}": "正在加载 {filename}",
