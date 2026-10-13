@@ -148,8 +148,15 @@ class RaftLightboxHeader extends StatelessWidget {
               ),
             ),
           ),
-          child: SizedBox(
-            height: raftLightboxHeaderRow + rule,
+          // Larger text: the bar is a minimum height and the title and the
+          // sender line wrap instead of being ellipsised.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: raftLightboxHeaderRow + rule,
+              maxHeight: RaftScaled.grows(context)
+                  ? double.infinity
+                  : raftLightboxHeaderRow + rule,
+            ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, rule),
               child: Row(
@@ -168,9 +175,11 @@ class RaftLightboxHeader extends StatelessWidget {
                             children: [
                               Text(
                                 title,
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.ellipsis,
+                                maxLines: RaftScaled.grows(context) ? null : 1,
+                                softWrap: RaftScaled.grows(context),
+                                overflow: RaftScaled.grows(context)
+                                    ? TextOverflow.clip
+                                    : TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: t.headingFont,
                                   fontSize: 14,
@@ -184,9 +193,13 @@ class RaftLightboxHeader extends StatelessWidget {
                               if (subtitle != null)
                                 Text(
                                   subtitle!,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: RaftScaled.grows(context)
+                                      ? null
+                                      : 1,
+                                  softWrap: RaftScaled.grows(context),
+                                  overflow: RaftScaled.grows(context)
+                                      ? TextOverflow.clip
+                                      : TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontFamily: t.bodyFont,
                                     fontSize: 12,

@@ -9,7 +9,9 @@ import 'package:flutter/services.dart';
 import 'attachment_lightbox.dart' show RaftLightboxStageInset;
 import 'design_primitives.dart' show RaftInteractive;
 import 'icons.dart';
+import 'large_content_viewer.dart';
 import 'localization.dart';
+import 'text_scaling.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'theme.dart';
 
@@ -54,6 +56,13 @@ const raftMediaDesktopStripBand = 48.0 + 16 + 8;
 
 /// Two caption lines (13 / 1.35) plus the shell's padding.
 const raftMediaCaptionHeight = 62.0;
+
+/// The collapsed caption band: two lines at the current text size (capped at
+/// a third of the screen so the picture keeps most of it).
+double _captionHeight(BuildContext context) => math.min(
+  RaftScaled.extent(context, raftMediaCaptionHeight - 12, fontSize: 13) + 12,
+  math.max(raftMediaCaptionHeight, MediaQuery.sizeOf(context).height / 3),
+);
 
 String raftMediaDuration(Duration value) {
   final seconds = value.inSeconds;
@@ -318,6 +327,11 @@ class _RaftMediaStripState extends State<RaftMediaStrip> {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    // Fixed-size thumbnails are chrome: their labels stay within the bound.
+    return RaftChrome(child: _strip(context, t));
+  }
+
+  Widget _strip(BuildContext context, RaftTokens t) {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
@@ -495,16 +509,31 @@ class RaftMediaChromeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    void press() {
+      final box = context.findRenderObject();
+      onPressed(
+        box is RenderBox && box.hasSize
+            ? box.localToGlobal(Offset.zero) & box.size
+            : Rect.zero,
+      );
+    }
+
+    // Fixed chrome: at large text sizes a long press shows the action large.
+    return RaftChrome(
+      child: RaftLargeContentViewer(
+        label: label,
+        onActivate: press,
+        iconBuilder: (context, size) =>
+            RaftIcon(glyph, size: size, color: IconTheme.of(context).color),
+        child: _button(t, press),
+      ),
+    );
+  }
+
+  Widget _button(RaftTokens t, VoidCallback press) {
     return RaftInteractive(
       semanticLabel: label,
-      onPressed: () {
-        final box = context.findRenderObject();
-        onPressed(
-          box is RenderBox && box.hasSize
-              ? box.localToGlobal(Offset.zero) & box.size
-              : Rect.zero,
-        );
-      },
+      onPressed: press,
       builder: (_, state) => SizedBox.square(
         dimension: raftMediaChromeTarget,
         child: Center(
@@ -747,7 +776,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     final hasCaption = widget.caption != null && !landscape;
     final bottomBand =
         safe.bottom +
-        (hasCaption ? raftMediaCaptionHeight : 0) +
+        (hasCaption ? _captionHeight(context) : 0) +
         (hasStrip ? raftMediaStripBand + 8 : 0);
     final inset = math.max(topBar, bottomBand);
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -814,11 +843,16 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     );
 
     final top = layer((context) {
+      // The bar is fixed chrome (bounded text, Large Content Viewer); its
+      // title and sender line wrap and the bar grows above the default size.
+      final grows = RaftScaled.grows(context);
       final rule = t.brutal
           ? const Border(bottom: BorderSide(color: Colors.white, width: 2))
           : null;
-      return Container(
-        height: topBar + (t.brutal ? 2 : 0),
+      final barHeight = topBar + (t.brutal ? 2 : 0);
+      final bar = Container(
+        height: grows ? null : barHeight,
+        constraints: grows ? BoxConstraints(minHeight: barHeight) : null,
         padding: EdgeInsets.fromLTRB(
           4 + safe.left,
           safe.top,
@@ -852,8 +886,8 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
                 children: [
                   Text(
                     widget.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: grows ? null : 1,
+                    overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: t.headingFont,
                       fontSize: 15,
@@ -865,8 +899,10 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
                   if (widget.subtitle != null)
                     Text(
                       widget.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: grows ? null : 1,
+                      overflow: grows
+                          ? TextOverflow.clip
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: t.bodyFont,
                         fontSize: 12,
@@ -891,6 +927,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
           ],
         ),
       );
+      return RaftChrome(child: RaftLargeContentScope(child: bar));
     });
 
     final bottom = layer((context) {
@@ -1023,10 +1060,10 @@ class _MediaCaptionState extends State<_MediaCaption> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
           child: SizedBox(
-            height: expanded ? null : raftMediaCaptionHeight - 12,
+            height: expanded ? null : _captionHeight(context) - 12,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: expanded ? 200 : raftMediaCaptionHeight - 12,
+                maxHeight: expanded ? 200 : _captionHeight(context) - 12,
               ),
               child: SingleChildScrollView(
                 physics: expanded

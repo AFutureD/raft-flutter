@@ -32,6 +32,7 @@ import 'package:raft_ui/html_previews.dart';
 import 'package:raft_ui/inline_badge_previews.dart';
 import 'package:raft_ui/inline_thread_surface_previews.dart';
 import 'package:raft_ui/legacy_input_previews.dart';
+import 'package:raft_ui/media_browser_previews.dart';
 import 'package:raft_ui/member_profile_previews.dart';
 import 'package:raft_ui/message_affordance_previews.dart';
 import 'package:raft_ui/message_row_previews.dart';
@@ -958,6 +959,41 @@ final auditSurfaces = <AuditSurface>[
     'Desktop rail footer',
     workspaceRailFooterPreview,
     Size(440, 320),
+    representative: true,
+  ),
+  AuditSurface(
+    'mediaBrowserPhonePreview',
+    'Media browser phone',
+    mediaBrowserPhonePreview,
+    Size(390, 844),
+    representative: true,
+  ),
+  AuditSurface(
+    'mediaBrowserPhoneHiddenPreview',
+    'Media browser phone, chrome hidden',
+    mediaBrowserPhoneHiddenPreview,
+    Size(390, 844),
+    representative: true,
+  ),
+  AuditSurface(
+    'mediaBrowserPhoneLandscapePreview',
+    'Media browser phone landscape',
+    mediaBrowserPhoneLandscapePreview,
+    Size(844, 390),
+    representative: true,
+  ),
+  AuditSurface(
+    'mediaBrowserPhoneNoCaptionPreview',
+    'Media browser phone without caption',
+    mediaBrowserPhoneNoCaptionPreview,
+    Size(390, 844),
+    representative: true,
+  ),
+  AuditSurface(
+    'mediaBrowserDesktopPreview',
+    'Media browser desktop',
+    mediaBrowserDesktopPreview,
+    Size(1280, 800),
     representative: true,
   ),
 ];
