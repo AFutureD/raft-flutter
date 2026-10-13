@@ -309,8 +309,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           channelId: owner,
           viewer: true,
           create:
-              widget.playerFactory ??
-              () => createAttachmentPlayer(video: true),
+              widget.playerFactory ?? () => createAttachmentPlayer(video: true),
           source: () => attachmentStreamSource(
             widget.controller,
             '${widget.metadata['id']}',
@@ -358,7 +357,8 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         } else {
           // The audio viewer plays the cached file with a player of its own.
           final own =
-              (widget.playerFactory ?? () => createAttachmentPlayer(video: false))();
+              (widget.playerFactory ??
+              () => createAttachmentPlayer(video: false))();
           ownPlayer = own;
           bindPlayer(own);
           await own.open(AttachmentSource.file(prepared.file));
@@ -473,7 +473,11 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     final detector = widget.hdrDetector;
     final verdict = detector != null
         ? await detector(url)
-        : (await probeMp4Color(AttachmentHttp.shared, url, cancel: cancel))?.hdr ??
+        : (await probeMp4Color(
+                AttachmentHttp.shared,
+                url,
+                cancel: cancel,
+              ))?.hdr ??
               false;
     if (verdicts.length > 64) verdicts.remove(verdicts.keys.first);
     return verdicts[key] = verdict;
@@ -486,11 +490,25 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   /// never get here: they keep the shared texture player, seamlessly.
   Future<void> considerHdr(PlayerHold shared) async {
     if (!platformViewsAvailable || hdrHold != null) return;
+    // Set once the shared player has been paused for the handoff: every path
+    // that does not end with the native player bound must undo that pause.
+    var pausedPlaying = false;
+    Future<void> resumeShared() async {
+      if (!pausedPlaying || shared.orphaned) return;
+      pausedPlaying = false;
+      try {
+        if (!shared.player.playback.playing) await shared.player.toggle();
+      } on Object {
+        // best effort: the shared player may already be gone
+      }
+    }
+
     try {
       if (!await detectHdr() || !current || hdrHold != null || exiting) return;
       final started = Stopwatch()..start();
       final base = shared.player.playback;
       await shared.player.pause();
+      pausedPlaying = base.playing;
       final owner = widget.channelId ?? widget.metadata['channelId'] as String?;
       final native = widget.controller.playerSessions.acquire(
         '${attachmentMediaKey(widget.metadata)}|hdr',
@@ -512,10 +530,14 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       if (!current || exiting || !identical(hdrHold, native)) {
         if (identical(hdrHold, native)) hdrHold = null;
         native.release();
+        await resumeShared();
         return;
       }
       if (base.playing) await native.player.toggle();
-      debugLastHdrHandoff = HdrHandoff(started.elapsedMilliseconds, base.position);
+      debugLastHdrHandoff = HdrHandoff(
+        started.elapsedMilliseconds,
+        base.position,
+      );
       debugPrint(
         'raft.media: hdr handoff ${started.elapsedMilliseconds} ms at ${base.position.inMilliseconds} ms',
       );
@@ -526,6 +548,9 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         hdrHold?.release();
         hdrHold = null;
       }
+      // Not handed over (the native player failed before it was bound): the
+      // shared player carries on as it was.
+      if (hdrHold == null) await resumeShared();
     }
   }
 
@@ -568,9 +593,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     final animation = r.animation;
     final gesture = r.navigator?.userGestureInProgress ?? false;
     final nowExiting =
-        animation?.status == AnimationStatus.reverse ||
-        gesture ||
-        !r.isActive;
+        animation?.status == AnimationStatus.reverse || gesture || !r.isActive;
     final nowEntered = animation == null || animation.isCompleted;
     if (nowExiting == exiting && nowEntered == entered) return;
     setState(() {
@@ -667,7 +690,9 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     final heldLease = lease;
     try {
       route?.animation?.removeListener(routeMoved);
-      route?.navigator?.userGestureInProgressNotifier.removeListener(routeMoved);
+      route?.navigator?.userGestureInProgressNotifier.removeListener(
+        routeMoved,
+      );
       await playbackEvents?.cancel();
       // The native view's player is the viewer's own: it goes, and the shared
       // player (the card's, when there is one) continues from its position.
