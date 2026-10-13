@@ -15,6 +15,7 @@ class RaftVideoViewer extends StatefulWidget {
     required this.filename,
     this.videoSize,
     this.playing = false,
+    this.buffering = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.volume = 100,
@@ -31,7 +32,7 @@ class RaftVideoViewer extends StatefulWidget {
 
   /// The video's own pixel size (null until known: the stage is used).
   final Size? videoSize;
-  final bool playing;
+  final bool playing, buffering;
   final Duration position, duration;
 
   /// 0..100.
@@ -83,6 +84,7 @@ class _RaftVideoViewerState extends State<RaftVideoViewer> {
         ),
         child: RaftVideoOverlay(
           filename: widget.filename,
+          buffering: widget.buffering,
           playing: widget.playing,
           position: widget.position,
           duration: widget.duration,

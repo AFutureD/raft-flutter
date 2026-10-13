@@ -35,6 +35,7 @@ class RaftInlineVideo extends StatefulWidget {
     this.video,
     this.poster,
     this.playing = false,
+    this.buffering = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.volume = 100,
@@ -53,7 +54,7 @@ class RaftInlineVideo extends StatefulWidget {
 
   /// Server thumbnail shown until the video surface has a frame.
   final Widget? poster;
-  final bool playing;
+  final bool playing, buffering;
   final Duration position, duration;
 
   /// 0..100 like the native player.
@@ -168,9 +169,9 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
         ),
       ),
     };
-    final interactive =
-        widget.state == RaftInlineMediaState.idle ||
-        widget.state == RaftInlineMediaState.ready;
+    // A tap while the player is still being prepared is kept (the card queues
+    // the play), so the picture reacts in every state but failed.
+    final interactive = widget.state != RaftInlineMediaState.failed;
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -187,6 +188,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
               filename: widget.filename,
               interactive: interactive,
               ready: ready,
+              buffering: widget.buffering,
               playing: widget.playing,
               position: widget.position,
               duration: widget.duration,
@@ -427,7 +429,13 @@ class RaftInlineAudio extends StatelessWidget {
         : GestureDetector(
             key: const Key('audio-placeholder'),
             behavior: HitTestBehavior.opaque,
-            onTap: state == RaftInlineMediaState.failed ? onDownload : null,
+            // Idle: the player was released (or not prepared yet); a tap prepares
+            // it and plays.
+            onTap: state == RaftInlineMediaState.failed
+                ? onDownload
+                : state == RaftInlineMediaState.idle
+                ? onTogglePlay
+                : null,
             child: Container(
               height: 40,
               alignment: Alignment.center,

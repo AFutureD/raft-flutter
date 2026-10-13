@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
+import 'design_primitives.dart' show RaftSpinner;
 import 'icons.dart';
 import 'localization.dart';
 import 'inline_media.dart' show raftAudioTimestamp;
@@ -66,6 +67,7 @@ class RaftVideoOverlay extends StatefulWidget {
     this.extra = const [],
     this.interactive = true,
     this.ready = true,
+    this.buffering = false,
     this.playing = false,
     this.position = Duration.zero,
     this.duration = Duration.zero,
@@ -83,11 +85,14 @@ class RaftVideoOverlay extends StatefulWidget {
   final String filename;
   final List<Widget> extra;
 
-  /// The picture reacts to clicks (idle or ready); false while loading or failed.
+  /// The picture reacts to clicks (idle, loading or ready: a tap while the
+  /// player is prepared is queued by the caller); false when failed.
   final bool interactive;
 
   /// The video is open: the bar and the Play button may show.
   final bool ready;
+  /// The player waits for data: a spinner over the picture.
+  final bool buffering;
   final bool playing, fullscreen;
   final Duration position, duration;
 
@@ -217,7 +222,10 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
       widget.ready &&
       (widget.playing ? (touch ? barTapped : hovered && !idleHidden) : true);
   bool get showCenterPlay =>
-      widget.ready && !widget.playing && (touch || hovered);
+      widget.ready &&
+      !widget.playing &&
+      !widget.buffering &&
+      (touch || hovered);
 
   @override
   Widget build(BuildContext context) {
@@ -283,12 +291,28 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
                   ),
                 ),
               ),
+            if (widget.buffering && widget.ready)
+              const Center(
+                child: IgnorePointer(
+                  child: RaftSpinner(
+                    key: Key('inline-video-buffering'),
+                    size: 32,
+                    inverse: true,
+                  ),
+                ),
+              ),
             if (showBar)
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
+                // Translucent: the bar's box is 112 px tall and, on a phone-sized
+                // card (~170 px), reaches past the middle of the picture. An
+                // opaque region there swallowed taps (it has no recognizer) and
+                // the centre play button did nothing; the picture behind still
+                // gets the hit, the controls keep their own taps.
                 child: MouseRegion(
+                  hitTestBehavior: HitTestBehavior.translucent,
                   onEnter: (_) => barHovered(true),
                   onExit: (_) => barHovered(false),
                   child: RaftVideoControlBar(

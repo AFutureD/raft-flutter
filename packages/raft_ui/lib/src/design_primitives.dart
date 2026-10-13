@@ -1572,10 +1572,12 @@ class _RaftSpinnerState extends State<RaftSpinner>
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final dimension = widget.size ?? (t.brutal ? 16 : 14);
-    final color = t.brutal
-        ? widget.inverse
-              ? Colors.white
-              : Colors.black
+    // [inverse]: on a dark surface (the video stage, a dark button) in every
+    // theme; elegant used to ignore it and drew an ink spinner on black.
+    final color = widget.inverse
+        ? Colors.white
+        : t.brutal
+        ? Colors.black
         : IconTheme.of(context).color ?? t.ink;
     // The spinner repaints every frame while it is mounted. Its own repaint
     // boundary keeps that to the spinner's layer instead of re-recording the

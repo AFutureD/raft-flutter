@@ -126,8 +126,12 @@ class RaftLoadError extends StatelessWidget {
     this.onRetry,
     this.retryLabel = 'Retry',
     this.expand = true,
+    this.onDark = false,
   });
   final String message;
+
+  /// On the black video stage: light text instead of the page's muted one.
+  final bool onDark;
   final VoidCallback? onRetry;
   final String retryLabel;
 
@@ -149,7 +153,12 @@ class RaftLoadError extends StatelessWidget {
               t,
               size: 14,
               line: 20,
-              color: t.brutal ? t.colors['foreground-muted'] : t.muted,
+              color: onDark
+                  // ds-allow: text on the black video stage
+                  ? const Color(0xBFFFFFFF)
+                  : t.brutal
+                  ? t.colors['foreground-muted']
+                  : t.muted,
             ),
           ),
         ),
