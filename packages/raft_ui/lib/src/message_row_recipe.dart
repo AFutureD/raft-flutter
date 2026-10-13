@@ -643,6 +643,7 @@ class _RaftMessageRowState extends State<RaftMessageRow> {
     // Compact rows announce author, metadata and time in their own label.
     final compact = widget.semanticsLabel != null;
     final header = ClipRect(
+      clipper: const _HeaderInlineClip(),
       child: _MessageHeader(
         lineHeight: recipe.headerLine,
         reserve: recipe.headerReserve,
@@ -1076,6 +1077,25 @@ class _MessageToolbarClip extends CustomClipper<Rect> {
   @override
   bool shouldReclip(covariant _MessageToolbarClip oldClipper) =>
       oldClipper.viewport != viewport;
+}
+
+/// Clips the header at its left and right edges only. The header box is one
+/// CSS line tall (Elegant `leading-none` = 14px), shorter than the glyph box of
+/// the font, so a vertical clip at the box edge cuts descenders (`g`, `y`) and,
+/// for fallback faces such as PingFang SC / Noto CJK, the tops of ideographs.
+/// Only the horizontal reserve (`pr-24`) needs to hide overflowing items.
+class _HeaderInlineClip extends CustomClipper<Rect> {
+  const _HeaderInlineClip();
+
+  /// More than any font's ascent/descent overflow of a 14px line.
+  static const bleed = 64.0;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, -bleed, size.width, size.height + bleed);
+
+  @override
+  bool shouldReclip(covariant _HeaderInlineClip oldClipper) => false;
 }
 
 // Source flex header keeps sender/model/clock shrink-0. Only description can
