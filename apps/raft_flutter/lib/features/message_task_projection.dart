@@ -151,11 +151,15 @@ class MessageTaskProjection extends ChangeNotifier {
     RaftMessage message,
   ) {
     if (!owns(message)) return null;
-    final accepted = byMessage[message.id];
+    // [owns] implies [permitted]: one cache read answers byMessage and loaded.
+    final channelId = w.channel!.id;
+    final tasks = cache.tasks(w, channelId);
+    final loaded = tasks != null;
+    final accepted = tasks?[message.id];
     if (accepted != null) {
       return (presence: MessageTaskPresence.accepted, task: accepted);
     }
-    if (loaded && !cache.needsRevalidation(w, w.channel!.id)) return null;
+    if (loaded && !cache.needsRevalidation(w, channelId)) return null;
     final json = message.json;
     final number = json['taskNumber'], status = json['taskStatus'];
     final provisional = provisionalMessageTask(message);

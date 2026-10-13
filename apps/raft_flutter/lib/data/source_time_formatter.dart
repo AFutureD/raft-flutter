@@ -106,6 +106,41 @@ class SourceTimeFormatter {
   static const _dayKeyLimit = 4096;
   final _dayKeys = <int, String>{};
 
+  // What "now" contributes to message labels: its day keys in both zones and
+  // its years. Every timeline row asks with a fresh clock reading, and each
+  // reading would convert zones and pollute the day-key memo, so the answers
+  // are kept while the clock stays well inside the same calendar days.
+  _TodayContext? _today;
+
+  _TodayContext _todayFor(DateTime current) {
+    final at = current.microsecondsSinceEpoch;
+    final cached = _today;
+    if (cached != null && at >= cached.from && at < cached.until) {
+      return cached;
+    }
+    final wall = wallTime(current), host = hostWallTime(current);
+    int sinceMidnight(DateTime d) =>
+        ((d.hour * 60 + d.minute) * 60 + d.second) * 1000000 +
+        d.millisecond * 1000 +
+        d.microsecond;
+    // A calendar day is 23 to 25 hours at a DST change; stay 3 hours short of
+    // the next midnight of either zone so no cached answer outlives its day.
+    const day = 24 * 3600 * 1000000, margin = 3 * 3600 * 1000000;
+    final remaining =
+        day -
+        (sinceMidnight(wall) > sinceMidnight(host)
+            ? sinceMidnight(wall)
+            : sinceMidnight(host));
+    return _today = _TodayContext(
+      from: at,
+      until: at + remaining - margin,
+      today: dayKey(current),
+      yesterday: dayKey(_previousHostDay(current)),
+      year: wall.year,
+      hostYear: host.year,
+    );
+  }
+
   DateTime? _date(Object? value) {
     if (value is DateTime) return value;
     if (value is String) {
@@ -182,24 +217,54 @@ class SourceTimeFormatter {
   }
 
   String _numericDate(DateTime date, {required bool year}) {
+    final format =
+        (year ? _numericWithYear : _numericWithoutYear) ??
+        _numericFormat(year: year);
+    return format.format(wallTime(date));
+  }
+
+  DateFormat? _numericWithYear, _numericWithoutYear;
+
+  DateFormat _numericFormat({required bool year}) {
     final template = year ? DateFormat.yMd(locale) : DateFormat.Md(locale);
     final pattern = template.pattern!
         .replaceAll(RegExp(r'M+'), 'MM')
         .replaceAll(RegExp(r'd+'), 'dd');
-    return DateFormat(pattern, locale).format(wallTime(date));
+    final format = DateFormat(pattern, locale);
+    if (year) {
+      _numericWithYear = format;
+    } else {
+      _numericWithoutYear = format;
+    }
+    return format;
   }
 
   String messageTime(Object? value, {DateTime? now}) {
     final date = _date(value);
     if (date == null) return value?.toString() ?? '';
-    final current = now ?? sourceTimeNow();
+    final today = _todayFor(now ?? sourceTimeNow());
+    // A pure function of the instant and the day context; rows scrolled away
+    // and back, and their neighbours, ask again for the same instants.
+    final epoch = date.microsecondsSinceEpoch;
+    final cached = _messageTimes[epoch];
+    if (cached != null && identical(cached.$1, today)) return cached.$2;
     final time = _clock(date);
-    if (dayKey(date) == dayKey(current)) return time;
-    if (dayKey(date) == dayKey(_previousHostDay(current))) {
-      return '$yesterdayLabel $time';
+    final key = dayKey(date);
+    final String label;
+    if (key == today.today) {
+      label = time;
+    } else if (key == today.yesterday) {
+      label = '$yesterdayLabel $time';
+    } else {
+      label =
+          '${_numericDate(date, year: wallTime(date).year != today.year)} $time';
     }
-    return '${_numericDate(date, year: wallTime(date).year != wallTime(current).year)} $time';
+    if (_messageTimes.length >= _dayKeyLimit) _messageTimes.clear();
+    _messageTimes[epoch] = (today, label);
+    return label;
   }
+
+  final _messageTimes = <int, (_TodayContext, String)>{};
 
   /// useTimeFormatter.formatShortDateTime: preferred-zone abbreviated month,
   /// numeric day and the explicit two-digit chosen hour cycle, without a year.
@@ -245,17 +310,32 @@ class SourceTimeFormatter {
   String dayLabel(Object? value, {DateTime? now}) {
     final date = _date(value);
     if (date == null) return '';
-    final current = now ?? sourceTimeNow();
-    if (dayKey(date) == dayKey(current)) return todayLabel;
-    if (dayKey(date) == dayKey(_previousHostDay(current))) {
-      return yesterdayLabel;
-    }
+    final today = _todayFor(now ?? sourceTimeNow());
+    final key = dayKey(date);
+    if (key == today.today) return todayLabel;
+    if (key == today.yesterday) return yesterdayLabel;
     // DateDivider.tsx compares getFullYear in the host zone; messageTime above
     // instead compares preferred-zone years. Preserve the separate source rules.
-    final sameYear = hostWallTime(date).year == hostWallTime(current).year;
+    final sameYear = hostWallTime(date).year == today.hostYear;
     final format = sameYear
         ? DateFormat.MMMMEEEEd(locale)
         : DateFormat.yMMMMEEEEd(locale);
     return format.format(wallTime(date));
   }
+}
+
+class _TodayContext {
+  _TodayContext({
+    required this.from,
+    required this.until,
+    required this.today,
+    required this.yesterday,
+    required this.year,
+    required this.hostYear,
+  });
+
+  /// The clock readings (microseconds since the epoch) these answers hold for.
+  final int from, until;
+  final String today, yesterday;
+  final int year, hostYear;
 }

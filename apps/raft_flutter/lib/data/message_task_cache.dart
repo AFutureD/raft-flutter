@@ -18,17 +18,57 @@ const messageTaskStatuses = [
 ];
 
 /// Client principal and server: shared by every controller on one client.
-String _principal(RaftClient client) => jsonEncode([
-  client.origin,
-  client.generation,
-  client.user?.id,
-  client.serverId,
-]);
+///
+/// Every mounted timeline row asks for these several times; the encoding is a
+/// pure function of the four values, so the last answer is reused while they
+/// are unchanged.
+String _principal(RaftClient client) {
+  final origin = client.origin,
+      generation = client.generation,
+      user = client.user?.id,
+      server = client.serverId;
+  final last = _lastPrincipal;
+  if (last != null &&
+      last.origin == origin &&
+      last.generation == generation &&
+      last.user == user &&
+      last.server == server) {
+    return last.encoded;
+  }
+  final encoded = jsonEncode([origin, generation, user, server]);
+  _lastPrincipal = (
+    origin: origin,
+    generation: generation,
+    user: user,
+    server: server,
+    encoded: encoded,
+  );
+  return encoded;
+}
+
+({
+  Object? origin,
+  Object? generation,
+  Object? user,
+  Object? server,
+  String encoded,
+})?
+_lastPrincipal;
 
 /// Principal, server and role that accepted the cached task references. A
 /// change here drops every channel bucket; nothing else does.
-String messageTaskIdentity(WorkspaceController w) =>
-    jsonEncode([_principal(w.client), w.server?.string('role')]);
+String messageTaskIdentity(WorkspaceController w) {
+  final principal = _principal(w.client), role = w.server?.string('role');
+  final last = _lastIdentity;
+  if (last != null && last.principal == principal && last.role == role) {
+    return last.encoded;
+  }
+  final encoded = jsonEncode([principal, role]);
+  _lastIdentity = (principal: principal, role: role, encoded: encoded);
+  return encoded;
+}
+
+({String principal, String? role, String encoded})? _lastIdentity;
 
 RaftChannel? _channel(WorkspaceController w, String channelId) =>
     w.channel?.id == channelId
