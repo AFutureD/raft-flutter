@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'theme.dart';
 import 'recipe_surface.dart';
+import 'text_scaling.dart' show RaftScaled;
 
 /// Plain recipient-projected fields. Avatar resolution and clock formatting are
 /// owned by the authorized adapter; this widget never looks up an identity.
@@ -240,58 +241,84 @@ class _ReplyRow extends StatelessWidget {
     return width;
   }
 
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      // Mirrors sender shrink/truncate + content flex:1 + fixed clock. Flexible
-      // sender retains intrinsic width whenever space is available, not a 3:5 grid.
-      final clockWidth = reply.timestamp.isEmpty
-          ? 0.0
-          : textWidth(context, reply.timestamp, recipe.clock);
-      final budget = math.max(
-        0.0,
-        constraints.maxWidth -
-            20 -
-            6 -
-            6 -
-            (clockWidth > 0 ? clockWidth + 6 : 0),
-      );
-      final authorWidth = math.min(
-        budget,
-        textWidth(context, reply.author, recipe.sender),
-      );
-      return Row(
+  // Larger text: author and time sit on one wrapping line and the preview wraps
+  // below them, instead of the preview being squeezed out of a single row.
+  Widget stacked() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        runSpacing: 2,
         children: [
           ExcludeSemantics(
             child: SizedBox.square(dimension: 20, child: reply.avatar),
           ),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: authorWidth,
-            child: Text(
-              reply.author,
-              style: recipe.sender,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              reply.preview,
-              style: recipe.preview,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (clockWidth > 0) ...[
-            const SizedBox(width: 6),
+          Text(reply.author, style: recipe.sender),
+          if (reply.timestamp.isNotEmpty)
             Text(reply.timestamp, style: recipe.clock),
-          ],
         ],
-      );
-    },
+      ),
+      const SizedBox(height: 2),
+      // `clip`: an ellipsis without maxLines keeps a single line in Flutter.
+      Text(reply.preview, style: recipe.preview, overflow: TextOverflow.clip),
+    ],
   );
+
+  @override
+  Widget build(BuildContext context) => RaftScaled.grows(context)
+      ? stacked()
+      : LayoutBuilder(
+          builder: (context, constraints) {
+            // Mirrors sender shrink/truncate + content flex:1 + fixed clock. Flexible
+            // sender retains intrinsic width whenever space is available, not a 3:5 grid.
+            final clockWidth = reply.timestamp.isEmpty
+                ? 0.0
+                : textWidth(context, reply.timestamp, recipe.clock);
+            final budget = math.max(
+              0.0,
+              constraints.maxWidth -
+                  20 -
+                  6 -
+                  6 -
+                  (clockWidth > 0 ? clockWidth + 6 : 0),
+            );
+            final authorWidth = math.min(
+              budget,
+              textWidth(context, reply.author, recipe.sender),
+            );
+            return Row(
+              children: [
+                ExcludeSemantics(
+                  child: SizedBox.square(dimension: 20, child: reply.avatar),
+                ),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: authorWidth,
+                  child: Text(
+                    reply.author,
+                    style: recipe.sender,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    reply.preview,
+                    style: recipe.preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (clockWidth > 0) ...[
+                  const SizedBox(width: 6),
+                  Text(reply.timestamp, style: recipe.clock),
+                ],
+              ],
+            );
+          },
+        );
 }
 
 /// Mounted AvatarSlot compact-list frame: 20px, one-pixel border. The host

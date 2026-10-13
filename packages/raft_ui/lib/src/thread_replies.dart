@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'control_typography.dart';
 import 'components.dart';
 import 'localization.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'icons.dart';
 import 'design_primitives.dart';
@@ -63,6 +64,9 @@ class RaftThreadReplies extends StatelessWidget {
       if (hasDraft) raftText(context, 'Draft'),
     ];
     final label = [count, ...suffix].join(' · ');
+    // Larger text: a reply stacks (author and time above, the preview wrapped
+    // below) instead of squeezing the preview out of a single line.
+    final grows = RaftScaled.grows(context);
     final style = TextButton.styleFrom(
       alignment: Alignment.centerLeft,
       minimumSize: const Size(48, 48),
@@ -115,49 +119,37 @@ class RaftThreadReplies extends StatelessWidget {
                       {'name': reply.author, 'preview': reply.preview},
                     ),
                     excludeSemantics: true,
-                    child: Row(
-                      children: [
-                        if (reply.senderType == 'user')
-                          RaftAvatar(name: reply.author, size: 20)
-                        else
-                          RaftSymbol(
-                            reply.senderType == 'agent'
-                                ? Icons.smart_toy_outlined
-                                : Icons.apps,
-                            size: 20,
+                    child: grows
+                        ? _stackedReply(reply)
+                        : Row(
+                            children: [
+                              _replyAvatar(reply),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                flex: 3,
+                                child: Text(
+                                  reply.author,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _authorStyle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                flex: 5,
+                                child: Text(
+                                  reply.preview,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: _previewStyle,
+                                ),
+                              ),
+                              if (reply.timestamp.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Text(reply.timestamp, style: _timeStyle),
+                              ],
+                            ],
                           ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          flex: 3,
-                          child: Text(
-                            reply.author,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          flex: 5,
-                          child: Text(
-                            reply.preview,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12.5),
-                          ),
-                        ),
-                        if (reply.timestamp.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            reply.timestamp,
-                            style: const TextStyle(fontSize: 11.5),
-                          ),
-                        ],
-                      ],
-                    ),
                   ),
                 ),
             ],
@@ -166,6 +158,41 @@ class RaftThreadReplies extends StatelessWidget {
       ),
     );
   }
+
+  static const _authorStyle = TextStyle(
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+  );
+  static const _previewStyle = TextStyle(fontSize: 12.5);
+  static const _timeStyle = TextStyle(fontSize: 11.5);
+
+  Widget _replyAvatar(RaftThreadReplyPreview reply) =>
+      reply.senderType == 'user'
+      ? RaftAvatar(name: reply.author, size: 20)
+      : RaftSymbol(
+          reply.senderType == 'agent' ? Icons.smart_toy_outlined : Icons.apps,
+          size: 20,
+        );
+
+  Widget _stackedReply(RaftThreadReplyPreview reply) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        runSpacing: 2,
+        children: [
+          _replyAvatar(reply),
+          Text(reply.author, style: _authorStyle),
+          if (reply.timestamp.isNotEmpty)
+            Text(reply.timestamp, style: _timeStyle),
+        ],
+      ),
+      const SizedBox(height: 2),
+      // `clip`, not ellipsis: an ellipsis without maxLines keeps one line.
+      Text(reply.preview, overflow: TextOverflow.clip, style: _previewStyle),
+    ],
+  );
 }
 
 /// Web `ThreadRepliesBadge.tsx`: the message footer "N replies · M new" chip.
