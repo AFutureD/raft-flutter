@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
@@ -34,8 +35,26 @@ String? accountUsernameError(String value) {
   return null;
 }
 
+/// A profile image chosen and checked for upload (Web `PROFILE_AVATAR_ACCEPT`,
+/// `MAX_PROFILE_AVATAR_BYTES`): the multipart `avatar` field.
+class PickedAvatar {
+  const PickedAvatar(this.name, this.bytes, this.mime);
+  final String name, mime;
+  final Uint8List bytes;
+
+  FormData get form => FormData.fromMap({
+    'avatar': MultipartFile.fromBytes(
+      bytes,
+      filename: name,
+      contentType: DioMediaType.parse(mime),
+    ),
+  });
+}
+
 class AccountMediaActions {
-  static Future<void> uploadAvatar(RaftClient client) async {
+  /// Opens the image picker (system photo picker on Android/iOS, the file
+  /// picker on desktop) and validates the choice; null when cancelled.
+  static Future<PickedAvatar?> pickAvatar(RaftClient client) async {
     final generation = client.generation;
     final file = await selectImage(
       typeGroup: const XTypeGroup(
@@ -45,7 +64,7 @@ class AccountMediaActions {
         uniformTypeIdentifiers: ['public.image'],
       ),
     );
-    if (file == null) return;
+    if (file == null) return null;
     if (client.generation != generation) {
       throw const RaftUserError(raftGenericErrorText);
     }
@@ -68,16 +87,13 @@ class AccountMediaActions {
     if (client.generation != generation) {
       throw const RaftUserError(raftGenericErrorText);
     }
-    await client.post(
-      '/auth/me/avatar',
-      data: FormData.fromMap({
-        'avatar': MultipartFile.fromBytes(
-          bytes,
-          filename: file.name,
-          contentType: DioMediaType.parse(mime),
-        ),
-      }),
-    );
+    return PickedAvatar(file.name, bytes, mime);
+  }
+
+  static Future<void> uploadAvatar(RaftClient client) async {
+    final picked = await pickAvatar(client);
+    if (picked == null) return;
+    await client.post('/auth/me/avatar', data: picked.form);
     await client.reloadUser();
   }
 

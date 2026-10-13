@@ -4359,6 +4359,25 @@ class WorkspaceController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Web serverStore `uploadServerAvatar`: the upload response's avatar URL is
+  /// upserted into the server row everywhere (rail, switcher, settings) with
+  /// no re-read. A mirrored presentation source re-reads instead.
+  void applyServerAvatar(String serverId, String? avatarUrl) {
+    if (presentationSource != null) {
+      unawaited(recoverMembership());
+      return;
+    }
+    if (_disposed) return;
+    RaftRecord patch(RaftRecord value) =>
+        value.id == serverId
+        ? RaftRecord({...value.json, 'avatarUrl': avatarUrl})
+        : value;
+    servers = servers.map(patch).toList();
+    if (server != null) server = patch(server!);
+    _save('servers', '', servers.map((s) => s.json).toList(), server: '');
+    notifyListeners();
+  }
+
   Future<void> recoverMembership() async {
     if (presentationSource != null) {
       return presentationSource!.recoverMembership();

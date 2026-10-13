@@ -82,6 +82,7 @@ import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
 import '../platform/keyboard_inset_diagnostics.dart';
 import '../data/feature_flag_client_facts.dart';
+import 'public_avatar_url.dart';
 
 part 'workspace_view_sidebar_menus.dart';
 part 'mobile_workspace_route.dart';
@@ -2757,6 +2758,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
           : const [],
       controller: serverMenu,
       workspaceName: w.server?.name ?? 'Raft',
+      workspaceAvatarUrl: raftPublicAvatarUrl(
+        w.client.origin,
+        w.server?.json['avatarUrl'] as String?,
+      ),
       label: tr('Switch workspace'),
       rows: [
         for (final server in w.servers)
@@ -2764,7 +2769,10 @@ class _WorkspaceViewState extends State<WorkspaceView>
             id: server.id,
             name: server.name,
             slug: server.string('slug'),
-            avatarUrl: server.json['avatarUrl'] as String?,
+            avatarUrl: raftPublicAvatarUrl(
+              w.client.origin,
+              server.json['avatarUrl'] as String?,
+            ),
             current: server.id == w.server?.id,
             activityUnreadCount: serverUnread[server.id]?.activityUnreadCount,
             pushMuted: serverUnread[server.id]?.pushMuted ?? false,

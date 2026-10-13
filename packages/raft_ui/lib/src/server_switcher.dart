@@ -78,7 +78,12 @@ class RaftServerSwitcher extends StatefulWidget {
     this.headerActions = const [],
     this.attention = false,
     this.logo,
+    this.workspaceAvatarUrl,
   });
+
+  /// The current workspace's resolved public avatar (rail trigger); the
+  /// initial shows while absent.
+  final String? workspaceAvatarUrl;
 
   /// Replaces the rail trigger's visual (the public server rail draws its own
   /// black logo block); the trigger still toggles the menu.
@@ -275,6 +280,7 @@ class _RaftServerSwitcherState extends State<RaftServerSwitcher> {
                                 children: [
                                   _ServerAvatar(
                                     name: widget.workspaceName,
+                                    avatarUrl: widget.workspaceAvatarUrl,
                                     size: extent - 4,
                                     initialSize: 14,
                                   ),

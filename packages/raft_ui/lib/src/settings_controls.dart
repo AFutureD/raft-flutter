@@ -13,7 +13,9 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/recipes.g.dart';
 import 'recipes/token_binding.dart';
 import 'settings_layout.dart';
+import 'sized_image.dart';
 import 'theme.dart' hide RaftFieldRecipe;
+import 'tooltip.dart' show RaftTooltip;
 
 /// Recipe-driven controls the Settings pages compose. Every geometry, colour
 /// and type value comes from the generated raft-ui recipes
@@ -1047,12 +1049,86 @@ class RaftSettingsReadonlyValue extends StatelessWidget {
 
 /// AvatarSlot `profile-tile` for a server: `!size-16 !border-2`, `text-2xl
 /// font-display font-bold theme-brutal:bg-soft-signal theme-brutal:text-black`.
+///
+/// With [onUpload] (ProfileSection `canEdit`) the tile is the Web upload
+/// `<label>`: a tooltip, and a `bg-black/40` overlay with a white upload icon
+/// while hovered or focused; [busy] dims it (`opacity-70`) and disables it.
 class RaftServerProfileTile extends StatelessWidget {
-  const RaftServerProfileTile({super.key, required this.initial});
+  const RaftServerProfileTile({
+    super.key,
+    required this.initial,
+    this.imageUrl,
+    this.onUpload,
+    this.busy = false,
+    this.uploadLabel = 'Upload image',
+    this.busyLabel = 'Uploading avatar',
+  });
   final String initial;
+
+  /// Resolved public avatar URL; the initial shows while it is absent or fails.
+  final String? imageUrl;
+  final VoidCallback? onUpload;
+  final bool busy;
+  final String uploadLabel, busyLabel;
   @override
   Widget build(BuildContext context) {
+    if (onUpload == null) return _tile(context);
+    // The control is labelled by its action, not by the initial it paints.
+    final tile = ExcludeSemantics(child: _tile(context));
+    final label = raftText(context, busy ? busyLabel : uploadLabel);
+    return RaftTooltip(
+      message: label,
+      child: Opacity(
+        opacity: busy ? .7 : 1,
+        child: RaftInteractive(
+          semanticLabel: label,
+          onPressed: busy ? null : onUpload,
+          builder: (context, state) {
+            final active = state.hovered || state.focusVisible;
+            return Stack(
+              fit: StackFit.passthrough,
+              children: [
+                tile,
+                if (active && !busy)
+                  Positioned.fill(
+                    child: Padding(
+                      padding: RaftTokens.of(context).brutal
+                          ? EdgeInsets.zero
+                          : const EdgeInsets.all(2),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0x66000000),
+                          shape: RaftTokens.of(context).brutal
+                              ? BoxShape.rectangle
+                              : BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: RaftIcon(
+                            RaftGlyph.upload,
+                            size: 18,
+                            color: Color(0xFFFFFFFF),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _tile(BuildContext context) {
     final t = RaftTokens.of(context);
+    Widget image(Widget fallback) => imageUrl == null
+        ? fallback
+        : RaftSizedImage.network(
+            imageUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => fallback,
+          );
     if (!t.brutal) {
       // Elegant Avatar (human recipe): `border-2 border-transparent
       // bg-clip-padding`, the `rounded-full bg-fill-muted` fallback whose
@@ -1067,20 +1143,24 @@ class RaftServerProfileTile extends StatelessWidget {
               color: t.colors['fill-muted'],
               shape: BoxShape.circle,
             ),
-            child: Center(
-              child: Text(
-                initial,
-                style:
-                    RaftTypography.heading(
-                      t,
-                      size: 14,
-                      line: 20,
-                      weight: FontWeight.w700,
-                    ).copyWith(
-                      color: t.colors['foreground-placeholder']!.withValues(
-                        alpha: t.colors['foreground-placeholder']!.a * .7,
-                      ),
-                    ),
+            child: ClipOval(
+              child: image(
+                Center(
+                  child: Text(
+                    initial,
+                    style:
+                        RaftTypography.heading(
+                          t,
+                          size: 14,
+                          line: 20,
+                          weight: FontWeight.w700,
+                        ).copyWith(
+                          color: t.colors['foreground-placeholder']!.withValues(
+                            alpha: t.colors['foreground-placeholder']!.a * .7,
+                          ),
+                        ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1091,20 +1171,25 @@ class RaftServerProfileTile extends StatelessWidget {
       width: 64,
       height: 64,
       alignment: Alignment.center,
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: t.brutal
             ? t.colors['color-soft-signal']
             : t.colors['fill-muted'],
         border: Border.all(color: RaftSettingsText(t).edge, width: 2),
       ),
-      child: Text(
-        initial,
-        style: RaftTypography.heading(
-          t,
-          size: 24,
-          line: 32,
-          weight: FontWeight.w700,
-        ).copyWith(color: RaftSettingsText(t).strong),
+      child: image(
+        Center(
+          child: Text(
+            initial,
+            style: RaftTypography.heading(
+              t,
+              size: 24,
+              line: 32,
+              weight: FontWeight.w700,
+            ).copyWith(color: RaftSettingsText(t).strong),
+          ),
+        ),
       ),
     );
   }

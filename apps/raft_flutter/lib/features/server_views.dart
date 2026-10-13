@@ -8,9 +8,11 @@ import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../data/workspace_entity_directory.dart';
 import '../platform/content_links.dart';
+import 'account_onboarding.dart' show AccountMediaActions, PickedAvatar;
 import 'archived_channels_section.dart';
 import 'member_profile_rules.dart';
 import 'invite_accept_view.dart';
+import 'public_avatar_url.dart';
 import 'public_visibility_view.dart';
 
 class WorkspaceActions {
@@ -131,8 +133,16 @@ class WorkspaceActions {
 /// visibility / archived channels). Invitations live under Administration and the
 /// workspace push mode under Notifications.
 class ServerSettingsView extends StatefulWidget {
-  const ServerSettingsView({super.key, required this.controller});
+  const ServerSettingsView({
+    super.key,
+    required this.controller,
+    this.pickAvatar,
+  });
   final WorkspaceController controller;
+
+  /// Image chooser for the server avatar (tests); defaults to the account
+  /// avatar picker (system photo picker on Android/iOS, file picker on desktop).
+  final Future<PickedAvatar?> Function(RaftClient client)? pickAvatar;
   @override
   State<ServerSettingsView> createState() => _ServerSettingsViewState();
 }
@@ -140,8 +150,8 @@ class ServerSettingsView extends StatefulWidget {
 class _ServerSettingsViewState extends State<ServerSettingsView> {
   WorkspaceController get w => widget.controller;
   final name = TextEditingController();
-  String? savedName, error;
-  bool saving = false, saved = false;
+  String? savedName, error, avatarError, _avatarServerId;
+  bool saving = false, saved = false, avatarSaving = false;
   Timer? savedReset;
 
   @override
@@ -155,6 +165,45 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
     super.didUpdateWidget(oldWidget);
     final current = w.server?.name ?? '';
     if (current != savedName) name.text = savedName = current;
+    if (_avatarServerId != w.server?.id) avatarError = null;
+  }
+
+  /// Web ProfileSection `handleUploadAvatar`. The error is local to this page:
+  /// it clears on the next attempt, on success and when the server changes.
+  Future<void> uploadAvatar() async {
+    final id = w.server?.id;
+    if (id == null || avatarSaving) return;
+    _avatarServerId = id;
+    setState(() {
+      avatarError = null;
+      avatarSaving = true;
+    });
+    bool current() => mounted && w.server?.id == id;
+    try {
+      final picked = await (widget.pickAvatar ?? AccountMediaActions.pickAvatar)(
+        w.client,
+      );
+      if (picked == null || !current()) return;
+      final data = await w.command(
+        'POST',
+        '/servers/$id/avatar',
+        data: picked.form,
+      );
+      final url = data is Map ? data['avatarUrl'] : null;
+      w.applyServerAvatar(id, url is String ? url : null);
+    } catch (e) {
+      if (current()) {
+        setState(
+          () => avatarError = userErrorText(
+            e,
+            fallback: 'Failed to upload server avatar',
+            where: 'server avatar',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => avatarSaving = false);
+    }
   }
 
   @override
@@ -278,12 +327,35 @@ class _ServerSettingsViewState extends State<ServerSettingsView> {
           glyph: RaftGlyph.building2,
         ),
         RaftSettingsProfileCard(
-          avatar: RaftServerProfileTile(initial: initial),
+          avatar: RaftServerProfileTile(
+            key: const Key('server-profile-avatar'),
+            initial: initial,
+            imageUrl: raftPublicAvatarUrl(
+              w.client.origin,
+              server.json['avatarUrl'] as String?,
+            ),
+            onUpload: canEdit ? uploadAvatar : null,
+            busy: avatarSaving,
+            uploadLabel: 'Upload image',
+            busyLabel: 'Uploading avatar',
+          ),
           title: server.name,
           subtitle: '/$slug',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (avatarError != null && canEdit) ...[
+                // `<p className="text-xs font-bold text-brutal-red" role="alert">`
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    raftText(context, avatarError!),
+                    key: const Key('server-profile-avatar-error'),
+                    style: RaftSettingsText(t).alert,
+                  ),
+                ),
+                const SizedBox(height: RaftSpace.x3),
+              ],
               RaftSettingsField(
                 label: 'Name',
                 child: canEdit
