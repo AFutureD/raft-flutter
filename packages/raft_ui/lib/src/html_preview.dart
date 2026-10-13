@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'raft_selection_area.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as parser;
@@ -136,7 +137,7 @@ class RaftHtmlPreview extends StatelessWidget {
             color: t.panel,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: SelectionArea(
+              child: RaftSelectionArea(
                 child: SingleChildScrollView(
                   child: HtmlWidget(
                     raftStaticHtml(html),

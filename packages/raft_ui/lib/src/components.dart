@@ -13,6 +13,7 @@ import 'collapsible.dart';
 import 'sidebar_indicators.dart';
 
 import 'package:flutter/material.dart';
+import 'raft_selection_area.dart';
 
 import 'error_presentation.dart' show RaftToastHost;
 import 'localization.dart';
@@ -1640,7 +1641,7 @@ class RaftMessageTile extends StatelessWidget {
         child:
             body ??
             compactProse(
-              SelectionArea(
+              RaftSelectionArea(
                 child: MarkdownBody(
                   data: content,
                   onTapLink: (_, href, _) {

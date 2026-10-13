@@ -12,6 +12,7 @@ import 'error_presentation.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'raft_selection_area.dart';
 import 'package:flutter/services.dart';
 
 import 'system_inset.dart';
@@ -2512,7 +2513,7 @@ class RaftDescriptionBlock extends StatelessWidget {
                 style: RaftPanelText.placeholder(t),
               )
             : selectable
-            ? SelectionArea(
+            ? RaftSelectionArea(
                 child: RaftCssText(text, style: RaftPanelText.value(t)),
               )
             : RaftCssText(text, style: RaftPanelText.value(t)),

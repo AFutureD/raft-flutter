@@ -3,6 +3,7 @@
 // app passes the error text and the reload action.
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'raft_selection_area.dart';
 
 import 'components.dart';
 import 'css_pixel_snap.dart';
@@ -177,7 +178,7 @@ class RaftRootErrorFallback extends StatelessWidget {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 672),
-                    child: RaftCssPixelSnap(child: SelectionArea(child: card)),
+                    child: RaftCssPixelSnap(child: RaftSelectionArea(child: card)),
                   ),
                 ),
               ),

@@ -12,6 +12,7 @@ void main() {
     defineReflectiveTests(ImageTest);
     defineReflectiveTests(UnderlineTest);
     defineReflectiveTests(SliderTest);
+    defineReflectiveTests(SelectionAreaTest);
     defineReflectiveTests(IdleWorkTest);
   });
 }
@@ -33,6 +34,7 @@ class RawImage extends Widget { const RawImage(); }
 class CircleAvatar extends Widget { const CircleAvatar({ImageProvider? backgroundImage}); }
 class TextDecoration { static const underline = TextDecoration(); static const none = TextDecoration(); const TextDecoration(); }
 class Slider extends Widget { const Slider(); }
+class SelectionArea extends Widget { const SelectionArea({required Widget child}); }
 class SliderTheme extends Widget { const SliderTheme(); }
 ''');
     newPackage('dio').addFile('lib/dio.dart', r'''
@@ -151,6 +153,31 @@ Slider? g;
       lint(code.indexOf('Slider()'), 6),
       lint(code.indexOf('Slider?'), 7),
     ]);
+  }
+
+  Future<void> test_other_widgets_are_fine() async {
+    await assertNoDiagnostics(r'''
+import 'package:flutter/widgets.dart';
+Widget f() => const RawImage();
+''');
+  }
+}
+
+@reflectiveTest
+class SelectionAreaTest extends AnalysisRuleTest with _Stubs {
+  @override
+  void setUp() {
+    rule = BannedApiRule(_api(selectionRule));
+    stubs();
+    super.setUp();
+  }
+
+  Future<void> test_bare_selection_area() async {
+    const code = r'''
+import 'package:flutter/widgets.dart';
+Widget f(Widget child) => SelectionArea(child: child);
+''';
+    await assertDiagnostics(code, [at(code, 'SelectionArea')]);
   }
 
   Future<void> test_other_widgets_are_fine() async {

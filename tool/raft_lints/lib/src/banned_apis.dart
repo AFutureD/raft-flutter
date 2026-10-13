@@ -85,6 +85,7 @@ const underlineRule = 'avoid_builtin_underline';
 const sliderRule = 'avoid_material_slider';
 const feedbackRule = 'avoid_material_feedback';
 const idleRule = 'avoid_unreviewed_idle_work';
+const selectionRule = 'avoid_bare_selection_area';
 
 String _ignore(String rule) =>
     "add '// ignore: raft_lints/$rule -- <why this site is exempt>'";
@@ -200,6 +201,19 @@ final bannedApis = <BannedApi>[
         'showMaterialBanner',
       ),
     ],
+  ),
+  BannedApi(
+    rule: selectionRule,
+    message:
+        'A bare SelectionArea keeps a touch selection (highlight and handles) '
+        'until the same text is tapped again; outside taps only clear it on '
+        'Web. Where the platform toolbar is hidden, that is a selected state '
+        'a phone user cannot cancel.',
+    correction:
+        'Use RaftSelectionArea (raft_selection_area.dart: a touch outside '
+        'clears the selection), or ${_ignore(selectionRule)}.',
+    typeReferences: true,
+    refs: const [ApiRef('package:flutter/', 'SelectionArea')],
   ),
   BannedApi(
     rule: sliderRule,

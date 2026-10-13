@@ -16,6 +16,7 @@ import 'package:mermaid_core/mermaid_core.dart' as core;
 import 'package:re_highlight/re_highlight.dart';
 
 import 'panel_layout.dart' show raftTextMetricsCache;
+import 'raft_selection_area.dart';
 import 'viewport_breakpoints.dart';
 
 import 'package:re_highlight/styles/github.dart';
@@ -609,7 +610,7 @@ class RaftMessageBody extends StatelessWidget {
     if (!proseSelection) return body;
     // One selection region per message: prose blocks before and after a
     // code block share it, and a row mounts one region instead of several.
-    return SelectionArea(
+    return RaftSelectionArea(
       // Message context menus belong to the message host.
       contextMenuBuilder: (_, _) => const SizedBox.shrink(),
       child: body,

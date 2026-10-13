@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'raft_selection_area.dart';
 
 import 'localization.dart';
 import 'markdown_blocks.dart';
@@ -219,7 +220,7 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
                 border: Border.fromBorderSide(recipe.border),
                 boxShadow: shadow,
               ),
-              child: SelectionArea(
+              child: RaftSelectionArea(
                 child: ListView.builder(
                   key: const ValueKey('lazy-text-lines'),
                   padding: recipe.textInset,
