@@ -1,5 +1,5 @@
 name: raft_updater
-description: In-app auto-update for macOS (Sparkle 2) and Windows (WinSparkle) with a release-page fallback everywhere else.
+description: In-app auto-update for macOS (Sparkle 2), Windows (WinSparkle) and Linux AppImage (zsync delta) with a release-page fallback everywhere else.
 version: 0.1.0
 publish_to: none
 resolution: workspace
@@ -11,6 +11,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  crypto: ^3.0.7
   url_launcher: ^6.3.2
 
 dev_dependencies:

@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'appimage/appimage_environment.dart';
+import 'appimage/appimage_http.dart';
+import 'appimage/appimage_updater.dart';
+
 /// Compile-time and runtime inputs of the updater.
 ///
 /// Release CI passes `--dart-define=RAFT_AUTO_UPDATE=true` (and, on Windows,
@@ -66,7 +70,11 @@ class AppUpdater {
     this._platform,
     bool Function()? isInstalledBuild,
     Future<bool> Function(Uri url)? openUrl,
-  }) : _channel = channel ?? const MethodChannel('app.raft/updater'),
+    Map<String, String>? environment,
+    AppImageSupport Function(Map<String, String> environment)? detectAppImage,
+  }) : _environment = environment ?? Platform.environment,
+       _detectAppImage = detectAppImage ?? AppImageSupport.detect,
+       _channel = channel ?? const MethodChannel('app.raft/updater'),
        _isInstalledBuild = isInstalledBuild ?? _defaultIsInstalledBuild,
        _openUrl = openUrl ?? _defaultOpenUrl {
     // ignore: raft_lints/avoid_unreleased_resource -- Owned by the app-wide AppUpdater, which is never torn down.
@@ -86,16 +94,23 @@ class AppUpdater {
   final TargetPlatform? _platform;
   final bool Function() _isInstalledBuild;
   final Future<bool> Function(Uri url) _openUrl;
+  final Map<String, String> _environment;
+  final AppImageSupport Function(Map<String, String> environment)
+  _detectAppImage;
 
   late final ValueNotifier<bool> _available;
+  AppImageHttpClientFactory? _httpClientFactory;
+  Uri? _updateOrigin;
+  AppImageUpdater? _appImage;
   Future<bool>? _configured;
   String? _unavailableReason;
 
   TargetPlatform get _target => _platform ?? defaultTargetPlatform;
 
-  /// True when [checkAndInstall] can update in place: macOS or Windows, a build
-  /// made with an update key, an installed (not portable) Windows copy, and no
-  /// native initialisation failure so far.
+  /// True when this build can update in place: macOS or Windows with a build
+  /// made with an update key (an installed, not portable, Windows copy, and no
+  /// native initialisation failure so far); or, on Linux, an AppImage whose
+  /// folder is writable and that carries update information (see [appImage]).
   bool get available => _available.value;
 
   /// Notifies when [available] changes (for example after a failed native
@@ -112,9 +127,53 @@ class AppUpdater {
     return 'https://github.com/$repository/releases/latest/download/appcast-$name.xml';
   }
 
+  /// Linux AppImage in-place updater; null elsewhere and whenever [available]
+  /// is false. Its status drives the Updates card while an update runs.
+  AppImageUpdater? get appImage => available ? _appImage : null;
+
+  /// Supplies the app's proxy-aware HTTP client (the package builds none of
+  /// its own) and, for isolated test builds only, another origin in place of
+  /// `https://github.com`. Linux AppImage updates stay unavailable until this
+  /// is called.
+  void configureAppImage({
+    required AppImageHttpClientFactory httpClientFactory,
+    Uri? origin,
+  }) {
+    _httpClientFactory = httpClientFactory;
+    _updateOrigin = origin;
+    _appImage = null;
+    _unavailableReason = null;
+    _available.value = _computeStaticAvailability();
+  }
+
+  bool _computeLinuxAvailability() {
+    final factory = _httpClientFactory;
+    if (factory == null) {
+      _unavailableReason = 'The AppImage updater has no network client yet.';
+      return false;
+    }
+    final support = _detectAppImage(_environment);
+    if (!support.available) {
+      _unavailableReason = support.reason;
+      return false;
+    }
+    _appImage = AppImageUpdater(
+      path: support.path!,
+      information: support.information!,
+      http: AppImageHttp(factory),
+      origin: _updateOrigin,
+      environment: _environment,
+    );
+    return true;
+  }
+
   bool _computeStaticAvailability() {
+    if (!kIsWeb && _target == TargetPlatform.linux) {
+      return _computeLinuxAvailability();
+    }
     if (kIsWeb ||
-        (_target != TargetPlatform.macOS && _target != TargetPlatform.windows)) {
+        (_target != TargetPlatform.macOS &&
+            _target != TargetPlatform.windows)) {
       _unavailableReason = 'In-app updates are not supported on this platform.';
       return false;
     }
@@ -169,7 +228,7 @@ class AppUpdater {
   /// downloads, verifies, installs and relaunches. Where in-place updating is
   /// unavailable, opens the release page instead.
   Future<AppUpdateOutcome> checkAndInstall() async {
-    if (available && await _configure()) {
+    if (_target != TargetPlatform.linux && available && await _configure()) {
       try {
         final started = await _channel.invokeMethod<bool>('checkForUpdates');
         if (started ?? false) return AppUpdateOutcome.started;
