@@ -9,6 +9,8 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/attachment_image_store.dart';
 import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
+import '../platform/media_failure.dart';
+import 'media_failure_text.dart';
 import '../platform/attachment_files.dart';
 import '../platform/attachment_http.dart';
 import '../platform/attachment_player.dart';
@@ -164,6 +166,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     required this.authorized,
     required this.onClose,
     required this.onDownload,
+    this.onNetworkSettings,
     this.files,
     this.pdf,
     this.playerFactory,
@@ -176,6 +179,10 @@ class AttachmentPreviewDialog extends StatefulWidget {
   final bool Function() authorized;
   final VoidCallback onClose;
   final Future<void> Function() onDownload;
+
+  /// Closes the viewer and opens Settings > Network (offered when a video or
+  /// audio failed because of the connection or a proxy).
+  final VoidCallback? onNetworkSettings;
   final AttachmentPreviewFiles? files;
   final NativePdfRenderer? pdf;
   final AttachmentPlayer Function()? playerFactory;
@@ -213,6 +220,9 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   bool fetchFailed = false;
   // ignore: raft_lints/avoid_imperative_notice_state -- Preview failure panel: reset by retry() and rebinding; terminal for playback/PDF errors (the panel replaces the player) and dies with the dialog or authority loss.
   String? error;
+
+  /// Why a video or audio could not be played (set with [error]).
+  MediaFailure? mediaFailure;
 
   /// Bytes of the preview download, throttled; the panel's bar listens.
   final transfer = AttachmentTransfer();
@@ -258,9 +268,50 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     setState(() {
       loading = true;
       error = null;
+      mediaFailure = null;
       fetchFailed = false;
     });
     load();
+  }
+
+  /// Retry after a video or audio failed to play: a new player (the failed one
+  /// is never shared again), which signs the link again.
+  Future<void> retryPlayback() async {
+    if (!current) return;
+    if (kind == 'audio' && lease != null) {
+      setState(() {
+        error = null;
+        mediaFailure = null;
+      });
+      final old = ownPlayer;
+      ownPlayer = null;
+      unawaited(old?.dispose());
+      try {
+        final own =
+            (widget.playerFactory ??
+            () => createAttachmentPlayer(video: false))();
+        ownPlayer = own;
+        bindPlayer(own);
+        await own.open(AttachmentSource.file(lease!.file));
+      } catch (caught) {
+        if (current) {
+          setState(() {
+            error = 'Preview unavailable. Download the original file.';
+            mediaFailure = failureOfError(caught);
+          });
+        }
+      }
+      return;
+    }
+    if (kind == 'video') {
+      await endHdr(rebind: false);
+      final held = hold;
+      hold = null;
+      player = null;
+      held?.session.failed = true;
+      held?.release();
+    }
+    retry();
   }
 
   Future<void> load() async {
@@ -388,6 +439,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
             fallback: 'Preview unavailable. Download the original file.',
             where: 'attachment preview ${widget.metadata['id']}',
           );
+          // The media itself failed (not the fetch of its bytes): say why.
+          if (kind == 'video' || (kind == 'audio' && lease != null)) {
+            mediaFailure = failureOfError(failure);
+          }
           // Nothing was prepared: the bytes never arrived (or the preview
           // service failed), so a retry can still help.
           fetchFailed =
@@ -460,6 +515,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         playback = value;
         if (value.error) {
           error = 'The media could not be played. Download the original file.';
+          mediaFailure = value.failure ?? mediaFailure;
           unawaited(next.pause().catchError((_) {}));
         }
       });
@@ -685,12 +741,12 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     if (!current || player == null) return;
     try {
       await run(player!);
-    } catch (_) {
+    } catch (caught) {
       if (current) {
-        setState(
-          () => error =
-              'The media could not be played. Download the original file.',
-        );
+        setState(() {
+          error = 'The media could not be played. Download the original file.';
+          mediaFailure = player?.playback.failure ?? failureOfError(caught);
+        });
       }
     }
   }
@@ -770,6 +826,39 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     );
   }
 
+  /// The failure pane. A video or audio that could not be played says why and
+  /// offers what helps (Retry signs the link again; Network settings for a
+  /// proxy or connection; Download original). Anything else keeps its fixed
+  /// message.
+  Widget errorPane(BuildContext context) {
+    final failure = mediaFailure;
+    final media = kind == 'video' || kind == 'audio';
+    if (!media || failure == null) {
+      return RaftLoadError(error!, onDark: kind == 'video');
+    }
+    final actions = MediaFailureActions.of(failure);
+    return RaftLoadError(
+      mediaFailureMessage(context, failure, video: kind == 'video'),
+      onDark: kind == 'video',
+      onRetry: actions.retry ? () => unawaited(retryPlayback()) : null,
+      actions: [
+        if (actions.networkSettings && widget.onNetworkSettings != null)
+          RaftLoadErrorAction(
+            key: const Key('viewer-network-settings'),
+            label: 'Network settings',
+            glyph: RaftGlyph.network,
+            onPressed: widget.onNetworkSettings,
+          ),
+        RaftLoadErrorAction(
+          key: const Key('viewer-download'),
+          label: 'Download original',
+          glyph: RaftGlyph.download,
+          onPressed: current ? () => unawaited(widget.onDownload()) : null,
+        ),
+      ],
+    );
+  }
+
   Widget pager() => Row(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
@@ -831,7 +920,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
                   ),
                 )
               : error != null
-              ? RaftLoadError(error!, onDark: kind == 'video')
+              ? errorPane(context)
               : document != null
               ? RaftDocumentPreview(data: document!, truncated: truncated)
               : kind == 'pdf' && pageBytes != null

@@ -42,6 +42,26 @@ const _pendingKevinZh = <String>{
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',
+  // Failed audio / video (native-only: Web has one browser codec warning).
+  // Each says the real cause and what to do. Proposed zh, not final:
+  //   Cannot reach the proxy {proxy}. ... -> 无法连接代理 {proxy}。请检查网络设置后重试。
+  //   The proxy {proxy} needs a username and password. ... -> 代理 {proxy} 需要用户名和密码。请检查网络设置。
+  //   Cannot reach the server. ... -> 无法连接服务器。请检查网络连接后重试。
+  //   This link has expired or access was denied. Try again. -> 此链接已过期或无权访问。请重试。
+  //   This file is no longer available. -> 此文件已不可用。
+  //   This audio may use a codec this app cannot play. -> 此音频使用的编解码器可能无法在本应用中播放。
+  //   The media could not be played. -> 无法播放该媒体。
+  //   Network settings -> 网络设置
+  // The unsupported-video wording stays Web's ("...this browser cannot
+  // preview."), which has its zh-cn entry.
+  'Cannot reach the proxy {proxy}. Check Network settings, then try again.',
+  'The proxy {proxy} needs a username and password. Check Network settings.',
+  'Cannot reach the server. Check your connection and try again.',
+  'This link has expired or access was denied. Try again.',
+  'This file is no longer available.',
+  'This audio may use a codec this app cannot play.',
+  'The media could not be played.',
+  'Network settings',
 };
 
 class _Use {

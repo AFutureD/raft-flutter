@@ -260,7 +260,7 @@ void main() {
     },
   );
 
-  testWidgets('video: a failed load shows the codec warning and a download', (
+  testWidgets('video: an unclassified failure says so, with Retry and Download', (
     tester,
   ) async {
     var downloads = 0;
@@ -276,10 +276,14 @@ void main() {
         playerFactory: () => player,
       ),
     );
+    // Not a codec problem: the signed URL could not even be read.
+    expect(find.text('The media could not be played.'), findsOneWidget);
     expect(
       find.text('This video may use a codec this browser cannot preview.'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.byKey(const Key('inline-video-retry')), findsOneWidget);
+    expect(find.byKey(const Key('inline-video-network-settings')), findsNothing);
     await tester.tap(find.text('Download to view'));
     expect(downloads, 1);
     await unmount(tester);
@@ -465,15 +469,12 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('a failed decode shows the warning and downloads', (
+    testWidgets('a failed load shows the cause, not a codec warning', (
       tester,
     ) async {
       await mountVideo(tester, refuse: true);
       expect(find.byKey(const Key('inline-video-surface')), findsNothing);
-      expect(
-        find.text('This video may use a codec this browser cannot preview.'),
-        findsOneWidget,
-      );
+      expect(find.text('The media could not be played.'), findsOneWidget);
       await unmount(tester);
     });
 

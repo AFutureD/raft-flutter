@@ -127,8 +127,13 @@ class RaftLoadError extends StatelessWidget {
     this.retryLabel = 'Retry',
     this.expand = true,
     this.onDark = false,
+    this.actions = const [],
   });
   final String message;
+
+  /// More outline buttons beside Retry (a failed video offers Network
+  /// settings and Download); each says what it does and does it.
+  final List<RaftLoadErrorAction> actions;
 
   /// On the black video stage: light text instead of the page's muted one.
   final bool onDark;
@@ -162,15 +167,33 @@ class RaftLoadError extends StatelessWidget {
             ),
           ),
         ),
-        if (onRetry != null) ...[
+        if (onRetry != null || actions.isNotEmpty) ...[
           const SizedBox(height: 12),
-          RaftRecipeButton(
-            label: raftText(context, retryLabel),
-            glyph: RaftGlyph.refreshCw,
-            glyphSize: 12,
-            variant: RaftButtonRecipeVariant.outline,
-            size: RaftButtonRecipeSize.sm,
-            onPressed: onRetry,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (onRetry != null)
+                RaftRecipeButton(
+                  label: raftText(context, retryLabel),
+                  glyph: RaftGlyph.refreshCw,
+                  glyphSize: 12,
+                  variant: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: onRetry,
+                ),
+              for (final action in actions)
+                RaftRecipeButton(
+                  key: action.key,
+                  label: raftText(context, action.label),
+                  glyph: action.glyph,
+                  glyphSize: 12,
+                  variant: RaftButtonRecipeVariant.outline,
+                  size: RaftButtonRecipeSize.sm,
+                  onPressed: action.onPressed,
+                ),
+            ],
           ),
         ],
       ],
@@ -183,6 +206,22 @@ class RaftLoadError extends StatelessWidget {
             child: Center(heightFactor: 1, child: body),
           );
   }
+}
+
+/// One more action under a [RaftLoadError] message.
+class RaftLoadErrorAction {
+  const RaftLoadErrorAction({
+    required this.label,
+    required this.onPressed,
+    this.glyph,
+    this.key,
+  });
+
+  /// English source string (localized by the display layer).
+  final String label;
+  final RaftGlyph? glyph;
+  final VoidCallback? onPressed;
+  final Key? key;
 }
 
 /// App-wide toast owner: Web `LocalizedToastProvider` + `toastBridge`. Place it

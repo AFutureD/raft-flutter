@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'layout_hold.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/raft_location.dart';
 import '../data/workspace_controller.dart';
 import '../data/attachment_image_repository.dart';
 import '../platform/attachment_files.dart';
@@ -594,36 +595,40 @@ class _AttachmentViewState extends State<AttachmentView> {
       late final ModalRoute<void> operationRoute;
       operationRoute = createPreviewRoute(
         page,
-        (dialogContext) => html
-            ? HtmlAttachmentPreviewDialog(
-                page: page,
-                controller: w,
-                metadata: widget.metadata,
-                authorized: current,
-                onClose: () {
-                  if (dialogContext.mounted &&
-                      identical(previewRoute, operationRoute) &&
-                      operationRoute.isCurrent) {
-                    operationRoute.navigator?.pop();
-                  }
-                },
-                onDownload: download,
-              )
-            : AttachmentPreviewDialog(
-                page: page,
-                controller: w,
-                metadata: widget.metadata,
-                channelId: ownerChannel,
-                authorized: current,
-                onClose: () {
-                  if (dialogContext.mounted &&
-                      identical(previewRoute, operationRoute) &&
-                      operationRoute.isCurrent) {
-                    operationRoute.navigator?.pop();
-                  }
-                },
-                onDownload: download,
-              ),
+        (dialogContext) {
+          void close() {
+            if (dialogContext.mounted &&
+                identical(previewRoute, operationRoute) &&
+                operationRoute.isCurrent) {
+              operationRoute.navigator?.pop();
+            }
+          }
+
+          return html
+              ? HtmlAttachmentPreviewDialog(
+                  page: page,
+                  controller: w,
+                  metadata: widget.metadata,
+                  authorized: current,
+                  onClose: close,
+                  onDownload: download,
+                )
+              : AttachmentPreviewDialog(
+                  page: page,
+                  controller: w,
+                  metadata: widget.metadata,
+                  channelId: ownerChannel,
+                  authorized: current,
+                  onClose: close,
+                  onDownload: download,
+                  onNetworkSettings: kIsWeb
+                      ? null
+                      : () {
+                          close();
+                          openNetworkSettings();
+                        },
+                );
+        },
       );
       previewRoute = operationRoute;
       if (known == null) {
@@ -789,6 +794,21 @@ class _AttachmentViewState extends State<AttachmentView> {
           'text/html' ||
       RegExp(r'\.html?$', caseSensitive: false).hasMatch(name);
 
+  /// Settings > Network (the failed media card's action when the cause is a
+  /// proxy or the connection).
+  void openNetworkSettings() {
+    if (!authorized) return;
+    w.closeThread(navigate: false);
+    w.navigation.navigate(
+      RaftLocation.at(
+        serverSlug: w.location.serverSlug,
+        route: RaftRoute.settings,
+        settingsPath: const ['network'],
+      ),
+    );
+    w.notifyListeners();
+  }
+
   @override
   Widget build(BuildContext context) {
     return buildAttachment(context);
@@ -806,6 +826,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         pending: widget.messageId == null,
         onOpenPreview: open,
         onDownload: download,
+        onNetworkSettings: kIsWeb ? null : openNetworkSettings,
       );
     }
     if (!widget.exportMode && !isImage && kind == 'audio') {
@@ -817,6 +838,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         authorized: () => authorized,
         pending: widget.messageId == null,
         onDownload: download,
+        onNetworkSettings: kIsWeb ? null : openNetworkSettings,
       );
     }
     return card(context);

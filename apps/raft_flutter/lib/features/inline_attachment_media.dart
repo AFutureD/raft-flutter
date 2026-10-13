@@ -10,6 +10,8 @@ import '../platform/attachment_player.dart';
 import '../platform/attachment_player_factory.dart';
 import '../platform/attachment_player_sessions.dart';
 import '../platform/attachment_stream.dart';
+import '../platform/media_failure.dart';
+import 'media_failure_text.dart';
 
 /// Seams for suites that mount the real message rows without a decoder (the
 /// parity extension suite): the player handed to every inline card that has no
@@ -63,6 +65,9 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
   StreamSubscription<AttachmentPlayback>? playbackEvents;
   AttachmentPlayback playback = const AttachmentPlayback();
   RaftInlineMediaState mediaState = RaftInlineMediaState.idle;
+
+  /// Why the media failed (set with [RaftInlineMediaState.failed]).
+  MediaFailure? failure;
   bool disposed = false;
 
   String get filename => '${metadata['filename'] ?? 'attachment'}';
@@ -168,7 +173,10 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
         if (!current) return;
         setState(() {
           playback = value;
-          if (value.error) mediaState = RaftInlineMediaState.failed;
+          if (value.error) {
+            mediaState = RaftInlineMediaState.failed;
+            failure = value.failure ?? failure;
+          }
         });
         playbackChanged(value);
         if (value.hasFrame) keepFirstStill();
@@ -178,15 +186,48 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
       });
       await acquired.ready;
       if (current && !acquired.orphaned) {
+        final now = acquired.player.playback;
         setState(() {
-          playback = acquired.player.playback;
-          mediaState = RaftInlineMediaState.ready;
+          playback = now;
+          // A failure reported while the open was still pending stands.
+          if (now.error) {
+            mediaState = RaftInlineMediaState.failed;
+            failure = now.failure ?? failure;
+          } else {
+            mediaState = RaftInlineMediaState.ready;
+          }
         });
-        mediaReady();
+        if (!now.error) mediaReady();
       }
-    } catch (_) {
-      if (current) setState(() => mediaState = RaftInlineMediaState.failed);
+    } catch (error) {
+      // The player rejected the source (video_player throws, with the class),
+      // or the signed URL could not be obtained.
+      if (current) {
+        setState(() {
+          mediaState = RaftInlineMediaState.failed;
+          failure = failureOfError(error);
+        });
+      }
     }
+  }
+
+  /// Retry on a failed card: drops the failed player (a failed session is
+  /// never shared) and prepares a new one, which signs the link again.
+  Future<void> retryMedia() async {
+    if (!current || mediaState != RaftInlineMediaState.failed) return;
+    final held = hold, events = playbackEvents;
+    hold = null;
+    player = null;
+    playbackEvents = null;
+    unawaited(events?.cancel());
+    held?.session.failed = true;
+    held?.release();
+    setState(() {
+      mediaState = RaftInlineMediaState.idle;
+      failure = null;
+      playback = const AttachmentPlayback();
+    });
+    await loadMedia();
   }
 
   /// Playback reached the end and stopped.
@@ -308,8 +349,13 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
     if (!current || p == null) return;
     try {
       await run(p);
-    } catch (_) {
-      if (current) setState(() => mediaState = RaftInlineMediaState.failed);
+    } catch (error) {
+      if (current) {
+        setState(() {
+          mediaState = RaftInlineMediaState.failed;
+          failure = playback.failure ?? failureOfError(error);
+        });
+      }
     }
   }
 
@@ -348,6 +394,7 @@ class InlineVideoAttachment extends StatefulWidget {
     required this.pending,
     this.onOpenPreview,
     this.onDownload,
+    this.onNetworkSettings,
     this.playerFactory,
   });
   final WorkspaceController controller;
@@ -357,7 +404,10 @@ class InlineVideoAttachment extends StatefulWidget {
 
   /// An optimistic (still uploading) attachment: no URL yet, spinner shown.
   final bool pending;
-  final VoidCallback? onOpenPreview, onDownload;
+
+  /// [onNetworkSettings]: opens Settings > Network (the failed card offers it
+  /// when the cause is the connection or a proxy).
+  final VoidCallback? onOpenPreview, onDownload, onNetworkSettings;
   final AttachmentPlayer Function()? playerFactory;
 
   @override
@@ -603,8 +653,25 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
             ? null
             : openPreview,
         onDownload: widget.onDownload,
+        failureMessage: mediaState == RaftInlineMediaState.failed
+            ? mediaFailureMessage(context, failure, video: true)
+            : null,
+        onRetry: failedActions.retry ? () => unawaited(retry()) : null,
+        onNetworkSettings: failedActions.networkSettings
+            ? widget.onNetworkSettings
+            : null,
       ),
     );
+  }
+
+  MediaFailureActions get failedActions => mediaState == RaftInlineMediaState.failed
+      ? MediaFailureActions.of(failure)
+      : const MediaFailureActions();
+
+  /// Retry on the failed card: prepare again and play once it is ready.
+  Future<void> retry() async {
+    playRequested = true;
+    await retryMedia();
   }
 }
 
@@ -618,6 +685,7 @@ class InlineAudioAttachment extends StatefulWidget {
     required this.authorized,
     required this.pending,
     this.onDownload,
+    this.onNetworkSettings,
     this.playerFactory,
   });
   final WorkspaceController controller;
@@ -625,7 +693,7 @@ class InlineAudioAttachment extends StatefulWidget {
   final String? channelId;
   final bool Function() authorized;
   final bool pending;
-  final VoidCallback? onDownload;
+  final VoidCallback? onDownload, onNetworkSettings;
   final AttachmentPlayer Function()? playerFactory;
 
   @override
@@ -685,5 +753,22 @@ class _InlineAudioAttachmentState extends State<InlineAudioAttachment>
     onTogglePlay: () => unawaited(togglePlay()),
     onSeek: (v) => guarded((p) => p.seek(v)),
     onVolume: (v) => guarded((p) => p.volume(v * 100)),
+    failureMessage: mediaState == RaftInlineMediaState.failed
+        ? mediaFailureMessage(context, failure, video: false)
+        : null,
+    onRetry: failedActions.retry ? () => unawaited(retry()) : null,
+    onNetworkSettings: failedActions.networkSettings
+        ? widget.onNetworkSettings
+        : null,
   );
+
+  MediaFailureActions get failedActions => mediaState == RaftInlineMediaState.failed
+      ? MediaFailureActions.of(failure)
+      : const MediaFailureActions();
+
+  /// Retry on the failed card: prepare again and play once it is ready.
+  Future<void> retry() async {
+    playRequested = true;
+    await retryMedia();
+  }
 }

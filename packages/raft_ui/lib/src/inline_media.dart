@@ -45,9 +45,21 @@ class RaftInlineVideo extends StatefulWidget {
     this.onVolume,
     this.onOpenPreview,
     this.onDownload,
+    this.failureMessage,
+    this.onRetry,
+    this.onNetworkSettings,
   });
   final RaftInlineMediaState state;
   final String filename;
+
+  /// The failed state's message, already localized and specific to the cause
+  /// (proxy unreachable, expired link, ...). Null reads as Web's codec
+  /// warning.
+  final String? failureMessage;
+
+  /// Failed state actions beside Download: reopen the media (signs the link
+  /// again) and open Settings > Network. A null callback hides the action.
+  final VoidCallback? onRetry, onNetworkSettings;
 
   /// The decoded video surface (state ready).
   final Widget? video;
@@ -78,6 +90,90 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
   bool get ready =>
       widget.state == RaftInlineMediaState.ready && widget.video != null;
 
+  /// Warning icon, the cause and the actions the user can take. With only the
+  /// Download action this is Web's failed card; a card with more actions
+  /// drops the icon so a phone-width card (140 px tall) still fits.
+  Widget _failedBody(BuildContext context, RaftTokens t) {
+    TextStyle style(double alpha, FontWeight weight) => TextStyle(
+      fontFamily: t.headingFont,
+      fontSize: 12,
+      height: 16 / 12,
+      fontWeight: t.brutal ? FontWeight.w700 : weight,
+      color: Colors.white.withValues(alpha: alpha),
+    );
+    Widget link(Key key, RaftGlyph glyph, String label, VoidCallback? onTap) =>
+        GestureDetector(
+          key: key,
+          onTap: onTap,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
+            children: [
+              RaftIcon(
+                glyph,
+                size: 13,
+                color: Colors.white.withValues(alpha: .75),
+              ),
+              Text(raftText(context, label), style: style(.75, FontWeight.w400)),
+            ],
+          ),
+        );
+    final extra = widget.onRetry != null || widget.onNetworkSettings != null;
+    final body = Column(
+      mainAxisSize: MainAxisSize.min,
+      spacing: t.brutal ? 8 : (extra ? 8 : 12),
+      children: [
+        if (!extra)
+          const RaftIcon(RaftGlyph.alertTriangle, size: 24, color: Colors.white),
+        Text(
+          widget.failureMessage ??
+              raftText(
+                context,
+                'This video may use a codec this browser cannot preview.',
+              ),
+          textAlign: TextAlign.center,
+          style: style(1, FontWeight.w500),
+        ),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            if (widget.onRetry != null)
+              link(
+                const Key('inline-video-retry'),
+                RaftGlyph.refreshCw,
+                'Retry',
+                widget.onRetry,
+              ),
+            if (widget.onNetworkSettings != null)
+              link(
+                const Key('inline-video-network-settings'),
+                RaftGlyph.network,
+                'Network settings',
+                widget.onNetworkSettings,
+              ),
+            link(
+              const Key('inline-video-download'),
+              RaftGlyph.download,
+              'Download to view',
+              widget.onDownload,
+            ),
+          ],
+        ),
+      ],
+    );
+    if (!extra) return body;
+    // A phone-width card is 140 px tall: a long cause and three actions shrink
+    // to fit rather than overflow.
+    return LayoutBuilder(
+      builder: (context, constraints) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(width: constraints.maxWidth, child: body),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context), rt = t.recipeTokens;
@@ -106,58 +202,7 @@ class _RaftInlineVideoState extends State<RaftInlineVideo> {
           constraints: const BoxConstraints(maxWidth: 256),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              spacing: t.brutal ? 8 : 12,
-              children: [
-                const RaftIcon(
-                  RaftGlyph.alertTriangle,
-                  size: 24,
-                  color: Colors.white,
-                ),
-                Text(
-                  raftText(
-                    context,
-                    'This video may use a codec this browser cannot preview.',
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: t.headingFont,
-                    fontSize: 12,
-                    height: 16 / 12,
-                    fontWeight: t.brutal ? FontWeight.w700 : FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-                GestureDetector(
-                  key: const Key('inline-video-download'),
-                  onTap: widget.onDownload,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 4,
-                    children: [
-                      RaftIcon(
-                        RaftGlyph.download,
-                        size: 13,
-                        color: Colors.white.withValues(alpha: .75),
-                      ),
-                      Text(
-                        raftText(context, 'Download to view'),
-                        style: TextStyle(
-                          fontFamily: t.headingFont,
-                          fontSize: 12,
-                          height: 16 / 12,
-                          fontWeight: t.brutal
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          color: Colors.white.withValues(alpha: .75),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: _failedBody(context, t),
           ),
         ),
       ),
@@ -296,15 +341,22 @@ class RaftInlineAudio extends StatelessWidget {
     this.onTogglePlay,
     this.onSeek,
     this.onVolume,
+    this.failureMessage,
+    this.onRetry,
+    this.onNetworkSettings,
   });
   final String filename;
   final RaftInlineMediaState state;
   final bool playing;
   final Duration position, duration;
 
+  /// The failed state's message, already localized and specific to the cause.
+  /// Null keeps the one-line "Download to view" placeholder.
+  final String? failureMessage;
+
   /// 0..1.
   final double volume;
-  final VoidCallback? onDownload, onTogglePlay;
+  final VoidCallback? onDownload, onTogglePlay, onRetry, onNetworkSettings;
   final ValueChanged<Duration>? onSeek;
   final ValueChanged<double>? onVolume;
 
@@ -415,6 +467,24 @@ class RaftInlineAudio extends StatelessWidget {
       'filename': filename,
     });
     final inset = brutal ? t.colors['brutal-cream'] : t.colors['layer-inset'];
+    Widget failedAction(
+      Key key,
+      RaftGlyph glyph,
+      String label,
+      VoidCallback? onTap,
+    ) => GestureDetector(
+      key: key,
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 6,
+        children: [
+          RaftIcon(glyph, size: 13),
+          Text(raftText(context, label)),
+        ],
+      ),
+    );
     final Widget body = state == RaftInlineMediaState.ready
         ? _AudioPlayer(
             filename: filename,
@@ -425,6 +495,59 @@ class RaftInlineAudio extends StatelessWidget {
             onTogglePlay: onTogglePlay,
             onSeek: onSeek,
             onVolume: onVolume,
+          )
+        : state == RaftInlineMediaState.failed && failureMessage != null
+        ? Container(
+            key: const Key('audio-failed'),
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: inset,
+              border: Border.all(color: line),
+            ),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(
+                fontFamily: t.headingFont,
+                fontSize: 12,
+                height: 16 / 12,
+                fontWeight: FontWeight.w700,
+                color: brutal ? Colors.black.withValues(alpha: .7) : t.muted,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 6,
+                children: [
+                  Text(failureMessage!, textAlign: TextAlign.center),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      if (onRetry != null)
+                        failedAction(
+                          const Key('audio-retry'),
+                          RaftGlyph.refreshCw,
+                          'Retry',
+                          onRetry,
+                        ),
+                      if (onNetworkSettings != null)
+                        failedAction(
+                          const Key('audio-network-settings'),
+                          RaftGlyph.network,
+                          'Network settings',
+                          onNetworkSettings,
+                        ),
+                      failedAction(
+                        const Key('audio-placeholder'),
+                        RaftGlyph.download,
+                        'Download to view',
+                        onDownload,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           )
         : GestureDetector(
             key: const Key('audio-placeholder'),

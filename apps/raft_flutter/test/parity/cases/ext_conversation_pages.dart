@@ -24,6 +24,7 @@ import 'package:raft_flutter/features/chat_view.dart';
 import 'package:raft_flutter/features/external_identity.dart';
 import 'package:raft_flutter/features/inline_attachment_media.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
+import 'package:raft_flutter/platform/media_failure.dart';
 import 'package:raft_flutter/features/profile_preview.dart';
 import 'package:raft_flutter/features/workspace_view.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -765,7 +766,14 @@ class _ParityVideoPlayer implements AttachmentPlayer {
   );
   @override
   Future<void> open(AttachmentSource source) async {
-    if (fail) throw StateError('undecodable');
+    // The case Web shows: a file the browser cannot decode (the codec
+    // warning and Download). Other causes have their own message and actions
+    // (media_failure_ui_test).
+    if (fail) {
+      throw const MediaPlaybackException(
+        MediaFailure(MediaFailureKind.unsupported),
+      );
+    }
     events.add(state);
   }
 
