@@ -3261,11 +3261,15 @@ class WorkspaceController extends ChangeNotifier {
       'channels': channels.map((c) => c.json).toList(),
       'dms': dms.map((c) => c.json).toList(),
     });
+    // The cache write yields: a sign-out meanwhile clears `client.user`.
+    if (generation != client.generation) return;
+    final principalId = client.user?.id;
+    if (principalId == null) return;
     for (final c in [...channels, ...dms]) {
       readState.consumeSnapshot(
         c.json['readState'],
         serverId: next.id,
-        principalId: client.user!.id,
+        principalId: principalId,
         scopeId: c.id,
         generationAtRequest: readGeneration,
       );
