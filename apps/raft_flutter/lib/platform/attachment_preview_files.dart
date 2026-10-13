@@ -29,7 +29,6 @@ class AttachmentPreviewFiles {
     required CancelToken cancel,
     required bool Function() authorized,
     void Function(int received, int total)? onProgress,
-    Future<String> Function()? refreshUrl,
   }) async {
     if (!authorized() || cancel.isCancelled) return null;
     final root = await temporaryDirectory();
@@ -52,23 +51,7 @@ class AttachmentPreviewFiles {
         }
       }
       if (!authorized() || cancel.isCancelled) return null;
-      try {
-        await _download(url, file, cancel, authorized, onProgress);
-      } on DioException catch (error) {
-        final status = error.response?.statusCode;
-        if (refreshUrl == null ||
-            cancel.isCancelled ||
-            (status != 401 && status != 403)) {
-          rethrow;
-        }
-        await _download(
-          await refreshUrl(),
-          file,
-          cancel,
-          authorized,
-          onProgress,
-        );
-      }
+      await _download(url, file, cancel, authorized, onProgress);
       if (!authorized() ||
           cancel.isCancelled ||
           await file.length() > maxBytes) {
@@ -134,7 +117,7 @@ class AttachmentPreviewFiles {
       try {
         await _download(url, destination, token, allowed, progress);
       } on DioException catch (error) {
-        final status = error.response?.statusCode;
+        final status = _httpStatus(error);
         if (refreshUrl == null ||
             token.isCancelled ||
             (status != 401 && status != 403)) {
@@ -150,17 +133,29 @@ class AttachmentPreviewFiles {
       }
     }
 
-    if (cache == null) {
-      final temporary = await load(
-        await resolveUrl(),
+    // Without a usable cache this is [load], signed again once on a refusal.
+    Future<SharedFileLease?> uncached() async {
+      Future<SharedFileLease?> attempt(String url) => load(
+        url,
         filename,
         cancel: cancel,
         authorized: authorized,
         onProgress: onProgress,
-        refreshUrl: refreshUrl,
       );
-      return temporary;
+      try {
+        return await attempt(await resolveUrl());
+      } on DioException catch (error) {
+        final status = _httpStatus(error);
+        if (refreshUrl == null ||
+            cancel.isCancelled ||
+            (status != 401 && status != 403)) {
+          rethrow;
+        }
+        return attempt(await refreshUrl());
+      }
     }
+
+    if (cache == null) return uncached();
     final AttachmentCachedFile? cached;
     try {
       cached = await cache.fetchFile(
@@ -187,14 +182,7 @@ class AttachmentPreviewFiles {
         },
       );
     } on AttachmentCacheUnavailable {
-      return load(
-        await resolveUrl(),
-        filename,
-        cancel: cancel,
-        authorized: authorized,
-        onProgress: onProgress,
-        refreshUrl: refreshUrl,
-      );
+      return uncached();
     }
     if (cached == null) return null;
     if (!authorized() || cancel.isCancelled) {
@@ -331,3 +319,5 @@ class NativePdfRenderer {
     }
   }
 }
+
+int? _httpStatus(DioException failure) => failure.response?.statusCode;
