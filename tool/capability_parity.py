@@ -24,7 +24,8 @@ from dataclasses import asdict, dataclass
 
 # Receivers that carry the axios instance (api/client.ts) or an injected one
 # (slackBridgeProvisioningApi.ts takes a `client`).
-RECEIVER_RE = re.compile(r"(?<![\w.$])(api|client)\s*\.\s*(get|post|put|patch|delete)\b")
+# `getWithRwOverloadRetry(url, config)` (api/overloadRetry.ts, Web 1.21.12) is `api.get` with one retry.
+RECEIVER_RE = re.compile(r"(?<![\w.$])(?:(api|client)\s*\.\s*(get|post|put|patch|delete)\b|(getWithRwOverloadRetry)\b)")
 # api.request<T>({ method, url, ... }) config form.
 REQUEST_RE = re.compile(r"(?<![\w.$])api\s*\.\s*request\b")
 SKIP_FILE_RE = re.compile(r"(\.test\.|\.spec\.|\.typecheck\.|/__tests__/|/__mocks__/|\.stories\.)")
@@ -36,6 +37,8 @@ NUL = "\0"
 # literal path lives at the call sites. Keyed by (web-src relative file, first
 # argument source text). Add an entry only with the call sites checked by hand.
 INDIRECT_PATHS: dict[tuple[str, str], list[str]] = {
+    # The wrapper itself only forwards its parameter; real paths are at its call sites.
+    ("api/overloadRetry.ts", "url"): [],
     ("components/agent/AgentAppAccessTab.tsx", "path"): [
         "/integrations/requests/${id}/approve",
         "/integrations/requests/${id}/deny",
@@ -337,7 +340,7 @@ def extract_file(path: str, rel: str) -> list[Call]:
     lines = src.split("\n")
     calls: list[Call] = []
     for m in RECEIVER_RE.finditer(src):
-        method = m.group(2).upper()
+        method = (m.group(2) or "get").upper()
         i = _skip_generic(src, _skip_ws(src, m.end()))
         i = _skip_ws(src, i)
         if i >= len(src) or src[i] != "(":

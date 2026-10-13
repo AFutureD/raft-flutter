@@ -141,6 +141,17 @@ class DartTests(unittest.TestCase):
         self.assertEqual(len(got), 4)
 
 
+class OverloadRetryWrapperTests(unittest.TestCase):
+    def test_wrapper_calls_count_as_get_and_its_own_passthrough_does_not(self):
+        root = make_web({
+            'api/overloadRetry.ts': 'export const getWithRwOverloadRetry = (async (url: string) => {\n  return api.get(url);\n}) as typeof api.get;\n',
+            'store/s.ts': 'import { getWithRwOverloadRetry } from "../api/overloadRetry";\n'
+                          'async function f() { await getWithRwOverloadRetry("/channels/unread", { params: { summary: 1 } }); }\n',
+        })
+        keys = [f'{c.method} {c.key_path}' for c in cp.extract_web(root)]
+        self.assertEqual(keys, ['GET /channels/unread'])
+
+
 class ReportTests(unittest.TestCase):
     def test_committed_markdown_matches_the_json(self):
         spec = importlib.util.spec_from_file_location(
