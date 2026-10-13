@@ -31,24 +31,6 @@ const _pendingKevinZh = <String>{
   'Cache cleared.',
   'Calculating…',
   'Cache size: {size}',
-  // Settings > About > Updates card (native only; Web updates itself).
-  // Proposed zh, not final: 已是最新版本 / 上次检查：{time} / 正在检查更新… /
-  // 检查更新 / 无法检查更新 / 此版本不支持检查更新 / 尚未检查更新 /
-  // 请检查网络连接后重试。 / iOS 版本不通过 GitHub 发布分发。 /
-  // 只有 AppImage 版本可以检查更新。 / 这是没有 CI 构建号的开发版本。 /
-  // 此平台不通过 GitHub 发布更新。
-  "You're on the latest version",
-  'Last checked: {time}',
-  'Checking for updates…',
-  'Check for updates',
-  "Couldn't check for updates",
-  'Check your connection and try again.',
-  'Not checked for updates yet',
-  "Update checks aren't available for this build",
-  "iOS builds aren't distributed through GitHub releases.",
-  'Only the AppImage build can check for updates.',
-  'This is a development build without a CI build number.',
-  "This platform isn't updated from GitHub releases.",
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',

@@ -4,8 +4,10 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   // Native-only copy with no Web counterpart (Web glossary terms).
   // Android notification settings: no periodic background check any more.
   // PROPOSED wording, to be confirmed by the owner.
-  "While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification.": "Raft 连接时，会对新私信、直接提及和已关注消息串的回复弹出系统通知。",
-  "To receive notifications in the background, turn off battery optimization for Raft.": "要在后台接收通知，请为 Raft 关闭电池优化。",
+  "While Raft is connected, new DMs, direct mentions and replies in followed threads show a system notification.":
+      "Raft 连接时，会对新私信、直接提及和已关注消息串的回复弹出系统通知。",
+  "To receive notifications in the background, turn off battery optimization for Raft.":
+      "要在后台接收通知，请为 Raft 关闭电池优化。",
   "Open battery settings": "打开电池设置",
   "Close profile": "关闭资料",
   "Profile could not be loaded.": "无法加载资料。",
@@ -13,7 +15,8 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Mention action failed. Try again.": "提及操作失败，请重试。",
   "Channel name is required.": "请填写频道名称。",
   "Activity filters": "动态筛选",
-  "Conversion complete. Invite another workspace from Joint channels.": "转换完成。可在联合频道中邀请其他工作空间。",
+  "Conversion complete. Invite another workspace from Joint channels.":
+      "转换完成。可在联合频道中邀请其他工作空间。",
   "Conversion canceled. The original channel is available.": "转换已取消，原频道仍可使用。",
   "Download original": "下载原文件",
   "Preview unavailable. Download the original file.": "无法预览，请下载原文件。",
@@ -28,12 +31,14 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Show direct message": "显示私信",
   "Hide direct message": "隐藏私信",
   "Enter one unique KEY=value per line.": "每行输入一个唯一的 KEY=value。",
-  "Choices are unavailable. Retry after connecting the computer.": "无法获取可选项。请在连接 Computer 后重试。",
+  "Choices are unavailable. Retry after connecting the computer.":
+      "无法获取可选项。请在连接 Computer 后重试。",
   "Enter an HTTP or HTTPS URL.": "请输入 HTTP 或 HTTPS URL。",
   "Select an available choice.": "请选择一个可用选项。",
   "Update the client to edit this required field.": "请升级客户端后再编辑此必填项。",
   "Pending requests": "待处理请求",
-  "Sign-in methods could not be verified. Refresh before changing them.": "无法验证登录方式。请刷新后再更改。",
+  "Sign-in methods could not be verified. Refresh before changing them.":
+      "无法验证登录方式。请刷新后再更改。",
   "Password sign-in is configured.": "已配置密码登录。",
   "Password sign-in is not configured.": "未配置密码登录。",
   "Upload progress for {name}": "{name} 的上传进度",
@@ -48,6 +53,19 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Volume": "音量",
   // Native app-update check (the Web client updates itself).
   "New version available: {version} ({build})": "有新版本：{version}（{build}）",
+  // Settings > About > Updates card (Kevin approved 2026-10-13).
+  "You're on the latest version": "已是最新版本",
+  "Last checked: {time}": "上次检查：{time}",
+  "Checking for updates…": "正在检查更新…",
+  "Check for updates": "检查更新",
+  "Couldn't check for updates": "无法检查更新",
+  "Not checked for updates yet": "尚未检查更新",
+  "Update checks aren't available for this build": "此版本不支持检查更新",
+  "iOS builds aren't distributed through GitHub releases.":
+      "iOS 版本不通过 GitHub 发布分发。",
+  "Only the AppImage build can check for updates.": "只有 AppImage 版本可以检查更新。",
+  "This is a development build without a CI build number.": "这是没有 CI 构建号的开发版本。",
+  "This platform isn't updated from GitHub releases.": "此平台不通过 GitHub 发布更新。",
   "Download update": "下载更新",
   "Update now": "立即更新",
   "View release": "查看发布",
