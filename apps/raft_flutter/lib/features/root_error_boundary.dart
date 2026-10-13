@@ -249,6 +249,7 @@ class _RootErrorApp extends StatelessWidget {
       theme: raftTheme(appearance.light),
       darkTheme: raftTheme(RaftFamily.elegant, dark: true),
       themeMode: appearance.mode,
+      builder: (context, child) => RaftTextScaling(child: child!),
       // Web prints `error.message` on the page; a native exception message is
       // a developer string, so the page shows only the title and the reload
       // action. The text and stacks stay one tap away in the closed

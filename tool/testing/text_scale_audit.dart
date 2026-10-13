@@ -33,6 +33,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftTextScaling;
 
 import 'system_fonts.dart';
 
@@ -48,7 +49,10 @@ class AuditMode {
   static const base = AuditMode('1.0x');
   static const x13 = AuditMode('1.3x', textScale: 1.3);
   static const x2 = AuditMode('2.0x', textScale: 2.0);
-  static const standard = [base, x13, x2];
+
+  /// iOS Accessibility 5: body 17pt becomes 53pt (3.12x).
+  static const x31 = AuditMode('3.1x', textScale: 3.1);
+  static const standard = [base, x13, x2, x31];
 }
 
 /// Font set the process loads. Fonts cannot be unloaded, so a test file picks
@@ -655,16 +659,18 @@ Future<AuditReport> auditSurface(
         locale: mode.locale,
         supportedLocales: [mode.locale ?? const Locale('en')],
         localizationsDelegates: _delegates,
-        builder: (context, child) => RepaintBoundary(
-          key: capture,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              child!,
-              IgnorePointer(
-                child: CustomPaint(foregroundPainter: _Marks(marks)),
-              ),
-            ],
+        builder: (context, child) => RaftTextScaling(
+          child: RepaintBoundary(
+            key: capture,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child!,
+                IgnorePointer(
+                  child: CustomPaint(foregroundPainter: _Marks(marks)),
+                ),
+              ],
+            ),
           ),
         ),
         home: Scaffold(body: build()),

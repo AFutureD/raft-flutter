@@ -1,6 +1,8 @@
 library;
 
 export 'src/theme.dart';
+export 'src/text_scaling.dart';
+export 'src/large_content_viewer.dart';
 export 'src/system_inset.dart';
 export 'src/status_bar.dart';
 export 'src/desktop_title_bar.dart';

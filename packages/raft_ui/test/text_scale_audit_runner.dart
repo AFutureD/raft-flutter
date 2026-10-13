@@ -23,7 +23,8 @@ import 'text_scale_audit_surfaces.dart';
 /// Interactions that open a surface's interesting state.
 final _actions = <String, Future<void> Function(WidgetTester)>{
   'selectionCopyToastPreview': (t) async {
-    await t.tap(find.text('Copy MD'));
+    final en = find.text('Copy MD');
+    await t.tap(en.evaluate().isNotEmpty ? en : find.text('复制 Markdown'));
     await t.pump(const Duration(milliseconds: 300));
   },
 };

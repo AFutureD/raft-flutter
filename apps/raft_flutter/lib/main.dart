@@ -647,13 +647,15 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final membership = c.servers();
       unawaited(membership.then<void>((_) {}, onError: (Object _) {}));
       if (pending) {
-        final created = await c.post(
-          '/channels/dm',
-          data: {
-            if (target.agentId != null) 'agentId': target.agentId,
-            if (target.userId != null) 'userId': target.userId,
-          },
-        ) as Map;
+        final created =
+            await c.post(
+                  '/channels/dm',
+                  data: {
+                    if (target.agentId != null) 'agentId': target.agentId,
+                    if (target.userId != null) 'userId': target.userId,
+                  },
+                )
+                as Map;
         if (!stillHere()) return;
         final row = await c.get('/channels/${created['id']}');
         if (!stillHere()) return;
@@ -2178,21 +2180,23 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       locale: locale,
       supportedLocales: const [Locale('en'), Locale('zh', 'CN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      builder: (context, child) => RepaintBoundary(
-        key: raftScreenshotKey,
-        child: DesktopTitleBar(
-          child: RaftTooltipProvider(
-            delay: const Duration(milliseconds: 600),
-            child: RaftViewportBreakpointScope(
-              // Resolves the theme's font combinations once the app is idle.
-              child: RaftFontWarmUpScope(
-                child: RaftSystemBars(
-                  child: RaftErrorScope(
-                    format: raftAppErrorFormatter,
-                    child: RaftToastHost(
-                      child: KeyboardInsetGuard(
-                        imeVisible: platformImeVisibility,
-                        child: child!,
+      builder: (context, child) => RaftTextScaling(
+        child: RepaintBoundary(
+          key: raftScreenshotKey,
+          child: DesktopTitleBar(
+            child: RaftTooltipProvider(
+              delay: const Duration(milliseconds: 600),
+              child: RaftViewportBreakpointScope(
+                // Resolves the theme's font combinations once the app is idle.
+                child: RaftFontWarmUpScope(
+                  child: RaftSystemBars(
+                    child: RaftErrorScope(
+                      format: raftAppErrorFormatter,
+                      child: RaftToastHost(
+                        child: KeyboardInsetGuard(
+                          imeVisible: platformImeVisibility,
+                          child: child!,
+                        ),
                       ),
                     ),
                   ),
