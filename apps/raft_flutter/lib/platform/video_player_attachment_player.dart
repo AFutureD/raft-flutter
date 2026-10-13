@@ -150,8 +150,11 @@ class VideoPlayerAttachmentPlayer
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Leaving the app pauses; coming back does not resume on its own.
-    if (state == AppLifecycleState.paused) {
+    // Leaving the app pauses; coming back does not resume on its own. macOS
+    // reports a hidden or minimised window as `hidden` and never `paused`;
+    // iOS and Android pass through `hidden` on the way to `paused`.
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
       final controller = _active;
       if (controller != null && controller.value.isPlaying) {
         unawaited(controller.pause().catchError((_) {}));

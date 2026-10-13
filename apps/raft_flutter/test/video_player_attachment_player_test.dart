@@ -330,6 +330,27 @@ void main() {
       expect(fake.calls, ['pause']);
       await player.dispose();
     });
+
+    test(
+      'a hidden window (macOS) pauses and showing it does not resume',
+      () async {
+        final player = VideoPlayerAttachmentPlayer();
+        await player.open(File('/tmp/raft-test/d.mp4'));
+        await player.toggle();
+        fake.calls.clear();
+        player.didChangeAppLifecycleState(AppLifecycleState.inactive);
+        await Future<void>.delayed(Duration.zero);
+        expect(fake.calls, isEmpty);
+        player.didChangeAppLifecycleState(AppLifecycleState.hidden);
+        await Future<void>.delayed(Duration.zero);
+        expect(fake.calls, ['pause']);
+        player.didChangeAppLifecycleState(AppLifecycleState.inactive);
+        player.didChangeAppLifecycleState(AppLifecycleState.resumed);
+        await Future<void>.delayed(Duration.zero);
+        expect(fake.calls, ['pause']);
+        await player.dispose();
+      },
+    );
   });
 }
 
