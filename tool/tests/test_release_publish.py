@@ -1,13 +1,18 @@
 """Release state transitions against a GitHub CLI double; no remote writes."""
+import base64
 import copy
 import hashlib
+import importlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from xml.etree import ElementTree
 
 SPEC = importlib.util.spec_from_file_location('release_publish', Path(__file__).resolve().parents[1] / 'release.py')
 release = importlib.util.module_from_spec(SPEC)
@@ -56,7 +61,7 @@ class GitHub:
             raise AssertionError(args)
 
 
-class IndependentPublishTests(unittest.TestCase):
+class PublishCase(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -113,6 +118,8 @@ class IndependentPublishTests(unittest.TestCase):
         with patch.object(release, 'OUT', folder):
             release.publish(platform)
 
+
+class IndependentPublishTests(PublishCase):
     def test_first_success_is_public_without_any_sibling_artifacts(self):
         release.prepare()
         self.assertTrue(self.github.remote['draft'])
@@ -276,6 +283,108 @@ class IndependentPublishTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'mutable'):
             self.publish()
         self.assertEqual(len(self.github.commands), 1)
+
+
+class AutoUpdatePublishTests(PublishCase):
+    """Appcast signing at publish time, with a throwaway key made inside each test."""
+
+    def setUp(self):
+        super().setUp()
+        sys.path.insert(0, str(release.ROOT / 'tool'))
+        self.addCleanup(sys.path.remove, str(release.ROOT / 'tool'))
+        self.appcast = importlib.import_module('appcast')
+        self.seed = os.urandom(32)
+        self.secret = base64.b64encode(self.seed).decode()
+        self.public = self.appcast.public_key_text(self.seed)
+        for context in [patch.dict(release.os.environ, {'SPARKLE_ED_PRIVATE_KEY': self.secret}),
+                        patch.object(release, 'capture', side_effect=lambda a: '2026-10-13T08:00:00+00:00'
+                                     if a[:2] == ['git', 'show'] else 'abc')]:
+            context.start()
+            self.addCleanup(context.stop)
+        release.prepare()
+
+    def updatable(self, platform, public=None, extras=False):
+        folder, artifact, receipt = self.fixture(platform)
+        update = {'enabled': True, 'publicKey': public or self.public, 'archive': artifact.name,
+                  'feed': f'appcast-{platform}.xml'}
+        if extras:
+            setup = folder / artifact.name.replace('.zip', '-setup.exe')
+            setup.write_bytes(b'MZ installer')
+            receipt['extraArtifacts'] = [{'name': setup.name, 'sha256': release.digest(setup),
+                                          'bytes': setup.stat().st_size}]
+            update['archive'] = setup.name
+        receipt['autoUpdate'] = update
+        (folder / 'receipt.json').write_text(json.dumps(receipt))
+        return folder, receipt
+
+    def test_macos_appcast_is_signed_published_and_names_the_release_asset(self):
+        folder, receipt = self.updatable('macos')
+        with patch.object(release, 'OUT', folder):
+            release.publish('macos')
+        feed = self.github.payloads['appcast-macos.xml'].decode()
+        archive = folder / receipt['artifact']
+        item = ElementTree.fromstring(feed).find('channel/item')
+        enclosure = item.find('enclosure')
+        self.assertEqual(item.find('{http://www.andymatuschak.org/xml-namespaces/sparkle}version').text, '47')
+        self.assertTrue(enclosure.get('url').endswith('/releases/download/v0.1.0%2B1/' + archive.name.replace('+', '%2B')))
+        signature = base64.b64decode(enclosure.get('{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature'))
+        self.assertTrue(self.appcast.verify_file(self.appcast.public_key(self.seed), signature, archive))
+        self.assertNotIn(self.secret, feed)
+        self.assertNotIn(self.secret, ' '.join(' '.join(c) for c in self.github.commands))
+
+    def test_windows_publishes_zip_installer_and_signs_the_installer(self):
+        folder, receipt = self.updatable('windows', extras=True)
+        with patch.object(release, 'OUT', folder):
+            release.publish('windows')
+        self.assertEqual(set(self.github.payloads), {
+            'raft-flutter-0.1.0+1-windows-x64.zip', 'raft-flutter-0.1.0+1-windows-x64-setup.exe',
+            'CHECKSUMS-windows-x64.txt', 'build-manifest-windows-x64.json', 'appcast-windows.xml'})
+        enclosure = ElementTree.fromstring(self.github.payloads['appcast-windows.xml']).find('channel/item/enclosure')
+        self.assertTrue(enclosure.get('url').endswith('windows-x64-setup.exe'))
+        self.assertIn('windows-x64-setup.exe', self.github.payloads['CHECKSUMS-windows-x64.txt'].decode())
+        signature = base64.b64decode(enclosure.get('{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature'))
+        self.assertTrue(self.appcast.verify_file(self.appcast.public_key(self.seed), signature, folder / 'raft-flutter-0.1.0+1-windows-x64-setup.exe'))
+
+    def test_retry_is_idempotent_because_appcast_bytes_are_deterministic(self):
+        folder, _ = self.updatable('macos')
+        with patch.object(release, 'OUT', folder):
+            release.publish('macos')
+            before = copy.deepcopy(self.github.commands)
+            release.publish('macos')
+        self.assertEqual(self.github.commands, before)
+
+    def test_missing_or_mismatched_secret_fails_before_any_upload(self):
+        folder, _ = self.updatable('macos')
+        before = copy.deepcopy(self.github.commands)
+        for secret, message in [('', 'secret is empty'),
+                                (base64.b64encode(os.urandom(32)).decode(), 'does not match'),
+                                (base64.b64encode(os.urandom(96)).decode(), 'Legacy')]:
+            with self.subTest(message=message), \
+                    patch.dict(release.os.environ, {'SPARKLE_ED_PRIVATE_KEY': secret}), \
+                    patch.object(release, 'OUT', folder), self.assertRaisesRegex(ValueError, message) as caught:
+                release.publish('macos')
+            self.assertNotIn(secret or 'x' * 40, str(caught.exception))
+        self.assertEqual(self.github.commands, before)
+        self.assertFalse(self.github.payloads)
+
+    def test_build_without_public_key_publishes_no_appcast_and_needs_no_secret(self):
+        folder, artifact, receipt = self.fixture('macos')
+        (folder / 'receipt.json').write_text(json.dumps({**receipt, 'autoUpdate': {'enabled': False}}))
+        with patch.dict(release.os.environ, {'SPARKLE_ED_PRIVATE_KEY': ''}), patch.object(release, 'OUT', folder):
+            release.publish('macos')
+        self.assertNotIn('appcast-macos.xml', self.github.payloads)
+
+    def test_extra_artifact_must_match_receipt_and_cannot_escape_directory(self):
+        folder, receipt = self.updatable('windows', extras=True)
+        setup = folder / receipt['extraArtifacts'][0]['name']
+        setup.write_bytes(b'MZ tampered installer')
+        with patch.object(release, 'OUT', folder), self.assertRaises(ValueError):
+            release.publish('windows')
+        receipt['extraArtifacts'][0]['name'] = '../evil.exe'
+        (folder / 'receipt.json').write_text(json.dumps(receipt))
+        with patch.object(release, 'OUT', folder), self.assertRaisesRegex(ValueError, 'Unsafe'):
+            release.publish('windows')
+        self.assertFalse(self.github.payloads)
 
 
 class ReleaseLookupTests(unittest.TestCase):

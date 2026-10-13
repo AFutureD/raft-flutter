@@ -4,6 +4,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -109,9 +110,19 @@ class ReleaseTests(unittest.TestCase):
             stage.mkdir()
             (stage / 'raft_flutter.exe').write_bytes(b'compiled bytes')
 
+        real_tool_module = release.tool_module
+
+        class FakeInstaller:  # Inno Setup only runs on the Windows runner
+            @staticmethod
+            def build(stage, output, asset_version, version, number, arch):
+                setup = Path(output) / f'raft-flutter-{asset_version}-windows-{arch}-setup.exe'
+                setup.write_bytes(b'MZ installer')
+                return setup
+
         environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3+9', 'GITHUB_RUN_NUMBER': '214'}
         with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
                 patch.dict(release.os.environ, environment), patch.object(release, 'run'), \
+                patch.object(release, 'tool_module', side_effect=lambda n: FakeInstaller if n == 'windows_installer' else real_tool_module(n)), \
                 patch.object(release, 'capture', return_value='abc'), \
                 patch.object(release, 'windows_package', side_effect=package), redirect_stdout(io.StringIO()):
             release.build('windows')
@@ -119,6 +130,57 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(receipt['artifact'], 'raft-flutter-1.2.3+9-windows-x64.zip')
             self.assertEqual((receipt['version'], receipt['buildNumber'], receipt['releaseTag']),
                              ('1.2.3', '214', 'v1.2.3+9'))
+            self.assertEqual([e['name'] for e in receipt['extraArtifacts']], ['raft-flutter-1.2.3+9-windows-x64-setup.exe'])
+            self.assertEqual(receipt['autoUpdate'], {'enabled': False})
+
+    def test_updater_key_enables_auto_update_defines_and_receipt(self):
+        key = release.tool_module('appcast').public_key_text(os.urandom(32))
+        class Installer:
+            @staticmethod
+            def build(stage, output, asset_version, version, number, arch):
+                path = Path(output) / 'setup.exe'
+                path.write_bytes(b'MZ')
+                return path
+        real_tool_module = release.tool_module
+        cases = {}
+
+        def package(stage):
+            stage.mkdir()
+
+        def capture_run(command, **kwargs):
+            cases.setdefault('commands', []).append([str(c) for c in command])
+
+        environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3+9', 'GITHUB_RUN_NUMBER': '214',
+                       'SPARKLE_ED_PUBLIC_KEY': key}
+        with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
+                patch.dict(release.os.environ, environment), patch.object(release, 'run', side_effect=capture_run), \
+                patch.object(release, 'tool_module', side_effect=lambda n: Installer if n == 'windows_installer' else real_tool_module(n)), \
+                patch.object(release, 'capture', return_value='abc'), \
+                patch.object(release, 'windows_package', side_effect=package), redirect_stdout(io.StringIO()):
+            release.build('windows')
+            receipt = json.loads((Path(temp) / 'raft-flutter-1.2.3+9-windows-x64.json').read_text())
+        command = cases['commands'][0]
+        self.assertIn('--dart-define=RAFT_AUTO_UPDATE=true', command)
+        self.assertIn(f'--dart-define=RAFT_SPARKLE_ED_PUBLIC_KEY={key}', command)
+        self.assertIn('--dart-define=RAFT_BUILD_NUMBER=214', command)
+        self.assertEqual(receipt['autoUpdate'], {'enabled': True, 'publicKey': key, 'archive': 'setup.exe',
+                                                 'feed': 'appcast-windows.xml'})
+
+    def test_invalid_updater_key_stops_before_building(self):
+        environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3+9', 'GITHUB_RUN_NUMBER': '214',
+                       'SPARKLE_ED_PUBLIC_KEY': 'not-a-key'}
+        with patch.dict(release.os.environ, environment), patch.object(release, 'run') as commands, \
+                self.assertRaises(ValueError):
+            release.build('macos')
+        commands.assert_not_called()
+
+    def test_other_platforms_never_get_updater_defines(self):
+        environment = {'SPARKLE_ED_PUBLIC_KEY': release.tool_module('appcast').public_key_text(os.urandom(32))}
+        with patch.dict(release.os.environ, environment), \
+                patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands:
+            with self.assertRaises(RuntimeError):
+                release.build('appimage')
+        self.assertFalse([c for c in commands.call_args.args[0] if 'RAFT_AUTO_UPDATE' in str(c)])
 
     def test_version_requires_positive_android_build_number(self):
         self.assertEqual(release.version_info('name: raft\nversion: 1.2.3-rc.1+42\n'), ('1.2.3-rc.1', '42'))

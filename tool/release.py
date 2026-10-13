@@ -3,6 +3,7 @@
 import argparse
 import base64
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,14 @@ APP = ROOT / 'apps/raft_flutter'
 OUT = ROOT / 'build/release'
 PLATFORMS = {'windows', 'android', 'linux', 'macos', 'appimage'}
 VERSION_PATTERN = r'[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?'
+
+
+def tool_module(name):
+    """Import a sibling tool module regardless of how release.py was loaded."""
+    folder = str(Path(__file__).resolve().parent)
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    return importlib.import_module(name)
 
 
 def run(args, **kwargs):
@@ -255,11 +264,22 @@ def build(platform):
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
     android = None
+    update_archive = None
+    appcast = tool_module('appcast')
+    # In-app updates exist only for macOS and Windows and only when the repo
+    # variable SPARKLE_ED_PUBLIC_KEY is set; otherwise the build ships without
+    # an updater key and the app falls back to opening the release page.
+    public_key = appcast.read_public_key(env) if platform in {'macos', 'windows'} else ''
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else 'linux' if platform == 'appimage' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={version}', f'--build-number={number}',
                f'--dart-define=RAFT_APP_VERSION={version}',
                # The update check compares this with the manifest's buildNumber.
                f'--dart-define=RAFT_BUILD_NUMBER={number}']
+    if public_key:
+        command.append('--dart-define=RAFT_AUTO_UPDATE=true')
+        if platform == 'windows':  # macOS reads SUPublicEDKey from Info.plist, set while packaging
+            command.append(f'--dart-define=RAFT_SPARKLE_ED_PUBLIC_KEY={public_key}')
+    extra_artifacts = []
     with tempfile.TemporaryDirectory(prefix='raft-release-') as temporary:
         work = Path(temporary)
         if platform == 'android':
@@ -280,6 +300,10 @@ def build(platform):
             artifact = OUT / f'{name}.zip'
             zip_folder(stage, artifact)
             signing = 'unsigned portable Windows bundle'
+            # WinSparkle cannot unpack a ZIP; it downloads and runs this installer.
+            setup = tool_module('windows_installer').build(stage, OUT, identity['asset_version'], version, number, arch)
+            extra_artifacts.append(setup)
+            update_archive = setup
         elif platform in {'linux', 'appimage'}:
             linux_package(stage)
             if platform == 'appimage':
@@ -299,12 +323,13 @@ def build(platform):
                 raise ValueError('Expected one macOS app bundle')
             artifact = OUT / f'{name}.zip'
             entitlements = APP / 'macos/Runner/Release.entitlements'
-            macos_checks = macos_release.package(apps[0], stage, entitlements, version, number, arch)
+            macos_checks = macos_release.package(apps[0], stage, entitlements, version, number, arch, public_key)
             copy_docs(stage)
             # ditto preserves app symlinks, executable permissions and metadata.
             run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', stage, artifact])
             macos_release.verify_archive(artifact, work / 'extracted', apps[0].name,
-                                         entitlements, version, number, arch)
+                                         entitlements, version, number, arch, public_key)
+            update_archive = artifact
             signing = 'ad-hoc; no Developer ID or notarization'
         else:
             artifact = OUT / f'{name}.apk'
@@ -323,6 +348,13 @@ def build(platform):
         receipt['appimage'] = appimage_checks
     if platform == 'macos':
         receipt['macos'] = macos_checks
+    if extra_artifacts:
+        receipt['extraArtifacts'] = [{'name': path.name, 'sha256': digest(path), 'bytes': path.stat().st_size}
+                                     for path in extra_artifacts]
+    if platform in {'macos', 'windows'}:
+        # The publisher signs `archive` with the CI secret and writes the appcast.
+        receipt['autoUpdate'] = ({'enabled': True, 'publicKey': public_key, 'archive': update_archive.name,
+                                  'feed': f'appcast-{platform}.xml'} if public_key else {'enabled': False})
     (OUT / f'{name}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     (OUT / f'{name}.sha256').write_text(f"{receipt['sha256']}  {artifact.name}\n", encoding='utf-8')
     print(json.dumps(receipt, indent=2))
@@ -349,6 +381,15 @@ def verify_artifacts(directory, matrix, version, commit, build_number=None, tag=
             raise ValueError('Artifact version, build number, tag, source, architecture or checksum mismatch')
         files.append(artifact)
         checksums.append(f"{row['sha256']}  {name}\n")
+        for extra in row.get('extraArtifacts', []):
+            extra_name = extra['name']
+            if Path(extra_name).name != extra_name or '/' in extra_name or '\\' in extra_name:
+                raise ValueError('Unsafe artifact filename')
+            path = directory / extra_name
+            if path.stat().st_size != extra['bytes'] or digest(path) != extra['sha256']:
+                raise ValueError('Artifact version, build number, tag, source, architecture or checksum mismatch')
+            files.append(path)
+            checksums.append(f"{extra['sha256']}  {extra_name}\n")
     return receipts, files, ''.join(sorted(checksums))
 
 
@@ -463,6 +504,35 @@ def prepare():
     run(command)
 
 
+def write_appcast(receipt, identity, commit, platform, artifacts, directory):
+    """Sign the update archive with the CI secret and render appcast-<platform>.xml.
+
+    Returns [] when this build ships without an updater key. The private key is
+    only read from SPARKLE_ED_PRIVATE_KEY and never printed or logged.
+    """
+    update = receipt.get('autoUpdate') or {'enabled': False}
+    if not update.get('enabled'):
+        return []
+    appcast = tool_module('appcast')
+    secret = os.environ.get('SPARKLE_ED_PRIVATE_KEY', '')
+    if not secret.strip():
+        raise ValueError('This build embeds an update public key but the SPARKLE_ED_PRIVATE_KEY secret '
+                         'is empty; add the secret and rerun this publisher')
+    seed = appcast.decode_seed(secret)
+    if appcast.public_key_text(seed) != update['publicKey']:
+        raise ValueError('SPARKLE_ED_PRIVATE_KEY does not match the public key built into the app')
+    archive = next((path for path in artifacts if path.name == update['archive']), None)
+    if archive is None or update.get('feed') != f'appcast-{platform}.xml':
+        raise ValueError('Auto-update archive is not part of this platform release')
+    published = capture(['git', 'show', '-s', '--format=%cI', commit])  # deterministic across retries
+    xml = appcast.signed_appcast(
+        seed=seed, archive=archive, platform=platform, repo=repository(), tag=identity['tag'],
+        version=identity['version'], build_number=identity['build_number'], published=published)
+    feed = directory / update['feed']
+    feed.write_text(xml, encoding='utf-8', newline='\n')
+    return [feed]
+
+
 def asset_matches(tag, asset, path):
     if asset.get('state') != 'uploaded' or asset.get('size') != path.stat().st_size:
         return False
@@ -495,7 +565,10 @@ def publish(platform):
     extension = {'windows': 'zip', 'macos': 'zip', 'android': 'apk',
                  'linux': 'tar.gz', 'appimage': 'AppImage'}[platform]
     expected_name = f'raft-flutter-{identity["asset_version"]}-{platform}-{arch}.{extension}'
-    if len(artifacts) != 1 or artifacts[0].name != expected_name:
+    # The primary artifact comes first; extras (e.g. the Windows installer) follow.
+    extras = {extra['name'] for extra in receipts[0].get('extraArtifacts', [])}
+    if (not artifacts or artifacts[0].name != expected_name
+            or {path.name for path in artifacts[1:]} != extras):
         raise ValueError('Artifact name does not belong to this platform and release')
     with tempfile.TemporaryDirectory(prefix='raft-release-publish-') as temporary:
         auxiliary = Path(temporary)
@@ -504,9 +577,10 @@ def publish(platform):
         # Publishers on different hosts must produce identical auxiliary bytes.
         checksum.write_text(checksums, encoding='utf-8', newline='\n')
         manifest.write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8', newline='\n')
+        feed = write_appcast(receipts[0], identity, commit, platform, artifacts, auxiliary)
         assets = {asset['name']: asset for asset in remote.get('assets', [])}
         missing = []
-        for path in [*artifacts, checksum, manifest]:
+        for path in [*artifacts, checksum, manifest, *feed]:
             existing = assets.get(path.name)
             if existing is None:
                 missing.append(path)
