@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import unittest.mock
 
 PATH = Path(__file__).resolve().parents[1] / 'check-project'
 LOADER = importlib.machinery.SourceFileLoader('check_project', str(PATH))
@@ -197,6 +198,38 @@ class UnitTestAssetsTests(unittest.TestCase):
             self.assertFalse(pkg.exists())
             self.assertTrue(apk.is_dir())
             self.assertEqual(check.clear_unit_test_assets(root), [])
+
+
+class RunTmpTests(unittest.TestCase):
+    def test_creates_a_per_run_directory_and_removes_those_of_dead_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / '.local'
+            local.mkdir()
+            dead = local / 'tmp-4000000'  # no such pid
+            dead.mkdir()
+            (dead / 'flutter_tools.x').mkdir()
+            alive = local / 'tmp-1'  # pid 1 exists
+            alive.mkdir()
+            (local / 'tmp-notanumber').mkdir()
+            run = check.make_run_tmp(local, pid=777)
+            self.assertEqual(run, local / 'tmp-777')
+            self.assertTrue(run.is_dir())
+            self.assertFalse(dead.exists())
+            self.assertTrue(alive.exists())
+            self.assertTrue((local / 'tmp-notanumber').exists())
+
+    def test_children_get_the_directory_as_their_temp_dir(self):
+        env = check.with_run_tmp({'PATH': '/bin', 'TMPDIR': '/tmp'}, Path('/w/.local/tmp-1'))
+        self.assertEqual((env['TMPDIR'], env['TEMP'], env['TMP']), ('/w/.local/tmp-1',) * 3)
+        self.assertEqual(env['PATH'], '/bin')
+
+    def test_root_is_outside_the_checkout(self):
+        # A throwaway git repository built in TMPDIR must not find the enclosing checkout.
+        repo = Path(__file__).resolve().parents[2]
+        with unittest.mock.patch.dict('os.environ', {'XDG_CACHE_HOME': '/c'}):
+            self.assertEqual(check.run_tmp_root(), Path('/c/raft-flutter/gate-tmp'))
+        root = check.run_tmp_root().resolve()
+        self.assertFalse(root == repo or repo in root.parents)
 
 
 class WarmupTests(unittest.TestCase):

@@ -713,6 +713,48 @@ def finish(emit, started, outcome):
          **({'failed_checks': ','.join(outcome['failed_checks'])} if outcome['failed_checks'] else {}))
 
 
+def pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def make_run_tmp(local_dir, pid=None):
+    """A per-run temp directory on disk (not the RAM-backed /tmp) for every child.
+
+    `flutter test` leaves 125-625 MB of flutter_tools.* behind in the temp directory when a run is
+    aborted or stalls; on tmpfs that is memory, and a few aborted gates push the machine into swap.
+    Directories of earlier runs whose process is gone are removed here, so a hard-killed gate cannot
+    leave them behind for long either.
+    """
+    local_dir.mkdir(parents=True, exist_ok=True)
+    for old in local_dir.glob('tmp-*'):
+        number = old.name[len('tmp-'):]
+        if number.isdigit() and not pid_alive(int(number)):
+            shutil.rmtree(old, ignore_errors=True)
+    path = local_dir / f'tmp-{os.getpid() if pid is None else pid}'
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def run_tmp_root():
+    """Where per-run temp directories live: on disk and outside every git checkout.
+
+    Inside the worktree (.local/) a test that builds a throwaway git repository in TMPDIR would
+    find the enclosing checkout instead and read its HEAD.
+    """
+    cache = os.environ.get('XDG_CACHE_HOME') or str(pathlib.Path.home() / '.cache')
+    return pathlib.Path(cache) / 'raft-flutter' / 'gate-tmp'
+
+
+def with_run_tmp(env, path):
+    return dict(env, TMPDIR=str(path), TEMP=str(path), TMP=str(path))
+
+
 def main():
     check_env = dict(os.environ, PYTHONUTF8='1')
     if '--all-themes' in sys.argv[1:]:
@@ -722,6 +764,8 @@ def main():
     emit, started = gate_events.Events(root), time.monotonic()
     gate_events.raise_on_signals()
     log = str(root / '.local')
+    run_tmp = make_run_tmp(run_tmp_root())
+    check_env = with_run_tmp(check_env, run_tmp)
     try:
         outcome = run_gate(check_env, emit, started)
         finish(emit, started, outcome)
@@ -742,6 +786,7 @@ def main():
         raise
     finally:
         kill_children()
+        shutil.rmtree(run_tmp, ignore_errors=True)  # also on abort, stall and signals
     gate_events.flush_notifications()
     sys.exit(0 if outcome['ok'] else 1)
 
