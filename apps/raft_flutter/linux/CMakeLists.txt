@@ -166,7 +166,7 @@ if(RAFT_APPLICATION_ID_SUFFIX STREQUAL "")
   set(RAFT_DESKTOP_NAME "Raft")
   set(RAFT_DESKTOP_MIME_LINE "MimeType=x-scheme-handler/raft;\n")
 else()
-  set(RAFT_DESKTOP_NAME "Raft (isolated${RAFT_APPLICATION_ID_SUFFIX})")
+  set(RAFT_DESKTOP_NAME "Raft (isolated build)")
   set(RAFT_DESKTOP_MIME_LINE "")
 endif()
 configure_file(packaging/app.raft.raft_flutter.desktop.in

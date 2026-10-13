@@ -319,7 +319,7 @@ def package(stage, artifact, root, run, capture_output, file_digest):
     base_metainfo = (root / 'packaging/appimage' / f'{BASE_APP_ID}.metainfo.xml').read_text()
     (metadata / f'{APP_ID}.metainfo.xml').write_text(
         base_metainfo.replace(BASE_APP_ID, APP_ID).replace(
-            '<name>Raft</name>', f'<name>Raft (isolated{APP_ID_SUFFIX})</name>')
+            '<name>Raft</name>', '<name>Raft (isolated build)</name>')
         if APP_ID_SUFFIX else base_metainfo)
     launcher = appdir / 'AppRun'
     launcher.write_text('''#!/bin/sh
