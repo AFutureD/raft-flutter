@@ -21,13 +21,13 @@ const _pixelRatio = 8.0;
 
 Future<void> _loadFonts() async {
   for (final name in const ['HankenGrotesk', 'Geist', 'GeistMono', 'Inter']) {
-    // The gate runs package tests from the repository root; a plain run uses
-    // the package directory.
-    final local = File('assets/fonts/$name.ttf');
-    final file = local.existsSync()
-        ? local
-        : File('packages/raft_ui/assets/fonts/$name.ttf');
-    final data = file.readAsBytesSync().buffer.asByteData();
+    // Bundled assets, so the test does not depend on the working directory.
+    ByteData data;
+    try {
+      data = await rootBundle.load('packages/raft_ui/assets/fonts/$name.ttf');
+    } on FlutterError {
+      data = await rootBundle.load('assets/fonts/$name.ttf');
+    }
     await (FontLoader(name)..addFont(Future.value(data))).load();
   }
   if (!_cjkFont.existsSync()) return;
@@ -140,7 +140,9 @@ void main() {
           await t.runAsync(() async {
             bytes = (await image.toByteData())!;
           });
-          return (bytes, image.width);
+          final width = image.width;
+          image.dispose();
+          return (bytes, width);
         }
 
         // Ink extent relative to the paragraph baseline: (above, below).
