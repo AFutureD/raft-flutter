@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:ui' show Image, VoidCallback;
 
 import 'attachment_player.dart';
+import 'bounded_lru.dart';
+import 'memory_budgets.dart';
+import 'memory_release.dart';
 
 /// Players that live outside the card or page that shows them.
 ///
@@ -27,7 +30,7 @@ import 'attachment_player.dart';
 /// scope changes ([synchronize]: account, server, role, sign-out) or a channel
 /// is revoked ([invalidateChannel]); holders keep their own authority checks.
 class PlayerSessions {
-  PlayerSessions({this.maxLive = 2, DateTime Function()? now})
+  PlayerSessions({this.maxLive = RaftMemoryBudgets.playerLive, DateTime Function()? now})
     : _now = now ?? DateTime.now;
 
   final int maxLive;
@@ -35,25 +38,72 @@ class PlayerSessions {
   final Map<String, PlayerSession> _sessions = {};
   Object? _scope;
 
-  /// HDR verdicts per attachment (bounded; the colour boxes are read once),
-  /// dropped with the sessions on an identity change.
-  final Map<String, bool> hdrVerdicts = {};
+  /// HDR verdicts per attachment (the colour boxes are read once), dropped
+  /// with the sessions on an identity change. Least recently used first out
+  /// past [maxRemembered].
+  final Map<String, bool> hdrVerdicts = BoundedLruMap(maxRemembered);
 
   /// Attachments a card has prepared this session. A card that is built again
   /// (a list disposes the rows far from the viewport) does not prepare it
   /// again by itself: that would be a new stream every time a clip scrolls back
-  /// into view. It shows its still picture and prepares on a tap.
-  final Set<String> prepared = {};
+  /// into view. It shows its still picture and prepares on a tap. An attachment
+  /// that falls out of the bound (past [maxRemembered]) is prepared again the
+  /// next time its card is built.
+  final Set<String> prepared = BoundedLruSet(maxRemembered);
 
   /// Where a released card stopped, per attachment (zero after the end).
-  final Map<String, Duration> resumeAt = {};
-  static const maxStills = 24;
+  /// Bounded like [hdrVerdicts].
+  final Map<String, Duration> resumeAt = BoundedLruMap(maxRemembered);
+
+  /// Entries kept per remembered map ([hdrVerdicts], [prepared], [resumeAt]).
+  static const maxRemembered = RaftMemoryBudgets.playerRememberedEntries;
+  static const maxStills = RaftMemoryBudgets.playerStillEntries;
+  static const maxStillBytes = RaftMemoryBudgets.playerStillBytes;
   final Map<String, Image> _stills = {};
 
-  /// Still pictures kept and their decoded size (RGBA, for diagnostics).
+  /// Still pictures kept and their decoded size (RGBA).
   int get stillCount => _stills.length;
-  int get stillBytes =>
-      _stills.values.fold(0, (n, i) => n + i.width * i.height * 4);
+  int get stillBytes => _stills.values.fold(0, (n, i) => n + _bytesOf(i));
+  static int _bytesOf(Image image) => image.width * image.height * 4;
+
+  /// Releases the still pictures of attachments nothing is playing or showing
+  /// in a viewer (the card that shows one keeps its own copy). Returns how many
+  /// were released. A session that plays, or that a viewer holds, keeps its
+  /// still: it is the picture the card falls back to when that player is
+  /// released. Called by the memory trimmer (see [installMemoryTrim]).
+  int trimStills() {
+    var released = 0;
+    for (final key in _stills.keys.toList()) {
+      final session = _sessions[key];
+      if (session != null &&
+          !session.closed &&
+          (session.viewers > 0 || session.player.playback.playing)) {
+        continue;
+      }
+      _stills.remove(key)?.dispose();
+      released++;
+    }
+    return released;
+  }
+
+  /// Releases idle stills when the app has been hidden for a while or the OS
+  /// is short of memory; the returned callback removes the trimmer.
+  VoidCallback installMemoryTrim([RaftMemoryRelease? release]) {
+    final memory = release ?? RaftMemoryRelease.instance;
+    final removeTrimmer = memory.addTrimmer((_) => trimStills());
+    final removeReporter = memory.addReporter(
+      'playerSessions',
+      () =>
+          '$length live $stillCount/$maxStills stills '
+          '$stillBytes/$maxStillBytes B hdr ${hdrVerdicts.length} '
+          'prepared ${prepared.length} resume ${resumeAt.length} '
+          '(each <= $maxRemembered)',
+    );
+    return () {
+      removeTrimmer();
+      removeReporter();
+    };
+  }
 
   bool hasStill(String key) => _stills.containsKey(key);
 
@@ -66,9 +116,13 @@ class PlayerSessions {
   void keepStill(String key, Image image) {
     _stills.remove(key)?.dispose();
     _stills[key] = image.clone();
-    while (_stills.length > maxStills) {
+    var bytes = stillBytes;
+    while (_stills.length > maxStills ||
+        (bytes > maxStillBytes && _stills.length > 1)) {
       final oldest = _stills.keys.first;
-      _stills.remove(oldest)?.dispose();
+      final dropped = _stills.remove(oldest)!;
+      bytes -= _bytesOf(dropped);
+      dropped.dispose();
     }
   }
 

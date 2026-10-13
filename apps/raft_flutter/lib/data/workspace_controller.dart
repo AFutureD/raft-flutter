@@ -29,6 +29,7 @@ import 'shared_draft_attachment.dart';
 import 'message_window_snapshot.dart';
 import 'attachment_image_repository.dart';
 import 'attachment_url_cache.dart';
+import '../platform/memory_budgets.dart';
 import '../platform/memory_release.dart';
 import '../platform/attachment_player_sessions.dart';
 import 'upload_mime.dart';
@@ -277,15 +278,7 @@ class WorkspaceController extends ChangeNotifier {
        attachmentImageStore =
            attachmentImageStore ?? AttachmentDiskCache.installed {
     if (presentationSource == null) {
-      _removePlayerReporter = RaftMemoryRelease.instance.addReporter(
-        'playerSessions',
-        () {
-          final s = _playerSessions;
-          return '${s.length} live ${s.stillCount} stills ${s.stillBytes} B '
-              'hdr ${s.hdrVerdicts.length} prepared ${s.prepared.length} '
-              'resume ${s.resumeAt.length}';
-        },
-      );
+      _removePlayerTrim = _playerSessions.installMemoryTrim();
     }
     _ownsFollowedThreads = followedThreads == null;
     this.followedThreads =
@@ -737,10 +730,14 @@ class WorkspaceController extends ChangeNotifier {
   }
 
   AttachmentImageRepository _newImageRepository() {
+    final budgets = RaftMemoryBudgets.current;
     final repository = AttachmentImageRepository(
       scope: attachmentImageScope,
       retainedAuthority: _retainsAttachment,
       store: attachmentImageStore,
+      maxEntries: budgets.attachmentImageEntries,
+      maxDecodedBytes: budgets.attachmentImageDecodedBytes,
+      maxEncodedBytes: budgets.attachmentImageEncodedBytes,
     );
     // Decoded bitmaps are rebuildable from the byte store: let go of the
     // unleased ones under memory pressure and while the app is hidden.
@@ -6228,7 +6225,7 @@ class WorkspaceController extends ChangeNotifier {
   PlayerSessions get playerSessions =>
       presentationSource?.playerSessions ?? _playerSessions;
   final PlayerSessions _playerSessions = PlayerSessions();
-  VoidCallback? _removePlayerReporter;
+  VoidCallback? _removePlayerTrim;
 
   int _attachmentUrlRequests = 0;
 
@@ -6872,8 +6869,8 @@ class WorkspaceController extends ChangeNotifier {
     _removeImageTrimmer = null;
     _removeImageReporter?.call();
     _removeImageReporter = null;
-    _removePlayerReporter?.call();
-    _removePlayerReporter = null;
+    _removePlayerTrim?.call();
+    _removePlayerTrim = null;
     _attachmentImages?.dispose();
     _attachmentUrls.dispose();
     _playerSessions.dispose();

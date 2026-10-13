@@ -178,11 +178,31 @@ Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNo
 头像 / 图标（用户、Agent、服务器、应用）走独立于附件的缓存，目标是和 Web 一样“加载过一次就即时出现”：`RaftSizedImage.avatar`（`RaftAvatarContent` 与 `RaftAvatar(imageUrl:)` 都用它）→ 已解码位图 → 编码字节 → 磁盘 → 网络。
 
 - 缓存键是 `raftStableImageKey(url)`：忽略签名 / 过期类 query（`X-Amz-*`、`Signature`、`Expires`、`token` 等），请求仍使用原始 URL；显示尺寸不进入网络键，20 / 36 / 64 dp 共用一次下载。
-- 已解码位图由 `RaftHotImages`（最多 384 个、估算 24 MB 的 LRU）持有，`ImageCache` 的 100 MB LRU 被附件图片冲掉后重新挂载仍同步命中；解码尺寸取 12 px 的倍数（高于 144 取 48 的倍数），常见的 1x / 2x / 3x 尺寸保持精确。
+- 已解码位图由 `RaftHotImages`（最多 384 个、估算 24 MB 的 LRU）持有，框架 `ImageCache` 的 LRU（预算见下节“内存预算”）被附件图片冲掉后重新挂载仍同步命中；解码尺寸取 12 px 的倍数（高于 144 取 48 的倍数），常见的 1x / 2x / 3x 尺寸保持精确。
 - 编码字节：内存 8 MB LRU，加磁盘：放进 Settings > 存储 显示并清理的附件磁盘缓存（`AttachmentDiskCache`）的 `public` 命名空间。同一个根目录和索引、同一份 1 GB 预算、同一个大小统计与“清除缓存”（清除时内存中的已解码头像和字节也一并忘掉，下次挂载只重新请求一次）；`attachments` 命名空间（按账号 / 服务器 / 频道，退出登录即清）行为不变。`public` 条目以稳定键的哈希为名、所有账号共用、退出登录不清（公开图片），有自己的上限（`min(64 MiB, 预算 / 8)`）和 LRU，附件超预算时不会被淘汰。条目前 8 字节为到期时间：取服务器 `Cache-Control` 的有效期，上限 14 天，没给就 1 小时，`no-cache` / `no-store` 不落盘。`/api/avatars/**`、`/api/external-avatars/**` 与 `/api/integration-logos/**` 在服务器侧是无需鉴权的公开路由（URL 即能力，`/api/avatars` 为 `immutable` 一年；`external-avatars` 为 `no-cache`）。
 - 请求按稳定键合并，失败会被记住：4xx 10 分钟、网络错误 / 5xx 1 分钟，没有 Gravatar 的用户不会在每次挂载时重新请求。请求经 `SystemProxy`（`fetchAvatarImage`），不带任何凭据。
 - 内存压力（Android 把应用退到后台也会报一次）只把头像缓存收缩到小底线（最近 64 个已解码头像 / 4 MB，内存字节 1 MB，`trimAvatarImages`）；“后台 30 秒”的清理不动它们：它们有上限，且让应用切回时头像即时呈现。
 - 视频封面等非头像图片仍用 `RaftSizedImage.network`，走框架 `ImageCache`。
+
+## 内存预算（2026-10-14）
+
+所有可重建的内存层集中在 `apps/raft_flutter/lib/platform/memory_budgets.dart` 的 `RaftMemoryBudgets`（一张表，按设备类别取值；Android / iOS 为 phone，其余为 desktop）。各层只是“用得多大”的上限，里面没有唯一副本：被释放的位图、静帧、验证结果都会在需要时重新解码或读取。`RaftMemoryRelease` 在应用隐藏 30 秒和系统内存压力时清空它们；`RaftMemoryRelease.install()` 同时把框架 `ImageCache` 设为本设备类别的上限（此前保持默认的 1000 张 / 100 MiB，没有人设置过）。`RaftMemoryRelease.snapshot()` 一行列出 `ImageCache` 和每一层的当前用量（非 release 构建的 trim 日志和 `resource_release_main.dart` 探针使用）。
+
+| 层 | 持有者 | phone | desktop |
+|---|---|---|---|
+| 框架 `ImageCache`（已解码的 `Image` provider：尺寸化图片、头像重新挂载、封面、表情） | `PaintingBinding` | 200 张 / 64 MiB | 500 张 / 128 MiB |
+| 附件图片，已解码 | `AttachmentImageRepository` | 64 张 / 64 MiB | 64 张 / 96 MiB |
+| 附件图片，已编码（解码来源） | `AttachmentImageRepository` | 32 MiB | 64 MiB |
+| 头像位图，已解码 | `RaftHotImages` | 384 个 / 24 MiB | 同 phone |
+| 头像编码字节 | `RaftImageBytes` | 8 MiB | 同 phone |
+| 视频静帧 | `PlayerSessions` | 24 张 / 16 MiB | 同 phone |
+| 视频 / 音频播放器 | `PlayerSessions` | 最多 2 个存活（原生 demuxer 每个 32 或 64 MiB + 8 MiB 回看） | 同 phone |
+| HDR 判定、已准备集合、续播位置 | `PlayerSessions` | 各 256 条 LRU | 同 phone |
+| 签名附件 URL | `AttachmentUrlCache` | 256 条、4 分钟 | 同 phone |
+
+- 附件图片的位图与 `ImageCache` 条目是同一块内存（provider 从仓库取同一个 `ui.Image`），所以仓库的已解码上限不超过同类别的 `ImageCache` 上限；否则仓库会固定住缓存已经忘掉的图片。
+- `PlayerSessions` 注册了内存 trimmer：隐藏 30 秒或内存压力时释放没有在播放、没有全屏播放页持有的静帧（卡片自己持有一份拷贝，不受影响；正在播放或被查看器持有的会话不动，播放器本身不动）。静帧按数量（24）和估算字节（16 MiB）双重限制，最旧的先释放。`hdrVerdicts` / `prepared` / `resumeAt` 是有界 LRU（`BoundedLruMap` / `BoundedLruSet`）；被挤出的附件下次建卡片时重新判定 / 重新准备。
+- 守卫：`test/image_cache_ban_guard_test.dart` 禁止应用代码使用 `cross_cache` 和 flutter_chat_ui 自带的头像 / 图片构建（它们走一份没有上限、设置页看不到也清不掉的磁盘目录和绕过预算的位图）。图片只走 `RaftSizedImage`、`RaftAvatarContent` 和 `AttachmentImageRepository`。
 
 ## 稳定规则（原审计文档的结论）
 

@@ -147,10 +147,14 @@ class RaftImageHttpError implements Exception {
 
 /// Bytes of avatar pictures: memory, then [store], then [fetcher].
 class RaftImageBytes {
+  /// Encoded avatar bytes kept in memory (the app's memory budget table,
+  /// `RaftMemoryBudgets`, lists it).
+  static const defaultMemoryBudgetBytes = 8 * 1024 * 1024;
+
   RaftImageBytes({
     RaftImageFetcher? fetcher,
     this.store,
-    this.memoryBudgetBytes = 8 * 1024 * 1024,
+    this.memoryBudgetBytes = defaultMemoryBudgetBytes,
     this.maxEntryBytes = 4 * 1024 * 1024,
     this.clientErrorMemory = const Duration(minutes: 10),
     this.transientErrorMemory = const Duration(minutes: 1),
@@ -309,7 +313,15 @@ class RaftImageBytes {
 /// from `loadImage`, so a remount after an `ImageCache` eviction is answered
 /// synchronously with the already decoded image and no new request or decode.
 class RaftHotImages {
-  RaftHotImages({this.maxEntries = 384, this.maxBytes = 24 * 1024 * 1024});
+  RaftHotImages({
+    this.maxEntries = defaultMaxEntries,
+    this.maxBytes = defaultMaxBytes,
+  });
+
+  /// Decoded avatar bitmaps held: count and estimated size (the app's memory
+  /// budget table, `RaftMemoryBudgets`, lists them).
+  static const defaultMaxEntries = 384;
+  static const defaultMaxBytes = 24 * 1024 * 1024;
 
   static final RaftHotImages instance = RaftHotImages();
 

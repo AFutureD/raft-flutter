@@ -17,6 +17,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:raft_flutter/data/device_preferences.dart';
 import 'package:raft_flutter/data/source_time_formatter.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
+import 'package:raft_flutter/platform/memory_release.dart';
 import 'package:raft_flutter/platform/system_fonts.dart';
 
 import 'resource_release_main.dart';
@@ -56,7 +57,11 @@ void main() {
     }
 
     void record(String label) {
-      final row = {'label': label, ..._memory()};
+      final row = {
+        'label': label,
+        ..._memory(),
+        'snapshot': RaftMemoryRelease.instance.snapshot(),
+      };
       // ignore: avoid_print
       print('RRMEM ${jsonEncode(row)}');
       if (_out.isNotEmpty) {

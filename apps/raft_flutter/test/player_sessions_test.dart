@@ -2,11 +2,13 @@
 // every holder (a card and its viewer), disposed when nobody holds it, capped,
 // and dropped on an identity change.
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/platform/attachment_player.dart';
 import 'package:raft_flutter/platform/attachment_player_sessions.dart';
+import 'package:raft_flutter/platform/memory_release.dart';
 
 class _Player implements AttachmentPlayer {
   _Player(this.name);
@@ -231,5 +233,81 @@ void main() {
     await pumpEventQueue();
     expect(made.single.opened, 0);
     expect(made.single.disposed, isTrue);
+  });
+
+  group('memory trim', () {
+    Future<ui.Image> picture(WidgetTester tester, [int side = 16]) async =>
+        (await tester.runAsync(() => createTestImage(width: side, height: side, cache: false)))!;
+
+    testWidgets('releases idle stills but not those of a playing or viewed session', (tester) async {
+      final image = await picture(tester);
+      sessions = PlayerSessions(maxLive: 5, now: () => now);
+      final made = <_Player>[];
+      final idle = take('idle', made: made);
+      final playing = take('playing', made: made);
+      final viewed = take('viewed', viewer: true, made: made);
+      await Future.wait([idle.ready, playing.ready, viewed.ready]);
+      (made[1]).last = const AttachmentPlayback(playing: true);
+      for (final key in ['idle', 'playing', 'viewed', 'orphan']) {
+        sessions.keepStill(key, image);
+      }
+      expect(sessions.stillCount, 4);
+      final release = RaftMemoryRelease();
+      final remove = sessions.installMemoryTrim(release);
+      for (final reason in RaftMemoryTrim.values) {
+        // Both reasons release the same way; re-add what was released.
+        sessions.keepStill('idle', image);
+        sessions.keepStill('orphan', image);
+        release.trim(reason);
+        expect(sessions.hasStill('idle'), isFalse, reason: reason.name);
+        expect(sessions.hasStill('orphan'), isFalse, reason: reason.name);
+        expect(sessions.hasStill('playing'), isTrue, reason: reason.name);
+        expect(sessions.hasStill('viewed'), isTrue, reason: reason.name);
+        expect(sessions.stillBytes, 2 * 16 * 16 * 4);
+      }
+      // Never touches the players themselves.
+      expect(made.any((p) => p.disposed), isFalse);
+      expect(sessions.length, 3);
+      // A card that kept its own copy still has it after the trim.
+      sessions.keepStill('idle', image);
+      final copy = sessions.stillFor('idle')!;
+      release.trim(RaftMemoryTrim.backgrounded);
+      expect(copy.debugDisposed, isFalse);
+      copy.dispose();
+      remove();
+      sessions.keepStill('idle', image);
+      release.trim(RaftMemoryTrim.pressure);
+      expect(sessions.hasStill('idle'), isTrue, reason: 'removed trimmer is not called');
+      sessions.dispose(); // before the test ends: leak tracking checks there
+      image.dispose();
+    });
+
+    testWidgets('keepStill stays within the byte budget, oldest first', (tester) async {
+      // 1500 x 1500 x 4 = 9 MB: two do not fit the 16 MiB budget.
+      final big = await picture(tester, 1500);
+      sessions.keepStill('a', big);
+      sessions.keepStill('b', big);
+      expect(sessions.hasStill('a'), isFalse);
+      expect(sessions.hasStill('b'), isTrue);
+      // The newest is kept even if it alone is over budget.
+      final huge = await picture(tester, 3000);
+      sessions.keepStill('c', huge);
+      expect(sessions.stillCount, 1);
+      expect(sessions.hasStill('c'), isTrue);
+      sessions.dispose();
+      big.dispose();
+      huge.dispose();
+    });
+
+    testWidgets('the still count stays at maxStills', (tester) async {
+      final image = await picture(tester, 4);
+      for (var i = 0; i < PlayerSessions.maxStills + 5; i++) {
+        sessions.keepStill('k$i', image);
+      }
+      expect(sessions.stillCount, PlayerSessions.maxStills);
+      expect(sessions.hasStill('k0'), isFalse);
+      sessions.dispose();
+      image.dispose();
+    });
   });
 }

@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
+
+import 'memory_budgets.dart';
 
 /// Why rebuildable memory is released.
 enum RaftMemoryTrim {
@@ -35,12 +38,16 @@ class RaftMemoryRelease with WidgetsBindingObserver {
   RaftMemoryRelease({
     this.backgroundDelay = const Duration(seconds: 30),
     ImageCache Function()? imageCache,
-  }) : _imageCache = imageCache ?? (() => PaintingBinding.instance.imageCache);
+    RaftMemoryBudgets Function()? budgets,
+  }) : _imageCache = imageCache ?? (() => PaintingBinding.instance.imageCache),
+       _budgets = budgets ?? (() => RaftMemoryBudgets.current);
 
   static final RaftMemoryRelease instance = RaftMemoryRelease();
 
   final Duration backgroundDelay;
   final ImageCache Function() _imageCache;
+  final RaftMemoryBudgets Function() _budgets;
+  VoidCallback? _restoreImageCache, _removeAvatarReporter;
   final _trimmers = <RaftMemoryTrimmer>{};
   final _reporters = <String, String Function()>{};
   Timer? _timer;
@@ -50,16 +57,31 @@ class RaftMemoryRelease with WidgetsBindingObserver {
   bool get backgrounded => _backgrounded;
   bool _backgrounded = false;
 
-  /// Starts observing the app lifecycle and memory pressure. Idempotent.
+  /// Starts observing the app lifecycle and memory pressure, and sets the
+  /// framework `ImageCache` limits of this device class (see
+  /// [RaftMemoryBudgets]; the framework default is 1000 images / 100 MiB, which
+  /// nothing sized). Idempotent.
   void install() {
     if (_installed) return;
     _installed = true;
+    _restoreImageCache = _budgets().applyImageCache(_imageCache());
+    _removeAvatarReporter = addReporter('avatars', () {
+      final hot = RaftHotImages.instance, bytes = RaftImageBytes.instance;
+      return 'hot ${hot.length}/${hot.maxEntries} '
+          '${hot.estimatedBytes}/${hot.maxBytes} B '
+          'bytes ${bytes.memoryEntries} '
+          '${bytes.memoryBytes}/${bytes.memoryBudgetBytes} B';
+    });
     WidgetsBinding.instance.addObserver(this);
   }
 
   void uninstall() {
     if (!_installed) return;
     _installed = false;
+    _restoreImageCache?.call();
+    _restoreImageCache = null;
+    _removeAvatarReporter?.call();
+    _removeAvatarReporter = null;
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _timer = null;
