@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 TEST = 'integration_test/attachment_open_smoke_test.dart'
 HARNESS = ['integration_test/attachment_open_smoke_test.dart', 'integration_test/support/open_smoke.dart',
-           'integration_test/support/cache_install.dart']
+           'integration_test/support/cache_install.dart', 'test_driver/integration_test.dart']
 PACKAGE = 'app.raft.raft_flutter.linkperf'
 sys.path.insert(0, str(HERE))
 
