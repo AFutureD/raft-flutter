@@ -10552,7 +10552,7 @@
      "needle": "'/attachments/${Uri.encodeComponent(id)}/url'"
     },
     {
-     "file": "apps/raft_flutter/lib/features/attachment_view.dart",
+     "file": "apps/raft_flutter/lib/features/attachment_transfers.dart",
      "needle": "controller.attachmentUrl("
     },
     {
@@ -10834,10 +10834,10 @@
    "status": "covered",
    "webEntry": "MessageItem handleDownloadAttachment",
    "gate": "none",
-   "flutterEntry": "attachment_view.dart download action ('Saved {name}')",
+   "flutterEntry": "attachment_transfers.dart download action ('Saved {name}')",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/attachment_view.dart",
+     "file": "apps/raft_flutter/lib/features/attachment_transfers.dart",
      "needle": "'Saved {name}'"
     }
    ],
@@ -10937,11 +10937,11 @@
    "status": "covered",
    "webEntry": "ImageLightbox Comments / Download / Close buttons",
    "gate": "comments need attachment-comments flag",
-   "flutterEntry": "attachment_image_lightbox.dart onDownload + comments aside",
+   "flutterEntry": "attachment_image_viewer.dart download + comments aside (phone: long-press save/share)",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/attachment_image_lightbox.dart",
-     "needle": "onDownload"
+     "file": "apps/raft_flutter/lib/features/attachment_image_viewer.dart",
+     "needle": "ValueKey('attachment-download')"
     },
     {
      "file": "packages/raft_ui/lib/src/attachment_lightbox.dart",
