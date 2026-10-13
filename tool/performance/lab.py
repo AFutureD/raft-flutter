@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT / 'tool'))
 from android_app import SafetyError, flutter_guard, protected_state
 BUDGET_120 = 1e6 / 120  # 8333 us
 BUDGET_60 = 1e6 / 60    # 16667 us
-SCENARIO_ORDER = ['steady-scroll', 'fling', 'image-scroll', 'older-drag', 'scrollbar-drag', 'scrollbar-sweep', 'arrival-scrolled-up', 'resize',
+SCENARIO_ORDER = ['steady-scroll', 'fling', 'image-scroll', 'older-drag', 'scrollbar-drag', 'scrollbar-sweep', 'arrival-scrolled-up', 'resize', 'idle-final',
                   'open-cold', 'open-warm', 'channel-switch', 'thread-open', 'section-drag', 'section-back-drag', 'section-cycle']
 ROW_KINDS = ['plain', 'markdown', 'code', 'image', 'attachments', 'reactions', 'thread-summary', 'task']
 
@@ -99,6 +99,7 @@ def summarize_record(record, attribution=None):
         'semanticsShare': round(100 * phases.get('semantics', 0) / ui_total, 1),
         'semanticsEnabled': record.get('semanticsEnabled'),
         'cpuSeconds': record.get('cpuSeconds'),
+        'uiThreadCpuSeconds': record.get('uiThreadCpuSeconds'),
         'rssDeltaMb': round(((record.get('rssAfter') or 0) - (record.get('rssBefore') or 0)) / 2**20, 1),
         'clockMatched': record.get('clockMatched'),
         'failure': record.get('failure'),
@@ -108,7 +109,7 @@ def summarize_record(record, attribution=None):
     row['worstUiFrames'] = [{'uiMs': ms(f['uit']), 'buildMs': ms(f['ui']), 'rasterMs': ms(f['r']), 'phasesMs': {k: ms(v) for k, v in sorted((f.get('ph') or {}).items(), key=lambda kv: -kv[1])[:4]}} for f in worst]
     blocks = record.get('blockTotalsUs') or {}
     row['topBlocksMs'] = {k: ms(v) for k, v in sorted(blocks.items(), key=lambda kv: -kv[1])[:10]}
-    for key in ('movedPx', 'anchorDriftPx', 'anchorLostFrames', 'olderPagesServed', 'rowsBefore', 'rowsAfter', 'imageReads', 'arrivals', 'resizeSteps',
+    for key in ('idleSeconds', 'movedPx', 'anchorDriftPx', 'anchorLostFrames', 'olderPagesServed', 'rowsBefore', 'rowsAfter', 'imageReads', 'arrivals', 'resizeSteps',
                 'touchMoves', 'acceptedSection', 'taskRows', 'visibleChatTags', 'fileRows', 'decodedFileThumbnails', 'retainedTaskCards', 'chatRows', 'taggedChatRows', 'sectionVisits'):
         if key in record:
             row[key] = record[key]
@@ -145,7 +146,7 @@ def summarize_record(record, attribution=None):
                 'responses': responses,
             }
     if 'steps' in record:
-        per_row, mount_ui, follow, rows = [], [], [], []
+        per_row, per_row_cpu, mount_ui, follow, rows = [], [], [], [], []
         for s in record['steps']:
             fs = frames_in(record, s['t0'], s['t1'])
             if not fs:
@@ -155,8 +156,10 @@ def summarize_record(record, attribution=None):
             rows.append(s['newRows'])
             if s['newRows'] > 0:
                 per_row.append(fs[0]['uit'] / s['newRows'])
+                if 'cpuUs' in s:
+                    per_row_cpu.append(s['cpuUs'] / s['newRows'])
         row['mount'] = {'rowKind': record.get('rowKind'), 'steps': len(mount_ui), 'rowsMounted': sum(rows),
-                        'perRowUs': dist(per_row), 'mountFrameUs': dist(mount_ui), 'followUpUs': dist(follow),
+                        'perRowUs': dist(per_row), 'perRowCpuUs': dist(per_row_cpu), 'mountFrameUs': dist(mount_ui), 'followUpUs': dist(follow),
                         'coldFirstStepUs': mount_ui[0] if mount_ui else 0}
     if attribution:
         worst_cpu = attribution.get('cpuWorstUiFrames') or {}
@@ -219,6 +222,19 @@ def fmt_dist(d):
     return f"{ms(d['p50'])} / {ms(d['p90'])} / {ms(d['p99'])} / {ms(d['max'])}"
 
 
+def fmt_cpu(r):
+    """Process CPU of the scenario: seconds, share of one core, and per frame
+    (the lab process: UI, raster, GC helpers and the VM-service sampler)."""
+    cpu, elapsed = r.get('cpuSeconds'), r.get('elapsedSeconds')
+    if cpu is None:
+        return '-'
+    share = f'{100 * cpu / elapsed:.0f}%' if elapsed else '-'
+    per = f"{1000 * cpu / r['frames']:.1f}" if r.get('frames') else '-'
+    ui = r.get('uiThreadCpuSeconds')
+    ui_per = f", UI thread {1000 * ui / r['frames']:.2f} ms/frame" if ui is not None and r.get('frames') else ''
+    return f'{cpu:.2f} / {share} / {per}{ui_per}'
+
+
 def markdown(summary):
     env, hello = summary.get('env', {}), summary.get('hello', {})
     out = [f"# Perf lab run `{summary['run']}`", '']
@@ -231,10 +247,10 @@ def markdown(summary):
     out.append(f"- Display: {hello.get('displayRefreshRate', '?')} Hz, DPR {hello.get('devicePixelRatio', '?')}, view {first.get('view', '?')} physical px; semantics mode `{hello.get('semantics', '?')}` (embedder requested: {hello.get('platformSemanticsEnabled', '?')}); phase collection {'on' if hello.get('phases') else 'off'}")
     out.append(f"- Gate (60 Hz: no UI or raster frame over 16.7 ms, no stutter): **{'PASS' if summary['gate60Passed'] else 'FAIL'}**. Target: every frame within 8.33 ms (120 Hz).")
     out += ['', '## Frames (ms: p50 / p90 / p99 / max)', '',
-            '| Scenario | Theme | Frames | UI thread (build+layout+paint+semantics) | Raster | >8.33 ms (UI/R, either %) | >16.7 ms (UI/R) | Stutter | GC | Semantics % | Gate 60 |',
-            '|---|---|---|---|---|---|---|---|---|---|---|']
+            '| Scenario | Theme | Frames | UI thread (build+layout+paint+semantics) | Raster | >8.33 ms (UI/R, either %) | >16.7 ms (UI/R) | Stutter | GC | Semantics % | Process CPU (s, % of a core, ms/frame) | Gate 60 |',
+            '|---|---|---|---|---|---|---|---|---|---|---|---|']
     for r in summary['scenarios']:
-        out.append(f"| {r['scenario']} | {r['theme']} | {r['frames']} | {fmt_dist(r['uiUs'])} | {fmt_dist(r['rasterUs'])} | {r['over8Ui']}/{r['over8Raster']} ({r['over8EitherPct']}%) | {r['over16Ui']}/{r['over16Raster']} | {r['stutters']} | {r.get('gcCount', '-')} | {r['semanticsShare']} | {'pass' if r['gate60'] else 'FAIL'} |")
+        out.append(f"| {r['scenario']} | {r['theme']} | {r['frames']} | {fmt_dist(r['uiUs'])} | {fmt_dist(r['rasterUs'])} | {r['over8Ui']}/{r['over8Raster']} ({r['over8EitherPct']}%) | {r['over16Ui']}/{r['over16Raster']} | {r['stutters']} | {r.get('gcCount', '-')} | {r['semanticsShare']} | {fmt_cpu(r)} | {'pass' if r['gate60'] else 'FAIL'} |")
     sections = [r for r in summary['scenarios'] if r['scenario'].startswith('section-')]
     if sections:
         out += ['', '## Populated mobile sections', '',
@@ -246,10 +262,10 @@ def markdown(summary):
     mounts = [r for r in summary['scenarios'] if 'mount' in r]
     if mounts:
         out += ['', '## New-row mount cost (UI µs of the frame that mounts rows, divided by rows mounted)', '',
-                '| Row kind | Theme | Rows | Per row p50 / p90 / max | Mount frame p50 / max (ms) | Follow-up frames p50 (ms) | First (cold) step (ms) |', '|---|---|---|---|---|---|---|']
+                '| Row kind | Theme | Rows | Per row p50 / p90 / max | Per row UI-thread CPU p50 / p90 (us) | Mount frame p50 / max (ms) | Follow-up frames p50 (ms) | First (cold) step (ms) |', '|---|---|---|---|---|---|---|---|']
         for r in mounts:
             m = r['mount']
-            out.append(f"| {m['rowKind']} | {r['theme']} | {m['rowsMounted']} | {round(m['perRowUs']['p50'])} / {round(m['perRowUs']['p90'])} / {round(m['perRowUs']['max'])} | {ms(m['mountFrameUs']['p50'])} / {ms(m['mountFrameUs']['max'])} | {ms(m['followUpUs']['p50'])} | {ms(m['coldFirstStepUs'])} |")
+            out.append(f"| {m['rowKind']} | {r['theme']} | {m['rowsMounted']} | {round(m['perRowUs']['p50'])} / {round(m['perRowUs']['p90'])} / {round(m['perRowUs']['max'])} | {round(m['perRowCpuUs']['p50'])} / {round(m['perRowCpuUs']['p90'])} | {ms(m['mountFrameUs']['p50'])} / {ms(m['mountFrameUs']['max'])} | {ms(m['followUpUs']['p50'])} | {ms(m['coldFirstStepUs'])} |")
     trans = [r for r in summary['scenarios'] if 'opens' in r]
     if trans:
         out += ['', '## Transitions', '', '| Scenario | Theme | Opens | Visible ms (p50 / max) | Worst UI frame per open (ms) |', '|---|---|---|---|---|']

@@ -35,6 +35,16 @@ python3 tool/performance/lab.py summarize .local/performance/lab/<name>         
 | `--reference DIR` | Runs `compare` against `DIR` when the run finishes. |
 | `-- <flutter drive args>` | Passes extra arguments through, for example `-- --no-enable-impeller`. |
 
+### Diagnostic switches (environment of the app or driver)
+
+| Variable | Effect |
+|---|---|
+| `RAFT_LAB_DEEP=1` | The driver keeps long self/inclusive/app lists and a pruned top-down call tree (`callTree`) of all CPU samples in `*.attribution.json`. Pair it with `FLUTTER_ENGINE_SWITCHES=1 FLUTTER_ENGINE_SWITCH_1=dart-flags=--max_profile_depth=600`, otherwise deep widget stacks lose their leaf frames. Native frames outside the VM (engine text/font code, GC) arrive without Dart callers. |
+| `RAFT_LAB_FONT_KEYS=1` | After every frame the lab walks the render tree for text and writes a `fontKeys` note for each font combination (family, fallback list, weight, slant, variations, locale) that the idle font warm-up (`raftFontWarmUpStyles`) does not cover. The first use of such a combination is a 50-200 ms engine stall. |
+| `RAFT_LAB_IDLE_SECONDS` | Length of the `idle-final` scenario (default 30): no input, window visible, after the last theme's scenarios. Select it with `--scenarios ...,idle-final`. Its record shows process CPU and zero frames when nothing animates. |
+
+Every scenario record has `cpuSeconds` (whole process) and, on Linux, `uiThreadCpuSeconds` (on-CPU time of the Dart UI thread). On a busy host wall-clock frame times grow, CPU time much less; `mount-*` steps also record `cpuUs` per jump, and the summary prints the per-row UI-thread CPU. Prefer it when other work shares the machine.
+
 ### Run safeguards
 
 - **Android isolation.** Android runs require a prebuilt APK whose aapt package identity is `app.raft.raft_flutter.linkperf`; the runner forces `--keep-app-running`. It refuses source-only drive or the official App APK. See [installation workflow](android-installation.md). Merely changing applicationId while retaining the official namespace is not safe for Flutter drive cleanup.

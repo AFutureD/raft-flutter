@@ -172,7 +172,39 @@ Future<Map<String, Object?>> attribute(VmService service, String isolateId, Map<
         app.update(f, (v) => v + 1, ifAbsent: () => 1);
       }
     }
-    return {'samples': total, 'categories': category, 'self': _top(self, 25), 'inclusive': _top(inclusive, 40), 'appInclusive': _top(app, 25)};
+    final deep = Platform.environment['RAFT_LAB_DEEP'] == '1';
+    return {
+      'samples': total,
+      'categories': category,
+      'self': _top(self, deep ? 120 : 25),
+      'inclusive': _top(inclusive, deep ? 400 : 40),
+      'appInclusive': _top(app, deep ? 150 : 25),
+    };
+  }
+
+  if (Platform.environment['RAFT_LAB_DEEP'] == '1') {
+    // Top-down call tree of all samples, pruned below 0.3 %.
+    final root = <String, dynamic>{'n': 0, 'c': <String, dynamic>{}};
+    for (final s in samples) {
+      final stack = s.stack;
+      if (stack == null || stack.isEmpty) continue;
+      var node = root;
+      node['n'] = (node['n'] as int) + 1;
+      for (final i in stack.reversed) {
+        final children = node['c'] as Map<String, dynamic>;
+        node = children.putIfAbsent(name(i), () => <String, dynamic>{'n': 0, 'c': <String, dynamic>{}}) as Map<String, dynamic>;
+        node['n'] = (node['n'] as int) + 1;
+      }
+    }
+    final floor = (root['n'] as int) * 0.003;
+    Map<String, dynamic> prune(Map<String, dynamic> n) => {
+      'n': n['n'],
+      'c': {
+        for (final e in (n['c'] as Map<String, dynamic>).entries)
+          if ((e.value['n'] as int) >= floor) e.key: prune(e.value as Map<String, dynamic>),
+      },
+    };
+    result['callTree'] = prune(root);
   }
 
   bool inUi(int ts) => uiWindows.any((w) => ts >= w[0] - 1000 && ts <= w[1] + 1000);

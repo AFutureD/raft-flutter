@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind, PointerScrollEvent;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show MethodCall, StandardMethodCodec;
 import 'package:flutter_test/flutter_test.dart';
@@ -40,12 +41,14 @@ const _defines = {
   'RAFT_LAB_SECONDS': String.fromEnvironment('RAFT_LAB_SECONDS'),
   'RAFT_LAB_SEMANTICS': String.fromEnvironment('RAFT_LAB_SEMANTICS'),
   'RAFT_LAB_PHASES': String.fromEnvironment('RAFT_LAB_PHASES'),
+  'RAFT_LAB_IDLE_SECONDS': String.fromEnvironment('RAFT_LAB_IDLE_SECONDS'),
 };
 String _cfg(String key) {
   final define = _defines[key] ?? '';
   return define.isNotEmpty ? define : Platform.environment[key] ?? '';
 }
 
+Future<void> Function()? fontKeyReport;
 final themes = (_cfg('RAFT_LAB_THEMES').isEmpty ? 'brutal-light,elegant-light' : _cfg('RAFT_LAB_THEMES')).split(',');
 final only = _cfg('RAFT_LAB_SCENARIOS').split(',').where((s) => s.isNotEmpty).toSet();
 final seconds = int.tryParse(_cfg('RAFT_LAB_SECONDS')) ?? 8;
@@ -220,6 +223,53 @@ void main() {
         await sampler.send('note', {'theme': name, 'fontWarmUp': {'pendingAtStart': pendingAtStart, 'drainedAfterMs': warmed, 'totalMs': warming.elapsedMilliseconds}});
       }
 
+      // RAFT_LAB_FONT_KEYS=1: after every frame, walk the render tree for text
+      // and note each (family, fallback list, weight, slant, variations, locale)
+      // combination the engine has not resolved before, with the scenario time
+      // and whether the idle font warm-up covers it. Combinations the warm-up
+      // misses are the ones whose first use stalls a frame.
+      if (_cfg('RAFT_LAB_FONT_KEYS') == '1') {
+        final warm = <String>{};
+        String fontKey(TextStyle st) => '${st.fontFamily}|${st.fontFamilyFallback}|${st.fontWeight?.value}|${st.fontStyle?.name}|${st.fontVariations?.map((v) => '${v.axis}=${v.value}').join(',')}|${st.locale}';
+        final themeNow = Theme.of(t.element(find.byType(Scaffold).first));
+        for (final st in raftFontWarmUpStyles(themeNow)) {
+          warm.add(fontKey(st));
+        }
+        final known = <String>{...warm};
+        final cold = <Map<String, Object?>>[];
+        final clock = Stopwatch()..start();
+        void scan(Duration _) {
+          void visit(RenderObject r) {
+            if (r is RenderParagraph) {
+              void span(InlineSpan sp, TextStyle? parent) {
+                final eff = sp.style == null ? parent : (parent?.merge(sp.style) ?? sp.style);
+                if (sp is TextSpan && (sp.text?.isNotEmpty ?? false) && eff != null) {
+                  final key = fontKey(eff);
+                  if (known.add(key)) {
+                    cold.add({'atMs': clock.elapsedMilliseconds, 'key': key, 'sample': '${sp.text!.substring(0, math.min(14, sp.text!.length))} @${eff.fontSize}', 'warmUpCovered': warm.contains(key)});
+                  }
+                }
+                if (sp is TextSpan) {
+                  for (final c in sp.children ?? const <InlineSpan>[]) {
+                    span(c, eff);
+                  }
+                }
+              }
+              span(r.text, null);
+            }
+            r.visitChildren(visit);
+          }
+          for (final view in t.binding.renderViews) {
+            visit(view);
+          }
+        }
+        SchedulerBinding.instance.addPersistentFrameCallback(scan);
+        fontKeyReport = () async {
+          await sampler.send('note', {'theme': name, 'fontKeys': List.of(cold)});
+          cold.clear();
+        };
+      }
+
       ScrollPosition position({bool thread = false}) => timelineScrollable(t, thread: thread).position;
       Future<void> toLatest() async {
         final p = position();
@@ -289,6 +339,7 @@ void main() {
         if (!wants(scenario)) return;
         await prepare?.call();
         final record = await lab.measure(t, name, scenario, action, kind: kind);
+        await fontKeyReport?.call();
         if (record['failure'] != null) failures.add('$name/$scenario: ${record['failure']}');
         final exception = t.takeException();
         if (exception != null) failures.add('$name/$scenario: $exception');
@@ -730,13 +781,19 @@ void main() {
             final target = (p.pixels + olderSign(p) * p.viewportDimension * .9).clamp(p.minScrollExtent, p.maxScrollExtent);
             if ((target - p.pixels).abs() < 1) break;
             final t0 = developer.Timeline.now;
+            final cpu0 = threadCpuSeconds();
             p.jumpTo(target);
             await nextFrame();
+            final cpu1 = threadCpuSeconds();
             final ids = mountedIds(known);
             final fresh = ids.difference(seen);
             seen.addAll(ids);
             await idle(const Duration(milliseconds: 120));
-            steps.add({'t0': t0, 't1': developer.Timeline.now, 'newRows': fresh.length, 'mounted': ids.length});
+            steps.add({
+              't0': t0, 't1': developer.Timeline.now, 'newRows': fresh.length, 'mounted': ids.length,
+              // On-CPU time of the UI thread for the jump and its frame: stable on a busy host.
+              if (cpu0 != null && cpu1 != null) 'cpuUs': ((cpu1 - cpu0) * 1e6).round(),
+            });
           }
           return {'rowKind': kind, 'steps': steps};
         }, kind: 'mount');
@@ -1111,6 +1168,18 @@ void main() {
           }
           return {'opens': opens};
         }, kind: 'transitions');
+      }
+
+      // RAFT_LAB_SCENARIOS=...,idle-final: after the last theme's scenarios the
+      // window stays visible with no input; the record's cpuSeconds, frames
+      // (FrameTimings: none expected) and the embedder's vsync lines in the log
+      // show what an untouched window costs. RAFT_LAB_IDLE_SECONDS (default 30).
+      if (name == themes.last && only.contains('idle-final')) {
+        final idleSeconds = int.tryParse(_cfg('RAFT_LAB_IDLE_SECONDS')) ?? 30;
+        await run('idle-final', () async {
+          await idle(Duration(seconds: idleSeconds));
+          return {'idleSeconds': idleSeconds};
+        }, kind: 'idle');
       }
 
       if (only.any((o) => o.startsWith('nav-'))) {

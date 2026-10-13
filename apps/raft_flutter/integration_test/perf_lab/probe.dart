@@ -175,6 +175,18 @@ int? cpuTicks() {
   return int.parse(fields[11]) + int.parse(fields[12]);
 }
 
+/// On-CPU time of the calling thread (the Dart UI isolate's thread), in
+/// seconds: unlike wall time it does not grow when the host is busy.
+double? threadCpuSeconds() {
+  if (!Platform.isLinux) return null;
+  try {
+    final raw = File('/proc/thread-self/schedstat').readAsStringSync();
+    return int.parse(raw.split(' ').first) / 1e9;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// The main timeline's scroll position, found by widget type rather than by
 /// any private state of the chat implementation: the vertical [Scrollable]
 /// under the [RaftChatView] (main or thread) with the most scrollable
@@ -269,6 +281,7 @@ class LabRecorder {
     }
     final rssBefore = ProcessInfo.currentRss;
     final ticks0 = cpuTicks();
+    final threadCpu0 = threadCpuSeconds();
     probe.recording = true;
     final start = developer.Timeline.now;
     final clock = Stopwatch()..start();
@@ -282,6 +295,7 @@ class LabRecorder {
     final end = developer.Timeline.now;
     clock.stop();
     final ticks1 = cpuTicks();
+    final threadCpu1 = threadCpuSeconds();
     final blocks = phases ? FlutterTimeline.debugCollect().timedBlocks : const <TimedBlock>[];
     if (phases) FlutterTimeline.debugCollectionEnabled = false;
     // Engine timings are delivered in batches; wait for the tail.
@@ -378,6 +392,7 @@ class LabRecorder {
       'clockOffsetUs': clockAlign.offset,
       'clockMatched': clockAlign.matched,
       'cpuSeconds': ticks0 == null || ticks1 == null || ticksPerSecond == null ? null : (ticks1 - ticks0) / ticksPerSecond!,
+      'uiThreadCpuSeconds': threadCpu0 == null || threadCpu1 == null ? null : threadCpu1 - threadCpu0,
       'rssBefore': rssBefore,
       'rssAfter': ProcessInfo.currentRss,
       'blockTotalsUs': {for (final e in inclusive.entries) e.key: e.value.round()},
