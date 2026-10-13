@@ -10,4 +10,5 @@ workspace:
   - packages/desktop_drop
   - packages/flutter_chat_ui
   - packages/flutter_dynamic_icon_plus
+  - packages/raft_updater
   - tool/ds_audit

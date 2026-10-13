@@ -13,6 +13,7 @@
 #include <media_kit_libs_windows_video/media_kit_libs_windows_video_plugin_c_api.h>
 #include <media_kit_video/media_kit_video_plugin_c_api.h>
 #include <pasteboard/pasteboard_plugin.h>
+#include <raft_updater/raft_updater_plugin.h>
 #include <uri_content/uri_content_plugin_c_api.h>
 #include <url_launcher_windows/url_launcher_windows.h>
 
@@ -31,6 +32,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("MediaKitVideoPluginCApi"));
   PasteboardPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("PasteboardPlugin"));
+  RaftUpdaterPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("RaftUpdaterPlugin"));
   UriContentPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("UriContentPluginCApi"));
   UrlLauncherWindowsRegisterWithRegistrar(

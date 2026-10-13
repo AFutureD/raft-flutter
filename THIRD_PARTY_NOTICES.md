@@ -21,3 +21,5 @@ Linux file drops use a locally modified desktop_drop 0.8.4 (Apache-2.0), copyrig
 macOS Dock unread badges use app_badge_plus 1.3.5 (MIT), copyright 2024 LioLin. The unmodified [license](docs/licenses/app_badge_plus-1.3.5-MIT.txt) is preserved for distribution.
 
 The Linux runner vendors `apps/raft_flutter/linux/runner/flutter_embedder.h` unchanged from Flutter 3.47.6 (BSD-3-Clause, copyright The Flutter Authors) to add the vsync callback the GTK embedder omits (`vsync_driver.cc`).
+
+In-app updates use Sparkle 2.10.0 on macOS (MIT with bundled third-party notices; fetched as a Swift package, embedded in `Raft.app/Contents/Frameworks/Sparkle.framework`) and WinSparkle 0.9.4 on Windows (MIT, includes Expat; downloaded and pinned by SHA-256 in `packages/raft_updater/windows/CMakeLists.txt`, `WinSparkle.dll` bundled). Their unmodified licenses are preserved in [docs/licenses/Sparkle-2.10.0-LICENSE.txt](docs/licenses/Sparkle-2.10.0-LICENSE.txt) and [docs/licenses/WinSparkle-0.9.4-COPYING.txt](docs/licenses/WinSparkle-0.9.4-COPYING.txt) and copied into the distributed archives. See [docs/auto-update.md](docs/auto-update.md).

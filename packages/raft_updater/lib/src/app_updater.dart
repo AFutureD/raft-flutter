@@ -1,0 +1,199 @@
+import 'dart:io' show File, Platform;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+/// Compile-time and runtime inputs of the updater.
+///
+/// Release CI passes `--dart-define=RAFT_AUTO_UPDATE=true` (and, on Windows,
+/// `RAFT_SPARKLE_ED_PUBLIC_KEY`) only when the `SPARKLE_ED_PUBLIC_KEY`
+/// repository variable is set. Without it the updater is disabled and every
+/// call falls back to opening the release page.
+@immutable
+class AppUpdaterConfig {
+  const AppUpdaterConfig({
+    this.enabled = false,
+    this.feedUrl = '',
+    this.publicKey = '',
+    this.buildNumber = '',
+    this.version = '',
+  });
+
+  /// Reads the `RAFT_*` defines supplied by `tool/release.py`.
+  const AppUpdaterConfig.fromEnvironment()
+    : enabled = const bool.fromEnvironment('RAFT_AUTO_UPDATE'),
+      feedUrl = const String.fromEnvironment('RAFT_UPDATE_FEED_URL'),
+      publicKey = const String.fromEnvironment('RAFT_SPARKLE_ED_PUBLIC_KEY'),
+      buildNumber = const String.fromEnvironment('RAFT_APP_BUILD_NUMBER'),
+      version = const String.fromEnvironment('RAFT_APP_VERSION');
+
+  final bool enabled;
+
+  /// Overrides the default `releases/latest/download/appcast-<platform>.xml`.
+  final String feedUrl;
+
+  /// Base64 Ed25519 public key. Windows only; macOS reads `SUPublicEDKey`
+  /// from Info.plist.
+  final String publicKey;
+
+  /// The running build's number; must be comparable with `sparkle:version`.
+  final String buildNumber;
+  final String version;
+}
+
+enum AppUpdateOutcome {
+  /// The native updater took over: it shows its own check/download/install UI
+  /// and restarts the app after installing.
+  started,
+
+  /// In-app updating is unavailable here; the release page was opened.
+  openedReleasePage,
+
+  /// Neither the native updater nor the browser fallback could be started.
+  failed,
+}
+
+/// Facade over the native Sparkle (macOS) and WinSparkle (Windows) updaters.
+///
+/// This is separate from the lightweight "update available" check: that
+/// decides when to show the red dot, this performs the update behind the
+/// dot's button.
+class AppUpdater {
+  AppUpdater({
+    MethodChannel? channel,
+    this._config = const AppUpdaterConfig.fromEnvironment(),
+    this._platform,
+    bool Function()? isInstalledBuild,
+    Future<bool> Function(Uri url)? openUrl,
+  }) : _channel = channel ?? const MethodChannel('app.raft/updater'),
+       _isInstalledBuild = isInstalledBuild ?? _defaultIsInstalledBuild,
+       _openUrl = openUrl ?? _defaultOpenUrl {
+    _available = ValueNotifier<bool>(_computeStaticAvailability());
+  }
+
+  static final AppUpdater instance = AppUpdater();
+
+  static const String repository = 'kevinzhow/raft-flutter';
+  static final Uri releasePage = Uri.https(
+    'github.com',
+    '/$repository/releases/latest',
+  );
+
+  final MethodChannel _channel;
+  final AppUpdaterConfig _config;
+  final TargetPlatform? _platform;
+  final bool Function() _isInstalledBuild;
+  final Future<bool> Function(Uri url) _openUrl;
+
+  late final ValueNotifier<bool> _available;
+  Future<bool>? _configured;
+  String? _unavailableReason;
+
+  TargetPlatform get _target => _platform ?? defaultTargetPlatform;
+
+  /// True when [checkAndInstall] can update in place: macOS or Windows, a build
+  /// made with an update key, an installed (not portable) Windows copy, and no
+  /// native initialisation failure so far.
+  bool get available => _available.value;
+
+  /// Notifies when [available] changes (for example after a failed native
+  /// initialisation).
+  ValueListenable<bool> get availability => _available;
+
+  /// Why [available] is false, for diagnostics; null while available.
+  String? get unavailableReason => _unavailableReason;
+
+  /// The appcast the native updater polls.
+  String get feedUrl {
+    if (_config.feedUrl.isNotEmpty) return _config.feedUrl;
+    final name = _target == TargetPlatform.macOS ? 'macos' : 'windows';
+    return 'https://github.com/$repository/releases/latest/download/appcast-$name.xml';
+  }
+
+  bool _computeStaticAvailability() {
+    if (kIsWeb ||
+        (_target != TargetPlatform.macOS && _target != TargetPlatform.windows)) {
+      _unavailableReason = 'In-app updates are not supported on this platform.';
+      return false;
+    }
+    if (!_config.enabled) {
+      _unavailableReason = 'This build has no update signing key.';
+      return false;
+    }
+    if (_target == TargetPlatform.windows &&
+        (_config.publicKey.isEmpty || _config.buildNumber.isEmpty)) {
+      _unavailableReason = 'This build lacks the update key or build number.';
+      return false;
+    }
+    if (_target == TargetPlatform.windows && !_isInstalledBuild()) {
+      _unavailableReason =
+          'Portable Windows builds update by installing the setup program.';
+      return false;
+    }
+    return true;
+  }
+
+  void _disable(String reason) {
+    _unavailableReason = reason;
+    _available.value = false;
+  }
+
+  Future<bool> _configure() => _configured ??= _configureNative();
+
+  Future<bool> _configureNative() async {
+    try {
+      final result = await _channel.invokeMapMethod<String, Object?>(
+        'configure',
+        <String, Object?>{
+          'feedUrl': feedUrl,
+          'publicKey': _config.publicKey,
+          'buildNumber': _config.buildNumber,
+          'version': _config.version,
+        },
+      );
+      if (result?['available'] == true) return true;
+      _disable(
+        (result?['reason'] as String?) ?? 'The native updater is unavailable.',
+      );
+    } on MissingPluginException {
+      _disable('The native updater is not part of this build.');
+    } on PlatformException catch (error) {
+      _disable(error.message ?? error.code);
+    }
+    return false;
+  }
+
+  /// Checks for an update and, with the user's consent in the native dialog,
+  /// downloads, verifies, installs and relaunches. Where in-place updating is
+  /// unavailable, opens the release page instead.
+  Future<AppUpdateOutcome> checkAndInstall() async {
+    if (available && await _configure()) {
+      try {
+        final started = await _channel.invokeMethod<bool>('checkForUpdates');
+        if (started ?? false) return AppUpdateOutcome.started;
+      } on PlatformException {
+        // Fall through to the release page.
+      } on MissingPluginException {
+        _disable('The native updater is not part of this build.');
+      }
+    }
+    return await _openUrl(releasePage)
+        ? AppUpdateOutcome.openedReleasePage
+        : AppUpdateOutcome.failed;
+  }
+
+  static bool _defaultIsInstalledBuild() {
+    try {
+      // Inno Setup places its uninstaller next to the executable.
+      final folder = File(Platform.resolvedExecutable).parent.path;
+      final separator = Platform.pathSeparator;
+      return File('$folder${separator}unins000.exe').existsSync();
+    } on Object {
+      return false;
+    }
+  }
+
+  static Future<bool> _defaultOpenUrl(Uri url) =>
+      launchUrl(url, mode: LaunchMode.externalApplication);
+}

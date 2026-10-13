@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   media_kit_libs_windows_video
   media_kit_video
   pasteboard
+  raft_updater
   uri_content
   url_launcher_windows
 )
