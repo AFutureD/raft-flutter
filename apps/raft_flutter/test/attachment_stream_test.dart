@@ -51,6 +51,11 @@ void main() {
   group('rate limit', () {
     const limits = [ServerRateLimits.attachments];
 
+    // The governor is process-wide: every test starts and leaves it open, so
+    // the order the tests run in (`--test-randomize-ordering-seed`) is moot.
+    setUp(AttachmentHttp.governor.reset);
+    tearDown(AttachmentHttp.governor.reset);
+
     test('a URL under /api/attachments is admitted through the governor', () async {
       final (w, api) = (await fixture('owner'));
       addTearDown(w.dispose);
@@ -66,7 +71,6 @@ void main() {
       // fails (the card says "Download to view") instead of sending a request
       // the server would refuse.
       AttachmentHttp.governor.limitedBy(limits, const Duration(minutes: 5));
-      addTearDown(() => AttachmentHttp.governor.limitedBy(limits, Duration.zero));
       await expectLater(attachmentStreamSource(w, 'a1'), throwsA(isA<RateLimitedException>()));
     });
 
@@ -77,7 +81,6 @@ void main() {
         'url': 'https://bucket.storage.invalid/a2.mp4?sig=1',
       };
       AttachmentHttp.governor.limitedBy(limits, const Duration(minutes: 5));
-      addTearDown(() => AttachmentHttp.governor.limitedBy(limits, Duration.zero));
       final source = await attachmentStreamSource(w, 'a2');
       expect(source.isNetwork, isTrue);
     });

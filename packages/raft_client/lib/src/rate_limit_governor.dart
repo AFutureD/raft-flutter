@@ -240,6 +240,18 @@ class RateLimitGovernor {
     }
   }
 
+  /// Forgets everything learned and counted. A test seam: the app's governor
+  /// is process-wide, so a test that closes a bucket must open it again for
+  /// the tests that run after it (`limitedBy(..., Duration.zero)` cannot: it
+  /// only ever extends a block).
+  void reset() {
+    _sent.clear();
+    _blockedUntil.clear();
+    _server.clear();
+    limited = 0;
+    paced = 0;
+  }
+
   /// A 429 arrived: close the buckets until [retryAfter] has passed.
   void limitedBy(List<ServerRateLimit> limits, Duration retryAfter) {
     final until = _now().add(retryAfter);

@@ -355,6 +355,25 @@ void main() {
   });
 
   group('pacing', () {
+    test('reset opens a closed bucket and zeroes the counters', () async {
+      final clock = _Clock();
+      final governor = RateLimitGovernor(now: clock.now);
+      const limits = [ServerRateLimits.attachments];
+      governor.limitedBy(limits, const Duration(minutes: 5));
+      await expectLater(
+        governor.acquire(limits, RequestPriority.foreground),
+        throwsA(isA<RateLimitedException>()),
+      );
+      expect(governor.limited, 1);
+      // A zero-length block cannot undo a longer one; reset can.
+      governor.limitedBy(limits, Duration.zero);
+      expect(governor.blockedFor('attachments'), isNotNull);
+      governor.reset();
+      expect(governor.blockedFor('attachments'), isNull);
+      expect(governor.limited, 0);
+      await governor.acquire(limits, RequestPriority.foreground);
+    });
+
     test('background attachment traffic stays under its share of the limit', () async {
       final clock = _Clock();
       final slept = <Duration>[];
