@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
@@ -485,18 +486,40 @@ class _AttachmentViewState extends State<AttachmentView> {
     final operationCancel = CancelToken();
     downloadCancel = operationCancel;
     try {
-      final url = await resolve('attachment');
-      if (!current()) return;
-      if (sharedLease != null) await sharedLease!.dispose();
-      final prepared = await sharing.prepareAttachment(
-        url: url,
-        filename: name,
-        cancel: operationCancel,
-        authorized: current,
-        onProgress: (_, _) {
-          if (!current()) operationCancel.cancel();
-        },
-      );
+      final copy = await storedCopy();
+      final SharedFileLease? prepared;
+      if (copy != null) {
+        // This device already holds the file: share a private copy of it.
+        if (sharedLease != null) await sharedLease!.dispose();
+        try {
+          prepared = copy.bytes != null
+              ? await sharing.prepareBytes(
+                  copy.bytes!,
+                  filename: name,
+                  authorized: current,
+                )
+              : await sharing.prepareFile(
+                  copy.file!.file,
+                  filename: name,
+                  authorized: current,
+                );
+        } finally {
+          copy.file?.release();
+        }
+      } else {
+        final url = await resolve('attachment');
+        if (!current()) return;
+        if (sharedLease != null) await sharedLease!.dispose();
+        prepared = await sharing.prepareAttachment(
+          url: url,
+          filename: name,
+          cancel: operationCancel,
+          authorized: current,
+          onProgress: (_, _) {
+            if (!current()) operationCancel.cancel();
+          },
+        );
+      }
       if (prepared == null) return;
       if (!current()) {
         await prepared.dispose();
@@ -515,6 +538,60 @@ class _AttachmentViewState extends State<AttachmentView> {
     }
   }
 
+  /// The copy of this attachment the cache already holds: the original image
+  /// bytes, or the preview file (pinned: release it). Null when there is none.
+  /// Saving and sharing use it instead of downloading again; the user's own
+  /// saved file is always a separate copy.
+  Future<({Uint8List? bytes, AttachmentCachedFile? file})?>
+  storedCopy() async {
+    final disk = w.attachmentDiskCache;
+    if (disk == null) return null;
+    try {
+      if (isImage) {
+        if (isSvg) return null;
+        final bytes = await disk.read(fullImageKey.source.storeKey);
+        return bytes == null ? null : (bytes: bytes, file: null);
+      }
+      final cached = await disk.openFile(
+        w.attachmentCacheKey(widget.metadata, 'file', channelId: ownerChannel),
+        filename: name,
+        expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
+      );
+      return cached == null ? null : (bytes: null, file: cached);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A way to save [storedCopy] through the picker, or null without one.
+  Future<Future<String?> Function()?> reusableCopy(
+    bool Function() current,
+  ) async {
+    final copy = await storedCopy();
+    if (copy == null) return null;
+    return () async {
+      try {
+        final bytes = copy.bytes;
+        if (bytes != null) {
+          return await files.saveBytes(
+            bytes: bytes,
+            filename: name,
+            mimeType: mime,
+            authorized: current,
+          );
+        }
+        return await files.saveFile(
+          source: copy.file!.file,
+          filename: name,
+          mimeType: mime,
+          authorized: current,
+        );
+      } finally {
+        copy.file?.release();
+      }
+    };
+  }
+
   Future<void> download() async {
     final revision = bindingRevision;
     bool current() => revision == bindingRevision && authorized;
@@ -531,52 +608,60 @@ class _AttachmentViewState extends State<AttachmentView> {
     DialogRoute<void>? operationRoute;
     // Use the platform save picker first; show progress only after it closes.
     try {
-      final url = await resolve('attachment');
-      if (!current()) return;
-      final saved = await files.save(
-        url: url,
-        filename: name,
-        mimeType: mime,
-        cancel: operationCancel,
-        authorized: current,
-        onProgress: (received, total) {
-          if (!current()) {
-            operationCancel.cancel();
-            return;
-          }
-          if (!progressOpened) {
-            progressOpened = true;
-            operationRoute = DialogRoute<void>(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: Text('Downloading $name'),
-                content: ValueListenableBuilder<double?>(
-                  valueListenable: progress,
-                  builder: (_, value, _) =>
-                      LinearProgressIndicator(value: value),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: operationCancel.cancel,
-                    child: const Text('Cancel'),
+      // A copy this device already holds is saved without any request.
+      final reuse = await reusableCopy(current);
+      final String? outcome;
+      if (reuse != null) {
+        outcome = await reuse();
+      } else {
+        final url = await resolve('attachment');
+        if (!current()) return;
+        outcome = await files.save(
+          url: url,
+          filename: name,
+          mimeType: mime,
+          cancel: operationCancel,
+          authorized: current,
+          onProgress: (received, total) {
+            if (!current()) {
+              operationCancel.cancel();
+              return;
+            }
+            if (!progressOpened) {
+              progressOpened = true;
+              operationRoute = DialogRoute<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AlertDialog(
+                  title: Text('Downloading $name'),
+                  content: ValueListenableBuilder<double?>(
+                    valueListenable: progress,
+                    builder: (_, value, _) =>
+                        LinearProgressIndicator(value: value),
                   ),
-                ],
-              ),
-            );
-            progressRoute = operationRoute;
-            Navigator.of(
-              context,
-              rootNavigator: true,
-            ).push(operationRoute!).whenComplete(() => dialogVisible = false);
-          }
-          progress.value = total > 0 ? received / total : null;
-        },
-      );
+                  actions: [
+                    TextButton(
+                      onPressed: operationCancel.cancel,
+                      child: const Text('Cancel'),
+                    ),
+                  ],
+                ),
+              );
+              progressRoute = operationRoute;
+              Navigator.of(
+                context,
+                rootNavigator: true,
+              ).push(operationRoute!).whenComplete(() => dialogVisible = false);
+            }
+            progress.value = total > 0 ? received / total : null;
+          },
+        );
+      }
       if (progressOpened && mounted && dialogVisible) {
         operationRoute?.navigator?.removeRoute(operationRoute!);
         dialogVisible = false;
       }
+      final saved = outcome;
       if (saved != null && mounted && current()) {
         showRaftToast(
           context,
@@ -888,16 +973,54 @@ class _AttachmentViewState extends State<AttachmentView> {
       // not send one request per card. It joins the bounded, batched
       // background prefetch (a no-op when the URL is held or on its way); the
       // press that follows asks for it at once.
-      hoverPrefetch?.cancel();
-      hoverPrefetch = w.prefetchAttachmentUrl(id, channelId: ownerChannel);
+      whenNotStored(() {
+        hoverPrefetch?.cancel();
+        hoverPrefetch = w.prefetchAttachmentUrl(id, channelId: ownerChannel);
+      });
       return;
     }
+    // What this device already holds opens without any request, so there is
+    // nothing to sign or warm.
+    whenNotStored(
+      () => unawaited(
+        w.attachmentUrl(id, channelId: ownerChannel, coalesce: true).then((
+          url,
+        ) {
+          if (mounted && authorized) w.attachmentHostWarmer?.call(url);
+        }, onError: (Object _) {}),
+      ),
+    );
+  }
+
+  /// True when the bytes a signed URL would fetch are already in the
+  /// persistent cache: the original image, or the PDF.
+  Future<bool> storedOnDevice() async {
+    final disk = w.attachmentDiskCache;
+    if (disk == null) return false;
+    try {
+      if (isImage) return await w.attachmentStored(fullImageKey);
+      return await disk.containsFile(
+        w.attachmentCacheKey(widget.metadata, 'file', channelId: ownerChannel),
+        filename: name,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Runs [action] unless [storedOnDevice]. Without a cache it runs at once.
+  void whenNotStored(VoidCallback action) {
+    if (w.attachmentDiskCache == null) {
+      action();
+      return;
+    }
+    final revision = bindingRevision;
     unawaited(
-      w
-          .attachmentUrl(id, channelId: ownerChannel, coalesce: true)
-          .then((url) {
-            if (mounted && authorized) w.attachmentHostWarmer?.call(url);
-          }, onError: (Object _) {}),
+      storedOnDevice().then((stored) {
+        if (!stored && mounted && revision == bindingRevision && authorized) {
+          action();
+        }
+      }),
     );
   }
 
@@ -918,10 +1041,13 @@ class _AttachmentViewState extends State<AttachmentView> {
         thumbnailUrl == null) {
       return;
     }
-    urlPrefetch = w.prefetchAttachmentUrl(
-      '${widget.metadata['id']}',
-      channelId: ownerChannel,
-    );
+    whenNotStored(() {
+      urlPrefetch?.cancel();
+      urlPrefetch = w.prefetchAttachmentUrl(
+        '${widget.metadata['id']}',
+        channelId: ownerChannel,
+      );
+    });
   }
 
   PrefetchHandle? urlPrefetch;
@@ -941,10 +1067,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     if (widget.exportMode) return child;
     return MouseRegion(
       onEnter: (_) => warmUrl(),
-      child: Listener(
-        onPointerDown: (_) => warmUrl(press: true),
-        child: child,
-      ),
+      child: Listener(onPointerDown: (_) => warmUrl(press: true), child: child),
     );
   }
 

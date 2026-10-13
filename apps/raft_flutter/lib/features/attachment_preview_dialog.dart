@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
+import '../data/attachment_image_store.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_player_factory.dart';
@@ -232,6 +234,17 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     try {
       if (!current) return;
       if (kind == 'document') {
+        // A document opened before on this device shows from the cache: no
+        // preview request (it counts against the attachment rate limit).
+        final stored = await readStoredDocument();
+        if (!current || ticket != request) return;
+        if (stored != null) {
+          setState(() {
+            document = stored.$1;
+            truncated = stored.$2;
+          });
+          return;
+        }
         final value = await widget.controller.query(
           '/attachments/${widget.metadata['id']}/preview',
         );
@@ -251,20 +264,46 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
           document = Map<String, dynamic>.from(value['data']);
           truncated = value['truncated'] == true;
         });
+        unawaited(storeDocument(document!, truncated));
       } else if (['pdf', 'audio', 'video'].contains(kind)) {
-        final url = await widget.controller.attachmentUrl(
+        final owner =
+            widget.channelId ?? widget.metadata['channelId'] as String?;
+        Future<String> resolveUrl() => widget.controller.attachmentUrl(
           '${widget.metadata['id']}',
-          channelId:
-              widget.channelId ?? widget.metadata['channelId'] as String?,
+          channelId: owner,
         );
-        if (!current || ticket != request) return;
-        final prepared = await (widget.files ?? AttachmentPreviewFiles()).load(
-          url,
-          '${widget.metadata['filename'] ?? 'attachment'}',
-          cancel: cancel,
-          authorized: () => current,
-          onProgress: transfer.report,
-        );
+        final files = widget.files ?? AttachmentPreviewFiles();
+        final filename = '${widget.metadata['filename'] ?? 'attachment'}';
+        // PDF and audio come from the persistent cache when it holds them
+        // (no request, not even for the signed URL) and are kept after the
+        // first download. Video keeps its own path.
+        final SharedFileLease? prepared;
+        if (kind == 'video') {
+          final url = await resolveUrl();
+          if (!current || ticket != request) return;
+          prepared = await files.load(
+            url,
+            filename,
+            cancel: cancel,
+            authorized: () => current,
+            onProgress: transfer.report,
+          );
+        } else {
+          prepared = await files.loadCached(
+            cache: widget.controller.attachmentDiskCache,
+            key: widget.controller.attachmentCacheKey(
+              widget.metadata,
+              'file',
+              channelId: owner ?? '',
+            ),
+            resolveUrl: resolveUrl,
+            filename: filename,
+            expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
+            cancel: cancel,
+            authorized: () => current,
+            onProgress: transfer.report,
+          );
+        }
         if (!current || ticket != request || prepared == null) {
           await prepared?.dispose();
           return;
@@ -308,6 +347,52 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       if (current && ticket == request) setState(() => loading = false);
     }
   }
+
+  /// The document preview stored by an earlier open of this attachment.
+  Future<(Map<String, dynamic>, bool)?> readStoredDocument() async {
+    final cache = widget.controller.attachmentDiskCache;
+    if (cache == null) return null;
+    try {
+      final bytes = await cache.read(documentKey);
+      if (bytes == null) return null;
+      final value = jsonDecode(utf8.decode(bytes));
+      if (value is Map &&
+          value['data'] is Map &&
+          ['text', 'markdown', 'csv', 'xlsx'].contains(value['data']['kind'])) {
+        return (
+          Map<String, dynamic>.from(value['data'] as Map),
+          value['truncated'] == true,
+        );
+      }
+      await cache.remove(documentKey); // Unreadable: fetched again.
+    } catch (_) {
+      // A damaged entry is a miss.
+    }
+    return null;
+  }
+
+  Future<void> storeDocument(Map<String, dynamic> data, bool truncated) async {
+    final cache = widget.controller.attachmentDiskCache;
+    if (cache == null) return;
+    try {
+      await cache.write(
+        documentKey,
+        Uint8List.fromList(
+          utf8.encode(jsonEncode({'data': data, 'truncated': truncated})),
+        ),
+      );
+    } catch (_) {
+      // Caching is best effort.
+    }
+  }
+
+  AttachmentImageStoreKey get documentKey =>
+      widget.controller.attachmentCacheKey(
+        widget.metadata,
+        'preview',
+        channelId:
+            widget.channelId ?? widget.metadata['channelId'] as String? ?? '',
+      );
 
   Future<void> loadPage(int next) async {
     if (!current || lease == null) return;

@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/attachment_image_store.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_html.dart';
 import '../platform/attachment_html_webview.dart';
@@ -112,6 +115,16 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
     progress.value = RaftTransferProgress.connecting;
     lastReported = -1;
     try {
+      if (!webView) {
+        // A document already opened on this device shows from the cache: no
+        // preview-URL request and no download.
+        final stored = await storedSource();
+        if (!current) return;
+        if (stored != null) {
+          await showSource(stored);
+          return;
+        }
+      }
       final uri = await resolve();
       if (uri == null || !current) return;
       if (webView) {
@@ -138,16 +151,51 @@ class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
         onProgress: byteProgress,
       );
       if (source != null && current) {
-        // Parsing a multi-megabyte document must not block frames.
-        final text = source.length > 256 * 1024
-            ? await sanitizeOffThread(source)
-            : raftStaticHtml(source);
-        if (current) setState(() => html = text);
+        unawaited(storeSource(source));
+        await showSource(source);
       }
     } catch (e) {
       if (current) fail(e);
     } finally {
       if (current) setState(() => loading = false);
+    }
+  }
+
+  Future<void> showSource(String source) async {
+    // Parsing a multi-megabyte document must not block frames.
+    final text = source.length > 256 * 1024
+        ? await sanitizeOffThread(source)
+        : raftStaticHtml(source);
+    if (current) setState(() => html = text);
+  }
+
+  /// Only a document that passed the sandbox check is ever stored, so a hit
+  /// needs no new request to be as safe as the first open.
+  AttachmentImageStoreKey get sourceKey => widget.controller.attachmentCacheKey(
+    widget.metadata,
+    'html',
+    channelId:
+        '${widget.metadata['channelId'] ?? widget.controller.channel?.id ?? ''}',
+  );
+
+  Future<String?> storedSource() async {
+    final cache = widget.controller.attachmentDiskCache;
+    if (cache == null) return null;
+    try {
+      final bytes = await cache.read(sourceKey);
+      return bytes == null ? null : utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> storeSource(String source) async {
+    final cache = widget.controller.attachmentDiskCache;
+    if (cache == null) return;
+    try {
+      await cache.write(sourceKey, Uint8List.fromList(utf8.encode(source)));
+    } catch (_) {
+      // Caching is best effort.
     }
   }
 

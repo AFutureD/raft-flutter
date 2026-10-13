@@ -119,6 +119,39 @@ class AttachmentFiles {
     }
   }
 
+  /// Saves a local file (a copy the attachment cache holds) through the same
+  /// picker as [save], without any download. The source is only read.
+  Future<String?> saveFile({
+    required File source,
+    required String filename,
+    required String mimeType,
+    required bool Function() authorized,
+  }) async {
+    if (!authorized()) return null;
+    final name = safeFilename(filename);
+    final String? destination;
+    if (pickDestination != null) {
+      destination = await pickDestination!(name, mimeType);
+    } else if (Platform.isAndroid) {
+      destination = await channel.invokeMethod<String>('chooseSave', {
+        'filename': name,
+        'mimeType': mimeType,
+      });
+    } else {
+      destination = (await getSaveLocation(suggestedName: name))?.path;
+    }
+    if (destination == null || !authorized()) return null;
+    if (Platform.isAndroid) {
+      await channel.invokeMethod<void>('writeSaved', {
+        'uri': destination,
+        'path': source.path,
+      });
+    } else {
+      await XFile(source.path).saveTo(destination);
+    }
+    return destination;
+  }
+
   /// Saves a reviewed rendered export through the actual platform picker.
   Future<String?> saveBytes({
     required Uint8List bytes,

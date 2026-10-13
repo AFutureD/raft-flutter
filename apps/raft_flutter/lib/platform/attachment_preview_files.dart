@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../data/attachment_disk_cache.dart';
+import '../data/attachment_image_store.dart';
 import 'attachment_files.dart';
 import 'attachment_http.dart';
 import 'native_sharing.dart';
@@ -31,8 +33,9 @@ class AttachmentPreviewFiles {
     if (!authorized() || cancel.isCancelled) return null;
     final root = await temporaryDirectory();
     if (!authorized() || cancel.isCancelled) return null;
-    final previews = await Directory(p.join(root.path, 'raft-previews'))
-        .create(recursive: true);
+    final previews = await Directory(
+      p.join(root.path, 'raft-previews'),
+    ).create(recursive: true);
     final folder = await previews.createTemp('preview-');
     final file = File(
       p.join(folder.path, AttachmentFiles.safeFilename(filename)),
@@ -48,19 +51,7 @@ class AttachmentPreviewFiles {
         }
       }
       if (!authorized() || cancel.isCancelled) return null;
-      await dio.download(
-        AttachmentFiles.attachmentUri(url).toString(),
-        file.path,
-        cancelToken: cancel,
-        options: Options(receiveTimeout: const Duration(seconds: 45)),
-        onReceiveProgress: (received, total) {
-          if (!authorized() || received > maxBytes || total > maxBytes) {
-            cancel.cancel();
-            return;
-          }
-          onProgress?.call(received, total);
-        },
-      );
+      await _download(url, file, cancel, authorized, onProgress);
       if (!authorized() ||
           cancel.isCancelled ||
           await file.length() > maxBytes) {
@@ -75,6 +66,105 @@ class AttachmentPreviewFiles {
       }
     }
   }
+
+  Future<void> _download(
+    String url,
+    File file,
+    CancelToken cancel,
+    bool Function() authorized,
+    void Function(int received, int total)? onProgress,
+  ) => dio.download(
+    AttachmentFiles.attachmentUri(url).toString(),
+    file.path,
+    cancelToken: cancel,
+    options: Options(receiveTimeout: const Duration(seconds: 45)),
+    onReceiveProgress: (received, total) {
+      if (!authorized() || received > maxBytes || total > maxBytes) {
+        cancel.cancel();
+        return;
+      }
+      onProgress?.call(received, total);
+    },
+  );
+
+  /// The preview input of one attachment, from the persistent cache when it
+  /// holds the file (no request at all: [resolveUrl] is not even called),
+  /// otherwise downloaded once into the cache (concurrent callers for the
+  /// same entry share that download) and kept for the next open. Without a
+  /// cache this is [load]. The lease never deletes a cached file; disposing
+  /// it only releases the cache's hold.
+  Future<SharedFileLease?> loadCached({
+    required AttachmentDiskCache? cache,
+    required AttachmentImageStoreKey key,
+    required Future<String> Function() resolveUrl,
+    required String filename,
+    int? expectedBytes,
+    required CancelToken cancel,
+    required bool Function() authorized,
+    void Function(int received, int total)? onProgress,
+  }) async {
+    if (!authorized() || cancel.isCancelled) return null;
+    if (cache == null) {
+      return load(
+        await resolveUrl(),
+        filename,
+        cancel: cancel,
+        authorized: authorized,
+        onProgress: onProgress,
+      );
+    }
+    final AttachmentCachedFile? cached;
+    try {
+      cached = await cache.fetchFile(
+        key,
+        filename: filename,
+        expectedBytes: expectedBytes,
+        cancel: cancel,
+        onProgress: onProgress,
+        download: (destination, shared, progress) async {
+          final url = await resolveUrl();
+          if (shared.isCancelled) throw const FileSystemException('cancelled');
+          // The download is shared: each caller's own cancel token detaches it,
+          // so one caller's authority must not abort the others'.
+          await _download(
+            url,
+            destination,
+            shared,
+            () => !shared.isCancelled,
+            progress,
+          );
+          if (await destination.length() > maxBytes) {
+            throw const FileSystemException('The preview input is too large.');
+          }
+        },
+      );
+    } on AttachmentCacheUnavailable {
+      return load(
+        await resolveUrl(),
+        filename,
+        cancel: cancel,
+        authorized: authorized,
+        onProgress: onProgress,
+      );
+    }
+    if (cached == null) return null;
+    if (!authorized() || cancel.isCancelled) {
+      cached.release();
+      return null;
+    }
+    return CachedFileLease(cached);
+  }
+}
+
+/// A [SharedFileLease] on a file the attachment cache owns: disposing it ends
+/// the hold (the cache may evict the file again), it never deletes anything.
+class CachedFileLease extends SharedFileLease {
+  CachedFileLease(this._cached) : super(_cached.file) {
+    cancelExpiry();
+  }
+  final AttachmentCachedFile _cached;
+  @override
+  Future<void> dispose() async => _cached.release();
 }
 
 class NativePdfPage {

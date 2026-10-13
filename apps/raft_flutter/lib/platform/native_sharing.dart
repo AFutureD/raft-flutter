@@ -435,6 +435,38 @@ class NativeSharing {
     }
   }
 
+  /// A private copy of a local [source] (a file the attachment cache holds)
+  /// for the share sheet, so the cache's own file is never handed out.
+  Future<SharedFileLease?> prepareFile(
+    File source, {
+    required String filename,
+    required bool Function() authorized,
+  }) async {
+    if (!supported || !authorized()) return null;
+    final root = await _temporaryDirectory();
+    final folder = await Directory(
+      p.join(
+        root.path,
+        'raft-share',
+        'share-${DateTime.now().microsecondsSinceEpoch}',
+      ),
+    ).create(recursive: true);
+    final file = File(
+      p.join(folder.path, AttachmentFiles.safeFilename(filename)),
+    );
+    try {
+      await source.copy(file.path);
+      if (!authorized()) {
+        await folder.delete(recursive: true);
+        return null;
+      }
+      return SharedFileLease(file);
+    } catch (_) {
+      if (await folder.exists()) await folder.delete(recursive: true);
+      rethrow;
+    }
+  }
+
   Future<SharedFileLease?> prepareAttachment({
     required String url,
     required String filename,
