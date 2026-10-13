@@ -1125,7 +1125,7 @@ class RaftServerProfileTile extends StatelessWidget {
     final t = RaftTokens.of(context);
     Widget image(Widget fallback) => imageUrl == null
         ? fallback
-        : RaftSizedImage.network(
+        : RaftSizedImage.avatar(
             imageUrl!,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => fallback,

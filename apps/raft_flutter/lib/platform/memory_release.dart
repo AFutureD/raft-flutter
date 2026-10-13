@@ -26,7 +26,11 @@ typedef RaftMemoryTrimmer = void Function(RaftMemoryTrim reason);
 ///   trimmers run. Images that widgets still hold stay (no frame runs while
 ///   hidden, so a widget could not let go of them anyway).
 ///
-/// The delay keeps a quick app switch free of re-decoding.
+/// The delay keeps a quick app switch free of re-decoding. Avatars are the
+/// exception: `RaftHotImages` (bounded to 24 MB) holds them through the
+/// background clear, and memory pressure (which Android also reports when the
+/// app is hidden) only shrinks them to a small floor (`trimAvatarImages`), so
+/// a returning app shows its avatars at once.
 class RaftMemoryRelease with WidgetsBindingObserver {
   RaftMemoryRelease({
     this.backgroundDelay = const Duration(seconds: 30),

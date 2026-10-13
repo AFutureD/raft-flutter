@@ -778,7 +778,7 @@ class RaftAppLogo extends StatelessWidget {
     );
     Widget content(TextStyle style) => url == null || url.isEmpty
         ? fallback(style)
-        : RaftSizedImage.network(
+        : RaftSizedImage.avatar(
             url,
             fit: BoxFit.cover,
             width: box,

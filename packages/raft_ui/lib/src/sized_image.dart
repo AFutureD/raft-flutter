@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import 'avatar_image_cache.dart';
+
 /// Display-size image decoding (owner decision 2026-10-12: every image decodes
 /// at its display size by default).
 ///
@@ -45,6 +47,10 @@ int raftPhysicalExtent(double logical, double devicePixelRatio) =>
 /// [BoxFit.fill] decode so the *smaller* side still covers the box (a
 /// non-square source in a square avatar must not blur); every other fit
 /// decodes to fit inside the box. The decode never exceeds the source size.
+///
+/// [avatar] is for small, constantly reused pictures (avatars, icons): the
+/// decode extent rounds up to a shared bucket ([raftBucketExtent]) so near
+/// sizes share one bitmap, and the decoded image is kept by [RaftHotImages].
 ImageProvider<Object> raftSizedImage(
   ImageProvider<Object> provider, {
   double? logicalWidth,
@@ -52,19 +58,22 @@ ImageProvider<Object> raftSizedImage(
   required double devicePixelRatio,
   BoxFit fit = BoxFit.cover,
   double zoom = 1,
+  bool avatar = false,
 }) {
-  final w = logicalWidth != null && logicalWidth.isFinite && logicalWidth > 0
-      ? raftPhysicalExtent(logicalWidth * zoom, devicePixelRatio)
-      : null;
-  final h = logicalHeight != null && logicalHeight.isFinite && logicalHeight > 0
-      ? raftPhysicalExtent(logicalHeight * zoom, devicePixelRatio)
-      : null;
+  int? extent(double? logical) {
+    if (logical == null || !logical.isFinite || logical <= 0) return null;
+    final px = raftPhysicalExtent(logical * zoom, devicePixelRatio);
+    return avatar ? raftBucketExtent(px) : px;
+  }
+
+  final w = extent(logicalWidth), h = extent(logicalHeight);
   if (w == null && h == null) return provider;
   return RaftSizedImageProvider(
     provider,
     width: w,
     height: h,
     cover: fit == BoxFit.cover || fit == BoxFit.fill,
+    hot: avatar,
   );
 }
 
@@ -127,12 +136,17 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
     this.width,
     this.height,
     this.cover = true,
+    this.hot = false,
   }) : assert(width != null || height != null);
   final ImageProvider<Object> imageProvider;
 
   /// Physical pixel box; either axis may be null (scale by the other).
   final int? width, height;
   final bool cover;
+
+  /// Keep the decoded bitmap in [RaftHotImages] so the shared `ImageCache`
+  /// cannot evict it.
+  final bool hot;
 
   @override
   Future<RaftSizedImageKey> obtainKey(ImageConfiguration configuration) {
@@ -149,6 +163,17 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
     if (result != null) return result!;
     completer = Completer<RaftSizedImageKey>();
     return completer.future;
+  }
+
+  @override
+  void resolveStreamForKey(
+    ImageConfiguration configuration,
+    ImageStream stream,
+    RaftSizedImageKey key,
+    ImageErrorListener handleError,
+  ) {
+    super.resolveStreamForKey(configuration, stream, key, handleError);
+    if (hot) RaftHotImages.instance.touch(key);
   }
 
   @override
@@ -179,7 +204,15 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
       );
     }
 
+    if (hot) {
+      final held = RaftHotImages.instance.completerFor(key);
+      if (held != null) return held;
+    }
     final completer = imageProvider.loadImage(key._inner, decodeSized);
+    if (hot) {
+      final w = width ?? height!, h = height ?? width!;
+      RaftHotImages.instance.hold(key, completer, w * h * 4);
+    }
     if (!kReleaseMode) {
       completer.debugLabel =
           '${completer.debugLabel} - Sized(${width}x$height)';
@@ -187,7 +220,10 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
     completer.addEphemeralErrorListener((Object exception, StackTrace? stack) {
       // Same reason as ResizeImage: the cache may not have tracked the key yet.
       // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot image cache eviction after a load error.
-      scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
+      scheduleMicrotask(() {
+        PaintingBinding.instance.imageCache.evict(key);
+        RaftHotImages.instance.release(key);
+      });
     });
     return completer;
   }
@@ -198,9 +234,10 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
       other.imageProvider == imageProvider &&
       other.width == width &&
       other.height == height &&
-      other.cover == cover;
+      other.cover == cover &&
+      other.hot == hot;
   @override
-  int get hashCode => Object.hash(imageProvider, width, height, cover);
+  int get hashCode => Object.hash(imageProvider, width, height, cover, hot);
   @override
   String toString() =>
       'RaftSizedImageProvider($imageProvider, ${width}x$height, '
@@ -226,6 +263,7 @@ class RaftSizedImage extends StatefulWidget {
     this.fit,
     this.zoom = 1,
     this.evictOnDispose = false,
+    this.avatar = false,
     this.alignment = Alignment.center,
     this.filterQuality = FilterQuality.medium,
     this.gaplessPlayback = false,
@@ -234,6 +272,39 @@ class RaftSizedImage extends StatefulWidget {
     this.frameBuilder,
     this.errorBuilder,
   });
+
+  /// An avatar / icon picture from a public [url]: fetched once per stable
+  /// key (not per display size), persisted when the host installed a
+  /// [RaftImageByteStore], decoded at a bucketed display size and kept hot so
+  /// a remount paints in the first frame. See `avatar_image_cache.dart`.
+  RaftSizedImage.avatar(
+    String url, {
+    Key? key,
+    double? width,
+    double? height,
+    BoxFit? fit,
+    Alignment alignment = Alignment.center,
+    FilterQuality filterQuality = FilterQuality.medium,
+    bool gaplessPlayback = true,
+    bool excludeFromSemantics = false,
+    String? semanticLabel,
+    ImageFrameBuilder? frameBuilder,
+    ImageErrorWidgetBuilder? errorBuilder,
+  }) : this(
+         key: key,
+         image: RaftAvatarImageProvider(url),
+         width: width,
+         height: height,
+         fit: fit,
+         avatar: true,
+         alignment: alignment,
+         filterQuality: filterQuality,
+         gaplessPlayback: gaplessPlayback,
+         excludeFromSemantics: excludeFromSemantics,
+         semanticLabel: semanticLabel,
+         frameBuilder: frameBuilder,
+         errorBuilder: errorBuilder,
+       );
 
   /// Public network image decoded at display size (no auth headers).
   RaftSizedImage.network(
@@ -306,6 +377,9 @@ class RaftSizedImage extends StatefulWidget {
   final BoxFit? fit;
   final double zoom;
   final bool evictOnDispose;
+
+  /// Decode at a bucketed size and keep the bitmap hot ([raftSizedImage]).
+  final bool avatar;
   final Alignment alignment;
   final FilterQuality filterQuality;
   final bool gaplessPlayback, excludeFromSemantics;
@@ -356,6 +430,7 @@ class _RaftSizedImageState extends State<RaftSizedImage> {
       devicePixelRatio: dpr,
       fit: fit,
       zoom: widget.zoom,
+      avatar: widget.avatar,
     );
     if (widget.evictOnDispose) _built.add(provider);
     // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.

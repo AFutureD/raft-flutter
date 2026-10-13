@@ -131,6 +131,7 @@ export 'src/report_issue_dialog.dart';
 export 'src/sos_dialog.dart';
 
 export 'src/avatar_content.dart';
+export 'src/avatar_image_cache.dart';
 export 'src/sized_image.dart';
 
 export 'src/message_row_recipe.dart';

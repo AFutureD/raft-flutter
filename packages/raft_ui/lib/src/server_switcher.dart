@@ -753,7 +753,7 @@ class _ServerAvatar extends StatelessWidget {
       sizeOverride: size,
       content: avatarUrl == null
           ? initial
-          : RaftSizedImage.network(
+          : RaftSizedImage.avatar(
               avatarUrl!,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => initial,

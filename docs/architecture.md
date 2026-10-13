@@ -163,6 +163,17 @@ NativeContentCoordinator 为 macOS 绑定 DesktopInboxNotifications，直接消�
 
 Windows 使用同一 DesktopInboxNotifications 权威与生命周期。WindowsNotifications／原生宿主提供稳定身份、官方 Windows App SDK 投递、ToastNotifier.Setting 及窗口恢复；业务授权与导航仍在 NativeContentCoordinator。系统权限在每次投递时重新读取，桌面不保存私有 opt-in。ETW 确认本机在显示前拒绝默认 foreground 激活（0x80070032），官方 SDK 的 protocol 对照已由用户确认在通知中心显示。因此产品使用 raft-notification 协议：暖点击转交同 exe 的现有窗口，冷点击经参数启动后等待回调初始化，仍保留全部账户／授权检查。主应用设置按钮发送已确认显示；本机另经用户授权登记机器级 Raft 协议后，用户确认品牌图标和暖点击返回正常。冷点击仍待实测，不以接口接受、历史、fixture 或旧 COM 探针代替。当前 x64 bundle 需要 Windows App Runtime 1.7。具体矩阵、独立身份和边界见 [Windows 通知](windows-notifications.md)。
 
+## 头像与图标图片缓存（2026-10-14）
+
+头像 / 图标（用户、Agent、服务器、应用）走独立于附件的缓存，目标是和 Web 一样“加载过一次就即时出现”：`RaftSizedImage.avatar`（`RaftAvatarContent` 与 `RaftAvatar(imageUrl:)` 都用它）→ 已解码位图 → 编码字节 → 磁盘 → 网络。
+
+- 缓存键是 `raftStableImageKey(url)`：忽略签名 / 过期类 query（`X-Amz-*`、`Signature`、`Expires`、`token` 等），请求仍使用原始 URL；显示尺寸不进入网络键，20 / 36 / 64 dp 共用一次下载。
+- 已解码位图由 `RaftHotImages`（最多 384 个、估算 24 MB 的 LRU）持有，`ImageCache` 的 100 MB LRU 被附件图片冲掉后重新挂载仍同步命中；解码尺寸取 12 px 的倍数（高于 144 取 48 的倍数），常见的 1x / 2x / 3x 尺寸保持精确。
+- 编码字节：内存 8 MB LRU，加磁盘：放进 Settings > 存储 显示并清理的附件磁盘缓存（`AttachmentDiskCache`）的 `public` 命名空间。同一个根目录和索引、同一份 1 GB 预算、同一个大小统计与“清除缓存”（清除时内存中的已解码头像和字节也一并忘掉，下次挂载只重新请求一次）；`attachments` 命名空间（按账号 / 服务器 / 频道，退出登录即清）行为不变。`public` 条目以稳定键的哈希为名、所有账号共用、退出登录不清（公开图片），有自己的上限（`min(64 MiB, 预算 / 8)`）和 LRU，附件超预算时不会被淘汰。条目前 8 字节为到期时间：取服务器 `Cache-Control` 的有效期，上限 14 天，没给就 1 小时，`no-cache` / `no-store` 不落盘。`/api/avatars/**`、`/api/external-avatars/**` 与 `/api/integration-logos/**` 在服务器侧是无需鉴权的公开路由（URL 即能力，`/api/avatars` 为 `immutable` 一年；`external-avatars` 为 `no-cache`）。
+- 请求按稳定键合并，失败会被记住：4xx 10 分钟、网络错误 / 5xx 1 分钟，没有 Gravatar 的用户不会在每次挂载时重新请求。请求经 `SystemProxy`（`fetchAvatarImage`），不带任何凭据。
+- 内存压力（Android 把应用退到后台也会报一次）只把头像缓存收缩到小底线（最近 64 个已解码头像 / 4 MB，内存字节 1 MB，`trimAvatarImages`）；“后台 30 秒”的清理不动它们：它们有上限，且让应用切回时头像即时呈现。
+- 视频封面等非头像图片仍用 `RaftSizedImage.network`，走框架 `ImageCache`。
+
 ## 稳定规则（原审计文档的结论）
 
 - **登出策略。** 会话只在服务器明确判定凭据无效时结束：`/auth/refresh`，或刷新成功后的 `/auth/me`，返回带服务器 JSON 错误体的 401。无 JSON 体的 401、任何 403、400/404/408/429/5xx、超时、连接错误、无法解析的 200 一律保留会话与凭据，显示非破坏性状态并退避重试；启动恢复失败（不是“没有已存凭据”）显示恢复页，不显示登录表单。实现在 `packages/raft_client/lib/src/session_policy.dart`，由 `logout_policy_test.dart` 固定。

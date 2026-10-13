@@ -411,7 +411,7 @@ class RaftAvatar extends StatelessWidget {
             content ??
             (imageUrl == null
                 ? fallback
-                : RaftSizedImage.network(
+                : RaftSizedImage.avatar(
                     imageUrl!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => fallback,
@@ -472,7 +472,7 @@ class RaftAvatar extends StatelessWidget {
                 content ??
                 (imageUrl == null
                     ? fallback
-                    : RaftSizedImage.network(
+                    : RaftSizedImage.avatar(
                         imageUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => fallback,

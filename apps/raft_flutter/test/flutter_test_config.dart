@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart' show imageCache;
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
+import 'package:raft_ui/raft_ui.dart' show RaftHotImages, RaftImageBytes;
 
 /// The binding every test in this directory runs on.
 ///
@@ -55,6 +56,11 @@ void _enableLeakTracking() {
   // The shared image cache keeps decoded images (and their handles) after a
   // test ends; they are not leaks of the test, so empty it before the report.
   tearDown(() {
+    // Avatars are held by RaftHotImages beyond the widget tree (that is its
+    // job); release them with the cache.
+    RaftHotImages.instance.releaseAll();
+    RaftImageBytes.instance = RaftImageBytes();
+    RaftImageBytes.resetClient();
     imageCache
       ..clear()
       ..clearLiveImages();

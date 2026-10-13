@@ -874,7 +874,7 @@ class RaftPublicServerLogo extends StatelessWidget {
       ),
       child: url == null || url.isEmpty
           ? letter
-          : RaftSizedImage.network(
+          : RaftSizedImage.avatar(
               url,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => letter,
