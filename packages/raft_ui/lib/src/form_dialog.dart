@@ -190,7 +190,10 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
                                   'zh'
                               ? '${label}为必填项。'
                               : '${field.label} is required.';
-                        return field.validator?.call(text);
+                        final problem = field.validator?.call(text);
+                        return problem == null
+                            ? null
+                            : raftText(context, problem);
                       },
                     ),
             ),

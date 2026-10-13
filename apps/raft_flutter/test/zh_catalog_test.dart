@@ -20,17 +20,6 @@ const _sameInEveryLocale = <String>{};
 /// Kevin decides the wording; each entry is listed in the error-presentation
 /// handoff. Never invent Chinese for these.
 const _pendingKevinZh = <String>{
-  // fleet: managed MCP credential-header validation (no Web wording)
-  'Select encrypted headers to save a header credential.',
-  'Select encrypted headers to test a credential.',
-  // fleet: computer runtime command receipts (were untranslated SnackBars)
-  'Requested. Applies when the computer reconnects.',
-  'Request accepted. Check runtime status for completion.',
-  // Native download / save feedback (Web downloads through the browser and has
-  // no in-app copy). Listed in /tmp/error-parity/needs-zh-chat.md.
-  'Saved {name}',
-  'Download failed. Try again.',
-  'No application can open this file.',
   // Settings > Resources > Storage (native-only attachment cache; Web has no
   // counterpart). Proposed zh, not final: 存储 / 附件缓存 / 清除缓存 /
   // 缓存已清除。 / 正在清除… / 正在计算… / 缓存大小：{size}. Also shown from
