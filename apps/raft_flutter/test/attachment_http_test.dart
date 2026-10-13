@@ -83,29 +83,6 @@ void main() {
         isNot(contains('authorization')));
   });
 
-  test('warming a host sends no path or query and the transfer reuses it', () async {
-    AttachmentHttp.warmHost('$base/private/path?X-Amz-Signature=secret');
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    expect(seen.single.method, 'HEAD');
-    expect(seen.single.uri, '/');
-    await AttachmentFiles().image('$base/o?sig=x', cancel: CancelToken());
-    expect(seen.length, 2);
-    expect(seen.map((r) => r.port).toSet().length, 1);
-    // At most one warm-up per host in a short window.
-    AttachmentHttp.warmHost('$base/other?sig=y');
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    expect(seen.length, 2);
-  });
-
-  test('warming ignores unusable addresses and server failure', () async {
-    AttachmentHttp.warmHost('file:///etc/passwd');
-    AttachmentHttp.warmHost('https://user:pw@example.invalid/x');
-    AttachmentHttp.warmHost('not a url');
-    AttachmentHttp.warmHost('http://127.0.0.1:1/'); // refused
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    expect(seen, isEmpty);
-  });
-
   test('cancel semantics are unchanged on the shared client', () async {
     final slow = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => slow.close(force: true));

@@ -1,6 +1,8 @@
 // Attachment loading progress (Option A): a thin bar along the bottom edge of
-// the image / preview and a "1.2 / 3.4 MB" chip, fed by a real dio transfer
-// (fake adapter streaming chunks) through the shared, throttled repository.
+// the image viewer / preview and a "1.2 / 3.4 MB" chip, fed by a real dio
+// transfer (fake adapter streaming chunks) through the shared, throttled
+// repository. List tiles never show it: while their image loads they show the
+// neutral placeholder only, like Web's tinted image box (no "Connecting…").
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -208,32 +210,37 @@ double? barValue(WidgetTester tester, [int index = 0]) =>
     tester.widget<RaftTransferBar>(bars.at(index)).value;
 
 void main() {
-  testWidgets('timeline: bar and chip follow the bytes of the original', (
+  testWidgets('timeline: a loading original shows only the placeholder', (
     tester,
   ) async {
     final server = FakeServer()
       ..routes['/original'] = FakeRoute(length: 4 * mib);
     await mount(tester, server: server, metadata: {'sizeBytes': 4 * mib});
     await hop(tester);
-    // Waiting for the first byte: indeterminate bar, "Connecting…".
-    expect(bars, findsOneWidget);
-    expect(barValue(tester), isNull);
-    expect(find.text('Connecting…'), findsOneWidget);
-    server.routes['/original']!.chunk(mib);
+    void expectPlaceholderOnly() {
+      expect(find.byType(RaftTransferPlaceholder), findsOneWidget);
+      expect(bars, findsNothing);
+      expect(find.byType(RaftTransferChip), findsNothing);
+      expect(find.text('Connecting…'), findsNothing);
+      expect(find.textContaining(' MB'), findsNothing);
+    }
+
+    // Waiting for the first byte, then while bytes arrive: placeholder only.
+    expectPlaceholderOnly();
+    final route = server.routes['/original']!;
+    expect(route.requests, 1);
+    route.chunk(mib);
     await hop(tester);
     await tick(tester);
-    expect(barValue(tester), closeTo(.25, 1e-9));
-    expect(find.text('1.0 / 4.0 MB'), findsOneWidget);
-    server.routes['/original']!.chunk(2 * mib);
+    expectPlaceholderOnly();
+    route.chunk(2 * mib);
     await hop(tester);
     await tick(tester);
-    expect(barValue(tester), closeTo(.75, 1e-9));
-    expect(find.text('3.0 / 4.0 MB'), findsOneWidget);
-    expect(server.routes['/original']!.requests, 1);
+    expectPlaceholderOnly();
     // The bytes complete (the fixture is not an image, so decoding fails):
-    // the transfer is over and nothing is left pending.
-    server.routes['/original']!.chunk(mib);
-    server.routes['/original']!.finish();
+    // the transfer is over and the failed tile offers a retry.
+    route.chunk(mib);
+    route.finish();
     await hop(tester, 10);
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 20)),
@@ -242,67 +249,11 @@ void main() {
     expect(find.text('Download failed · tap to retry'), findsOneWidget);
   });
 
-  testWidgets('progress updates repaint the bar, not the timeline row', (
+  testWidgets('a thumbnail loads directly: placeholder only, no URL lookup', (
     tester,
   ) async {
-    final server = FakeServer()
-      ..routes['/original'] = FakeRoute(length: 8 * mib);
-    await mount(tester, server: server);
-    await hop(tester);
-    final card = tester.widget<RaftAttachmentCard>(
-      find.byType(RaftAttachmentCard),
-    );
-    final route = server.routes['/original']!;
-    for (var i = 0; i < 4; i++) {
-      route.chunk(mib);
-      await hop(tester);
-      await tick(tester);
-      expect(find.text('${i + 1}.0 / 8.0 MB'), findsOneWidget);
-      // The very same widget instance: AttachmentView did not rebuild.
-      expect(
-        identical(
-          tester.widget<RaftAttachmentCard>(find.byType(RaftAttachmentCard)),
-          card,
-        ),
-        isTrue,
-      );
-    }
-  });
-
-  testWidgets(
-    'unknown total falls back to sizeBytes, else stays indeterminate',
-    (tester) async {
-      final server = FakeServer()..routes['/original'] = FakeRoute();
-      await mount(tester, server: server, metadata: {'sizeBytes': 4 * mib});
-      await hop(tester);
-      server.routes['/original']!.chunk(mib);
-      await hop(tester);
-      await tick(tester);
-      expect(barValue(tester), closeTo(.25, 1e-9));
-      expect(find.text('1.0 / 4.0 MB'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'no length and no sizeBytes: indeterminate bar with bytes so far',
-    (tester) async {
-      final server = FakeServer()..routes['/original'] = FakeRoute();
-      await mount(tester, server: server);
-      await hop(tester);
-      server.routes['/original']!.chunk(mib);
-      await hop(tester);
-      await tick(tester);
-      expect(barValue(tester), isNull);
-      expect(find.text('1.0 MB'), findsOneWidget);
-    },
-  );
-
-  testWidgets('a thumbnail never borrows the original sizeBytes', (
-    tester,
-  ) async {
-    // The timeline fetches the 320px thumbnail; sizeBytes is the original's.
     final server = FakeServer()..routes['/thumb.webp'] = FakeRoute();
-    await mount(
+    final m = await mount(
       tester,
       server: server,
       metadata: {
@@ -314,8 +265,12 @@ void main() {
     server.routes['/thumb.webp']!.chunk(20 * 1024);
     await hop(tester);
     await tick(tester);
-    expect(barValue(tester), isNull);
-    expect(find.text('20 KB'), findsOneWidget);
+    expect(server.routes['/thumb.webp']!.requests, 1);
+    expect(m.client.urlReads, 0, reason: 'the thumbnail is public');
+    expect(find.byType(RaftTransferPlaceholder), findsOneWidget);
+    expect(bars, findsNothing);
+    expect(find.text('Connecting…'), findsNothing);
+    expect(find.text('20 KB'), findsNothing);
   });
 
   testWidgets('cache hit: no bar at any point, no request', (tester) async {
@@ -361,11 +316,13 @@ void main() {
     expect(server.routes['/original']!.requests, 2);
     // The second attempt is live again: connecting, then bytes.
     expect(find.text('Download failed · tap to retry'), findsNothing);
-    expect(find.text('Connecting…'), findsOneWidget);
+    expect(find.text('Connecting…'), findsNothing);
+    expect(find.byType(RaftTransferPlaceholder), findsOneWidget);
     server.routes['/original']!.chunk(mib);
     await hop(tester);
     await tick(tester);
-    expect(find.text('1.0 / 4.0 MB'), findsOneWidget);
+    expect(find.text('1.0 / 4.0 MB'), findsNothing);
+    expect(bars, findsNothing);
   });
 
   testWidgets('viewer opened mid-download shares the timeline download', (
@@ -389,21 +346,21 @@ void main() {
     // One request in total, one url lookup for the original.
     expect(server.routes['/original']!.requests, 1);
     expect(m.client.urlReads, 1);
-    // The viewer's bar picked up the numbers already received...
-    expect(bars, findsNWidgets(2));
-    expect(find.text('1.0 / 4.0 MB'), findsNWidgets(2));
+    // The viewer's bar picked up the numbers already received; the timeline
+    // tile behind it still shows nothing but its placeholder.
+    expect(bars, findsOneWidget);
+    expect(find.text('1.0 / 4.0 MB'), findsOneWidget);
     server.routes['/original']!.chunk(2 * mib);
     await hop(tester);
     await tick(tester);
-    // ...and both surfaces advance together from the same transfer.
-    expect(find.text('3.0 / 4.0 MB'), findsNWidgets(2));
-    expect(barValue(tester, 0), closeTo(.75, 1e-9));
-    expect(barValue(tester, 1), closeTo(.75, 1e-9));
+    expect(find.text('3.0 / 4.0 MB'), findsOneWidget);
+    expect(barValue(tester), closeTo(.75, 1e-9));
     // Leaving the viewer does not cancel what the timeline still waits for.
     await tester.tap(find.byTooltip('Close preview'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(server.routes['/original']!.cancelled, isFalse);
-    expect(bars, findsOneWidget);
+    expect(bars, findsNothing);
+    expect(find.text('Connecting…'), findsNothing);
   });
 
   testWidgets(
@@ -518,7 +475,7 @@ void main() {
     await hop(tester);
     await tick(tester);
     // No thumbnail: the chip carries no "Original image" prefix.
-    expect(find.text('1.0 / 4.0 MB'), findsNWidgets(2));
+    expect(find.text('1.0 / 4.0 MB'), findsOneWidget);
     expect(find.textContaining('Original image'), findsNothing);
   });
 

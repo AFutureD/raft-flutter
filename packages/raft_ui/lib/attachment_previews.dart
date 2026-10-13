@@ -78,8 +78,10 @@ class _AttachmentPreviewState extends State<_AttachmentPreview> {
 @RaftPreviews('Attachment transfer')
 Widget attachmentTransferPreview() => const _AttachmentTransferPreview();
 
-/// Loading, waiting, failed and file-preview states of an attachment
-/// transfer: a thin bar along the bottom edge plus a `1.2 / 3.4 MB` chip.
+/// Pending, failed and file-preview states of an attachment. A list image
+/// tile that is still loading shows only the neutral placeholder (Web's tinted
+/// image box); the thin bottom bar with the `1.2 / 3.4 MB` chip belongs to
+/// explicit file previews and downloads.
 class _AttachmentTransferPreview extends StatefulWidget {
   const _AttachmentTransferPreview();
   @override
@@ -89,21 +91,7 @@ class _AttachmentTransferPreview extends StatefulWidget {
 
 class _AttachmentTransferPreviewState
     extends State<_AttachmentTransferPreview> {
-  static const total = 3565158;
-  final progress = ValueNotifier<RaftTransferProgress?>(
-    const RaftTransferProgress(received: 1258291, total: total),
-  );
-  final connecting = ValueNotifier<RaftTransferProgress?>(
-    RaftTransferProgress.connecting,
-  );
   String result = 'Ready';
-
-  @override
-  void dispose() {
-    progress.dispose();
-    connecting.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -112,38 +100,11 @@ class _AttachmentTransferPreviewState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              RaftTextButton(
-                label: 'Advance',
-                onPressed: () {
-                  final next = ((progress.value?.received ?? 0) + 350000)
-                      .clamp(0, total)
-                      .toInt();
-                  progress.value = RaftTransferProgress(
-                    received: next,
-                    total: total,
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           RaftAttachmentCard(
             filename: 'IMG_4821.jpg',
             mimeType: 'image/jpeg',
             imageExtent: const Size(300, 200),
             previewPending: true,
-            transfer: progress,
-            onOpen: () => setState(() => result = 'Viewer opened'),
-          ),
-          const SizedBox(height: 12),
-          RaftAttachmentCard(
-            filename: 'IMG_4822.jpg',
-            mimeType: 'image/jpeg',
-            imageExtent: const Size(300, 200),
-            previewPending: true,
-            transfer: connecting,
             onOpen: () => setState(() => result = 'Viewer opened'),
           ),
           const SizedBox(height: 12),

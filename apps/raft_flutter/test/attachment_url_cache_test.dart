@@ -240,33 +240,39 @@ void main() {
     });
   });
 
-  group('AttachmentUrlCache prefetch', () {
-    AttachmentUrlCache make({int batch = 20, int queue = 40}) => AttachmentUrlCache(
-      prefetchBatch: batch,
-      prefetchQueue: queue,
-      prefetchDelay: const Duration(milliseconds: 5),
-      minBatchInterval: Duration.zero,
-    );
-    Future<void> settle() =>
-        Future<void>.delayed(const Duration(milliseconds: 40));
+  group('AttachmentUrlCache batching (no speculative signing)', () {
+    AttachmentUrlCache make({int batch = 20}) =>
+        AttachmentUrlCache(batchSize: batch);
+    Future<dynamic> answer(List<String> ids) async => {
+      'urls': [
+        for (final id in ids) {'id': id, 'url': 'https://s.invalid/$id'},
+      ],
+    };
+    Future<dynamic> noSingle() async => throw StateError('single route used');
 
-    test('many cards cost one batch request, then opens are free', () async {
+    test('nothing is requested until a caller needs a URL', () async {
       final cache = make();
-      final requests = <List<String>>[];
-      Future<dynamic> many(List<String> ids) async {
-        requests.add(ids);
-        return {
-          'urls': [for (final id in ids) {'id': id, 'url': 'https://s.invalid/$id'}],
-        };
-      }
-
-      for (final id in ['a', 'b', 'c']) {
-        cache.prefetch(id, scope: 's', fetchMany: many);
-      }
-      await settle();
-      expect(requests, [
-        ['a', 'b', 'c'],
+      var requests = 0;
+      expect(cache.peek('a', scope: 's'), isNull);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(requests, 0);
+      expect(cache.inFlightCount, 0);
+      expect(cache.batchRequests, 0);
+      // Needed tiles of one frame cost one batch request, then opens are free.
+      final urls = await Future.wait([
+        for (final id in ['a', 'b', 'c'])
+          cache.resolveCoalesced(
+            id,
+            scope: 's',
+            fetchMany: (ids) {
+              requests++;
+              return answer(ids);
+            },
+            fetch: noSingle,
+          ),
       ]);
+      expect(urls, hasLength(3));
+      expect(requests, 1);
       var singles = 0;
       for (final id in ['a', 'b', 'c']) {
         await cache.resolve(id, scope: 's', fetch: () async {
@@ -278,107 +284,59 @@ void main() {
       cache.dispose();
     });
 
-    test('a batch is bounded and the rest follows one request at a time', () async {
+    test('a batch is bounded and the rest goes in further requests', () async {
       final cache = make(batch: 2);
       final requests = <List<String>>[];
-      Future<dynamic> many(List<String> ids) async {
-        requests.add(ids);
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        return {
-          'urls': [for (final id in ids) {'id': id, 'url': 'https://s.invalid/$id'}],
-        };
-      }
-
-      for (final id in ['a', 'b', 'c', 'd', 'e']) {
-        cache.prefetch(id, scope: 's', fetchMany: many);
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await Future.wait([
+        for (final id in ['a', 'b', 'c', 'd', 'e'])
+          cache.resolveCoalesced(
+            id,
+            scope: 's',
+            fetchMany: (ids) {
+              requests.add(ids);
+              return answer(ids);
+            },
+            fetch: noSingle,
+          ),
+      ]);
       expect(requests.map((r) => r.length), [2, 2, 1]);
       cache.dispose();
     });
 
-    test('the waiting queue is bounded', () async {
-      final cache = make(queue: 3);
-      for (final id in ['a', 'b', 'c', 'd', 'e']) {
-        cache.prefetch(id, scope: 's', fetchMany: (_) async => {'urls': []});
-      }
-      expect(cache.queuedPrefetchCount, 3);
-      cache.dispose();
-    });
-
-    test('cancelling before the flush sends nothing', () async {
+    test('revocation withdraws callers still gathering', () async {
       final cache = make();
       var requests = 0;
-      Future<dynamic> many(List<String> ids) async {
-        requests++;
-        return {'urls': []};
-      }
-
-      final handle = cache.prefetch('a', scope: 's', fetchMany: many);
-      handle.cancel();
-      await settle();
-      expect(requests, 0);
-      cache.dispose();
-    });
-
-    test('one card cancelling does not withdraw another card for the same file', () async {
-      final cache = make();
-      final requests = <List<String>>[];
-      Future<dynamic> many(List<String> ids) async {
-        requests.add(ids);
-        return {
-          'urls': [for (final id in ids) {'id': id, 'url': 'https://s.invalid/$id'}],
-        };
-      }
-
-      final first = cache.prefetch('a', scope: 's', fetchMany: many);
-      cache.prefetch('a', scope: 's', fetchMany: many);
-      first.cancel();
-      await settle();
-      expect(requests, [
-        ['a'],
-      ]);
-      cache.dispose();
-    });
-
-    test('an id the batch omits falls back to a single request', () async {
-      final cache = make();
-      final gate = Completer<dynamic>();
-      cache.prefetch('a', scope: 's', fetchMany: (_) => gate.future);
-      await settle();
-      var singles = 0;
-      final open = cache.resolve('a', scope: 's', fetch: () async {
-        singles++;
-        return _body('a');
-      });
-      gate.complete({'urls': []}); // denied or unknown: omitted
-      expect(await open, contains('/a'));
-      expect(singles, 1);
-      cache.dispose();
-    });
-
-    test('revocation withdraws queued prefetches of that channel', () async {
-      final cache = make();
-      var requests = 0;
-      cache.prefetch('a', scope: 's', channelId: 'c1', fetchMany: (_) async {
-        requests++;
-        return {'urls': []};
-      });
+      final result = cache
+          .resolveCoalesced(
+            'a',
+            scope: 's',
+            channelId: 'c1',
+            fetchMany: (ids) {
+              requests++;
+              return answer(ids);
+            },
+            fetch: noSingle,
+          )
+          .then<Object>((v) => v, onError: (Object e) => e);
       cache.invalidateChannel('c1');
-      await settle();
+      expect(await result, isA<FormatException>());
       expect(requests, 0);
       cache.dispose();
     });
 
-    test('prefetch skips what is already held', () async {
+    test('a URL already held is not requested again', () async {
       final cache = make();
       await cache.resolve('a', scope: 's', fetch: () async => _body('a'));
       var requests = 0;
-      cache.prefetch('a', scope: 's', fetchMany: (_) async {
-        requests++;
-        return {'urls': []};
-      });
-      await settle();
+      await cache.resolveCoalesced(
+        'a',
+        scope: 's',
+        fetchMany: (ids) {
+          requests++;
+          return answer(ids);
+        },
+        fetch: noSingle,
+      );
       expect(requests, 0);
       cache.dispose();
     });
@@ -388,7 +346,7 @@ void main() {
     test('one read serves every surface; revocation and sign-out drop it', () async {
       final client = _CountingClient()..user = RaftRecord({'id': 'alice'});
       client.selectServer('server');
-      final w = WorkspaceController(client, attachmentHostWarmer: null)
+      final w = WorkspaceController(client)
         ..server = RaftRecord({'id': 'server', 'role': 'owner'});
       addTearDown(() async {
         w.dispose();
@@ -409,16 +367,14 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
       await w.attachmentUrl('f1', channelId: 'c1');
       expect(client.urlReads, 4, reason: 'revoked channel asks the server again');
-      // A prefetch for a revoked channel is a no-op.
-      w.prefetchAttachmentUrl('f9', channelId: 'c1');
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      expect(client.batchReads, 0);
+      expect(client.batchReads, 0, reason: 'single reads only, no batch');
     });
 
     test('a signed-in identity change drops cached URLs', () async {
       final client = _CountingClient()..user = RaftRecord({'id': 'alice'});
       client.selectServer('server');
-      final w = WorkspaceController(client, attachmentHostWarmer: null)
+      final w = WorkspaceController(client)
         ..server = RaftRecord({'id': 'server', 'role': 'owner'});
       addTearDown(() async {
         w.dispose();
@@ -431,32 +387,33 @@ void main() {
       expect(client.urlReads, 2);
     });
 
-    test('prefetch fills the cache and warms the storage host once', () async {
+    test('needed tiles share one batch; an open afterwards is free', () async {
       final client = _CountingClient()..user = RaftRecord({'id': 'alice'});
       client.selectServer('server');
-      final warmed = <String>[];
-      final w = WorkspaceController(client, attachmentHostWarmer: warmed.add)
+      final w = WorkspaceController(client)
         ..server = RaftRecord({'id': 'server', 'role': 'owner'});
       addTearDown(() async {
         w.dispose();
         await client.dispose();
       });
-      for (final id in ['f1', 'f2', 'f3']) {
-        w.prefetchAttachmentUrl(id, channelId: 'c1');
-      }
+      // Nothing is signed ahead of time.
       await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(client.batchReads + client.urlReads, 0);
+      await Future.wait([
+        for (final id in ['f1', 'f2', 'f3'])
+          w.attachmentUrl(id, channelId: 'c1', coalesce: true),
+      ]);
       expect(client.batchReads, 1);
-      expect(warmed.length, 1);
       for (final id in ['f1', 'f2', 'f3']) {
         await w.attachmentUrl(id, channelId: 'c1');
       }
-      expect(client.urlReads, 0, reason: 'opens after a prefetch ask nothing');
+      expect(client.urlReads, 0, reason: 'opens reuse the signed URLs');
     });
 
     test('the preview gate is read once per scope window', () async {
       final client = _CountingClient()..user = RaftRecord({'id': 'alice'});
       client.selectServer('server');
-      final w = WorkspaceController(client, attachmentHostWarmer: null)
+      final w = WorkspaceController(client)
         ..server = RaftRecord({'id': 'server', 'role': 'owner'});
       addTearDown(() async {
         w.dispose();
@@ -472,83 +429,6 @@ void main() {
     Future<dynamic> answer(List<String> ids) async => {
       'urls': [for (final id in ids) {'id': id, 'url': 'https://s.invalid/$id'}],
     };
-
-    test('batches never leave closer together than the minimum interval', () async {
-      final cache = AttachmentUrlCache(
-        prefetchDelay: const Duration(milliseconds: 5),
-        minBatchInterval: const Duration(milliseconds: 120),
-      );
-      final sent = <int>[];
-      final sizes = <int>[];
-      final clock = Stopwatch()..start();
-      Future<dynamic> many(List<String> ids) {
-        sent.add(clock.elapsedMilliseconds);
-        sizes.add(ids.length);
-        return answer(ids);
-      }
-
-      for (var i = 0; i < 3; i++) {
-        cache.prefetch('a$i', scope: 's', fetchMany: many);
-        await Future<void>.delayed(const Duration(milliseconds: 30));
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      // Three prefetches 30 ms apart: the first leaves at once, the other two
-      // gather into one batch that waits out the interval.
-      expect(sent, hasLength(2));
-      expect(sizes, [1, 2]);
-      expect(sent[1] - sent[0], greaterThanOrEqualTo(110));
-      cache.dispose();
-    });
-
-    test('an id answered while it waited is not sent again', () async {
-      final cache = AttachmentUrlCache(
-        prefetchDelay: const Duration(milliseconds: 30),
-        minBatchInterval: Duration.zero,
-      );
-      final requests = <List<String>>[];
-      cache.prefetch('a', scope: 's', fetchMany: (ids) {
-        requests.add(ids);
-        return answer(ids);
-      });
-      cache.prefetch('b', scope: 's', fetchMany: (ids) {
-        requests.add(ids);
-        return answer(ids);
-      });
-      // A click resolves "a" singly before the batch leaves.
-      await cache.resolve('a', scope: 's', fetch: () async => {'url': 'https://s.invalid/a'});
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(requests, [
-        ['b'],
-      ]);
-      cache.dispose();
-    });
-
-    test('a rate-limited batch pauses prefetch for Retry-After', () async {
-      final cache = AttachmentUrlCache(
-        prefetchDelay: const Duration(milliseconds: 5),
-        minBatchInterval: Duration.zero,
-      );
-      var calls = 0;
-      cache.prefetch('a', scope: 's', fetchMany: (ids) async {
-        calls++;
-        throw const RaftApiException(
-          'Too many requests',
-          status: 429,
-          retryAfter: Duration(milliseconds: 250),
-        );
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      expect(calls, 1);
-      cache.prefetch('b', scope: 's', fetchMany: (ids) async {
-        calls++;
-        return answer(ids);
-      });
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(calls, 1, reason: 'paused: nothing leaves during Retry-After');
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      expect(calls, 2);
-      cache.dispose();
-    });
 
     test('coalesced callers share one batch request', () async {
       final cache = AttachmentUrlCache(
@@ -652,25 +532,21 @@ void main() {
     });
 
     test('rejecting one URL does not discard the answers of other ids', () async {
-      final cache = AttachmentUrlCache(
-        prefetchDelay: const Duration(milliseconds: 5),
-        minBatchInterval: Duration.zero,
-      );
+      final cache = AttachmentUrlCache();
       final gate = Completer<void>();
-      cache.prefetch('a', scope: 's', fetchMany: (ids) async {
+      Future<dynamic> slow(List<String> ids) async {
         await gate.future;
         return answer(ids);
-      });
-      cache.prefetch('b', scope: 's', fetchMany: (ids) async {
-        await gate.future;
-        return answer(ids);
-      });
+      }
+
+      final a = cache.resolveCoalesced('a', scope: 's', fetchMany: slow, fetch: () async => {});
+      final b = cache.resolveCoalesced('b', scope: 's', fetchMany: slow, fetch: () async => {});
       await Future<void>.delayed(const Duration(milliseconds: 40));
       // A transfer rejected some other attachment's URL while the batch is out.
       cache.invalidate('zzz');
       cache.invalidate('a');
       gate.complete();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await Future.wait([a, b]);
       expect(cache.peek('b', scope: 's'), 'https://s.invalid/b');
       expect(cache.peek('a', scope: 's'), isNull, reason: 'the rejected one');
       cache.dispose();

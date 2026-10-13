@@ -10,12 +10,10 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../data/attachment_image_repository.dart';
-import '../data/attachment_url_cache.dart';
 import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
 import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
-import 'attachment_transfer_view.dart';
 import 'attachment_html_preview.dart';
 import 'attachment_image_lightbox.dart';
 import 'attachment_preview_gate.dart';
@@ -75,8 +73,6 @@ class _AttachmentViewState extends State<AttachmentView> {
   final imagePresentation = ValueNotifier<int>(0);
   WorkspaceAttachmentImageLease? imageLease;
 
-  /// Bytes of the list preview's network fetch; the card's bar listens to it.
-  AttachmentTransferView? imageTransfer;
   String? error;
   bool loading = false, saving = false, invalidated = false;
 
@@ -365,7 +361,6 @@ class _AttachmentViewState extends State<AttachmentView> {
   }
 
   void beginImage() {
-    prefetchOriginalUrl();
     if (isImage &&
         (widget.metadata['sizeBytes'] as num? ?? 0) <= 50 * 1024 * 1024) {
       if (adoptReadyImage()) {
@@ -416,7 +411,6 @@ class _AttachmentViewState extends State<AttachmentView> {
     files = widget.files ?? files;
     metadataFingerprint = nextFingerprint;
     imageProvider = null;
-    imageTransfer = null;
     error = null;
     downloadFailed = false;
     memoryReleased = false;
@@ -444,8 +438,6 @@ class _AttachmentViewState extends State<AttachmentView> {
   void scopeChanged() {
     if (!authorized) {
       invalidated = true;
-      urlPrefetch?.cancel();
-      urlPrefetch = null;
       if (sharedLease != null) unawaited(sharedLease!.dispose());
       sharedLease = null;
       imageCancel.cancel();
@@ -471,10 +463,6 @@ class _AttachmentViewState extends State<AttachmentView> {
     sharedLease = null;
     imageCancel.cancel();
     downloadCancel.cancel();
-    urlPrefetch?.cancel();
-    urlPrefetch = null;
-    hoverPrefetch?.cancel();
-    hoverPrefetch = null;
     imageLease?.release();
     imageLease = null;
     for (final route in [previewRoute, progressRoute]) {
@@ -514,7 +502,6 @@ class _AttachmentViewState extends State<AttachmentView> {
         load: loaderFor(key),
       );
       imageLease = lease;
-      imageTransfer = AttachmentTransferView(lease.lease.progress);
       final provider = await lease.lease.ready;
       if (current() && identical(imageLease, lease)) {
         setState(() {
@@ -1012,108 +999,6 @@ class _AttachmentViewState extends State<AttachmentView> {
     );
   }
 
-  /// Web MessageItem renders audio and video attachments as inline players.
-  /// Pointer intent (hover, press) resolves the signed URL ahead of the click
-  /// so the open starts at the storage request. A press fires on touch before
-  /// the tap completes; hover gives desktop a head start. Plain files are
-  /// saved with a one-shot `attachment` URL and are not prefetched.
-  void warmUrl({bool press = false}) {
-    if (widget.exportMode || widget.messageId == null || !authorized) return;
-    final kind = attachmentPreviewKind(widget.metadata);
-    if (!isImage && kind == null && !isHtml) return;
-    if (kind == 'video' || kind == 'audio') return; // Inline loaders do it.
-    if (kind == 'document' || isHtml) return; // Previewed by text, not URL.
-    final id = '${widget.metadata['id']}';
-    if (!press) {
-      final now = DateTime.now();
-      final last = lastUrlWarm;
-      if (last != null && now.difference(last) < const Duration(seconds: 20)) {
-        return;
-      }
-      lastUrlWarm = now;
-      // Hover is only a hint: a mouse sweeping over a list of messages must
-      // not send one request per card. It joins the bounded, batched
-      // background prefetch (a no-op when the URL is held or on its way); the
-      // press that follows asks for it at once.
-      whenNotStored(() {
-        hoverPrefetch?.cancel();
-        hoverPrefetch = w.prefetchAttachmentUrl(id, channelId: ownerChannel);
-      });
-      return;
-    }
-    // What this device already holds opens without any request, so there is
-    // nothing to sign or warm.
-    whenNotStored(
-      () => unawaited(
-        w.attachmentUrl(id, channelId: ownerChannel, coalesce: true).then((
-          url,
-        ) {
-          if (mounted && authorized) w.attachmentHostWarmer?.call(url);
-        }, onError: (Object _) {}),
-      ),
-    );
-  }
-
-  /// True when the bytes a signed URL would fetch are already in the
-  /// persistent cache: the original image, or the PDF.
-  Future<bool> storedOnDevice() async {
-    final disk = w.attachmentDiskCache;
-    if (disk == null) return false;
-    try {
-      if (isImage) return await w.attachmentStored(fullImageKey);
-      return await disk.containsFile(
-        w.attachmentCacheKey(widget.metadata, 'file', channelId: ownerChannel),
-        filename: name,
-      );
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Runs [action] unless [storedOnDevice]. Without a cache it runs at once.
-  void whenNotStored(VoidCallback action) {
-    if (w.attachmentDiskCache == null) {
-      action();
-      return;
-    }
-    final revision = bindingRevision;
-    unawaited(
-      storedOnDevice().then((stored) {
-        if (!stored && mounted && revision == bindingRevision && authorized) {
-          action();
-        }
-      }),
-    );
-  }
-
-  PrefetchHandle? hoverPrefetch;
-
-  DateTime? lastUrlWarm;
-
-  /// The list shows a server thumbnail, so the original's URL is not resolved
-  /// by the preview itself; ask for it in the background (one batched request
-  /// per screenful) while the card is on screen.
-  void prefetchOriginalUrl() {
-    urlPrefetch?.cancel();
-    urlPrefetch = null;
-    if (widget.exportMode ||
-        widget.messageId == null ||
-        !authorized ||
-        !isImage ||
-        thumbnailUrl == null) {
-      return;
-    }
-    whenNotStored(() {
-      urlPrefetch?.cancel();
-      urlPrefetch = w.prefetchAttachmentUrl(
-        '${widget.metadata['id']}',
-        channelId: ownerChannel,
-      );
-    });
-  }
-
-  PrefetchHandle? urlPrefetch;
-
   bool get isHtml =>
       '${widget.metadata['mimeType'] ?? ''}'
               .toLowerCase()
@@ -1125,12 +1010,7 @@ class _AttachmentViewState extends State<AttachmentView> {
 
   @override
   Widget build(BuildContext context) {
-    final child = buildAttachment(context);
-    if (widget.exportMode) return child;
-    return MouseRegion(
-      onEnter: (_) => warmUrl(),
-      child: Listener(onPointerDown: (_) => warmUrl(press: true), child: child),
-    );
+    return buildAttachment(context);
   }
 
   Widget buildAttachment(BuildContext context) {
@@ -1172,16 +1052,12 @@ class _AttachmentViewState extends State<AttachmentView> {
     imageWidth: (widget.metadata['width'] as num?)?.toDouble(),
     imageHeight: (widget.metadata['height'] as num?)?.toDouble(),
     sizeBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
-    // Image previews load behind a neutral reserved box, not a spinner.
+    // Image previews load behind a neutral placeholder box (Web's tinted
+    // image box): no spinner and no transfer text in list tiles.
     busy: saving,
     previewPending: loading,
     error: error,
     onRetry: loadImage,
-    transfer: imageTransfer,
-    // A thumbnail's length is not the original's `sizeBytes`.
-    transferFallbackTotal: thumbnailUrl == null
-        ? (widget.metadata['sizeBytes'] as num?)?.toInt()
-        : null,
     downloadFailed: downloadFailed,
     onOpen: open,
     onDownload: download,

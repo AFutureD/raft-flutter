@@ -1735,6 +1735,28 @@ static fallback), matching the image/PDF/video previews. Kevin asked for this on
 2026-10-12 ("缺个加载进度？别的都有"). The `html.preparing` ext parity cases
 (desktop and mobile) therefore differ from Web on purpose.
 
+## Message-list images: no signing ahead of time, no transfer text (owner decision 2026-10-13)
+
+Web's inline image is a plain `<img>` on a tinted box (`bg-brutal-cream/60`): a thumbnail URL
+loads directly, an image without one asks `POST /attachments/urls` once for the whole gallery, and
+nothing in the list shows transfer text. Flutter now does the same (Kevin: "预取的 attachments 的连接，这个不要预取了" and
+"为啥消息列表中图片还会出现一个连接中？"):
+
+* A signed attachment URL is requested only when it is needed: opening the viewer, downloading,
+  sharing, playing a clip, or rendering an image that has no `thumbnailUrl` (visible tiles of one
+  frame share one batch request). Scrolling, hovering (desktop), pressing and "nearby" rows never
+  sign anything; the removed paths are the list/viewport batch prefetch, the hover prefetch, the
+  press warm-up and the host pre-connect. Already-signed URLs are still reused from the cache.
+* Images with a `thumbnailUrl` (public 320px WebP) load straight from it, and are cached on disk.
+* A list tile that is loading shows only the neutral placeholder: no "Connecting…" chip, no
+  size/percent chip, no bar. The bar and chip stay on explicit surfaces (image viewer, document
+  and media previews, downloads), which Web renders with its own spinner/progress there.
+  The earlier "Option A" bar on list tiles is therefore gone.
+
+Differences kept on purpose: the placeholder carries a quiet picture glyph (Web shows the tinted
+box only), the same placeholder the viewer uses; a failed tile keeps its red "Download failed ·
+tap to retry" band (Web shows a broken image).
+
 ## Underlines: one offset everywhere, including auth links (owner decision 2026-10-12)
 
 Every underline uses the hyperlink metrics (`underline decoration-2 underline-offset-2`):

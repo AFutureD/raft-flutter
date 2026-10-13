@@ -77,8 +77,11 @@ void main() {
           },
       ];
       f.overrides['GET /channels'] = (_) => channels;
+      // Every attachment id a signed URL was requested for, in order.
+      final signedIds = <String>[];
       f.overrides['POST /attachments/urls'] = (o) {
         final ids = ((o.data as Map)['attachmentIds'] as List).cast<String>();
+        signedIds.addAll(ids);
         return {
           'urls': [
             for (final id in ids)
@@ -119,9 +122,14 @@ void main() {
       f.overrides['GET /messages/search'] = (_) => {'messages': [], 'total': 0};
       for (final row in rows) {
         for (final a in (row['attachments'] as List).cast<Map>()) {
-          f.overrides['GET /attachments/${a['id']}/url'] = (_) => {
-            'url': server.signed('https://storage.invalid/o/${a['id']}'),
-            'expiresAt': DateTime.now().add(const Duration(seconds: 300)).toIso8601String(),
+          f.overrides['GET /attachments/${a['id']}/url'] = (_) {
+            signedIds.add('${a['id']}');
+            return {
+              'url': server.signed('https://storage.invalid/o/${a['id']}'),
+              'expiresAt': DateTime.now()
+                  .add(const Duration(seconds: 300))
+                  .toIso8601String(),
+            };
           };
         }
       }
@@ -236,6 +244,15 @@ void main() {
         }
       }
       mark('hover sweep');
+      final hoverSlice = meter.requests.sublist(
+        marks['activity + search']!,
+        marks['hover sweep']!,
+      );
+      expect(
+        hoverSlice.where((r) => r.label.contains('/attachments/')),
+        isEmpty,
+        reason: 'hovering messages must not sign or fetch attachments',
+      );
 
       // 6. Background, foreground, alt-tab.
       lifecycle(AppLifecycleState.paused);
@@ -322,6 +339,14 @@ void main() {
       }
       expect(meter.rateLimited, 0);
       expect(extra, lessThanOrEqualTo(40), reason: 'duplicate requests: $dups');
+      // No speculative signing: images with a thumbnail (`img-*`) load it
+      // directly and are never signed by scrolling, hovering or pressing.
+      expect(signedIds, isNotEmpty, reason: 'images without a thumbnail sign');
+      expect(
+        signedIds.where((id) => id.startsWith('img-')),
+        isEmpty,
+        reason: 'thumbnailed images are never signed ahead of an open',
+      );
 
       w.playerSessions.clear();
       await t.pumpWidget(const SizedBox());

@@ -266,7 +266,6 @@ class WorkspaceController extends ChangeNotifier {
     WorkspaceEntityDirectory? entityDirectory,
     FollowedThreadsStore? followedThreads,
     AttachmentImageByteStore? attachmentImageStore,
-    this.attachmentHostWarmer = AttachmentHttp.warmHost,
     AttachmentUrlCache? attachmentUrls,
   }) : _attachmentUrls = attachmentUrls ?? AttachmentUrlCache(),
        _presentationAuthority = presentationSource?.navigationAuthority,
@@ -6090,9 +6089,6 @@ class WorkspaceController extends ChangeNotifier {
       presentationSource?.playerSessions ?? _playerSessions;
   final PlayerSessions _playerSessions = PlayerSessions();
 
-  /// Opens the storage connection for a freshly prefetched URL (the app wires
-  /// `AttachmentHttp.warmHost` by default); null disables warming.
-  final void Function(String url)? attachmentHostWarmer;
   int _attachmentUrlRequests = 0;
 
   /// Number of `/attachments/<id>/url` + batch requests this controller sent.
@@ -6145,7 +6141,7 @@ class WorkspaceController extends ChangeNotifier {
         id,
         scope: scope,
         channelId: channelId,
-        fetchMany: (ids) => _fetchAttachmentUrls(ids, RequestPriority.foreground),
+        fetchMany: _fetchAttachmentUrls,
         fetch: fetch,
       );
     }
@@ -6176,48 +6172,12 @@ class WorkspaceController extends ChangeNotifier {
     }
   }
 
-  /// Background-resolves [id]'s inline URL (and opens its storage connection)
-  /// so the next open starts at once. Batched, bounded and cancellable; call
-  /// the handle's `cancel` when the surface that asked goes away.
-  PrefetchHandle prefetchAttachmentUrl(String id, {String? channelId}) {
-    final source = presentationSource;
-    if (source != null) {
-      return source.prefetchAttachmentUrl(id, channelId: channelId);
-    }
-    if (_disposed || _revokedChannels.contains(channelId)) {
-      return PrefetchHandle.none();
-    }
-    return _attachmentUrls.prefetch(
-      id,
-      scope: attachmentImageScope,
-      channelId: channelId,
-      fetchMany: (ids) => _fetchAttachmentUrls(ids, RequestPriority.background),
-    );
-  }
-
-  /// `POST /attachments/urls` (1..50 ids). Prefetch sends it as background
-  /// work, which the client refuses rather than queues when the attachment
-  /// limit has no headroom; a visible tile's load sends it as foreground work.
-  Future<dynamic> _fetchAttachmentUrls(
-    List<String> ids,
-    RequestPriority priority,
-  ) async {
+  /// `POST /attachments/urls` (1..50 ids) for the visible tiles that need a
+  /// signed URL in this frame (images without a server thumbnail). Foreground
+  /// work: a user-visible load, never speculative.
+  Future<dynamic> _fetchAttachmentUrls(List<String> ids) {
     _attachmentUrlRequests++;
-    final body = await (priority == RequestPriority.background
-        ? RaftClient.runBackground(
-            () => client.post('/attachments/urls', data: {'attachmentIds': ids}),
-          )
-        : client.post('/attachments/urls', data: {'attachmentIds': ids}));
-    final warm = attachmentHostWarmer;
-    if (warm != null && body is Map && body['urls'] is List) {
-      for (final entry in body['urls'] as List) {
-        if (entry is Map && entry['url'] is String) {
-          warm(entry['url'] as String);
-          break;
-        }
-      }
-    }
-    return body;
+    return client.post('/attachments/urls', data: {'attachmentIds': ids});
   }
 
   DateTime? _previewGateAt;

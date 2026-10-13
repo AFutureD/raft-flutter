@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
@@ -32,8 +31,6 @@ class RaftAttachmentCard extends StatelessWidget {
     this.metaLabel,
     this.previewAffordance = false,
     this.previewPending = false,
-    this.transfer,
-    this.transferFallbackTotal,
     this.downloadFailed = false,
   });
   final String filename, mimeType;
@@ -49,16 +46,10 @@ class RaftAttachmentCard extends StatelessWidget {
   final bool previewAffordance;
 
   /// Image cards only: the preview is still being fetched/decoded. The
-  /// reserved box stays a neutral surface (no spinner, no filename flash).
+  /// reserved box stays a neutral placeholder surface (Web's tinted image box):
+  /// no spinner, no filename flash and no transfer text such as "Connecting…"
+  /// (progress belongs to explicit downloads and previews, not list tiles).
   final bool previewPending;
-
-  /// Bytes of the pending image preview as they arrive. The bar and size chip
-  /// listen to it themselves; the card is not rebuilt per update.
-  final ValueListenable<RaftTransferProgress?>? transfer;
-
-  /// Stands in for an unknown content length (the original's `sizeBytes`);
-  /// null when the transferred bytes are a smaller rendition (thumbnail).
-  final int? transferFallbackTotal;
 
   /// File cards: the last explicit download failed; tapping the card retries.
   final bool downloadFailed;
@@ -247,13 +238,9 @@ class RaftAttachmentCard extends StatelessWidget {
                           onTap: exportMode ? null : onOpen,
                           child:
                               preview ??
-                              (transfer != null &&
-                                      (previewPending ||
-                                          error != null && onRetry != null)
+                              (previewPending && error == null ||
+                                      error != null && onRetry != null
                                   ? const RaftTransferPlaceholder()
-                                  : null) ??
-                              (previewPending && error == null
-                                  ? const SizedBox.expand()
                                   : null) ??
                               Center(
                                 child: busy
@@ -267,23 +254,18 @@ class RaftAttachmentCard extends StatelessWidget {
                               ),
                         ),
                       ),
-                      if (!exportMode && preview == null)
-                        if (error != null && onRetry != null)
-                          // Option A: tap the failed chip's band to retry;
-                          // the rest of the tile still opens the viewer,
-                          // which fetches the original itself.
-                          Positioned.fill(
-                            child: RaftImageTransferOverlay.failed(
-                              onRetry: onRetry,
-                            ),
-                          )
-                        else if (previewPending && transfer != null)
-                          Positioned.fill(
-                            child: RaftImageTransferOverlay(
-                              progress: transfer!,
-                              fallbackTotal: transferFallbackTotal,
-                            ),
+                      if (!exportMode &&
+                          preview == null &&
+                          error != null &&
+                          onRetry != null)
+                        // Option A: tap the failed chip's band to retry;
+                        // the rest of the tile still opens the viewer,
+                        // which fetches the original itself.
+                        Positioned.fill(
+                          child: RaftImageTransferOverlay.failed(
+                            onRetry: onRetry,
                           ),
+                        ),
                       if (!exportMode)
                         Positioned(
                           right: 4,

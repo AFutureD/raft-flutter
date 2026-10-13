@@ -223,11 +223,8 @@ void main() {
       });
 
       testWidgets(
-        'card: pending image shows the bar; a failed one a retry band',
+        'card: a pending image shows only the placeholder; a failed one a retry band',
         (tester) async {
-          final progress = ValueNotifier<RaftTransferProgress?>(
-            RaftTransferProgress(received: mib, total: 4 * mib),
-          );
           var retries = 0, opens = 0;
           await tester.pumpWidget(
             host(
@@ -240,7 +237,6 @@ void main() {
                     mimeType: 'image/jpeg',
                     imageExtent: const Size(300, 200),
                     previewPending: true,
-                    transfer: progress,
                     onOpen: () => opens++,
                   ),
                   RaftAttachmentCard(
@@ -255,7 +251,12 @@ void main() {
               ),
             ),
           );
-          expect(find.text('1.0 / 4.0 MB'), findsOneWidget);
+          // List tiles never show transfer text or a bar while loading: the
+          // neutral placeholder only (Web's tinted image box).
+          expect(find.byType(RaftTransferPlaceholder), findsNWidgets(2));
+          expect(find.text('Connecting…'), findsNothing);
+          expect(find.byType(RaftTransferBar), findsOneWidget, reason: 'failed tile only');
+          expect(find.byType(RaftTransferChip), findsOneWidget);
           expect(find.text('Download failed · tap to retry'), findsOneWidget);
           // The chip band retries; the rest of the failed tile still opens.
           await tester.tap(find.byKey(const ValueKey('attachment-retry')));
@@ -265,7 +266,6 @@ void main() {
           await tester.tapAt(tester.getTopLeft(failed) + const Offset(150, 40));
           expect(opens, 1);
           expect(retries, 1);
-          progress.dispose();
         },
       );
 

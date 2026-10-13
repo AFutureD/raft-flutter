@@ -14,6 +14,12 @@ import 'package:raft_client/raft_client.dart' show RaftApiException;
 /// Concurrent requests for the same attachment share one fetch (like Web's
 /// `inlineAttachmentUrlCache`): a shared request outlives any single caller,
 /// and each caller drops the result itself when it is gone.
+///
+/// Nothing is signed speculatively. A URL is requested only when something
+/// needs it now (an open, a download, a share, a player, an image without a
+/// server thumbnail); the cache only reuses what such a request already
+/// signed. Callers that need many URLs in the same frame are gathered into one
+/// batch request ([resolveCoalesced]).
 class AttachmentUrlCache {
   AttachmentUrlCache({
     DateTime Function()? now,
@@ -21,10 +27,7 @@ class AttachmentUrlCache {
     this.maxLifetime = const Duration(minutes: 4),
     this.safetyMargin = const Duration(seconds: 45),
     this.unknownExpiryLifetime = const Duration(seconds: 150),
-    this.prefetchBatch = 50,
-    this.prefetchQueue = 100,
-    this.prefetchDelay = const Duration(milliseconds: 200),
-    this.minBatchInterval = const Duration(milliseconds: 1500),
+    this.batchSize = 50,
     this.coalesceDelay = Duration.zero,
   }) : _now = now ?? DateTime.now;
 
@@ -45,16 +48,11 @@ class AttachmentUrlCache {
   /// stale (401/403) signs once more. A shorter guess made every card that
   /// came back into view after 15 s ask again.
   final Duration unknownExpiryLifetime;
+
   /// The batch route accepts 1..50 ids.
-  final int prefetchBatch, prefetchQueue;
+  final int batchSize;
 
-  /// Background prefetch waits this long to gather a screenful, and never
-  /// sends batches closer together than [minBatchInterval] (at most 40 batch
-  /// requests a minute against a 120 a minute limit shared with every other
-  /// attachment request of the user).
-  final Duration prefetchDelay, minBatchInterval;
-
-  /// Foreground callers ([resolveCoalesced]) gather for this long (zero: the
+  /// Callers of [resolveCoalesced] gather for this long (zero: the
   /// tiles built in one frame share an event-loop turn), then one
   /// batch request answers them all.
   final Duration coalesceDelay;
@@ -62,17 +60,13 @@ class AttachmentUrlCache {
   final LinkedHashMap<_Key, _Entry> _entries = LinkedHashMap();
   final Map<_Key, Future<String>> _inFlight = {};
   final Set<_Key> _batched = {};
-  final Map<_Key, _Prefetch> _queued = {};
   Object? _scope;
   int _epoch = 0;
-  bool _batchRunning = false;
-  Timer? _flushTimer;
 
   /// In-flight keys whose answer must not be stored (a transfer rejected the
   /// URL while the request was out). Per key: one rejected URL does not make
   /// every other answer on its way worthless.
   final Set<_Key> _stale = {};
-  DateTime? _lastBatchAt, _pausedUntil;
   final Map<_Key, _Urgent> _urgent = {};
   Timer? _urgentTimer;
   bool _urgentScheduled = false;
@@ -81,7 +75,6 @@ class AttachmentUrlCache {
   /// Number of cached URLs (diagnostics and tests; never their values).
   int get length => _entries.length;
   int get inFlightCount => _inFlight.length;
-  int get queuedPrefetchCount => _queued.length;
 
   /// The unexpired URL for [id], or null. Never starts a request.
   String? peek(String id, {String disposition = 'inline', Object? scope}) {
@@ -149,67 +142,12 @@ class AttachmentUrlCache {
     return request;
   }
 
-  /// Queues a background resolve of [ids] (one batch request per flush) so a
-  /// later open finds the URL cached. Bounded: at most [prefetchQueue] ids wait
-  /// and [prefetchBatch] go in one request; one batch is in flight at a time.
-  /// The returned handle removes the id again if it has not been sent.
-  ///
-  /// [fetchMany] returns the decoded `POST /attachments/urls` body
-  /// (`{urls: [{id, url, expiresAt}]}`).
-  PrefetchHandle prefetch(
-    String id, {
-    Object? scope,
-    String? channelId,
-    required Future<dynamic> Function(List<String> ids) fetchMany,
-  }) {
-    // The batch route signs for inline use only.
-    const disposition = 'inline';
-    final key = _Key(id, disposition);
-    if (peek(id, disposition: disposition, scope: scope) != null ||
-        _inFlight.containsKey(key)) {
-      return PrefetchHandle._(() {});
-    }
-    var item = _queued[key];
-    if (item == null) {
-      while (_queued.length >= prefetchQueue) {
-        _queued.remove(_queued.keys.first);
-      }
-      item = _queued[key] = _Prefetch(key, channelId, fetchMany, _epoch);
-    }
-    item.holders++;
-    _schedule();
-    final queued = item;
-    return PrefetchHandle._(() {
-      if (--queued.holders <= 0 && identical(_queued[key], queued)) {
-        _queued.remove(key);
-      }
-    });
-  }
-
-  void _schedule() {
-    if (_flushTimer != null || _batchRunning || _queued.isEmpty) return;
-    var delay = prefetchDelay;
-    final now = _now();
-    final last = _lastBatchAt;
-    if (last != null) {
-      final wait = last.add(minBatchInterval).difference(now);
-      if (wait > delay) delay = wait;
-    }
-    final paused = _pausedUntil;
-    if (paused != null) {
-      final wait = paused.difference(now);
-      if (wait > delay) delay = wait;
-    }
-    _flushTimer = Timer(delay, () {
-      _flushTimer = null;
-      unawaited(_flush());
-    });
-  }
-
-  /// Resolves [id] for a caller that wants it now, together with every other
+  /// Resolves [id] for a caller that needs it now, together with every other
   /// caller asking within [coalesceDelay]: one batch request instead of one
-  /// request per attachment. An id the batch does not answer (the server
-  /// leaves out what it cannot sign) falls back to [fetch], the single route.
+  /// request per attachment. [fetchMany] returns the decoded
+  /// `POST /attachments/urls` body (`{urls: [{id, url, expiresAt}]}`). An id
+  /// the batch does not answer (the server leaves out what it cannot sign)
+  /// falls back to [fetch], the single route.
   Future<String> resolveCoalesced(
     String id, {
     Object? scope,
@@ -234,7 +172,6 @@ class AttachmentUrlCache {
         ),
       );
     }
-    final queued = _queued.remove(key);
     final epoch = _epoch;
     final completer = Completer<String>();
     _inFlight[key] = completer.future;
@@ -242,7 +179,7 @@ class AttachmentUrlCache {
     unawaited(completer.future.then<void>((_) {}, onError: (Object _) {}));
     _urgent[key] = _Urgent(
       key,
-      channelId ?? queued?.channelId,
+      channelId,
       fetchMany,
       fetch,
       epoch,
@@ -273,8 +210,8 @@ class AttachmentUrlCache {
   Future<void> _flushUrgent() async {
     final all = _urgent.values.toList();
     _urgent.clear();
-    for (var start = 0; start < all.length; start += prefetchBatch) {
-      final batch = all.skip(start).take(prefetchBatch).toList();
+    for (var start = 0; start < all.length; start += batchSize) {
+      final batch = all.skip(start).take(batchSize).toList();
       unawaited(_sendUrgent(batch));
     }
   }
@@ -297,7 +234,6 @@ class AttachmentUrlCache {
       // The batch route failed as a whole; the singles below would meet the
       // same limiter, so a rate-limited answer is passed on, not retried.
       if (error is RaftApiException && error.rateLimited) {
-        _pause(error.retryAfter);
         for (final item in batch) {
           _finish(item.key);
           item.completer.completeError(error);
@@ -343,92 +279,6 @@ class AttachmentUrlCache {
     _batched.remove(key);
   }
 
-  void _pause(Duration? retryAfter) {
-    final until = _now().add(retryAfter ?? const Duration(seconds: 5));
-    final current = _pausedUntil;
-    if (current == null || until.isAfter(current)) _pausedUntil = until;
-  }
-
-  Future<void> _flush() async {
-    if (_batchRunning || _queued.isEmpty) return;
-    _batchRunning = true;
-    final batch = <_Prefetch>[];
-    for (final item in _queued.values.toList()) {
-      // Answered meanwhile (a click, a foreground load): nothing to send.
-      if (_entries[item.key]?.usable(_now(), safetyMargin) == true ||
-          _inFlight.containsKey(item.key)) {
-        _queued.remove(item.key);
-        continue;
-      }
-      if (batch.length >= prefetchBatch) break;
-      batch.add(item);
-    }
-    for (final item in batch) {
-      _queued.remove(item.key);
-    }
-    if (batch.isEmpty) {
-      _batchRunning = false;
-      _schedule();
-      return;
-    }
-    _lastBatchAt = _now();
-    batchRequests++;
-    final completers = <_Key, Completer<String>>{};
-    for (final item in batch) {
-      final completer = Completer<String>();
-      completers[item.key] = completer;
-      _inFlight[item.key] = completer.future;
-      _batched.add(item.key);
-      // Nobody may be waiting; the error must not become unhandled.
-      unawaited(completer.future.then<void>((_) {}, onError: (Object _) {}));
-    }
-    try {
-      final body = await batch.first.fetchMany([
-        for (final item in batch) item.key.id,
-      ]);
-      final urls = body is Map ? body['urls'] : null;
-      final byId = <String, Map>{
-        if (urls is List)
-          for (final entry in urls)
-            if (entry is Map && entry['id'] is String && entry['url'] is String)
-              entry['id'] as String: entry,
-      };
-      for (final item in batch) {
-        final entry = byId[item.key.id];
-        if (entry != null && item.epoch == _epoch && !_stale.remove(item.key)) {
-          _store(
-            item.key,
-            entry['url'] as String,
-            entry['expiresAt'],
-            item.channelId,
-          );
-          completers[item.key]!.complete(entry['url'] as String);
-        } else {
-          completers[item.key]!.completeError(
-            const FormatException('No attachment url.'),
-          );
-        }
-      }
-    } catch (error) {
-      // A refused or rate-limited batch is not repeated at once: the next one
-      // waits out the server's Retry-After.
-      if (error is RaftApiException && error.rateLimited) {
-        _pause(error.retryAfter);
-      }
-      for (final completer in completers.values) {
-        if (!completer.isCompleted) completer.completeError(error);
-      }
-    } finally {
-      for (final item in batch) {
-        _inFlight.remove(item.key);
-        _batched.remove(item.key);
-        _stale.remove(item.key);
-      }
-      _batchRunning = false;
-      _schedule();
-    }
-  }
-
   /// Drops a URL a transfer rejected (expired or revoked).
   void invalidate(String id, {String? disposition}) {
     bool matches(_Key key) =>
@@ -444,14 +294,12 @@ class AttachmentUrlCache {
   /// Revocation: nothing resolved for [channelId] survives, in flight included.
   void invalidateChannel(String channelId) {
     _entries.removeWhere((_, entry) => entry.channelId == channelId);
-    _queued.removeWhere((_, item) => item.channelId == channelId);
     _dropUrgent((item) => item.channelId == channelId);
     _epoch++;
   }
 
   void clear() {
     _entries.clear();
-    _queued.clear();
     _dropUrgent((_) => true);
     _stale.clear();
     _epoch++;
@@ -471,8 +319,6 @@ class AttachmentUrlCache {
 
   void dispose() {
     clear();
-    _flushTimer?.cancel();
-    _flushTimer = null;
     _urgentTimer?.cancel();
     _urgentTimer = null;
   }
@@ -534,21 +380,6 @@ class AttachmentUrlCache {
   }
 }
 
-class PrefetchHandle {
-  PrefetchHandle._(this._cancel);
-  PrefetchHandle.none() : _cancel = (() {});
-  final void Function() _cancel;
-  bool _cancelled = false;
-
-  /// Withdraws the request if it has not been sent yet. A request already in
-  /// flight completes into the cache (and serves any later open).
-  void cancel() {
-    if (_cancelled) return;
-    _cancelled = true;
-    _cancel();
-  }
-}
-
 class _Key {
   const _Key(this.id, this.disposition);
   final String id, disposition;
@@ -585,13 +416,4 @@ class _Urgent {
   final Future<dynamic> Function() fetch;
   final int epoch;
   final Completer<String> completer;
-}
-
-class _Prefetch {
-  _Prefetch(this.key, this.channelId, this.fetchMany, this.epoch);
-  final _Key key;
-  final String? channelId;
-  final Future<dynamic> Function(List<String>) fetchMany;
-  final int epoch;
-  int holders = 0;
 }

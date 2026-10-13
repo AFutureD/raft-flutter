@@ -37,6 +37,21 @@ void main() {
           // Each of the 17 clips is fetched about once for the session, not once
           // per pass (before: 12 times each).
           expect(clips, lessThanOrEqualTo(2 * 17), reason: 'clip downloads: $clips');
+          // No speculative signing: only images without a thumbnail (`raw-*`,
+          // visible tiles) are signed while scrolling, in batches; never the
+          // thumbnailed ones (`img-*`).
+          final signs = s.meter.countsByRoute().entries
+              .where((e) => e.key.contains('/attachments/urls'))
+              .fold<int>(0, (a, b) => a + b.value);
+          final singles = s.meter.countsByRoute().entries
+              .where((e) => RegExp(r'/attachments/[^/]+/url$').hasMatch(e.key))
+              .fold<int>(0, (a, b) => a + b.value);
+          expect(singles, 0, reason: 'single signing requests while scrolling');
+          expect(
+            signs,
+            lessThanOrEqualTo(30),
+            reason: 'batched signing of visible no-thumbnail tiles only',
+          );
           // The same URL question is not asked twice inside its validity.
           final repeated = s.meter
               .duplicates(within: const Duration(seconds: 60))

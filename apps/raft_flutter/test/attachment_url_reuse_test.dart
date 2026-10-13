@@ -78,7 +78,7 @@ void main() {
   }) async {
     final client = _Client()..user = RaftRecord({'id': 'alice'});
     client.selectServer('server');
-    final w = WorkspaceController(client, attachmentHostWarmer: null)
+    final w = WorkspaceController(client)
       ..server = RaftRecord({'id': 'server', 'role': 'owner'})
       ..channel = RaftChannel({'id': 'channel', 'joined': true});
     w.channels = [w.channel!];
@@ -142,7 +142,7 @@ void main() {
     expect(files.urls.toSet().length, 1, reason: 'every transfer used it');
   });
 
-  testWidgets('the original of a thumbnailed image is prefetched in one batch', (
+  testWidgets('a thumbnailed image signs nothing until it is opened', (
     tester,
   ) async {
     final (client, files, _) = await mount(
@@ -150,49 +150,28 @@ void main() {
       messageId: 'host',
       extra: {'thumbnailUrl': 'https://storage.example.invalid/thumb'},
     );
-    expect(client.batches, [
-      ['image'],
-    ]);
-    expect(client.reads, isEmpty);
+    // The list tile loads the public thumbnail directly.
+    expect(files.urls, ['https://storage.example.invalid/thumb']);
+    expect(client.batches, isEmpty, reason: 'no batch signing ahead of time');
+    expect(client.reads, isEmpty, reason: 'no single signing ahead of time');
+    // Time passing and the tile staying on screen sign nothing either.
+    await settle(tester);
+    expect(client.batches.length + client.reads.length, 0);
     await tester.tap(find.byTooltip('Preview image.png'));
     await tester.pump();
     await settle(tester);
-    expect(client.reads, isEmpty, reason: 'the open used the prefetched URL');
-    expect(files.urls.last, 'https://storage.example.invalid/b/image');
+    expect(
+      client.batches.length + client.reads.length,
+      1,
+      reason: 'the open signs the original once',
+    );
+    expect(files.urls.last, startsWith('https://storage.example.invalid/'));
+    expect(files.urls.last, isNot('https://storage.example.invalid/thumb'));
     await tester.tap(find.byTooltip('Close preview'));
     await settle(tester);
   });
 
-  testWidgets('a card scrolled away before the flush sends no prefetch', (
-    tester,
-  ) async {
-    final (client, _, _) = await mount(
-      tester,
-      messageId: 'host',
-      settleFirst: false,
-      extra: {'thumbnailUrl': 'https://storage.example.invalid/thumb'},
-    );
-    await tester.pumpWidget(const SizedBox());
-    await settle(tester);
-    expect(client.batches, isEmpty);
-    expect(client.reads, isEmpty);
-  });
-
-  testWidgets('a revoked server drops the prefetch before it is sent', (
-    tester,
-  ) async {
-    final (client, _, w) = await mount(
-      tester,
-      messageId: 'host',
-      settleFirst: false,
-      extra: {'thumbnailUrl': 'https://storage.example.invalid/thumb'},
-    );
-    w.revokeServer('server');
-    await settle(tester);
-    expect(client.batches, isEmpty);
-  });
-
-  testWidgets('hover and press resolve a document URL ahead of the click', (
+  testWidgets('hover and press sign no URL; only the open does', (
     tester,
   ) async {
     final (client, _, _) = await mount(
@@ -207,16 +186,33 @@ void main() {
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(card));
     await settle(tester);
-    // Hover is a hint: it joins the bounded, batched background prefetch
-    // instead of sending a request of its own.
-    expect(client.batches, [
-      ['doc'],
-    ]);
+    expect(client.batches, isEmpty, reason: 'hover is not a request');
     expect(client.reads, isEmpty);
-    // A press right after is already covered by the cached URL.
+    // A press (finger down, not yet a tap) is not a request either.
     final press = await tester.startGesture(tester.getCenter(card));
     await settle(tester);
-    expect(client.batches.length + client.reads.length, 1);
+    expect(client.batches, isEmpty, reason: 'press is not a request');
+    expect(client.reads, isEmpty);
     await press.cancel();
+  });
+
+  testWidgets('hover and press on a thumbnailed image sign no URL', (
+    tester,
+  ) async {
+    final (client, _, _) = await mount(
+      tester,
+      messageId: 'host',
+      extra: {'thumbnailUrl': 'https://storage.example.invalid/thumb'},
+    );
+    final card = find.byType(RaftAttachmentCard);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(card));
+    await settle(tester);
+    final press = await tester.startGesture(tester.getCenter(card));
+    await settle(tester);
+    await press.cancel();
+    expect(client.batches, isEmpty);
+    expect(client.reads, isEmpty);
   });
 }

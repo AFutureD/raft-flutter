@@ -52,7 +52,8 @@ void main() {
       }
       mark('open 5 channels');
 
-      // What a timeline does for every attachment it shows.
+      // What a timeline does for an image tile without a thumbnail: sign it
+      // when it is visible (no speculative prefetch).
       final ids = <String>[
         for (final m in w.messages)
           for (final a in (m.json['attachments'] as List? ?? const []))
@@ -60,7 +61,6 @@ void main() {
       ];
       for (var round = 0; round < 3; round++) {
         for (final id in ids.take(60)) {
-          w.prefetchAttachmentUrl(id, channelId: w.channel?.id);
           unawaited(
             w
                 .attachmentUrl(id, channelId: w.channel?.id, coalesce: true)

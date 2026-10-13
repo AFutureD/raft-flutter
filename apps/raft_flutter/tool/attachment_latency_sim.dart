@@ -158,7 +158,7 @@ Future<void> main(List<String> args) async {
   _batchIds = ids;
   final base = apiServer.port;
   print('rtt=${rtt}ms  request=rtt+40/30ms  new storage connection=${rtt * 3}ms (assumed)');
-  final names = ['before (Dio per card, /url per open)', 'shared Dio only', 'shared Dio + URL cache + visible batch prefetch + host warm'];
+  final names = ['before (Dio per card, /url per open)', 'shared Dio only', 'shared Dio + URL cache (signs on open only, no prefetch)'];
   final firsts = List.generate(3, (_) => <int>[]);
   final seconds = List.generate(3, (_) => <int>[]);
   for (var run = 0; run < runs; run++) {
@@ -191,27 +191,12 @@ Future<void> main(List<String> args) async {
       seconds[1].add(await open('b2'));
       shared.close();
     }
-    // 2: everything. Cards became visible 1 s before the click.
+    // 2: shared Dio + URL cache. Nothing is signed ahead of the click.
     {
       final shared = AttachmentHttp.create(configure: allowCert);
       final client = apiDio(base);
       await client.get<dynamic>('/warm/up');
-      final cache = AttachmentUrlCache(prefetchDelay: const Duration(milliseconds: 20));
-      for (final id in ids) {
-        cache.prefetch(
-          id,
-          scope: 's',
-          fetchMany: (list) async => (await client.post<Map>('/attachments/urls', data: {'attachmentIds': list})).data,
-        );
-      }
-      await delay(rtt * 2 + 200); // batch returns
-      // The first cached URL's host is warmed (what the controller does).
-      final first = cache.peek('a1', scope: 's')!;
-      await shared.head<void>(
-        'https://localhost:${Uri.parse(first).port}/',
-        options: Options(validateStatus: (_) => true),
-      );
-      await delay(500);
+      final cache = AttachmentUrlCache();
       Future<int> open(String id) async {
         final sw = Stopwatch()..start();
         final url = await cache.resolve(
