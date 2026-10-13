@@ -8,6 +8,7 @@
 //   tool/flutter build apk --profile -t integration_test/resource_release_main.dart \
 //     --dart-define=RR_BASE=http://10.0.2.2:8792 --dart-define=RR_MOBILE=true \
 //     --dart-define=RR_LOC=/s/lab
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:raft_flutter/data/mobile_tabbar_preferences.dart';
 import 'package:raft_flutter/data/source_time_formatter.dart';
 import 'package:raft_flutter/main.dart' as app;
 import 'package:raft_flutter/platform/android_performance_hint.dart';
+import 'package:raft_flutter/platform/memory_release.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
 import 'package:raft_flutter/platform/system_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +43,12 @@ Future<void> main() async {
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
   await DevicePreferences.load();
+  // Memory probe: one line per second with every tier (RaftMemoryRelease).
+  Timer.periodic(
+    const Duration(seconds: 1),
+    // ignore: avoid_print
+    (_) => print('RRMEM2 ${RaftMemoryRelease.instance.snapshot()}'),
+  );
   runApp(
     await buildResourceReleaseApp(
       mobile: const bool.fromEnvironment('RR_MOBILE', defaultValue: true),

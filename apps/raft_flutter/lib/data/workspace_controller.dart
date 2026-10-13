@@ -276,6 +276,17 @@ class WorkspaceController extends ChangeNotifier {
        _presentationAuthority = presentationSource?.navigationAuthority,
        attachmentImageStore =
            attachmentImageStore ?? AttachmentDiskCache.installed {
+    if (presentationSource == null) {
+      _removePlayerReporter = RaftMemoryRelease.instance.addReporter(
+        'playerSessions',
+        () {
+          final s = _playerSessions;
+          return '${s.length} live ${s.stillCount} stills ${s.stillBytes} B '
+              'hdr ${s.hdrVerdicts.length} prepared ${s.prepared.length} '
+              'resume ${s.resumeAt.length}';
+        },
+      );
+    }
     _ownsFollowedThreads = followedThreads == null;
     this.followedThreads =
         followedThreads ??
@@ -733,6 +744,13 @@ class WorkspaceController extends ChangeNotifier {
     );
     // Decoded bitmaps are rebuildable from the byte store: let go of the
     // unleased ones under memory pressure and while the app is hidden.
+    _removeImageReporter = RaftMemoryRelease.instance.addReporter(
+      'attachmentImages',
+      () =>
+          '${repository.entryCount}/${repository.maxEntries} entries '
+          '${repository.decodedByteCount}/${repository.maxDecodedBytes} B decoded '
+          '${repository.encodedByteCount} B encoded',
+    );
     _removeImageTrimmer = RaftMemoryRelease.instance.addTrimmer(
       (reason) {
         final before = repository.decodedByteCount;
@@ -750,7 +768,7 @@ class WorkspaceController extends ChangeNotifier {
     return repository;
   }
 
-  VoidCallback? _removeImageTrimmer;
+  VoidCallback? _removeImageTrimmer, _removeImageReporter;
 
   WorkspaceAttachmentImageLease acquireAttachmentImage(
     AttachmentImageKey key, {
@@ -6210,6 +6228,7 @@ class WorkspaceController extends ChangeNotifier {
   PlayerSessions get playerSessions =>
       presentationSource?.playerSessions ?? _playerSessions;
   final PlayerSessions _playerSessions = PlayerSessions();
+  VoidCallback? _removePlayerReporter;
 
   int _attachmentUrlRequests = 0;
 
@@ -6851,6 +6870,10 @@ class WorkspaceController extends ChangeNotifier {
     _imageAuthorities.clear();
     _removeImageTrimmer?.call();
     _removeImageTrimmer = null;
+    _removeImageReporter?.call();
+    _removeImageReporter = null;
+    _removePlayerReporter?.call();
+    _removePlayerReporter = null;
     _attachmentImages?.dispose();
     _attachmentUrls.dispose();
     _playerSessions.dispose();

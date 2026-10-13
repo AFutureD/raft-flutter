@@ -115,7 +115,15 @@ void installAvatarImageCache(
   RaftImageBytes.instance
     ..fetcher = fetchAvatarImage
     ..store = AvatarImageStore(cache);
-  (memoryRelease ?? RaftMemoryRelease.instance).addTrimmer(trimAvatarImages);
+  final release = memoryRelease ?? RaftMemoryRelease.instance;
+  release.addTrimmer(trimAvatarImages);
+  release.addReporter('avatars', () {
+    final hot = RaftHotImages.instance, bytes = RaftImageBytes.instance;
+    return 'hot ${hot.length}/${hot.maxEntries} '
+        '${hot.estimatedBytes}/${hot.maxBytes} B '
+        'bytes ${bytes.memoryEntries} '
+        '${bytes.memoryBytes}/${bytes.memoryBudgetBytes} B';
+  });
   cache.addPublicClearListener(clearAvatarImages);
 }
 

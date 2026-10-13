@@ -42,6 +42,7 @@ class RaftMemoryRelease with WidgetsBindingObserver {
   final Duration backgroundDelay;
   final ImageCache Function() _imageCache;
   final _trimmers = <RaftMemoryTrimmer>{};
+  final _reporters = <String, String Function()>{};
   Timer? _timer;
   bool _installed = false;
 
@@ -69,6 +70,29 @@ class RaftMemoryRelease with WidgetsBindingObserver {
   VoidCallback addTrimmer(RaftMemoryTrimmer trimmer) {
     _trimmers.add(trimmer);
     return () => _trimmers.remove(trimmer);
+  }
+
+  /// Registers a named one-line report of a memory tier (counts and bytes);
+  /// [snapshot] lists them next to the framework `ImageCache`. Diagnostics
+  /// only: nothing calls a reporter unless a probe or [trim] logs in a
+  /// non-release build. The returned callback removes it.
+  VoidCallback addReporter(String name, String Function() report) {
+    _reporters[name] = report;
+    return () {
+      if (identical(_reporters[name], report)) _reporters.remove(name);
+    };
+  }
+
+  /// One line with the framework `ImageCache` and every registered tier.
+  String snapshot() {
+    final cache = _imageCache();
+    final parts = [
+      'imageCache ${cache.currentSize}/${cache.maximumSize} images '
+          '${cache.currentSizeBytes}/${cache.maximumSizeBytes} B '
+          'live ${cache.liveImageCount}',
+      for (final entry in _reporters.entries) '${entry.key} ${entry.value()}',
+    ];
+    return parts.join(' | ');
   }
 
   @override
@@ -102,10 +126,7 @@ class RaftMemoryRelease with WidgetsBindingObserver {
   void trim(RaftMemoryTrim reason) {
     final cache = _imageCache();
     if (!kReleaseMode) {
-      debugPrint(
-        '[raft-memory] ${reason.name}: image cache '
-        '${cache.currentSize} images / ${cache.currentSizeBytes} B',
-      );
+      debugPrint('[raft-memory] ${reason.name}: ${snapshot()}');
     }
     if (reason == RaftMemoryTrim.backgrounded) cache.clear();
     for (final trimmer in List.of(_trimmers)) {

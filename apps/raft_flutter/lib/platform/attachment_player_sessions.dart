@@ -50,6 +50,11 @@ class PlayerSessions {
   static const maxStills = 24;
   final Map<String, Image> _stills = {};
 
+  /// Still pictures kept and their decoded size (RGBA, for diagnostics).
+  int get stillCount => _stills.length;
+  int get stillBytes =>
+      _stills.values.fold(0, (n, i) => n + i.width * i.height * 4);
+
   bool hasStill(String key) => _stills.containsKey(key);
 
   /// A copy of the still picture kept for [key] (the caller disposes it), or
