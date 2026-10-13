@@ -301,26 +301,29 @@ void main() {
       expect(find.textContaining('socket'), findsNothing);
     });
 
-    testWidgets('the workspace tab shows the server text for a failed list', (
-      t,
-    ) async {
-      final (w, api) = (await t.runAsync(() => fixture('owner')))!;
-      addTearDown(w.dispose);
-      // No route: the fixture answers 404 {"error":"Unexpected endpoint"}.
-      await t.pumpWidget(
-        _host(AgentWorkspaceTab(controller: w, agentId: 'a1')),
-      );
-      await settle(t);
-      expect(find.text('Unexpected endpoint'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
-      // A route that dies without a body shows the Web fallback instead.
-      api.routes['GET /agents/a1/workspace-files'] = (_) =>
-          throw StateError('socket');
-      await t.tap(find.text('Retry'));
-      await settle(t);
-      expect(find.text('Failed to load files'), findsOneWidget);
-      expect(find.textContaining('socket'), findsNothing);
-    });
+    testWidgets(
+      'the workspace tab shows the fixed Web message for a failed list',
+      (t) async {
+        final (w, api) = (await t.runAsync(() => fixture('owner')))!;
+        addTearDown(w.dispose);
+        // No route: the fixture answers 404 {"error":"Unexpected endpoint"}.
+        await t.pumpWidget(
+          _host(AgentWorkspaceTab(controller: w, agentId: 'a1')),
+        );
+        await settle(t);
+        // Web `loadError` is a flag: one fixed message, never the server text.
+        expect(find.text('Failed to load files'), findsOneWidget);
+        expect(find.text('Unexpected endpoint'), findsNothing);
+        expect(find.text('Retry'), findsOneWidget);
+        // A route that dies without a body shows the same message.
+        api.routes['GET /agents/a1/workspace-files'] = (_) =>
+            throw StateError('socket');
+        await t.tap(find.text('Retry'));
+        await settle(t);
+        expect(find.text('Failed to load files'), findsOneWidget);
+        expect(find.textContaining('socket'), findsNothing);
+      },
+    );
   });
 
   group('agent permissions', () {

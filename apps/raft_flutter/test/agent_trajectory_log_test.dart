@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/agent_detail_view.dart';
 import 'package:raft_flutter/features/agent_trajectory_log.dart';
+import 'package:raft_flutter/features/tool_display.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_ui/test_themes.dart';
 
@@ -49,6 +50,23 @@ class _Workspace extends WorkspaceController {
 }
 
 void main() {
+  test('tool names are humanised like Web getToolLogLabel', () {
+    expect(
+      toolLogLabel('mcp__chat__update_task_status'),
+      'Updating task status',
+    );
+    expect(toolLogLabel('mcp_chat_check_messages'), 'Checking messages');
+    expect(toolLogLabel('shell'), 'Running command');
+    expect(toolLogLabel('Read'), 'Reading file');
+    expect(toolLogLabel('Write'), 'Writing file');
+    expect(toolLogLabel('TodoWrite'), 'Updating tasks');
+    // Unknown tools lose their MCP namespace, never gain "Using ".
+    expect(toolLogLabel('mcp__github__create_issue'), 'create_issue');
+    expect(toolLogLabel('CustomTool'), 'CustomTool');
+    // Only send_message is hidden from the log.
+    expect(hideToolStartInActivityLog('mcp__chat__send_message'), true);
+    expect(hideToolStartInActivityLog('Bash'), false);
+  });
   test('empty hydrate retains exact admitted window', () {
     final existing = [row(1, 'one')];
     expect(identical(mergeAgentTrajectoryLog(existing, []), existing), true);
@@ -324,4 +342,78 @@ void main() {
       expect(t.takeException(), isNull);
     },
   );
+  testWidgets(
+    'rows follow Web AgentActivityLog: labels, badge, no send_message',
+    (t) async {
+      await t.pumpWidget(
+        host(
+          AgentActivityTab(
+            controller: w,
+            agentId: 'agent',
+            initialEntries: [
+              {
+                'timestamp': 1,
+                'entry': {
+                  'kind': 'tool_start',
+                  'toolName': 'mcp__chat__update_task_status',
+                  'toolInput': '#swift-workflow #t2',
+                },
+              },
+              {
+                'timestamp': 2,
+                'entry': {
+                  'kind': 'tool_start',
+                  'toolName': 'mcp__chat__send_message',
+                  'toolInput': '#swift-workflow',
+                },
+              },
+              {
+                'timestamp': 3,
+                'entry': {'kind': 'text', 'text': 'Updating my memory notes.'},
+              },
+              {
+                'timestamp': 4,
+                'entry': {
+                  'kind': 'status',
+                  'activity': 'working',
+                  'detail': 'Subagent started',
+                  'subagent': {'subagentType': 'Explore'},
+                },
+              },
+              {
+                'timestamp': 5,
+                'entry': {'kind': 'compaction_started'},
+              },
+            ],
+          ),
+        ),
+      );
+      w.reads.single.complete(const []);
+      await t.pumpAndSettle();
+      bool shows(String text) =>
+          find.textContaining(text, findRichText: true).evaluate().isNotEmpty;
+      expect(shows('Updating task status'), true);
+      expect(shows('Using update_task_status'), false);
+      expect(shows('Sending message'), false);
+      expect(shows('Output'), true);
+      expect(shows('Message'), false);
+      expect(shows('SUBAGENT: EXPLORE'), true);
+      expect(shows('Context Compaction Started'), true);
+    },
+  );
+  testWidgets('no rows show the Web EmptyState with its description', (
+    t,
+  ) async {
+    await t.pumpWidget(host(AgentActivityTab(controller: w, agentId: 'agent')));
+    // Still loading: Web has no loading state of its own, it shows the same
+    // empty state until rows arrive.
+    expect(find.text('No activity yet'), findsOneWidget);
+    expect(
+      find.text('Start the agent to see its activity log.'),
+      findsOneWidget,
+    );
+    w.reads.single.completeError(StateError('offline'));
+    await t.pumpAndSettle();
+    expect(find.text('No activity yet'), findsOneWidget);
+  });
 }

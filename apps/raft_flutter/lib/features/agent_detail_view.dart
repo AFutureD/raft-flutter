@@ -22,7 +22,9 @@ import 'agent_apps_view.dart';
 import 'external_agent_setup.dart';
 import 'channel_form_fields.dart' show ChannelCandidateAvatar;
 import 'create_channel_dialog.dart' show ChannelMemberCandidate;
+import 'agent_activity_refs.dart';
 import 'agent_trajectory_log.dart';
+import 'tool_display.dart';
 import 'runtime_usage_chip.dart';
 import 'agent_metadata_catalog.dart';
 import 'agent_runtime_catalog.dart' show reasoningEfforts;
@@ -1165,6 +1167,9 @@ class _WorkspaceSnapshot extends _AgentTabSnapshot {
   bool showHidden = false;
   String? openFile, openContent;
 
+  /// `DirTruncation` per listing (`''` is the root): the server cut it short.
+  final truncation = <String, ({int shown, int? omitted})>{};
+
   /// Last read content per file, shown at once when the file opens again.
   final contents = <String, String>{};
 }
@@ -1273,6 +1278,7 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       admittedAgentTrajectoryRows(widget.initialEntries),
     );
     snapshot.entries = entries;
+    pillChannels = w.channels;
     w.addListener(scopeChanged);
     listenEvents();
     reload();
@@ -1331,7 +1337,16 @@ class _AgentActivityTabState extends State<AgentActivityTab>
     });
   }
 
+  /// The channel list the reference pills last resolved against.
+  List<RaftChannel>? pillChannels;
+
   void scopeChanged() {
+    // A channel list that arrives (or changes) turns `#channel` tokens into
+    // pills; nothing else about the controller redraws the log.
+    if (!identical(pillChannels, w.channels)) {
+      pillChannels = w.channels;
+      if (mounted) setState(() {});
+    }
     if (openingScope == scope) return;
     openingScope = scope;
     readRevision++;
@@ -1400,15 +1415,9 @@ class _AgentActivityTabState extends State<AgentActivityTab>
       ..loaded = true;
   }
 
-  static String _toolLabel(String name) => switch (name) {
-    'shell' || 'bash' || 'Bash' => 'Running command',
-    'read' || 'Read' => 'Reading file',
-    'write' || 'Write' => 'Writing file',
-    'edit' || 'Edit' => 'Editing file',
-    _ => 'Using $name',
-  };
-
-  RaftActivityLogEntry _entry(
+  /// Web `AgentActivityLog` `TrajectoryItem`: one row per entry kind. An entry
+  /// of an unknown kind renders nothing (the Web `switch` has no default).
+  RaftActivityLogEntry? _entry(
     BuildContext context,
     RaftTokens t,
     SourceTimeFormatter f,
@@ -1420,42 +1429,82 @@ class _AgentActivityTabState extends State<AgentActivityTab>
     final time = f.clock(item['timestamp'], seconds: true).toUpperCase();
     final kind = entry['kind'];
     final text = '${entry['text'] ?? ''}';
-    final status = agentTrajectoryStatusDisplay(
-      '${entry['activity']}',
-      '${entry['detail'] ?? ''}',
-      entry['detailKind'] as String?,
-    );
+    List<InlineSpan> linkify(BuildContext c, String s, TextStyle style) =>
+        linkifyActivityRefs(c, w, s, style);
+    // `SubagentBadge`: lineage-bearing status and tool rows only.
+    final lineage = entry['subagent'];
+    final type = lineage is Map ? lineage['subagentType'] : null;
+    final badge = lineage is! Map
+        ? null
+        : type is String && type.isNotEmpty
+        ? raftFormat(context, 'Subagent: {type}', {'type': type})
+        : raftText(context, 'Subagent');
     return switch (kind) {
-      'status' => RaftActivityLogEntry(
+      'status' => () {
+        final activity = '${entry['activityKind'] ?? entry['activity']}';
+        final status = agentTrajectoryStatusDisplay(
+          activity,
+          '${entry['detail'] ?? ''}',
+          entry['detailKind'] as String?,
+        );
+        return RaftActivityLogEntry(
+          time: time,
+          dot: raftActivityDotColor(t, activity),
+          title: raftText(context, status.primary),
+          badge: badge,
+          inlineDetail: status.secondary,
+          linkify: linkify,
+          compact: true,
+        );
+      }(),
+      'tool_start' =>
+        hideToolStartInActivityLog('${entry['toolName']}')
+            ? null
+            : RaftActivityLogEntry(
+                time: time,
+                dot: t.product.statusBusy,
+                title: toolLogLabel('${entry['toolName']}'),
+                badge: badge,
+                inlineDetail: '${entry['toolInput'] ?? ''}',
+                inlineMono: true,
+              ),
+      'compaction_started' || 'compaction_finished' => RaftActivityLogEntry(
         time: time,
-        dot: raftActivityDotColor(t, '${entry['activity']}'),
-        title: raftText(context, status.primary),
-        inlineDetail: status.secondary,
-        compact: true,
+        dot: kind == 'compaction_started'
+            ? t.product.brutalOrange
+            : t.product.brutalLime,
+        title: raftText(
+          context,
+          kind == 'compaction_started'
+              ? 'Context Compaction Started'
+              : 'Context Compaction Finished',
+        ),
       ),
-      'tool_start' => RaftActivityLogEntry(
-        time: time,
-        dot: t.product.statusBusy,
-        title: raftText(context, _toolLabel('${entry['toolName']}')),
-        inlineDetail: '${entry['toolInput'] ?? ''}',
-        inlineMono: true,
-      ),
-      _ => RaftActivityLogEntry(
-        time: time,
-        dot: switch (kind) {
-          'thinking' => t.product.statusBusy,
-          'text' => t.product.brutalCyan,
-          'slock_action' => raftBlue300,
-          _ => t.product.brutalOrange,
-        },
-        title: switch (kind) {
-          'thinking' => raftText(context, 'Thinking'),
-          'text' => raftText(context, 'Message'),
-          _ => '${entry['title'] ?? entry['kind'] ?? ''}',
-        },
-        detail: text,
-        clamp: text.length > 200,
-      ),
+      'thinking' || 'text' || 'slock_action' || 'system' => () {
+        return RaftActivityLogEntry(
+          time: time,
+          dot: switch (kind) {
+            'thinking' => t.product.statusBusy,
+            'text' => t.product.brutalCyan,
+            'slock_action' => raftBlue300,
+            _ => t.product.brutalOrange,
+          },
+          title: switch (kind) {
+            'thinking' => raftText(context, 'Thinking'),
+            'text' => raftText(context, 'Output'),
+            _ => '${entry['title'] ?? ''}',
+          },
+          detail: text,
+          expandable: text.length > 200,
+          // Reference pills only in the structured-metadata kinds; Output and
+          // Thinking are free-form agent text.
+          linkify: kind == 'slock_action' || kind == 'system' ? linkify : null,
+          detailExtra: kind == 'slock_action' || kind == 'system'
+              ? activityRefLineExtra(w, text)
+              : 0,
+        );
+      }(),
+      _ => null,
     };
   }
 
@@ -1463,13 +1512,11 @@ class _AgentActivityTabState extends State<AgentActivityTab>
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final f = agentTimeFormatter(context, w);
+    // Web `visibleLog` + an empty EmptyState: the log has no loading or error
+    // state of its own; before the first read and after a failed one it is the
+    // same "No activity yet" empty state.
     return RaftActivityLogView(
-      entries: [for (final e in entries) _entry(context, t, f, e)],
-      emptyLabel: loading
-          ? raftText(context, 'Loading…')
-          : loadError == null
-          ? null
-          : raftText(context, loadError!),
+      entries: [for (final e in entries) ?_entry(context, t, f, e)],
       onCopy: () => Clipboard.setData(
         ClipboardData(
           text: [
@@ -1798,12 +1845,30 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     reload();
   }
 
+  /// Folders whose listing is in flight (`loadingDirs`).
+  final loadingDirs = <String>{};
+
   Future<List<Map<String, dynamic>>> list(String dir) async {
     final result = await w.query(
       '/agents/${widget.agentId}/workspace-files',
-      query: {if (dir.isNotEmpty) 'dirPath': dir},
+      // The server owns which entries are hidden (`includeHidden`).
+      query: {
+        if (dir.isNotEmpty) 'dirPath': dir,
+        'includeHidden': '$showHidden',
+      },
     );
     final files = result is Map ? result['files'] : result;
+    // Web `listingTruncation`: only `truncated: true` shows the hint.
+    if (result is Map && result['truncated'] == true) {
+      snapshot.truncation[dir] = (
+        shown: files is List ? files.length : 0,
+        omitted: result['omitted'] is num
+            ? (result['omitted'] as num).toInt()
+            : null,
+      );
+    } else {
+      snapshot.truncation.remove(dir);
+    }
     return [
       for (final f in (files is List ? files : const []))
         if (f is Map) Map<String, dynamic>.from(f),
@@ -1831,23 +1896,47 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     snapshot.loaded = true;
   }
 
+  /// Web `handleToggleHiddenFiles`: the listing is read again with the new
+  /// `includeHidden`; the open file and every expanded folder reset.
+  void toggleHidden() {
+    setState(() {
+      showHidden = !showHidden;
+      expanded.clear();
+      children.clear();
+      snapshot
+        ..loaded = false
+        ..truncation.clear();
+      openFile = null;
+      openContent = null;
+      openError = null;
+    });
+    reload();
+  }
+
   Future<void> toggle(String path) async {
     if (expanded.remove(path)) {
       setState(() {});
       return;
     }
-    setState(() => expanded.add(path));
+    setState(() {
+      expanded.add(path);
+      // Nothing remembered for the folder: its row shows the loading line.
+      if (children[path] == null) loadingDirs.add(path);
+    });
     // A remembered listing shows at once; the read refreshes it in place.
     try {
       final rows = await list(path);
       if (mounted) setState(() => children[path] = rows);
     } catch (_) {
       // Keep whatever listing is already shown for this folder.
+    } finally {
+      if (mounted) setState(() => loadingDirs.remove(path));
     }
   }
 
   int openTicket = 0;
   String? openError;
+  bool openLoading = false;
 
   Future<void> open(String path) async {
     // The preview opens at once: with the content read before when there is
@@ -1858,6 +1947,8 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
       openFile = path;
       openContent = known ?? '';
       openError = null;
+      // Web `loadingFile`: nothing read before, so the pane shows "Loading...".
+      openLoading = known == null;
     });
     final Object? result;
     try {
@@ -1869,13 +1960,14 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
       // Web `fileError || agent.workspace.fileLoadFailed` in the preview pane;
       // the tree is still usable.
       if (mounted && ticket == openTicket && openFile == path) {
-        setState(
-          () => openError = userErrorText(
+        setState(() {
+          openLoading = false;
+          openError = userErrorText(
             e,
             fallback: 'Failed to load file',
             where: 'agent workspace file',
-          ),
-        );
+          );
+        });
       }
       return;
     }
@@ -1883,55 +1975,80 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
     final content = result is Map ? '${result['content'] ?? ''}' : '$result';
     snapshot.contents[path] = content;
     if (ticket != openTicket || openFile != path) return;
-    setState(() => openContent = content);
+    setState(() {
+      openContent = content;
+      openLoading = false;
+    });
+  }
+
+  /// Web `TruncationHint`.
+  RaftWorkspaceNode? hint(String dir, int depth) {
+    final cut = snapshot.truncation[dir];
+    if (cut == null) return null;
+    return RaftWorkspaceNode.hint(
+      cut.omitted != null
+          ? raftFormat(
+              context,
+              'Showing the first {shown} items; {omitted} more not shown',
+              {'shown': cut.shown, 'omitted': cut.omitted},
+            )
+          : raftFormat(
+              context,
+              'Showing the first {shown} items; more not shown',
+              {'shown': cut.shown},
+            ),
+      depth: dir.isEmpty ? -1 : depth,
+    );
   }
 
   List<RaftWorkspaceNode> nodes(String dir, int depth) => [
-    for (final f in children[dir] ?? const <Map<String, dynamic>>[])
-      if (showHidden || !'${f['name']}'.startsWith('.')) ...[
-        RaftWorkspaceNode(
-          name: '${f['name']}',
-          depth: depth,
-          directory: f['isDirectory'] == true,
-          open: expanded.contains(f['path']),
-          bold: f['name'] == 'memory.md',
-          onTap: () => f['isDirectory'] == true
-              ? toggle('${f['path']}')
-              : open('${f['path']}'),
-        ),
-        if (f['isDirectory'] == true && expanded.contains(f['path']))
+    for (final f in children[dir] ?? const <Map<String, dynamic>>[]) ...[
+      RaftWorkspaceNode(
+        name: '${f['name']}',
+        depth: depth,
+        directory: f['isDirectory'] == true,
+        open: expanded.contains(f['path']),
+        bold: f['name'] == 'memory.md',
+        hidden: f['isHidden'] == true,
+        selected: f['isDirectory'] != true && openFile == f['path'],
+        onTap: () => f['isDirectory'] == true
+            ? toggle('${f['path']}')
+            : open('${f['path']}'),
+      ),
+      if (f['isDirectory'] == true && expanded.contains(f['path']))
+        if (loadingDirs.contains('${f['path']}'))
+          RaftWorkspaceNode.loading(depth: depth + 1)
+        else if (children['${f['path']}'] != null) ...[
           ...nodes('${f['path']}', depth + 1),
-      ],
+          ?hint('${f['path']}', depth + 1),
+        ],
+    ],
   ];
 
   @override
   Widget build(BuildContext context) {
     final path = '~/.slock/agents/${widget.agentId}/';
     final wide = MediaQuery.sizeOf(context).width >= 768;
-    if (openFile != null && !wide) {
-      return RaftWorkspaceFilePreview(
-        path: openFile!,
-        content: openContent ?? '',
-        error: openError,
-        onBack: () => setState(() => openFile = null),
-      );
-    }
     return RaftWorkspaceTreeView(
       preview: openFile == null
           ? null
           : RaftWorkspaceFilePreview(
+              // The phone shows the pane alone and closes it with the arrow.
+              onBack: wide ? null : () => setState(() => openFile = null),
               embedded: true,
               path: openFile!,
               content: openContent ?? '',
               error: openError,
+              loading: openLoading,
             ),
       path: path,
-      nodes: nodes('', 0),
+      nodes: [...nodes('', 0), ?hint('', 0)],
       loading: loading,
-      error: loadError,
+      // Web: one fixed message, not the server's text.
+      error: loadError == null ? null : 'Failed to load files',
       showHidden: showHidden,
       onCopyPath: () => Clipboard.setData(ClipboardData(text: path)),
-      onToggleHidden: () => setState(() => showHidden = !showHidden),
+      onToggleHidden: toggleHidden,
       onRefresh: reload,
     );
   }

@@ -555,13 +555,32 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
   @override
   void initState() {
     super.initState();
+    // Web scrolls the active tab into view on mount and again a frame later
+    // (`scrollActiveTabIntoView` + requestAnimationFrame): a route page that
+    // mounts on a non-default tab has no extent on its first frame, so it also
+    // re-centres while the strip's extent settles (until the user scrolls).
     WidgetsBinding.instance.addPostFrameCallback((_) => center());
+  }
+
+  bool userScrolled = false;
+
+  bool _metricsChanged(ScrollMetricsNotification n) {
+    if (!userScrolled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => center());
+    }
+    return false;
+  }
+
+  bool _scrollStarted(ScrollStartNotification n) {
+    if (n.dragDetails != null) userScrolled = true;
+    return false;
   }
 
   @override
   void didUpdateWidget(RaftPanelTabBar<T> old) {
     super.didUpdateWidget(old);
     if (old.value != widget.value) {
+      userScrolled = false;
       WidgetsBinding.instance.addPostFrameCallback((_) => center());
     }
   }
@@ -611,38 +630,45 @@ class _RaftPanelTabBarState<T> extends State<RaftPanelTabBar<T>> {
           ),
         ),
       ),
-      child: SingleChildScrollView(
-        controller: scroll,
-        scrollDirection: Axis.horizontal,
-        child: t.brutal
-            ? Row(
-                children: [
-                  for (var i = 0; i < widget.tabs.length; i++)
-                    _tab(widget.tabs[i], i, style, base, rt, t),
-                ],
-              )
-            // Elegant `tabs-list`: `h-12 gap-1 px-4` with a hairline rule; the
-            // `h-7` tabs sit centred and the 2px indicator on the list floor.
-            : Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color:
-                          t.colors['line-hairline'] ?? t.colors['line-muted']!,
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: _metricsChanged,
+        child: NotificationListener<ScrollStartNotification>(
+          onNotification: _scrollStarted,
+          child: SingleChildScrollView(
+            controller: scroll,
+            scrollDirection: Axis.horizontal,
+            child: t.brutal
+                ? Row(
+                    children: [
+                      for (var i = 0; i < widget.tabs.length; i++)
+                        _tab(widget.tabs[i], i, style, base, rt, t),
+                    ],
+                  )
+                // Elegant `tabs-list`: `h-12 gap-1 px-4` with a hairline rule; the
+                // `h-7` tabs sit centred and the 2px indicator on the list floor.
+                : Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color:
+                              t.colors['line-hairline'] ??
+                              t.colors['line-muted']!,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < widget.tabs.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 4),
+                          _elegantTab(widget.tabs[i], style, rt, t),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < widget.tabs.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 4),
-                      _elegantTab(widget.tabs[i], style, rt, t),
-                    ],
-                  ],
-                ),
-              ),
+          ),
+        ),
       ),
     );
   }

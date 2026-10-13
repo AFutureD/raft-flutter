@@ -401,7 +401,7 @@ void main() {
             t.tap(find.descendant(of: tabs, matching: rich(label)));
         await openTab('Workspace');
         await t.pump();
-        expect(rich('Loading…'), findsOneWidget);
+        expect(rich('Loading...'), findsOneWidget);
         await settle(t);
         await t.tap(rich('src'));
         await settle(t);
@@ -415,7 +415,7 @@ void main() {
         await openTab('Workspace');
         await t.pump();
         // First frame: same tree, same open folder, no Loading line.
-        expect(rich('Loading…'), findsNothing);
+        expect(rich('Loading...'), findsNothing);
         expect(t.getRect(rich('src')), src);
         expect(t.getRect(rich('main.dart')), main);
         expect(t.getRect(rich('notes.md')), notes);
@@ -423,7 +423,7 @@ void main() {
         expect(held, hasLength(1));
         for (var i = 0; i < 3; i++) {
           await t.pump(const Duration(milliseconds: 16));
-          expect(rich('Loading…'), findsNothing);
+          expect(rich('Loading...'), findsNothing);
           expect(t.getRect(rich('main.dart')), main);
         }
         await release(t, held.single, {
@@ -447,7 +447,7 @@ void main() {
         await t.pump();
         expect(rich('src'), findsNothing);
         expect(rich('main.dart'), findsNothing);
-        expect(rich('Loading…'), findsOneWidget);
+        expect(rich('Loading...'), findsOneWidget);
         await t.pumpWidget(const SizedBox());
         await t.pump(const Duration(seconds: 1));
         expect(t.takeException(), isNull);

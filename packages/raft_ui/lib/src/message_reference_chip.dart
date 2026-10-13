@@ -97,6 +97,7 @@ InlineSpan raftReferenceSpan(
     final s = RaftMessageReferenceRecipe.resolve(
       theme: _theme(t),
       variant: RaftMessageReferenceRecipeVariant.secondary,
+      states: t.recipeStates(),
       tokens: resolver,
     ).root;
     final decoration = RaftColorRef.fromCss(s['text-decoration-color']);
@@ -258,18 +259,21 @@ class RaftReferenceChip extends StatelessWidget {
         s = RaftMessageReferenceRecipe.resolve(
           theme: _theme(t),
           variant: RaftMessageReferenceRecipeVariant.primary,
+          states: t.recipeStates(),
           tokens: resolver,
         ).root;
       case RaftReferenceKind.channel:
         s = RaftMessageReferenceRecipe.resolve(
           theme: _theme(t),
           variant: RaftMessageReferenceRecipeVariant.accent,
+          states: t.recipeStates(),
           tokens: resolver,
         ).root;
       case RaftReferenceKind.thread || RaftReferenceKind.mention:
         s = RaftMessageReferenceRecipe.resolve(
           theme: _theme(t),
           variant: RaftMessageReferenceRecipeVariant.link,
+          states: t.recipeStates(),
           tokens: resolver,
         ).root;
       case RaftReferenceKind.permalink ||
