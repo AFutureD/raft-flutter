@@ -29,7 +29,11 @@ const _appVersion = String.fromEnvironment(
   defaultValue: 'development',
 );
 const _commitSha = String.fromEnvironment('RAFT_COMMIT_SHA');
-const _deploymentEnv = String.fromEnvironment('RAFT_DEPLOYMENT_ENV');
+// Same default as the computer setup commands and the announcement host.
+const _deploymentEnv = String.fromEnvironment(
+  'RAFT_DEPLOYMENT_ENV',
+  defaultValue: 'production',
+);
 
 /// Web `VITE_FEEDBACK_EXPORT_URL?.replace(/\/+$/, "")`.
 String reportIssueExportUrl([String raw = reportIssueBuildUrl]) =>

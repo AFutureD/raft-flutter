@@ -13,11 +13,8 @@ typedef _Route = Object? Function(dynamic data);
 
 /// In-memory transport: `'METHOD /path'` → JSON (or a [RaftApiException]).
 class _Client extends RaftClient {
-  _Client(this.routes)
-    : super(
-        origin: 'https://raft.invalid',
-        sessionStore: MemorySessionStore(),
-      ) {
+  _Client(this.routes, {super.origin = 'https://raft.invalid'})
+    : super(sessionStore: MemorySessionStore()) {
     user = RaftRecord({'id': 'u-owner', 'name': 'owner'});
     selectServer('s1');
   }
@@ -143,8 +140,9 @@ Map<String, _Route> _routes({
   Map<String, _Route> routes, {
   String role = 'owner',
   bool allVisible = true,
+  String origin = 'https://raft.invalid',
 }) {
-  final client = _Client(routes);
+  final client = _Client(routes, origin: origin);
   final w = WorkspaceController(client);
   final server = RaftRecord({
     'id': 's1',
@@ -162,7 +160,11 @@ Map<String, _Route> _routes({
   return (w, client);
 }
 
-Future<void> _pump(WidgetTester t, WorkspaceController w) async {
+Future<void> _pump(
+  WidgetTester t,
+  WorkspaceController w, {
+  bool releaseDefaults = false,
+}) async {
   t.view.physicalSize = const Size(1200, 4000);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
@@ -173,7 +175,11 @@ Future<void> _pump(WidgetTester t, WorkspaceController w) async {
         body: SingleChildScrollView(
           child: AdministrationView(
             controller: w,
-            frontendOrigin: Uri.parse('https://app.raft.test'),
+            // Release builds pass no frontend define: the page then derives
+            // the Web origin from the connected server.
+            frontendOrigin: releaseDefaults
+                ? null
+                : Uri.parse('https://app.raft.test'),
           ),
         ),
       ),
@@ -512,6 +518,35 @@ void main() {
       await t.pumpAndSettle();
       expect(c.sent('DELETE /servers/s1/invites/i1'), isEmpty);
       expect(_in('invites', find.text('new@raft.test')), findsOneWidget);
+    });
+
+    testWidgets('invite links of the official server use the Web app origin', (
+      t,
+    ) async {
+      final (w, c) = _workspace(_routes(), origin: 'https://api.raft.build');
+      addTearDown(w.dispose);
+      final copied = <String>[];
+      t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await _pump(t, w, releaseDefaults: true);
+      await t.tap(find.byKey(const ValueKey('admin-join-link-copy-l1')));
+      await t.pump();
+      expect(copied, ['https://app.raft.build/join/tok']);
+      await t.pump(const Duration(seconds: 2));
+      expect(c.calls, isNotEmpty);
     });
 
     testWidgets('invite links: create, copy, revoke', (t) async {
