@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 
 import 'banner.dart';
 import 'components.dart' show RaftButton;
-import 'design_primitives.dart' show RaftControlVariant, RaftTypography;
+import 'design_primitives.dart'
+    show RaftControlVariant, RaftSpinner, RaftTypography;
 import 'icons.dart';
 import 'indicators.dart';
 import 'list_items.dart';
@@ -34,18 +35,41 @@ class RaftAboutMobileApp {
   final String? qrUrl;
 }
 
-/// Native-only "new version available" row under the Version card (the Web
-/// client updates itself). [message] is already localized; [actionLabel] is a
-/// catalog key that the button localizes.
+/// What the Updates card says; the app derives it from its update service.
+enum RaftAboutUpdateState {
+  idle,
+  checking,
+  available,
+  upToDate,
+  failed,
+  unsupported,
+}
+
+/// Native-only Updates row under the Version card (the Web client updates
+/// itself). [message] and [detail] are already localized; [actionLabel] and
+/// [checkLabel] are catalog keys that the buttons localize.
+///
+/// The row is always present. [onAction] (the update itself) only exists in
+/// [RaftAboutUpdateState.available]; [onCheck] is null while a check runs and
+/// in [RaftAboutUpdateState.unsupported], which has no check button at all.
 @immutable
 class RaftAboutUpdate {
   const RaftAboutUpdate({
+    required this.state,
     required this.message,
-    required this.actionLabel,
-    required this.onAction,
+    this.detail,
+    this.actionLabel,
+    this.onAction,
+    this.checkLabel = 'Check for updates',
+    this.onCheck,
   });
-  final String message, actionLabel;
-  final VoidCallback onAction;
+  final RaftAboutUpdateState state;
+  final String message;
+  final String? detail;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final String checkLabel;
+  final VoidCallback? onCheck;
 }
 
 /// AboutSection: `space-y-4` of `space-y-2` sections (SectionHeader +
@@ -67,6 +91,62 @@ class RaftSettingsAbout extends StatelessWidget {
   /// Workspace card (`showWorkspace`); null hides the section.
   final String? workspaceName;
   final String? workspaceDetail;
+
+  Widget _updateCard(RaftSettingsText text) {
+    final update = this.update!;
+    final leading = switch (update.state) {
+      RaftAboutUpdateState.available => const RaftAttentionDot(danger: true),
+      RaftAboutUpdateState.checking => const RaftSpinner(),
+      _ => null,
+    };
+    final detail = update.detail;
+    return RaftSurfaceListItem(
+      key: const ValueKey('settings-about-update'),
+      interactive: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (leading != null) ...[leading, const SizedBox(width: 8)],
+              Expanded(child: Text(update.message, style: text.title)),
+            ],
+          ),
+          if (detail != null) ...[
+            const SizedBox(height: 4),
+            Text(detail, style: text.description),
+          ],
+          if (update.state != RaftAboutUpdateState.unsupported) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (update.onAction != null)
+                  RaftButton(
+                    key: const ValueKey('settings-about-update-action'),
+                    label: update.actionLabel ?? '',
+                    variant: RaftControlVariant.outline,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: update.onAction,
+                  ),
+                if (update.state != RaftAboutUpdateState.unsupported)
+                  RaftButton(
+                    key: const ValueKey('settings-about-update-check'),
+                    label: update.checkLabel,
+                    variant: update.onAction != null
+                        ? RaftControlVariant.ghost
+                        : RaftControlVariant.outline,
+                    size: RaftButtonRecipeSize.sm,
+                    onPressed: update.onCheck,
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,32 +188,7 @@ class RaftSettingsAbout extends StatelessWidget {
                   children: [
                     card(productName, version),
                     const SizedBox(height: 8),
-                    RaftSurfaceListItem(
-                      key: const ValueKey('settings-about-update'),
-                      interactive: false,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const RaftAttentionDot(danger: true),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(update!.message, style: text.title),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          RaftButton(
-                            key: const ValueKey('settings-about-update-action'),
-                            label: update!.actionLabel,
-                            variant: RaftControlVariant.outline,
-                            size: RaftButtonRecipeSize.sm,
-                            onPressed: update!.onAction,
-                          ),
-                        ],
-                      ),
-                    ),
+                    _updateCard(text),
                   ],
                 ),
         ),

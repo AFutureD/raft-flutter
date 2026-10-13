@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_flutter/data/search_memory.dart';
@@ -10,6 +14,8 @@ import 'package:raft_flutter/platform/app_update.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:raft_updater/raft_updater.dart';
 
+import '../../../packages/raft_ui/test/task_typography_test.dart'
+    show loadTaskFonts;
 import 'workspace_source_location_contract_test.dart' show pageFixture;
 
 class _Memory implements SearchMemoryStorage {
@@ -67,8 +73,12 @@ Future<List<String>> _mount(
   WidgetTester t,
   AppUpdateService service,
   AppUpdater? updater,
-  TargetPlatform platform,
-) async {
+  TargetPlatform platform, {
+  bool start = true,
+  Size size = const Size(1000, 900),
+  RaftFamily family = RaftFamily.elegant,
+  bool dark = false,
+}) async {
   final launched = <String>[];
   t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
     const MethodChannel('plugins.flutter.io/url_launcher'),
@@ -86,22 +96,24 @@ Future<List<String>> _mount(
     ),
   );
   final (w, _) = await pageFixture(t, section: 'chat');
-  t.view.physicalSize = const Size(1000, 900);
+  t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
-  await t.runAsync(service.start);
+  if (start) await t.runAsync(service.start);
   await t.pumpWidget(
-    MaterialApp(
-      theme: raftTheme(
-        RaftFamily.elegant,
-        dark: false,
-      ).copyWith(platform: platform),
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: WorkspaceAboutSection(
-            controller: w,
-            appUpdate: service,
-            updater: updater,
+    RepaintBoundary(
+      key: _shotKey,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: raftTheme(family, dark: dark).copyWith(platform: platform),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: WorkspaceAboutSection(
+              controller: w,
+              appUpdate: service,
+              updater: updater,
+              showMobileApp: false,
+            ),
           ),
         ),
       ),
@@ -111,6 +123,7 @@ Future<List<String>> _mount(
   return launched;
 }
 
+final _shotKey = GlobalKey();
 final _action = find.byKey(const ValueKey('settings-about-update-action'));
 
 void main() {
@@ -231,9 +244,7 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('no card without a newer release, even when updatable', (
-    t,
-  ) async {
+  testWidgets('up to date: no update action, even when updatable', (t) async {
     final service = AppUpdateService(
       currentVersion: '0.1.0',
       currentBuild: 99,
@@ -246,6 +257,387 @@ void main() {
     await _mount(t, service, _FakeUpdater(), TargetPlatform.macOS);
     expect(find.text('Update now'), findsNothing);
     expect(_action, findsNothing);
+    expect(find.text("You're on the latest version"), findsOneWidget);
     await t.pumpWidget(const SizedBox());
   });
+
+  _updatesCardTests();
+  _screenshots();
 }
+
+final _check = find.byKey(const ValueKey('settings-about-update-check'));
+final _card = find.byKey(const ValueKey('settings-about-update'));
+
+/// A service whose fetch is scripted; [fetches] counts requests.
+class _Script {
+  _Script({
+    this.platform = 'android-arm64',
+    int build = 20,
+    TargetPlatform? target,
+    String version = '0.1.0',
+  }) {
+    service = AppUpdateService(
+      currentVersion: version,
+      currentBuild: build,
+      platformKey: platform,
+      target: target,
+      storage: _Memory(),
+      scheduleTimer: false,
+      clock: () => at ?? DateTime.now(),
+      log: (_) {},
+      fetch: (_) {
+        fetches++;
+        return next();
+      },
+    );
+  }
+  final String? platform;
+  late final AppUpdateService service;
+
+  /// Pins the service clock; null follows the wall clock (the card does).
+  DateTime? at;
+  int fetches = 0;
+  late Future<String?> Function() next = () async => body(build: 37);
+
+  String body({required int build}) => jsonEncode([
+    {
+      'platform': platform!.split('-').first,
+      'arch': platform!.split('-').last,
+      'version': '0.1.0',
+      'buildNumber': '$build',
+      'releaseTag': 'v0.1.0+5',
+      'artifact': 'raft-flutter-0.1.0+5-$platform.zip',
+    },
+  ]);
+}
+
+void _updatesCardTests() {
+  group('Updates card', () {
+    // (name, platform, manifest key, updater available)
+    final supported = <(String, TargetPlatform, String, bool?)>[
+      ('android', TargetPlatform.android, 'android-arm64', null),
+      ('macOS with updater', TargetPlatform.macOS, 'macos-arm64', true),
+      ('macOS without updater', TargetPlatform.macOS, 'macos-arm64', false),
+      ('windows with updater', TargetPlatform.windows, 'windows-x64', true),
+      ('windows without updater', TargetPlatform.windows, 'windows-x64', false),
+      ('linux AppImage', TargetPlatform.linux, 'appimage-x64', null),
+    ];
+    for (final (name, platform, key, updatable) in supported) {
+      group(name, () {
+        _FakeUpdater? updater() =>
+            updatable == null ? null : _FakeUpdater(available: updatable);
+
+        testWidgets('up to date: message, last checked, check button', (
+          t,
+        ) async {
+          final s = _Script(platform: key, build: 99);
+          addTearDown(s.service.dispose);
+          final fake = updater();
+          await _mount(t, s.service, fake, platform);
+          expect(_card, findsOneWidget);
+          expect(find.text("You're on the latest version"), findsOneWidget);
+          expect(find.text('Last checked: this minute'), findsOneWidget);
+          expect(_check, findsOneWidget);
+          expect(find.text('Check for updates'), findsOneWidget);
+          expect(_action, findsNothing);
+          await t.pumpWidget(const SizedBox());
+        });
+
+        testWidgets('Check for updates forces a check inside the throttle', (
+          t,
+        ) async {
+          final s = _Script(platform: key, build: 99);
+          addTearDown(s.service.dispose);
+          final fake = updater();
+          await _mount(t, s.service, fake, platform);
+          expect(s.fetches, 1);
+          await t.runAsync(s.service.checkIfDue);
+          expect(s.fetches, 1, reason: 'the 6 h throttle holds');
+          await t.tap(_check);
+          await t.pump();
+          await t.runAsync(() => Future<void>.delayed(Duration.zero));
+          await t.pump();
+          expect(s.fetches, 2);
+          expect(find.text('Last checked: this minute'), findsOneWidget);
+          // The native updater is never asked: no second dialog.
+          expect(fake?.calls ?? 0, 0);
+          await t.pumpWidget(const SizedBox());
+        });
+
+        testWidgets('a found release brings the action; check stays', (
+          t,
+        ) async {
+          final s = _Script(platform: key, build: 20);
+          addTearDown(s.service.dispose);
+          await _mount(t, s.service, updater(), platform);
+          expect(find.textContaining('New version available'), findsOneWidget);
+          expect(_action, findsOneWidget);
+          expect(_check, findsOneWidget);
+          expect(find.byType(RaftAttentionDot), findsOneWidget);
+          await t.pumpWidget(const SizedBox());
+        });
+
+        testWidgets('checking shows a spinner and disables the button', (
+          t,
+        ) async {
+          final s = _Script(platform: key, build: 99);
+          addTearDown(s.service.dispose);
+          final gate = Completer<String?>();
+          s.next = () => gate.future;
+          await _mount(t, s.service, updater(), platform, start: false);
+          unawaited(s.service.start());
+          await t.pump();
+          await t.pump();
+          expect(find.text('Checking for updates…'), findsOneWidget);
+          expect(find.byType(RaftSpinner), findsOneWidget);
+          expect(t.widget<RaftButton>(_check).onPressed, isNull);
+          expect(s.fetches, 1);
+          gate.complete(s.body(build: 1));
+          await t.pump();
+          await t.pump();
+          expect(find.text("You're on the latest version"), findsOneWidget);
+          expect(find.byType(RaftSpinner), findsNothing);
+          await t.pumpWidget(const SizedBox());
+        });
+
+        testWidgets('failure shows a short reason, success clears it', (
+          t,
+        ) async {
+          final s = _Script(platform: key, build: 99);
+          addTearDown(s.service.dispose);
+          s.next = () async => throw StateError('socket: 10.0.0.1 refused');
+          await _mount(t, s.service, updater(), platform);
+          expect(find.text("Couldn't check for updates"), findsOneWidget);
+          expect(
+            find.text('Check your connection and try again.'),
+            findsOneWidget,
+          );
+          // Never the raw exception text.
+          expect(find.textContaining('socket'), findsNothing);
+          expect(find.textContaining('StateError'), findsNothing);
+          expect(find.text('Last checked: this minute'), findsNothing);
+          expect(_check, findsOneWidget);
+
+          s.next = () async => s.body(build: 1);
+          await t.tap(_check);
+          await t.pump();
+          await t.runAsync(() => Future<void>.delayed(Duration.zero));
+          await t.pump();
+          expect(find.text("Couldn't check for updates"), findsNothing);
+          expect(
+            find.text('Check your connection and try again.'),
+            findsNothing,
+          );
+          expect(find.text("You're on the latest version"), findsOneWidget);
+          await t.pumpWidget(const SizedBox());
+        });
+      });
+    }
+
+    testWidgets('last checked renders the elapsed time', (t) async {
+      final old = _Script(build: 99);
+      addTearDown(old.service.dispose);
+      old.at = DateTime.now().subtract(const Duration(hours: 3));
+      await _mount(t, old.service, null, TargetPlatform.android);
+      expect(find.text('Last checked: 3 hours ago'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    for (final (name, platform, script, reason) in [
+      (
+        'iOS',
+        TargetPlatform.iOS,
+        () => _Script(platform: null, target: TargetPlatform.iOS),
+        "iOS builds aren't distributed through GitHub releases.",
+      ),
+      (
+        'dev build',
+        TargetPlatform.android,
+        () => _Script(platform: 'android-arm64', build: 0),
+        'This is a development build without a CI build number.',
+      ),
+      (
+        'Linux outside an AppImage',
+        TargetPlatform.linux,
+        () => _Script(platform: null, target: TargetPlatform.linux),
+        'Only the AppImage build can check for updates.',
+      ),
+    ]) {
+      testWidgets('$name: unsupported with a reason and no button', (t) async {
+        final s = script();
+        addTearDown(s.service.dispose);
+        await _mount(t, s.service, _FakeUpdater(), platform);
+        expect(_card, findsOneWidget);
+        expect(
+          find.text("Update checks aren't available for this build"),
+          findsOneWidget,
+        );
+        expect(find.text(reason), findsOneWidget);
+        expect(_check, findsNothing);
+        expect(_action, findsNothing);
+        expect(s.fetches, 0);
+        await t.pumpWidget(const SizedBox());
+      });
+    }
+
+    testWidgets('no card without a service', (t) async {
+      final (w, _) = await pageFixture(t, section: 'chat');
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: Scaffold(body: WorkspaceAboutSection(controller: w)),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(_card, findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+  });
+}
+
+/// Evidence renders of every Updates state, written only when
+/// RAFT_UPDATE_SHOTS_DIR is set (otherwise a no-op).
+void _screenshots() {
+  final dir = Platform.environment['RAFT_UPDATE_SHOTS_DIR'];
+  if (dir == null) return;
+
+  Future<void> shot(WidgetTester t, String name) async {
+    await t.runAsync(() async {
+      final boundary =
+          _shotKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('$dir/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+  }
+
+  final cases =
+      <
+        (
+          String,
+          TargetPlatform,
+          _Script Function(),
+          AppUpdater? Function(),
+          String?,
+        )
+      >[
+        (
+          'up-to-date-android',
+          TargetPlatform.android,
+          () => _Script(build: 99)..at = _ago(const Duration(hours: 3)),
+          () => null,
+          null,
+        ),
+        (
+          'up-to-date-macos',
+          TargetPlatform.macOS,
+          () =>
+              _Script(platform: 'macos-arm64', build: 99)
+                ..at = _ago(const Duration(minutes: 1)),
+          () => _FakeUpdater(),
+          null,
+        ),
+        (
+          'available-android',
+          TargetPlatform.android,
+          () => _Script(),
+          () => null,
+          null,
+        ),
+        (
+          'available-macos-update-now',
+          TargetPlatform.macOS,
+          () => _Script(platform: 'macos-arm64'),
+          () => _FakeUpdater(),
+          null,
+        ),
+        (
+          'available-windows-view-release',
+          TargetPlatform.windows,
+          () => _Script(platform: 'windows-x64'),
+          () => _FakeUpdater(available: false),
+          null,
+        ),
+        (
+          'failed',
+          TargetPlatform.android,
+          () =>
+              _Script(build: 99)
+                ..next = () async => throw StateError('socket refused'),
+          () => null,
+          null,
+        ),
+        (
+          'unsupported-ios',
+          TargetPlatform.iOS,
+          () => _Script(platform: null, target: TargetPlatform.iOS),
+          () => null,
+          null,
+        ),
+        (
+          'unsupported-dev-build',
+          TargetPlatform.macOS,
+          () => _Script(platform: 'macos-arm64', build: 0),
+          () => _FakeUpdater(),
+          null,
+        ),
+        (
+          'unsupported-linux-package',
+          TargetPlatform.linux,
+          () => _Script(platform: null, target: TargetPlatform.linux),
+          () => null,
+          null,
+        ),
+      ];
+
+  for (final (family, dark, suffix) in [
+    (RaftFamily.elegant, false, 'elegant-light'),
+    (RaftFamily.elegant, true, 'elegant-dark'),
+    (RaftFamily.brutal, false, 'brutal-light'),
+  ]) {
+    for (final (name, platform, script, updater, _) in cases) {
+      testWidgets('screenshot $name $suffix', (t) async {
+        await loadTaskFonts(t);
+        final s = script();
+        addTearDown(s.service.dispose);
+        await _mount(
+          t,
+          s.service,
+          updater(),
+          platform,
+          size: const Size(520, 360),
+          family: family,
+          dark: dark,
+        );
+        await shot(t, '$name-$suffix');
+        await t.pumpWidget(const SizedBox());
+      });
+    }
+    testWidgets('screenshot checking $suffix', (t) async {
+      await loadTaskFonts(t);
+      final s = _Script(build: 99);
+      addTearDown(s.service.dispose);
+      s.next = () => Completer<String?>().future;
+      await _mount(
+        t,
+        s.service,
+        null,
+        TargetPlatform.android,
+        start: false,
+        size: const Size(520, 360),
+        family: family,
+        dark: dark,
+      );
+      unawaited(s.service.start());
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+      await shot(t, 'checking-$suffix');
+      await t.pumpWidget(const SizedBox());
+    });
+  }
+}
+
+DateTime _ago(Duration d) => DateTime.now().subtract(d);

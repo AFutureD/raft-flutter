@@ -166,18 +166,58 @@ Future<String?> fetchManifestOverHttp(Uri url) async {
   }
 }
 
+/// What the About page shows in its Updates card.
+enum AppUpdateStatus {
+  /// This build does not take part in update checks; see
+  /// [AppUpdateService.unsupported].
+  unsupported,
+
+  /// Supported, but no check has finished or started yet (first frames).
+  idle,
+  checking,
+
+  /// A newer release is published.
+  available,
+
+  /// The last check failed and no newer release is known.
+  failed,
+
+  /// The last check succeeded and found nothing newer.
+  upToDate,
+}
+
+/// Why a build cannot check for updates.
+enum AppUpdateUnsupported {
+  /// iOS: not distributed through GitHub releases.
+  ios,
+
+  /// Linux outside an AppImage (a distro package updates through its package
+  /// manager).
+  linuxPackage,
+
+  /// Web and any other platform without a release asset.
+  platform,
+
+  /// A local or dev build: no CI build number or a `-dev` version.
+  development,
+}
+
 /// Detects a newer CI release and remembers what the user has already seen.
 ///
 /// One manifest request at start (after the first frame) and at most one per
 /// [interval] afterwards, triggered by [checkIfDue] on app resume plus one
-/// one-shot timer re-armed after each check (no periodic timer). Every failure
-/// is silent apart from one diagnostic line per run.
+/// one-shot timer re-armed after each check (no periodic timer). [checkNow] is
+/// the user's "Check for updates" button and ignores that throttle. A failure
+/// is logged once per run and kept in [failure] until the next successful
+/// check, which clears it (the About card derives its error text from it, so
+/// nothing can outlive its cause).
 class AppUpdateService extends ChangeNotifier {
   AppUpdateService({
     required this.currentVersion,
     required this.currentBuild,
     required this.platformKey,
     required this.fetch,
+    this.target,
     SearchMemoryStorage? storage,
     DateTime Function()? clock,
     this.interval = const Duration(hours: 6),
@@ -198,7 +238,9 @@ class AppUpdateService extends ChangeNotifier {
     String? platformKey,
     AppUpdateFetcher fetch = fetchManifestOverHttp,
     SearchMemoryStorage? storage,
+    TargetPlatform? target,
   }) => AppUpdateService(
+    target: target,
     releaseNotes: ClientReleaseNotes(fetch: fetch, storage: storage),
     currentVersion: version,
     currentBuild: int.tryParse(buildNumber),
@@ -215,6 +257,10 @@ class AppUpdateService extends ChangeNotifier {
   final int? currentBuild;
   final String? platformKey;
 
+  /// The platform this build runs on; only used to explain [unsupported].
+  /// Defaults to [defaultTargetPlatform].
+  final TargetPlatform? target;
+
   /// The client's release notes (Settings > Release Notes); independent of
   /// whether update checks are enabled for this build.
   final ClientReleaseNotes? releaseNotes;
@@ -229,6 +275,7 @@ class AppUpdateService extends ChangeNotifier {
   int _seen = 0;
   DateTime? _checkedAt, _attemptedAt;
   bool _failedLast = false, _loaded = false, _checking = false;
+  Object? _lastFailure;
   bool _loggedFailure = false, _disposed = false;
   Timer? _timer;
   Future<void>? _loading;
@@ -239,6 +286,38 @@ class AppUpdateService extends ChangeNotifier {
       (currentBuild ?? 0) > 0 &&
       currentVersion.isNotEmpty &&
       !currentVersion.contains('-dev');
+
+  /// Why this build cannot check for updates; null when it can.
+  AppUpdateUnsupported? get unsupported {
+    if (enabled) return null;
+    if (platformKey == null) {
+      if (kIsWeb) return AppUpdateUnsupported.platform;
+      return switch (target ?? defaultTargetPlatform) {
+        TargetPlatform.iOS => AppUpdateUnsupported.ios,
+        TargetPlatform.linux => AppUpdateUnsupported.linuxPackage,
+        _ => AppUpdateUnsupported.platform,
+      };
+    }
+    return AppUpdateUnsupported.development;
+  }
+
+  /// A check is running right now.
+  bool get checking => _checking;
+
+  /// When the last successful check finished (also remembered across runs).
+  DateTime? get lastChecked => _checkedAt;
+
+  /// The error of the last check; null after any successful check.
+  Object? get failure => _failedLast ? _lastFailure : null;
+
+  /// What the Updates card shows.
+  AppUpdateStatus get status {
+    if (!enabled) return AppUpdateStatus.unsupported;
+    if (_checking) return AppUpdateStatus.checking;
+    if (available != null) return AppUpdateStatus.available;
+    if (_failedLast) return AppUpdateStatus.failed;
+    return _checkedAt == null ? AppUpdateStatus.idle : AppUpdateStatus.upToDate;
+  }
 
   /// The newest published release, when it is newer than the running build.
   AppRelease? get available {
@@ -280,8 +359,18 @@ class AppUpdateService extends ChangeNotifier {
     await _check();
   }
 
+  /// The user asked: checks now, whatever the throttle says. Taps while a
+  /// check is running are ignored.
+  Future<void> checkNow() async {
+    if (!enabled || _disposed || _checking) return;
+    await _load();
+    if (_disposed || _checking) return;
+    await _check();
+  }
+
   Future<void> _check() async {
     _checking = true;
+    notifyListeners();
     final key = platformKey!;
     try {
       _attemptedAt = _clock();
@@ -289,21 +378,25 @@ class AppUpdateService extends ChangeNotifier {
       if (_disposed) return;
       final release = body == null ? null : parseBuildManifest(body, key);
       _failedLast = false;
+      _lastFailure = null;
       _checkedAt = _attemptedAt;
       // A release without this platform's manifest (or an unusable one) is
       // not an update; keep what was known before.
       if (release != null) _remote = release;
       await _save();
-      notifyListeners();
     } catch (error) {
       _failedLast = true;
+      _lastFailure = error;
       if (!_loggedFailure) {
         _loggedFailure = true;
         _log('Update check failed (${error.runtimeType})');
       }
     } finally {
       _checking = false;
-      if (!_disposed) _arm(_failedLast ? retryAfterFailure : interval);
+      if (!_disposed) {
+        _arm(_failedLast ? retryAfterFailure : interval);
+        notifyListeners();
+      }
     }
   }
 

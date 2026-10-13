@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -204,10 +205,12 @@ void main() {
       String version = '0.1.0',
       int? build = 20,
       String? platform = 'android-arm64',
+      TargetPlatform? target,
     }) => AppUpdateService(
       currentVersion: version,
       currentBuild: build,
       platformKey: platform,
+      target: target,
       fetch: (url) {
         requests.add(url);
         return fetcher(url);
@@ -337,7 +340,9 @@ void main() {
       await service.start();
       expect(service.available, isNull);
       expect(service.hasUnseen, isFalse);
-      expect(notified, 0);
+      // Checking on, then failed: the card needs both, the dot neither.
+      expect(notified, 2);
+      expect(service.status, AppUpdateStatus.failed);
       expect(logs, hasLength(1));
 
       now = now.add(const Duration(minutes: 10));
@@ -368,6 +373,109 @@ void main() {
         expect(service.available!.buildNumber, 37);
       }
       expect(logs, isEmpty);
+    });
+
+    test(
+      'checkNow ignores the throttle, taps during a check are ignored',
+      () async {
+        final service = make();
+        await service.start();
+        expect(requests, hasLength(1));
+        now = now.add(const Duration(minutes: 1));
+        await service.checkIfDue();
+        expect(requests, hasLength(1), reason: 'throttled');
+        await service.checkNow();
+        expect(requests, hasLength(2), reason: 'forced');
+
+        final gate = Completer<String?>();
+        fetcher = (_) => gate.future;
+        final first = service.checkNow();
+        await Future<void>.delayed(Duration.zero);
+        expect(service.status, AppUpdateStatus.checking);
+        await service.checkNow();
+        await service.checkIfDue();
+        expect(requests, hasLength(3), reason: 'one request while checking');
+        gate.complete(_manifest());
+        await first;
+        expect(service.status, AppUpdateStatus.available);
+      },
+    );
+
+    test(
+      'status: idle, up to date with a time, available, unsupported',
+      () async {
+        final service = make(build: 99);
+        expect(service.status, AppUpdateStatus.idle);
+        expect(service.lastChecked, isNull);
+        await service.start();
+        expect(service.status, AppUpdateStatus.upToDate);
+        expect(service.lastChecked, now);
+        expect(service.failure, isNull);
+        expect(make().unsupported, isNull);
+        final newer = make();
+        await newer.start();
+        expect(newer.status, AppUpdateStatus.available);
+        expect(make(build: null).status, AppUpdateStatus.unsupported);
+      },
+    );
+
+    test(
+      'a failure is kept until the next successful check clears it',
+      () async {
+        final service = make(build: 99);
+        await service.start();
+        fetcher = (_) async => throw StateError('offline');
+        await service.checkNow();
+        expect(service.status, AppUpdateStatus.failed);
+        expect(service.failure, isA<StateError>());
+        // The last good check time is not overwritten by the failure.
+        expect(service.lastChecked, now);
+        now = now.add(const Duration(minutes: 2));
+        fetcher = (_) async => _manifest();
+        await service.checkNow();
+        expect(service.failure, isNull);
+        expect(service.status, AppUpdateStatus.upToDate);
+        expect(service.lastChecked, now);
+      },
+    );
+
+    test(
+      'a failure with a known newer release still shows the release',
+      () async {
+        final service = make();
+        await service.start();
+        fetcher = (_) async => throw StateError('offline');
+        await service.checkNow();
+        expect(service.status, AppUpdateStatus.available);
+        expect(service.failure, isA<StateError>());
+      },
+    );
+
+    test('unsupported explains why', () {
+      expect(
+        make(platform: null, target: TargetPlatform.iOS).unsupported,
+        AppUpdateUnsupported.ios,
+      );
+      expect(
+        make(platform: null, target: TargetPlatform.linux).unsupported,
+        AppUpdateUnsupported.linuxPackage,
+      );
+      expect(
+        make(platform: null, target: TargetPlatform.fuchsia).unsupported,
+        AppUpdateUnsupported.platform,
+      );
+      expect(make(build: null).unsupported, AppUpdateUnsupported.development);
+      expect(
+        make(version: '0.1.0-dev').unsupported,
+        AppUpdateUnsupported.development,
+      );
+    });
+
+    test('checkNow makes no request for an unsupported build', () async {
+      final service = make(platform: null, target: TargetPlatform.iOS);
+      await service.checkNow();
+      expect(requests, isEmpty);
+      expect(service.status, AppUpdateStatus.unsupported);
     });
 
     test('corrupt stored state behaves like a first run', () async {

@@ -188,10 +188,18 @@ void main() {
     await t.tap(find.text('About'));
     await t.pumpAndSettle();
     expect(find.textContaining('New version available'), findsNothing);
+    // Up to date is still answered: the Updates card never goes away.
+    expect(find.text("You're on the latest version"), findsOneWidget);
+    expect(find.byKey(const ValueKey('settings-about-update-check')), findsOne);
     await t.pumpWidget(const SizedBox());
 
     await _mount(t, null);
     expect(_railDotIn(find.byKey(const Key('rail-settings'))), findsNothing);
+    await t.tap(find.byKey(const Key('rail-settings')));
+    await t.pumpAndSettle();
+    await t.tap(find.text('About'));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('settings-about-update')), findsNothing);
     await t.pumpWidget(const SizedBox());
   });
 

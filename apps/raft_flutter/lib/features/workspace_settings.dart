@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -6,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/mobile_tabbar_preferences.dart';
 import '../data/personal_presentation.dart';
+import '../data/user_error.dart';
 import '../data/workspace_controller.dart';
 import '../platform/app_update.dart';
 import '../platform/client_release_notes.dart';
@@ -15,6 +18,7 @@ import '../platform/native_notifications.dart';
 import 'account_settings.dart';
 import 'desktop_links_settings.dart';
 import 'administration_view.dart';
+import 'resource_cards.dart' show resourceRelativeTime;
 import 'appearance_section.dart';
 import 'billing_view.dart';
 import 'im_bridges_view.dart';
@@ -454,40 +458,124 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
 
   AppUpdater get _updater => widget.updater ?? AppUpdater.instance;
 
+  /// The Updates card under the Version card; null only where the build has
+  /// no update service (Web, public pages).
+  ///
+  /// macOS and Windows: "Check for updates" runs the same manifest check as
+  /// everywhere else and never calls Sparkle / WinSparkle. Their
+  /// user-initiated check opens its own dialog ("You're up to date" or the
+  /// update flow), which next to this card would answer the same question
+  /// twice and, when a release exists, offer the install twice. So the card
+  /// answers "is there a newer release?" itself, and "Update now" (shown only
+  /// when there is one) hands over to the native updater for the download,
+  /// verification, install and relaunch.
   RaftAboutUpdate? update(BuildContext context) {
-    final release = widget.appUpdate?.available;
-    if (release == null) return null;
+    final service = widget.appUpdate;
+    if (service == null || kIsWeb) return null;
     final platform = Theme.of(context).platform;
     final android = platform == TargetPlatform.android;
-    // Sparkle / WinSparkle run their own check, download and install dialogs;
-    // this button only starts them. Only a build that can update in place.
-    final inPlace =
-        (platform == TargetPlatform.macOS ||
-            platform == TargetPlatform.windows) &&
-        _updater.available;
-    Future<void> openReleasePage() => launchUrl(
-      android ? release.downloadUrl : release.releasePage,
-      mode: LaunchMode.externalApplication,
-    );
-    return RaftAboutUpdate(
-      message: raftFormat(
-        context,
-        'New version available: {version} ({build})',
-        {'version': release.version, 'build': release.buildNumber},
+    final VoidCallback? check = service.checking
+        ? null
+        : () => unawaited(service.checkNow());
+    switch (service.status) {
+      case AppUpdateStatus.unsupported:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.unsupported,
+          message: raftText(
+            context,
+            "Update checks aren't available for this build",
+          ),
+          detail: raftText(context, switch (service.unsupported) {
+            AppUpdateUnsupported.ios =>
+              "iOS builds aren't distributed through GitHub releases.",
+            AppUpdateUnsupported.linuxPackage =>
+              'Only the AppImage build can check for updates.',
+            AppUpdateUnsupported.development =>
+              'This is a development build without a CI build number.',
+            _ => "This platform isn't updated from GitHub releases.",
+          }),
+        );
+      case AppUpdateStatus.checking:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.checking,
+          message: raftText(context, 'Checking for updates…'),
+        );
+      case AppUpdateStatus.idle:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.idle,
+          message: raftText(context, 'Not checked for updates yet'),
+          onCheck: check,
+        );
+      case AppUpdateStatus.upToDate:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.upToDate,
+          message: raftText(context, "You're on the latest version"),
+          detail: _lastChecked(context, service),
+          onCheck: check,
+        );
+      case AppUpdateStatus.failed:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.failed,
+          message: raftText(context, "Couldn't check for updates"),
+          detail: raftText(
+            context,
+            userErrorText(
+              service.failure,
+              fallback: 'Check your connection and try again.',
+              where: 'update check',
+            ),
+          ),
+          onCheck: check,
+        );
+      case AppUpdateStatus.available:
+        final release = service.available!;
+        // Sparkle / WinSparkle run their own download and install dialogs;
+        // this button only starts them. Only a build that can update in place.
+        final inPlace =
+            (platform == TargetPlatform.macOS ||
+                platform == TargetPlatform.windows) &&
+            _updater.available;
+        Future<void> openReleasePage() => launchUrl(
+          android ? release.downloadUrl : release.releasePage,
+          mode: LaunchMode.externalApplication,
+        );
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.available,
+          message: raftFormat(
+            context,
+            'New version available: {version} ({build})',
+            {'version': release.version, 'build': release.buildNumber},
+          ),
+          detail: _lastChecked(context, service),
+          actionLabel: inPlace
+              ? 'Update now'
+              : android
+              ? 'Download update'
+              : 'View release',
+          onAction: !inPlace
+              ? openReleasePage
+              : () async {
+                  final outcome = await _updater.checkAndInstall();
+                  // openedReleasePage: the plugin already opened the page.
+                  if (outcome == AppUpdateOutcome.failed) {
+                    await openReleasePage();
+                  }
+                },
+          onCheck: check,
+        );
+    }
+  }
+
+  String? _lastChecked(BuildContext context, AppUpdateService service) {
+    final at = service.lastChecked;
+    if (at == null) return null;
+    return raftFormat(context, 'Last checked: {time}', {
+      'time': resourceRelativeTime(
+        at.toIso8601String(),
+        now: DateTime.now(),
+        chinese: Localizations.localeOf(context).languageCode == 'zh',
       ),
-      actionLabel: inPlace
-          ? 'Update now'
-          : android
-          ? 'Download update'
-          : 'View release',
-      onAction: !inPlace
-          ? openReleasePage
-          : () async {
-              final outcome = await _updater.checkAndInstall();
-              // openedReleasePage: the plugin already opened the page.
-              if (outcome == AppUpdateOutcome.failed) await openReleasePage();
-            },
-    );
+    });
   }
 
   @override

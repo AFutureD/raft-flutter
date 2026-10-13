@@ -1696,8 +1696,14 @@ Full table and guard design: `docs/navigation-audit.md`. Intended differences re
   `build-manifest-<platform>-<arch>.json` (never the REST API) at start and at most every 6 h, and shows a red dot
   on the Settings entry and the About row plus a "New version available: X (build)" row in About with a download
   (Android) or release-page (desktop) button; on macOS and Windows builds that carry an update key (installed copy on
-  Windows) the button reads "Update now" and starts Sparkle/WinSparkle instead (`docs/auto-update.md`). Web updates itself and has no equivalent. Skipped for iOS,
-  dev builds and Linux outside an AppImage. Build numbers: CI passes `--build-number=<run>` and
+  Windows) the button reads "Update now" and starts Sparkle/WinSparkle instead (`docs/auto-update.md`). Web updates itself and has no equivalent. About always shows an Updates card under Version (native only):
+  "You're on the latest version" with "Last checked: <relative time>", "Checking for updates…" with a spinner, the
+  new-version row above, "Couldn't check for updates" with a short reason (failures never show raw exception
+  text; the reason clears on the next successful check), or, for iOS, dev builds and Linux outside an AppImage,
+  "Update checks aren't available for this build" with the reason and no button. Every supported build has a
+  "Check for updates" button that checks now, ignoring the 6 h throttle (taps during a check are ignored). On
+  macOS/Windows it runs the same manifest check and does not call Sparkle/WinSparkle: their own check opens a
+  second dialog that would repeat the card's answer; "Update now" is what hands over to them. Build numbers: CI passes `--build-number=<run>` and
   `--dart-define=RAFT_BUILD_NUMBER=<run>`; the manifest `buildNumber` is compared with that define (Android's
   `versionCode` is 2000 + the same number for the arm64 split APK).
 * Settings > Release Notes lists the client's own release notes (the `release-notes.json` asset of the latest

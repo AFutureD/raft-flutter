@@ -23,6 +23,10 @@ reads "Update now" and calls `checkAndInstall()` (a `failed` outcome falls back 
 opening the release page; `openedReleasePage` already opened it). Elsewhere, or when
 `available` is false, it reads "View release" and opens the release page. The updater does no
 scheduled or startup checks and never prompts by itself.
+About's "Check for updates" button runs only the lightweight manifest check (forced, ignoring the 6 h
+throttle); it never calls `checkForUpdates`, because Sparkle/WinSparkle's own dialog would answer the same
+question a second time next to the card. Only "Update now" (shown when the manifest has a newer build) starts
+the native flow.
 
 ## Decision: why a local plugin and not `auto_updater`
 

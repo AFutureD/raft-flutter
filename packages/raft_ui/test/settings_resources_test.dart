@@ -35,6 +35,65 @@ void main() {
     expect(android, 1);
   });
 
+  testWidgets('About Updates card: one row per state, buttons by state', (
+    t,
+  ) async {
+    var checks = 0, updates = 0;
+    Future<void> mount(RaftAboutUpdate update) => t.pumpWidget(
+      _host(RaftSettingsAbout(version: '1.0.0', update: update)),
+    );
+    final check = find.byKey(const ValueKey('settings-about-update-check'));
+    final action = find.byKey(const ValueKey('settings-about-update-action'));
+
+    await mount(
+      RaftAboutUpdate(
+        state: RaftAboutUpdateState.upToDate,
+        message: 'Latest',
+        detail: 'Last checked: today',
+        onCheck: () => checks++,
+      ),
+    );
+    expect(find.text('Latest'), findsOneWidget);
+    expect(find.text('Last checked: today'), findsOneWidget);
+    expect(action, findsNothing);
+    await t.tap(check);
+    expect(checks, 1);
+
+    await mount(
+      RaftAboutUpdate(
+        state: RaftAboutUpdateState.available,
+        message: 'New',
+        actionLabel: 'Update now',
+        onAction: () => updates++,
+        onCheck: () => checks++,
+      ),
+    );
+    expect(find.byType(RaftAttentionDot), findsOneWidget);
+    await t.tap(action);
+    expect(updates, 1);
+    expect(check, findsOneWidget);
+
+    await mount(
+      const RaftAboutUpdate(
+        state: RaftAboutUpdateState.checking,
+        message: 'Checking',
+      ),
+    );
+    expect(find.byType(RaftSpinner), findsOneWidget);
+    expect(t.widget<RaftButton>(check).onPressed, isNull);
+
+    await mount(
+      const RaftAboutUpdate(
+        state: RaftAboutUpdateState.unsupported,
+        message: 'No checks',
+        detail: 'Reason',
+      ),
+    );
+    expect(check, findsNothing);
+    expect(action, findsNothing);
+    expect(find.text('Reason'), findsOneWidget);
+  });
+
   testWidgets('About without a mobile app or workspace keeps Version only', (
     t,
   ) async {
