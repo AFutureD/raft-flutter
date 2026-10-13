@@ -325,10 +325,26 @@ class _BarPainter extends CustomPainter {
 /// Neutral reserved box of an image whose bytes are in flight (or failed):
 /// the surface with a quiet picture glyph, under the bottom-edge bar.
 class RaftTransferPlaceholder extends StatelessWidget {
-  const RaftTransferPlaceholder({super.key});
+  const RaftTransferPlaceholder({super.key, this.onDark = false});
+
+  /// On a dark stage (the image viewer): a translucent white box and glyph
+  /// instead of the cream / muted fill of the light surfaces.
+  final bool onDark;
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
+    if (onDark) {
+      return ColoredBox(
+        color: Colors.white.withValues(alpha: .1),
+        child: Center(
+          child: RaftIcon(
+            RaftGlyph.image,
+            size: 30,
+            color: Colors.white.withValues(alpha: .4),
+          ),
+        ),
+      );
+    }
     return ColoredBox(
       color: t.brutal ? t.components.brutalCream : t.colors['fill-muted']!,
       child: Center(

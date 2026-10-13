@@ -357,6 +357,8 @@ void main() {
     expect(barValue(tester), closeTo(.75, 1e-9));
     // Leaving the viewer does not cancel what the timeline still waits for.
     await tester.tap(find.byTooltip('Close preview'));
+    // The dialog fades out, then the route (and the viewer) is gone.
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     expect(server.routes['/original']!.cancelled, isFalse);
     expect(bars, findsNothing);
@@ -397,6 +399,7 @@ void main() {
       expect(server.routes['/original']!.cancelled, isFalse);
       // Back out of the viewer: the original download is cancelled.
       await tester.tap(find.byTooltip('Close preview'));
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 400));
       await hop(tester);
       expect(server.routes['/original']!.cancelled, isTrue);
@@ -446,7 +449,8 @@ void main() {
     expect(failed, findsNothing);
     server.routes['/original']!.chunk(mib);
     await hop(tester);
-    await tick(tester);
+    // The chip of the new attempt waits out its delay like the first one.
+    await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Original image 1.0 / 4.0 MB'), findsOneWidget);
   });
 
@@ -471,6 +475,8 @@ void main() {
     expect(placeholders, findsOneWidget);
     final box = tester.getSize(placeholders);
     expect(box.width / box.height, closeTo(2, .01));
+    // On the dark stage: not the cream / light fill of the timeline.
+    expect(tester.widget<RaftTransferPlaceholder>(placeholders).onDark, isTrue);
     server.routes['/original']!.chunk(mib);
     await hop(tester);
     await tick(tester);

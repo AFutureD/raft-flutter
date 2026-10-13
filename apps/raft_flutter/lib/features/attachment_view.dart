@@ -593,43 +593,40 @@ class _AttachmentViewState extends State<AttachmentView> {
       }
       if (!mounted || !current()) return;
       late final ModalRoute<void> operationRoute;
-      operationRoute = createPreviewRoute(
-        page,
-        (dialogContext) {
-          void close() {
-            if (dialogContext.mounted &&
-                identical(previewRoute, operationRoute) &&
-                operationRoute.isCurrent) {
-              operationRoute.navigator?.pop();
-            }
+      operationRoute = createPreviewRoute(page, (dialogContext) {
+        void close() {
+          if (dialogContext.mounted &&
+              identical(previewRoute, operationRoute) &&
+              operationRoute.isCurrent) {
+            operationRoute.navigator?.pop();
           }
+        }
 
-          return html
-              ? HtmlAttachmentPreviewDialog(
-                  page: page,
-                  controller: w,
-                  metadata: widget.metadata,
-                  authorized: current,
-                  onClose: close,
-                  onDownload: download,
-                )
-              : AttachmentPreviewDialog(
-                  page: page,
-                  controller: w,
-                  metadata: widget.metadata,
-                  channelId: ownerChannel,
-                  authorized: current,
-                  onClose: close,
-                  onDownload: download,
-                  onNetworkSettings: kIsWeb
-                      ? null
-                      : () {
-                          close();
-                          openNetworkSettings();
-                        },
-                );
-        },
-      );
+        return html
+            ? HtmlAttachmentPreviewDialog(
+                page: page,
+                controller: w,
+                metadata: widget.metadata,
+                authorized: current,
+                onClose: close,
+                onDownload: download,
+              )
+            : AttachmentPreviewDialog(
+                page: page,
+                controller: w,
+                metadata: widget.metadata,
+                channelId: ownerChannel,
+                authorized: current,
+                onClose: close,
+                onDownload: download,
+                onNetworkSettings: kIsWeb
+                    ? null
+                    : () {
+                        close();
+                        openNetworkSettings();
+                      },
+              );
+      });
       previewRoute = operationRoute;
       if (known == null) {
         unawaited(
@@ -661,13 +658,11 @@ class _AttachmentViewState extends State<AttachmentView> {
     // Web opens the lightbox with the message's previewable images and the
     // clicked one selected; a lone image (files panel, forwarded) is its own
     // gallery.
-    final siblings = widget.messageId != null &&
-            (widget.galleryItems?.length ?? 0) > 1
+    final siblings =
+        widget.messageId != null && (widget.galleryItems?.length ?? 0) > 1
         ? widget.galleryItems!
         : [widget.metadata];
-    final start = siblings.indexWhere(
-      (m) => m['id'] == widget.metadata['id'],
-    );
+    final start = siblings.indexWhere((m) => m['id'] == widget.metadata['id']);
     late final ModalRoute<void> operationRoute;
     operationRoute = createPreviewRoute(
       page,
@@ -690,11 +685,9 @@ class _AttachmentViewState extends State<AttachmentView> {
             onClose: () {
               if (identical(previewRoute, operationRoute) &&
                   operationRoute.isCurrent) {
-                if (page) {
-                  operationRoute.navigator?.pop();
-                } else {
-                  operationRoute.navigator?.removeRoute(operationRoute);
-                }
+                // The dialog fades out like the preview dialog does; the
+                // image stays interactive meanwhile.
+                operationRoute.navigator?.pop();
               }
             },
           );

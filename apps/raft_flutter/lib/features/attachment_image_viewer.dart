@@ -79,6 +79,10 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
   bool zoomed = false;
   bool _disposed = false;
 
+  /// Pages whose original has been on screen: paging back to one does not
+  /// show the progress chip again.
+  final _settledPages = <int>{};
+
   WorkspaceController get w => widget.controller;
   Map<String, dynamic> item(int i) => widget.items[i];
   String ownerChannel(int i) =>
@@ -234,6 +238,7 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
   }
 
   void _pageReady(int i) {
+    if (pageKeys[i]?.currentState?.full != null) _settledPages.add(i);
     if (i == index) _preloadNeighbours();
   }
 
@@ -254,8 +259,21 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
   void goTo(int target) {
     if (target < 0 || target >= widget.items.length || target == index) return;
     if (!pages.hasClients) return;
-    // Web swaps the image at once (no transition); a swipe animates natively.
-    pages.jumpToPage(target);
+    // Web swaps the image at once (no transition) and the desktop keeps that;
+    // a phone has no Web counterpart and swipes animate natively, so a step
+    // to the next / previous image glides too (a longer jump would build,
+    // and start loading, every page in between: it cuts).
+    if (widget.page && (target - index).abs() == 1) {
+      unawaited(
+        pages.animateToPage(
+          target,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        ),
+      );
+    } else {
+      pages.jumpToPage(target);
+    }
   }
 
   /// Web handleKeyDown: while zoomed the arrows do not navigate.
@@ -419,6 +437,7 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
               title: '${pageMeta['filename'] ?? 'Attachment'}',
               transferTotalHint: (pageMeta['sizeBytes'] as num?)?.toInt(),
               imageSize: _size(pageMeta),
+              settledBefore: _settledPages.contains(i),
               onReady: () => _pageReady(i),
             );
           },

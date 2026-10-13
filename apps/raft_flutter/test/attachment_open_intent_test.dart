@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
+import 'package:raft_flutter/features/attachment_image_zoom.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_ui/raft_ui.dart';
@@ -260,8 +261,8 @@ void main() {
     );
     await tester.pump();
     final zoom = tester
-        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-        .transformationController!;
+        .widget<ImageZoomSurface>(find.byType(ImageZoomSurface))
+        .controller;
     zoom.value = Matrix4.identity()..scaleByDouble(2, 2, 1, 1);
     expect(zoom.value.getMaxScaleOnAxis(), 2);
     await tester.sendKeyEvent(LogicalKeyboardKey.digit0);

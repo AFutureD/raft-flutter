@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -254,6 +258,7 @@ class RaftAttachmentLightbox extends StatelessWidget {
     this.aside,
     this.asideOpen = false,
     this.overlay,
+    this.overlayInset = 0,
     this.page = false,
     this.shortcuts = const {},
   });
@@ -278,6 +283,12 @@ class RaftAttachmentLightbox extends StatelessWidget {
   /// Painted over the stage (gallery arrows, thumbnail strip).
   final Widget? overlay;
 
+  /// Height of the [overlay] band along the bottom edge. The stage keeps
+  /// this much free above and below its centre line ([RaftLightboxStageInset])
+  /// so a fitted image never lies under the overlay (centred images stay
+  /// where Web puts them).
+  final double overlayInset;
+
   /// Mobile page route: the host pushes a platform route, so the shell is a
   /// plain Material page with the shared page header instead of a dialog.
   final bool page;
@@ -291,7 +302,12 @@ class RaftAttachmentLightbox extends StatelessWidget {
     final wide = MediaQuery.sizeOf(context).width >= raftLightboxSmBreakpoint;
     Widget stage = Stack(
       children: [
-        Positioned.fill(child: child),
+        Positioned.fill(
+          child: RaftLightboxStageInset(
+            vertical: overlay == null ? 0 : overlayInset,
+            child: child,
+          ),
+        ),
         if (overlay != null) Positioned.fill(child: overlay!),
       ],
     );
@@ -410,6 +426,28 @@ class RaftAttachmentLightbox extends StatelessWidget {
   }
 }
 
+/// Vertical space the stage content keeps free above and below the stage's
+/// centre line (the thumbnail strip's band, mirrored so the content stays
+/// centred). Read with [RaftLightboxStageInset.of].
+class RaftLightboxStageInset extends InheritedWidget {
+  const RaftLightboxStageInset({
+    super.key,
+    required this.vertical,
+    required super.child,
+  });
+  final double vertical;
+
+  static double of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<RaftLightboxStageInset>()
+          ?.vertical ??
+      0;
+
+  @override
+  bool updateShouldNotify(RaftLightboxStageInset oldWidget) =>
+      vertical != oldWidget.vertical;
+}
+
 /// Web `ImageLightbox` stage: "Empty-stage clicks close the lightbox", and a
 /// click that lands inside the (zoomed / panned) image does not. A plain tap
 /// (not a drag or pinch, which win the gesture arena) outside the painted
@@ -454,8 +492,14 @@ class RaftLightboxCounter extends StatelessWidget {
   );
 }
 
+/// Height of the thumbnail strip band: `size-12` thumbnails, `bottom-4`, and
+/// breathing room above. [RaftAttachmentLightbox.overlayInset] for the strip.
+const raftLightboxThumbnailBand = 48.0 + 16 + 8;
+
 /// Thumbnail strip (`absolute bottom-4 flex gap-1.5`, `size-12 border-2`).
-class RaftLightboxThumbnails extends StatelessWidget {
+/// Few thumbnails sit centred as in Web; more than fit scroll sideways (drag,
+/// or the mouse wheel) and the active one is kept in view.
+class RaftLightboxThumbnails extends StatefulWidget {
   const RaftLightboxThumbnails({
     super.key,
     required this.thumbnails,
@@ -465,15 +509,80 @@ class RaftLightboxThumbnails extends StatelessWidget {
   final List<ImageProvider?> thumbnails;
   final int index;
   final ValueChanged<int> onSelect;
+
+  @override
+  State<RaftLightboxThumbnails> createState() => _RaftLightboxThumbnailsState();
+}
+
+class _RaftLightboxThumbnailsState extends State<RaftLightboxThumbnails> {
+  final _scroll = ScrollController();
+  final _keys = <int, GlobalKey>{};
+  bool _first = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal();
+  }
+
+  @override
+  void didUpdateWidget(RaftLightboxThumbnails oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index != widget.index) _reveal();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Centres the active thumbnail (at once on open, a short glide after).
+  void _reveal() {
+    final animate = !_first;
+    _first = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = _keys[widget.index]?.currentContext;
+      if (!mounted || context == null || !_scroll.hasClients) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          alignment: .5,
+          duration: animate ? const Duration(milliseconds: 150) : Duration.zero,
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+  }
+
+  /// Mouse wheel over the strip scrolls it sideways (a plain vertical wheel
+  /// included) instead of reaching the image underneath.
+  void _wheel(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_scroll.hasClients) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (e) {
+      final scroll = e as PointerScrollEvent;
+      final delta = scroll.scrollDelta.dx != 0
+          ? scroll.scrollDelta.dx
+          : scroll.scrollDelta.dy;
+      final position = _scroll.position;
+      _scroll.jumpTo(
+        (position.pixels + delta).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     Widget thumb(int i) {
-      final active = i == index;
+      final active = i == widget.index;
       final border = active
           ? (t.brutal ? t.product.softSignal : t.colors['accent-strong']!)
           : Colors.white.withValues(alpha: .3);
-      final image = thumbnails[i];
+      final image = widget.thumbnails[i];
       Widget box = Container(
         width: 48,
         height: 48,
@@ -506,24 +615,49 @@ class RaftLightboxThumbnails extends StatelessWidget {
       if (!active) box = Opacity(opacity: .6, child: box);
       return RaftInteractive(
         key: ValueKey('lightbox-thumbnail-$i'),
-        onPressed: () => onSelect(i),
+        onPressed: () => widget.onSelect(i),
         semanticLabel: 'Image ${i + 1}',
-        builder: (_, _) => box,
+        builder: (_, _) =>
+            KeyedSubtree(key: _keys.putIfAbsent(i, GlobalKey.new), child: box),
       );
     }
 
+    // Room above and beside the thumbnails for the active one's shadow.
+    const pad = 8.0;
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < thumbnails.length; i++) ...[
-              if (i > 0) const SizedBox(width: 6),
-              thumb(i),
-            ],
-          ],
+        padding: const EdgeInsets.only(bottom: 16 - pad),
+        child: Listener(
+          onPointerSignal: _wheel,
+          child: SizedBox(
+            key: const ValueKey('lightbox-thumbnails'),
+            height: 48 + 2 * pad,
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                key: const ValueKey('lightbox-thumbnail-scroll'),
+                controller: _scroll,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.all(pad),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: math.max(0, constraints.maxWidth - 2 * pad),
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < widget.thumbnails.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          thumb(i),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

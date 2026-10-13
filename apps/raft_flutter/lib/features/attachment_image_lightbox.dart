@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
+import 'attachment_image_zoom.dart';
 import 'attachment_transfer_view.dart';
 
 /// Gallery state of the lightbox: the message's raster images (Web
@@ -59,6 +61,7 @@ class AttachmentImageLightbox extends StatelessWidget {
           ? null
           : RaftLightboxCounter(index: g.index, count: g.count),
       actions: actions,
+      overlayInset: g == null ? 0 : raftLightboxThumbnailBand,
       overlay: g == null
           ? null
           : RaftLightboxThumbnails(
@@ -89,7 +92,12 @@ class AttachmentLightboxImage extends StatefulWidget {
     this.transferTotalHint,
     this.imageSize,
     this.onReady,
+    this.settledBefore = false,
   });
+
+  /// The viewer showed this page's original already: paging back to it does
+  /// not bring the progress chip back.
+  final bool settledBefore;
 
   /// Called once the full-resolution original is on screen (or failed): the
   /// viewer then preloads this page's neighbours.
@@ -125,6 +133,12 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
   ImageProvider? full;
   bool failed = false;
 
+  /// The progress chip waits [progressDelay] after the load starts: a load
+  /// that ends sooner (cache, neighbour, paging back) never flashes it.
+  static const progressDelay = Duration(milliseconds: 300);
+  bool progressShown = false;
+  Timer? _progressTimer;
+
   /// Completes when the load under way ends (never errors); a save of this
   /// page's original waits for it instead of fetching the bytes again.
   Future<void> settled = Future<void>.value();
@@ -158,6 +172,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     lease = next;
     transfer = AttachmentTransferView(next.lease.progress);
     final ready = next.lease.value;
+    if (ready == null && !widget.settledBefore) _startProgressDelay();
     if (ready != null) {
       full = ready;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -167,11 +182,28 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     }
     try {
       final provider = await next.lease.ready;
+      _stopProgressDelay();
       if (mounted && identical(lease, next)) setState(() => full = provider);
     } catch (_) {
+      _stopProgressDelay();
       if (mounted && identical(lease, next)) setState(() => failed = true);
     }
     if (mounted && identical(lease, next)) widget.onReady?.call();
+  }
+
+  void _startProgressDelay() {
+    _progressTimer?.cancel();
+    progressShown = false;
+    _progressTimer = Timer(progressDelay, () {
+      _progressTimer = null;
+      if (mounted) setState(() => progressShown = true);
+    });
+  }
+
+  void _stopProgressDelay() {
+    _progressTimer?.cancel();
+    _progressTimer = null;
+    progressShown = false;
   }
 
   /// Tap on the failed chip: fetch the original again.
@@ -190,6 +222,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     // The full-resolution bitmap is not kept once the lightbox closes; its
     // bytes stay in the persistent store for the next open. Releasing the
     // last consumer of an in-flight download cancels it.
+    _progressTimer?.cancel();
     lease?.release(discard: true);
     lease = null;
     super.dispose();
@@ -202,9 +235,14 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     final aspect = natural == null ? 4 / 3 : natural.width / natural.height;
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Keep clear of the thumbnail strip band, mirrored so the box stays
+        // centred (and the size chip never lands under the strip).
+        final inset = RaftLightboxStageInset.of(context);
         final max = constraints.biggest;
         var width = max.width.isFinite ? max.width : 320.0;
-        var height = max.height.isFinite ? max.height : width / aspect;
+        var height = max.height.isFinite
+            ? math.max(0.0, max.height - 2 * inset)
+            : width / aspect;
         if (width / height > aspect) {
           width = height * aspect;
         } else {
@@ -222,7 +260,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
               fit: StackFit.expand,
               children: [
                 thumbnail == null
-                    ? const RaftTransferPlaceholder()
+                    ? const RaftTransferPlaceholder(onDark: true)
                     // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
                     : Image(
                         image: thumbnail,
@@ -230,9 +268,19 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
                         fit: BoxFit.contain,
                         gaplessPlayback: true,
                       ),
-                if (failed)
-                  RaftImageTransferOverlay.failed(inset: 10, onRetry: retry)
-                else if (transfer != null)
+                if (failed) ...[
+                  RaftImageTransferOverlay.failed(inset: 10, onRetry: retry),
+                  // The red chip alone is easy to miss: a plain Retry button.
+                  if (widget.acquire != null)
+                    Center(
+                      child: RaftTextButton(
+                        key: const ValueKey('lightbox-retry'),
+                        label: raftText(context, 'Retry'),
+                        glyph: RaftGlyph.refreshCw,
+                        onPressed: retry,
+                      ),
+                    ),
+                ] else if (transfer != null && progressShown)
                   RaftImageTransferOverlay(
                     progress: transfer!,
                     fallbackTotal: widget.transferTotalHint,
@@ -284,35 +332,22 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     // zoom/pan ... also guard against stage-target clicks that land inside the
     // transformed image." A tap (not a pan / pinch) outside the painted image
     // closes the route; the tap recognizer loses the arena to a drag.
-    return LayoutBuilder(
-      builder: (context, constraints) => GestureDetector(
-        key: const ValueKey('lightbox-stage'),
-        behavior: HitTestBehavior.translucent,
-        onTapUp: (details) {
-          if (!imageContains(details.localPosition, constraints.biggest)) {
-            unawaited(Navigator.maybePop(context));
-          }
-        },
-        // Pan only while zoomed in: at fit scale a horizontal drag belongs to
-        // the viewer's PageView (swipe to the next image).
-        child: ListenableBuilder(
-          listenable: widget.zoom,
-          builder: (context, child) => InteractiveViewer(
-            transformationController: widget.zoom,
-            panEnabled: widget.zoom.value.getMaxScaleOnAxis() > 1.001,
-            child: child!,
-          ),
-          // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
-          child: Image(
-            image: provider,
-            key: widget.imageKey,
-            fit: BoxFit.scaleDown,
-            gaplessPlayback: true,
-            errorBuilder: (context, _, _) => RaftLightboxFailure(
-              title: widget.title,
-              message: 'Failed to load image',
-            ),
-          ),
+    return ImageZoomSurface(
+      controller: widget.zoom,
+      natural: decoded ?? widget.imageSize,
+      verticalInset: RaftLightboxStageInset.of(context),
+      onTapOutside: () => unawaited(Navigator.maybePop(context)),
+      // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
+      child: Image(
+        image: provider,
+        key: widget.imageKey,
+        fit: (decoded ?? widget.imageSize) == null
+            ? BoxFit.scaleDown
+            : BoxFit.contain,
+        gaplessPlayback: true,
+        errorBuilder: (context, _, _) => RaftLightboxFailure(
+          title: widget.title,
+          message: 'Failed to load image',
         ),
       ),
     );
@@ -340,11 +375,15 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     final stream = provider.resolve(createLocalImageConfiguration(context));
     if (_sizeStream?.key == stream.key) return;
     _unwatchDecodedSize();
-    final listener = ImageStreamListener((info, _) {
+    final listener = ImageStreamListener((info, synchronous) {
       final image = info.image;
-      decoded = Size(image.width.toDouble(), image.height.toDouble());
+      final size = Size(image.width.toDouble(), image.height.toDouble());
       // The stream hands every listener its own clone; only the size is kept.
       info.dispose();
+      if (decoded == size) return;
+      decoded = size;
+      // A synchronous call happens while building; the build reads it next.
+      if (!synchronous && mounted) setState(() {});
     });
     stream.addListener(listener);
     _sizeStream = stream;
@@ -356,30 +395,5 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     if (listener != null) _sizeStream?.removeListener(listener);
     _sizeStream = null;
     _sizeListener = null;
-  }
-
-  /// Whether [point] (stage coordinates) lands on the painted image: its
-  /// `scaleDown` box centred in [stage], mapped through the zoom / pan
-  /// transform. Without a known pixel size every point counts as the image
-  /// (never closes by accident).
-  @visibleForTesting
-  bool imageContains(Offset point, Size stage) {
-    final natural = decoded ?? widget.imageSize;
-    if (natural == null || natural.isEmpty) return true;
-    final scale = [
-      1.0,
-      stage.width / natural.width,
-      stage.height / natural.height,
-    ].reduce((a, b) => a < b ? a : b);
-    final size = natural * scale;
-    final box = Rect.fromCenter(
-      center: stage.center(Offset.zero),
-      width: size.width,
-      height: size.height,
-    );
-    final inverse = Matrix4.tryInvert(widget.zoom.value);
-    if (inverse == null) return true;
-    final local = MatrixUtils.transformPoint(inverse, point);
-    return box.contains(local);
   }
 }

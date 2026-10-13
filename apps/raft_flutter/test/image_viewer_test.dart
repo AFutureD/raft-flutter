@@ -2,17 +2,21 @@
 // keys and swipe; Download in the header on wide layouts, the long-press menu
 // (save to the photo library, share) on phones; downloads reuse the cached
 // original; neighbours preload one image each side.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
+import 'package:raft_flutter/features/attachment_image_lightbox.dart';
 import 'package:raft_flutter/features/attachment_image_viewer.dart';
+import 'package:raft_flutter/features/attachment_image_zoom.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
 import 'package:raft_flutter/platform/native_sharing.dart';
@@ -58,6 +62,12 @@ class _Files extends AttachmentFiles {
       );
   final Directory out;
   final reads = <String>[];
+
+  /// While set, originals and thumbnails report progress and wait for it.
+  Completer<void>? hold;
+
+  /// Fails the full-size originals (not the thumbnails).
+  bool failOriginals = false;
   final networkSaves = <String>[];
   final gallerySaves = <({String name, String mime, Uint8List bytes})>[];
   bool failSaves = false;
@@ -69,6 +79,14 @@ class _Files extends AttachmentFiles {
     void Function(int received, int total)? onProgress,
   }) async {
     reads.add(url);
+    if (failOriginals && !url.contains('/thumb/')) {
+      throw const SocketException('offline');
+    }
+    final gate = hold;
+    if (gate != null) {
+      onProgress?.call(10, 100);
+      await gate.future;
+    }
     return pngFor(url.split('/').last);
   }
 
@@ -156,15 +174,19 @@ class _Rig {
   Directory get out => files.out;
 }
 
-List<Map<String, dynamic>> _images(int count, {bool thumbnails = false}) => [
+List<Map<String, dynamic>> _images(
+  int count, {
+  bool thumbnails = false,
+  Size size = const Size(16, 16),
+}) => [
   for (var i = 0; i < count; i++)
     {
       'id': 'img$i',
       'channelId': 'channel',
       'filename': 'photo-$i.png',
       'mimeType': 'image/png',
-      'width': 16,
-      'height': 16,
+      'width': size.width,
+      'height': size.height,
       'sizeBytes': 100,
       if (thumbnails)
         'thumbnailUrl': 'https://storage.example.invalid/thumb/img$i',
@@ -187,6 +209,8 @@ Future<_Rig> _mount(
   bool thumbnails = false,
   bool gallery = false,
   bool share = true,
+  Size imageSize = const Size(16, 16),
+  Completer<void>? hold,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -205,7 +229,7 @@ Future<_Rig> _mount(
         ..channel = RaftChannel({'id': 'channel', 'joined': true});
   w.channels = [w.channel!];
   w.ledger.switchServer('server');
-  final items = _images(count, thumbnails: thumbnails);
+  final items = _images(count, thumbnails: thumbnails, size: imageSize);
   w.ledger.ingest([
     {
       'id': 'm1',
@@ -216,7 +240,7 @@ Future<_Rig> _mount(
     },
   ], expectedGeneration: w.ledger.generation);
   w.visibleIds['channel'] = {'m1'};
-  final files = _Files(out, gallery: gallery);
+  final files = _Files(out, gallery: gallery)..hold = hold;
   final sharing = _Sharing(share);
   final toasts = RaftToastController();
   addTearDown(() async {
@@ -526,6 +550,244 @@ void main() {
     });
   });
 
+  group('loading and failure', () {
+    Finder chip() => find.byType(RaftTransferBar);
+
+    testWidgets('the progress chip waits 300 ms and is not shown for a page '
+        'that was already loaded', (tester) async {
+      final gate = Completer<void>();
+      final rig = await _mount(
+        tester,
+        size: _phone,
+        count: 3,
+        gallery: true,
+        hold: gate,
+      );
+      await tester.tap(find.byTooltip('Preview photo-0.png'));
+      // Loading started: no chip for the first 300 ms, then it appears.
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(chip(), findsNothing);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(chip(), findsOneWidget);
+      gate.complete();
+      await _settle(tester, 8);
+      expect(chip(), findsNothing);
+      final viewer = _viewer(tester);
+      // Page away; forget the stored bytes; page back: the network is hit
+      // again, but a page that was shown once never brings the chip back.
+      viewer.goTo(2);
+      await _settle(tester, 8);
+      for (final entry in rig.root.listSync(recursive: true)) {
+        if (entry is File && entry.path.contains('/cache/')) entry.deleteSync();
+      }
+      final again = Completer<void>();
+      rig.files.hold = again;
+      viewer.goTo(0);
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 20));
+      final page = tester.widget<AttachmentLightboxImage>(
+        find.byType(AttachmentLightboxImage).first,
+      );
+      expect(page.settledBefore, isTrue);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(chip(), findsNothing);
+      again.complete();
+      await _settle(tester, 8);
+    });
+
+    testWidgets('a failed original keeps a visible Retry that loads again', (
+      tester,
+    ) async {
+      final rig = await _mount(
+        tester,
+        size: _wide,
+        count: 2,
+        thumbnails: true,
+        imageSize: const Size(3000, 2000),
+      );
+      rig.files.failOriginals = true;
+      await _open(tester, 0);
+      await _settle(tester, 12);
+      final retry = find.byKey(const ValueKey('lightbox-retry'));
+      expect(retry, findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      rig.files.failOriginals = false;
+      await tester.tap(retry);
+      await _settle(tester, 12);
+      expect(retry, findsNothing);
+    });
+  });
+
+  group('closing and page changes', () {
+    testWidgets('desktop: closing fades out (reverse transition), then gone', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide);
+      await _open(tester, 0);
+      await tester.tap(find.byTooltip('Close preview'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      // Mid-transition the viewer is still painted.
+      expect(find.byType(AttachmentImageViewer), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(AttachmentImageViewer), findsNothing);
+    });
+
+    testWidgets('desktop keeps Web\'s hard cut for arrows and thumbnails', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide);
+      await _open(tester, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.pump();
+      expect(_viewer(tester).pages.page, 1.0);
+      await tester.tap(find.byKey(const ValueKey('lightbox-thumbnail-2')));
+      await tester.pump();
+      await tester.pump();
+      expect(_viewer(tester).pages.page, 2.0);
+    });
+
+    testWidgets('phone: stepping to the next image glides, a long jump cuts', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, count: 5, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      viewer.goTo(1);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(viewer.pages.page, inExclusiveRange(0.0, 1.0));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(viewer.pages.page, 1.0);
+      viewer.goTo(4);
+      await tester.pump();
+      expect(viewer.pages.page, 4.0);
+    });
+  });
+
+  group('thumbnail strip', () {
+    Rect thumb(WidgetTester tester, int i) =>
+        tester.getRect(find.byKey(ValueKey('lightbox-thumbnail-$i')));
+    double offset(WidgetTester tester) => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(const ValueKey('lightbox-thumbnail-scroll')),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position
+        .pixels;
+
+    testWidgets('opens with the active thumbnail in view, centred', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, count: 12, gallery: true);
+      await _open(tester, 8);
+      await _settle(tester, 6);
+      final active = thumb(tester, 8);
+      expect(active.left, greaterThanOrEqualTo(0));
+      expect(active.right, lessThanOrEqualTo(_phone.width));
+      expect(active.center.dx, closeTo(_phone.width / 2, 1));
+    });
+
+    testWidgets('follows the page: swiping to the last image scrolls it in', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, count: 12, gallery: true);
+      await _open(tester, 0);
+      _viewer(tester).goTo(11);
+      await _settle(tester, 8);
+      final active = thumb(tester, 11);
+      expect(active.right, lessThanOrEqualTo(_phone.width));
+      expect(active.left, greaterThanOrEqualTo(0));
+      // The first ones scrolled away to the left.
+      expect(thumb(tester, 0).right, lessThanOrEqualTo(0));
+    });
+
+    testWidgets('a few thumbnails stay centred as in Web', (tester) async {
+      await _mount(tester, size: _wide, count: 3);
+      await _open(tester, 0);
+      final first = thumb(tester, 0), last = thumb(tester, 2);
+      expect((first.left + last.right) / 2, closeTo(_wide.width / 2, 1));
+      expect(first.width, 48);
+      // `bottom-4`: the thumbnails end 16 px above the stage's bottom edge.
+      expect(first.bottom, closeTo(_wide.height - 16, 1));
+    });
+
+    testWidgets('a drag scrolls the strip', (tester) async {
+      await _mount(tester, size: _phone, count: 12, gallery: true);
+      await _open(tester, 0);
+      await _settle(tester, 6);
+      expect(offset(tester), 0);
+      await tester.drag(
+        find.byKey(const ValueKey('lightbox-thumbnail-3')),
+        const Offset(-150, 0),
+      );
+      await tester.pump();
+      expect(offset(tester), greaterThan(100));
+      expect(_counter(tester), '1 / 12', reason: 'the strip, not the pages');
+    });
+
+    testWidgets('the mouse wheel over the strip scrolls it, never zooms', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, count: 12);
+      await _open(tester, 0);
+      await _settle(tester, 6);
+      final at = tester.getCenter(
+        find.byKey(const ValueKey('lightbox-thumbnail-2')),
+      );
+      final mouse = TestPointer(9, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(mouse.hover(at));
+      await tester.sendEventToBinding(mouse.scroll(const Offset(0, 120)));
+      await tester.pump();
+      expect(offset(tester), 120);
+      // Even with the zoom modifier held the strip gets it.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendEventToBinding(mouse.scroll(const Offset(0, 60)));
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(offset(tester), 180);
+      expect(_viewer(tester).zoomed, isFalse);
+      expect(_viewer(tester).zoomFor(0).value, Matrix4.identity());
+    });
+
+    testWidgets('the strip band is reserved: stage content keeps clear of it', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      await _mount(
+        tester,
+        size: _wide,
+        count: 3,
+        imageSize: const Size(3000, 4000),
+        hold: gate,
+      );
+      await _open(tester, 0);
+      // The loading stand-in (tall) ends above the strip band.
+      final stand = tester.getRect(
+        find
+            .descendant(
+              of: find.byType(AttachmentLightboxImage),
+              matching: find.byType(RaftTransferPlaceholder),
+            )
+            .first,
+      );
+      expect(stand.bottom, lessThanOrEqualTo(thumb(tester, 0).top));
+      gate.complete();
+      await _settle(tester, 8);
+      expect(
+        tester
+            .widget<ImageZoomSurface>(find.byType(ImageZoomSurface))
+            .verticalInset,
+        raftLightboxThumbnailBand,
+      );
+    });
+  });
+
   group('swipe on phones', () {
     testWidgets('a horizontal swipe switches images; first and last stop', (
       tester,
@@ -551,6 +813,43 @@ void main() {
       await tester.dragFrom(stage, const Offset(300, 0));
       await _settle(tester, 8);
       expect(_counter(tester), '2 / 3');
+    });
+
+    testWidgets('a fast flick pages at fit scale (sparse move events)', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final stage = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      // A real flick delivers few, large move events: the first one is far
+      // beyond every slop at once. The image must not win it from the pages.
+      for (final step in [90.0, 130.0, 200.0]) {
+        final finger = await tester.createGesture();
+        await finger.down(
+          stage + const Offset(150, 0),
+          timeStamp: Duration.zero,
+        );
+        await finger.moveBy(
+          Offset(-step, 0),
+          timeStamp: const Duration(milliseconds: 16),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        await finger.moveBy(
+          Offset(-step, 0),
+          timeStamp: const Duration(milliseconds: 32),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        await finger.up(timeStamp: const Duration(milliseconds: 40));
+        await _settle(tester, 8);
+        expect(_counter(tester), '2 / 3', reason: 'flick of $step px/event');
+        // Back to the first image for the next flick.
+        viewer.goTo(0);
+        await _settle(tester, 8);
+      }
+      expect(viewer.zoomed, isFalse);
     });
 
     testWidgets('zoomed, a horizontal drag pans instead of switching', (
