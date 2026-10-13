@@ -265,6 +265,7 @@ class SourceChannelFilesActions {
       }
       return _LoadedFileImage(
         image: (key) =>
+            // ignore: raft_lints/avoid_raw_image_decode -- The provider comes from an AttachmentImageRepository lease: already decoded at the target size and shared with the message bubble.
             Image(image: lease.provider, key: key, fit: BoxFit.contain),
         release: lease.release,
       );

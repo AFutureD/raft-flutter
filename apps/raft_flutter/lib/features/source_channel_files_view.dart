@@ -965,6 +965,7 @@ class _FileThumbnailState extends State<SourceChannelFileThumbnail> {
             Center(child: ChannelFileGlyph(channelFileType(widget.file))),
       );
     }
+    // ignore: raft_lints/avoid_raw_image_decode -- The provider comes from an AttachmentImageRepository lease: already decoded at the target size and shared with the message bubble.
     return Image(
       image: currentLease!.provider,
       fit: fit,

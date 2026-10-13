@@ -856,6 +856,7 @@ class _AttachmentViewState extends State<AttachmentView> {
   );
 
   Widget previewImage(ImageProvider provider) {
+    // ignore: raft_lints/avoid_raw_image_decode -- The provider comes from an AttachmentImageRepository lease: already decoded at the target size and shared with the message bubble.
     Widget image({Animation<double>? opacity}) => Image(
       image: provider,
       opacity: opacity,

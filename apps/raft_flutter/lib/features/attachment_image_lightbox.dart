@@ -223,6 +223,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
               children: [
                 thumbnail == null
                     ? const RaftTransferPlaceholder()
+                    // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
                     : Image(
                         image: thumbnail,
                         key: widget.imageKey,
@@ -301,6 +302,7 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
             panEnabled: widget.zoom.value.getMaxScaleOnAxis() > 1.001,
             child: child!,
           ),
+          // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
           child: Image(
             image: provider,
             key: widget.imageKey,

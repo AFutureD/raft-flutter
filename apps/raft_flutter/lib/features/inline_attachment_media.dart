@@ -579,6 +579,7 @@ class _InlineVideoAttachmentState extends State<InlineVideoAttachment>
         poster: playback.hasFrame
             ? null
             : still != null
+            // ignore: raft_lints/avoid_raw_image_decode -- Paints the released player's still: a ui.Image captured from the video RepaintBoundary at display size (toImage), not a decode.
             ? RawImage(image: still, fit: BoxFit.contain)
             : poster == null
             ? null

@@ -23,11 +23,13 @@ const double raftZoomableImageScale = 2.5;
 
 /// The one sanctioned raw network provider (public URL, no auth headers).
 /// Always hand it to [RaftSizedImage] / [raftSizedImage]; never to `Image`.
+// ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
 ImageProvider<Object> raftPublicNetworkImage(String url) => NetworkImage(url);
 
 /// Drops the unsized cache entry for [bytes]. Sized entries are dropped by
 /// [RaftSizedImage.evictOnDispose].
 Future<bool> raftEvictMemoryImage(Uint8List bytes) =>
+    // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
     MemoryImage(bytes).evict();
 
 /// Physical pixels needed to show [logical] dp at [devicePixelRatio], rounded
@@ -249,6 +251,7 @@ class RaftSizedImage extends StatefulWidget {
     ImageErrorWidgetBuilder? errorBuilder,
   }) : this(
          key: key,
+         // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
          image: NetworkImage(url),
          width: width,
          height: height,
@@ -281,6 +284,7 @@ class RaftSizedImage extends StatefulWidget {
     ImageErrorWidgetBuilder? errorBuilder,
   }) : this(
          key: key,
+         // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
          image: MemoryImage(bytes),
          width: width,
          height: height,
@@ -353,6 +357,7 @@ class _RaftSizedImageState extends State<RaftSizedImage> {
       zoom: widget.zoom,
     );
     if (widget.evictOnDispose) _built.add(provider);
+    // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
     return Image(
       image: provider,
       width: widget.width,

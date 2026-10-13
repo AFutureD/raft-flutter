@@ -316,6 +316,7 @@ Future<DecodedAttachmentImage> decodeAttachmentImage(
   ui.Codec? codec;
   final int width, height;
   try {
+    // ignore: raft_lints/avoid_raw_image_decode -- Attachment images decode through decodeAttachmentImage at the target display size (bucketed), and the repository owns their lifetime.
     descriptor = await ui.ImageDescriptor.encoded(buffer);
     (width, height) = attachmentDecodeSize(
       descriptor.width,

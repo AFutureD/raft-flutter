@@ -482,6 +482,7 @@ class RaftLightboxThumbnails extends StatelessWidget {
               : t.themeShadows.sm.outer,
         ),
         child: image != null
+            // ignore: raft_lints/avoid_raw_image_decode -- Thumbnail strip reuses the already-decoded bitmaps of the message attachments (OneFrame bitmap providers, nothing left to resize).
             ? Image(image: image, fit: BoxFit.cover)
             : ColoredBox(
                 color: Colors.white.withValues(alpha: .2),
