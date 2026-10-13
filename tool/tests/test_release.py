@@ -202,6 +202,56 @@ class ReleaseTests(unittest.TestCase):
                 self.assertIn(f'--build-number={number}', command)
                 self.assertNotIn('DART_DEFINES', commands.call_args.kwargs['env'])
 
+    def test_release_passes_the_official_origins_and_identity_defines(self):
+        sha = 'a' * 40
+        with patch.dict(release.os.environ, {'GITHUB_SHA': sha}), \
+                patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands, \
+                self.assertRaisesRegex(RuntimeError, 'captured'):
+            release.build('windows')
+        command = [str(part) for part in commands.call_args.args[0]]
+        for define in ('RAFT_ORIGIN=https://api.raft.build', 'RAFT_FRONTEND_ORIGIN=https://app.raft.build',
+                       'RAFT_DEPLOYMENT_ENV=production', f'RAFT_COMMIT_SHA={sha}'):
+            self.assertIn(f'--dart-define={define}', command)
+        self.assertFalse([c for c in command if 'RAFT_FEEDBACK_EXPORT_URL' in c])
+
+    def test_feedback_export_worker_is_passed_only_when_configured_and_valid(self):
+        sha = 'b' * 40
+        env = {'GITHUB_SHA': sha, 'RAFT_FEEDBACK_EXPORT_URL': 'https://feedback.example.com/'}
+        self.assertEqual(release.release_defines('1.2.3', '7', env)['RAFT_FEEDBACK_EXPORT_URL'],
+                         'https://feedback.example.com/')
+        for bad in ('http://feedback.example.com', 'feedback.example.com', 'https://u:p@feedback.example.com',
+                    'https://feedback.example.com/?token=x', 'https://feedback.example.com/a b'):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                release.release_defines('1.2.3', '7', {**env, 'RAFT_FEEDBACK_EXPORT_URL': bad})
+
+    def test_release_refuses_missing_or_dev_defines_before_building(self):
+        good = {'RAFT_APP_VERSION': '1.2.3', 'RAFT_BUILD_NUMBER': '7', 'RAFT_ORIGIN': release.OFFICIAL_API_ORIGIN,
+                'RAFT_FRONTEND_ORIGIN': release.OFFICIAL_WEB_ORIGIN, 'RAFT_DEPLOYMENT_ENV': 'production',
+                'RAFT_COMMIT_SHA': 'c' * 40}
+        self.assertEqual(release.validate_release_defines(dict(good)), good)
+        for key in release.RELEASE_REQUIRED_DEFINES:
+            with self.subTest(missing=key), self.assertRaisesRegex(ValueError, key):
+                release.validate_release_defines({k: v for k, v in good.items() if k != key})
+            with self.subTest(empty=key), self.assertRaisesRegex(ValueError, key):
+                release.validate_release_defines({**good, key: ''})
+        for key, value in [('RAFT_ORIGIN', 'http://localhost:13041'), ('RAFT_FRONTEND_ORIGIN', 'https://api.raft.build'),
+                           ('RAFT_FRONTEND_ORIGIN', 'http://localhost:15213'), ('RAFT_DEPLOYMENT_ENV', 'staging'),
+                           ('RAFT_BUILD_NUMBER', '0'), ('RAFT_BUILD_NUMBER', 'x'), ('RAFT_COMMIT_SHA', 'abc'),
+                           ('RAFT_COMMIT_SHA', 'A' * 40)]:
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                release.validate_release_defines({**good, key: value})
+        with patch.dict(release.os.environ, {'GITHUB_SHA': 'not-a-commit'}), \
+                patch.object(release, 'run') as commands, self.assertRaises(ValueError):
+            release.build('windows')
+        commands.assert_not_called()
+
+    def test_release_origin_pair_matches_the_app_link_mapping(self):
+        source = (release.APP / 'lib/platform/content_links.dart').read_text()
+        self.assertIn(f"'{release.OFFICIAL_API_ORIGIN}': '{release.OFFICIAL_WEB_ORIGIN}'", source)
+        main = (release.APP / 'lib/main.dart').read_text()
+        self.assertIn(f"defaultValue: '{release.OFFICIAL_API_ORIGIN}'", main)
+
+
     def test_appimage_compiles_linux_without_android_keys(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
                 patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands:

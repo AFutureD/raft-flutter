@@ -53,6 +53,8 @@ jobs:
       RELEASE_BUILD_NUMBER: ${{ inputs.build_number }}
       # Public by design (verifies update signatures). Empty disables auto-update.
       SPARKLE_ED_PUBLIC_KEY: ${{ vars.SPARKLE_ED_PUBLIC_KEY }}
+      # Public feedback export worker origin. Empty hides the Report Issue entry.
+      RAFT_FEEDBACK_EXPORT_URL: ${{ vars.RAFT_FEEDBACK_EXPORT_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

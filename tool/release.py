@@ -14,7 +14,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import release_notes  # noqa: E402
@@ -275,6 +275,71 @@ def isolated_version(version, suffix):
     return f'{version}{"." if "-" in version else "-"}{label}'
 
 
+# The official API and the Web app that serves it. Release builds bake both in
+# (RAFT_ORIGIN, RAFT_FRONTEND_ORIGIN) so a missing define can never turn Web links
+# (public page, invites, message links) into API-origin links. The pair must equal
+# an entry of ContentLinks.officialWebOrigins (checked by tool/tests/test_release.py).
+OFFICIAL_API_ORIGIN = 'https://api.raft.build'
+OFFICIAL_WEB_ORIGIN = 'https://app.raft.build'
+RELEASE_REQUIRED_DEFINES = ('RAFT_APP_VERSION', 'RAFT_BUILD_NUMBER', 'RAFT_ORIGIN',
+                            'RAFT_FRONTEND_ORIGIN', 'RAFT_DEPLOYMENT_ENV', 'RAFT_COMMIT_SHA')
+
+
+def commit_sha(environ):
+    """The commit being built: GITHUB_SHA in CI, otherwise the checkout's HEAD."""
+    value = environ.get('GITHUB_SHA', '').strip()
+    if not value:
+        value = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    return value
+
+
+def release_defines(shown_version, number, environ):
+    """Every compile-time define a formal release build passes, validated.
+
+    Required: version, build number, API origin, Web origin, deployment
+    environment and commit. RAFT_FEEDBACK_EXPORT_URL is optional: it is the
+    repository Actions variable of the feedback export worker and, when unset,
+    the Report Issue entry is hidden (as on the Web without
+    VITE_FEEDBACK_EXPORT_URL).
+    """
+    defines = {
+        'RAFT_APP_VERSION': shown_version,
+        # The update check compares this with the manifest's buildNumber.
+        'RAFT_BUILD_NUMBER': number,
+        'RAFT_ORIGIN': OFFICIAL_API_ORIGIN,
+        'RAFT_FRONTEND_ORIGIN': OFFICIAL_WEB_ORIGIN,
+        'RAFT_DEPLOYMENT_ENV': 'production',
+        'RAFT_COMMIT_SHA': commit_sha(environ),
+    }
+    feedback = environ.get('RAFT_FEEDBACK_EXPORT_URL', '').strip()
+    if feedback:
+        defines['RAFT_FEEDBACK_EXPORT_URL'] = feedback
+    return validate_release_defines(defines)
+
+
+def validate_release_defines(defines):
+    """Refuse a release whose defines would silently fall back to dev defaults."""
+    missing = [key for key in RELEASE_REQUIRED_DEFINES if not str(defines.get(key, '')).strip()]
+    if missing:
+        raise ValueError(f'Release build is missing required defines: {", ".join(missing)}')
+    if not re.fullmatch(r'[1-9][0-9]*', str(defines['RAFT_BUILD_NUMBER'])):
+        raise ValueError('RAFT_BUILD_NUMBER must be a positive integer')
+    if not re.fullmatch(r'[0-9a-f]{40}', str(defines['RAFT_COMMIT_SHA'])):
+        raise ValueError('RAFT_COMMIT_SHA must be a 40-character lowercase hex commit id')
+    if defines['RAFT_DEPLOYMENT_ENV'] != 'production':
+        raise ValueError('RAFT_DEPLOYMENT_ENV must be production in a release build')
+    for key, official in (('RAFT_ORIGIN', OFFICIAL_API_ORIGIN), ('RAFT_FRONTEND_ORIGIN', OFFICIAL_WEB_ORIGIN)):
+        if defines[key] != official:
+            raise ValueError(f'{key} must be {official} in a release build, got {defines[key]!r}')
+    feedback = defines.get('RAFT_FEEDBACK_EXPORT_URL')
+    if feedback is not None:
+        parsed = urlsplit(feedback)
+        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
+                or parsed.query or parsed.fragment or re.search(r'\s', feedback)):
+            raise ValueError('RAFT_FEEDBACK_EXPORT_URL must be a plain https URL')
+    return defines
+
+
 def build(platform):
     identity = current_release()
     version, number = identity['version'], identity['build_number']
@@ -287,8 +352,9 @@ def build(platform):
     arch = config['arch']
     name = f'raft-flutter-{isolated_version(identity["asset_version"], suffix)}-{platform}-{arch}'
     # No test entry points, inherited Dart defines or private local fixtures in hosted CI.
-    # The only defines supplied here are the public release version shown in About
-    # and the CI build number the update check compares.
+    # The only defines supplied here are release_defines() (version, build number,
+    # official API/Web origins, deployment, commit, optional feedback worker) and
+    # the updater/Linux-isolation ones below.
     env = dict(os.environ)
     env.pop('DART_DEFINES', None)
     android = None
@@ -300,9 +366,7 @@ def build(platform):
     public_key = appcast.read_public_key(env) if platform in {'macos', 'windows'} else ''
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else 'linux' if platform == 'appimage' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={shown_version}', f'--build-number={number}',
-               f'--dart-define=RAFT_APP_VERSION={shown_version}',
-               # The update check compares this with the manifest's buildNumber.
-               f'--dart-define=RAFT_BUILD_NUMBER={number}']
+               *[f'--dart-define={key}={value}' for key, value in release_defines(shown_version, number, env).items()]]
     if suffix:
         # Same value as the CMake environment variable: id, keyring, no raft:// handler.
         command.append(f'--dart-define=RAFT_LINUX_APPLICATION_ID_SUFFIX={suffix}')
