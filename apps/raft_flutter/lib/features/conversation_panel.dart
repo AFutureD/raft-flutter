@@ -171,6 +171,9 @@ class _ConversationPanelState extends State<ConversationPanel> {
     final lease = w.acquireAttachmentImage(
       key,
       authorized: authorized,
+      // The 56px row tile takes whichever version is already on disk; a
+      // preview (no decode target) needs its own full-size rendition.
+      bestAvailable: rendition == SourceChannelImageRendition.thumbnail,
       load: (cancel) async {
         String url;
         if (usesThumbnail) {

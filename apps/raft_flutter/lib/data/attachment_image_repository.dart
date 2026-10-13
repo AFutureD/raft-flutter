@@ -116,6 +116,31 @@ class AttachmentImageKey {
     channelId: channelId,
     entry: jsonEncode([attachmentId, revision, rendition]),
   );
+
+  /// Persisted entries that can serve this key, best first. With
+  /// [bestAvailable] (list rows, cards, posters: pictures whose exact
+  /// resolution does not matter) the original decoded at the target size
+  /// comes first, else the server thumbnail. Which of the two a message asks
+  /// for depends on whether it currently carries a `thumbnailUrl`, which
+  /// varies between launches; without this the other version would be
+  /// downloaded again. Without it (the lightbox and its preloads) only this
+  /// key's own rendition counts: a stored 320px thumbnail never stands in for
+  /// the full picture.
+  List<AttachmentImageStoreKey> storeLookup({required bool bestAvailable}) =>
+      bestAvailable && _isImageRendition(rendition)
+      ? [_withRendition('original'), _withRendition('thumbnail')]
+      : [storeKey];
+
+  static bool _isImageRendition(String rendition) =>
+      rendition == 'original' || rendition == 'thumbnail';
+
+  AttachmentImageStoreKey _withRendition(String value) =>
+      AttachmentImageStoreKey(
+        identity: storeIdentity(scope),
+        channelId: channelId,
+        entry: jsonEncode([attachmentId, revision, value]),
+      );
+
   static String storeIdentity(AttachmentImageScope scope) =>
       identityOf(scope.origin, scope.principal, scope.server);
 
@@ -504,6 +529,10 @@ class _ImageEntry {
   /// Requested by an explicit open rather than background list work.
   bool foreground = false;
 
+  /// May be served by any stored version of the attachment's image (see
+  /// [AttachmentImageKey.storeLookup]); set by the first consumer.
+  bool bestAvailable = false;
+
   /// When the last lease was returned ([AttachmentImageRepository.clock]);
   /// null while a lease is held.
   Duration? idleSince;
@@ -631,6 +660,7 @@ class AttachmentImageRepository {
     required AttachmentImageLoader load,
     required bool Function() authorized,
     bool foreground = false,
+    bool bestAvailable = false,
   }) {
     if (!canRead(key) || !authorized()) throw const StaleAttachmentImage();
     // A same attachment/message slot with a changed projected revision retires
@@ -652,7 +682,7 @@ class AttachmentImageRepository {
     }
     if (e == null) {
       _makeRoom(entries: 1);
-      e = _ImageEntry(key, load);
+      e = _ImageEntry(key, load)..bestAvailable = bestAvailable;
       _entries[key] = e;
       if (foreground) {
         e.foreground = true;
@@ -773,14 +803,23 @@ class AttachmentImageRepository {
     _SourceFetch? fetch;
     try {
       Uint8List? bytes;
+      AttachmentImageStoreKey? stored;
       final store = this.store;
       if (store != null) {
-        try {
-          bytes = await store.read(e.key.storeKey);
-        } catch (_) {
-          bytes = null;
+        for (final candidate in e.key.storeLookup(
+          bestAvailable: e.bestAvailable,
+        )) {
+          try {
+            bytes = await store.read(candidate);
+          } catch (_) {
+            bytes = null;
+          }
+          if (!_wanted(e)) throw const StaleAttachmentImage();
+          if (bytes != null) {
+            stored = candidate;
+            break;
+          }
         }
-        if (!_wanted(e)) throw const StaleAttachmentImage();
       }
       e.fromStore = bytes != null;
       if (bytes == null) {
@@ -814,7 +853,7 @@ class AttachmentImageRepository {
         decoded = await _decoder(bytes, e.key.target);
       } catch (_) {
         // Undecodable persisted bytes are not served again.
-        if (e.fromStore) unawaited(_quietly(store!.remove(e.key.storeKey)));
+        if (stored != null) unawaited(_quietly(store!.remove(stored)));
         rethrow;
       }
       if (!_wanted(e)) throw const StaleAttachmentImage();

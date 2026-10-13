@@ -757,6 +757,7 @@ class WorkspaceController extends ChangeNotifier {
     required AttachmentImageLoader load,
     required bool Function() authorized,
     bool foreground = false,
+    bool bestAvailable = false,
   }) {
     if (presentationSource != null) {
       return presentationSource!.acquireAttachmentImage(
@@ -764,6 +765,7 @@ class WorkspaceController extends ChangeNotifier {
         load: load,
         authorized: authorized,
         foreground: foreground,
+        bestAvailable: bestAvailable,
       );
     }
     final releaseAuthority = _registerImageAuthority(key, authorized);
@@ -776,6 +778,7 @@ class WorkspaceController extends ChangeNotifier {
           load: load,
           authorized: authorized,
           foreground: foreground,
+          bestAvailable: bestAvailable,
         ),
         releaseAuthority,
       );

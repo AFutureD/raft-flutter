@@ -511,6 +511,7 @@ class _AttachmentViewState extends State<AttachmentView> {
         key,
         authorized: current,
         load: loaderFor(key),
+        bestAvailable: true,
       );
       imageLease = lease;
       final provider = await lease.lease.ready;
