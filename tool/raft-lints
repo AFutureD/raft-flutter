@@ -83,9 +83,15 @@ def changed_files(root, base=DEFAULT_BASE):
     return [name for name in names if (pathlib.Path(root) / name).is_file()]
 
 
+def without_git_env():
+    """Environment for tool/flutter: git hooks export GIT_DIR / GIT_INDEX_FILE / ..., which make the
+    Flutter SDK's own `git` calls look at the project repository ("selected SDK is 0.0.0-unknown")."""
+    return {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+
+
 def dart_sdk_root():
     command = ([sys.executable] if os.name == 'nt' else []) + [str(ROOT / 'tool/flutter')]
-    out = subprocess.run([*command, '--version', '--machine'], capture_output=True, text=True)
+    out = subprocess.run([*command, '--version', '--machine'], capture_output=True, text=True, env=without_git_env())
     if out.returncode != 0:
         sys.exit(out.stderr.strip() or out.stdout.strip() or 'tool/flutter failed')
     try:

@@ -37,7 +37,9 @@ def pub_get(root, directory):
     if not (cwd / 'pubspec.yaml').is_file():
         return True, 'no pubspec.yaml, skipped'
     try:
-        out = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=600)
+        # git hooks export GIT_DIR / GIT_INDEX_FILE / ...; the Flutter SDK's own git calls must not see them.
+        env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+        out = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=600, env=env)
     except (OSError, subprocess.SubprocessError) as error:
         return False, str(error)
     if out.returncode == 0:

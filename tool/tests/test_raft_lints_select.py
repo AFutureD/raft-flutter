@@ -149,6 +149,17 @@ class ParseTests(unittest.TestCase):
                 lints.parse(argv)
 
 
+class GitEnvTests(unittest.TestCase):
+    def test_git_variables_are_not_passed_to_the_flutter_sdk(self):
+        saved = dict(os.environ)
+        self.addCleanup(lambda: (os.environ.clear(), os.environ.update(saved)))
+        os.environ.update({'GIT_DIR': '/x/.git', 'GIT_INDEX_FILE': '/x/index', 'KEEP_ME': '1'})
+        env = lints.without_git_env()
+        self.assertNotIn('GIT_DIR', env)
+        self.assertNotIn('GIT_INDEX_FILE', env)
+        self.assertEqual(env['KEEP_ME'], '1')
+
+
 class SnapshotKeyTests(unittest.TestCase):
     def test_key_follows_sources_and_sdk(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -228,6 +239,11 @@ class SyncPubLockTests(TempRepo):
         if os.name != 'nt':
             self.assertEqual(sync.pub_get(self.root, ''), (False, 'Because x depends on y, version solving failed.'))
             flutter.write_text('#!/bin/sh\nexit 0\n')
+            self.assertEqual(sync.pub_get(self.root, ''), (True, ''))
+            # Inside a git hook GIT_DIR is set; the SDK must not see it.
+            flutter.write_text('#!/bin/sh\n[ -z "$GIT_DIR$GIT_INDEX_FILE" ] || { echo "git env leaked" >&2; exit 1; }\n')
+            os.environ['GIT_DIR'] = str(self.root / '.git')
+            self.addCleanup(os.environ.pop, 'GIT_DIR', None)
             self.assertEqual(sync.pub_get(self.root, ''), (True, ''))
 
 
