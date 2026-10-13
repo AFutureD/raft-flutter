@@ -6,4 +6,5 @@ const Map<String, String> zhCatalogDocumentPreview = <String, String>{
       '无法读取文件内容，文件可能已损坏。请下载原文件查看。',
   'This file format is not supported for preview. Download the original file to view it.':
       '此文件格式不支持预览，请下载原文件查看。',
+  'Large file: showing the first {count} lines.': '文件较大，已显示前 {count} 行',
 };

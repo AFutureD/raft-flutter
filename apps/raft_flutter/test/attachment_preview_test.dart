@@ -107,13 +107,18 @@ void main() {
       }),
       isNull,
     );
-    expect(
-      attachmentPreviewKind({
-        'filename': 'big.csv',
-        'sizeBytes': 6 * 1024 * 1024,
-      }),
-      isNull,
-    );
+    // Beyond the server's table sizes the viewer still opens: it reads the
+    // original, or offers the system app (see attachment_local_preview_test).
+    for (final (name, size) in [
+      ('big.csv', 6 * 1024 * 1024),
+      ('big.xlsx', 40 * 1024 * 1024),
+    ]) {
+      expect(
+        attachmentPreviewKind({'filename': name, 'sizeBytes': size}),
+        'document',
+        reason: name,
+      );
+    }
     expect(
       attachmentPreviewKind({
         'filename': 'index.html',

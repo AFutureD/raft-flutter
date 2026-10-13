@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:raft_client/raft_client.dart' show RaftApiException;
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/attachment_image_store.dart';
@@ -12,6 +15,7 @@ import '../data/workspace_controller.dart';
 import '../platform/media_failure.dart';
 import 'media_failure_text.dart';
 import '../platform/attachment_files.dart';
+import '../platform/local_document.dart';
 import '../platform/attachment_http.dart';
 import '../platform/attachment_player.dart';
 import '../platform/attachment_player_factory.dart';
@@ -70,21 +74,21 @@ String? attachmentPreviewKind(Map<String, dynamic> metadata) {
     return null;
   }
   if (ext(['.html', '.htm']) || mime == 'text/html') return null;
-  final size = metadata['sizeBytes'];
+  // Beyond the server's table sizes the viewer still opens: it reads the
+  // original itself (CSV), or offers the system app and Download (a
+  // spreadsheet too large or too wide for the server's table).
   if (!ext(['.xls', '.xlt', '.xla', '.xlm', '.xlc', '.xlw']) &&
       (ext(['.csv']) ||
           [
             'text/csv',
             'application/csv',
             'application/vnd.ms-excel',
-          ].contains(mime)) &&
-      (size is! num || size <= 5 * 1024 * 1024)) {
+          ].contains(mime))) {
     return 'document';
   }
-  if ((ext(['.xlsx']) ||
-          mime ==
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') &&
-      (size is! num || size <= 10 * 1024 * 1024)) {
+  if (ext(['.xlsx']) ||
+      mime ==
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
     return 'document';
   }
   if (ext(['.md', '.markdown']) ||
@@ -171,6 +175,7 @@ class AttachmentPreviewDialog extends StatefulWidget {
     this.pdf,
     this.playerFactory,
     this.hdrDetector,
+    this.opener,
     this.page = false,
   });
   final WorkspaceController controller;
@@ -189,6 +194,9 @@ class AttachmentPreviewDialog extends StatefulWidget {
 
   /// Replaces the HDR probe (tests).
   final HdrDetector? hdrDetector;
+
+  /// Hands a local file to the system's default app (tests replace it).
+  final Future<void> Function(String path, String mimeType)? opener;
   final bool page;
   @override
   State<AttachmentPreviewDialog> createState() =>
@@ -214,6 +222,16 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   Uint8List? pageBytes;
   int page = 0, pageCount = 0, request = 0;
   bool loading = true, truncated = false, invalidated = false;
+
+  /// A document the server would not preview, read from the original: the
+  /// original is being fetched ([localFetch]), what is shown is only its
+  /// first part ([local]), or nothing can be shown ([unavailable]: the
+  /// specific reason, English source text).
+  bool localFetch = false, opening = false;
+  LocalDocument? local;
+  String? unavailable;
+  VoidCallback? unavailableRetry;
+  String? localReason;
 
   /// The file itself could not be fetched (as opposed to decoded or played):
   /// the download panel offers a retry.
@@ -270,8 +288,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
       error = null;
       mediaFailure = null;
       fetchFailed = false;
+      unavailable = null;
+      unavailableRetry = null;
     });
-    load();
+    load(localAgain: localReason);
   }
 
   /// Retry after a video or audio failed to play: a new player (the failed one
@@ -314,11 +334,13 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
     retry();
   }
 
-  Future<void> load() async {
+  Future<void> load({String? localAgain}) async {
     final ticket = ++request;
     try {
       if (!current) return;
-      if (kind == 'document') {
+      if (kind == 'document' && localAgain != null) {
+        await showLocally(ticket, localAgain);
+      } else if (kind == 'document') {
         // A document opened before on this device shows from the cache: no
         // preview request (it counts against the attachment rate limit).
         final stored = await readStoredDocument();
@@ -338,12 +360,6 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         // Preserve their reason before validating the document payload.
         if (value is Map && value['status'] == 'unsupported') {
           final reason = value['reason'];
-          final message = switch (reason) {
-            'too_large' => 'This file exceeds the server preview size limit. Download the original file to view it.',
-            'unreadable' => 'The file could not be read and may be damaged. Download the original file to view it.',
-            'unsupported' => 'This file format is not supported for preview. Download the original file to view it.',
-            _ => 'Preview unavailable. Download the original file.',
-          };
           // Log bounded reason codes, never arbitrary response text or URLs.
           final code =
               reason is String && RegExp(r'^[a-z_]{1,64}$').hasMatch(reason)
@@ -353,7 +369,10 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
             FormatException('Preview status=unsupported reason=$code'),
             where: 'attachment preview ${widget.metadata['id']}',
           );
-          throw RaftUserError(message);
+          // The server's limits are its own: read the original here when the
+          // app can show it; otherwise say why and offer another app.
+          await showLocally(ticket, code);
+          return;
         }
         if (value is! Map ||
             value['status'] != 'ok' ||
@@ -396,41 +415,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         if (!current || ticket != request) return;
         unawaited(considerHdr(acquired));
       } else if (kind == 'pdf' || kind == 'audio') {
-        final owner =
-            widget.channelId ?? widget.metadata['channelId'] as String?;
-        Future<String> resolveUrl() => widget.controller.attachmentUrl(
-          '${widget.metadata['id']}',
-          channelId: owner,
-        );
-        final files = widget.files ?? AttachmentPreviewFiles();
-        final filename = '${widget.metadata['filename'] ?? 'attachment'}';
-        // PDF and audio come from the persistent cache when it holds them
-        // (no request, not even for the signed URL) and are kept after the
-        // first download. Video is streamed (above).
-        final prepared = await files.loadCached(
-          cache: widget.controller.attachmentDiskCache,
-          key: widget.controller.attachmentCacheKey(
-            widget.metadata,
-            'file',
-            channelId: owner ?? '',
-          ),
-          resolveUrl: resolveUrl,
-          refreshUrl: () {
-            widget.controller.invalidateAttachmentUrl(
-              '${widget.metadata['id']}',
-            );
-            return widget.controller.attachmentUrl(
-              '${widget.metadata['id']}',
-              channelId: owner,
-              refresh: true,
-            );
-          },
-          filename: filename,
-          expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
-          cancel: cancel,
-          authorized: () => current,
-          onProgress: transfer.report,
-        );
+        final prepared = await fetchOriginal();
         if (!current || ticket != request || prepared == null) {
           await prepared?.dispose();
           return;
@@ -451,7 +436,17 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         throw const FormatException('The file cannot be previewed.');
       }
     } catch (failure) {
-      if (current && ticket == request) {
+      if (current && ticket == request && localFetch && lease == null) {
+        // The original could not be fetched: the specific reason, and a retry.
+        logUserError(
+          failure,
+          where: 'attachment preview ${widget.metadata['id']}',
+        );
+        setState(() {
+          unavailable = fetchFailureText(failure);
+          unavailableRetry = retry;
+        });
+      } else if (current && ticket == request) {
         setState(() {
           // The server's own reason when it sent one (rate limited, not found,
           // too large); otherwise the generic text, with the cause logged.
@@ -473,7 +468,188 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         });
       }
     } finally {
-      if (current && ticket == request) setState(() => loading = false);
+      if (current && ticket == request) {
+        setState(() {
+          loading = false;
+          localFetch = false;
+        });
+      }
+    }
+  }
+
+  /// The original file, from the persistent cache when it holds it, otherwise
+  /// downloaded once into the cache (the bar follows [transfer]). Null when
+  /// the preview closed first; the caller owns the lease.
+  Future<SharedFileLease?> fetchOriginal() async {
+    final owner = widget.channelId ?? widget.metadata['channelId'] as String?;
+    Future<String> resolveUrl() => widget.controller.attachmentUrl(
+      '${widget.metadata['id']}',
+      channelId: owner,
+    );
+    final files = widget.files ?? AttachmentPreviewFiles();
+    final filename = '${widget.metadata['filename'] ?? 'attachment'}';
+    // PDF and audio come from the persistent cache when it holds them
+    // (no request, not even for the signed URL) and are kept after the
+    // first download. Video is streamed (above).
+    return files.loadCached(
+      cache: widget.controller.attachmentDiskCache,
+      key: widget.controller.attachmentCacheKey(
+        widget.metadata,
+        'file',
+        channelId: owner ?? '',
+      ),
+      resolveUrl: resolveUrl,
+      refreshUrl: () {
+        widget.controller.invalidateAttachmentUrl('${widget.metadata['id']}');
+        return widget.controller.attachmentUrl(
+          '${widget.metadata['id']}',
+          channelId: owner,
+          refresh: true,
+        );
+      },
+      filename: filename,
+      expectedBytes: (widget.metadata['sizeBytes'] as num?)?.toInt(),
+      cancel: cancel,
+      authorized: () => current,
+      onProgress: transfer.report,
+    );
+  }
+
+  // ---- a document the server would not preview ----------------------------
+
+  /// What the user is told for each refusal reason of the preview service.
+  static String refusalMessage(Object? reason) => switch (reason) {
+    'too_large' =>
+      'This file exceeds the server preview size limit. Download the original file to view it.',
+    'unreadable' =>
+      'The file could not be read and may be damaged. Download the original file to view it.',
+    'unsupported' =>
+      'This file format is not supported for preview. Download the original file to view it.',
+    _ => 'Preview unavailable. Download the original file.',
+  };
+
+  /// Why the original could not be fetched, in words the user can act on.
+  static String fetchFailureText(Object error) {
+    int? status;
+    var offline = false;
+    if (error is DioException) {
+      status = error.response?.statusCode;
+      offline = status == null && error.type != DioExceptionType.cancel;
+    } else if (error is RaftApiException) {
+      status = error.status;
+    } else if (error is SocketException || error is TimeoutException) {
+      offline = true;
+    }
+    if (status == 404) return 'This file is no longer available.';
+    if (status == 401 || status == 403 || status == 410) {
+      return 'This link has expired or access was denied. Try again.';
+    }
+    if (offline) {
+      return 'Cannot reach the server. Check your connection and try again.';
+    }
+    return 'The file could not be downloaded. Try again.';
+  }
+
+  /// Another app can be handed the cached original (desktop). On phones the
+  /// system opens only files the user saved: Download offers Open afterwards.
+  bool get canOpenWithSystem =>
+      (widget.opener != null ||
+          Platform.isLinux ||
+          Platform.isMacOS ||
+          Platform.isWindows) &&
+      !tooLargeToFetch;
+
+  bool get tooLargeToFetch {
+    final size = (widget.metadata['sizeBytes'] as num?)?.toInt();
+    return size != null && size > AttachmentPreviewFiles.maxBytes;
+  }
+
+  /// The server gave no preview ([reason] is its refusal code, or `unknown`):
+  /// read the original here when the app renders this kind, in the same
+  /// renderer as a server preview; otherwise say why and offer the system app
+  /// and Download.
+  Future<void> showLocally(int ticket, String reason) async {
+    localReason = reason;
+    final localKind = localDocumentKind(widget.metadata);
+    if (localKind == null || reason == 'unreadable' || tooLargeToFetch) {
+      setState(() {
+        unavailable = tooLargeToFetch
+            ? 'This file is too large to open here. Download it instead.'
+            : refusalMessage(reason);
+        unavailableRetry = null;
+      });
+      return;
+    }
+    setState(() => localFetch = true);
+    final prepared = await fetchOriginal();
+    if (!current || ticket != request || prepared == null) {
+      await prepared?.dispose();
+      return;
+    }
+    lease = prepared;
+    try {
+      final read = await readLocalDocument(prepared.file, localKind);
+      if (!current || ticket != request) return;
+      setState(() {
+        document = read.data;
+        truncated = false;
+        local = read.truncated ? read : null;
+      });
+      // A whole file is stored like a server preview: the next open needs no
+      // request and no file. A first part is read again from the cached file.
+      if (!read.truncated) unawaited(storeDocument(read.data, false));
+    } on LocalDocumentUnreadable {
+      if (!current || ticket != request) return;
+      setState(() => unavailable = refusalMessage('unreadable'));
+    }
+  }
+
+  /// Hands the original to the system's default app (fetching it first when
+  /// the cache does not hold it).
+  Future<void> openWithSystem() async {
+    if (opening || !current) return;
+    final holding = lease != null;
+    setState(() {
+      opening = true;
+      localFetch = !holding;
+      unavailableRetry = null;
+    });
+    try {
+      var file = lease?.file;
+      if (file == null) {
+        final prepared = await fetchOriginal();
+        if (!current || prepared == null) {
+          await prepared?.dispose();
+          return;
+        }
+        lease = prepared;
+        file = prepared.file;
+      }
+      final mime =
+          '${widget.metadata['mimeType'] ?? 'application/octet-stream'}';
+      await (widget.opener ?? AttachmentFiles().open)(file.path, mime);
+    } catch (failure) {
+      if (current) {
+        final noApp =
+            failure is FileSystemException || failure is PlatformException;
+        setState(() {
+          unavailable = noApp
+              ? 'No application can open this file.'
+              : fetchFailureText(failure);
+          unavailableRetry = noApp ? null : openWithSystem;
+        });
+        logUserError(
+          failure,
+          where: 'attachment open ${widget.metadata['id']}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          opening = false;
+          localFetch = false;
+        });
+      }
     }
   }
 
@@ -821,24 +997,31 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
 
   /// Initial fetch of the file or its preview data (not a PDF page turn).
   bool get fetching =>
-      (kind == 'pdf' || kind == 'audio') &&
-      loading &&
+      (kind == 'pdf' || kind == 'audio' || localFetch) &&
+      (loading || opening) &&
       lease == null &&
       document == null;
 
   /// File head, bar and `1.7 / 2.8 MB · 62%` with Cancel (leaving the
   /// preview cancels the download), or the failed state with Retry.
-  Widget transferPanel(BuildContext context) {
+  /// `PDF · 2.8 MB` under the file name.
+  String get transferMeta {
     final name = '${widget.metadata['filename'] ?? ''}';
     final size = (widget.metadata['sizeBytes'] as num?)?.toInt();
     final extension = name.contains('.')
         ? name.split('.').last.toUpperCase()
         : '${widget.metadata['mimeType'] ?? ''}';
+    return size == null || size <= 0
+        ? extension
+        : '$extension · ${RaftAttachmentCard.formatSize(size)}';
+  }
+
+  Widget transferPanel(BuildContext context) {
+    final name = '${widget.metadata['filename'] ?? ''}';
+    final size = (widget.metadata['sizeBytes'] as num?)?.toInt();
     return RaftFileTransferPanel(
       filename: name,
-      meta: size == null || size <= 0
-          ? extension
-          : '$extension · ${RaftAttachmentCard.formatSize(size)}',
+      meta: transferMeta,
       progress: transferView,
       fallbackTotal: size,
       failed: fetchFailed,
@@ -940,10 +1123,41 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
                     size: kind == 'video' ? 32 : null,
                   ),
                 )
+              : unavailable != null
+              ? RaftPreviewUnavailable(
+                  filename: '${widget.metadata['filename'] ?? ''}',
+                  meta: transferMeta,
+                  reason: unavailable!,
+                  busy: opening,
+                  onOpen: canOpenWithSystem && unavailableRetry == null
+                      ? openWithSystem
+                      : null,
+                  onRetry: unavailableRetry,
+                  onDownload: widget.onDownload,
+                )
               : error != null
               ? errorPane(context)
               : document != null
-              ? RaftDocumentPreview(data: document!, truncated: truncated)
+              ? Column(
+                  children: [
+                    if (local != null)
+                      RaftPreviewNotice(
+                        message: raftFormat(
+                          context,
+                          'Large file: showing the first {count} lines.',
+                          {'count': local!.shown},
+                        ),
+                        onOpen: canOpenWithSystem ? openWithSystem : null,
+                        onDownload: widget.onDownload,
+                      ),
+                    Expanded(
+                      child: RaftDocumentPreview(
+                        data: document!,
+                        truncated: truncated,
+                      ),
+                    ),
+                  ],
+                )
               : kind == 'pdf' && pageBytes != null
               ? InteractiveViewer(
                   child: RaftSizedImage.memory(

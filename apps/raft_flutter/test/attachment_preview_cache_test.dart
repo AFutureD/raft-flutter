@@ -471,6 +471,10 @@ void main() {
       },
     );
 
+    // A spreadsheet the server would not preview cannot be drawn by the app:
+    // the reason, and the ways to the content (system app, Download). Text
+    // kinds the server refuses are read from the original instead, see
+    // attachment_local_preview_test.dart.
     for (final entry in <String, String>{
       'too_large': 'This file exceeds the server preview size limit. Download the original file to view it.',
       'unreadable': 'The file could not be read and may be damaged. Download the original file to view it.',
@@ -491,7 +495,7 @@ void main() {
               metadata: const {
                 'id': 'refused',
                 'channelId': 'c1',
-                'filename': 'report.md',
+                'filename': 'report.xlsx',
               },
               channelId: 'c1',
               authorized: () => true,
@@ -512,12 +516,22 @@ void main() {
           isNotNull,
           reason: 'failure copy is available in Chinese',
         );
+        expect(
+          find.byKey(const ValueKey('preview-open-system')),
+          findsOneWidget,
+          reason: 'another app can still open it',
+        );
         final download = find.byKey(
           const ValueKey('attachment-preview-download'),
         );
         expect(download, findsOneWidget);
         await tester.tap(download);
         expect(downloads, 1);
+        expect(
+          find.byKey(const ValueKey('preview-download')),
+          findsOneWidget,
+          reason: 'the panel offers Download as well',
+        );
         expect(
           await cache.entryCount(),
           0,

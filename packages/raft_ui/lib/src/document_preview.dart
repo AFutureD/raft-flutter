@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 
 import 'localization.dart';
+import 'markdown_blocks.dart';
 import 'message_body.dart';
 import 'design_primitives.dart';
 import 'dialog_card.dart' show RaftShadowSet;
 import 'message_content_tokens.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
+
+/// Markdown longer than this many characters is laid out as a lazy list of
+/// blocks (only the blocks near the viewport are built), not one column.
+/// Server previews are capped at 64 KB; below this size the single column
+/// builds in a frame or two and keeps whole-document selection.
+const raftLazyMarkdownChars = 48 * 1024;
+
+/// Plain text with more lines than this is a lazy list of lines.
+const raftLazyTextLines = 1000;
+
+/// A CSV with more rows than this is a lazy list of fixed-height rows (the
+/// server sends at most 200; local rendering of a large file can hold many
+/// thousands, and a `Table` lays out every cell).
+const raftLazyCsvRows = 200;
 
 /// Structured, server-bounded attachment content. Never executes document HTML.
 ///
@@ -27,6 +42,31 @@ class RaftDocumentPreview extends StatefulWidget {
 
 class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
   int sheet = 0;
+
+  // Lazy layouts split their source once per content, not per build.
+  String? _blocksSource;
+  List<String> _blocks = const [];
+  String? _linesSource;
+  List<String> _lines = const [];
+
+  List<String> blocksOf(String source) {
+    if (!identical(_blocksSource, source)) {
+      _blocks = raftSplitMarkdownBlocks(source);
+      _blocksSource = source;
+    }
+    return _blocks;
+  }
+
+  List<String> linesOf(String source) {
+    if (!identical(_linesSource, source)) {
+      final lines = source.split(RegExp(r'\r?\n'));
+      // A closing newline does not start another line.
+      if (lines.length > 1 && lines.last.isEmpty) lines.removeLast();
+      _lines = lines;
+      _linesSource = source;
+    }
+    return _lines;
+  }
 
   static String plural(int count, String one, String other) =>
       '$count ${count == 1 ? one : other}';
@@ -74,6 +114,285 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
     };
   }
 
+  /// A long Markdown document: a lazy list of independently rendered blocks
+  /// on the same paper sheet (borders on the sides, top of the first block and
+  /// bottom of the last).
+  Widget _lazyMarkdown(
+    BuildContext context,
+    DocumentAttachmentRecipe recipe,
+    bool truncated,
+  ) {
+    final blocks = blocksOf('${widget.data['markdown']}');
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= 768;
+    final edge = wide ? 40.0 : 24.0, vertical = wide ? 48.0 : 32.0;
+    final side = recipe.border;
+    final notice = truncated ? 1 : 0;
+    return ColoredBox(
+      color: recipe.background,
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: recipe.markdownInset(width).copyWith(top: 0, bottom: 0),
+            sliver: SliverList.builder(
+              itemCount: blocks.length + notice,
+              itemBuilder: (context, index) {
+                if (index < notice) {
+                  return Padding(
+                    padding: EdgeInsets.only(top: vertical, bottom: 16),
+                    child: Text(
+                      raftText(
+                        context,
+                        'Preview truncated. Download the full file.',
+                      ),
+                    ),
+                  );
+                }
+                final at = index - notice;
+                final first = at == 0, last = at == blocks.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    top: first && !truncated ? vertical : 0,
+                    bottom: last ? vertical : 0,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: recipe.paper,
+                      border: Border(
+                        left: side,
+                        right: side,
+                        top: first ? side : BorderSide.none,
+                        bottom: last ? side : BorderSide.none,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        edge,
+                        first ? vertical : 0,
+                        edge,
+                        last ? vertical : 16,
+                      ),
+                      child: RaftMessageBody(
+                        content: blocks[at],
+                        fontSize: 16,
+                        documentMode: true,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A long text file: a lazy list of lines inside the usual bordered box.
+  Widget _lazyText(
+    BuildContext context,
+    DocumentAttachmentRecipe recipe,
+    TextStyle label,
+    List<String> lines,
+    bool truncated,
+    List<BoxShadow> shadow,
+  ) => ColoredBox(
+    color: recipe.background,
+    child: Padding(
+      padding: recipe.inset,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(raftText(context, 'Plain text preview'), style: label),
+                if (truncated)
+                  Text(raftText(context, 'Truncated'), style: label),
+              ],
+            ),
+          ),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: recipe.paper,
+                border: Border.fromBorderSide(recipe.border),
+                boxShadow: shadow,
+              ),
+              child: SelectionArea(
+                child: ListView.builder(
+                  key: const ValueKey('lazy-text-lines'),
+                  padding: recipe.textInset,
+                  itemCount: lines.length,
+                  itemBuilder: (_, index) => Text(
+                    lines[index].isEmpty ? ' ' : lines[index],
+                    style: recipe.text,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  /// A long CSV: fixed-height rows in a lazy list under a pinned header row.
+  /// Column widths come from the first rows (the widest cell of the sample,
+  /// capped like the table's), so the grid does not shift while scrolling.
+  Widget _lazyCsv(
+    BuildContext context,
+    DocumentAttachmentRecipe recipe,
+    TextStyle label,
+    List<BoxShadow> shadow, {
+    required List<String> headers,
+    required List<List> rows,
+    required String summary,
+    required String footer,
+  }) {
+    final t = RaftTokens.of(context);
+    final rowHeight =
+        recipe.tableText.fontSize! * (recipe.tableText.height ?? 1.5) +
+        recipe.cellInset.vertical +
+        1;
+    return ColoredBox(
+      color: recipe.background,
+      child: Padding(
+        padding: recipe.inset,
+        child: LayoutBuilder(
+          builder: (context, bounds) {
+            final widths = _columnWidths(
+              context,
+              recipe,
+              headers,
+              rows.take(raftLazyCsvRows).toList(),
+              bounds.maxWidth - recipe.border.width * 2 - 2,
+            );
+            final sizes = [
+              for (final width in widths.values)
+                (width as FixedColumnWidth).value,
+            ];
+            final total = sizes.fold<double>(0, (a, b) => a + b);
+            Widget cells(List cells, TextStyle style, Color? stripe) =>
+                SizedBox(
+                  height: rowHeight,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: stripe,
+                      border: Border(bottom: recipe.cellBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < sizes.length; i++)
+                          SizedBox(
+                            width: sizes[i],
+                            child: Padding(
+                              padding: recipe.cellInset.copyWith(
+                                top: 0,
+                                bottom: 0,
+                              ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  i < cells.length ? '${cells[i]}' : '',
+                                  style: style,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+            return DefaultTextStyle.merge(
+              style: recipe.tableText,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      runSpacing: 12,
+                      children: [
+                        Text(
+                          raftText(context, 'CSV data preview'),
+                          style: label.copyWith(fontFamily: t.monoFont),
+                        ),
+                        Text(
+                          summary,
+                          style: label.copyWith(fontFamily: t.monoFont),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: recipe.paper,
+                        border: Border.fromBorderSide(recipe.border),
+                        boxShadow: shadow,
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: total > bounds.maxWidth - 2
+                              ? total
+                              : bounds.maxWidth - recipe.border.width * 2,
+                          child: Column(
+                            children: [
+                              cells(
+                                [
+                                  for (var i = 0; i < headers.length; i++)
+                                    headers[i].isEmpty
+                                        ? raftFormat(
+                                            context,
+                                            'Column {index}',
+                                            {'index': i + 1},
+                                          )
+                                        : headers[i],
+                                ],
+                                recipe.tableText.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: t.brutal ? Colors.black : t.strong,
+                                ),
+                                recipe.tableHeader,
+                              ),
+                              Expanded(
+                                child: ListView.builder(
+                                  key: const ValueKey('lazy-csv-rows'),
+                                  itemExtent: rowHeight,
+                                  itemCount: rows.length,
+                                  itemBuilder: (_, index) => cells(
+                                    rows[index],
+                                    recipe.tableText,
+                                    index.isEven ? recipe.rowStripe : null,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(footer, style: label),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -110,6 +429,10 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
         child: Padding(padding: recipe.inset, child: child),
       ),
     );
+    if (kind == 'markdown' &&
+        '${data['markdown'] ?? ''}'.length > raftLazyMarkdownChars) {
+      return _lazyMarkdown(context, recipe, truncated);
+    }
     if (kind == 'markdown') {
       final width = MediaQuery.sizeOf(context).width;
       return ColoredBox(
@@ -158,6 +481,12 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
           ),
         ),
       );
+    }
+    if (!tabular && '${data['text'] ?? ''}'.length > raftLazyTextLines) {
+      final lines = linesOf('${data['text']}');
+      if (lines.length > raftLazyTextLines) {
+        return _lazyText(context, recipe, label, lines, truncated, shadow);
+      }
     }
     if (!tabular) {
       // `TextPreviewPane`: label row, then a bordered `<pre>` of per-line rows.
@@ -229,6 +558,18 @@ class _RaftDocumentPreviewState extends State<RaftDocumentPreview> {
             'sheets',
           )
         : '${truncated ? raftFormat(context, 'First {count} rows', {'count': rows.length}) : plural(rowCount, 'row', 'rows')} · ${plural(columnCount, 'column', 'columns')}';
+    if (!isXlsx && rows.length > raftLazyCsvRows && headers.isNotEmpty) {
+      return _lazyCsv(
+        context,
+        recipe,
+        label,
+        shadow,
+        headers: headers,
+        rows: rows,
+        summary: summary,
+        footer: footer,
+      );
+    }
     return pane(
       DefaultTextStyle.merge(
         style: recipe.tableText,
