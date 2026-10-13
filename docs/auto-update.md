@@ -1,7 +1,9 @@
-# In-app auto-update (macOS and Windows)
+# In-app auto-update (macOS, Windows and Linux AppImage)
 
-macOS installs updates with **Sparkle 2**, Windows with **WinSparkle 0.9**.
-Linux, Android and iOS have no in-app updater (see the end). Dart reaches both
+macOS installs updates with **Sparkle 2**, Windows with **WinSparkle 0.9**; a
+Linux **AppImage** updates itself with a delta download in pure Dart (zsync
+format, see [Linux AppImage](#linux-appimage-zsync-delta-update)). Android and
+iOS have no in-app updater (see the end). Dart reaches Sparkle and WinSparkle
 through one small local plugin, `packages/raft_updater` (`app.raft/updater`
 method channel), and one facade:
 
@@ -20,8 +22,9 @@ This is separate from the lightweight update check (`build-manifest-<platform>-<
 `buildNumber` comparison, which drives the red dot). The dot decides *when* to
 show an update; on macOS/Windows, when `available` is true, the About card's button
 reads "Update now" and calls `checkAndInstall()` (a `failed` outcome falls back to
-opening the release page; `openedReleasePage` already opened it). Elsewhere, or when
-`available` is false, it reads "View release" and opens the release page. The updater does no
+opening the release page; `openedReleasePage` already opened it). On Linux the card
+drives `AppUpdater.appImage` itself (progress, restart, failure reasons; below).
+Elsewhere, or when `available` is false, it reads "View release" and opens the release page. The updater does no
 scheduled or startup checks and never prompts by itself.
 About's "Check for updates" button runs only the lightweight manifest check (forced, ignoring the 6 h
 throttle); it never calls `checkForUpdates`, because Sparkle/WinSparkle's own dialog would answer the same
@@ -285,19 +288,198 @@ installer flow has been compiled or run (this host is Linux).
 9. Confirm `HKCU\Software\app.raft\Raft\WinSparkle` is written and nothing needs
    elevation.
 
+## Linux AppImage (zsync delta update)
+
+Kevin chose AppImageUpdate-style zsync delta updates. The AppImage carries its
+update information, every release publishes a `.zsync` control file next to the
+AppImage, and the app downloads only the blocks that changed. The client is
+`packages/raft_updater/lib/src/appimage/` (pure Dart); nothing is added to the
+AppImage and nothing is compiled.
+
+### Research (2026-10-13)
+
+- **AppImageUpdate** ([repo](https://github.com/AppImage/AppImageUpdate), MIT).
+  Newest release `2.0.0-alpha-1-20251018` (alpha, 2025-10-18; last commit the same
+  day, "latest-[pre|all]" support added 2025-09). Ships `appimageupdatetool`,
+  a GUI and the C++ `libappimageupdate` (no C ABI). The x86_64
+  `appimageupdatetool` is a 36.5 MB AppImage whose payload (133 MB unpacked) is
+  built on Debian 11: OpenSSL 1.1.1, ICU 67, GPGME, libarchive, GLib, librsvg.
+  `appimageupdatetool -j` checks, `-O` overwrites in place, `-r` removes the old
+  file, `-u` overrides the update string.
+- **zsync2** ([repo](https://github.com/AppImage/zsync2), the engine behind it).
+  README: "Artistic License v2", "as of now not functional" (a decade-old
+  working-title note); last push 2025-09. The original **zsync 0.6.2** by Colin
+  Phipps (Artistic 2.0) is what `zsyncmake` in Debian/Ubuntu is; its `.zsync`
+  format is the contract both clients read.
+- **Update information** ([AppImageSpec draft](https://github.com/AppImage/AppImageSpec/blob/master/draft.md)):
+  `zsync|<url of .zsync>` or `gh-releases-zsync|<owner>|<repo>|<latest|latest-pre|latest-all>|<glob of the .zsync asset>`,
+  stored in the ELF section `.upd_info` (1024 bytes) of the type-2 runtime; an
+  optional signature lives in `.sha256_sig` with the key in `.sig_key`.
+- **appimagetool** ([repo](https://github.com/AppImage/appimagetool); the pinned
+  continuous build 854e19e): `-u/--updateinformation STRING` embeds it ("if
+  zsyncmake is installed, generate zsync file"; it only warns otherwise, so
+  `tool/appimage.py` calls `zsyncmake` itself and verifies the result), `-s/--sign`
+  signs with GPG.
+- **GitHub behaviour** (checked against this repository's v0.1.0+6 assets):
+  `releases/download/<tag>/<asset>` answers 302 to
+  `release-assets.githubusercontent.com/...?se=<expiry>` (a signed Azure Blob link
+  valid for about an hour). A single `Range: bytes=a-b` gets `206`; a
+  multi-range request (what the classic `zsync` client sends) gets
+  `501 Not Implemented` from the edge cache. The `gh-releases-zsync` transport
+  would also call the rate-limited REST API (`api.github.com/.../releases/latest`).
+
+### Decision: a zsync client in Dart (option c)
+
+| | (a) bundle `appimageupdatetool` | (b) libappimageupdate via FFI/C helper | (c) Dart client (chosen) |
+| --- | --- | --- | --- |
+| Size | +36 MB compressed (+29 % of the 125 MB AppImage) | native libs + deps | 0 |
+| Dependencies | a nested AppImage (FUSE or 133 MB extraction per run), Debian 11 OpenSSL 1.1 (end of life), GPGME, GLib duplicates of ours | C++ library without a C ABI, cpr/curl/gpgme/libarchive built in the Ubuntu 24.04 CI, git submodules | none (`crypto` is already used) |
+| Proxy / progress / cancel | environment variables; progress by parsing text | callbacks through a hand-written shim | the app's own proxy-aware client (Settings > Network); typed progress |
+| Multi-range | zsync2 sends multi-range requests, which GitHub's CDN rejects with 501 | same | single ranges, merged and parallel |
+| Failure reasons | exit codes | exit codes | typed, mapped to specific sentences |
+| Upstream | alpha, one maintainer | alpha | the format is fixed since 2005; we own both ends |
+| Licence | MIT + Artistic + the bundle's LGPL/GPL set (notices needed) | same | none added |
+
+Option (a) was the closest second; its size, the end-of-life crypto library and
+the unusable multi-range behaviour against GitHub decided against it. Option (c)
+costs about 600 lines of Dart that are checked against `zsyncmake` itself: the
+unit tests parse a control file written by zsync 0.6.2 and reproduce its block
+table byte for byte, and the block matcher is compared with the reference `zsync`
+client on real releases. Because the embedded
+string and the `.zsync` are standard, third-party tools (`appimageupdatetool`,
+AppImageLauncher, appimaged) can also update our AppImages.
+
+### Release side
+
+- `tool/appimage.py` embeds `gh-releases-zsync|kevinzhow|raft-flutter|latest|raft-flutter-*-appimage-x64.AppImage.zsync`
+  with `appimagetool --updateinformation` (`OFFICIAL_UPDATE_INFORMATION`; a test
+  keeps `AppImageUpdateInformation.official` in Dart equal). `latest` follows the
+  stable release only, like the red dot.
+- `tool/release.py build appimage` then runs `zsyncmake -u <asset name>` (package
+  `zsync`, installed by the workflow) and checks that the control file's URL,
+  length and SHA-1 describe the artifact. The `.zsync` is an `extraArtifacts`
+  entry: checksummed, listed in the receipt and `build-manifest-appimage-x64.json`
+  and uploaded by the same publisher; it may only be `<AppImage name>.zsync`.
+- The manifest already carries the AppImage's `sha256` and `bytes`; the app
+  verifies the result against them.
+- **Isolated builds** (`RAFT_APPLICATION_ID_SUFFIX`) embed nothing, so they are
+  `available == false` and can never update into the official build. Only the test
+  harness may set `RAFT_APPIMAGE_UPDATE_INFO` (rejected unless the suffix is set).
+
+### App side
+
+`AppUpdater.available` on Linux is true only when `$APPIMAGE` names a file, that
+file carries parsable update information (`.upd_info`), the app gave the updater
+its proxy-aware HTTP client (`configureAppImage`, called from `main`) and the
+file's folder accepts a new file (a probe file is created and removed). The path
+is resolved through symlinks. `unavailableReason` says which condition failed.
+
+"Update now" (`AppImageUpdater.install`) runs in the Updates card:
+
+1. Fetch `releases/download/<tag>/<asset>.zsync` (tag, asset name, `sha256` and
+   `bytes` from the manifest the red dot already uses; no REST API). The control
+   file must describe exactly `bytes` and name the same asset on the same origin.
+2. Scan the running AppImage for the blocks of the new file at any offset (zsync's
+   rolling checksum plus MD4, in an isolate).
+3. Download the remaining ranges with single `Range` requests: neighbouring gaps
+   under 64 KiB are merged, large ranges are split into 2 MiB pieces and fetched on
+   4 connections, redirects are followed by hand so `Range` survives, an expired
+   CDN link is resolved again and a cut connection resumes from the first missing
+   byte. Output goes to `.<name>.part` beside the AppImage.
+4. Verify size, SHA-1 (control file) and SHA-256 (manifest). Any mismatch deletes
+   the partial file and leaves the installed one untouched.
+5. Copy the old file's permissions, rename the old file to `.<name>.old`, rename
+   the new file into place, delete the backup (restored if the second rename
+   fails). The running process keeps using the old inode.
+6. The card shows "Restart to finish". `restart()` starts a detached shell that
+   waits for this process to exit (the new instance must not meet the old one's
+   single-instance name), restores the host environment that `AppRun` replaced
+   (`RAFT_APPIMAGE_HOST_*`, as `raft-gio-launch-desktop` does), and `exec`s the
+   new AppImage; the app then quits.
+
+Failures keep the old version and name their cause (`AppImageUpdateFailureKind`):
+network (names the host), unexpected HTTP status, release without `.zsync`,
+control file not matching the release, server without Range support, disk full,
+folder not writable, missing checksum in the manifest, failed verification, file
+could not be moved, cancelled, unexpected. The card shows the sentence, "View
+release" (the release page) and "Check for updates"; nothing opens a browser by
+itself. New sentences are pending Kevin's zh wording (`_pendingKevinZh` in
+`zh_catalog_test.dart`).
+
+Trust: the SHA-1/SHA-256 values come from the same GitHub release as the bytes,
+so this protects against corruption and partial releases, not against someone
+who can replace release assets. That needs the signature below.
+
+### Test override and smoke test
+
+`RAFT_UPDATE_ORIGIN=http://127.0.0.1:PORT` replaces `https://github.com` for the
+manifest and the `.zsync`/AppImage URLs. It is honoured only by isolated builds
+and non-release builds (`updateOriginOverride`); an official release build ignores
+it. `RAFT_UPDATE_SMOKE=1` (additionally requires that override) makes the app run
+the update by itself at start, `RAFT_UPDATE_SMOKE_RESTART=1` restart into it, and
+`RAFT_UPDATE_SMOKE_LOG` receives the `RAFT_UPDATE_SMOKE ...` lines.
+
+```sh
+# two isolated AppImages with a test feed, build numbers 71 and 72
+RAFT_APPLICATION_ID_SUFFIX=.isolated GITHUB_RUN_NUMBER=71 \
+  RAFT_APPIMAGE_UPDATE_INFO='gh-releases-zsync|kevinzhow|raft-flutter|latest|raft-flutter-*-isolated-appimage-x64.AppImage.zsync' \
+  python3 tool/release.py build appimage        # keep build/release/*, repeat with 72
+python3 tool/appimage-update-smoke.py --old a/raft-...AppImage --new b/raft-...AppImage --output /tmp/out
+```
+
+The harness serves a GitHub-shaped release (302 to a Range-capable object URL),
+runs the old AppImage under Xvfb with a throwaway HOME, session bus and keyring,
+and reports the bytes served, the replaced file's SHA-256, the leftovers and the
+build the restarted app reports. `tool/tests/test_appimage_update_smoke.py` checks
+the server itself.
+
+### GPG / signature (design only; no key exists)
+
+`appimagetool --sign` embeds a detached GPG signature of the AppImage's SHA-256 in
+`.sha256_sig` (public key in `.sig_key`), which `appimageupdatetool` and the `validate` tool
+check. Proposal: Kevin generates a dedicated signing key and keeps the private key
+as an Actions secret (`APPIMAGE_GPG_PRIVATE_KEY`, passphrase `APPIMAGE_GPG_PASSPHRASE`)
+used by the tag-only publish step; the public key is committed (`packaging/appimage/signing.pub.asc`)
+and compiled into the app. Verification in Dart would need OpenPGP parsing, which
+is more code than the delta client. The simpler design that reuses what exists:
+sign the AppImage's SHA-256 (or the manifest) with the **Sparkle Ed25519 key**
+(`SPARKLE_ED_PRIVATE_KEY`, `tool/appcast.py` already has a stdlib signer) and publish
+`<asset>.sig`; the app verifies it with the public key it already embeds
+(`RAFT_SPARKLE_ED_PUBLIC_KEY`) using a small Ed25519 verifier. Both give the app an
+independent trust root; the second shares the key rotation caveat above. Not
+implemented; Kevin decides GPG (interoperable with AppImage tooling) or Ed25519
+(reuses the key).
+
+### Not verified / left
+
+- A real tagged release has not been built: CI must install `zsync`, build the
+  `.zsync`, publish it and a published `v0.1.x` must be updated from the previous
+  one (the local rehearsal used a fake GitHub with the same redirect and Range
+  behaviour). The first release with update information has no older release that
+  can use it.
+- Real-GitHub transport was exercised for the redirect, a 4 MiB range and the
+  manifest only.
+- Keyring, FUSE-less (`--appimage-extract-and-run`) and Wayland starts of the
+  restarted app, AppImages in root-owned folders (`/opt`; the card reports "not
+  writable") and desktop-integration copies (AppImageLauncher) are not covered.
+- Update information and `.zsync` only exist for x86_64.
+
 ## Verified here (Linux) vs not
 
 Verified: Ed25519 signer against RFC 8032 and the `cryptography` library; appcast
 XML shape, signature, URLs, determinism; publish flow with extra artifacts, missing
 or mismatched secret, no-key builds and idempotent retries; macOS inventory,
 signing order and plist checks against a mocked `codesign`; Inno script settings;
-Dart `AppUpdater` behaviour and fallbacks (`flutter test`, `flutter analyze`).
+Dart `AppUpdater` behaviour and fallbacks (`flutter test`, `flutter analyze`); the
+Linux AppImage delta update end to end (see above).
 Not verified: any native compile (Swift, C++), Sparkle/WinSparkle behaviour, Inno
 Setup output, SwiftPM embedding of Sparkle, real GitHub secrets/variables, the
 Keychain re-prompt. Those are the checklists above.
 
 ## Other platforms
 
-Linux (AppImage could use AppImageUpdate later), Android (red dot opens the APK
-link) and iOS have no in-app update; `AppUpdater.available` is false and
-`checkAndInstall()` opens the release page. Intel Macs have no build.
+Android (red dot opens the APK link) and iOS have no in-app update;
+`AppUpdater.available` is false and `checkAndInstall()` opens the release page. On
+Linux outside an AppImage (a distribution package updates through its package
+manager) and for an AppImage that cannot update in place, the card also reads
+"View release". Intel Macs have no build.

@@ -134,8 +134,8 @@ WinSparkle feeds, EdDSA-signed in the tag-only publish job). Actions **variable*
 `SPARKLE_ED_PUBLIC_KEY` is embedded into the builds (empty disables auto-update for
 that build) and Actions **secret** `SPARKLE_ED_PRIVATE_KEY` signs the enclosure.
 A build that embeds a key but finds no secret fails to publish. Receipts may list
-`extraArtifacts` (the Windows setup exe), which are checksummed and uploaded with
-the platform. Details, key rotation and verification checklists:
+`extraArtifacts` (the Windows setup exe, the AppImage's `.zsync`), which are
+checksummed and uploaded with the platform. Details, key rotation and verification checklists:
 [auto-update.md](auto-update.md).
 
 Android repository **Actions secrets**:
@@ -241,8 +241,14 @@ launch uses the kernel FUSE device when available; extract-and-run uses no FUSE
 at all. Changed upstream downloads fail the hash check instead of silently
 changing the executable. Update the reviewed lock to adopt a newer snapshot.
 
-A version-tag release includes `raft-flutter-VERSION-appimage-x64.AppImage` in the
-independently verified AppImage release inventory. Flatpak is no longer a supported
+A version-tag release includes `raft-flutter-VERSION-appimage-x64.AppImage` and its
+`raft-flutter-VERSION-appimage-x64.AppImage.zsync` in the independently verified
+AppImage release inventory. The AppImage embeds `gh-releases-zsync|...` update
+information (`appimagetool --updateinformation`) and the `.zsync` (zsync 0.6.2
+`zsyncmake`, installed by the workflow with `apt install zsync`) lets the app
+update with a delta download; `release.py` fails the build when `zsyncmake` is
+missing or its output does not describe the artifact. See
+[auto-update.md](auto-update.md#linux-appimage-zsync-delta-update). Flatpak is no longer a supported
 release target, including manual platform selections. PR/manual builds retain
 artifacts without publishing.
 
@@ -269,7 +275,8 @@ check stays quiet). The suffix reaches CMake (`APPLICATION_ID`) and Dart
 (`RAFT_LINUX_APPLICATION_ID_SUFFIX`), so the GApplication/D-Bus name, the XDG
 data and cache directories `app.raft.raft_flutter.isolated`, the libsecret
 `account` attribute `app.raft.raft_flutter.isolated.secureStorage`, the desktop
-file and icon all differ from the real app, the desktop file carries no `MimeType`,
+file and icon all differ from the real app, the desktop file carries no `MimeType`, no update information is embedded (an isolated build never
+self-updates into the official one; `RAFT_APPIMAGE_UPDATE_INFO` is the test-only exception),
 and the build never registers `raft://` or edits mime defaults (OAuth uses the
 loopback). The binary is renamed `raft_isolated` because the notification plugin
 keeps `$XDG_RUNTIME_DIR/<executable>/notification_plugin_cache.json` and
