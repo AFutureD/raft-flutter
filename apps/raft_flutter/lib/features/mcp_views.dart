@@ -580,8 +580,9 @@ class _AgentMcpState extends ManagementState<AgentMcpView> {
                   description: server['description'] as String?,
                   lastCheckError: server['lastCheckError'] as String?,
                   usageCalls: () {
-                    final n = (server['usage']['invocationCount'] as num)
-                        .toInt();
+                    final n =
+                        (server['usage']['invocationCount'] as num?)?.toInt() ??
+                        0;
                     return '$n ${n == 1 ? 'call' : 'calls'}';
                   }(),
                   usageLastUsed: used(server['usage']['lastInvokedAt']),
