@@ -1768,7 +1768,7 @@ tap to retry" band (Web shows a broken image).
 
 Every underline uses the hyperlink metrics (`underline decoration-2 underline-offset-2`):
 2px stroke, 2px below the baseline, shared by all themes (packages/raft_ui/lib/src/raft_underline.dart,
-guarded by raft_underline_guard_test). Web's auth-page links use a plain `underline` with no offset;
+guarded by the avoid_builtin_underline lint, tool/raft_lints). Web's auth-page links use a plain `underline` with no offset;
 Kevin asked to unify all underlines on the link style, so the `auth-ext` / `auth-pages` login and
 register cases differ from Web by that gap on purpose.
 
