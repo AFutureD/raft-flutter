@@ -73,6 +73,7 @@ class _FakeAppImage extends AppImageUpdater {
           AppImageUpdateInformation.official,
         )!,
         http: AppImageHttp((_) async => throw UnimplementedError()),
+        publicKey: '',
       );
 
   final notifier = ValueNotifier<AppImageUpdateStatus>(
@@ -118,6 +119,7 @@ AppUpdateService _service(String platform, {bool checksum = false}) =>
           'artifact': 'raft-flutter-0.1.0+5-$platform.zip',
           if (checksum) 'sha256': 'ab' * 32,
           if (checksum) 'bytes': 124586488,
+          if (checksum) 'edSignature': '${'A' * 86}==',
         },
       ]),
     );
@@ -194,19 +196,23 @@ void main() {
       return (service, updater, image, launched);
     }
 
-    testWidgets('Update now installs the release with its checksum', (t) async {
-      final (_, _, image, launched) = await mount(t);
-      expect(find.text('Update now'), findsOneWidget);
-      expect(find.text('View release'), findsNothing);
-      await t.tap(_action);
-      await t.pumpAndSettle();
-      expect(image.installed, hasLength(1));
-      expect(image.installed.single.tag, 'v0.1.0+5');
-      expect(image.installed.single.sha256, 'ab' * 32);
-      expect(image.installed.single.bytes, 124586488);
-      expect(launched, isEmpty);
-      await t.pumpWidget(const SizedBox());
-    });
+    testWidgets(
+      'Update now installs the release with its checksum and signature',
+      (t) async {
+        final (_, _, image, launched) = await mount(t);
+        expect(find.text('Update now'), findsOneWidget);
+        expect(find.text('View release'), findsNothing);
+        await t.tap(_action);
+        await t.pumpAndSettle();
+        expect(image.installed, hasLength(1));
+        expect(image.installed.single.tag, 'v0.1.0+5');
+        expect(image.installed.single.sha256, 'ab' * 32);
+        expect(image.installed.single.bytes, 124586488);
+        expect(image.installed.single.edSignature, '${'A' * 86}==');
+        expect(launched, isEmpty);
+        await t.pumpWidget(const SizedBox());
+      },
+    );
 
     testWidgets('shows progress per stage and Cancel', (t) async {
       final (_, _, image, _) = await mount(t);

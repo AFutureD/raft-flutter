@@ -326,6 +326,8 @@ class AutoUpdatePublishTests(PublishCase):
         folder, artifact, receipt = self.fixture(platform)
         update = {'enabled': True, 'publicKey': public or self.public, 'archive': artifact.name,
                   'feed': f'appcast-{platform}.xml'}
+        if platform == 'appimage':
+            del update['feed']
         if extras:
             setup = folder / artifact.name.replace('.zip', '-setup.exe')
             setup.write_bytes(b'MZ installer')
@@ -511,3 +513,65 @@ class ReleaseLookupTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    # The AppImage is signed with the same key; the signature lands in its manifest.
+    def appimage_manifest(self):
+        return json.loads(self.github.payloads['build-manifest-appimage-x64.json'])
+
+    def test_appimage_manifest_carries_a_signature_over_the_appimage_bytes_and_no_appcast(self):
+        folder, receipt = self.updatable('appimage')
+        with patch.object(release, 'OUT', folder):
+            release.publish('appimage')
+        entry = self.appimage_manifest()[0]
+        signature = base64.b64decode(entry['edSignature'], validate=True)
+        self.assertEqual(len(signature), 64)
+        self.assertTrue(self.appcast.verify_file(self.appcast.public_key(self.seed), signature, folder / receipt['artifact']))
+        self.assertEqual(entry['sha256'], receipt['sha256'])
+        self.assertFalse([name for name in self.github.payloads if name.startswith('appcast')])
+        everything = b''.join(self.github.payloads.values()).decode('latin-1') + ' '.join(' '.join(c) for c in self.github.commands)
+        self.assertNotIn(self.secret, everything)
+
+    def test_appimage_signature_is_not_valid_for_other_bytes_or_another_key(self):
+        folder, receipt = self.updatable('appimage')
+        with patch.object(release, 'OUT', folder):
+            release.publish('appimage')
+        signature = base64.b64decode(self.appimage_manifest()[0]['edSignature'])
+        other = folder / 'other.AppImage'
+        other.write_bytes((folder / receipt['artifact']).read_bytes() + b'!')
+        self.assertFalse(self.appcast.verify_file(self.appcast.public_key(self.seed), signature, other))
+        self.assertFalse(self.appcast.verify_file(self.appcast.public_key(os.urandom(32)), signature, folder / receipt['artifact']))
+
+    def test_appimage_retry_is_idempotent_because_the_signature_is_deterministic(self):
+        folder, _ = self.updatable('appimage')
+        with patch.object(release, 'OUT', folder):
+            release.publish('appimage')
+            before = copy.deepcopy(self.github.commands)
+            release.publish('appimage')
+        self.assertEqual(self.github.commands, before)
+
+    def test_appimage_missing_or_mismatched_secret_fails_before_any_upload(self):
+        folder, _ = self.updatable('appimage')
+        before = copy.deepcopy(self.github.commands)
+        for secret, message in [('', 'secret is empty'),
+                                (base64.b64encode(os.urandom(32)).decode(), 'does not match'),
+                                (base64.b64encode(os.urandom(96)).decode(), 'Legacy')]:
+            with self.subTest(message=message), \
+                    patch.dict(release.os.environ, {'SPARKLE_ED_PRIVATE_KEY': secret}), \
+                    patch.object(release, 'OUT', folder), self.assertRaisesRegex(ValueError, message) as caught:
+                release.publish('appimage')
+            self.assertNotIn(secret or 'x' * 40, str(caught.exception))
+        self.assertEqual(self.github.commands, before)
+        self.assertFalse(self.github.payloads)
+
+    def test_appimage_build_without_public_key_publishes_an_unsigned_manifest_and_needs_no_secret(self):
+        folder, artifact, receipt = self.fixture('appimage')
+        (folder / 'receipt.json').write_text(json.dumps({**receipt, 'autoUpdate': {'enabled': False}}))
+        with patch.dict(release.os.environ, {'SPARKLE_ED_PRIVATE_KEY': ''}), patch.object(release, 'OUT', folder):
+            release.publish('appimage')
+        self.assertNotIn('edSignature', self.appimage_manifest()[0])
+
+    def test_other_platforms_never_get_an_ed_signature_in_their_manifest(self):
+        folder, _ = self.updatable('macos')
+        with patch.object(release, 'OUT', folder):
+            release.publish('macos')
+        self.assertNotIn('edSignature', json.loads(self.github.payloads['build-manifest-macos-x64.json'])[0])

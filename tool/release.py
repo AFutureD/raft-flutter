@@ -360,10 +360,11 @@ def build(platform):
     android = None
     update_archive = None
     appcast = tool_module('appcast')
-    # In-app updates exist only for macOS and Windows and only when the repo
-    # variable SPARKLE_ED_PUBLIC_KEY is set; otherwise the build ships without
-    # an updater key and the app falls back to opening the release page.
-    public_key = appcast.read_public_key(env) if platform in {'macos', 'windows'} else ''
+    # In-app updates exist only for macOS, Windows and the Linux AppImage and
+    # only when the repo variable SPARKLE_ED_PUBLIC_KEY is set; otherwise the
+    # build ships without an updater key and the app falls back to opening the
+    # release page. One Ed25519 key pair serves all three.
+    public_key = appcast.read_public_key(env) if platform in {'macos', 'windows', 'appimage'} else ''
     command = [sys.executable, ROOT / 'tool/flutter', 'build', 'apk' if platform == 'android' else 'linux' if platform == 'appimage' else platform,
                '--release', '--target=lib/main.dart', f'--build-name={shown_version}', f'--build-number={number}',
                *[f'--dart-define={key}={value}' for key, value in release_defines(shown_version, number, env).items()]]
@@ -372,7 +373,7 @@ def build(platform):
         command.append(f'--dart-define=RAFT_LINUX_APPLICATION_ID_SUFFIX={suffix}')
     if public_key:
         command.append('--dart-define=RAFT_AUTO_UPDATE=true')
-        if platform == 'windows':  # macOS reads SUPublicEDKey from Info.plist, set while packaging
+        if platform in {'windows', 'appimage'}:  # macOS reads SUPublicEDKey from Info.plist, set while packaging
             command.append(f'--dart-define=RAFT_SPARKLE_ED_PUBLIC_KEY={public_key}')
     extra_artifacts = []
     with tempfile.TemporaryDirectory(prefix='raft-release-') as temporary:
@@ -415,6 +416,9 @@ def build(platform):
                         'name': zsync.name, 'blockSize': int(fields['Blocksize']),
                         'hashLengths': fields['Hash-Lengths'], 'sha1': fields['SHA-1']}
                 signing = 'unsigned AppImage; static runtime with bundled FUSE 3'
+                # The in-place update checks the publisher's Ed25519 signature of
+                # these exact bytes (added to the manifest at publish time).
+                update_archive = artifact
             else:
                 artifact = OUT / f'{name}.tar.gz'
                 with tarfile.open(artifact, 'w:gz') as archive:
@@ -458,10 +462,15 @@ def build(platform):
     if extra_artifacts:
         receipt['extraArtifacts'] = [{'name': path.name, 'sha256': digest(path), 'bytes': path.stat().st_size}
                                      for path in extra_artifacts]
-    if platform in {'macos', 'windows'}:
-        # The publisher signs `archive` with the CI secret and writes the appcast.
-        receipt['autoUpdate'] = ({'enabled': True, 'publicKey': public_key, 'archive': update_archive.name,
-                                  'feed': f'appcast-{platform}.xml'} if public_key else {'enabled': False})
+    if platform in {'macos', 'windows', 'appimage'}:
+        # The publisher signs `archive` with the CI secret: macOS and Windows get
+        # an appcast; the AppImage gets `edSignature` in its build manifest.
+        if not public_key:
+            receipt['autoUpdate'] = {'enabled': False}
+        else:
+            receipt['autoUpdate'] = {'enabled': True, 'publicKey': public_key, 'archive': update_archive.name}
+            if platform != 'appimage':
+                receipt['autoUpdate']['feed'] = f'appcast-{platform}.xml'
     (OUT / f'{name}.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     (OUT / f'{name}.sha256').write_text(f"{receipt['sha256']}  {artifact.name}\n", encoding='utf-8')
     print(json.dumps(receipt, indent=2))
@@ -613,15 +622,11 @@ def prepare():
     run(command)
 
 
-def write_appcast(receipt, identity, commit, platform, artifacts, directory):
-    """Sign the update archive with the CI secret and render appcast-<platform>.xml.
+def update_signing_seed(update):
+    """The Ed25519 seed from the CI secret, checked against the key built into the app.
 
-    Returns [] when this build ships without an updater key. The private key is
-    only read from SPARKLE_ED_PRIVATE_KEY and never printed or logged.
+    The secret is only read from SPARKLE_ED_PRIVATE_KEY and never printed or logged.
     """
-    update = receipt.get('autoUpdate') or {'enabled': False}
-    if not update.get('enabled'):
-        return []
     appcast = tool_module('appcast')
     secret = os.environ.get('SPARKLE_ED_PRIVATE_KEY', '')
     if not secret.strip():
@@ -630,6 +635,41 @@ def write_appcast(receipt, identity, commit, platform, artifacts, directory):
     seed = appcast.decode_seed(secret)
     if appcast.public_key_text(seed) != update['publicKey']:
         raise ValueError('SPARKLE_ED_PRIVATE_KEY does not match the public key built into the app')
+    return seed
+
+
+def appimage_signature(receipt, artifacts):
+    """Base64 Ed25519 signature of the AppImage's bytes, or None without an updater key.
+
+    Same scheme as Sparkle's `sparkle:edSignature` (signature over the whole file,
+    the same key pair as macOS and Windows). Deterministic, so publisher retries
+    on different hosts write identical manifests.
+    """
+    update = receipt.get('autoUpdate') or {'enabled': False}
+    if not update.get('enabled'):
+        return None
+    appcast = tool_module('appcast')
+    seed = update_signing_seed(update)
+    archive = next((path for path in artifacts if path.name == update.get('archive')), None)
+    if archive is None or archive.name != receipt['artifact']:
+        raise ValueError('Auto-update archive is not the AppImage of this release')
+    signature, length = appcast.sign_file(seed, archive)
+    if length != receipt['bytes'] or not appcast.verify_file(appcast.public_key(seed), signature, archive):
+        raise ValueError('The AppImage signature did not verify against its own public key')
+    return base64.b64encode(signature).decode('ascii')
+
+
+def write_appcast(receipt, identity, commit, platform, artifacts, directory):
+    """Sign the update archive with the CI secret and render appcast-<platform>.xml.
+
+    Returns [] when this build ships without an updater key. The private key is
+    only read from SPARKLE_ED_PRIVATE_KEY and never printed or logged.
+    """
+    update = receipt.get('autoUpdate') or {'enabled': False}
+    if not update.get('enabled') or platform == 'appimage':  # the AppImage has no appcast
+        return []
+    appcast = tool_module('appcast')
+    seed = update_signing_seed(update)
     archive = next((path for path in artifacts if path.name == update['archive']), None)
     if archive is None or update.get('feed') != f'appcast-{platform}.xml':
         raise ValueError('Auto-update archive is not part of this platform release')
@@ -687,6 +727,11 @@ def publish(platform):
         manifest = auxiliary / f'build-manifest-{platform}-{arch}.json'
         # Publishers on different hosts must produce identical auxiliary bytes.
         checksum.write_text(checksums, encoding='utf-8', newline='\n')
+        # The AppImage's signature travels in its manifest, next to the SHA-256 the
+        # in-place update already reads (an unsigned build publishes none).
+        ed_signature = appimage_signature(receipts[0], artifacts) if platform == 'appimage' else None
+        if ed_signature:
+            receipts[0]['edSignature'] = ed_signature
         manifest.write_text(json.dumps(receipts, indent=2) + '\n', encoding='utf-8', newline='\n')
         feed = write_appcast(receipts[0], identity, commit, platform, artifacts, auxiliary)
         assets = {asset['name']: asset for asset in remote.get('assets', [])}

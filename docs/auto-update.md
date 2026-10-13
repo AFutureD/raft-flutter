@@ -74,15 +74,15 @@ overwritten to repair that: fix and rerun the failed publisher, or cut a new tag
 
 | Name | Kind | Used by |
 | --- | --- | --- |
-| `SPARKLE_ED_PUBLIC_KEY` | Actions **variable** (public) | build jobs: macOS Info.plist `SUPublicEDKey`; Windows `--dart-define=RAFT_SPARKLE_ED_PUBLIC_KEY` -> `win_sparkle_set_eddsa_public_key` |
-| `SPARKLE_ED_PRIVATE_KEY` | Actions **secret** | the tag-only publish job only, to sign the appcast enclosure |
+| `SPARKLE_ED_PUBLIC_KEY` | Actions **variable** (public) | build jobs: macOS Info.plist `SUPublicEDKey`; Windows and the Linux AppImage `--dart-define=RAFT_SPARKLE_ED_PUBLIC_KEY` -> `win_sparkle_set_eddsa_public_key` / the AppImage updater's signature check |
+| `SPARKLE_ED_PRIVATE_KEY` | Actions **secret** | the tag-only publish job only, to sign the appcast enclosure (macOS, Windows) and the AppImage (`edSignature` in its build manifest) |
 
 Flow (`tool/release.py`):
 
 1. **Build** (read-only token, no secret). `appcast.read_public_key` validates the
    variable (base64, a real 32-byte Ed25519 point) and stops the build on garbage.
    Non-empty -> `--dart-define=RAFT_AUTO_UPDATE=true`, plus the key define on
-   Windows; macOS packaging writes `SUPublicEDKey` into Info.plist before signing.
+   Windows and the AppImage; macOS packaging writes `SUPublicEDKey` into Info.plist before signing.
    **Empty -> auto-update off**: no key in the bundle, `AppUpdater.available` is
    false, buttons open the release page. The receipt records `autoUpdate`.
 2. **Publish** (tag push only). Reads `SPARKLE_ED_PRIVATE_KEY` from the environment
@@ -90,7 +90,10 @@ Flow (`tool/release.py`):
    refuses to publish if it differs from the key built into the app, signs the
    archive with a stdlib-only Ed25519 (RFC 8032 vectors and the `cryptography`
    library cross-check it in tests) and uploads `appcast-<platform>.xml` with the
-   other assets. A build that embeds a key but finds no secret fails loudly
+   other assets. The AppImage has no appcast: the same signer signs the AppImage
+   bytes and the publisher writes the base64 signature into the
+   `edSignature` field of `build-manifest-appimage-x64.json` (see
+   "Signature" under Linux AppImage). A build that embeds a key but finds no secret fails loudly
    instead of shipping an app whose feed 404s.
 3. The Windows build also produces the Inno Setup installer
    (`packaging/windows/raft.iss`, `tool/windows_installer.py`) as an extra
@@ -361,7 +364,7 @@ AppImageLauncher, appimaged) can also update our AppImages.
   entry: checksummed, listed in the receipt and `build-manifest-appimage-x64.json`
   and uploaded by the same publisher; it may only be `<AppImage name>.zsync`.
 - The manifest already carries the AppImage's `sha256` and `bytes`; the app
-  verifies the result against them.
+  verifies the result against them. The publisher adds `edSignature` (below).
 - **Isolated builds** (`RAFT_APPLICATION_ID_SUFFIX`) embed nothing, so they are
   `available == false` and can never update into the official build. Only the test
   harness may set `RAFT_APPIMAGE_UPDATE_INFO` (rejected unless the suffix is set).
@@ -386,8 +389,10 @@ is resolved through symlinks. `unavailableReason` says which condition failed.
    4 connections, redirects are followed by hand so `Range` survives, an expired
    CDN link is resolved again and a cut connection resumes from the first missing
    byte. Output goes to `.<name>.part` beside the AppImage.
-4. Verify size, SHA-1 (control file) and SHA-256 (manifest). Any mismatch deletes
-   the partial file and leaves the installed one untouched.
+4. Verify size, SHA-1 (control file), SHA-256 (manifest) and the Ed25519
+   signature (`edSignature` in the manifest, against the public key compiled into
+   the app), all in one pass over the file. Any mismatch deletes the partial file
+   and leaves the installed one untouched; nothing is replaced before this passes.
 5. Copy the old file's permissions, rename the old file to `.<name>.old`, rename
    the new file into place, delete the backup (restored if the second rename
    fails). The running process keeps using the old inode.
@@ -406,8 +411,10 @@ release" (the release page) and "Check for updates"; nothing opens a browser by
 itself. The sentences have zh in `zh_native_only.dart`.
 
 Trust: the SHA-1/SHA-256 values come from the same GitHub release as the bytes,
-so this protects against corruption and partial releases, not against someone
-who can replace release assets. That needs the signature below.
+so on their own they protect against corruption and partial releases, not against
+someone who can replace release assets. The signature below is what makes the
+update trustworthy: only the holder of the private key can produce a file the
+app accepts.
 
 ### Test override and smoke test
 
@@ -432,22 +439,56 @@ and reports the bytes served, the replaced file's SHA-256, the leftovers and the
 build the restarted app reports. `tool/tests/test_appimage_update_smoke.py` checks
 the server itself.
 
-### GPG / signature (design only; no key exists)
+### Signature (Ed25519, the Sparkle key)
 
-`appimagetool --sign` embeds a detached GPG signature of the AppImage's SHA-256 in
-`.sha256_sig` (public key in `.sig_key`), which `appimageupdatetool` and the `validate` tool
-check. Proposal: Kevin generates a dedicated signing key and keeps the private key
-as an Actions secret (`APPIMAGE_GPG_PRIVATE_KEY`, passphrase `APPIMAGE_GPG_PASSPHRASE`)
-used by the tag-only publish step; the public key is committed (`packaging/appimage/signing.pub.asc`)
-and compiled into the app. Verification in Dart would need OpenPGP parsing, which
-is more code than the delta client. The simpler design that reuses what exists:
-sign the AppImage's SHA-256 (or the manifest) with the **Sparkle Ed25519 key**
-(`SPARKLE_ED_PRIVATE_KEY`, `tool/appcast.py` already has a stdlib signer) and publish
-`<asset>.sig`; the app verifies it with the public key it already embeds
-(`RAFT_SPARKLE_ED_PUBLIC_KEY`) using a small Ed25519 verifier. Both give the app an
-independent trust root; the second shares the key rotation caveat above. Not
-implemented; Kevin decides GPG (interoperable with AppImage tooling) or Ed25519
-(reuses the key).
+Kevin approved signing AppImage updates with the **same Ed25519 key
+pair as macOS and Windows**; GPG (`appimagetool --sign`, `.sha256_sig`) is not
+used. One key, one rotation story (see "Rotation is not seamless" above).
+
+- **Scheme.** The same as Sparkle's `sign_update`: Ed25519 (RFC 8032, pure) over
+  the *whole AppImage file*, the signature (64 bytes) base64 encoded; the public
+  key is the base64 of the 32 raw bytes. `tool/appcast.py` (`sign_file`) is the
+  signer; it streams the file and takes the key from `SPARKLE_ED_PRIVATE_KEY` in
+  the environment, never argv, never logged.
+- **Release side** (`tool/release.py`). The build job (no secret) records
+  `autoUpdate: {enabled, publicKey, archive}` in the receipt and compiles the
+  public key in. The tag-only publisher (`appimage_signature`) checks that the
+  secret's public key equals the one built into the app, signs the AppImage,
+  verifies its own signature, and writes it as `edSignature` in the entry of
+  `build-manifest-appimage-x64.json` (the name matches the appcast attribute
+  `sparkle:edSignature`; the manifest is where the app already reads `sha256` and
+  `bytes`, so no extra asset or request). Ed25519 is deterministic: a retried
+  publisher writes identical bytes. A build without `SPARKLE_ED_PUBLIC_KEY`
+  publishes no signature, and a build that embeds a key but finds no secret
+  fails to publish, as for the appcasts.
+- **App side** (`packages/raft_updater/lib/src/appimage/ed25519.dart`).
+  `RAFT_SPARKLE_ED_PUBLIC_KEY` is passed to AppImage release builds like to
+  Windows. A build without it reports `available == false` ("This build has no
+  update signing key.") and the card says "View release". The updater hashes the
+  reconstructed `.part` file once for SHA-1, SHA-256 and the signature, so the
+  signature is checked before the file replaces `$APPIMAGE`.
+- **Failures.** A manifest without `edSignature`, or a build without a key:
+  `missingSignature`, refused before anything is downloaded. A malformed
+  signature, a signature of another key or of other bytes (one changed byte is
+  enough): `badSignature`, the download is discarded. Both keep the old version,
+  show a specific sentence (English and Chinese) and the "View release"
+  fallback. The checksum failure (`verification`) is reported first when both
+  fail.
+- **Why our own verifier.** The dependency tree has no Ed25519 implementation
+  (`crypto` only), and the Dart packages that offer one (`cryptography`,
+  `pinenacl`, `ed25519_edwards`) take the whole message as one `Uint8List`, while
+  the message here is a 120+ MB file that is already streamed through SHA-1 and
+  SHA-256. Verification handles only public data, so the short RFC 8032 reference
+  arithmetic on `BigInt` (about 100 lines) plus `crypto`'s streaming SHA-512 avoids
+  a new dependency, its licence entry and a whole-file buffer. It is pinned by the
+  RFC 8032 vectors and by a test that verifies signatures made by
+  `tool/appcast.py`. (Swapping in a package later only touches `ed25519.dart`.)
+- **Rehearsal.** `python3 tool/appcast.py keygen --out DIR` makes a throwaway key
+  pair; build the old and new isolated AppImages with
+  `SPARKLE_ED_PUBLIC_KEY=<its public key>` in the environment, and give
+  `tool/appimage-update-smoke.py` the private key file
+  (`--ed-private-key-file`). `--signature wrong-key` and `--signature missing`
+  are the negative cases (the app must refuse and leave the file untouched).
 
 ### Not verified / left
 
@@ -465,7 +506,10 @@ implemented; Kevin decides GPG (interoperable with AppImage tooling) or Ed25519
 
 ## Verified here (Linux) vs not
 
-Verified: Ed25519 signer against RFC 8032 and the `cryptography` library; appcast
+Verified: Ed25519 signer against RFC 8032 and the `cryptography` library, and the
+Dart verifier against the RFC 8032 vectors and the signer's output; the AppImage
+signature in the publish flow (valid, wrong key, missing secret, no key) and in
+the updater (valid, one changed byte, wrong key, missing and malformed signature); `tool/appimage-update-smoke.py` with a throwaway key pair on two isolated Ubuntu 24.04 builds (71 to 72: 0.7% of the 116 MiB file downloaded, signature verified in the same pass as the checksums, about 4 s verification; a signature by another key, no signature and a wrong SHA-256 are all refused with the installed file untouched); appcast
 XML shape, signature, URLs, determinism; publish flow with extra artifacts, missing
 or mismatched secret, no-key builds and idempotent retries; macOS inventory,
 signing order and plist checks against a mocked `codesign`; Inno script settings;

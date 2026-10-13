@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_updater/raft_updater.dart';
+import 'package:raft_updater/src/appimage/ed25519.dart';
 
 import 'fake_release_server.dart';
 import 'zsync_support.dart';
@@ -12,11 +14,19 @@ const _tag = 'v0.1.1+7';
 const _artifact = 'raft-flutter-0.1.1+7-appimage-x64.AppImage';
 
 void main() {
+  // The seed of the throwaway publisher key.
+  final seed = List<int>.generate(32, (i) => 7 * i + 3);
+  String sign(List<int> bytes) =>
+      base64.encode(ed25519SignForTesting(seed, bytes).signature);
+
   late Directory directory;
   late FakeReleaseServer server;
   late File installed;
   late Uint8List oldBytes, newBytes;
   late List<String> logs;
+  // The release publisher's key pair (a throwaway one) and its signature of the
+  // new file, as tool/appcast.py would make them.
+  late String publicKey, signature;
 
   setUp(() async {
     directory = Directory.systemTemp.createTempSync('appimage-update');
@@ -30,6 +40,8 @@ void main() {
     server.files[_artifact] = newBytes;
     server.files['$_artifact.zsync'] = makeZsync(newBytes, url: _artifact);
     logs = [];
+    publicKey = base64.encode(ed25519SignForTesting(seed, const []).publicKey);
+    signature = sign(newBytes);
   });
 
   tearDown(() async {
@@ -37,11 +49,16 @@ void main() {
     directory.deleteSync(recursive: true);
   });
 
-  AppImageRelease release({String? sha256Hex, int? bytes}) => AppImageRelease(
+  AppImageRelease release({
+    String? sha256Hex,
+    int? bytes,
+    String? edSignature,
+  }) => AppImageRelease(
     tag: _tag,
     artifact: _artifact,
     sha256: sha256Hex ?? sha256.convert(newBytes).toString(),
     bytes: bytes ?? newBytes.length,
+    edSignature: edSignature ?? signature,
   );
 
   AppImageUpdater updater({
@@ -49,8 +66,10 @@ void main() {
     Map<String, String>? environment,
     int? processId,
     int rangeGap = 4096,
+    String? key,
   }) => AppImageUpdater(
     path: installed.path,
+    publicKey: key ?? publicKey,
     information: AppImageUpdateInformation.parse(
       AppImageUpdateInformation.official,
     )!,
@@ -155,6 +174,120 @@ void main() {
       expect(leftovers(), isEmpty);
     },
   );
+
+  group('Ed25519 signature of the release', () {
+    void expectKept() {
+      expect(installed.readAsBytesSync(), oldBytes);
+      expect(leftovers(), isEmpty, reason: 'no .part, no backup');
+    }
+
+    /// The server serves [bad] with a control file and a manifest that agree
+    /// with it (so SHA-1 and SHA-256 pass); only the signature can object.
+    void serve(Uint8List bad) {
+      server.files[_artifact] = bad;
+      server.files['$_artifact.zsync'] = makeZsync(bad, url: _artifact);
+    }
+
+    AppImageRelease releaseOf(Uint8List bytes, {String? edSignature}) =>
+        release(
+          sha256Hex: sha256.convert(bytes).toString(),
+          bytes: bytes.length,
+          edSignature: edSignature,
+        );
+
+    test(
+      'a file with one changed byte is refused although its checksums match',
+      () async {
+        final tampered = Uint8List.fromList(newBytes)..[1000000] ^= 0x01;
+        serve(tampered);
+        final status = await run(updater(), releaseOf(tampered));
+        expect(status.phase, AppImageUpdatePhase.failed);
+        expect(status.failure!.kind, AppImageUpdateFailureKind.badSignature);
+        expectKept();
+      },
+    );
+
+    test('a signature made by another key is refused', () async {
+      final other = ed25519SignForTesting(
+        List<int>.generate(32, (i) => 255 - i),
+        newBytes,
+      );
+      final status = await run(
+        updater(),
+        release(edSignature: base64.encode(other.signature)),
+      );
+      expect(status.failure!.kind, AppImageUpdateFailureKind.badSignature);
+      expectKept();
+    });
+
+    test(
+      'a build compiled with another public key refuses the release',
+      () async {
+        final other = ed25519SignForTesting(
+          List<int>.generate(32, (i) => 255 - i),
+          const [],
+        );
+        final status = await run(
+          updater(key: base64.encode(other.publicKey)),
+          release(),
+        );
+        expect(status.failure!.kind, AppImageUpdateFailureKind.badSignature);
+        expectKept();
+      },
+    );
+
+    test(
+      'a release without a signature is refused before anything is downloaded',
+      () async {
+        final status = await run(updater(), release(edSignature: ''));
+        expect(status.phase, AppImageUpdatePhase.failed);
+        expect(
+          status.failure!.kind,
+          AppImageUpdateFailureKind.missingSignature,
+        );
+        expect(server.requests, isEmpty);
+        expectKept();
+      },
+    );
+
+    test('a build without a public key cannot verify and refuses', () async {
+      final status = await run(updater(key: ''), release());
+      expect(status.failure!.kind, AppImageUpdateFailureKind.missingSignature);
+      expect(server.requests, isEmpty);
+      expectKept();
+    });
+
+    test(
+      'a malformed signature is refused before anything is downloaded',
+      () async {
+        for (final text in [
+          'not base64 !!',
+          base64.encode(List.filled(63, 1)),
+          base64.encode(List.filled(64, 0xff)),
+        ]) {
+          final status = await run(updater(), release(edSignature: text));
+          expect(
+            status.failure!.kind,
+            AppImageUpdateFailureKind.badSignature,
+            reason: text,
+          );
+        }
+        expect(server.requests, isEmpty);
+        expectKept();
+      },
+    );
+
+    test('a failed signature does not stop the next, valid attempt', () async {
+      final u = updater();
+      await u.install(
+        release(edSignature: base64.encode(List.filled(64, 0xff))),
+      );
+      u.reset();
+      await u.install(release());
+      expect(u.status.value.phase, AppImageUpdatePhase.ready);
+      expect(installed.readAsBytesSync(), newBytes);
+    });
+  });
 
   test('a release without a .zsync file says so', () async {
     server.files.remove('$_artifact.zsync');
@@ -294,6 +427,7 @@ void main() {
       release(
         sha256Hex: sha256.convert(script).toString(),
         bytes: script.length,
+        edSignature: sign(script),
       ),
     );
     expect(
@@ -320,6 +454,7 @@ void main() {
       release(
         sha256Hex: sha256.convert(script).toString(),
         bytes: script.length,
+        edSignature: sign(script),
       ),
     );
     expect(await waiting.restart(), isTrue);
@@ -367,6 +502,7 @@ void main() {
         release(
           sha256Hex: sha256.convert(script).toString(),
           bytes: script.length,
+          edSignature: sign(script),
         ),
       );
       expect(

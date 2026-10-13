@@ -133,6 +133,10 @@ macOS and Windows also publish `appcast-macos.xml` / `appcast-windows.xml` (Spar
 WinSparkle feeds, EdDSA-signed in the tag-only publish job). Actions **variable**
 `SPARKLE_ED_PUBLIC_KEY` is embedded into the builds (empty disables auto-update for
 that build) and Actions **secret** `SPARKLE_ED_PRIVATE_KEY` signs the enclosure.
+The Linux AppImage uses the same key pair: the publisher signs the AppImage bytes
+and writes the base64 Ed25519 signature as `edSignature` into
+`build-manifest-appimage-x64.json` (no appcast, no extra asset); the app verifies it
+against the embedded public key before replacing the AppImage.
 A build that embeds a key but finds no secret fails to publish. Receipts may list
 `extraArtifacts` (the Windows setup exe, the AppImage's `.zsync`), which are
 checksummed and uploaded with the platform. Details, key rotation and verification checklists:
@@ -247,7 +251,10 @@ AppImage release inventory. The AppImage embeds `gh-releases-zsync|...` update
 information (`appimagetool --updateinformation`) and the `.zsync` (zsync 0.6.2
 `zsyncmake`, installed by the workflow with `apt install zsync`) lets the app
 update with a delta download; `release.py` fails the build when `zsyncmake` is
-missing or its output does not describe the artifact. See
+missing or its output does not describe the artifact. The AppImage's
+Ed25519 signature (same `SPARKLE_ED_PRIVATE_KEY`) is added to its manifest by the
+publisher; an app without the matching public key, or a release without the
+signature, falls back to the release page. See
 [auto-update.md](auto-update.md#linux-appimage-zsync-delta-update). Flatpak is no longer a supported
 release target, including manual platform selections. PR/manual builds retain
 artifacts without publishing.

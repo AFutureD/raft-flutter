@@ -7,12 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'appimage/appimage_environment.dart';
 import 'appimage/appimage_http.dart';
 import 'appimage/appimage_updater.dart';
+import 'appimage/ed25519.dart';
 
 /// Compile-time and runtime inputs of the updater.
 ///
-/// Release CI passes `--dart-define=RAFT_AUTO_UPDATE=true` (and, on Windows,
-/// `RAFT_SPARKLE_ED_PUBLIC_KEY`) only when the `SPARKLE_ED_PUBLIC_KEY`
-/// repository variable is set. Without it the updater is disabled and every
+/// Release CI passes `--dart-define=RAFT_AUTO_UPDATE=true` (and, on Windows and
+/// for the Linux AppImage, `RAFT_SPARKLE_ED_PUBLIC_KEY`) only when the
+/// `SPARKLE_ED_PUBLIC_KEY` repository variable is set. Without it the updater is disabled and every
 /// call falls back to opening the release page.
 @immutable
 class AppUpdaterConfig {
@@ -37,8 +38,8 @@ class AppUpdaterConfig {
   /// Overrides the default `releases/latest/download/appcast-<platform>.xml`.
   final String feedUrl;
 
-  /// Base64 Ed25519 public key. Windows only; macOS reads `SUPublicEDKey`
-  /// from Info.plist.
+  /// Base64 Ed25519 public key (the Sparkle key). Windows and the Linux
+  /// AppImage; macOS reads `SUPublicEDKey` from Info.plist.
   final String publicKey;
 
   /// The running build's number; must be comparable with `sparkle:version`.
@@ -157,10 +158,17 @@ class AppUpdater {
       _unavailableReason = support.reason;
       return false;
     }
+    // Updates are installed only when signed by the publisher, so a build
+    // without the public key cannot update in place (the release page opens).
+    if (!Ed25519Verifier.isPublicKey(_config.publicKey)) {
+      _unavailableReason = 'This build has no update signing key.';
+      return false;
+    }
     _appImage = AppImageUpdater(
       path: support.path!,
       information: support.information!,
       http: AppImageHttp(factory),
+      publicKey: _config.publicKey.trim(),
       origin: _updateOrigin,
       environment: _environment,
     );

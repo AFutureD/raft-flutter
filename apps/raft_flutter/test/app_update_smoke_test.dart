@@ -29,6 +29,7 @@ AppUpdateService _service(int remoteBuild) => AppUpdateService(
       'artifact': 'raft-flutter-0.1.0+$remoteBuild-appimage-x64.AppImage',
       'sha256': 'ab' * 32,
       'bytes': 10,
+      'edSignature': '${'A' * 86}==',
     },
   ]),
 );

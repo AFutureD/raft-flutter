@@ -54,6 +54,7 @@ Future<void> runAppImageUpdateSmoke(
       artifact: release.artifact,
       sha256: release.sha256,
       bytes: release.bytes,
+      edSignature: release.edSignature,
     ),
   );
   final status = appImage.status.value;

@@ -28,6 +28,14 @@ enum AppImageUpdateFailureKind {
   /// The release manifest lacks the SHA-256 the update is verified against.
   missingChecksum,
 
+  /// The release manifest has no Ed25519 signature for the file, or this build
+  /// has no public key to check one against.
+  missingSignature,
+
+  /// The signature is malformed, or does not match the new file's bytes under
+  /// the app's public key; the file was discarded.
+  badSignature,
+
   /// The new file's checksum differs from the release's; it was discarded.
   verification,
 

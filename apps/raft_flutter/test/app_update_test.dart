@@ -54,6 +54,37 @@ void main() {
       expect(AppRelease.fromJson(release.toJson()), release);
     });
 
+    test('the manifest signature reaches the release and survives the remembered copy', () {
+      final signature = 'Qm9ndXM${'A' * 79}==';
+      final release = parseBuildManifest(
+        _manifest([
+          _row(platform: 'appimage', arch: 'x64')..['edSignature'] = signature,
+        ]),
+        'appimage-x64',
+      )!;
+      expect(release.edSignature, signature);
+      expect(AppRelease.fromJson(release.toJson()), release);
+      expect(AppRelease.fromJson(release.toJson())!.edSignature, signature);
+    });
+
+    test('a missing or malformed signature leaves the field empty, not the release', () {
+      for (final bad in [
+        null,
+        '',
+        'x',
+        'A' * 86,
+        'A' * 88,
+        '${'A' * 85}!==',
+        5,
+      ]) {
+        final row = _row(platform: 'appimage', arch: 'x64')
+          ..['edSignature'] = bad;
+        final release = parseBuildManifest(_manifest([row]), 'appimage-x64')!;
+        expect(release.edSignature, isEmpty, reason: '$bad');
+        expect(release.toJson(), isNot(contains('edSignature')));
+      }
+    });
+
     test(
       'a manifest without a usable checksum still parses, with empty fields',
       () {

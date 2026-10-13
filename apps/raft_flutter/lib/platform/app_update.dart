@@ -20,6 +20,7 @@ class AppRelease {
     required this.artifact,
     this.sha256 = '',
     this.bytes = 0,
+    this.edSignature = '',
   });
 
   /// The compiled app version, e.g. `0.1.0`.
@@ -42,6 +43,11 @@ class AppRelease {
   final String sha256;
   final int bytes;
 
+  /// Base64 Ed25519 signature of [artifact]'s bytes (the manifest's
+  /// `edSignature`, same key as Sparkle); empty when the manifest lacks it.
+  /// The Linux in-place update refuses to install without it.
+  final String edSignature;
+
   static const repository = 'https://github.com/kevinzhow/raft-flutter';
 
   /// The human release page.
@@ -59,6 +65,7 @@ class AppRelease {
     'artifact': artifact,
     if (sha256.isNotEmpty) 'sha256': sha256,
     if (bytes > 0) 'bytes': bytes,
+    if (edSignature.isNotEmpty) 'edSignature': edSignature,
   };
 
   /// Null unless every field is present and well formed. The tag and asset
@@ -87,6 +94,7 @@ class AppRelease {
     }
     final digest = raw['sha256'];
     final size = raw['bytes'];
+    final signature = raw['edSignature'];
     return AppRelease(
       version: version.trim(),
       buildNumber: build,
@@ -96,6 +104,9 @@ class AppRelease {
           ? digest.toLowerCase()
           : '',
       bytes: size is int && size > 0 ? size : 0,
+      edSignature: signature is String && _signatureText.hasMatch(signature)
+          ? signature
+          : '',
     );
   }
 
@@ -107,11 +118,22 @@ class AppRelease {
       other.releaseTag == releaseTag &&
       other.artifact == artifact &&
       other.sha256 == sha256 &&
-      other.bytes == bytes;
+      other.bytes == bytes &&
+      other.edSignature == edSignature;
 
   @override
-  int get hashCode =>
-      Object.hash(version, buildNumber, releaseTag, artifact, sha256, bytes);
+  int get hashCode => Object.hash(
+    version,
+    buildNumber,
+    releaseTag,
+    artifact,
+    sha256,
+    bytes,
+    edSignature,
+  );
+
+  /// 64 bytes of base64 (88 characters with padding).
+  static final _signatureText = RegExp(r'^[A-Za-z0-9+/]{86}==$');
 }
 
 /// Parses a build manifest body: a JSON array of receipts (a single object is

@@ -34,6 +34,9 @@ Uint8List elfWith(String? information, {int infoSize = 1024}) {
   return out;
 }
 
+// A throwaway public key (RFC 8032 test vector 1); no release was signed with it.
+const publicKey = '11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=';
+
 void main() {
   late Directory directory;
   setUp(
@@ -195,11 +198,35 @@ void main() {
     AppUpdater updater(AppImageSupport Function(Map<String, String>) detect) =>
         AppUpdater(
           platform: TargetPlatform.linux,
-          config: const AppUpdaterConfig(buildNumber: '5'),
+          config: AppUpdaterConfig(buildNumber: '5', publicKey: publicKey),
           environment: const {},
           detectAppImage: detect,
           openUrl: (_) async => true,
         );
+
+    test(
+      'is unavailable, with the reason, in a build without the update key',
+      () {
+        final file = write(
+          'good.AppImage',
+          elfWith(AppImageUpdateInformation.official),
+        );
+        final u = AppUpdater(
+          platform: TargetPlatform.linux,
+          config: const AppUpdaterConfig(buildNumber: '5'),
+          environment: const {},
+          detectAppImage: (_) => AppImageSupport.available(
+            file.path,
+            AppImageUpdateInformation.parse(AppImageUpdateInformation.official),
+          ),
+          openUrl: (_) async => true,
+        );
+        u.configureAppImage(httpClientFactory: (_) async => HttpClient());
+        expect(u.available, isFalse);
+        expect(u.unavailableReason, contains('signing key'));
+        expect(u.appImage, isNull);
+      },
+    );
 
     test('is unavailable until the app gives it a network client', () {
       final u = updater((_) => const AppImageSupport.available('/x', null));

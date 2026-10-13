@@ -174,13 +174,62 @@ class ReleaseTests(unittest.TestCase):
             release.build('macos')
         commands.assert_not_called()
 
-    def test_other_platforms_never_get_updater_defines(self):
+    def test_android_and_linux_never_get_updater_defines(self):
         environment = {'SPARKLE_ED_PUBLIC_KEY': release.tool_module('appcast').public_key_text(os.urandom(32))}
-        with patch.dict(release.os.environ, environment), \
-                patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands:
-            with self.assertRaises(RuntimeError):
-                release.build('appimage')
-        self.assertFalse([c for c in commands.call_args.args[0] if 'RAFT_AUTO_UPDATE' in str(c)])
+        for platform in ('android', 'linux'):
+            with self.subTest(platform=platform), patch.dict(release.os.environ, environment), \
+                    patch.object(release, 'run', side_effect=RuntimeError('captured')) as commands:
+                with self.assertRaises((RuntimeError, ValueError)):
+                    release.build(platform)
+                if commands.call_args is not None:
+                    self.assertFalse([c for c in commands.call_args.args[0] if 'RAFT_AUTO_UPDATE' in str(c)
+                                      or 'RAFT_SPARKLE_ED_PUBLIC_KEY' in str(c)])
+
+    def build_appimage(self, environment):
+        """Builds the AppImage with the packaging steps faked; returns (flutter command, receipt)."""
+        commands = []
+
+        class FakeAppImage:
+            @staticmethod
+            def package(stage, artifact, root, run, capture, digest):
+                artifact.write_bytes(b'AppImage bytes')
+                return {'updateInformation': False}
+
+        def package(stage, suffix):
+            stage.mkdir()
+
+        environment = {'GITHUB_EVENT_NAME': 'push', 'GITHUB_REF': 'refs/tags/v1.2.3+9',
+                       'GITHUB_RUN_NUMBER': '214', **environment}
+        with tempfile.TemporaryDirectory() as temp, patch.object(release, 'OUT', Path(temp)), \
+                patch.dict(release.os.environ, environment), \
+                patch.dict('sys.modules', {'appimage': FakeAppImage}), \
+                patch.object(release, 'run', side_effect=lambda c, **k: commands.append([str(x) for x in c])), \
+                patch.object(release, 'capture', return_value='abc'), \
+                patch.object(release, 'linux_package', side_effect=package), redirect_stdout(io.StringIO()):
+            release.build('appimage')
+            receipt = json.loads((Path(temp) / 'raft-flutter-1.2.3+9-appimage-x64.json').read_text())
+        return commands[0], receipt
+
+    def test_appimage_with_updater_key_gets_the_key_define_and_a_signing_receipt(self):
+        key = release.tool_module('appcast').public_key_text(os.urandom(32))
+        command, receipt = self.build_appimage({'SPARKLE_ED_PUBLIC_KEY': key})
+        self.assertIn('--dart-define=RAFT_AUTO_UPDATE=true', command)
+        self.assertIn(f'--dart-define=RAFT_SPARKLE_ED_PUBLIC_KEY={key}', command)
+        # No appcast for the AppImage: the signature goes into the manifest at publish time.
+        self.assertEqual(receipt['autoUpdate'], {'enabled': True, 'publicKey': key,
+                                                 'archive': 'raft-flutter-1.2.3+9-appimage-x64.AppImage'})
+        self.assertNotIn('edSignature', receipt)
+
+    def test_appimage_without_updater_key_builds_unsigned_and_has_no_update_key(self):
+        command, receipt = self.build_appimage({})
+        self.assertFalse([c for c in command if 'RAFT_SPARKLE_ED_PUBLIC_KEY' in c or 'RAFT_AUTO_UPDATE' in c])
+        self.assertEqual(receipt['autoUpdate'], {'enabled': False})
+
+    def test_appimage_with_invalid_updater_key_stops_before_building(self):
+        with patch.dict(release.os.environ, {'SPARKLE_ED_PUBLIC_KEY': 'not-a-key'}), \
+                patch.object(release, 'run') as commands, self.assertRaises(ValueError):
+            release.build('appimage')
+        commands.assert_not_called()
 
     def test_version_requires_positive_android_build_number(self):
         self.assertEqual(release.version_info('name: raft\nversion: 1.2.3-rc.1+42\n'), ('1.2.3-rc.1', '42'))

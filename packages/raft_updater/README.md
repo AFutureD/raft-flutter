@@ -12,6 +12,7 @@ await updater.checkAndInstall(); // native UI, or opens the release page
 ```
 
 On Linux, `available` is true only for a writable AppImage that embeds update
-information and after the app calls `configureAppImage` with its proxy-aware
+information, a build with the update public key (`RAFT_SPARKLE_ED_PUBLIC_KEY`;
+the release's Ed25519 signature is verified before the file is replaced) and after the app calls `configureAppImage` with its proxy-aware
 HTTP client; the Updates card then drives `appImage.install(...)` and
 `appImage.restart()` and renders `appImage.status`.

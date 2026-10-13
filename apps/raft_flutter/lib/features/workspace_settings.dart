@@ -616,9 +616,10 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
           detail: _lastChecked(context, service),
           actionLabel: 'Update now',
           onAction: () => unawaited(() async {
-            // A release remembered by an older app version has no checksum yet.
+            // A release remembered by an older app version has no checksum or
+            // signature yet.
             var target = release;
-            if (target.sha256.isEmpty) {
+            if (target.sha256.isEmpty || target.edSignature.isEmpty) {
               await service.checkNow();
               target = service.available ?? target;
             }
@@ -628,6 +629,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
                 artifact: target.artifact,
                 sha256: target.sha256,
                 bytes: target.bytes,
+                edSignature: target.edSignature,
               ),
             );
           }()),

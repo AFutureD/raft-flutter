@@ -65,6 +65,14 @@ String appImageFailureText(
       context,
       'This release has no checksum to verify the update against. Download it from the release page.',
     ),
+    AppImageUpdateFailureKind.missingSignature => raftText(
+      context,
+      'This release has no signature to verify the update against. Download it from the release page.',
+    ),
+    AppImageUpdateFailureKind.badSignature => raftText(
+      context,
+      "The downloaded update isn't signed by Raft and was discarded. Your current version is unchanged. Download the update from the release page.",
+    ),
     AppImageUpdateFailureKind.verification => raftText(
       context,
       'The downloaded update failed its integrity check and was discarded. Your current version is unchanged. Try again or download the update from the release page.',

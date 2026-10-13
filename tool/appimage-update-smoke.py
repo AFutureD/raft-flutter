@@ -2,9 +2,12 @@
 """End-to-end check of the AppImage in-place delta update, against a fake GitHub.
 
 Needs two isolated AppImages built from this tree with the same
-RAFT_APPIMAGE_UPDATE_INFO test feed (see docs/auto-update.md, "Rehearsal"):
-the old one (lower build number) and the new one, plus the new one's .zsync and
-receipt next to it. The harness serves a GitHub-shaped release (302 from the
+RAFT_APPIMAGE_UPDATE_INFO test feed and the same throwaway SPARKLE_ED_PUBLIC_KEY
+(see docs/auto-update.md, "Test override and smoke test"): the old one (lower
+build number) and the new one, plus the new one's .zsync and receipt next to it.
+The harness signs the new AppImage like the release publisher does (Ed25519
+over the file, `edSignature` in the manifest) with the matching throwaway
+private key file (`python3 tool/appcast.py keygen --out DIR`); it never prints it. The harness serves a GitHub-shaped release (302 from the
 asset URL to a CDN-like URL that honours Range), runs the old AppImage under
 Xvfb with a throwaway HOME, lets the app's test hook (RAFT_UPDATE_SMOKE=1)
 update itself, restart and report the build it now runs, and prints the bytes
@@ -13,6 +16,7 @@ that crossed the wire.
     python3 tool/appimage-update-smoke.py --old OLD.AppImage --new NEW.AppImage --output DIR
 """
 import argparse
+import base64
 import hashlib
 import http.server
 import json
@@ -28,7 +32,12 @@ import threading
 import time
 import urllib.parse
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import appcast  # noqa: E402  (the release signer)
+
 OWNER_REPOSITORY = 'kevinzhow/raft-flutter'
+# What the app must report for each negative case (AppImageUpdateFailureKind).
+REFUSALS = {'wrong-sha256': 'verification', 'wrong-key': 'badSignature', 'missing': 'missingSignature'}
 
 
 class FakeGitHub:
@@ -137,9 +146,14 @@ def main():
     parser.add_argument('--new', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--tag', default='v0.1.0+72', help='release tag the fake manifest names')
+    parser.add_argument('--ed-private-key-file', type=Path, required=True,
+                        help='throwaway Ed25519 private key (base64 seed) matching the public key built into both AppImages')
     parser.add_argument('--wrong-manifest-sha256', action='store_true',
                         help='negative case: the manifest names another SHA-256, so the app must refuse the '
                              'verified-looking download and leave the installed AppImage untouched')
+    parser.add_argument('--signature', choices=['valid', 'wrong-key', 'missing'], default='valid',
+                        help='negative cases: sign with another key, or publish no edSignature; the app must '
+                             'refuse and leave the installed AppImage untouched')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     new = args.new.resolve()
@@ -147,7 +161,16 @@ def main():
     if sha256(new) != receipt['sha256']:
         raise ValueError('The new AppImage differs from its receipt')
     zsync = new.with_name(new.name + '.zsync')
-    manifest = [dict(receipt, releaseTag=args.tag, **({'sha256': '0' * 64} if args.wrong_manifest_sha256 else {}))]
+    seed = appcast.decode_seed(args.ed_private_key_file.read_text())
+    if args.signature == 'wrong-key':
+        seed = os.urandom(32)
+    signed = {}
+    if args.signature != 'missing':
+        signed['edSignature'] = base64.b64encode(appcast.sign_file(seed, new)[0]).decode('ascii')
+    manifest = [dict(receipt, releaseTag=args.tag, **signed,
+                     **({'sha256': '0' * 64} if args.wrong_manifest_sha256 else {}))]
+    refusal = REFUSALS['wrong-sha256'] if args.wrong_manifest_sha256 else \
+        REFUSALS.get(args.signature) if args.signature != 'valid' else None
     files = {new.name: new.read_bytes(), zsync.name: zsync.read_bytes(),
              f"build-manifest-{receipt['platform']}-{receipt['arch']}.json": json.dumps(manifest).encode()}
     started = []  # (name, Popen/pid) of everything we start, killed at the end
@@ -194,14 +217,14 @@ def main():
             started.append(first.pid)
             ready = wait_for(lambda: next((l for l in smoke_lines(log) if ' ready ' in l or ' failed ' in l
                                            or ' unavailable ' in l or ' uptodate ' in l), None), 240, 'the update to finish')
-            if args.wrong_manifest_sha256:
+            if refusal:
                 time.sleep(1)
                 result = {'refusedLine': ready, 'installedUntouched': sha256(installed) == old_sha,
                           'leftoverFiles': sorted(p.name for p in folder.iterdir() if p.name != installed.name),
                           'rangeBytesDownloaded': github.bytes_for(new.name, ranged=True)}
                 (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
                 print(json.dumps(result, indent=2))
-                if ' failed ' not in ready or 'verification' not in ready or not result['installedUntouched'] \
+                if ' failed ' not in ready or refusal not in ready or not result['installedUntouched'] \
                         or result['leftoverFiles']:
                     sys.exit('Negative update smoke test failed')
                 return
@@ -228,6 +251,7 @@ def main():
                 'appReport': {k: field(ready, k) for k in
                               ('downloaded', 'reused', 'target', 'control', 'requests', 'scanMs', 'downloadMs', 'verifyMs', 'totalMs')},
                 'endToEndSeconds': round(elapsed, 1),
+                'signedWith': 'edSignature in the manifest, verified by the app before replacing the file',
                 'replacedFileMatchesNewSha256': sha256(installed) == receipt['sha256'],
                 'oldSha256': old_sha, 'newSha256': receipt['sha256'],
                 'leftoverFiles': sorted(p.name for p in folder.iterdir() if p.name != installed.name),

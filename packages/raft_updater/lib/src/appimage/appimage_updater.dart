@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'appimage_environment.dart';
 import 'appimage_failure.dart';
 import 'appimage_http.dart';
+import 'ed25519.dart';
 import 'update_information.dart';
 import 'zsync_control.dart';
 import 'zsync_matcher.dart';
@@ -24,6 +25,7 @@ class AppImageRelease {
     required this.artifact,
     required this.sha256,
     required this.bytes,
+    this.edSignature = '',
   });
 
   /// Full release tag, e.g. `v0.1.0+7`.
@@ -35,6 +37,11 @@ class AppImageRelease {
   /// Lowercase hex SHA-256 of the AppImage the release published.
   final String sha256;
   final int bytes;
+
+  /// Base64 Ed25519 signature (64 bytes) of the whole AppImage, the manifest's
+  /// `edSignature`; made by the release publisher with the Sparkle key. Empty
+  /// when the manifest has none; the update refuses to install without it.
+  final String edSignature;
 }
 
 enum AppImageUpdatePhase { idle, running, ready, failed }
@@ -111,15 +118,17 @@ class AppImageTransferReport {
 ///
 /// Flow: fetch the release's `.zsync` file, find the unchanged blocks in the
 /// current file, download only the rest with HTTP range requests, assemble
-/// `.<name>.part` beside the AppImage, verify SHA-1 (from the `.zsync`) and
-/// SHA-256 (from the release manifest), then move it over the original with
-/// the old file kept as a backup until the move succeeded. The running
+/// `.<name>.part` beside the AppImage, verify SHA-1 (from the `.zsync`),
+/// SHA-256 (from the release manifest) and the release's Ed25519 signature
+/// (against the public key compiled into the app), then move it over the
+/// original with the old file kept as a backup until the move succeeded. The running
 /// process keeps using the old file's inode; [restart] starts the new one.
 class AppImageUpdater {
   AppImageUpdater({
     required this.path,
     required this.information,
     required this._http,
+    required this.publicKey,
     this._origin,
     Map<String, String>? environment,
     Future<void> Function()? quit,
@@ -136,6 +145,10 @@ class AppImageUpdater {
   /// The real path of the AppImage this process runs from.
   final String path;
   final AppImageUpdateInformation information;
+
+  /// Base64 Ed25519 public key (the Sparkle key) the release signature is
+  /// verified against, compiled into the build.
+  final String publicKey;
   final int rangeGap, pieceSize, connections;
 
   final AppImageHttp _http;
@@ -212,6 +225,27 @@ class AppImageUpdater {
     if (release.sha256.length != 64 || release.bytes <= 0) {
       _status.value = const AppImageUpdateStatus.failed(
         AppImageUpdateFailure(AppImageUpdateFailureKind.missingChecksum),
+      );
+      return;
+    }
+    final signature = release.edSignature.trim();
+    if (signature.isEmpty || !Ed25519Verifier.isPublicKey(publicKey)) {
+      _status.value = AppImageUpdateStatus.failed(
+        AppImageUpdateFailure(
+          AppImageUpdateFailureKind.missingSignature,
+          signature.isEmpty ? 'no signature in the manifest' : 'no public key',
+        ),
+      );
+      return;
+    }
+    try {
+      Ed25519Verifier.fromBase64(publicKey, signature);
+    } on FormatException catch (error) {
+      _status.value = AppImageUpdateStatus.failed(
+        AppImageUpdateFailure(
+          AppImageUpdateFailureKind.badSignature,
+          error.message,
+        ),
       );
       return;
     }
@@ -311,7 +345,8 @@ class AppImageUpdater {
     final verifyWatch = Stopwatch()..start();
     _set(AppImageUpdateStage.verifying, 0.9);
     final part = _part;
-    final digests = await Isolate.run(() => _hashFile(part));
+    final key = publicKey, signature = release.edSignature;
+    final digests = await Isolate.run(() => _hashFile(part, key, signature));
     if (_cancelled) {
       throw const AppImageUpdateFailure(AppImageUpdateFailureKind.cancelled);
     }
@@ -319,6 +354,14 @@ class AppImageUpdater {
         digests.$1 != control.sha1 ||
         digests.$2 != release.sha256.toLowerCase()) {
       throw const AppImageUpdateFailure(AppImageUpdateFailureKind.verification);
+    }
+    // The checksums only prove the file matches what the release lists; the
+    // signature proves the publisher made it. Nothing is replaced before this.
+    if (!digests.$3) {
+      throw const AppImageUpdateFailure(
+        AppImageUpdateFailureKind.badSignature,
+        'the signature does not match the downloaded file',
+      );
     }
     verifyWatch.stop();
 
@@ -550,10 +593,17 @@ void _scanEntry((SendPort, String, ZsyncControl) job) {
   Isolate.exit(port, match);
 }
 
-(String, String) _hashFile(String path) {
+/// SHA-1, SHA-256 and whether [signature] is a valid Ed25519 signature of the
+/// file under [publicKey], in one pass over the file.
+(String, String, bool) _hashFile(
+  String path,
+  String publicKey,
+  String signature,
+) {
   final sha1Sink = _DigestSink(), sha256Sink = _DigestSink();
   final sha1Input = sha1.startChunkedConversion(sha1Sink);
   final sha256Input = sha256.startChunkedConversion(sha256Sink);
+  final signed = Ed25519Verifier.fromBase64(publicKey, signature);
   final file = File(path).openSync();
   try {
     final buffer = Uint8List(1 << 20);
@@ -563,13 +613,18 @@ void _scanEntry((SendPort, String, ZsyncControl) job) {
       final view = Uint8List.sublistView(buffer, 0, read);
       sha1Input.add(view);
       sha256Input.add(view);
+      signed.add(view);
     }
   } finally {
     file.closeSync();
   }
   sha1Input.close();
   sha256Input.close();
-  return (sha1Sink.value.toString(), sha256Sink.value.toString());
+  return (
+    sha1Sink.value.toString(),
+    sha256Sink.value.toString(),
+    signed.close(),
+  );
 }
 
 class _DigestSink implements Sink<Digest> {
