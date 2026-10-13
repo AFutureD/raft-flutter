@@ -89,8 +89,8 @@ class LabAdapter implements HttpClientAdapter {
 
 /// A client whose realtime events the lab drives.
 class LabClient extends RaftClient {
-  LabClient(LabAdapter adapter)
-    : super(origin: 'https://example.invalid', sessionStore: MemorySessionStore(), transport: Dio()..httpClientAdapter = adapter) {
+  LabClient(LabAdapter adapter, {String origin = 'https://example.invalid'})
+    : super(origin: origin, sessionStore: MemorySessionStore(), transport: Dio()..httpClientAdapter = adapter) {
     _accountEvents = super.events.listen(stream.add);
   }
   final stream = StreamController<RaftEvent>.broadcast(sync: true);
@@ -318,7 +318,7 @@ List<String> mixKinds(int count) => [for (var i = 0; i < count; i++) mixCycle[i 
 
 /// Signs in a fixture workspace with the lab's routes. Every channel's rows
 /// arrive through the product's own network page path.
-Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false, bool ownsClient = true}) async {
+Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChannel> channels, LabImages images, {bool mobile = false, bool ownsClient = true, String origin = 'https://example.invalid'}) async {
   final api = LabAdapter();
   api.routes['POST /auth/login'] = (_) => {'accessToken': 'fixture-only', 'refreshToken': 'fixture-only', 'user': {
     'id': 'alice', 'name': 'Alice Zhang', 'email': 'alice@example.invalid', 'emailVerified': true, 'displayLanguage': 'en',
@@ -375,7 +375,7 @@ Future<(WorkspaceController, LabAdapter, LabClient)> labWorkspace(List<LabChanne
   for (final c in channels) {
     c.install(api);
   }
-  final client = LabClient(api);
+  final client = LabClient(api, origin: origin);
   await client.login('fixture', 'fixture');
   client.selectServer('s1');
   final w = WorkspaceController(client, mobileNavigation: mobile, ownsClient: ownsClient);
