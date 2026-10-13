@@ -6,9 +6,18 @@
 // runner resolves the same sources in-process and runs the very same check
 // functions the plugin rules call, so the gate cannot silently skip them.
 //
-//   dart run raft_lints:check [dir ...]    (default: every lib/ in the repo)
+//   dart run bin/check.dart [dir-or-file ...]    (default: every lib/ in the repo)
+//
+// Directories are scanned recursively. Files are resolved one by one through the
+// context that owns them, so linting a handful of files does not enumerate or
+// resolve the rest of the package (the analyzer only reads what the imports of
+// those files need, mostly from the persistent summary cache below).
+//
+// The wrapper tool/raft-lints runs this as an AOT snapshot and passes the repo
+// root in RAFT_LINTS_REPO (a snapshot has no usable Platform.script location).
 import 'dart:io';
 
+import 'package:analyzer/dart/analysis/analysis_context.dart';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/src/dart/analysis/analysis_context_collection.dart'
         // ignore: implementation_imports
@@ -29,9 +38,11 @@ import 'package:raft_lints/src/resource_release.dart';
 import 'package:raft_lints/src/ignores.dart';
 
 Future<void> main(List<String> args) async {
-  final repo = p.normalize(
-    p.join(p.dirname(p.fromUri(Platform.script)), '..', '..', '..'),
-  );
+  final repo =
+      Platform.environment['RAFT_LINTS_REPO'] ??
+      p.normalize(
+        p.join(p.dirname(p.fromUri(Platform.script)), '..', '..', '..'),
+      );
   final roots = args.isNotEmpty
       ? [for (final a in args) p.normalize(p.absolute(a))]
       : [
@@ -51,27 +62,44 @@ Future<void> main(List<String> args) async {
   );
   final findings = <String>[];
   var files = 0;
-  for (final context in collection.contexts) {
-    for (final path in context.contextRoot.analyzedFiles()) {
-      if (!path.endsWith('.dart') || path.endsWith('.g.dart')) continue;
-      if (!roots.any((r) => p.isWithin(r, path) || p.equals(r, path))) continue;
-      // Cheap textual pre-filter: every rule needs one of these tokens.
-      if (!_mayMatch.hasMatch(File(path).readAsStringSync())) continue;
-      final result = await context.currentSession.getResolvedUnit(path);
-      if (result is! ResolvedUnitResult) continue;
-      files++;
-      final ignores = Ignores.of(result.unit, result.content);
-      result.unit.accept(
-        AllChecksVisitor(path: path, (rule, node) {
-          final loc = result.lineInfo.getLocation(node.offset);
-          if (ignores.isIgnored(rule, loc.lineNumber)) return;
-          findings.add(
-            '${p.relative(path, from: repo)}:${loc.lineNumber}:${loc.columnNumber} '
-            '- ${_message(rule)} ($rule)',
-          );
-        }),
-      );
+  // Explicit files go straight to the context that owns them; directories are
+  // enumerated through each context's analyzed files.
+  final targets = <String, AnalysisContext>{};
+  for (final root in roots) {
+    if (FileSystemEntity.isFileSync(root)) {
+      targets[root] = collection.contextFor(root);
     }
+  }
+  final dirRoots = [
+    for (final r in roots)
+      if (!FileSystemEntity.isFileSync(r)) r,
+  ];
+  for (final context
+      in dirRoots.isEmpty ? const <AnalysisContext>[] : collection.contexts) {
+    for (final path in context.contextRoot.analyzedFiles()) {
+      if (!dirRoots.any((r) => p.isWithin(r, path))) continue;
+      targets[path] = context;
+    }
+  }
+  for (final entry in targets.entries) {
+    final path = entry.key;
+    if (!path.endsWith('.dart') || path.endsWith('.g.dart')) continue;
+    // Cheap textual pre-filter: every rule needs one of these tokens.
+    if (!_mayMatch.hasMatch(File(path).readAsStringSync())) continue;
+    final result = await entry.value.currentSession.getResolvedUnit(path);
+    if (result is! ResolvedUnitResult) continue;
+    files++;
+    final ignores = Ignores.of(result.unit, result.content);
+    result.unit.accept(
+      AllChecksVisitor(path: path, (rule, node) {
+        final loc = result.lineInfo.getLocation(node.offset);
+        if (ignores.isIgnored(rule, loc.lineNumber)) return;
+        findings.add(
+          '${p.relative(path, from: repo)}:${loc.lineNumber}:${loc.columnNumber} '
+          '- ${_message(rule)} ($rule)',
+        );
+      }),
+    );
   }
   findings.sort();
   findings.forEach(stdout.writeln);
