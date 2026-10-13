@@ -1,0 +1,445 @@
+{
+  "real|brutal|administrationAdminsPreview|2.0x": [
+    "escapes: Remove Admin",
+    "escapes: Update Role",
+    "inkClipped: Admin"
+  ],
+  "real|brutal|attachmentPreview|2.0x": [
+    "escapes: 5.0 MB",
+    "hardCut: PDF",
+    "inkClipped: PDF",
+    "inkClipped: Retry preview",
+    "overflow: A RenderFlex overflowed by 10.0 pixels on the bottom."
+  ],
+  "real|brutal|attachmentTransferPreview|2.0x": [
+    "hardCut: PDF",
+    "inkClipped: Cancel",
+    "inkClipped: PDF",
+    "inkClipped: Retry"
+  ],
+  "real|brutal|channelHeaderPreview|2.0x": [
+    "inkClipped: A public description can wrap without hiding the channel identity."
+  ],
+  "real|brutal|channelMembersPagePreview|2.0x": [
+    "inkClipped: Add Member",
+    "inkClipped: · 1"
+  ],
+  "real|brutal|channelSettingsPagePreview|2.0x": [
+    "escapes: A channel for everyone in the workspace.",
+    "escapes: Cancel",
+    "escapes: Save",
+    "escapes: What is this channel about?",
+    "inkClipped: +",
+    "inkClipped: A channel for everyone in the workspace.",
+    "overflow: A RenderFlex overflowed by 12 pixels on the bottom."
+  ],
+  "real|brutal|composerTaskActionPreview|2.0x": [
+    "inkClipped: As task"
+  ],
+  "real|brutal|conversationTabsDesktopPreview|2.0x": [
+    "escapes: Chat",
+    "escapes: Files",
+    "escapes: Tasks"
+  ],
+  "real|brutal|conversationTabsTouchPreview|2.0x": [
+    "escapes: Chat",
+    "escapes: Files",
+    "escapes: Tasks"
+  ],
+  "real|brutal|designControlsPreview|2.0x": [
+    "escapes: Accent",
+    "escapes: Default",
+    "escapes: Delete",
+    "escapes: Disabled",
+    "escapes: Ghost",
+    "escapes: Loading",
+    "escapes: Outline",
+    "escapes: Primary",
+    "inkClipped: Code",
+    "inkClipped: Diagram"
+  ],
+  "real|brutal|desktopPanelHeaderPreview|2.0x": [
+    "inkClipped: @designer",
+    "inkClipped: Product and UI decisions"
+  ],
+  "real|brutal|dmSettingsPagePreview|2.0x": [
+    "inkClipped: Direct message"
+  ],
+  "real|brutal|longApplicationCatalogPreview|1.3x": [
+    "inkClipped: Search apps…"
+  ],
+  "real|brutal|longApplicationCatalogPreview|2.0x": [
+    "escapes: Search apps…",
+    "inkClipped: Search apps…"
+  ],
+  "real|brutal|longMountedChatSidebarPreview|2.0x": [
+    "inkClipped: 1000",
+    "inkClipped: CHANNELS",
+    "inkClipped: Channel 0",
+    "inkClipped: Channel 1",
+    "inkClipped: Channel 10",
+    "inkClipped: Channel 11",
+    "inkClipped: Channel 12",
+    "inkClipped: Channel 13",
+    "inkClipped: Channel 14",
+    "inkClipped: Channel 15",
+    "inkClipped: Channel 16",
+    "inkClipped: Channel 2",
+    "inkClipped: Channel 3",
+    "inkClipped: Channel 4",
+    "inkClipped: Channel 5",
+    "inkClipped: Channel 6",
+    "inkClipped: Channel 7",
+    "inkClipped: Channel 8",
+    "inkClipped: Channel 9"
+  ],
+  "real|brutal|messageAffordancePreview|1.3x": [
+    "inkClipped: Cindy"
+  ],
+  "real|brutal|messageAffordancePreview|2.0x": [
+    "inkClipped: Cindy"
+  ],
+  "real|brutal|messageRowPreview|1.3x": [
+    "escapes: 14:31",
+    "inkClipped: Cindy"
+  ],
+  "real|brutal|messageRowPreview|2.0x": [
+    "escapes: 14:31",
+    "inkClipped: Cindy"
+  ],
+  "real|brutal|messageTranslationPreview|1.3x": [
+    "inkClipped: Bilingual",
+    "inkClipped: Pending (auto)",
+    "inkClipped: Retry",
+    "inkClipped: Show original"
+  ],
+  "real|brutal|messageTranslationPreview|2.0x": [
+    "inkClipped: Bilingual",
+    "inkClipped: Failed",
+    "inkClipped: Pending (auto)",
+    "inkClipped: Retry",
+    "inkClipped: Show original",
+    "inkClipped: Translated",
+    "inkClipped: Translating…",
+    "inkClipped: Translation unavailable",
+    "inkClipped: ·"
+  ],
+  "real|brutal|mobileSettingsRootCurrentPreview|1.3x": [
+    "inkClipped: Appearance",
+    "inkClipped: Applications",
+    "inkClipped: Computers",
+    "inkClipped: Language & Region",
+    "inkClipped: Plan & Billing"
+  ],
+  "real|brutal|mobileSettingsRootCurrentPreview|2.0x": [
+    "inkClipped: AI Providers",
+    "inkClipped: About",
+    "inkClipped: Account",
+    "inkClipped: Administration",
+    "inkClipped: Appearance",
+    "inkClipped: Applications",
+    "inkClipped: Computers",
+    "inkClipped: Documentation",
+    "inkClipped: Feedback",
+    "inkClipped: Language & Region",
+    "inkClipped: MCP Servers",
+    "inkClipped: Notifications",
+    "inkClipped: Plan & Billing",
+    "inkClipped: Release Notes",
+    "inkClipped: Server Profile"
+  ],
+  "real|brutal|mountedChatSidebarGroupsPreview|2.0x": [
+    "inkClipped: 0",
+    "inkClipped: Begin loading",
+    "inkClipped: CHANNELS",
+    "inkClipped: DIRECT MESSAGES",
+    "inkClipped: Hide empty groups",
+    "inkClipped: JOINT CHANNELS",
+    "inkClipped: PINNED"
+  ],
+  "real|brutal|mountedThreadCompositionTouchPreview|1.3x": [
+    "inkClipped: Public reply"
+  ],
+  "real|brutal|mountedThreadCompositionTouchPreview|2.0x": [
+    "inkClipped: 10:30",
+    "inkClipped: Public fixture 中文 日本語",
+    "inkClipped: Public reply",
+    "inkClipped: Thread— #design"
+  ],
+  "real|brutal|profileTabsAndCardPreview|2.0x": [
+    "escapes: Save changes"
+  ],
+  "real|brutal|quickSwitcherResultsPreview|2.0x": [
+    "inkClipped: Retry"
+  ],
+  "real|brutal|searchSurfacesPreview|2.0x": [
+    "escapes: Channel"
+  ],
+  "real|brutal|selectionCopyToastPreview-open|2.0x": [
+    "escapes: Clear feedback",
+    "escapes: Copy MD"
+  ],
+  "real|brutal|selectionCopyToastPreview-open|zh-1.0x": [
+    "error: thrown: The finder \"Found 0 widgets with text \"Copy MD\": []\" (used in a call to \"tap()\") could not find any matching widgets."
+  ],
+  "real|brutal|selectionCopyToastPreview|2.0x": [
+    "escapes: Clear feedback",
+    "escapes: Copy MD"
+  ],
+  "real|brutal|settingsControlsPreview|2.0x": [
+    "escapes: Save",
+    "escapes: Saving"
+  ],
+  "real|brutal|sosConfirmPreview|2.0x": [
+    "escapes: All running agents in #release will stop immediately. You can provide new guidance before resuming them.",
+    "escapes: Cancel",
+    "escapes: Stop",
+    "overflow: A RenderFlex overflowed by 93 pixels on the bottom."
+  ],
+  "real|brutal|sourceAlertDialogPreview|2.0x": [
+    "escapes: Open alert dialog"
+  ],
+  "real|brutal|sourceButtonsPreview|2.0x": [
+    "escapes: Accent",
+    "escapes: Default",
+    "escapes: Delete",
+    "escapes: Disabled",
+    "escapes: Ghost",
+    "escapes: Loading",
+    "escapes: Outline",
+    "escapes: Primary"
+  ],
+  "real|brutal|sourceDialogPreview|2.0x": [
+    "escapes: Open dialog"
+  ],
+  "tall|brutal|administrationAdminsPreview|zh-2.0x": [
+    "escapes: 更新角色",
+    "escapes: 移除管理员",
+    "inkClipped: 管理员"
+  ],
+  "tall|brutal|attachmentPreview|zh-2.0x": [
+    "escapes: 5.0 MB",
+    "hardCut: PDF",
+    "inkClipped: PDF",
+    "inkClipped: Retry preview",
+    "overflow: A RenderFlex overflowed by 10.0 pixels on the bottom."
+  ],
+  "tall|brutal|attachmentTransferPreview|zh-2.0x": [
+    "hardCut: PDF",
+    "inkClipped: PDF",
+    "inkClipped: 取消",
+    "inkClipped: 重试"
+  ],
+  "tall|brutal|bannerPreview|zh-2.0x": [
+    "overflow: A RenderFlex overflowed by 14 pixels on the bottom."
+  ],
+  "tall|brutal|channelHeaderPreview|zh-2.0x": [
+    "inkClipped: A public description can wrap without hiding the channel identity."
+  ],
+  "tall|brutal|channelMembersPagePreview|zh-2.0x": [
+    "inkClipped: 1",
+    "inkClipped: · 1",
+    "inkClipped: 人类",
+    "inkClipped: 添加成员"
+  ],
+  "tall|brutal|channelSettingsPagePreview|zh-2.0x": [
+    "escapes: A channel for everyone in the workspace.",
+    "escapes: 保存",
+    "escapes: 取消",
+    "inkClipped: +",
+    "inkClipped: A channel for everyone in the workspace.",
+    "inkClipped: 公开",
+    "overflow: A RenderFlex overflowed by 12 pixels on the bottom."
+  ],
+  "tall|brutal|composerTaskActionPreview|1.3x": [
+    "inkClipped: As task"
+  ],
+  "tall|brutal|composerTaskActionPreview|zh-2.0x": [
+    "inkClipped: As task"
+  ],
+  "tall|brutal|designControlsPreview|1.3x": [
+    "inkClipped: Diagram"
+  ],
+  "tall|brutal|designControlsPreview|zh-2.0x": [
+    "escapes: Accent",
+    "escapes: Ghost",
+    "escapes: Primary",
+    "escapes: 删除",
+    "escapes: 加载中",
+    "escapes: 大纲",
+    "escapes: 已禁用",
+    "escapes: 默认",
+    "inkClipped: Code",
+    "inkClipped: Diagram"
+  ],
+  "tall|brutal|desktopPanelHeaderPreview|zh-2.0x": [
+    "inkClipped: @designer",
+    "inkClipped: Product and UI decisions"
+  ],
+  "tall|brutal|dmSettingsPagePreview|zh-2.0x": [
+    "inkClipped: 私信"
+  ],
+  "tall|brutal|longApplicationCatalogPreview|1.3x": [
+    "escapes: Search apps…",
+    "inkClipped: Search apps…"
+  ],
+  "tall|brutal|longApplicationCatalogPreview|zh-2.0x": [
+    "escapes: 搜索应用…",
+    "inkClipped: All categories",
+    "inkClipped: 搜索应用…"
+  ],
+  "tall|brutal|longMountedChatSidebarPreview|zh-2.0x": [
+    "inkClipped: 1000",
+    "inkClipped: CHANNELS",
+    "inkClipped: Channel 0",
+    "inkClipped: Channel 1",
+    "inkClipped: Channel 10",
+    "inkClipped: Channel 11",
+    "inkClipped: Channel 12",
+    "inkClipped: Channel 13",
+    "inkClipped: Channel 14",
+    "inkClipped: Channel 15",
+    "inkClipped: Channel 16",
+    "inkClipped: Channel 2",
+    "inkClipped: Channel 3",
+    "inkClipped: Channel 4",
+    "inkClipped: Channel 5",
+    "inkClipped: Channel 6",
+    "inkClipped: Channel 7",
+    "inkClipped: Channel 8",
+    "inkClipped: Channel 9"
+  ],
+  "tall|brutal|messageAffordancePreview|1.3x": [
+    "inkClipped: Cindy"
+  ],
+  "tall|brutal|messageAffordancePreview|zh-2.0x": [
+    "inkClipped: Cindy"
+  ],
+  "tall|brutal|messageRowPreview|1.3x": [
+    "escapes: 14:31",
+    "inkClipped: Cindy"
+  ],
+  "tall|brutal|messageRowPreview|zh-2.0x": [
+    "escapes: 14:31",
+    "inkClipped: Cindy"
+  ],
+  "tall|brutal|messageTranslationPreview|1.3x": [
+    "inkClipped: Bilingual",
+    "inkClipped: Failed",
+    "inkClipped: Pending (auto)",
+    "inkClipped: Retry",
+    "inkClipped: Show original",
+    "inkClipped: Translated",
+    "inkClipped: Translating…"
+  ],
+  "tall|brutal|messageTranslationPreview|zh-2.0x": [
+    "inkClipped: Bilingual",
+    "inkClipped: Failed",
+    "inkClipped: Pending (auto)",
+    "inkClipped: Retry",
+    "inkClipped: Show original",
+    "inkClipped: Translated",
+    "inkClipped: Translating…",
+    "inkClipped: Translation unavailable",
+    "inkClipped: ·"
+  ],
+  "tall|brutal|mobileSettingsRootCurrentPreview|1.3x": [
+    "inkClipped: AI Providers",
+    "inkClipped: About",
+    "inkClipped: Account",
+    "inkClipped: Administration",
+    "inkClipped: Appearance",
+    "inkClipped: Applications",
+    "inkClipped: Computers",
+    "inkClipped: Documentation",
+    "inkClipped: Feedback",
+    "inkClipped: Language & Region",
+    "inkClipped: MCP Servers",
+    "inkClipped: Notifications",
+    "inkClipped: Plan & Billing",
+    "inkClipped: Release Notes",
+    "inkClipped: Server Profile"
+  ],
+  "tall|brutal|mobileSettingsRootCurrentPreview|zh-2.0x": [
+    "inkClipped: AI Provider",
+    "inkClipped: MCP 服务器",
+    "inkClipped: 关于",
+    "inkClipped: 反馈",
+    "inkClipped: 外观",
+    "inkClipped: 套餐与账单",
+    "inkClipped: 应用",
+    "inkClipped: 文档",
+    "inkClipped: 更新日志",
+    "inkClipped: 服务器资料",
+    "inkClipped: 管理",
+    "inkClipped: 计算机",
+    "inkClipped: 语言与区域",
+    "inkClipped: 账户",
+    "inkClipped: 通知"
+  ],
+  "tall|brutal|mountedChatSidebarGroupsPreview|zh-2.0x": [
+    "inkClipped: 0",
+    "inkClipped: Begin loading",
+    "inkClipped: CHANNELS",
+    "inkClipped: DIRECT MESSAGES",
+    "inkClipped: Hide empty groups",
+    "inkClipped: JOINT CHANNELS",
+    "inkClipped: PINNED"
+  ],
+  "tall|brutal|mountedThreadCompositionTouchPreview|1.3x": [
+    "inkClipped: Public fixture 中文 日本語",
+    "inkClipped: Public reply"
+  ],
+  "tall|brutal|mountedThreadCompositionTouchPreview|zh-2.0x": [
+    "inkClipped: 10:30",
+    "inkClipped: Public fixture 中文 日本語",
+    "inkClipped: Public reply",
+    "inkClipped: Thread— #design"
+  ],
+  "tall|brutal|profileTabsAndCardPreview|zh-2.0x": [
+    "escapes: 保存修改"
+  ],
+  "tall|brutal|quickSwitcherResultsPreview|zh-2.0x": [
+    "inkClipped: THREAD",
+    "inkClipped: 重试"
+  ],
+  "tall|brutal|searchSurfacesPreview|zh-2.0x": [
+    "escapes: Channel"
+  ],
+  "tall|brutal|selectionCopyToastPreview-open|zh-1.0x": [
+    "error: thrown: The finder \"Found 0 widgets with text \"Copy MD\": []\" (used in a call to \"tap()\") could not find any matching widgets."
+  ],
+  "tall|brutal|selectionCopyToastPreview-open|zh-2.0x": [
+    "error: thrown: The finder \"Found 0 widgets with text \"Copy MD\": []\" (used in a call to \"tap()\") could not find any matching widgets.",
+    "escapes: Clear feedback",
+    "escapes: 复制 Markdown"
+  ],
+  "tall|brutal|selectionCopyToastPreview|zh-2.0x": [
+    "escapes: Clear feedback",
+    "escapes: 复制 Markdown"
+  ],
+  "tall|brutal|settingsControlsPreview|zh-2.0x": [
+    "escapes: Saving",
+    "escapes: 保存"
+  ],
+  "tall|brutal|sosConfirmPreview|zh-2.0x": [
+    "escapes: 停止",
+    "escapes: 取消"
+  ],
+  "tall|brutal|sourceAlertDialogPreview|zh-2.0x": [
+    "escapes: Open alert dialog"
+  ],
+  "tall|brutal|sourceButtonsPreview|zh-2.0x": [
+    "escapes: Accent",
+    "escapes: Ghost",
+    "escapes: Primary",
+    "escapes: 删除",
+    "escapes: 加载中",
+    "escapes: 大纲",
+    "escapes: 已禁用",
+    "escapes: 默认"
+  ],
+  "tall|brutal|sourceDialogPreview|zh-2.0x": [
+    "escapes: Open dialog"
+  ]
+}

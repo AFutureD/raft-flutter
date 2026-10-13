@@ -1,0 +1,187 @@
+// Shared driver of the text-scale audit tests (see tool/testing/text_scale_audit.dart
+// for what is detected).
+//
+// The audit is a ratchet. Every (font set, surface, mode) has a recorded set
+// of known failures in text_scale_audit_baseline.json. A test fails when a
+// surface gains a failure that is not recorded (a regression) and also when a
+// recorded failure no longer occurs (so the entry is deleted and the ratchet
+// tightens). The 1.0x mode must always be clean: parity runs at 1.0.
+//
+//   RAFT_TEXT_SCALE_UPDATE=1  rewrite the baseline from the current results
+//   RAFT_TEXT_SCALE_SWEEP=1   also run the non-representative previews
+//   RAFT_TEXT_SCALE_OUT=dir   write screenshots (failing ones marked .FAIL) and
+//                             per-surface JSON reports under dir
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:raft_ui/raft_ui.dart';
+
+import '../../../tool/testing/text_scale_audit.dart';
+import 'text_scale_audit_surfaces.dart';
+
+/// Interactions that open a surface's interesting state.
+final _actions = <String, Future<void> Function(WidgetTester)>{
+  'selectionCopyToastPreview': (t) async {
+    await t.tap(find.text('Copy MD'));
+    await t.pump(const Duration(milliseconds: 300));
+  },
+};
+
+File _baselineFile() {
+  const rel = 'test/text_scale_audit_baseline.json';
+  for (var d = Directory.current.absolute; ; d = d.parent) {
+    for (final c in ['${d.path}/$rel', '${d.path}/packages/raft_ui/$rel']) {
+      if (File(c).existsSync() || File(c).parent.existsSync()) {
+        if (File(c).parent.path.endsWith('raft_ui/test')) return File(c);
+      }
+    }
+    if (d.parent.path == d.path) return File(rel);
+  }
+}
+
+Map<String, List<String>> _readBaseline() {
+  final f = _baselineFile();
+  if (!f.existsSync()) return {};
+  final raw = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+  return {
+    for (final e in raw.entries) e.key: [for (final v in e.value as List) '$v'],
+  };
+}
+
+/// Stable identity of a failure: what broke, on which text.
+Set<String> signatures(AuditReport r) => {
+  for (final f in r.failures) '${f.kind}: ${f.text}',
+};
+
+/// Registers one test per surface for [fonts].
+///
+/// [modes] are pumped in order; the 1.0x mode (named `1.0x`) must come first.
+void defineSurfaceAudits(
+  AuditFonts fonts, {
+  required List<AuditMode> modes,
+  RaftFamily family = RaftFamily.brutal,
+}) {
+  final update = Platform.environment['RAFT_TEXT_SCALE_UPDATE'] == '1';
+  final sweep = Platform.environment['RAFT_TEXT_SCALE_SWEEP'] == '1';
+  final out = Platform.environment['RAFT_TEXT_SCALE_OUT'];
+  final baseline = _readBaseline();
+  final actual = <String, List<String>>{};
+  final prefix = '${fonts.name}|${family.name}';
+
+  tearDownAll(() {
+    if (!update) return;
+    // Re-read: another test file may have updated its own entries meanwhile
+    // (run the update one test file at a time).
+    final merged = <String, List<String>>{..._readBaseline(), ...actual}
+      ..removeWhere((k, v) => v.isEmpty);
+    final keys = merged.keys.toList()..sort();
+    _baselineFile().writeAsStringSync(
+      '${const JsonEncoder.withIndent('  ').convert({for (final k in keys) k: merged[k]})}\n',
+    );
+  });
+
+  for (final s in auditSurfaces) {
+    if (!s.representative && !sweep) continue;
+    testWidgets('$prefix ${s.fn}', (t) async {
+      await loadAuditFonts(t, fonts);
+      final theme = raftTheme(family);
+      final truncation = <String, bool>{};
+      final problems = <String>[];
+      for (final mode in modes) {
+        final report = await auditSurface(
+          t,
+          surface: s.fn,
+          build: s.build,
+          theme: theme,
+          mode: mode,
+          size: s.size,
+          truncationBaseline: truncation,
+          screenshotDir: out == null
+              ? null
+              : '$out/${prefix.replaceAll('|', '-')}',
+        );
+        final key = '$prefix|${s.fn}|${mode.name}';
+        final got = signatures(report).toList()..sort();
+        if (update) {
+          actual[key] = got;
+        } else {
+          final known = (baseline[key] ?? const []).toSet();
+          if (mode.name == '1.0x' && got.isNotEmpty) {
+            problems.add(
+              '${mode.name}: not clean at 1.0x: ${report.failures.join('; ')}',
+            );
+          }
+          final added = got.toSet().difference(known);
+          final fixed = known.difference(got.toSet());
+          if (added.isNotEmpty) {
+            problems.add(
+              '${mode.name}: new failures (fix them, or record in text_scale_audit_baseline.json with RAFT_TEXT_SCALE_UPDATE=1):\n'
+              '  ${report.failures.where((f) => added.contains('${f.kind}: ${f.text}')).join('\n  ')}',
+            );
+          }
+          if (fixed.isNotEmpty) {
+            problems.add(
+              '${mode.name}: recorded failures no longer occur, delete them from the baseline (RAFT_TEXT_SCALE_UPDATE=1): ${fixed.join('; ')}',
+            );
+          }
+        }
+        if (_actions.containsKey(s.fn)) {
+          // The action state is audited as an extra pass of the same mode.
+          final acted = await auditSurface(
+            t,
+            surface: '${s.fn}-open',
+            build: s.build,
+            theme: theme,
+            mode: mode,
+            size: s.size,
+            truncationBaseline: truncation,
+            screenshotDir: out == null
+                ? null
+                : '$out/${prefix.replaceAll('|', '-')}',
+            after: _actions[s.fn],
+          );
+          final akey = '$prefix|${s.fn}-open|${mode.name}';
+          final agot = signatures(acted).toList()..sort();
+          if (update) {
+            actual[akey] = agot;
+          } else {
+            final aknown = (baseline[akey] ?? const []).toSet();
+            if (agot.toSet().difference(aknown).isNotEmpty ||
+                aknown.difference(agot.toSet()).isNotEmpty) {
+              problems.add(
+                '${mode.name}/open: ${acted.failures.join('; ')} (baseline: $aknown)',
+              );
+            }
+          }
+        }
+      }
+      expect(problems, isEmpty, reason: problems.join('\n'));
+    }, timeout: const Timeout(Duration(minutes: 3)));
+  }
+}
+
+/// Every preview in lib/ must be in the surface list.
+void expectSurfaceListComplete() {
+  test('every @RaftPreviews preview is in the audit surface list', () {
+    final lib = Directory('${_baselineFile().parent.parent.path}/lib');
+    final listed = {for (final s in auditSurfaces) s.fn};
+    final found = <String>{};
+    for (final f in lib.listSync().whereType<File>().where(
+      (f) => f.path.endsWith('_previews.dart'),
+    )) {
+      final src = f.readAsStringSync();
+      for (final m in RegExp(
+        r'@RaftPreviews\((?:[^()]|\([^()]*\))*\)\s*Widget\s+(\w+)\(',
+      ).allMatches(src)) {
+        found.add(m.group(1)!);
+      }
+    }
+    expect(
+      found.difference(listed),
+      isEmpty,
+      reason: 'add them to text_scale_audit_surfaces.dart',
+    );
+    expect(listed.difference(found), isEmpty);
+  });
+}

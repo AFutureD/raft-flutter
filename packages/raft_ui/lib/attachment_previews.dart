@@ -92,6 +92,17 @@ class _AttachmentTransferPreview extends StatefulWidget {
 class _AttachmentTransferPreviewState
     extends State<_AttachmentTransferPreview> {
   String result = 'Ready';
+  final _halfway = ValueNotifier<RaftTransferProgress?>(
+    const RaftTransferProgress(received: 1782579, total: 2936012),
+  );
+  final _idle = ValueNotifier<RaftTransferProgress?>(null);
+
+  @override
+  void dispose() {
+    _halfway.dispose();
+    _idle.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -129,16 +140,14 @@ class _AttachmentTransferPreviewState
           RaftFileTransferPanel(
             filename: '2026Q3-report.pdf',
             meta: 'PDF · 2.8 MB',
-            progress: ValueNotifier<RaftTransferProgress?>(
-              const RaftTransferProgress(received: 1782579, total: 2936012),
-            ),
+            progress: _halfway,
             onCancel: () => setState(() => result = 'Cancelled'),
           ),
           const SizedBox(height: 24),
           RaftFileTransferPanel(
             filename: '2026Q3-report.pdf',
             meta: 'PDF · 2.8 MB',
-            progress: ValueNotifier<RaftTransferProgress?>(null),
+            progress: _idle,
             failed: true,
             onRetry: () => setState(() => result = 'Retried'),
           ),
