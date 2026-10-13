@@ -16,6 +16,7 @@ import '../platform/content_links.dart';
 import '../platform/linux_uri_scheme.dart';
 import '../platform/native_notifications.dart';
 import 'account_settings.dart';
+import 'app_image_update_text.dart';
 import 'desktop_links_settings.dart';
 import 'administration_view.dart';
 import 'resource_cards.dart' show resourceRelativeTime;
@@ -529,6 +530,9 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
         );
       case AppUpdateStatus.available:
         final release = service.available!;
+        final appImage = platform == TargetPlatform.linux
+            ? _updater.appImage
+            : null;
         // Sparkle / WinSparkle run their own download and install dialogs;
         // this button only starts them. Only a build that can update in place.
         final inPlace =
@@ -539,6 +543,16 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
           android ? release.downloadUrl : release.releasePage,
           mode: LaunchMode.externalApplication,
         );
+        if (appImage != null) {
+          return _appImageUpdate(
+            context,
+            service,
+            release,
+            appImage,
+            check,
+            openReleasePage,
+          );
+        }
         return RaftAboutUpdate(
           state: RaftAboutUpdateState.available,
           message: raftFormat(
@@ -566,6 +580,97 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
     }
   }
 
+  bool _restartFailed = false;
+
+  /// Linux AppImage: the card itself runs the delta update and shows its
+  /// progress, the restart offer and, on failure, the specific reason with the
+  /// release page as the fallback.
+  RaftAboutUpdate _appImageUpdate(
+    BuildContext context,
+    AppUpdateService service,
+    AppRelease release,
+    AppImageUpdater appImage,
+    VoidCallback? check,
+    Future<void> Function() openReleasePage,
+  ) {
+    final status = appImage.status.value;
+    final label = raftFormat(
+      context,
+      'New version available: {version} ({build})',
+      {'version': release.version, 'build': release.buildNumber},
+    );
+    switch (status.phase) {
+      case AppImageUpdatePhase.idle:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.available,
+          message: label,
+          detail: _lastChecked(context, service),
+          actionLabel: 'Update now',
+          onAction: () => unawaited(() async {
+            // A release remembered by an older app version has no checksum yet.
+            var target = release;
+            if (target.sha256.isEmpty) {
+              await service.checkNow();
+              target = service.available ?? target;
+            }
+            await appImage.install(
+              AppImageRelease(
+                tag: target.releaseTag,
+                artifact: target.artifact,
+                sha256: target.sha256,
+                bytes: target.bytes,
+              ),
+            );
+          }()),
+          onCheck: check,
+        );
+      case AppImageUpdatePhase.running:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.installing,
+          message: raftFormat(context, 'Updating to {version} ({build})', {
+            'version': release.version,
+            'build': release.buildNumber,
+          }),
+          detail: appImageStageText(context, status),
+          progress: status.progress,
+          actionLabel: 'Cancel',
+          onAction: appImage.cancel,
+        );
+      case AppImageUpdatePhase.ready:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.restart,
+          message: raftFormat(
+            context,
+            'Raft {version} ({build}) is installed',
+            {'version': release.version, 'build': release.buildNumber},
+          ),
+          detail: raftText(
+            context,
+            _restartFailed
+                ? "Raft couldn't restart itself. Quit it and start it again to finish updating."
+                : 'Restart Raft to finish updating.',
+          ),
+          actionLabel: 'Restart to finish',
+          onAction: () async {
+            final started = await appImage.restart();
+            if (!started && mounted) setState(() => _restartFailed = true);
+          },
+        );
+      case AppImageUpdatePhase.failed:
+        return RaftAboutUpdate(
+          state: RaftAboutUpdateState.failed,
+          message: raftText(context, "Couldn't install the update"),
+          detail: appImageFailureText(context, status.failure!),
+          actionLabel: 'View release',
+          onAction: openReleasePage,
+          onCheck: () {
+            appImage.reset();
+            if (check != null) check();
+          },
+        );
+    }
+  }
+
   String? _lastChecked(BuildContext context, AppUpdateService service) {
     final at = service.lastChecked;
     if (at == null) return null;
@@ -583,6 +688,7 @@ class _WorkspaceAboutSectionState extends State<WorkspaceAboutSection> {
     final listenable = Listenable.merge([
       ?widget.appUpdate,
       _updater.availability,
+      ?_updater.appImage?.status,
     ]);
     return ListenableBuilder(
       listenable: listenable,

@@ -14815,7 +14815,7 @@
    "status": "partial",
    "webEntry": "Web: automatic via deploy + AppRefreshRequired flow above; desktop shell updates natively",
    "gate": "",
-   "flutterEntry": "AppUpdateService build-manifest check drives a red dot; macOS/Windows 'Update now' (Sparkle/WinSparkle), other platforms 'View release' opens the release page",
+   "flutterEntry": "AppUpdateService build-manifest check drives a red dot; macOS/Windows 'Update now' (Sparkle/WinSparkle), Linux AppImage 'Update now' (zsync delta download, restart to finish), other platforms 'View release' opens the release page",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_settings.dart",
@@ -14918,7 +14918,7 @@
    "status": "na",
    "webEntry": "desktopHandshake.ts, desktopRuntimeEnvironment.ts, desktopServerWindow.ts, desktopServerTitle.ts, @raft/desktop-contract capabilities (desktop.handshake, window.focus, window.bindServer); no tray or updater code exists in packages/web/src",
    "gate": "",
-   "flutterEntry": "Flutter is the native shell; in-app auto-update exists for macOS (Sparkle) and Windows (WinSparkle) via packages/raft_updater and Settings 'Update now'",
+   "flutterEntry": "Flutter is the native shell; in-app auto-update exists for macOS (Sparkle), Windows (WinSparkle) and Linux AppImage (zsync delta) via packages/raft_updater and Settings 'Update now'",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/workspace_settings.dart",
@@ -15875,7 +15875,7 @@
    "status": "na",
    "webEntry": "main.tsx AppRefreshRequiredScreen/AppRefreshWarningBanner (components/errors/AppUpdateGate.tsx), utils/dynamicImportRecovery.ts, utils/serviceWorkerRecovery.ts, utils/webAppVersion.ts, utils/updateGateTrace.ts",
    "gate": "",
-   "flutterEntry": "Flutter equivalent for new versions: Settings > About 'Update now' (macOS/Windows) / 'View release' with red-dot indicator (platform/app_update.dart)",
+   "flutterEntry": "Flutter equivalent for new versions: Settings > About 'Update now' (macOS/Windows/Linux AppImage) / 'View release' with red-dot indicator (platform/app_update.dart)",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/platform/app_update.dart",

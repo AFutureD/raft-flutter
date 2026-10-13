@@ -42,6 +42,31 @@ const _pendingKevinZh = <String>{
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',
+  // Settings > About > Updates card, Linux AppImage in-place update (native-only;
+  // Web has no counterpart). English until Kevin decides the wording; each
+  // failure sentence names its cause and the next step.
+  'Updating to {version} ({build})',
+  'Comparing with your current version…',
+  'Downloading the changes… {percent}%',
+  'Verifying the update…',
+  'Installing the update…',
+  'Raft {version} ({build}) is installed',
+  'Restart Raft to finish updating.',
+  "Raft couldn't restart itself. Quit it and start it again to finish updating.",
+  'Restart to finish',
+  "Couldn't install the update",
+  "Couldn't reach {host}. Check your connection and try again.",
+  'The update server answered with an unexpected status ({status}). Try again later or download the update from the release page.',
+  'This release has no update file for in-place updates. Download the new AppImage from the release page.',
+  "The update files don't match this release. Download the new AppImage from the release page.",
+  "The server doesn't support partial downloads. Download the new AppImage from the release page.",
+  'There is not enough free space in {folder} for the update.',
+  "Raft can't write to {folder}. Move the AppImage to a folder you own, or download the update from the release page.",
+  'This release has no checksum to verify the update against. Download it from the release page.',
+  'The downloaded update failed its integrity check and was discarded. Your current version is unchanged. Try again or download the update from the release page.',
+  "The new version couldn't be moved into place. Your current version is unchanged. Download the update from the release page.",
+  'The update was cancelled. Your current version is unchanged.',
+  'The update stopped unexpectedly. Your current version is unchanged. Download the update from the release page.',
 };
 
 class _Use {

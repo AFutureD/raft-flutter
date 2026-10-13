@@ -37,6 +37,121 @@ Map<String, Object?> _row({
 String _manifest([List<Object?>? rows]) => jsonEncode(rows ?? [_row()]);
 
 void main() {
+  group('AppImage update inputs', () {
+    final sha = 'ab' * 32;
+    test('the manifest checksum and size reach the release, normalised', () {
+      final release = parseBuildManifest(
+        _manifest([
+          _row(platform: 'appimage', arch: 'x64')
+            ..['sha256'] = sha.toUpperCase()
+            ..['bytes'] = 124684792,
+        ]),
+        'appimage-x64',
+      )!;
+      expect(release.sha256, sha);
+      expect(release.bytes, 124684792);
+      // They survive the remembered copy used between runs.
+      expect(AppRelease.fromJson(release.toJson()), release);
+    });
+
+    test(
+      'a manifest without a usable checksum still parses, with empty fields',
+      () {
+        for (final bad in [null, 'x', 'ab' * 31, 5]) {
+          final row = _row(platform: 'appimage', arch: 'x64')
+            ..['sha256'] = bad
+            ..['bytes'] = bad;
+          final release = parseBuildManifest(_manifest([row]), 'appimage-x64')!;
+          expect(release.sha256, isEmpty, reason: '$bad');
+          expect(release.bytes, bad == 5 ? 5 : 0);
+        }
+      },
+    );
+
+    test('RAFT_UPDATE_ORIGIN is honoured by test builds only', () {
+      const env = {'RAFT_UPDATE_ORIGIN': 'http://127.0.0.1:8099'};
+      expect(
+        updateOriginOverride(
+          environment: env,
+          releaseBuild: false,
+          isolatedSuffix: '',
+        ),
+        Uri.parse('http://127.0.0.1:8099'),
+      );
+      expect(
+        updateOriginOverride(
+          environment: env,
+          releaseBuild: true,
+          isolatedSuffix: '.isolated',
+        ),
+        Uri.parse('http://127.0.0.1:8099'),
+      );
+      // The official release build never moves its feed.
+      expect(
+        updateOriginOverride(
+          environment: env,
+          releaseBuild: true,
+          isolatedSuffix: '',
+        ),
+        isNull,
+      );
+      for (final bad in [
+        '',
+        'ftp://x',
+        'http://',
+        'http://h/?q=1',
+        'not a url',
+        'http://h/#f',
+      ]) {
+        expect(
+          updateOriginOverride(
+            environment: {'RAFT_UPDATE_ORIGIN': bad},
+            releaseBuild: false,
+            isolatedSuffix: '',
+          ),
+          isNull,
+          reason: bad,
+        );
+      }
+      expect(
+        updateOriginOverride(
+          environment: const {},
+          releaseBuild: false,
+          isolatedSuffix: '',
+        ),
+        isNull,
+      );
+    });
+
+    test('the override moves the manifest URL', () {
+      final service = AppUpdateService.forThisBuild(
+        version: '0.1.0',
+        buildNumber: '5',
+        platformKey: 'appimage-x64',
+        fetch: (_) async => null,
+        storage: _Memory(),
+        origin: Uri.parse('http://127.0.0.1:8099/'),
+      );
+      addTearDown(service.dispose);
+      expect(
+        service.manifestUrl.toString(),
+        'http://127.0.0.1:8099/kevinzhow/raft-flutter/releases/latest/download/build-manifest-appimage-x64.json',
+      );
+      final official = AppUpdateService.forThisBuild(
+        version: '0.1.0',
+        buildNumber: '5',
+        platformKey: 'appimage-x64',
+        fetch: (_) async => null,
+        storage: _Memory(),
+      );
+      addTearDown(official.dispose);
+      expect(
+        official.manifestUrl.toString(),
+        '${AppUpdateService.manifestBase}/build-manifest-appimage-x64.json',
+      );
+    });
+  });
+
   group('parseBuildManifest', () {
     test('reads the array entry for the platform', () {
       final release = parseBuildManifest(_manifest(), 'android-arm64')!;

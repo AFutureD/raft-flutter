@@ -49,25 +49,75 @@ class _FakeUpdater implements AppUpdater {
     calls++;
     return outcome;
   }
+
+  /// Linux AppImage updater; null elsewhere.
+  _FakeAppImage? image;
+  @override
+  AppImageUpdater? get appImage => image;
+  @override
+  void configureAppImage({
+    required AppImageHttpClientFactory httpClientFactory,
+    Uri? origin,
+  }) {}
 }
 
-AppUpdateService _service(String platform) => AppUpdateService(
-  currentVersion: '0.1.0',
-  currentBuild: 20,
-  platformKey: platform,
-  storage: _Memory(),
-  scheduleTimer: false,
-  fetch: (_) async => jsonEncode([
-    {
-      'platform': platform.split('-').first,
-      'arch': platform.split('-').last,
-      'version': '0.1.0',
-      'buildNumber': '37',
-      'releaseTag': 'v0.1.0+5',
-      'artifact': 'raft-flutter-0.1.0+5-$platform.zip',
-    },
-  ]),
-);
+/// An [AppImageUpdater] whose steps are scripted; only what the card calls.
+class _FakeAppImage extends AppImageUpdater {
+  _FakeAppImage()
+    : super(
+        path: '/tmp/Raft.AppImage',
+        information: AppImageUpdateInformation.parse(
+          AppImageUpdateInformation.official,
+        )!,
+        http: AppImageHttp((_) async => throw UnimplementedError()),
+      );
+
+  final notifier = ValueNotifier<AppImageUpdateStatus>(
+    const AppImageUpdateStatus.idle(),
+  );
+  final installed = <AppImageRelease>[];
+  int restarts = 0, cancels = 0, resets = 0;
+  bool restartWorks = true;
+
+  @override
+  ValueListenable<AppImageUpdateStatus> get status => notifier;
+  @override
+  Future<void> install(AppImageRelease release) async => installed.add(release);
+  @override
+  Future<bool> restart() async {
+    restarts++;
+    return restartWorks;
+  }
+
+  @override
+  void cancel() => cancels++;
+  @override
+  void reset() {
+    resets++;
+    notifier.value = const AppImageUpdateStatus.idle();
+  }
+}
+
+AppUpdateService _service(String platform, {bool checksum = false}) =>
+    AppUpdateService(
+      currentVersion: '0.1.0',
+      currentBuild: 20,
+      platformKey: platform,
+      storage: _Memory(),
+      scheduleTimer: false,
+      fetch: (_) async => jsonEncode([
+        {
+          'platform': platform.split('-').first,
+          'arch': platform.split('-').last,
+          'version': '0.1.0',
+          'buildNumber': '37',
+          'releaseTag': 'v0.1.0+5',
+          'artifact': 'raft-flutter-0.1.0+5-$platform.zip',
+          if (checksum) 'sha256': 'ab' * 32,
+          if (checksum) 'bytes': 124586488,
+        },
+      ]),
+    );
 
 Future<List<String>> _mount(
   WidgetTester t,
@@ -127,6 +177,169 @@ final _shotKey = GlobalKey();
 final _action = find.byKey(const ValueKey('settings-about-update-action'));
 
 void main() {
+  group('Linux AppImage in-place update', () {
+    Future<(AppUpdateService, _FakeUpdater, _FakeAppImage, List<String>)> mount(
+      WidgetTester t,
+    ) async {
+      final service = _service('appimage-x64', checksum: true);
+      addTearDown(service.dispose);
+      final image = _FakeAppImage();
+      final updater = _FakeUpdater()..image = image;
+      final launched = await _mount(t, service, updater, TargetPlatform.linux);
+      return (service, updater, image, launched);
+    }
+
+    testWidgets('Update now installs the release with its checksum', (t) async {
+      final (_, _, image, launched) = await mount(t);
+      expect(find.text('Update now'), findsOneWidget);
+      expect(find.text('View release'), findsNothing);
+      await t.tap(_action);
+      await t.pumpAndSettle();
+      expect(image.installed, hasLength(1));
+      expect(image.installed.single.tag, 'v0.1.0+5');
+      expect(image.installed.single.sha256, 'ab' * 32);
+      expect(image.installed.single.bytes, 124586488);
+      expect(launched, isEmpty);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('shows progress per stage and Cancel', (t) async {
+      final (_, _, image, _) = await mount(t);
+      image.notifier.value = const AppImageUpdateStatus.running(
+        AppImageUpdateStage.downloading,
+        0.5,
+      );
+      await t.pump();
+      expect(find.text('Updating to 0.1.0 (37)'), findsOneWidget);
+      expect(find.text('Downloading the changes… 50%'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('settings-about-update-progress')),
+        findsOneWidget,
+      );
+      // No second update and no recheck while one runs.
+      expect(find.text('Check for updates'), findsOneWidget);
+      expect(
+        t
+            .widget<RaftButton>(
+              find.byKey(const ValueKey('settings-about-update-check')),
+            )
+            .onPressed,
+        isNull,
+      );
+      await t.tap(_action);
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(image.cancels, 1);
+      for (final (stage, text) in [
+        (AppImageUpdateStage.preparing, 'Comparing with your current version…'),
+        (AppImageUpdateStage.verifying, 'Verifying the update…'),
+        (AppImageUpdateStage.installing, 'Installing the update…'),
+      ]) {
+        image.notifier.value = AppImageUpdateStatus.running(stage, 0.95);
+        await t.pump();
+        expect(find.text(text), findsOneWidget);
+      }
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('offers Restart to finish and says when restarting failed', (
+      t,
+    ) async {
+      final (_, _, image, _) = await mount(t);
+      image.notifier.value = const AppImageUpdateStatus.ready();
+      await t.pump();
+      expect(find.text('Raft 0.1.0 (37) is installed'), findsOneWidget);
+      expect(find.text('Restart Raft to finish updating.'), findsOneWidget);
+      image.restartWorks = false;
+      await t.tap(_action);
+      await t.pumpAndSettle();
+      expect(image.restarts, 1);
+      expect(
+        find.text(
+          "Raft couldn't restart itself. Quit it and start it again to finish updating.",
+        ),
+        findsOneWidget,
+      );
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets(
+      'a failure names its cause and falls back to the release page',
+      (t) async {
+        final (_, _, image, launched) = await mount(t);
+        image.notifier.value = const AppImageUpdateStatus.failed(
+          AppImageUpdateFailure(
+            AppImageUpdateFailureKind.notWritable,
+            '/opt/apps',
+          ),
+        );
+        await t.pump();
+        expect(find.text("Couldn't install the update"), findsOneWidget);
+        expect(
+          find.text(
+            "Raft can't write to /opt/apps. Move the AppImage to a folder you own, or download the update from the release page.",
+          ),
+          findsOneWidget,
+        );
+        await t.tap(_action);
+        await t.pumpAndSettle();
+        expect(launched, [
+          'https://github.com/kevinzhow/raft-flutter/releases/tag/v0.1.0+5',
+        ]);
+        // Check for updates clears the failure so Update now is offered again.
+        await t.tap(find.byKey(const ValueKey('settings-about-update-check')));
+        await t.pumpAndSettle();
+        expect(image.resets, 1);
+        expect(find.text('Update now'), findsOneWidget);
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets('every failure kind has a specific sentence', (t) async {
+      final (_, _, image, _) = await mount(t);
+      final seen = <String>{};
+      for (final kind in AppImageUpdateFailureKind.values) {
+        image.notifier.value = AppImageUpdateStatus.failed(
+          AppImageUpdateFailure(kind, 'x'),
+        );
+        await t.pump();
+        final text = t
+            .widgetList<Text>(find.byType(Text))
+            .map((w) => w.data ?? '')
+            .where((d) => d.contains(' ') && d.length > 40)
+            .toList();
+        expect(text, isNotEmpty, reason: '$kind');
+        seen.addAll(text);
+      }
+      expect(
+        seen.length,
+        greaterThanOrEqualTo(AppImageUpdateFailureKind.values.length),
+      );
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets(
+      'without an in-place updater (not an AppImage) it stays View release',
+      (t) async {
+        final service = _service('appimage-x64', checksum: true);
+        addTearDown(service.dispose);
+        final launched = await _mount(
+          t,
+          service,
+          _FakeUpdater(available: false),
+          TargetPlatform.linux,
+        );
+        expect(find.text('View release'), findsOneWidget);
+        expect(find.text('Update now'), findsNothing);
+        await t.tap(_action);
+        await t.pumpAndSettle();
+        expect(launched, [
+          'https://github.com/kevinzhow/raft-flutter/releases/tag/v0.1.0+5',
+        ]);
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  });
+
   for (final (platform, key) in [
     (TargetPlatform.macOS, 'macos-arm64'),
     (TargetPlatform.windows, 'windows-x64'),

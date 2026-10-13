@@ -18,6 +18,8 @@ class AppRelease {
     required this.buildNumber,
     required this.releaseTag,
     required this.artifact,
+    this.sha256 = '',
+    this.bytes = 0,
   });
 
   /// The compiled app version, e.g. `0.1.0`.
@@ -34,6 +36,12 @@ class AppRelease {
   /// The platform asset name, e.g. `raft-flutter-0.1.0+5-android-arm64.apk`.
   final String artifact;
 
+  /// Lowercase hex SHA-256 and size of [artifact] as the publisher verified
+  /// them; empty / 0 when the manifest lacks them. The Linux in-place update
+  /// refuses to install without them.
+  final String sha256;
+  final int bytes;
+
   static const repository = 'https://github.com/kevinzhow/raft-flutter';
 
   /// The human release page.
@@ -49,6 +57,8 @@ class AppRelease {
     'buildNumber': buildNumber,
     'releaseTag': releaseTag,
     'artifact': artifact,
+    if (sha256.isNotEmpty) 'sha256': sha256,
+    if (bytes > 0) 'bytes': bytes,
   };
 
   /// Null unless every field is present and well formed. The tag and asset
@@ -75,11 +85,17 @@ class AppRelease {
         build < 1) {
       return null;
     }
+    final digest = raw['sha256'];
+    final size = raw['bytes'];
     return AppRelease(
       version: version.trim(),
       buildNumber: build,
       releaseTag: tag,
       artifact: artifact,
+      sha256: digest is String && RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(digest)
+          ? digest.toLowerCase()
+          : '',
+      bytes: size is int && size > 0 ? size : 0,
     );
   }
 
@@ -89,10 +105,13 @@ class AppRelease {
       other.version == version &&
       other.buildNumber == buildNumber &&
       other.releaseTag == releaseTag &&
-      other.artifact == artifact;
+      other.artifact == artifact &&
+      other.sha256 == sha256 &&
+      other.bytes == bytes;
 
   @override
-  int get hashCode => Object.hash(version, buildNumber, releaseTag, artifact);
+  int get hashCode =>
+      Object.hash(version, buildNumber, releaseTag, artifact, sha256, bytes);
 }
 
 /// Parses a build manifest body: a JSON array of receipts (a single object is
@@ -139,6 +158,35 @@ String? appUpdatePlatformKey({
           : null,
     _ => null,
   };
+}
+
+/// Another origin in place of `https://github.com` for the manifest and the
+/// AppImage delta files, for update tests against a local fake GitHub
+/// (`RAFT_UPDATE_ORIGIN=http://127.0.0.1:PORT`, see tool/appimage-update-smoke.py).
+///
+/// Honoured only by isolated Linux test builds (`RAFT_APPLICATION_ID_SUFFIX`)
+/// and non-release (debug/profile) builds; a release build ignores the
+/// variable, so a user's environment can never redirect where an official
+/// build fetches updates from.
+Uri? updateOriginOverride({
+  Map<String, String>? environment,
+  bool? releaseBuild,
+  String isolatedSuffix = const String.fromEnvironment(
+    'RAFT_LINUX_APPLICATION_ID_SUFFIX',
+  ),
+}) {
+  if (kIsWeb) return null;
+  if ((releaseBuild ?? kReleaseMode) && isolatedSuffix.isEmpty) return null;
+  final value = (environment ?? Platform.environment)['RAFT_UPDATE_ORIGIN'];
+  final uri = value == null ? null : Uri.tryParse(value);
+  if (uri == null ||
+      !(uri.isScheme('http') || uri.isScheme('https')) ||
+      uri.host.isEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment) {
+    return null;
+  }
+  return uri;
 }
 
 /// Fetches the manifest body at [url]; null when the release has no such
@@ -224,6 +272,7 @@ class AppUpdateService extends ChangeNotifier {
     this.retryAfterFailure = const Duration(minutes: 30),
     this.scheduleTimer = true,
     this.releaseNotes,
+    this.manifestRoot = AppUpdateService.manifestBase,
     void Function(String message)? log,
   }) : storage = storage ?? PreferencesSearchMemoryStorage(),
        _clock = clock ?? DateTime.now,
@@ -239,7 +288,13 @@ class AppUpdateService extends ChangeNotifier {
     AppUpdateFetcher fetch = fetchManifestOverHttp,
     SearchMemoryStorage? storage,
     TargetPlatform? target,
+    Uri? origin,
   }) => AppUpdateService(
+    manifestRoot: origin == null
+        ? manifestBase
+        : '${origin.toString().replaceFirst(RegExp(r'/+$'), '')}'
+              '/${AppRelease.repository.substring('https://github.com/'.length)}'
+              '/releases/latest/download',
     target: target,
     releaseNotes: ClientReleaseNotes(fetch: fetch, storage: storage),
     currentVersion: version,
@@ -252,6 +307,10 @@ class AppUpdateService extends ChangeNotifier {
   static const storageKey = 'raft:app-update:v1';
   static const manifestBase =
       '${AppRelease.repository}/releases/latest/download';
+
+  /// Where `build-manifest-<platform>.json` is fetched from: [manifestBase],
+  /// unless a test override ([updateOriginOverride]) replaced the origin.
+  final String manifestRoot;
 
   final String currentVersion;
   final int? currentBuild;
@@ -334,7 +393,7 @@ class AppUpdateService extends ChangeNotifier {
   }
 
   Uri get manifestUrl =>
-      Uri.parse('$manifestBase/build-manifest-$platformKey.json');
+      Uri.parse('$manifestRoot/build-manifest-$platformKey.json');
 
   /// Reads the remembered state, then checks if one is due. Safe to call
   /// repeatedly.

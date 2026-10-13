@@ -43,15 +43,25 @@ enum RaftAboutUpdateState {
   upToDate,
   failed,
   unsupported,
+
+  /// The update is being downloaded and installed ([RaftAboutUpdate.progress]).
+  installing,
+
+  /// The update is installed; the app only needs to restart.
+  restart,
 }
 
 /// Native-only Updates row under the Version card (the Web client updates
 /// itself). [message] and [detail] are already localized; [actionLabel] and
 /// [checkLabel] are catalog keys that the buttons localize.
 ///
-/// The row is always present. [onAction] (the update itself) only exists in
-/// [RaftAboutUpdateState.available]; [onCheck] is null while a check runs and
-/// in [RaftAboutUpdateState.unsupported], which has no check button at all.
+/// The row is always present. [onAction] (the update itself, "Restart to
+/// finish", or the release-page fallback after a failed install) exists in
+/// [RaftAboutUpdateState.available], [RaftAboutUpdateState.restart],
+/// [RaftAboutUpdateState.installing] (Cancel) and [RaftAboutUpdateState.failed];
+/// [onCheck] is null while a check or an install runs and in
+/// [RaftAboutUpdateState.unsupported], which has no check button at all.
+/// [progress] (0..1) draws the progress bar of an in-place install.
 @immutable
 class RaftAboutUpdate {
   const RaftAboutUpdate({
@@ -62,6 +72,7 @@ class RaftAboutUpdate {
     this.onAction,
     this.checkLabel = 'Check for updates',
     this.onCheck,
+    this.progress,
   });
   final RaftAboutUpdateState state;
   final String message;
@@ -70,6 +81,7 @@ class RaftAboutUpdate {
   final VoidCallback? onAction;
   final String checkLabel;
   final VoidCallback? onCheck;
+  final double? progress;
 }
 
 /// AboutSection: `space-y-4` of `space-y-2` sections (SectionHeader +
@@ -96,7 +108,8 @@ class RaftSettingsAbout extends StatelessWidget {
     final update = this.update!;
     final leading = switch (update.state) {
       RaftAboutUpdateState.available => const RaftAttentionDot(danger: true),
-      RaftAboutUpdateState.checking => const RaftSpinner(),
+      RaftAboutUpdateState.checking ||
+      RaftAboutUpdateState.installing => const RaftSpinner(),
       _ => null,
     };
     final detail = update.detail;
@@ -115,6 +128,14 @@ class RaftSettingsAbout extends StatelessWidget {
           if (detail != null) ...[
             const SizedBox(height: 4),
             Text(detail, style: text.description),
+          ],
+          if (update.progress != null) ...[
+            const SizedBox(height: 8),
+            RaftProgressBar(
+              key: const ValueKey('settings-about-update-progress'),
+              value: update.progress! * 100,
+              size: RaftProgressRecipeSize.sm,
+            ),
           ],
           if (update.state != RaftAboutUpdateState.unsupported) ...[
             const SizedBox(height: 12),

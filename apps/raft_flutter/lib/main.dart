@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_client/system_proxy.dart' show SystemProxy;
+import 'package:raft_updater/raft_updater.dart' show AppUpdater;
 import 'package:path_provider/path_provider.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -54,6 +55,7 @@ import 'platform/desktop_title_bar.dart';
 import 'platform/system_bars.dart';
 import 'platform/system_fonts.dart';
 import 'platform/app_update.dart';
+import 'platform/app_update_smoke.dart';
 import 'platform/background_notifications.dart';
 import 'platform/android_performance_hint.dart';
 
@@ -104,7 +106,16 @@ Future<void> main([List<String> args = const []]) async {
   RootErrors.instance.addListener(releaseOnError);
   // Release builds only: dev/local builds and platforms without a GitHub
   // release asset get a disabled service. Starts after the first frame.
-  final appUpdate = AppUpdateService.forThisBuild();
+  final updateOrigin = updateOriginOverride();
+  final appUpdate = AppUpdateService.forThisBuild(origin: updateOrigin);
+  // Linux AppImage in-place updates use the app's proxy-aware HTTP client.
+  AppUpdater.instance.configureAppImage(
+    httpClientFactory: (url) async {
+      await SystemProxy.instance.ready(url);
+      return SystemProxy.instance.createHttpClient();
+    },
+    origin: updateOrigin,
+  );
   runApp(
     RootErrorBoundary(
       child: ProviderScope(
@@ -117,9 +128,14 @@ Future<void> main([List<String> args = const []]) async {
     ),
   );
   unawaited(
-    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then(
-      (_) => appUpdate.start(),
-    ),
+    WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) async {
+      await appUpdate.start();
+      await runAppImageUpdateSmoke(
+        appUpdate,
+        AppUpdater.instance,
+        origin: updateOrigin,
+      );
+    }),
   );
 }
 

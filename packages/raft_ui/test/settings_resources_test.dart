@@ -94,6 +94,51 @@ void main() {
     expect(find.text('Reason'), findsOneWidget);
   });
 
+  testWidgets(
+    'About Updates card: installing shows progress, restart offers the action',
+    (t) async {
+      var cancels = 0, restarts = 0;
+      Future<void> mount(RaftAboutUpdate update) => t.pumpWidget(
+        _host(RaftSettingsAbout(version: '1.0.0', update: update)),
+      );
+      final progress = find.byKey(
+        const ValueKey('settings-about-update-progress'),
+      );
+      final action = find.byKey(const ValueKey('settings-about-update-action'));
+      final check = find.byKey(const ValueKey('settings-about-update-check'));
+
+      await mount(
+        RaftAboutUpdate(
+          state: RaftAboutUpdateState.installing,
+          message: 'Updating',
+          detail: 'Downloading… 40%',
+          progress: 0.4,
+          actionLabel: 'Cancel',
+          onAction: () => cancels++,
+        ),
+      );
+      expect(find.byType(RaftSpinner), findsOneWidget);
+      expect(progress, findsOneWidget);
+      expect(t.widget<RaftProgressBar>(progress).value, closeTo(40, 1e-9));
+      expect(t.widget<RaftButton>(check).onPressed, isNull);
+      await t.tap(action);
+      expect(cancels, 1);
+
+      await mount(
+        RaftAboutUpdate(
+          state: RaftAboutUpdateState.restart,
+          message: 'Installed',
+          actionLabel: 'Restart to finish',
+          onAction: () => restarts++,
+        ),
+      );
+      expect(progress, findsNothing);
+      expect(find.byType(RaftSpinner), findsNothing);
+      await t.tap(action);
+      expect(restarts, 1);
+    },
+  );
+
   testWidgets('About without a mobile app or workspace keeps Version only', (
     t,
   ) async {
