@@ -7,6 +7,10 @@
 //   tool/flutter build linux --profile -t integration_test/video_parity_main.dart \
 //     --dart-define=VP_BASE=http://127.0.0.1:8791 --dart-define=VP_MOBILE=false
 //
+// Opening the channel route directly (the default) showed an empty channel on
+// this build: start from the home list with `--dart-define=VP_LOC=/s/lab` and
+// tap the channel.
+//
 // Android: `adb reverse tcp:8791 tcp:8791` and VP_MOBILE=true; the isolated
 // package is `app.raft.raft_flutter.linkperf` (see attachment_progress_main).
 import 'dart:async';
@@ -50,11 +54,12 @@ Future<void> main() async {
     int size, {
     int? w,
     int? h,
+    String mime = 'video/mp4',
   }) => {
     'id': id,
     'channelId': 'vp',
     'filename': file,
-    'mimeType': 'video/mp4',
+    'mimeType': mime,
     'sizeBytes': size,
     'width': ?w,
     'height': ?h,
@@ -62,14 +67,27 @@ Future<void> main() async {
   final channel = LabChannel('vp', const []);
   channel.rows.addAll([
     row(0, 'Portrait phone clip (720x1280, H.264 + AAC)', [
-      video('vp-portrait', 'kevin.mp4', 1016187),
+      video('vp-portrait', 'kevin.mp4', 5416578),
     ]),
-    row(1, 'Landscape clip', [video('vp-landscape', 'landscape.mp4', 2377327)]),
+    row(1, 'Landscape clip', [video('vp-landscape', 'landscape.mp4', 4846435)]),
     row(2, 'A clip that cannot be decoded', [
       video('vp-corrupt', 'broken.mp4', 200000),
     ]),
     row(3, 'Second landscape clip (one at a time)', [
-      video('vp-landscape2', 'landscape2.mp4', 2377327),
+      video('vp-landscape2', 'landscape2.mp4', 4846435),
+    ]),
+    // System-player proof set (docs/media-playback.md): Kevin's 4K HEVC Main
+    // clip, his Dolby Vision 8.4 / HLG 4K clip, a 1080p HEVC clip to tell
+    // emulator limits from our code, and an audio-only attachment.
+    row(4, '4K HEVC Main 8-bit bt709 30 fps', [
+      video('vp-hevc4k', 'hevc4k.mp4', 41607413),
+    ]),
+    row(5, 'Dolby Vision 8.4 (HLG base), HEVC Main 10, 4K', [
+      video('vp-dolby', 'dolby.mp4', 22924840),
+    ]),
+    row(6, '1080p HEVC Main', [video('vp-hevc1080', 'hevc1080.mp4', 3762953)]),
+    row(7, 'Audio only (WAV)', [
+      video('vp-tone', 'tone.wav', 264678, mime: 'audio/wav'),
     ]),
   ]);
   final (seed, api, client) = await labWorkspace(
@@ -115,6 +133,10 @@ Future<void> main() async {
     'vp-landscape': 'landscape.mp4',
     'vp-corrupt': 'corrupt.mp4',
     'vp-landscape2': 'landscape.mp4',
+    'vp-hevc4k': 'hevc4k.mp4',
+    'vp-dolby': 'dolby.mp4',
+    'vp-hevc1080': 'hevc1080.mp4',
+    'vp-tone': 'tone.wav',
   };
   api.patterns.insert(0, (
     (o) =>
@@ -149,7 +171,12 @@ Future<void> main() async {
     app.RaftApp(
       sessionStore: client.sessionStore,
       createClient: (_, _, _) => client,
-      initialLocation: Uri(path: '/s/lab/channel/vp'),
+      initialLocation: Uri(
+        path: const String.fromEnvironment(
+          'VP_LOC',
+          defaultValue: '/s/lab/channel/vp',
+        ),
+      ),
       nativeContent: LabNavigationContent(),
       nativeSharing: NativeSharing(supported: false),
       openWorkspaceCache: () async =>

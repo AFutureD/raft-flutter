@@ -38,7 +38,7 @@ can say "SOCKS 不支持，已直连".
 | Report-issue upload | `createProxiedDio` |
 | Avatars (CachedNetworkImage -> `http` -> `HttpClient()`), `NetworkImage`, any package | `HttpOverrides.global = ProxyHttpOverrides` installed by `startSystemProxy` |
 | Background worker isolate | `startSystemProxy` in `runBackgroundInbox`; the native bridge is not registered in worker engines, so saved manual/direct + environment apply there, not the OS proxy |
-| Video/audio (media_kit/mpv) | **not wired on purpose**: `protocolWhitelist: ['file']`; mpv opens only the already downloaded local file (downloaded through the proxy-aware Dio). `proxy_hook_guard_test` fails if the whitelist is widened, because mpv would then need `http-proxy` set at run time (never through argv/logs) |
+| Video/audio (Android/iOS/macOS: `video_player`; Windows/Linux: media_kit/mpv) | Android, iOS and macOS open only the already downloaded local file (a `file://` source, no headers), so there is nothing to proxy. Windows/Linux: **not wired on purpose**: `protocolWhitelist: ['file']`; mpv opens only the already downloaded local file (downloaded through the proxy-aware Dio). `proxy_hook_guard_test` fails if the whitelist is widened, because mpv would then need `http-proxy` set at run time (never through argv/logs) |
 | iOS share extension (URLSession), url_launcher, WebView | follow the system already |
 
 `test/proxy_hook_guard_test.dart` fails on a new `HttpClient()`, `Dio()`, `IOHttpClientAdapter()`,

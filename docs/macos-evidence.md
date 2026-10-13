@@ -42,7 +42,7 @@ Personal Team 的开发 profile 有效期通常为 7 天。后续本地构建须
 
 通知初始化不弹出系统授权请求；用户在应用通知设置点击“发一条测试通知”后才请求 alert / sound 权限。macOS 是否投递由系统通知权限控制，不使用移动端本地 opt-in。Darwin 插件 initialize 的 false 表示授权结果，不代表原生通知不支持。当前服务端 Socket 只投递 mobile，macOS 在应用仍运行、窗口在后台且授权时复用现有长连接驱动的已接受 unread inbox 数据，不能视为服务端 desktop push 或退出后推送。
 
-媒体增加 `media_kit_libs_macos_video` 原生依赖，随 macOS bundle 构建；Linux 的 media 下载准备步骤不适用于 macOS。
+媒体原先随 macOS bundle 构建 `media_kit_libs_macos_video`（libmpv）；现改用系统播放器（`video_player` / AVPlayer），bundle 不再包含 libmpv，见 [media-playback](media-playback.md)，该变更尚待在 Mac 上验证。Linux 的 media 下载准备步骤不适用于 macOS。
 
 ## 初始覆盖（2026-10-08；后续状态见文末）
 

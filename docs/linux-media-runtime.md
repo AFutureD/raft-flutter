@@ -1,5 +1,7 @@
 # Linux attachment media runtime
 
+Only Windows and Linux play media through this libmpv runtime; Android, iOS and macOS use the system player (see [media playback](media-playback.md)).
+
 Run `tool/prepare-media-linux` before a Linux build. This downloads seven pinned Ubuntu amd64 packages into `.local/media-linux`, extracts them locally, and copies libmpv's resolved codec dependency closure together with every package's distribution copyright notice. It does not install or upgrade system packages. CMake puts these generated libraries under the application's `lib` directory and notices under `data/notices/raft-media`; its relative RPATH applies to transitive decoder dependencies.
 
 The prepared bundle currently contains 208 libraries. `manifest.json` records each library's provider/version/SHA-256 and downloaded package hashes. `ldd-bundle.txt` confirms no unresolved library on this build host. This is a host-matched Ubuntu resolute amd64 runtime: the OS still supplies glibc, its loader, audio/display devices and device drivers. Portability to another distribution or older glibc has not been proven. Binary artifacts stay ignored; rebuild the bundle on its supported build environment.
