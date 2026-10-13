@@ -192,6 +192,13 @@ def main():
                     if subprocess.run(build, cwd=app, stdout=f, stderr=subprocess.STDOUT).returncode:
                         sys.exit(f'build failed; see {out / "build.log"}')
             adb = lambda *a, **k: subprocess.run(['adb', '-s', serial, *a], capture_output=True, text=True, **k)
+            # Chrome's first-run screen would swallow the Files-tab hand-off of a URL (an emulator-only artefact): skip it.
+            # Needs an emulator that allows `adb root` (userdebug); best effort.
+            adb('root')
+            time.sleep(2)
+            adb('shell', 'echo "_ --no-first-run --disable-fre --no-default-browser-check" > /data/local/tmp/chrome-command-line')
+            adb('shell', 'chmod', '755', '/data/local/tmp/chrome-command-line')
+            adb('shell', 'am', 'set-debug-app', '--persistent', 'com.android.chrome')
             adb('uninstall', PACKAGE)  # a clean cache and storage for every run; only the isolated package
             adb('shell', 'am', 'force-stop', 'com.google.android.documentsui')
             adb('shell', 'input', 'keyevent', 'KEYCODE_HOME')

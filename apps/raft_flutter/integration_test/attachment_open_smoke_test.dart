@@ -699,7 +699,10 @@ Future<Outcome> openFromFiles(WidgetTester tester, SmokeCase c, Launch launch) a
 List<Map> lastNativeRequests = [];
 
 Future<Outcome> openFromViewerDownload(WidgetTester tester, SmokeCase c, Launch launch) async {
-  Future<void> tap() => tapCentre(tester, launch.target());
+  // A video card plays on a tap: its viewer opens from the eye button.
+  Future<void> tap() => c.kind == 'video'
+      ? tapCentre(tester, find.descendant(of: launch.target(), matching: find.byKey(const Key('inline-video-expand'))))
+      : tapCentre(tester, launch.target());
   if (!const {'image', 'svg', 'pdf', 'document', 'video'}.contains(c.kind)) {
     return Outcome(true, 'no viewer for this kind');
   }
