@@ -45,10 +45,6 @@ const _pendingKevinZh = <String>{
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',
-  // native app-update check (no Web counterpart: the Web client updates itself)
-  'New version available: {version} ({build})',
-  'Download update',
-  'View release',
 };
 
 class _Use {

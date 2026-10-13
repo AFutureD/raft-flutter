@@ -339,6 +339,7 @@ class _WorkspaceSettingsState extends State<WorkspaceSettings> {
           ),
           group: WorkspaceSettings.resources,
           attention: widget.appUpdate?.hasUnseen ?? false,
+          attentionDanger: true,
         ),
         // Native-only (no Web counterpart): Web uses the browser's proxy.
         if (!kIsWeb)

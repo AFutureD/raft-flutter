@@ -36,10 +36,14 @@ class RaftSettingsNavEntry {
     required this.glyph,
     required this.onTap,
     this.attention = false,
+    this.attentionDanger = false,
   });
   final String id, label;
   final RaftGlyph glyph;
   final VoidCallback onTap;
+
+  /// Paint the [attention] dot in the `--danger` red ("update available").
+  final bool attentionDanger;
 
   /// Trailing `ml-auto` AttentionDot (SettingsSidebarList's
   /// FeedbackUnreadDot on the Feedback row).
@@ -202,7 +206,8 @@ class _RaftSettingsSidebarItemState extends State<RaftSettingsSidebarItem> {
                       ),
                     ),
                   ),
-                  if (widget.entry.attention) const RaftAttentionDot(),
+                  if (widget.entry.attention)
+                    RaftAttentionDot(danger: widget.entry.attentionDanger),
                 ],
               ),
             ),

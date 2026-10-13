@@ -18,6 +18,7 @@ class RaftSettingsDestination {
     this.onOpen,
     this.mobileOnly = false,
     this.attention = false,
+    this.attentionDanger = false,
     this.attached = true,
     this.ownHeader = false,
     this.contentColor,
@@ -34,6 +35,7 @@ class RaftSettingsDestination {
     this.mobileOnly = false,
     this.attention = false,
   }) : builder = null,
+       attentionDanger = false,
        scroll = false,
        title = null,
        attached = true,
@@ -47,6 +49,9 @@ class RaftSettingsDestination {
 
   /// Trailing attention dot (Feedback's unread replies).
   final bool attention;
+
+  /// Paint [attention] in the `--danger` red ("update available").
+  final bool attentionDanger;
 
   /// Rendered inside SettingsPanel's `Panel edge="attached"` (false for the
   /// /release-notes route, which is a plain column).
@@ -159,6 +164,7 @@ class _RaftSettingsPageState extends State<RaftSettingsPage> {
               glyph: d.glyph,
               onTap: () => open(d),
               attention: d.attention,
+              attentionDanger: d.attentionDanger,
             ),
         ]),
     ];

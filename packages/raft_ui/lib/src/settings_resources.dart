@@ -116,7 +116,7 @@ class RaftSettingsAbout extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const RaftAttentionDot(),
+                              const RaftAttentionDot(danger: true),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(update!.message, style: text.title),

@@ -240,17 +240,23 @@ class RaftAttentionDot extends StatelessWidget {
     super.key,
     this.compact = false,
     this.warning = false,
+    this.danger = false,
   });
 
   /// `sm` = `size-1` (4px); default `lg` = `size-2.5` (10px).
   final bool compact;
   final bool warning;
 
+  /// "Update available": the `--danger` red in every theme.
+  final bool danger;
+
   @override
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final size = compact ? 4.0 : 10.0;
-    final fill = t.brutal
+    final fill = danger
+        ? t.semantic.danger
+        : t.brutal
         ? (warning ? t.product.brutalOrange : t.product.brutalPink)
         : (warning ? t.semantic.warning : t.colors['accent']!);
     return Container(

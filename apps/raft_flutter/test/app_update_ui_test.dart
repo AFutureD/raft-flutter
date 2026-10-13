@@ -41,6 +41,8 @@ Future<void> _mount(
   WidgetTester t,
   AppUpdateService? update, {
   double width = 1280,
+  RaftFamily family = RaftFamily.elegant,
+  bool dark = false,
 }) async {
   final (w, api) = await pageFixture(t, section: 'chat');
   api.routes['GET /agents'] = (_) => [];
@@ -54,7 +56,7 @@ Future<void> _mount(
   addTearDown(t.view.reset);
   await t.pumpWidget(
     MaterialApp(
-      theme: raftTheme(RaftFamily.elegant),
+      theme: raftTheme(family, dark: dark),
       home: WorkspaceView(
         controller: w,
         appearance: const RaftAppearance(light: RaftFamily.elegant),
@@ -72,6 +74,30 @@ Finder _dotIn(Finder of) =>
     find.descendant(of: of, matching: find.byType(RaftAttentionDot));
 Finder _railDotIn(Finder of) =>
     find.descendant(of: of, matching: find.byType(RaftRailAttention));
+
+/// Fills of the decorated boxes painted below [of] (recipe boxes wrap theirs
+/// in a layered decoration).
+List<Color> _fills(Finder of) => [
+  for (final e
+      in find
+          .descendant(of: of, matching: find.byType(DecoratedBox))
+          .evaluate())
+    ?switch ((e.widget as DecoratedBox).decoration) {
+      final BoxDecoration d => d.color,
+      final RaftLayeredDecoration d => d.base.color,
+      _ => null,
+    },
+];
+
+/// The dot below [of] is painted with the theme's `--danger` token, never the
+/// regular attention fill.
+void _expectDanger(WidgetTester t, Finder of) {
+  final tokens = RaftTokens.of(t.element(of.first));
+  expect(tokens.colors['danger'], tokens.semantic.danger);
+  expect(_fills(of), contains(tokens.semantic.danger));
+  expect(_fills(of), isNot(contains(tokens.accentFill)));
+}
+
 bool _tabAttention(WidgetTester t) => t
     .widget<RaftMobileNav>(find.byKey(const Key('workspace-mobile-navigation')))
     .items
@@ -95,12 +121,17 @@ void main() {
       final about = find.byType(RaftSettingsSidebarList);
       expect(find.text('About'), findsOneWidget);
       expect(_dotIn(about), findsOneWidget);
+      _expectDanger(t, _dotIn(about));
       // Opening Settings alone does not mark the release as seen.
       expect(update.hasUnseen, isTrue);
 
       await t.tap(find.text('About'));
       await t.pumpAndSettle();
       expect(find.text('New version available: 0.1.0 (37)'), findsOneWidget);
+      _expectDanger(
+        t,
+        _dotIn(find.byKey(const ValueKey('settings-about-update'))),
+      );
       expect(
         find.byKey(const ValueKey('settings-about-update-action')),
         findsOneWidget,
@@ -164,29 +195,81 @@ void main() {
     await t.pumpWidget(const SizedBox());
   });
 
-  testWidgets('phone: dot on the Settings tab', (t) async {
-    final update = _service();
-    addTearDown(update.dispose);
-    await t.runAsync(update.start);
-    final (w, _) = await pageFixture(t, section: 'chat');
-    await t.pumpWidget(
-      MaterialApp(
-        theme: raftTheme(RaftFamily.elegant),
-        home: Scaffold(
-          body: const SizedBox(),
-          bottomNavigationBar: WorkspaceMobileTabBar(
-            controller: w,
-            selectedId: 'home',
-            onSelected: (_) {},
-            appUpdate: update,
+  for (final (name, family, dark) in [
+    ('brutal light', RaftFamily.brutal, false),
+    ('elegant light', RaftFamily.elegant, false),
+    ('elegant dark', RaftFamily.elegant, true),
+  ]) {
+    testWidgets(
+      'About row dot is the danger token, the rail keeps its colour in $name',
+      (t) async {
+        final update = _service();
+        addTearDown(update.dispose);
+        await t.runAsync(update.start);
+        await _mount(t, update, family: family, dark: dark);
+        final settings = find.byKey(const Key('rail-settings'));
+        // The rail keeps the theme's own attention colour, not the red.
+        final rail = find.descendant(
+          of: settings,
+          matching: find.byKey(const ValueKey('rail-attention-indicator')),
+        );
+        expect(rail, findsOneWidget);
+        expect(
+          _fills(rail),
+          isNot(contains(RaftTokens.of(t.element(rail)).semantic.danger)),
+        );
+        await t.tap(settings);
+        await t.pumpAndSettle();
+        _expectDanger(t, _dotIn(find.byType(RaftSettingsSidebarList)));
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  for (final (name, family, dark) in [
+    ('brutal light', RaftFamily.brutal, false),
+    ('elegant light', RaftFamily.elegant, false),
+    ('elegant dark', RaftFamily.elegant, true),
+  ]) {
+    testWidgets('phone: Settings tab dot keeps the attention colour in $name', (
+      t,
+    ) async {
+      final update = _service();
+      addTearDown(update.dispose);
+      await t.runAsync(update.start);
+      final (w, _) = await pageFixture(t, section: 'chat');
+      await t.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(family, dark: dark),
+          home: Scaffold(
+            body: const SizedBox(),
+            bottomNavigationBar: WorkspaceMobileTabBar(
+              controller: w,
+              selectedId: 'home',
+              onSelected: (_) {},
+              appUpdate: update,
+            ),
           ),
         ),
-      ),
-    );
-    expect(_tabAttention(t), isTrue);
-    update.markSeen();
-    await t.pumpAndSettle();
-    expect(_tabAttention(t), isFalse);
-    await t.pumpWidget(const SizedBox());
-  });
+      );
+      expect(_tabAttention(t), isTrue);
+      final tokens = RaftTokens.of(
+        t.element(find.byType(WorkspaceMobileTabBar)),
+      );
+      final tab = find.byKey(const Key('mobile-tab-settings'));
+      expect(
+        _fills(tab),
+        contains(
+          tokens.brutal
+              ? tokens.colors['color-brutal-pink']
+              : tokens.accentFill,
+        ),
+      );
+      expect(_fills(tab), isNot(contains(tokens.semantic.danger)));
+      update.markSeen();
+      await t.pumpAndSettle();
+      expect(_tabAttention(t), isFalse);
+      await t.pumpWidget(const SizedBox());
+    });
+  }
 }
