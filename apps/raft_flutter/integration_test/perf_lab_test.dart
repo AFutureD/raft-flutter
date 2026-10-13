@@ -209,6 +209,16 @@ void main() {
       String newest(LabChannel c) => c.rows.last['id'] as String;
       final shown = await waitUntil(() => visibleText(newest(mix)).evaluate().isNotEmpty, limit: const Duration(seconds: 20));
       if (shown < 0) failures.add('$name: mix channel never published its newest row');
+      // RAFT_LAB_WARM_FONTS=1: let the idle font warm-up finish before any
+      // scenario, so first-use system-font fallback stalls (fontconfig) are not
+      // mixed into the measured frames; the time it took is recorded.
+      if (_cfg('RAFT_LAB_WARM_FONTS') == '1') {
+        final warming = Stopwatch()..start();
+        final pendingAtStart = RaftFontWarmUp.pending;
+        final warmed = await waitUntil(() => RaftFontWarmUp.pending == 0, limit: const Duration(seconds: 120));
+        await idle(const Duration(milliseconds: 800));
+        await sampler.send('note', {'theme': name, 'fontWarmUp': {'pendingAtStart': pendingAtStart, 'drainedAfterMs': warmed, 'totalMs': warming.elapsedMilliseconds}});
+      }
 
       ScrollPosition position({bool thread = false}) => timelineScrollable(t, thread: thread).position;
       Future<void> toLatest() async {
@@ -1121,5 +1131,9 @@ void main() {
     binding.reportData = {'perfLab': {'scenarios': lab.results.length, 'failures': failures, 'samplerAttached': sampler.attached}};
     await sampler.send('done', {'failures': failures, 'performanceHint': binding.performanceHintDiagnostics});
     expect(failures, isEmpty);
+    if (LabSampler.standaloneOut != null) {
+      // Self-driving build: nothing else will end the process.
+      exit(failures.isEmpty ? 0 : 1);
+    }
   }, semanticsEnabled: semantics);
 }

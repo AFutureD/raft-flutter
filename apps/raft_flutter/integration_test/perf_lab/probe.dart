@@ -98,6 +98,13 @@ class FrameProbe {
 /// extension events and waits for the driver to call `ext.raft.lab.ack`.
 class LabSampler {
   LabSampler() {
+    if (standaloneOut != null) {
+      // Self-driving build (no `flutter drive` host): write what the driver
+      // would write, without CPU/timeline attribution.
+      Directory(standaloneOut!).createSync(recursive: true);
+      attached = true;
+      return;
+    }
     developer.registerExtension('ext.raft.lab.ack', (method, args) async {
       _pending.remove(args['token'])?.complete(args['note'] ?? '');
       return developer.ServiceExtensionResponse.result('{}');
@@ -107,7 +114,34 @@ class LabSampler {
   var _token = 0;
   var attached = false;
 
+  /// `RAFT_LAB_STANDALONE_OUT=<dir>`: results are written here by the app
+  /// itself and the process exits when the lab finishes.
+  static final String? standaloneOut = () {
+    final dir = Platform.environment['RAFT_LAB_STANDALONE_OUT'];
+    return dir == null || dir.isEmpty ? null : dir;
+  }();
+
+  void _writeStandalone(String kind, Map<String, Object?> data) {
+    final out = standaloneOut!;
+    String json(Object? o) => const JsonEncoder.withIndent(' ').convert(o);
+    switch (kind) {
+      case 'hello':
+        File('$out/lab-hello.json').writeAsStringSync(json(data));
+      case 'result':
+        final record = jsonDecode(data['record'] as String) as Map<String, dynamic>;
+        File('$out/${record['theme']}-${record['scenario']}.json').writeAsStringSync(jsonEncode(record));
+      case 'note':
+        File('$out/lab-notes.jsonl').writeAsStringSync('${jsonEncode(data)}\n', mode: FileMode.append);
+      case 'done':
+        File('$out/lab-done.json').writeAsStringSync(json(data));
+    }
+  }
+
   Future<bool> send(String kind, Map<String, Object?> data, {Duration timeout = const Duration(seconds: 60)}) async {
+    if (standaloneOut != null) {
+      _writeStandalone(kind, data);
+      return true;
+    }
     final token = '${++_token}';
     final done = Completer<String>();
     _pending[token] = done;
