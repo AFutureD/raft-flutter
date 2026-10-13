@@ -403,8 +403,7 @@ control file not matching the release, server without Range support, disk full,
 folder not writable, missing checksum in the manifest, failed verification, file
 could not be moved, cancelled, unexpected. The card shows the sentence, "View
 release" (the release page) and "Check for updates"; nothing opens a browser by
-itself. New sentences are pending Kevin's zh wording (`_pendingKevinZh` in
-`zh_catalog_test.dart`).
+itself. The sentences have zh in `zh_native_only.dart`.
 
 Trust: the SHA-1/SHA-256 values come from the same GitHub release as the bytes,
 so this protects against corruption and partial releases, not against someone

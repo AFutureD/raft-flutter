@@ -221,8 +221,8 @@ class _Copy {
 
 // English is the source. Chinese: Web zh-cn wording where Web has the string
 // (pages.socialCallback.finishingSignIn / finishFailed,
-// pages.deviceLogin.approvedDescription); the rest is proposed and listed in
-// _pendingKevinZh (test/zh_catalog_test.dart) until Kevin approves it.
+// pages.deviceLogin.approvedDescription); the rest is written directly (no
+// approval needed, Kevin 2026-10-13).
 const _en = _Copy(
   returning: 'Returning to Raft',
   finishing: 'Finishing sign-in…',

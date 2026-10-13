@@ -6,8 +6,12 @@
 // Also rejects interpolated literals (`raftText(c, 'Joins #$name ...')`), which
 // can never match a catalog key: use `raftFormat` with a `{placeholder}`.
 //
-// Chinese wording comes from Web's zh-cn catalog
-// (packages/web/src/i18n/messages/zh-cn.ts); never invent it.
+// Chinese wording: use Web's zh-cn catalog
+// (packages/web/src/i18n/messages/zh-cn.ts) when Web has the same English
+// string. Native-only copy with no Web counterpart is written directly in
+// packages/raft_ui/lib/src/l10n/zh_native_only.dart, keeping the existing
+// catalog's terms; it needs no approval (Kevin, 2026-10-13). Only an app-wide
+// terminology change (a word used across the catalog) goes to Kevin first.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,78 +19,6 @@ import 'package:raft_ui/raft_ui.dart' show raftChinese;
 
 /// Literals that are intentionally identical in every locale (no entry needed).
 const _sameInEveryLocale = <String>{};
-
-/// Error copy that has no Web zh-cn wording yet. zh users see the English until
-/// Kevin decides the wording; each entry is listed in the error-presentation
-/// handoff. Never invent Chinese for these.
-const _pendingKevinZh = <String>{
-  // Image viewer on phones (native-only: Web has no photo-library save). The
-  // long-press menu items and their result copy; Web's closest string is
-  // "Save image" (message.selectShare.saveImage), a different action.
-  'Save to Photos',
-  'Save to Gallery',
-  'Saved to Photos.',
-  'Saved to Gallery.',
-  'The image could not be saved.',
-  // Settings > Resources > Storage (native-only attachment cache; Web has no
-  // counterpart). Proposed zh, not final: 存储 / 附件缓存 / 清除缓存 /
-  // 缓存已清除。 / 正在清除… / 正在计算… / 缓存大小：{size}. Also shown from
-  // raft_ui widget parameters: 'Storage', 'Attachment cache' and the
-  // description under it.
-  'Clear cache',
-  'Attachments will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.',
-  'Clearing…',
-  'Cache cleared.',
-  'Calculating…',
-  'Cache size: {size}',
-  // Browser page after a desktop social sign-in (lib/platform/oauth_return_page.dart).
-  // It carries its own en/zh table (the page is served as HTML, not drawn
-  // through raftText), so these are tracked here only. Web zh-cn is used where
-  // Web has the string (finishingSignIn, approvedDescription, finishFailed).
-  // Proposed zh, not final: 正在返回 Raft (Web: 正在返回 App) / 请返回 Raft 重试。 /
-  // 登录已取消，或授权被拒绝。 / 这个登录请求已过期。 / 这个登录请求已被使用或已失效。 /
-  // 这个登录链接与 Raft 发起的请求不匹配。 / 该邮箱对应的账户已存在。 / 当前已关闭注册。 /
-  // 登录提供方无法确认你的账户。 / 无法连接到 Raft，它可能已被关闭。 / 无法完成登录。
-  'Returning to Raft',
-  'Return to Raft and try again.',
-  'Sign-in was cancelled, or access was denied.',
-  'This sign-in request has expired.',
-  'This sign-in request was already used or is no longer valid.',
-  "This sign-in link doesn't match the request Raft started.",
-  'An account with this email already exists.',
-  'Registration is currently disabled.',
-  "The sign-in provider couldn't confirm your account.",
-  'Raft could not be reached. It may have been closed.',
-  'Sign-in could not be completed.',
-  // channel settings: a stale mounted action is refused (Web has no copy)
-  'Channel editing is no longer available.',
-  'Channel activity preference is no longer available.',
-  // Settings > About > Updates card, Linux AppImage in-place update (native-only;
-  // Web has no counterpart). English until Kevin decides the wording; each
-  // failure sentence names its cause and the next step.
-  'Updating to {version} ({build})',
-  'Comparing with your current version…',
-  'Downloading the changes… {percent}%',
-  'Verifying the update…',
-  'Installing the update…',
-  'Raft {version} ({build}) is installed',
-  'Restart Raft to finish updating.',
-  "Raft couldn't restart itself. Quit it and start it again to finish updating.",
-  'Restart to finish',
-  "Couldn't install the update",
-  "Couldn't reach {host}. Check your connection and try again.",
-  'The update server answered with an unexpected status ({status}). Try again later or download the update from the release page.',
-  'This release has no update file for in-place updates. Download the new AppImage from the release page.',
-  "The update files don't match this release. Download the new AppImage from the release page.",
-  "The server doesn't support partial downloads. Download the new AppImage from the release page.",
-  'There is not enough free space in {folder} for the update.',
-  "Raft can't write to {folder}. Move the AppImage to a folder you own, or download the update from the release page.",
-  'This release has no checksum to verify the update against. Download it from the release page.',
-  'The downloaded update failed its integrity check and was discarded. Your current version is unchanged. Try again or download the update from the release page.',
-  "The new version couldn't be moved into place. Your current version is unchanged. Download the update from the release page.",
-  'The update was cancelled. Your current version is unchanged.',
-  'The update stopped unexpectedly. Your current version is unchanged. Download the update from the release page.',
-};
 
 class _Use {
   const _Use(this.file, this.line, this.text, {this.interpolated = false});
@@ -301,7 +233,6 @@ void main() {
         interpolated.add(u);
       } else if (_isText(_stripInterpolation(u.text)) &&
           !_sameInEveryLocale.contains(u.text) &&
-          !_pendingKevinZh.contains(u.text) &&
           !raftChinese.containsKey(u.text)) {
         missing.putIfAbsent(u.text, () => u);
       }
@@ -327,7 +258,20 @@ void main() {
       reason:
           'English shown to zh users. Add the Web zh-cn wording '
           '(packages/web/src/i18n/messages/zh-cn.ts) to raftChinese in '
-          'packages/raft_ui/lib/src/localization.dart.',
+          'packages/raft_ui/lib/src/l10n/.',
     );
+  });
+
+  test('settings widget parameters shown through raftText have zh', () {
+    // Passed as plain parameters (not raftText calls), so the scan above cannot
+    // see them: Settings > Resources > Storage.
+    for (final key in const [
+      'Storage',
+      'Attachment cache',
+      'Attachments you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.',
+      'Clear cache',
+    ]) {
+      expect(raftChinese, contains(key));
+    }
   });
 }

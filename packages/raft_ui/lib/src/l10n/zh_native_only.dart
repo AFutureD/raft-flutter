@@ -116,4 +116,65 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "Open full file": "打开完整文件",
   "This file is too large to open here. Download it instead.": "文件太大，无法在此打开，请下载后查看。",
   "The file could not be downloaded. Try again.": "文件下载失败，请重试。",
+  // Image viewer on phones (native-only: Web has no photo-library save; its
+  // "Save image" is a different action). Wording follows the iOS / Android
+  // names of the system photo library.
+  "Save to Photos": "保存到“照片”",
+  "Save to Gallery": "保存到相册",
+  "Saved to Photos.": "已保存到“照片”。",
+  "Saved to Gallery.": "已保存到相册。",
+  "The image could not be saved.": "无法保存图片。",
+  // Settings > Resources > Storage (native-only attachment cache; Web leaves
+  // caching to the browser).
+  "Storage": "存储",
+  "Attachment cache": "附件缓存",
+  "Attachments you open are kept on this device so they open again without downloading. Your sign-in, drafts, settings and files you saved are not part of the cache.":
+      "你打开过的附件会保存在此设备上，再次打开时无需重新下载。登录信息、草稿、设置和你保存的文件不属于缓存。",
+  "Clear cache": "清除缓存",
+  "Attachments will be downloaded again the next time you open them. Your sign-in, drafts, settings and files you saved are not affected.":
+      "下次打开附件时会重新下载。登录信息、草稿、设置和你保存的文件不受影响。",
+  "Clearing…": "正在清除…",
+  "Cache cleared.": "缓存已清除。",
+  "Calculating…": "正在计算…",
+  "Cache size: {size}": "缓存大小：{size}",
+  // Channel settings: a stale mounted action is refused (Web has no copy).
+  "Channel editing is no longer available.": "该频道已无法编辑。",
+  "Channel activity preference is no longer available.": "该频道的动态偏好已不可用。",
+  // Settings > About > Updates card, Linux AppImage in-place update (native-only;
+  // Web has no counterpart). Each failure sentence names its cause and the next step.
+  "Updating to {version} ({build})": "正在更新到 {version}（{build}）",
+  "Comparing with your current version…": "正在与当前版本比对…",
+  "Downloading the changes… {percent}%": "正在下载变更… {percent}%",
+  "Verifying the update…": "正在校验更新…",
+  "Installing the update…": "正在安装更新…",
+  "Raft {version} ({build}) is installed": "Raft {version}（{build}）已安装",
+  "Restart Raft to finish updating.": "重启 Raft 以完成更新。",
+  "Raft couldn't restart itself. Quit it and start it again to finish updating.":
+      "Raft 无法自动重启，请退出后重新打开以完成更新。",
+  "Restart to finish": "重启以完成更新",
+  "Couldn't install the update": "更新安装失败",
+  "Couldn't reach {host}. Check your connection and try again.":
+      "无法连接 {host}，请检查网络后重试。",
+  "The update server answered with an unexpected status ({status}). Try again later or download the update from the release page.":
+      "更新服务器返回了异常状态（{status}），请稍后重试或从发布页下载。",
+  "This release has no update file for in-place updates. Download the new AppImage from the release page.":
+      "此版本不支持原地更新，请从发布页下载新的 AppImage。",
+  "The update files don't match this release. Download the new AppImage from the release page.":
+      "更新文件与此版本不匹配，请从发布页下载新的 AppImage。",
+  "The server doesn't support partial downloads. Download the new AppImage from the release page.":
+      "服务器不支持分段下载，请从发布页下载新的 AppImage。",
+  "There is not enough free space in {folder} for the update.":
+      "{folder} 的剩余空间不足，无法更新。",
+  "Raft can't write to {folder}. Move the AppImage to a folder you own, or download the update from the release page.":
+      "Raft 无法写入 {folder}。请把 AppImage 移到你有权限的文件夹，或从发布页下载更新。",
+  "This release has no checksum to verify the update against. Download it from the release page.":
+      "此版本缺少校验信息，请从发布页下载。",
+  "The downloaded update failed its integrity check and was discarded. Your current version is unchanged. Try again or download the update from the release page.":
+      "下载的更新未通过完整性校验，已丢弃，当前版本未改动。请重试或从发布页下载。",
+  "The new version couldn't be moved into place. Your current version is unchanged. Download the update from the release page.":
+      "新版本替换失败，当前版本未改动。请从发布页下载更新。",
+  "The update was cancelled. Your current version is unchanged.":
+      "已取消更新，当前版本未改动。",
+  "The update stopped unexpectedly. Your current version is unchanged. Download the update from the release page.":
+      "更新意外中断，当前版本未改动。请从发布页下载更新。",
 };
