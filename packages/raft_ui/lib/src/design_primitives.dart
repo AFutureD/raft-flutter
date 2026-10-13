@@ -2,6 +2,7 @@ import 'raft_underline.dart';
 import 'anchored_popup.dart';
 import 'dismiss_scope.dart';
 import 'tooltip.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'search_result_surface.dart';
 import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 
@@ -285,9 +286,9 @@ class RaftAttachmentRecipe {
         : tokens.colors[hovered || focused ? 'line-muted' : 'line-hairline']!,
   );
   BorderRadius get radius => RaftShapes.attachment(tokens);
-  TextStyle get title =>
-      RaftTypography.attachmentTitle(tokens)
-          .copyWith(fontWeight: FontWeight.w700);
+  TextStyle get title => RaftTypography.attachmentTitle(
+    tokens,
+  ).copyWith(fontWeight: FontWeight.w700);
   TextStyle get metadata => RaftTypography.attachmentMeta(tokens);
 }
 
@@ -967,6 +968,7 @@ class _RaftControlState extends State<RaftControl> {
   Widget build(BuildContext context) {
     final t = RaftTokens.of(context);
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final flexible = widget.flexibleHeight || RaftScaled.grows(context);
     final bounds = RaftControlBounds(
       visualHeight: widget.visualHeight,
       density: RaftDensityScope.of(context),
@@ -1095,8 +1097,10 @@ class _RaftControlState extends State<RaftControl> {
                         ? Duration.zero
                         : RaftPrimitives.controlDuration,
                     curve: RaftPrimitives.controlCurve,
-                    height: widget.flexibleHeight ? null : widget.visualHeight,
-                    constraints: widget.flexibleHeight
+                    // A control labelled with scaled text is a minimum height
+                    // (CSS min-height): at 1.0x it is the pinned visual height.
+                    height: flexible ? null : widget.visualHeight,
+                    constraints: flexible
                         ? BoxConstraints(minHeight: widget.visualHeight)
                         : null,
                     width: widget.visualWidth,
@@ -1816,11 +1820,12 @@ enum RaftDropdownSide { bottom, top, right }
 enum RaftDropdownAlign { start, end }
 
 /// The popup retains ownership of its trigger focus and dismissal callbacks.
-typedef RaftDropdownTriggerBuilder = Widget Function(
-  BuildContext context,
-  FocusNode focusNode,
-  VoidCallback? onPressed,
-);
+typedef RaftDropdownTriggerBuilder =
+    Widget Function(
+      BuildContext context,
+      FocusNode focusNode,
+      VoidCallback? onPressed,
+    );
 
 class RaftDropdownMenu extends StatefulWidget {
   const RaftDropdownMenu({

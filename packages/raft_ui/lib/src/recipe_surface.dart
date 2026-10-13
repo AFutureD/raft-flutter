@@ -11,6 +11,7 @@ import 'package:flutter/widgets.dart';
 import 'control_typography.dart';
 import 'css_opacity.dart';
 import 'recipes/recipe_runtime.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'recipes/token_binding.dart';
 import 'theme.dart';
 import 'tokens/tokens.dart';
@@ -392,15 +393,21 @@ class RaftRecipeBox extends StatelessWidget {
     final h = height ?? style.height;
     // A fixed CSS height smaller than padding + content lets the content
     // overflow, centred (flex `align-items: center`), instead of clipping.
-    if (content != null && h != null && overflowCenter) {
+    //
+    // Above the default text size the recipe height is a minimum instead (CSS
+    // `min-height`): the box grows with its text and nothing overflows.
+    final grows = h != null && applyText && RaftScaled.grows(context);
+    if (content != null && h != null && overflowCenter && !grows) {
       content = RaftCssOverflowY(child: content);
     }
     Widget box = Container(
       width: w,
-      height: h,
+      height: grows ? null : h,
       constraints: BoxConstraints(
         minWidth: style.minWidth ?? 0,
-        minHeight: style.minHeight ?? 0,
+        minHeight: grows
+            ? math.max(style.minHeight ?? 0, h)
+            : style.minHeight ?? 0,
         maxWidth: style.maxWidth ?? double.infinity,
         maxHeight: style.maxHeight ?? double.infinity,
       ),

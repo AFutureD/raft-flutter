@@ -239,3 +239,25 @@ class _RaftChromeScope extends InheritedWidget {
   bool updateShouldNotify(_RaftChromeScope old) =>
       old.content != content || old.engaged != engaged;
 }
+
+/// Sizes that must follow the text size.
+///
+/// A box that holds text is a minimum at 1.0x (pixel parity with Web) and
+/// grows with the text above it: build it with `height: null` and a
+/// `minHeight` of [extent], or use [grows] to choose between the two.
+abstract final class RaftScaled {
+  /// Whether text is currently larger than at the default size.
+  static bool grows(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(14) > 14.0 + 1e-6;
+
+  /// [px] (a size designed for text of [fontSize] at the default text size)
+  /// grown by the scale of that font size; never below [px].
+  static double extent(
+    BuildContext context,
+    double px, {
+    double fontSize = 14,
+  }) {
+    final scaled = MediaQuery.textScalerOf(context).scale(fontSize);
+    return scaled <= fontSize ? px : px * scaled / fontSize;
+  }
+}
