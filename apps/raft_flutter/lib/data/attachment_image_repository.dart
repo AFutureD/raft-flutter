@@ -745,7 +745,12 @@ class AttachmentImageRepository {
       if (bytes == null) {
         fetch = _join(e);
         try {
-          bytes = await fetch.bytes;
+          // A tile that scrolled away is dropped; its load must not keep the
+          // slot while the loader is still waiting on something that cannot be
+          // cancelled (a signed-URL request, the rate-limit pacing). Racing the
+          // entry's own cancellation frees the slot at once, so tiles that
+          // are on screen now are never queued behind rows long gone.
+          bytes = await _untilDropped(e, fetch.bytes);
           // Complete: hold the bar full while decoding; a loader that never
           // reported has nothing to show.
           e.transfer.value = fetch.transfer.value == null
@@ -786,6 +791,26 @@ class AttachmentImageRepository {
     } finally {
       await decoded?.dispose();
     }
+  }
+
+  /// [work], or [StaleAttachmentImage] as soon as [e] is dropped.
+  static Future<Uint8List> _untilDropped(_ImageEntry e, Future<Uint8List> work) {
+    if (e.cancel.isCancelled) return Future.error(const StaleAttachmentImage());
+    final done = Completer<Uint8List>();
+    unawaited(
+      e.cancel.whenCancel.then<void>((_) {
+        if (!done.isCompleted) done.completeError(const StaleAttachmentImage());
+      }),
+    );
+    work.then<void>(
+      (bytes) {
+        if (!done.isCompleted) done.complete(bytes);
+      },
+      onError: (Object error, StackTrace trace) {
+        if (!done.isCompleted) done.completeError(error, trace);
+      },
+    );
+    return done.future;
   }
 
   static Future<void> _quietly(Future<void> work) =>

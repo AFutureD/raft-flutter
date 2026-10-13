@@ -18,6 +18,11 @@ class RateLimitedException implements Exception {
   String toString() => 'Too many requests. Try again in a moment.';
 }
 
+/// The caller cancelled while its request waited for the limiter.
+class RateLimitWaitCancelled implements Exception {
+  const RateLimitWaitCancelled();
+}
+
 /// `Retry-After` (delta-seconds or HTTP-date), else `RateLimit-Reset`
 /// (delta-seconds; the express-rate-limit draft-6 shape) as a duration.
 Duration? retryAfterOf(Headers? headers, DateTime now) {
@@ -174,13 +179,24 @@ class RateLimitGovernor {
   /// Waits until a request against [limits] may be sent and records it.
   /// Throws [RateLimitedException] when a background request would wait, or a
   /// foreground request would wait longer than [maxWait].
+  ///
+  /// [cancelled] completes when the caller no longer wants the request (a dio
+  /// `CancelToken.whenCancel`): the wait ends at once with
+  /// [RateLimitWaitCancelled] and nothing is recorded as sent, so a tile that
+  /// scrolled away neither holds its place in line nor spends the budget.
   Future<void> acquire(
     List<ServerRateLimit> limits,
-    RequestPriority priority,
-  ) async {
+    RequestPriority priority, {
+    Future<void>? cancelled,
+  }) async {
     if (limits.isEmpty) return;
     var waited = Duration.zero;
+    var gone = false;
+    if (cancelled != null) {
+      unawaited(cancelled.then<void>((_) => gone = true, onError: (Object _) => gone = true));
+    }
     while (true) {
+      if (gone) throw const RateLimitWaitCancelled();
       final wait = _requiredWait(limits, priority);
       if (wait <= Duration.zero) break;
       if (priority == RequestPriority.background ||
@@ -193,7 +209,10 @@ class RateLimitGovernor {
       // the same instant.
       final step = wait + Duration(milliseconds: random.nextInt(400));
       waited += step;
-      await _sleep(step);
+      await (cancelled == null
+          ? _sleep(step)
+          : Future.any<void>([_sleep(step), cancelled.then<void>((_) {})]));
+      if (gone) throw const RateLimitWaitCancelled();
     }
     final t = _now();
     for (final limit in limits) {
@@ -261,7 +280,20 @@ class RateLimitInterceptor extends Interceptor {
     final limits = _limits(options);
     if (limits.isNotEmpty) {
       try {
-        await governor.acquire(limits, RequestPriority.foreground);
+        await governor.acquire(
+          limits,
+          RequestPriority.foreground,
+          cancelled: options.cancelToken?.whenCancel,
+        );
+      } on RateLimitWaitCancelled {
+        // Not sent, not counted: the transfer was cancelled while it queued.
+        return handler.reject(
+          DioException.requestCancelled(
+            requestOptions: options,
+            reason: 'cancelled while waiting for the rate limiter',
+          ),
+          true,
+        );
       } on RateLimitedException catch (limited) {
         return handler.reject(
           DioException(

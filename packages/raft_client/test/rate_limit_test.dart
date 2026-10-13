@@ -443,5 +443,46 @@ void main() {
         RequestPriority.background,
       );
     });
+
+    test('a cancelled caller stops waiting and spends no budget', () async {
+      final clock = _Clock();
+      final sleeping = Completer<void>();
+      final governor = RateLimitGovernor(
+        now: clock.now,
+        // Time never passes on its own: only a cancel can end the wait.
+        sleep: (_) => sleeping.future,
+      );
+      // Fill the foreground share (90 of 120) so the next request must wait.
+      for (var i = 0; i < 90; i++) {
+        await governor.acquire(
+          const [ServerRateLimits.attachments],
+          RequestPriority.foreground,
+        );
+      }
+      // 45 s into the window the next slot frees in 15 s: a wait, not a refusal.
+      clock.t = clock.t.add(const Duration(seconds: 45));
+      final token = CancelToken();
+      final waiting = governor.acquire(
+        const [ServerRateLimits.attachments],
+        RequestPriority.foreground,
+        cancelled: token.whenCancel,
+      );
+      var done = false;
+      unawaited(waiting.then<void>((_) {}, onError: (Object _) {}).whenComplete(() => done = true));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(done, isFalse, reason: 'still paced');
+      token.cancel();
+      await expectLater(waiting, throwsA(isA<RateLimitWaitCancelled>()));
+      // The cancelled request was not recorded: once the window passes, all
+      // 90 slots are free again, not 89.
+      sleeping.complete();
+      clock.t = clock.t.add(const Duration(minutes: 1, seconds: 1));
+      for (var i = 0; i < 90; i++) {
+        await governor.acquire(
+          const [ServerRateLimits.attachments],
+          RequestPriority.foreground,
+        );
+      }
+    });
   });
 }

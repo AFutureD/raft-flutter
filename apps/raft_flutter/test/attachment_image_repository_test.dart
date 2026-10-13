@@ -111,6 +111,34 @@ class _RasterFiles extends AttachmentFiles {
 
 void main() {
   test(
+    'rows scrolled away do not hold load slots: visible tiles load at once',
+    () async {
+      // A fast fling builds and drops many tiles. Their loaders may be stuck on
+      // something that cannot be cancelled (a signed-URL request waiting for
+      // the rate limiter); the slot must come back when the row is gone, or the
+      // tiles on screen now would wait behind them for as long as it takes.
+      final h = _Harness(maxConcurrentLoads: 2);
+      addTearDown(h.repository.dispose);
+      final stuck = Completer<Uint8List>();
+      final gone = [
+        for (var i = 0; i < 6; i++)
+          h.acquire(key('gone-$i'), load: (_) => stuck.future),
+      ];
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(h.loads, 2, reason: 'two loaders started, four are queued');
+      for (final lease in gone) {
+        lease.release();
+      }
+      final visible = [for (var i = 0; i < 3; i++) h.acquire(key('now-$i'))];
+      final images = await Future.wait([
+        for (final lease in visible) lease.ready,
+      ]).timeout(const Duration(seconds: 2));
+      expect(images, hasLength(3));
+      expect(stuck.isCompleted, isFalse, reason: 'the stuck loaders never ended');
+    },
+  );
+
+  test(
     'simultaneous consumers share one load and stable decoded provider',
     () async {
       final h = _Harness();
