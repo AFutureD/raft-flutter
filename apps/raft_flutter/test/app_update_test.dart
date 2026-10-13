@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -113,6 +114,43 @@ void main() {
       }
     });
   });
+
+  // Proof against the real latest release; never runs in the normal suite.
+  //   RAFT_LIVE_MANIFEST=1 flutter test test/app_update_test.dart --plain-name live
+  test(
+    'live: real manifests parse for every platform',
+    () async {
+      HttpOverrides.global = null; // flutter_test answers every request 400
+      for (final key in [
+        'android-arm64',
+        'macos-arm64',
+        'windows-x64',
+        'appimage-x64',
+      ]) {
+        final body = await fetchManifestOverHttp(
+          Uri.parse(
+            '${AppUpdateService.manifestBase}/build-manifest-$key.json',
+          ),
+        );
+        final release = parseBuildManifest(body!, key)!;
+        // ignore: avoid_print
+        print(
+          'live $key -> ${release.version} (${release.buildNumber}) '
+          '${release.releaseTag} ${release.artifact}',
+        );
+        expect(release.buildNumber, greaterThan(0));
+      }
+      expect(
+        await fetchManifestOverHttp(
+          Uri.parse('${AppUpdateService.manifestBase}/no-such-file.json'),
+        ),
+        isNull,
+      );
+    },
+    skip: Platform.environment['RAFT_LIVE_MANIFEST'] == null
+        ? 'set RAFT_LIVE_MANIFEST=1'
+        : false,
+  );
 
   group('appUpdatePlatformKey', () {
     test('maps the distributed platforms', () {
