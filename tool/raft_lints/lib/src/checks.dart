@@ -6,6 +6,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'banned_apis.dart';
 import 'error_leak.dart';
 import 'notice_state.dart';
+import 'resource_release.dart';
 import 'render_scope.dart';
 
 /// Rule names (also the `// ignore: raft_lints/<name>` keys).
@@ -132,6 +133,12 @@ class AllChecksVisitor extends RecursiveAstVisitor<void> {
   void visitNamedType(NamedType node) {
     checkBannedTypeName(node, report);
     super.visitNamedType(node);
+  }
+
+  @override
+  void visitCompilationUnit(CompilationUnit node) {
+    checkResourceRelease(node, report);
+    super.visitCompilationUnit(node);
   }
 
   @override

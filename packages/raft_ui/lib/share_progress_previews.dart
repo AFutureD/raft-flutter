@@ -42,6 +42,7 @@ final _progress = [
   ),
   ValueNotifier<RaftTransferProgress?>(null),
 ];
+// ignore: raft_lints/avoid_unreleased_resource -- Preview-only top-level notifier; lives for the process.
 final _overall = ValueNotifier<RaftTransferProgress?>(
   const RaftTransferProgress(received: 7600000, total: 33400000),
 );

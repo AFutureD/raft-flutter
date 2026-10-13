@@ -26,6 +26,7 @@ class IncomingShareFileProgress {
   final IncomingSharedFile file;
   IncomingShareFileState state = IncomingShareFileState.waiting;
   IncomingShareFailureReason? failure;
+  // ignore: raft_lints/avoid_unreleased_resource -- Value notifiers of one staging run; collected with the run.
   final progress = ValueNotifier<RaftTransferProgress?>(null);
 }
 
@@ -61,6 +62,7 @@ class IncomingShareStaging extends ChangeNotifier {
 
   /// Bytes copied across all files, against the sizes the providers declared
   /// (null total when one is unknown). Per-chunk; listen instead of rebuilding.
+  // ignore: raft_lints/avoid_unreleased_resource -- Value notifiers of one staging run; collected with the run.
   final overall = ValueNotifier<RaftTransferProgress?>(null);
   int? totalBytes;
   int copied = 0;

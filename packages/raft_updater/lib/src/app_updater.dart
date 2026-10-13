@@ -69,6 +69,7 @@ class AppUpdater {
   }) : _channel = channel ?? const MethodChannel('app.raft/updater'),
        _isInstalledBuild = isInstalledBuild ?? _defaultIsInstalledBuild,
        _openUrl = openUrl ?? _defaultOpenUrl {
+    // ignore: raft_lints/avoid_unreleased_resource -- Owned by the app-wide AppUpdater, which is never torn down.
     _available = ValueNotifier<bool>(_computeStaticAvailability());
   }
 

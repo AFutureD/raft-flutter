@@ -16,6 +16,7 @@ class ChannelProxyResolver implements SystemProxyResolver {
   }
 
   final MethodChannel _channel;
+  // ignore: raft_lints/avoid_unreleased_resource -- Process-wide channel owned by the proxy bootstrap for the lifetime of the app; never torn down.
   final _changes = StreamController<void>.broadcast();
   static const _timeout = Duration(seconds: 8);
 

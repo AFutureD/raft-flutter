@@ -463,6 +463,7 @@ class _ImageEntry {
   final Set<AttachmentImageLease> leases = {};
 
   /// Mirror of the joined fetch's progress for this entry's consumers.
+  // ignore: raft_lints/avoid_unreleased_resource -- Per-entry progress mirror; it has no listener once the entry is dropped and is collected with it.
   final transfer = ValueNotifier<AttachmentTransferProgress?>(null);
   DecodedAttachmentImage? value;
   _SourceFetch? fetch;

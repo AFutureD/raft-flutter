@@ -46,6 +46,7 @@ class NativeOAuthBroker {
   /// (the launcher failed, or [helpDelay] passed without a callback); null
   /// otherwise. The URL carries the provider's state: it is shown only to the
   /// copy / open-again actions and is never logged.
+  // ignore: raft_lints/avoid_unreleased_resource -- Process-wide singleton, never torn down.
   final ValueNotifier<Uri?> helpUrl = ValueNotifier<Uri?>(null);
   Uri? _url;
   Timer? _helpTimer;

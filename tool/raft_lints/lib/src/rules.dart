@@ -9,6 +9,7 @@ import 'banned_apis.dart';
 import 'checks.dart';
 import 'error_leak.dart';
 import 'notice_state.dart';
+import 'resource_release.dart';
 
 /// `expr[key]!` in render code.
 class AvoidRenderIndexAssertion extends AnalysisRule {
@@ -290,4 +291,42 @@ class _NoticeVisitor extends SimpleAstVisitor<void> {
   @override
   void visitMethodInvocation(MethodInvocation node) =>
       checkNoticeSetter(node, _report);
+}
+
+/// Owned controllers, timers, subscriptions and observers must be released.
+class AvoidUnreleasedResource extends AnalysisRule {
+  AvoidUnreleasedResource()
+    : super(
+        name: resourceRule,
+        description:
+            'A controller, timer, subscription or observer created in a file '
+            'is released in that file.',
+      );
+
+  static const LintCode code = LintCode(
+    resourceRule,
+    resourceMessage,
+    correctionMessage: resourceCorrection,
+  );
+
+  @override
+  LintCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    if (!context.isInLibDir) return;
+    registry.addCompilationUnit(this, _ResourceVisitor(this));
+  }
+}
+
+class _ResourceVisitor extends SimpleAstVisitor<void> {
+  _ResourceVisitor(this.rule);
+  final AnalysisRule rule;
+
+  @override
+  void visitCompilationUnit(CompilationUnit node) =>
+      checkResourceRelease(node, (_, n) => rule.reportAtNode(n));
 }

@@ -163,6 +163,7 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
       acquired.onEvicted = () => unawaited(releasePlayer(PlayerRelease.evicted));
       player = acquired.player;
       playback = acquired.player.playback;
+      // ignore: raft_lints/avoid_unreleased_resource -- Cancelled through the `events` alias in releaseInputs().
       playbackEvents = acquired.player.changes.listen((value) {
         if (!current) return;
         setState(() {

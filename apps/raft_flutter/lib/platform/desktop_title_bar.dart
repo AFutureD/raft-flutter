@@ -121,6 +121,7 @@ class DesktopTitleBarController {
 
   final MethodChannel _channel;
   final DesktopTitleBarMode mode;
+  // ignore: raft_lints/avoid_unreleased_resource -- Process-wide singleton, never torn down.
   late final ValueNotifier<DesktopTitleBarState> state = ValueNotifier(
     DesktopTitleBarState(
       height: mode == DesktopTitleBarMode.strip ? macosDefaultHeight : 0,
