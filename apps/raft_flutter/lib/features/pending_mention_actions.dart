@@ -115,6 +115,7 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
   }
 
   Future<void> mark(List<String> ids, RaftPendingMentionState outcome) async {
+    // ignore: raft_lints/avoid_imperative_notice_state -- Clears the composer banner at the start of a mention action (mark) and when a row is dismissed (Web removePendingMentionAction).
     w.setComposerError(null, thread: widget.thread);
     setState(() {
       notice.clear();
@@ -159,6 +160,7 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
     } catch (e) {
       // Web: the server's text, else `failedMentionAction` / `mentionAddFailed`.
       if (mounted) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Raises the server's text when the action request throws; the composer notice store ends it with the composer visit and the next mark/dismiss clears it.
         w.setComposerError(
           userErrorText(
             e,
@@ -242,6 +244,7 @@ class _PendingMentionActionsState extends State<PendingMentionActions> {
           onDismiss: (id) => setState(() {
             // Web removePendingMentionAction: dismissing clears the feedback.
             notice.clear();
+            // ignore: raft_lints/avoid_imperative_notice_state -- Clears the composer banner at the start of a mention action (mark) and when a row is dismissed (Web removePendingMentionAction).
             w.setComposerError(null, thread: widget.thread);
             remove(id);
           }),

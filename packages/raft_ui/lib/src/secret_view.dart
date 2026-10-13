@@ -23,6 +23,7 @@ class RaftSecretView extends StatefulWidget {
 
 class _RaftSecretViewState extends State<RaftSecretView> {
   bool visible = false, copying = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared two seconds after it is raised, when the next copy starts or when the credential value changes.
   String? notice;
 
   /// The copy result is a momentary confirmation, not a standing state.

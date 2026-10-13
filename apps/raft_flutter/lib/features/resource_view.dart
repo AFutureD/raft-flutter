@@ -426,6 +426,7 @@ class _ResourceViewState extends State<ResourceView> {
 
   /// The failure came from the blocking first read (no list on screen yet).
   bool errorWhileLoading = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a load starts or succeeds, on authority change and on initialQuery change; set only for the accepted scope/request.
   String? error;
 
   /// Why the last Search read failed (Source `classifySearchFailure`).

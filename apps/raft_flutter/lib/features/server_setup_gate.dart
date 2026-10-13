@@ -68,6 +68,7 @@ class _ServerSetupGateState extends ManagementState<ServerSetupGate> {
   @override
   WorkspaceController get w => widget.controller;
   Map<String, dynamic>? projection;
+  // ignore: raft_lints/avoid_imperative_notice_state -- createdAgentId clears on setup reset and server/account switch (clearData); notice is written by reset() but never rendered and clears on server/account switch (clearData).
   String? createdAgentId, notice;
   List<Map<String, dynamic>>? setupMachines;
 

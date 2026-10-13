@@ -101,6 +101,7 @@ class _AuthState extends State<AuthView> {
   bool busy = false, visible = false, accepted = false;
   bool forgotSent = false, resetDone = false;
   String sentEmail = '';
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each clears when its field is edited, on submit revalidation and on mode switch.
   String? emailError, passwordError, confirmError, tokenError;
   List<Map<String, dynamic>> providers = [];
   NativeOAuthBroker? broker;
@@ -216,6 +217,7 @@ class _AuthState extends State<AuthView> {
   }
 
   late String mode = widget.initialMode;
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears on submit, social sign-in start, mode switch and server edit; notice is never raised (always null).
   String? error, notice;
   @override
   void dispose() {

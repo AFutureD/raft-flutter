@@ -333,6 +333,7 @@ class _MessageImageReviewState extends State<MessageImageReview> {
   late final sharing = widget.sharing ?? NativeSharing();
   SharedFileLease? lease;
   bool busy = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Export dialog error: cleared when the next save/share starts; the dialog closes on authority loss.
   String? error;
   bool get current => mounted && widget.authorized();
   void changed() {

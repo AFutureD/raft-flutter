@@ -97,6 +97,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   StreamSubscription<void>? changes;
   bool hasStoredPassword = false;
   bool saving = false, saved = false, testing = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears when any proxy field is edited (touch), when a save/test starts, and on dispose.
   String? formError;
   NetworkProbeResult? probeResult;
   Uri? probedUrl;

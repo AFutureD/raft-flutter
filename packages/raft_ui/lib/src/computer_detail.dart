@@ -360,15 +360,18 @@ class _RaftComputerDetailViewState extends State<RaftComputerDetailView> {
   bool get isComputer => d.isComputer;
 
   bool editingName = false, savingName = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when name editing starts, the name is typed, a save starts or another computer is shown.
   String nameError = '';
   final nameField = TextEditingController();
   bool editingDescription = false, savingDescription = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when description editing starts, the text is typed, a save starts or another computer is shown.
   String descriptionError = '';
   final descriptionField = TextEditingController();
 
   bool selectionMode = false;
   final selected = <String>{};
   RaftComputerBulk? bulkAction;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a bulk action starts, selection is cancelled or another computer is shown.
   String bulkError = '';
 
   bool scanned = false, scanning = false;

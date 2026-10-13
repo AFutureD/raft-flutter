@@ -151,6 +151,7 @@ class ServerSettingsView extends StatefulWidget {
 class _ServerSettingsViewState extends State<ServerSettingsView> {
   WorkspaceController get w => widget.controller;
   final name = TextEditingController();
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears when the next save starts; the page is remounted on server/account change (WorkspaceSettings key). avatarError is scoped to _avatarServerId and clears on retry, on a successful upload, on switching server and when the user loses edit permission (server_avatar_test).
   String? savedName, error, avatarError, _avatarServerId;
   bool saving = false, saved = false, avatarSaving = false;
   Timer? savedReset;
@@ -565,6 +566,7 @@ class _MembersViewState extends State<MembersView> {
   late bool loading =
       members.isEmpty &&
       !w.entityDirectory.state(WorkspaceEntityKind.members).loaded;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Members load/profile error clears on the next successful load or Retry; the page is disposed on navigation.
   String? error;
   StreamSubscription<RaftEvent>? events;
   @override

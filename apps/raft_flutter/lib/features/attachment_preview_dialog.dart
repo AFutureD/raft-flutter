@@ -211,6 +211,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
   /// The file itself could not be fetched (as opposed to decoded or played):
   /// the download panel offers a retry.
   bool fetchFailed = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Preview failure panel: reset by retry() and rebinding; terminal for playback/PDF errors (the panel replaces the player) and dies with the dialog or authority loss.
   String? error;
 
   /// Bytes of the preview download, throttled; the panel's bar listens.

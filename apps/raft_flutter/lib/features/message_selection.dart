@@ -27,6 +27,7 @@ class MessageSelection extends ChangeNotifier {
   final Set<String> ids = {};
   bool active = false;
   int revision = 0;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Selection-limit notice: cleared on a successful select, a deselect, select all, exit and any scope/authority change.
   String? _scope, error;
   Map<String, dynamic>? _channelAuthority;
   String get scope => jsonEncode([

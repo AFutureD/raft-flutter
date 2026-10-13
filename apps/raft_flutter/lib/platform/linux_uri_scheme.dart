@@ -134,6 +134,7 @@ class LinuxUriSchemeRegistration extends ChangeNotifier {
 
   /// The desktop file of the program that currently owns the scheme.
   String? otherHandler;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears whenever the registration is re-inspected, registered or removed (_inspect/_register/unregister).
   String? error;
   bool busy = false;
 

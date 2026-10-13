@@ -74,7 +74,9 @@ class _ExternalAgentSetupState extends State<ExternalAgentSetup> {
 
   /// A list was accepted (or restored) for this agent.
   late bool hasList = _cachedCredentials != null;
+  // ignore: raft_lints/avoid_imperative_notice_state -- listError clears when a list load succeeds or Refresh runs; revokeError clears when a revoke prompt opens, Refresh runs, the next revoke starts or the account changes.
   bool listError = false, revokeError = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears when the next generate starts or the account changes; copied clears with the token (revoke or account change).
   bool pending = false, error = false, copied = false;
   String? confirmId, revokingId;
   bool requesting = false;

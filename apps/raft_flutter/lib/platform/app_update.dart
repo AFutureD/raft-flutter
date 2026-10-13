@@ -276,6 +276,7 @@ class AppUpdateService extends ChangeNotifier {
   DateTime? _checkedAt, _attemptedAt;
   bool _failedLast = false, _loaded = false, _checking = false;
   Object? _lastFailure;
+  // ignore: raft_lints/avoid_imperative_notice_state -- _loggedFailure only de-duplicates a log line (never shown in the UI); _disposed is lifecycle state.
   bool _loggedFailure = false, _disposed = false;
   Timer? _timer;
   Future<void>? _loading;

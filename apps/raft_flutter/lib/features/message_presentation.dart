@@ -738,6 +738,7 @@ class MessagePresentation extends StatelessWidget {
         authorized: current,
       );
     } catch (_) {
+      // ignore: raft_lints/avoid_imperative_notice_state -- Workspace-level w.error is shown once as a toast by workspace_view.syncWorkspaceError and cleared there (self-dismissing).
       if (current()) w.setError('Could not export diagram.');
     }
   }

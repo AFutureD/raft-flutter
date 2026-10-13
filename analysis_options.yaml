@@ -19,3 +19,4 @@ plugins:
       avoid_caught_exception_text: error
       avoid_material_feedback: error
       avoid_unreviewed_idle_work: error
+      avoid_imperative_notice_state: error

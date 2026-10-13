@@ -146,6 +146,7 @@ class _AgentRuntimeEditorState extends State<AgentRuntimeEditor> {
   RuntimeModelSource source = const RuntimeModelIdle();
   int sourceTicket = 0;
   bool moreOpen = false, saving = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared at the start of every Save (legacy and protocol-v2) and gone with the dialog.
   String? saveError;
 
   RuntimeFormController? form;

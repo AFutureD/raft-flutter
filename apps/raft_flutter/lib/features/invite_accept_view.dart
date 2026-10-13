@@ -169,6 +169,7 @@ class _InviteAcceptViewState extends State<InviteAcceptView> {
   late Map<String, dynamic>? info = InviteInfoMemory.read(widget.token);
   late bool loading = info == null;
   bool accepting = false, accepted = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears when a join starts or the invite token changes; a result for a previous token is ignored.
   String acceptedName = '', acceptedId = '', error = '';
 
   @override

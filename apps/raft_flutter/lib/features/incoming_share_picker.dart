@@ -66,10 +66,12 @@ class _IncomingSharePickerState extends State<IncomingSharePicker> {
   /// Web's single-select forward flow: choosing a row opens the second page
   /// ("Add shared content"), whose action is Continue.
   bool review = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when Continue starts and when a destination row is tapped (the only ways into the review step).
   String? handoffError;
   List<IncomingShareTarget> targets = [];
   final search = TextEditingController();
   final searchFocus = FocusNode();
+  // ignore: raft_lints/avoid_imperative_notice_state -- Load error with Retry: cleared when a load starts or when a server read succeeds with no server; retry calls load.
   String? error;
 
   /// Notices above the rows. "No longer available" describes a dropped

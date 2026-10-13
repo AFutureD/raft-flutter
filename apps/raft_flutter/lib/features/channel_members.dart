@@ -263,6 +263,7 @@ class _ChannelMembersState extends State<ChannelMembers> {
 
   /// A failed add / role change (cleared by the next attempt, by a change to
   /// the selection and by leaving the add view).
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next add or role change starts, the add selection changes or the add view is left.
   String? error;
 
   /// A failed roster read: it ends with the next roster that loads.

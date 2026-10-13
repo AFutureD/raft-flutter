@@ -248,6 +248,7 @@ class _RaftAgentProfileEditDialogState
   late final description = TextEditingController(text: widget.description);
   late String? role = widget.role;
   bool saving = false, confirming = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next save starts; the dialog state is dropped when it closes.
   String? error;
 
   @override

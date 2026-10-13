@@ -76,6 +76,7 @@ class _ManagedAgentFormHost extends StatefulWidget {
 class _ManagedAgentFormHostState extends State<_ManagedAgentFormHost> {
   WorkspaceController get w => widget.controller;
   List<Map<String, dynamic>>? machines;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when Retry starts a new load or when the computers list arrives (it only shows while no list is known).
   String? failure;
   int ticket = 0;
 

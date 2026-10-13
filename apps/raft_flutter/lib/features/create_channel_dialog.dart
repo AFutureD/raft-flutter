@@ -214,6 +214,7 @@ class _CreateChannelDialogState extends State<CreateChannelDialog> {
   bool submitting = false, unarchiving = false;
 
   /// A failed create / unarchive (server text); the next submit clears it.
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts; the dialog state is dropped when it closes.
   String? error;
 
   /// The name rule that rejected the last submit: it holds only while the

@@ -163,10 +163,12 @@ class _PublicServerViewState extends State<PublicServerView> {
   String? selectedId;
   List<PublicServerMessage> messages = [];
   bool loadingMessages = false, hasOlder = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Page load error: cleared at the start of every server/messages/older load and on a server reload.
   String error = '';
   int serverRequest = 0, messageRequest = 0;
 
   bool settings = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Anonymous rail prompt (Web keeps it sticky): shown only while the visitor is signed out.
   bool selectionNotice = false;
   final menu = RaftMenuController();
 
@@ -174,11 +176,13 @@ class _PublicServerViewState extends State<PublicServerView> {
   String? threadChannelId, threadParentId;
   List<PublicServerMessage> threadMessages = [];
   bool threadLoading = false, threadHasOlder = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Thread panel error: cleared when a thread is opened (it replaces the thread body, as in Web).
   String threadError = '';
   int threadRequest = 0;
 
   // Join flow.
   bool joining = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Join failure banner: cleared when a join starts and when the server (slug/client) reloads; kept after cancelling the dialog as in Web.
   String joinError = '';
 
   String get base => '/public/servers/${Uri.encodeComponent(widget.slug)}';

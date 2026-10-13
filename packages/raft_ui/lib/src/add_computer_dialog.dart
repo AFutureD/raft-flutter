@@ -82,6 +82,7 @@ class RaftAddComputerDialog extends StatefulWidget {
 
 class _RaftAddComputerDialogState extends State<RaftAddComputerDialog> {
   bool waiting = false, registering = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next register attempt starts; the dialog state is dropped when it closes.
   String error = '';
   String platform = 'mac-linux';
   final name = TextEditingController();

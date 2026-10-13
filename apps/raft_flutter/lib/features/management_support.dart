@@ -103,6 +103,7 @@ abstract class ManagementState<T extends StatefulWidget> extends State<T>
     with WidgetsBindingObserver {
   WorkspaceController get w;
   bool loading = true, busy = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a load succeeds, an action starts, the account or workspace authority changes; a load failure keeps the accepted data and stays until the next reload.
   String? error;
   int _request = 0;
   String? _authority;

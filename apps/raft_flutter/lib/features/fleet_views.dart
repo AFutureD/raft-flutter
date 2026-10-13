@@ -228,6 +228,7 @@ class _FleetViewState extends State<FleetView> {
   late _FleetScope scope;
   WorkspaceController? _listened;
   WorkspaceEntityDirectory? _directory;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared on scope change and controller change; only set by a defensive catch around showManagedAgentForm, which does not throw.
   String? actionError;
   bool current(_FleetScope captured) => mounted && captured.current(w);
   WorkspaceEntityKind get kind => widget.computers
@@ -627,6 +628,7 @@ class _FleetDetailState extends State<FleetDetail> {
   }
 
   bool busy = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when an action starts, a detail read succeeds, the user dismisses it, or the profile closes for an authority change.
   String? error;
 
   StreamSubscription<RaftEvent>? subscription;
@@ -1522,6 +1524,7 @@ class _FleetInspectionState extends State<FleetInspection> {
   }
 
   List<Map<String, dynamic>> rows = [];
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when an action starts, a detail read succeeds, the user dismisses it, or the profile closes for an authority change.
   String? error;
   bool loading = true;
   String dir = '';

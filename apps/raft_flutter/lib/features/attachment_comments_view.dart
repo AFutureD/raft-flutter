@@ -90,6 +90,7 @@ class _AttachmentCommentsViewState extends State<AttachmentCommentsView> {
   WorkspaceController get w => widget.controller;
   List<Map<String, dynamic>>? comments;
   Map<String, dynamic>? viewer;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Load error: cleared by a successful load, a rebind to another attachment/controller and a scope revocation.
   String? error;
   bool anchorCleared = false;
   late String authority;

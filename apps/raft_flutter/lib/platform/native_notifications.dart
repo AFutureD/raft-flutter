@@ -70,6 +70,7 @@ class NativeNotificationService extends ChangeNotifier {
   /// Set once [initialize] has finished; before that [available] is unknown.
   bool initialized = false;
   bool _wanted = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears when the principal changes (bind), on the next successful permission check/enable/delivery; backgroundError is set by its owner via setBackgroundError(null).
   String? error, backgroundError;
 
   /// The device-level failure of [initialize]; every other [error] belongs to

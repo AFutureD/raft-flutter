@@ -187,6 +187,7 @@ class _BillingState extends ManagementState<BillingView> {
   WorkspaceController get w => widget.controller;
   Map<String, dynamic>? billing, usage;
   _BillingAction? pending;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Both clear when the next billing action starts (Web setBillingError/Notice('') at each handler) and on account/server change (clearData).
   String billingError = '', billingNotice = '';
   int? desiredSeatOverride;
 

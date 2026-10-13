@@ -63,6 +63,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
   final profileName = TextEditingController();
   String? profileAccount, savedProfileName;
   bool profileBusy = false, profileSaved = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears when the next save starts and on account change (clearData/hydrateProfile).
   String? profileError;
   @override
   void dispose() {
@@ -128,6 +129,7 @@ class _AccountSettingsState extends ManagementState<AccountSettings> {
   }
 
   bool mediaBusy = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears when the next avatar action starts and on account change (clearData).
   String? mediaError;
 
   Future<void> image({bool remove = false}) async {

@@ -141,6 +141,7 @@ class _ConnectedAppEditorState extends State<ConnectedAppEditor> {
   String shareUrl = '';
   bool shareLoading = false, shareCopied = false;
   bool submitting = false, logoUploading = false, regenerating = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears when the next save or guarded action starts or a confirm dialog retries; webhookSecret is a one-time value cleared on disable and with the editor.
   String? savingId, error, webhookBusy, webhookSecret;
   bool webhookSecretCopied = false;
   Timer? shareCopyReset, secretCopyReset;

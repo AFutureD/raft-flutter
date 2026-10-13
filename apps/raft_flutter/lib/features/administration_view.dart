@@ -141,6 +141,7 @@ class _AdminsSection extends StatefulWidget {
 class _AdminsSectionState extends State<_AdminsSection> {
   WorkspaceController get w => widget.w;
   WorkspaceEntityDirectory get directory => w.entityDirectory;
+  // ignore: raft_lints/avoid_imperative_notice_state -- error clears when the next role change starts (Web setError('') in handlePromote/handleDemote); the section is remounted on server/account change.
   String? selectedKey, savingKey, error;
   String selectedRole = 'admin';
 
@@ -300,6 +301,7 @@ class _SystemChannelsState extends State<_SystemChannelsSection>
   WorkspaceController get w => widget.w;
   late bool current = currentHidden, hidden = current;
   bool saving = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each section's error clears when its next save/action starts, on a successful load, and when the real server state it describes changes (_resync); sections are remounted on server/account change.
   String? error;
 
   bool get currentHidden => !w.channels.any((c) => c.name == 'all');
@@ -551,6 +553,7 @@ class _JoinLinksState extends State<_JoinLinksSection>
   String get snapshotKey => 'admin:join-links';
   List<Map<String, dynamic>> links = [];
   bool loading = true, creating = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- createError clears when the next create starts; copiedId expires after 1.5 s; the section is remounted on server/account change.
   String? createError, copiedId;
   DateTime? expiresAt;
   final maxUses = TextEditingController();
@@ -715,6 +718,7 @@ class _AgreementState extends State<_AgreementSection>
   final title = TextEditingController(), body = TextEditingController();
   bool enabled = false, savedEnabled = false, loading = true, saving = false;
   String savedTitle = '', savedBody = '';
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each section's error clears when its next save/action starts, on a successful load, and when the real server state it describes changes (_resync); sections are remounted on server/account change.
   String? error;
 
   @override
@@ -868,6 +872,7 @@ class _OnboardingState extends State<_OnboardingSection>
   bool greeting = true, savedGreeting = true;
   bool loading = true, saving = false, openingSetup = false;
   Map<String, dynamic>? projection;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each section's error clears when its next save/action starts, on a successful load, and when the real server state it describes changes (_resync); sections are remounted on server/account change.
   String? error;
 
   @override
@@ -1046,6 +1051,7 @@ class _TranslationState extends State<_TranslationSection> with _SavedFlash {
   late bool accepted = w.translations.settings.serverEnabled;
   late bool enabled = accepted;
   bool saving = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each section's error clears when its next save/action starts, on a successful load, and when the real server state it describes changes (_resync); sections are remounted on server/account change.
   String? error;
 
   @override
@@ -1255,6 +1261,7 @@ class _MemberPermissionsState extends State<_MemberPermissionsSection>
   WorkspaceController get w => widget.w;
   late bool current = currentValue, hidden = current;
   bool saving = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each section's error clears when its next save/action starts, on a successful load, and when the real server state it describes changes (_resync); sections are remounted on server/account change.
   String? error;
 
   bool get currentValue => w.server?.json['hideHumansFromMembers'] == true;

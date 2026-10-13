@@ -67,6 +67,7 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
   String? preset;
   bool changed = false, busy = false, confirming = false;
   AgentAvatarUpload? upload;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when another avatar is chosen or uploaded, or the next save starts; the dialog state is dropped when it closes.
   String? error;
   int ticket = 0;
   DialogRoute<bool>? discardRoute;

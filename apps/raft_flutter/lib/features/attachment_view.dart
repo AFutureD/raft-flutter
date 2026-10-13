@@ -104,6 +104,7 @@ class _AttachmentViewState extends State<AttachmentView> {
   final imagePresentation = ValueNotifier<int>(0);
   WorkspaceAttachmentImageLease? imageLease;
 
+  // ignore: raft_lints/avoid_imperative_notice_state -- Image load error: cleared when an image load starts, on a ready image adoption and on rebind.
   String? error;
   bool loading = false, invalidated = false;
   bool get saving => transfers.saving;

@@ -27,6 +27,7 @@ class _AccountPasswordEditorState extends State<AccountPasswordEditor> {
   bool expanded = false, saving = false, saved = false;
 
   /// A rejected save (server text). Cleared when the next save starts.
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next save starts, a validation attempt runs, the form is collapsed or the account changes.
   String? error;
 
   /// The form was submitted incomplete: the problem is then shown live and

@@ -188,6 +188,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   bool showServerSelector = true,
       directoryLoading = true,
       selectingServer = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a directory load, server choice or create starts, when the selector is reopened; set only for the current rootRequest.
   String? selectorError;
 
   /// Public server page (Web PublicServerPage): `/s/<slug>[/channel/<id>]`
@@ -257,6 +258,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   // guard against painting the default family before the stored one.
   RaftAppearance appearance = storedAppearance();
   bool restoring = true;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a new sign-in succeeds (new client installed).
   String? bootError;
   String origin = const String.fromEnvironment(
     'RAFT_ORIGIN',
@@ -370,6 +372,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
   void showShareError() {
     if (!mounted) return;
     const message = 'The shared content could not be added.';
+    // ignore: raft_lints/avoid_imperative_notice_state -- One-shot toast for a failed share hand-off, consumed by WorkspaceView.
     workspace?.setError(message);
     setState(() => selectorError = message);
   }
@@ -647,6 +650,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
           if (stillHere()) {
             w.putSharedChannelRow(target.channel!);
             w.releaseShared(scope);
+            // ignore: raft_lints/avoid_imperative_notice_state -- One-shot toast, raised only while the share destination is still current (stillHere).
             w.setError('Could not join this channel.');
           }
           return;
@@ -1634,6 +1638,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
               (_) {},
               onError: (Object e) {
                 if (current()) {
+                  // ignore: raft_lints/avoid_imperative_notice_state -- One-shot toast, raised only while the server selection request is current.
                   w.setError(
                     userErrorText(
                       e,

@@ -23,6 +23,7 @@ class NativeAppIcon extends ChangeNotifier {
       (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
   bool supported = false, busy = false, loaded = false;
   RaftAppIconPalette selected = RaftAppIconPalette.yellow;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears on the next successful refresh or when a selection starts.
   String? error;
   int _revision = 0;
 

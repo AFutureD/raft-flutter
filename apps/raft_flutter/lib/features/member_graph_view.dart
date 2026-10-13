@@ -40,6 +40,7 @@ class _MemberGraphPageState extends State<MemberGraphPage> {
   WorkspaceController get w => widget.controller;
   RaftMemberGraphData? data;
   bool loading = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears when a load starts (Retry) and on server change; stale tickets are ignored.
   String? error;
   int request = 0;
   late String openedServer = w.server?.id ?? '';

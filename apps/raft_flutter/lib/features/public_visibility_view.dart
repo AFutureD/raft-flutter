@@ -45,6 +45,7 @@ class _PublicVisibilitySectionState extends State<PublicVisibilitySection> {
   late bool guestEnabled = cachedServerFlag(w, guestFlag) ?? false;
   Map<String, dynamic>? readback;
   bool loading = false, saving = false, copied = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears when the read starts or a change starts (Web setError('') at submit); the page is remounted on server/account change.
   String? error;
   Timer? copiedTimer;
 

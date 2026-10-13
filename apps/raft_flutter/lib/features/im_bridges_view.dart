@@ -31,6 +31,7 @@ class _IMBridgesState extends ManagementState<IMBridgesView> {
   String raftChannelId = '', slackChannelId = '';
   bool disconnectConfirmed = false,
       editingMappings = false,
+      // ignore: raft_lints/avoid_imperative_notice_state -- Wizard flag set after a partly failed confirmation batch; cleared with the other wizard state when the wizard resets and on the next attempt.
       partialFailure = false,
       inviteHelp = false,
       working = false;

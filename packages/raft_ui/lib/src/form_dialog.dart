@@ -64,6 +64,7 @@ class _RaftFormDialogState extends State<RaftFormDialog> {
   final editors = <String, TextEditingController>{};
   final choices = <String, String>{};
   bool busy = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts, validation included; the dialog state is dropped when it closes.
   String? error;
 
   /// Keeps one editor / selection per current field: the dialog can be rebuilt

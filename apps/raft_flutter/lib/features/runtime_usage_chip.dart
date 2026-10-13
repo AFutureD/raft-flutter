@@ -93,6 +93,7 @@ class _RuntimeUsageChipState extends State<RuntimeUsageChip> {
   late RuntimeAccountUsageClient client;
   final model = _UsageModel();
   RuntimeUsageRead? result;
+  // ignore: raft_lints/avoid_imperative_notice_state -- loadError is reset when each read starts and set only for the current subject ticket.
   bool loading = false, loadError = false;
 
   /// idle | requesting | requested | unconfirmed | timeout | cooldown |

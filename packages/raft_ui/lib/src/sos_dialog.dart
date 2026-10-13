@@ -45,6 +45,7 @@ class RaftSosDialog extends StatefulWidget {
 class _RaftSosDialogState extends State<RaftSosDialog> {
   late RaftSosPhase phase = widget.initialPhase;
   bool stopping = false, resuming = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next stop or resume starts; the dialog state is dropped when it closes.
   String? error;
   final guidance = TextEditingController();
   final guidanceFocus = FocusNode();

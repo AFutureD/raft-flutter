@@ -694,6 +694,7 @@ class RaftConfirmDialog extends StatefulWidget {
 
 class _RaftConfirmDialogState extends State<RaftConfirmDialog> {
   bool loading = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next confirm starts; the dialog state is dropped when it closes.
   String? error;
 
   Future<void> confirm() async {

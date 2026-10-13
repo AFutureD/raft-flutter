@@ -134,6 +134,7 @@ void raiseComposerSendBlockNotice(
   required bool thread,
 }) {
   final block = composerSendBlockOf(w.uploads(thread: thread));
+  // ignore: raft_lints/avoid_imperative_notice_state -- Blocked-send notice raised with a whileTrue predicate over the live uploads: gone when they finish, are removed or change state; also ends on send and channel change.
   w.setComposerError(
     composerSendBlockNotice(context, w.uploads(thread: thread)),
     thread: thread,

@@ -36,6 +36,7 @@ class _NotificationSettingsState extends State<NotificationSettingsView>
   int ticket = 0, version = -1;
   bool loading = false, busy = false, muted = false, savedMuted = false;
   bool verified = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Both clear on the next save/native action, on a mute edit, on a pushed prefs update, on retry success and on server/account/service change (clear()).
   String? error, message;
   bool testPosted = false, nativeBusy = false;
   WorkspaceController? get w => widget.controller;

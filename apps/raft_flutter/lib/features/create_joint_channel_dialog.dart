@@ -121,11 +121,13 @@ class _CreateJointChannelDialogState extends State<CreateJointChannelDialog> {
   final drafts = [RaftJointInviteDraft('invite-1')];
   int nextInvite = 2;
   final agentIds = <String>{}, humanIds = <String>{};
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts or the invite list changes; the dialog state is dropped when it closes.
   String? error;
 
   /// The name rule that rejected the last submit: it holds only while the
   /// name still breaks it.
   final nameInvalid = CauseNotice();
+  // ignore: raft_lints/avoid_imperative_notice_state -- billingError is cleared with the error text it decorates (submit start or an invite change).
   bool billingError = false, submitting = false;
   Map<String, dynamic>? archivedCollision;
 

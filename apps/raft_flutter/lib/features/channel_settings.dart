@@ -94,6 +94,7 @@ class _ChannelSettingsState extends State<ChannelSettings> {
   /// response). A row whose part is unknown reserves its final geometry.
   final known = <String>{};
   bool busy = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when an action starts, a load succeeds, the draft is reset or the name or description is edited; the drawer state is dropped on close.
   String? error;
   StreamSubscription<RaftEvent>? events;
   Timer? refresh;

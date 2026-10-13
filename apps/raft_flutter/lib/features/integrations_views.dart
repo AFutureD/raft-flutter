@@ -374,6 +374,7 @@ class _IntegrationsState extends ManagementState<IntegrationsView> {
 
   Future<void> openListing(Map<String, dynamic> listing) async {
     final source = authority;
+    // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the install retry starts; the local variable dies with the app detail modal.
     String? modalError;
     await showRaftModal<void>(
       context,
@@ -988,6 +989,7 @@ class _InstalledAppPermissions extends StatefulWidget {
 class _InstalledAppPermissionsState extends State<_InstalledAppPermissions> {
   Map<String, dynamic>? state;
   bool loading = true, saving = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next load of the installed-app notification settings succeeds; the state is dropped with the page.
   String? error;
   String get path =>
       '/integrations/marketplace/${widget.clientId}/install/app-notifications';

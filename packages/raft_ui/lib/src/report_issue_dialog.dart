@@ -124,6 +124,7 @@ class _RaftReportIssueDialogState extends State<RaftReportIssueDialog> {
   // Derived from ownership until the user touches the box.
   bool? machineLogTailChoice;
   bool consented = false, loading = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts; the dialog state is dropped when it closes.
   String? error;
   RaftReportIssueReceipt? receipt;
   bool referenceCopied = false, ticketRetrying = false;

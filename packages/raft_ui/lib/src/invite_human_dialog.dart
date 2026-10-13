@@ -74,6 +74,7 @@ class _RaftInviteHumanDialogState extends State<RaftInviteHumanDialog> {
   final invitees = <RaftInvitee>[RaftInvitee()];
   final controllers = <int, TextEditingController>{};
   bool sending = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next send starts; the dialog state is dropped when it closes.
   String? error;
 
   /// The last send had no email: the prompt holds only while no row has one.

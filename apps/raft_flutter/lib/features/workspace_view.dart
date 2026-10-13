@@ -819,6 +819,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       if (!mounted) return;
       final message = w.error;
       if (message == null) return;
+      // ignore: raft_lints/avoid_imperative_notice_state -- Consumes the pending workspace error into a toast.
       w.setError(null);
       showRaftToast(context, message);
     });
@@ -2838,6 +2839,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       await managementLaunch(WorkspaceSettings.documentationUrl);
     } catch (e) {
       if (mounted && scope == mobileAuthority) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Workspace error is a one-shot toast, consumed by syncWorkspaceError; set only while the mobile authority is unchanged.
         w.setError(userErrorText(e, where: 'open documentation'));
       }
     }
@@ -2884,6 +2886,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       }
     } catch (e) {
       if (mounted && scope == mobileAuthority) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Workspace error is a one-shot toast, consumed by syncWorkspaceError; set only while the mobile authority is unchanged.
         w.setError(
           userErrorText(
             e,
@@ -3237,6 +3240,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       await chooseChannel(RaftChannel(Map<String, dynamic>.from(result)));
     } catch (e) {
       if (mounted && authority == workspaceAuthority(w)) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Workspace error is a one-shot toast, consumed by syncWorkspaceError; set only while the workspace authority is unchanged.
         w.setError(userErrorText(e, where: 'open agent conversation'));
       }
     }

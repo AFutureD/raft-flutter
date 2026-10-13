@@ -132,6 +132,7 @@ class _OnboardingState extends State<AccountOnboardingView>
   StreamSubscription<RaftEvent>? events;
   bool busy = false, displayNameEdited = false;
   bool manualOpen = false, resending = false, verifying = false, resent = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- handleError/displayNameError clear when the field is edited and are recomputed on submit; notice is never raised (always null).
   String? notice, handleError, displayNameError;
 
   /// The page's banner. Web keeps the verification step and the identity step

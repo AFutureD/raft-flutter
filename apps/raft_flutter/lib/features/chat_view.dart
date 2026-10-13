@@ -131,6 +131,7 @@ class _RaftChatViewState extends State<RaftChatView>
   int taskChoiceRevision = 0;
   final Map<String, String> reactionFailures = {};
   final Map<String, Timer> reactionFailureTimers = {};
+  // ignore: raft_lints/avoid_imperative_notice_state -- Selection toolbar error: cleared when the selection ends (selectionChanged), on rebind and when a preview capture starts.
   String? selectionError;
   var adapter = chat.InMemoryChatController();
   late RaftTimelineScrollController viewport = RaftTimelineScrollController(
@@ -1416,6 +1417,7 @@ class _RaftChatViewState extends State<RaftChatView>
     } catch (e) {
       // Web MessageInput `setError`: the composer's error banner.
       if (mounted) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Attach-selection failure: the composer notice store ends it with the composer visit (channel/thread change), the next accepted send, or the next selection's decision.
         w.setComposerError(
           userErrorText(e, fallback: 'Upload failed', where: 'attach files'),
           thread: widget.thread,

@@ -79,6 +79,7 @@ class _LocaleSettingsPageState extends ManagementState<LocaleSettingsPage> {
       draftTimezone,
       draftTimeFormat;
   final savedTimers = <bool, Timer>{};
+  // ignore: raft_lints/avoid_imperative_notice_state -- Each clears when its form is edited, when its save starts, and on account change (clearData).
   String? languageError, dateTimeError;
   bool savingLanguage = false, savingDateTime = false;
   bool languageSaved = false, dateTimeSaved = false;

@@ -241,6 +241,7 @@ class _MemberProfileViewState extends ManagementState<MemberProfileView> {
 
   bool editingRole = false, rolePickerOpen = false, roleSaving = false;
   String roleValue = 'member';
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears when the role editor is opened or cancelled, when a save starts, and when the viewed member or server/account changes (clearData); a late failure for another member is ignored.
   String? roleError;
 
   Future<void> saveRole() async {

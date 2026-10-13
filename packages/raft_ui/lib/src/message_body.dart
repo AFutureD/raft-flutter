@@ -846,6 +846,7 @@ class RaftMermaidBlock extends StatefulWidget {
 
 class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
   bool showSource = false, copied = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Mermaid toolbar message: cleared by a successful copy, at the start of every export and when the source changes.
   String? copyError;
   double zoom = 1;
   Offset pan = Offset.zero;
@@ -1690,6 +1691,7 @@ class RaftCodeBlock extends StatefulWidget {
 class _RaftCodeBlockState extends State<RaftCodeBlock> {
   bool hovered = false, focused = false, copied = false;
   bool buttonHovered = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Code block copy message: cleared by a successful copy and when the code changes.
   String? error;
   int revision = 0;
   Timer? copiedTimer;

@@ -468,6 +468,7 @@ class NativeContentCoordinator with WidgetsBindingObserver {
     } catch (_) {
       if (valid()) {
         if (published) _revert(w, previous, previousIndex, replaceEntry);
+        // ignore: raft_lints/avoid_imperative_notice_state -- Workspace-level w.error is shown once as a toast by workspace_view.syncWorkspaceError and cleared there (self-dismissing).
         w.setError(
           'This link is unavailable for the current account or workspace.',
         );

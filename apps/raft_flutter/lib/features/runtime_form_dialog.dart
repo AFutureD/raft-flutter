@@ -73,10 +73,12 @@ class RuntimeFormController extends ChangeNotifier {
   Map<String, String> validation = {};
 
   /// Field messages from a failed save (server `issues`), keyed by field.
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when any field value changes; the controller is disposed with the dialog.
   Map<String, String> serverErrors = {};
   final mapProblems = <String, String>{};
   final editors = <String, TextEditingController>{};
   bool loading = true, disposed = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Controller load error: cleared when load restarts (Try again) or completes; dialog submit error: cleared when the next submit starts; both are disposed with the dialog.
   String? error;
   final retrying = <String>{};
 
@@ -513,8 +515,10 @@ class _RuntimeFormDialogState extends State<RuntimeFormDialog> {
   );
   final name = TextEditingController(), description = TextEditingController();
   List<Map<String, dynamic>>? onboardingMachines;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the machines load succeeds (Try again re-runs it); the dialog state is dropped when it closes.
   String? onboardingLoadError;
   bool busy = false, nameMissing = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Controller load error: cleared when load restarts (Try again) or completes; dialog submit error: cleared when the next submit starts; both are disposed with the dialog.
   String? error;
   bool get editing => widget.agentId != null;
   @override

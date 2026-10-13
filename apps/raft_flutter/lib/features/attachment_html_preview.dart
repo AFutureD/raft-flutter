@@ -49,6 +49,7 @@ class HtmlAttachmentPreviewDialog extends StatefulWidget {
 class _HtmlPreviewState extends State<HtmlAttachmentPreviewDialog> {
   late final loader = widget.loader ?? AttachmentHtmlLoader();
   CancelToken cancel = CancelToken();
+  // ignore: raft_lints/avoid_imperative_notice_state -- Preview error: cleared by load()/interactive() and scope loss; link errors are NOT cleared by a later successful link (see inv-a.md, other agent owns the file).
   String? html, error;
   Uri? webUri;
   bool loading = true, opening = false, pageLoading = false;

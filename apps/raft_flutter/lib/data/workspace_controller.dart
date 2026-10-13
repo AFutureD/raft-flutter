@@ -76,6 +76,7 @@ class UploadDraft {
   bool queued = false;
   var cancel = UploadCancellation();
   double progress = 0;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Per-upload failure on its draft chip; composer upload state owned by the lead (cleared on retry, removal or send).
   String? id, error;
 
   /// Web `uploadStatus: "validating"`: shown, but the selection check (size
@@ -1462,6 +1463,7 @@ class WorkspaceController extends ChangeNotifier {
         await cache?.revokeServer(origin, principal, id);
       } catch (_) {
         if (!_disposed) {
+          // ignore: raft_lints/avoid_imperative_notice_state -- Cache-purge device failures and background refresh failures raise a one-shot toast; stale-scope and rate-limited failures are suppressed (_quietFailure) and the error is cleared on server switch or revoke.
           setError(
             'Revoked workspace data could not be removed from this device.',
           );
@@ -2559,6 +2561,7 @@ class WorkspaceController extends ChangeNotifier {
   int _threadIdentityWindow = -1, _threadIdentityNavigation = -1;
   String? _threadIdentityToken, _threadIdentityAuthority;
   bool _threadResolutionLoading = false, _threadParentLoading = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a thread opens or closes and hidden whenever threadIdentity is stale.
   String? _threadResolutionError;
 
   WorkspaceThreadIdentity? get threadIdentity =>
@@ -2621,6 +2624,7 @@ class WorkspaceController extends ChangeNotifier {
       loadingOlder = false,
       hasMore = false;
   bool connected = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- One-shot toast consumed by WorkspaceView; cleared on channel open, jump, send start, server switch and server revoke.
   String? error;
 
   /// Source messageStore `contextLoadError` for the open channel: the jump
@@ -2855,6 +2859,7 @@ class WorkspaceController extends ChangeNotifier {
   void setError(String? value) {
     final source = presentationSource;
     if (source != null) {
+      // ignore: raft_lints/avoid_imperative_notice_state -- Delegates to the session source.
       source.setError(value);
       return;
     }
@@ -3699,6 +3704,7 @@ class WorkspaceController extends ChangeNotifier {
           }
         } catch (_) {
           if (!_disposed) {
+            // ignore: raft_lints/avoid_imperative_notice_state -- Cache-purge device failures and background refresh failures raise a one-shot toast; stale-scope and rate-limited failures are suppressed (_quietFailure) and the error is cleared on server switch or revoke.
             setError(
               'Revoked workspace data could not be removed from this device.',
             );
@@ -3940,6 +3946,7 @@ class WorkspaceController extends ChangeNotifier {
       // A rate-limited background refresh is not an error to show: the held
       // lists stay, and the next refresh (after Retry-After) catches up.
       if (generation == ledger.generation && !_disposed && !_quietFailure(e)) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Raised only for the current ledger generation and not for rate-limited or stale-scope failures; cleared on server switch or revoke.
         setError(userErrorText(e, where: 'refresh channels'));
       }
     }
@@ -4506,6 +4513,7 @@ class WorkspaceController extends ChangeNotifier {
           !_quietFailure(e) &&
           generation == client.generation &&
           request == _membershipRequest) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- Raised only for the latest membership request on the current client generation and not for rate-limited or stale-scope failures.
         setError(userErrorText(e, where: 'refresh servers'));
       }
     }
@@ -6057,6 +6065,7 @@ class WorkspaceController extends ChangeNotifier {
       await selectChannel(channels.firstWhere((next) => next.id == c.id));
     } catch (e) {
       if (!_disposed && !_staleScope(e)) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- User-initiated join; stale-scope failures are not reported; cleared on server switch or revoke.
         setError(userErrorText(e, where: 'join channel'));
       }
     }
@@ -6072,6 +6081,7 @@ class WorkspaceController extends ChangeNotifier {
       await refreshChannels();
     } catch (e) {
       if (!_disposed && !_staleScope(e)) {
+        // ignore: raft_lints/avoid_imperative_notice_state -- User-initiated join; stale-scope failures are not reported; cleared on server switch or revoke.
         setError(userErrorText(e, where: 'join thread parent channel'));
       }
     }

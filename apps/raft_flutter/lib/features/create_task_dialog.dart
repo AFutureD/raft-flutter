@@ -47,6 +47,7 @@ class _CreateTaskDialogState extends State<CreateTaskDialog> {
 
   /// A failed submit (server text or lost channel access); the next submit
   /// clears it.
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts; the dialog state is dropped when it closes.
   String? error;
 
   /// "A title is required" holds only while every title is still empty.

@@ -8,6 +8,7 @@ import 'package:analyzer/error/error.dart';
 import 'banned_apis.dart';
 import 'checks.dart';
 import 'error_leak.dart';
+import 'notice_state.dart';
 
 /// `expr[key]!` in render code.
 class AvoidRenderIndexAssertion extends AnalysisRule {
@@ -240,4 +241,53 @@ class _ErrorLeakVisitor extends SimpleAstVisitor<void> {
   @override
   void visitFunctionExpression(FunctionExpression node) =>
       checkCaughtException(node, _report);
+}
+
+/// Imperative notice holders and `setError` calls in presentation code.
+class AvoidImperativeNoticeState extends AnalysisRule {
+  AvoidImperativeNoticeState()
+    : super(
+        name: noticeStateRule,
+        description:
+            'Notices, errors and warnings are CauseNotice values, not plain '
+            'mutable fields or setError calls.',
+      );
+
+  static const LintCode code = LintCode(
+    noticeStateRule,
+    noticeStateMessage,
+    correctionMessage: noticeStateCorrection,
+  );
+
+  @override
+  LintCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    if (!context.isInLibDir ||
+        !errorLeakScope(context.definingUnit.file.path)) {
+      return;
+    }
+    final visitor = _NoticeVisitor(this);
+    registry.addVariableDeclarationList(this, visitor);
+    registry.addMethodInvocation(this, visitor);
+  }
+}
+
+class _NoticeVisitor extends SimpleAstVisitor<void> {
+  _NoticeVisitor(this.rule);
+  final AnalysisRule rule;
+
+  void _report(String _, AstNode node) => rule.reportAtNode(node);
+
+  @override
+  void visitVariableDeclarationList(VariableDeclarationList node) =>
+      checkNoticeField(node, _report);
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) =>
+      checkNoticeSetter(node, _report);
 }

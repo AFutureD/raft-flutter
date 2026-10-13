@@ -44,6 +44,7 @@ class RaftCommunityAgreementDialog extends StatefulWidget {
 class _RaftCommunityAgreementDialogState
     extends State<RaftCommunityAgreementDialog> {
   bool submitting = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next agree attempt starts; the dialog state is dropped when it closes.
   String error = '';
 
   Future<void> agree() async {

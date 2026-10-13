@@ -78,6 +78,7 @@ class _AddMembersDialogState extends State<AddMembersDialog> {
   /// True once the load finished or failed: Web swallows load failures, so
   /// the empty state then stands.
   bool settled = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts; the dialog state is dropped when it closes.
   String? error;
 
   bool get ready => settled || (rosterKnown && peopleKnown && agentsKnown);

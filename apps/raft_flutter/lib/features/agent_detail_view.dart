@@ -266,6 +266,7 @@ class _AgentDetailPanelState extends State<AgentDetailPanel> {
   /// GET /agents/:id/external-status (external agents): the setup state the
   /// presence line and the External setup block share.
   Map<String, dynamic>? externalStatus;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when a status read succeeds and on an agent change (didUpdateWidget); stale reads are fenced by externalStatusFor.
   String? externalStatusError;
   String? externalStatusFor;
 
@@ -1154,6 +1155,7 @@ class _ChatSnapshot extends _AgentTabSnapshot {
   List<Map<String, dynamic>> channels = [], dms = [];
 
   /// Web keeps the channels and DMs reads (and their failures) separate.
+  // ignore: raft_lints/avoid_imperative_notice_state -- Rewritten (null on success) by every reload of the chat tab snapshot, which is keyed by agent and server.
   String? channelsError, dmsError;
 }
 
@@ -1181,6 +1183,7 @@ mixin _AgentTabLoader<T extends StatefulWidget> on State<T> {
   /// Skeleton/"Loading…" only while there is nothing to show yet (also before
   /// the tab is first active: a snapshot is shown, never a skeleton).
   late bool loading = !hasContent;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when reload() starts, set only for a current ticket and only when nothing is on screen; the tab is keyed by agent.
   String? loadError;
   bool tabActive = true, reloadWhenActive = false;
 
@@ -1935,6 +1938,7 @@ class _AgentWorkspaceTabState extends State<AgentWorkspaceTab>
   }
 
   int openTicket = 0;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next file opens; set only for the current open ticket and file.
   String? openError;
   bool openLoading = false;
 

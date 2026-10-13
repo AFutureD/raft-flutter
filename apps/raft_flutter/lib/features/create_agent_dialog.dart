@@ -136,6 +136,7 @@ class _CreateAgentDialogState extends State<CreateAgentDialog> {
   bool preAdmissionLive = false, preAdmissionLoading = false;
   bool moreOpen = false, busy = false, validationAttempted = false;
   bool runtimesRescanning = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Cleared when the next submit starts or the name is edited; the dialog state is dropped when it closes.
   String? error;
   int machineTicket = 0;
 

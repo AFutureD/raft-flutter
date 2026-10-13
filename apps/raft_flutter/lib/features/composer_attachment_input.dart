@@ -152,6 +152,7 @@ class _ComposerFileDropTargetState extends State<ComposerFileDropTarget> {
     // Linux: the portal transfer and the URI list both failed (the plugin
     // only sets this then), so say so rather than dropping the files silently.
     if (details.error != null) {
+      // ignore: raft_lints/avoid_imperative_notice_state -- Drop notices (unreadable drop, skipped folders): composer notice store; ends with the composer visit, the next accepted send, or the next selection's decision (Web handleDrop/setError).
       w.setComposerError(
         raftText(context, "Couldn't read dropped files"),
         thread: thread,
@@ -184,6 +185,7 @@ class _ComposerFileDropTargetState extends State<ComposerFileDropTarget> {
     // Web handleDrop: a drop of only folders uploads nothing; a mixed drop
     // notes the skip and the selection decision then owns the banner.
     if (read.folders > 0) {
+      // ignore: raft_lints/avoid_imperative_notice_state -- Drop notices (unreadable drop, skipped folders): composer notice store; ends with the composer visit, the next accepted send, or the next selection's decision (Web handleDrop/setError).
       w.setComposerError(
         raftText(
           context,

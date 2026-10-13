@@ -54,6 +54,7 @@ class _AgentScopesViewState extends State<AgentScopesView> {
 
   /// Unsaved checkbox edits; a background revalidation never overwrites them.
   bool edited = false;
+  // ignore: raft_lints/avoid_imperative_notice_state -- Clears on a successful read, on Retry and when a save starts; the page is a route per agent and is disposed on navigation.
   String? error;
   String get path => '/agents/${widget.agentId}/scopes';
   String get snapshotKey => 'agent-scopes:${widget.agentId}';
