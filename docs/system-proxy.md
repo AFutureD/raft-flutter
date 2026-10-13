@@ -41,9 +41,9 @@ can say "SOCKS 不支持，已直连".
 | Video/audio streaming (Android/iOS/macOS: `video_player`; Windows/Linux: media_kit/mpv) | The player opens the attachment's signed URL itself ([media playback](media-playback.md)). **Windows/Linux (mpv)**: `http-proxy` is set as a runtime property from `SystemProxy.findProxyForClient(url)` (`NativeAttachmentPlayer.httpProxyFor`; credentials of a manual proxy included, never in argv or logs); for DIRECT, `stream-lavf-o=http_proxy=` is set too, because mpv drops an empty `http-proxy` and FFmpeg would otherwise use the `http_proxy` environment variable (for https as well), and the protocol whitelist is the fixed `file, http, https, tcp, tls, crypto`; `proxy_hook_guard_test` pins both. **Android/iOS/macOS**: ExoPlayer (`HttpURLConnection`) and AVPlayer follow the **OS** proxy only. Settings > Network *Manual* and *No proxy* are not applied to streamed media there; this is a known limitation of `video_player` (it takes no proxy option) until a plugin extension exists. The explicit Download action still goes through the proxy-aware Dio |
 | iOS share extension (URLSession), url_launcher, WebView | follow the system already |
 
-`test/proxy_hook_guard_test.dart` fails on a new `HttpClient()`, `Dio()`, `IOHttpClientAdapter()`,
-`WebSocket.connect()`, `io.io()`, `findProxyFromEnvironment` or `http.Client()` in any `lib/` without an exact-count
-allowlist entry.
+The `avoid_unproxied_network_client` lint (`tool/raft_lints`, run by `tool/raft-lints`) fails on a new `HttpClient()`,
+`Dio()`, `IOHttpClientAdapter()`, `WebSocket.connect()`, `io.io()`, `HttpClient.findProxyFromEnvironment` or `http.Client()` in any `lib/`
+without a `// ignore: raft_lints/avoid_unproxied_network_client -- <reason>` at the site.
 
 ## Per-platform OS query
 
@@ -75,7 +75,7 @@ allowlist entry.
   direct/loopback, bypass list, 407 on wrong/missing password, cache + fallback + bounded `ready`, no password in logs.
 * `apps/raft_flutter/test/network_settings_test.dart`: persistence (prefs vs secure storage), validation, status text
   (en/zh, SOCKS-only), test-connection.
-* `apps/raft_flutter/test/proxy_hook_guard_test.dart`: the guard above.
+* `tool/raft_lints` (`avoid_unproxied_network_client`) and `apps/raft_flutter/test/proxy_hook_guard_test.dart` (hook wiring): the guard above.
 * On device: `integration_test/proxy_probe_main.dart` + `packages/raft_client/test/device_proxy_host_test.dart`.
 
 ## Not verified here (checklists)

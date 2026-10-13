@@ -12,3 +12,7 @@ plugins:
       avoid_render_index_assertion: error
       avoid_render_single: error
       avoid_render_where_without_or_else: error
+      avoid_unproxied_network_client: error
+      avoid_raw_image_decode: error
+      avoid_builtin_underline: error
+      avoid_material_slider: error

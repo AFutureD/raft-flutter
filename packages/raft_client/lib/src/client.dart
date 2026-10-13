@@ -1446,6 +1446,7 @@ class RaftClient {
     if (_closed || _session == null || serverId == null) return;
     _socket?.dispose();
     final epoch = _generation;
+    // ignore: raft_lints/avoid_unproxied_network_client -- The socket.io client; applyProxyTransport() wires it through the proxy hook (proxy_hook_guard_test).
     final socket = io.io(
       origin,
       applyProxyTransport(io.OptionBuilder().setTransports(['websocket']))

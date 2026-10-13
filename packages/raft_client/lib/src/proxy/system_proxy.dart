@@ -214,6 +214,7 @@ class SystemProxy {
     try {
       return decisionFromEntries(
         parsePacResult(
+          // ignore: raft_lints/avoid_unproxied_network_client -- The proxy hook itself: the HttpClient factory and the environment override of the proxy decision.
           HttpClient.findProxyFromEnvironment(url, environment: env),
         ),
       );
@@ -412,6 +413,7 @@ class SystemProxy {
 
   /// A new [HttpClient] that follows the proxy decision.
   HttpClient createHttpClient([SecurityContext? context]) =>
+      // ignore: raft_lints/avoid_unproxied_network_client -- The proxy hook itself: the HttpClient factory and the environment override of the proxy decision.
       apply(HttpClient(context: context));
 
   /// Makes every plain `HttpClient()` in the process follow the proxy decision,

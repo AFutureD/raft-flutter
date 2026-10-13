@@ -31,7 +31,9 @@ Dio createProxiedDio(
   void Function(io.HttpClient client)? configure,
   SystemProxy? proxy,
 }) {
+  // ignore: raft_lints/avoid_unproxied_network_client -- The proxy hook itself: builds the Dio, its IOHttpClientAdapter and the socket.io WebSocket around SystemProxy.createHttpClient.
   final dio = Dio(options);
+  // ignore: raft_lints/avoid_unproxied_network_client -- The proxy hook itself: builds the Dio, its IOHttpClientAdapter and the socket.io WebSocket around SystemProxy.createHttpClient.
   dio.httpClientAdapter = IOHttpClientAdapter(
     createHttpClient: () {
       final client = (proxy ?? SystemProxy.instance).createHttpClient();
@@ -58,6 +60,7 @@ Future<ws.WebSocket> proxiedWebSocketConnector(
   );
   final client = service.createHttpClient();
   try {
+    // ignore: raft_lints/avoid_unproxied_network_client -- The proxy hook itself: builds the Dio, its IOHttpClientAdapter and the socket.io WebSocket around SystemProxy.createHttpClient.
     final socket = await io.WebSocket.connect(
       uri.toString(),
       protocols: protocols,
