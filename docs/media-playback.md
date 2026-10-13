@@ -215,6 +215,14 @@ reopen. Now:
   audio, refused port, unresolvable name, manual proxy refused / 407 / unreachable address each land in their class.
   `xvfb-run -a tool/flutter test integration_test/media_failure_linux_test.dart -d linux
   --dart-define=MEDIA_FAILURE_HOST=<LAN address>`.
+* Android, failure classes (API 34 x86_64 emulator, isolated `app.raft.raft_flutter.linkperf`):
+  `integration_test/media_failure_android_main.dart` drives `VideoPlayerAttachmentPlayer` against a host server
+  through 10.0.2.2. ExoPlayer's text is only `PlatformException(VideoError, "Video player had error
+  androidx.media3.exoplayer.ExoPlaybackException: Source error")` for 403, 404, 410, 500, a corrupt file and a refused
+  port alike; the probe then gives expired (after the one re-sign), not found, expired, network, unsupported and
+  network (`SocketException: Connection refused`). A manual OS proxy (`settings put global http_proxy`) was not taken
+  by ExoPlayer on that emulator (requests reached the server directly), so the Android proxy classes are
+  unit-tested only.
 * Linux: `tool/flutter build linux --debug` builds; `native_player_test` passes under Xvfb (`xvfb-run -a tool/flutter
   test integration_test/native_player_test.dart -d linux --dart-define=RAFT_TEST_REPORT=<dir>`), including a new streaming
   test: mpv reads a loopback `http` URL with ranges, and signs again after a 403 (the first failure of a streamed source).
