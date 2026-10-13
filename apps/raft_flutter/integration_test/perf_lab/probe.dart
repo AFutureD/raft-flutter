@@ -158,6 +158,10 @@ class LabSampler {
   /// The driver subscribes to extension events after it connects; repeat
   /// the greeting until it answers (or give up and run unattributed).
   Future<void> hello(Map<String, Object?> data) async {
+    if (standaloneOut != null) {
+      _writeStandalone('hello', data);
+      return;
+    }
     for (var i = 0; i < 60 && !attached; i++) {
       attached = await send('hello', data, timeout: const Duration(seconds: 1));
     }
