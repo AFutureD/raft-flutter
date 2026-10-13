@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Run the raft_lints analyzer-plugin rules (tool/raft_lints) deterministically.
+
+The rules are an analyzer plugin (enabled in the root analysis_options.yaml, so
+the IDE shows them), but `dart analyze` / `flutter analyze` print plugin results
+only if the plugin finishes before the main analysis first goes idle, which a
+warm, fast analysis often wins. This wrapper resolves every lib/ in-process with
+the pinned SDK and runs the very same check functions, so the gate cannot skip
+them.
+
+  tool/raft-lints [DIR...]      scan (default: apps/raft_flutter/lib and packages/*/lib); exit 1 on findings
+  tool/raft-lints --test        run the plugin's unit tests (dart test in tool/raft_lints)
+
+Suppress one finding with `// ignore: raft_lints/<rule> -- <reason>` on the line
+above it (or at the end of the line); docs/development.md ("Lint rules").
+"""
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PACKAGE = ROOT / 'tool/raft_lints'
+
+
+def dart_executable():
+    command = ([sys.executable] if os.name == 'nt' else []) + [str(ROOT / 'tool/flutter')]
+    out = subprocess.run([*command, '--version', '--machine'], capture_output=True, text=True)
+    if out.returncode != 0:
+        sys.exit(out.stderr.strip() or out.stdout.strip() or 'tool/flutter failed')
+    try:
+        flutter_root = json.loads(out.stdout)['flutterRoot']
+    except (ValueError, KeyError) as error:
+        sys.exit(f'cannot read flutterRoot from tool/flutter: {error}')
+    return str(pathlib.Path(flutter_root) / 'bin' / ('dart.bat' if os.name == 'nt' else 'dart'))
+
+
+def main(argv):
+    if not (PACKAGE / '.dart_tool/package_config.json').is_file():
+        sys.exit('raft_lints is not resolved; run `tool/flutter pub get --enforce-lockfile` in tool/raft_lints')
+    dart = dart_executable()
+    if argv[:1] == ['--test']:
+        return subprocess.call([dart, 'test', *argv[1:]], cwd=PACKAGE)
+    return subprocess.call([dart, 'run', 'bin/check.dart', *[os.path.abspath(a) for a in argv]], cwd=PACKAGE)
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
