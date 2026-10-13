@@ -162,4 +162,54 @@ void main() {
     expect(find.byKey(const Key('toast-close')), findsNothing);
     controller.clear();
   });
+
+  testWidgets('a toast from the root host renders without the debug underline', (
+    t,
+  ) async {
+    // The host sits in MaterialApp.builder, above the Navigator: its overlay
+    // has no Material or Scaffold ancestor, so an unstyled Text would get the
+    // WidgetsApp fallback (yellow double underline, monospace).
+    final controller = RaftToastController();
+    addTearDown(controller.dispose);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        builder: (context, child) =>
+            RaftToastHost(controller: controller, child: child!),
+        home: const Scaffold(body: SizedBox.expand()),
+      ),
+    );
+    controller.show('Something went wrong', dismissible: true);
+    await t.pump();
+    final title = find.text('Something went wrong');
+    expect(title, findsOneWidget);
+    final style = DefaultTextStyle.of(
+      t.element(title),
+    ).style.merge(t.widget<Text>(title).style);
+    expect(style.decoration, anyOf(isNull, TextDecoration.none));
+    expect(style.decorationColor, isNull);
+    expect(style.fontFamily, isNot('monospace'));
+    expect(style.fontSize, 14);
+    // The action label and close button inherit the same base.
+    controller.show(
+      'Removed',
+      dismissible: true,
+      actionLabel: 'Undo',
+      onAction: () {},
+    );
+    await t.pump();
+    for (final text in t.widgetList<Text>(
+      find.descendant(of: find.byType(RaftToast), matching: find.byType(Text)),
+    )) {
+      final merged = DefaultTextStyle.of(
+        t.element(find.byWidget(text)),
+      ).style.merge(text.style);
+      expect(
+        merged.decoration,
+        anyOf(isNull, TextDecoration.none),
+        reason: '"${text.data}"',
+      );
+    }
+    controller.clear();
+  });
 }

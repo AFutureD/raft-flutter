@@ -203,10 +203,17 @@ class RaftToast extends StatelessWidget {
     if (!t.brutal && !t.dark) {
       root = ColorFiltered(colorFilter: _saturate(1.5), child: root);
     }
-    return Semantics(
-      liveRegion: true,
-      container: true,
-      child: _ToastPaintSnap(child: root),
+    // The host's overlay sits above the router, outside any Material or
+    // Scaffold, where the WidgetsApp fallback text style (yellow double
+    // underline, monospace) would reach every unstyled Text. Give the toast
+    // its own base so it renders the same from any context.
+    return DefaultTextStyle(
+      style: titleStyle.copyWith(decoration: TextDecoration.none),
+      child: Semantics(
+        liveRegion: true,
+        container: true,
+        child: _ToastPaintSnap(child: root),
+      ),
     );
   }
 }
