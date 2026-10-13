@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""Host runner of the Android player interaction suite.
+
+  tool/player-interactions --serial emulator-5600 --media /tmp/player-streaming/media --out /tmp/player-streaming/run1 [--build] [--only <name part>]
+
+Starts tool/video-parity-range-server on the media directory, `adb reverse`s its port to the device, builds (with
+--build) and drives apps/raft_flutter/integration_test/player_interactions_test.dart on the isolated app
+`app.raft.raft_flutter.linkperf` (never the real app), and does for the test what a test on the device cannot:
+Android's back key and back swipe, screen recordings of the close animation, the system save dialog. See
+docs/media-playback.md. Kills only the processes it started.
+"""
+import argparse, json, os, re, shutil, signal, subprocess, sys, threading, time, urllib.request
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+APP = ROOT / 'apps/raft_flutter'
+TARGET = 'integration_test/player_interactions_test.dart'
+APK = APP / 'build/app/outputs/flutter-apk/app-profile.apk'
+PACKAGE = 'app.raft.raft_flutter.linkperf'
+
+
+class Host:
+    def __init__(self, serial, port, out):
+        self.serial, self.port, self.out = serial, port, out
+        self.recorder = None
+        self.recording = None
+        self.stop = False
+        self.log = open(out / 'host.log', 'a')
+
+    def adb(self, *args, check=True, **kw):
+        return subprocess.run(['adb', '-s', self.serial, *args], capture_output=True, text=True, check=check, **kw)
+
+    def say(self, text):
+        self.log.write(f'{time.strftime("%H:%M:%S")} {text}\n'); self.log.flush()
+
+    def url(self, path):
+        return f'http://127.0.0.1:{self.port}{path}'
+
+    def get(self, path):
+        with urllib.request.urlopen(self.url(path), timeout=5) as r:
+            return json.load(r)
+
+    def size(self):
+        out = self.adb('shell', 'wm', 'size').stdout
+        m = re.search(r'(\d+)x(\d+)', out.splitlines()[-1])
+        return int(m[1]), int(m[2])
+
+    def record_start(self, name):
+        remote = f'/sdcard/pi-{name}.mp4'
+        self.recording = (name, remote)
+        self.recorder = subprocess.Popen(['adb', '-s', self.serial, 'shell', 'screenrecord', '--time-limit', '25',
+                                          '--bit-rate', '8000000', remote], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.8)
+        return 'recording'
+
+    def record_stop(self):
+        if not self.recording:
+            return 'none'
+        name, remote = self.recording
+        self.recording = None
+        # Stops only the recorder of this device (a process on the emulator, not on the host).
+        self.adb('shell', 'pkill', '-INT', 'screenrecord', check=False)
+        if self.recorder:
+            try:
+                self.recorder.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.recorder.kill()
+            self.recorder = None
+        time.sleep(0.5)
+        target = self.out / f'{name}.mp4'
+        self.adb('pull', remote, str(target), check=False)
+        self.adb('shell', 'rm', '-f', remote, check=False)
+        return f'pulled:{target.name}'
+
+    def swipe_back(self):
+        w, h = self.size()
+        # From the left screen edge towards the middle: the system back gesture.
+        self.adb('shell', 'input', 'swipe', '2', str(h // 2), str(int(w * .6)), str(h // 2), '350')
+        return 'swiped'
+
+    def save_dialog(self, name):
+        """Taps Save in the system document picker, then reports the size of the saved file."""
+        deadline = time.time() + 45
+        pushed = False
+        while time.time() < deadline:
+            self.adb('shell', 'uiautomator', 'dump', '/sdcard/pi-ui.xml', check=False)
+            xml = self.adb('shell', 'cat', '/sdcard/pi-ui.xml', check=False).stdout
+            try:
+                tree = ET.fromstring(xml)
+            except ET.ParseError:
+                time.sleep(0.5); continue
+            for node in tree.iter('node'):
+                rid, text = node.get('resource-id', ''), node.get('text', '')
+                if rid == 'android:id/button1' or (node.get('clickable') == 'true' and text.upper() == 'SAVE'):
+                    m = re.findall(r'\d+', node.get('bounds', ''))
+                    x, y = (int(m[0]) + int(m[2])) // 2, (int(m[1]) + int(m[3])) // 2
+                    self.adb('shell', 'input', 'tap', str(x), str(y))
+                    pushed = True
+                    break
+            if pushed:
+                break
+            time.sleep(0.5)
+        if not pushed:
+            return 'no-dialog'
+        for _ in range(60):
+            out = self.adb('shell', 'stat', '-c', '%s', f'/sdcard/Download/{name}', check=False).stdout.strip()
+            if out.isdigit() and int(out) > 0:
+                time.sleep(1)
+                out = self.adb('shell', 'stat', '-c', '%s', f'/sdcard/Download/{name}', check=False).stdout.strip()
+                self.adb('shell', 'rm', '-f', f'/sdcard/Download/{name}', check=False)
+                return f'saved:{out}'
+            time.sleep(0.5)
+        return 'not-saved'
+
+    def shot(self, name):
+        """A screenshot of the device (what a person sees), saved next to the logs."""
+        data = subprocess.run(['adb', '-s', self.serial, 'exec-out', 'screencap', '-p'], capture_output=True).stdout
+        (self.out / f'{name}.png').write_bytes(data)
+        return f'shot:{name}.png'
+
+    def meminfo(self, label):
+        """Saves `dumpsys meminfo` of the isolated app and returns the numbers that matter (KB)."""
+        text = self.adb('shell', 'dumpsys', 'meminfo', PACKAGE, check=False).stdout
+        (self.out / f'meminfo-{label}.txt').write_text(text)
+        def grab(pattern):
+            m = re.search(pattern, text)
+            return m.group(1) if m else '?'
+        # The decoders of the emulator run in media processes of their own: their RSS shows what the app's meminfo cannot.
+        ps = self.adb('shell', 'ps', '-A', '-o', 'RSS,NAME', check=False).stdout
+        media = sum(int(m.group(1)) for m in re.finditer(r'^\s*(\d+)\s+\S*(?:media\.swcodec|media\.codec|mediaserver|android\.hardware\.media|mediaextractor)\S*\s*$', ps, re.M))
+        return ';'.join([
+            'mediaprocs_rss=' + str(media),
+            'pss=' + grab(r'TOTAL PSS:\s+(\d+)'),
+            'dalvik_alloc=' + grab(r'Dalvik Heap\s+(?:\d+\s+){6}(\d+)'),
+            'graphics=' + grab(r'Graphics:\s+(\d+)'),
+            'native=' + grab(r'Native Heap:\s+(\d+)'),
+            'gl=' + grab(r'GL mtrack:\s+(\d+)'),
+            'egl=' + grab(r'EGL mtrack:\s+(\d+)'),
+        ])
+
+    def run(self):
+        while not self.stop:
+            try:
+                state = self.get('/__cmd?poll')
+            except Exception:
+                time.sleep(0.3); continue
+            command = state.get('pending')
+            if not command:
+                time.sleep(0.1); continue
+            self.say(f'command {command}')
+            try:
+                if command.startswith('record-start:'):
+                    result = self.record_start(command.split(':', 1)[1])
+                elif command == 'record-stop':
+                    result = self.record_stop()
+                elif command == 'back':
+                    self.adb('shell', 'input', 'keyevent', 'KEYCODE_BACK'); result = 'back'
+                elif command == 'swipe-back':
+                    result = self.swipe_back()
+                elif command.startswith('shot:'):
+                    result = self.shot(command.split(':', 1)[1])
+                elif command.startswith('meminfo:'):
+                    result = self.meminfo(command.split(':', 1)[1])
+                elif command.startswith('save-dialog:'):
+                    result = self.save_dialog(command.split(':', 1)[1])
+                else:
+                    result = f'unknown:{command}'
+            except Exception as error:  # reported to the test, which fails on it
+                result = f'error:{error}'
+            self.say(f'  -> {result}')
+            self.get('/__cmd?ack=' + urllib.request.quote(result))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--serial', required=True, help='the emulator or device to drive (never the real app)')
+    ap.add_argument('--media', required=True, type=Path, help='directory with portrait.mp4 long.mp4 hevc4k.mp4 corrupt.mp4 tone.wav')
+    ap.add_argument('--out', required=True, type=Path)
+    ap.add_argument('--port', type=int, default=8791)
+    ap.add_argument('--build', action='store_true', help='build the profile APK first (isolated app id .linkperf)')
+    ap.add_argument('--only', default='', help='run the scenarios whose name contains this text (baked into the build)')
+    ap.add_argument('--no-host', action='store_true', help='skip the host-driven steps (back key, recordings, save dialog)')
+    args = ap.parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
+    defines = [f'--dart-define=VP_BASE=http://127.0.0.1:{args.port}', f'--dart-define=VP_HOST={str(not args.no_host).lower()}']
+    if args.only:
+        defines.append(f'--dart-define=VP_ONLY={args.only}')
+    if args.build:
+        build = [str(ROOT / 'tool/flutter'), 'build', 'apk', '--profile', '--target-platform', 'android-x64',
+                 '--android-project-arg=raftApplicationIdSuffix=.linkperf', '-t', TARGET, *defines]
+        with (args.out / 'build.log').open('w') as log:
+            if subprocess.run(build, cwd=APP, stdout=log, stderr=subprocess.STDOUT).returncode:
+                sys.exit(f'build failed; see {args.out / "build.log"}')
+    if not APK.exists():
+        sys.exit(f'{APK} missing; run with --build')
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+    child = None
+    server = subprocess.Popen([sys.executable, str(ROOT / 'tool/video-parity-range-server'), str(args.media), str(args.port)],
+                              stderr=(args.out / 'server.log').open('w'))
+    host = Host(args.serial, args.port, args.out)
+    thread = None
+    try:
+        time.sleep(1)
+        subprocess.run(['adb', '-s', args.serial, 'reverse', f'tcp:{args.port}', f'tcp:{args.port}'], check=True)
+        # A system dialog left by an earlier run (the save picker) keeps the app from coming to the front.
+        for cleanup in (['am', 'force-stop', 'com.google.android.documentsui'], ['am', 'force-stop', PACKAGE],
+                        ['input', 'keyevent', 'KEYCODE_HOME']):
+            subprocess.run(['adb', '-s', args.serial, 'shell', *cleanup], check=False)
+        subprocess.run(['adb', '-s', args.serial, 'logcat', '-c'], check=True)
+        thread = threading.Thread(target=host.run, daemon=True)
+        thread.start()
+        drive = [str(ROOT / 'tool/flutter'), 'drive', '--profile', '-d', args.serial, '--no-pub', '--keep-app-running',
+                 '--driver=test_driver/integration_test.dart', f'--target={TARGET}', f'--use-application-binary={APK}', *defines]
+        code = 1
+        with (args.out / 'suite.log').open('w') as log:
+            child = subprocess.Popen(drive, cwd=APP, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            finished = None
+            while child.poll() is None:
+                time.sleep(2)
+                text = (args.out / 'suite.log').read_text(errors='replace')
+                # The drive tool can stay alive after the driver reported (adb logcat child): stop it then.
+                if 'Leaving the application running' in text or 'All tests passed' in text:
+                    finished = finished or time.time()
+                    if time.time() - finished > 8:
+                        os.killpg(child.pid, signal.SIGTERM)
+                        break
+            child.wait()
+            text = (args.out / 'suite.log').read_text(errors='replace')
+            code = 0 if 'All tests passed' in text and 'Some tests failed' not in text else 1
+        print((args.out / 'suite.log').read_text()[-4000:])
+        sys.exit(code)
+    finally:
+        host.stop = True
+        if child is not None and child.poll() is None:
+            os.killpg(child.pid, signal.SIGTERM)
+        if thread:
+            thread.join(timeout=3)
+        with (args.out / 'logcat.txt').open('w') as log:
+            subprocess.run(['adb', '-s', args.serial, 'logcat', '-d', '-v', 'time'], stdout=log)
+        subprocess.run(['adb', '-s', args.serial, 'reverse', '--remove', f'tcp:{args.port}'], check=False)
+        server.send_signal(signal.SIGTERM)
+
+if __name__ == '__main__':
+    main()
