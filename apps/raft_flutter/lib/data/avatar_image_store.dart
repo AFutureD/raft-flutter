@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -17,51 +18,168 @@ import 'attachment_disk_cache.dart';
 /// (avatars are public pictures), has its own cap and recency order, and is
 /// never evicted to make room for attachments; keys are the stable URL keys.
 ///
-/// Each entry is `<8-byte big-endian expiry time in ms><bytes>`: the expiry is
-/// the server's `Cache-Control` freshness (`/api/avatars/**` is
-/// `public, max-age=31536000, immutable`; Gravatar is minutes;
-/// `external-avatars` is `no-cache` and is not stored), capped at [ttl], and
-/// [unknownTtl] when the server said nothing. An expired entry is a miss and
-/// is removed.
+/// Each entry is `RIV1`, the expiry time (8 bytes big-endian ms), the lengths
+/// of the `ETag` and `Last-Modified` (2 bytes each), those two strings and the
+/// picture. (Entries from before validators existed are the 8-byte expiry and
+/// the picture; they still read.) The expiry is the server's `Cache-Control`
+/// freshness (`/api/avatars/**` is `public, max-age=31536000, immutable`;
+/// Gravatar is minutes; `external-avatars` is `public, no-cache,
+/// must-revalidate` with a strong `ETag`), capped at [ttl], and [unknownTtl]
+/// when the server said nothing. `no-cache` and expired entries that carry a
+/// validator stay as stale entries (for [staleRetention]) so the next use can
+/// show them at once and send `If-None-Match` / `If-Modified-Since`; a stale
+/// entry without a validator is a miss and is removed, and `no-store` is never
+/// written.
 class AvatarImageStore implements RaftImageByteStore {
   AvatarImageStore(
     this._cache, {
     this.ttl = const Duration(days: 14),
     this.unknownTtl = const Duration(hours: 1),
+    this.staleRetention = const Duration(days: 30),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
   final AttachmentDiskCache _cache;
-  final Duration ttl, unknownTtl;
+  final Duration ttl, unknownTtl, staleRetention;
   final DateTime Function() _now;
 
-  @override
+  static const _magic = [0x52, 0x49, 0x56, 0x31]; // "RIV1"
+  static const _maxValidator = 1024;
+
+  /// The picture under [key] while it is fresh (null once it ran out).
   Future<Uint8List?> read(String key) async {
-    final data = await _cache.readPublic(key);
-    if (data == null || data.length <= 8) return null;
-    final expires = DateTime.fromMillisecondsSinceEpoch(
-      ByteData.sublistView(data, 0, 8).getInt64(0),
-    );
-    if (!_now().isBefore(expires)) {
-      unawaited(_cache.removePublic(key));
-      return null;
-    }
-    return Uint8List.sublistView(data, 8);
+    final entry = await readEntry(key);
+    if (entry == null || !_now().isBefore(entry.expires)) return null;
+    return entry.bytes;
   }
 
   @override
-  Future<void> write(String key, Uint8List bytes, {Duration? maxAge}) async {
+  Future<RaftStoredImage?> readEntry(String key) async {
+    final data = await _cache.readPublic(key);
+    if (data == null) return null;
+    final entry = _decode(data);
+    if (entry == null) {
+      unawaited(_cache.removePublic(key));
+      return null;
+    }
+    final now = _now();
+    final usable =
+        now.isBefore(entry.expires) ||
+        (entry.canRevalidate &&
+            now.isBefore(entry.expires.add(staleRetention)));
+    if (!usable) {
+      unawaited(_cache.removePublic(key));
+      return null;
+    }
+    return entry;
+  }
+
+  @override
+  Future<void> write(
+    String key,
+    Uint8List bytes, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async {
     final granted = maxAge ?? unknownTtl;
-    if (granted <= Duration.zero) return;
+    final canRevalidate =
+        _validator(etag) != null || _validator(lastModified) != null;
+    if (granted <= Duration.zero && !canRevalidate) return;
+    await _cache.writePublic(
+      key,
+      _encode(bytes, _expiry(granted), etag, lastModified),
+    );
+  }
+
+  @override
+  Future<void> touch(
+    String key, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async {
+    final data = await _cache.readPublic(key);
+    final entry = data == null ? null : _decode(data);
+    if (entry == null) return;
+    await _cache.writePublic(
+      key,
+      _encode(
+        entry.bytes,
+        _expiry(maxAge ?? unknownTtl),
+        etag ?? entry.etag,
+        lastModified ?? entry.lastModified,
+      ),
+    );
+  }
+
+  DateTime _expiry(Duration granted) {
     final lifetime = granted < ttl ? granted : ttl;
-    final entry = Uint8List(8 + bytes.length);
-    ByteData.sublistView(
-      entry,
-      0,
-      8,
-    ).setInt64(0, _now().add(lifetime).millisecondsSinceEpoch);
-    entry.setRange(8, entry.length, bytes);
-    await _cache.writePublic(key, entry);
+    return _now().add(lifetime < Duration.zero ? Duration.zero : lifetime);
+  }
+
+  static String? _validator(String? value) =>
+      value == null || value.isEmpty || value.length > _maxValidator
+      ? null
+      : value;
+
+  static Uint8List _encode(
+    Uint8List bytes,
+    DateTime expires,
+    String? etag,
+    String? lastModified,
+  ) {
+    final tag = utf8.encode(_validator(etag) ?? '');
+    final modified = utf8.encode(_validator(lastModified) ?? '');
+    final head = 4 + 8 + 2 + 2;
+    final entry = Uint8List(head + tag.length + modified.length + bytes.length);
+    entry.setRange(0, 4, _magic);
+    final view = ByteData.sublistView(entry);
+    view.setInt64(4, expires.millisecondsSinceEpoch);
+    view.setUint16(12, tag.length);
+    view.setUint16(14, modified.length);
+    entry.setRange(head, head + tag.length, tag);
+    entry.setRange(
+      head + tag.length,
+      head + tag.length + modified.length,
+      modified,
+    );
+    entry.setRange(head + tag.length + modified.length, entry.length, bytes);
+    return entry;
+  }
+
+  static RaftStoredImage? _decode(Uint8List data) {
+    if (data.length > 8 + 4 && _hasMagic(data)) {
+      if (data.length < 16) return null;
+      final view = ByteData.sublistView(data);
+      final tag = view.getUint16(12), modified = view.getUint16(14);
+      final bodyAt = 16 + tag + modified;
+      if (bodyAt >= data.length) return null;
+      return RaftStoredImage(
+        Uint8List.sublistView(data, bodyAt),
+        expires: DateTime.fromMillisecondsSinceEpoch(view.getInt64(4)),
+        etag: tag == 0
+            ? null
+            : utf8.decode(data.sublist(16, 16 + tag), allowMalformed: true),
+        lastModified: modified == 0
+            ? null
+            : utf8.decode(data.sublist(16 + tag, bodyAt), allowMalformed: true),
+      );
+    }
+    if (data.length <= 8) return null;
+    return RaftStoredImage(
+      Uint8List.sublistView(data, 8),
+      expires: DateTime.fromMillisecondsSinceEpoch(
+        ByteData.sublistView(data, 0, 8).getInt64(0),
+      ),
+    );
+  }
+
+  static bool _hasMagic(Uint8List data) {
+    for (var i = 0; i < 4; i++) {
+      if (data[i] != _magic[i]) return false;
+    }
+    return true;
   }
 }
 
@@ -69,12 +187,17 @@ class AvatarImageStore implements RaftImageByteStore {
 final _avatarClients = Expando<HttpClient>('avatar http client');
 
 /// Fetches an avatar through the shared proxy decision (docs/system-proxy.md).
-/// One pooled client; no credentials of any kind are attached.
+/// One pooled client; no credentials of any kind are attached. With [etag] /
+/// [lastModified] it is a conditional GET (`If-None-Match` /
+/// `If-Modified-Since`) and a 304 answers [RaftFetchedImage.notModified]
+/// without a body.
 Future<RaftFetchedImage> fetchAvatarImage(
   String url, {
   SystemProxy? proxy,
   Duration timeout = const Duration(seconds: 20),
   int maxBytes = 4 * 1024 * 1024,
+  String? etag,
+  String? lastModified,
 }) async {
   final service = proxy ?? SystemProxy.instance;
   final uri = Uri.parse(url);
@@ -84,7 +207,23 @@ Future<RaftFetchedImage> fetchAvatarImage(
     ..maxConnectionsPerHost = 8
     ..autoUncompress = true;
   final request = await client.getUrl(uri).timeout(timeout);
+  if (etag != null) request.headers.set(HttpHeaders.ifNoneMatchHeader, etag);
+  if (lastModified != null) {
+    request.headers.set(HttpHeaders.ifModifiedSinceHeader, lastModified);
+  }
   final response = await request.close().timeout(timeout);
+  final cacheControl = response.headers.value(HttpHeaders.cacheControlHeader);
+  final tag = response.headers.value(HttpHeaders.etagHeader);
+  final modified = response.headers.value(HttpHeaders.lastModifiedHeader);
+  if (response.statusCode == HttpStatus.notModified &&
+      (etag != null || lastModified != null)) {
+    await response.drain<void>();
+    return RaftFetchedImage.notModified(
+      maxAge: raftCacheControlMaxAge(cacheControl),
+      etag: tag,
+      lastModified: modified,
+    );
+  }
   if (response.statusCode != HttpStatus.ok) {
     await response.drain<void>();
     throw RaftImageHttpError(response.statusCode);
@@ -98,9 +237,10 @@ Future<RaftFetchedImage> fetchAvatarImage(
   }
   return RaftFetchedImage(
     bytes.takeBytes(),
-    maxAge: raftCacheControlMaxAge(
-      response.headers.value(HttpHeaders.cacheControlHeader),
-    ),
+    maxAge: raftCacheControlMaxAge(cacheControl),
+    etag: tag,
+    lastModified: modified,
+    noStore: raftCacheControlNoStore(cacheControl),
   );
 }
 
@@ -114,6 +254,7 @@ void installAvatarImageCache(
 }) {
   RaftImageBytes.instance
     ..fetcher = fetchAvatarImage
+    ..revalidator = fetchAvatarImage
     ..store = AvatarImageStore(cache);
   (memoryRelease ?? RaftMemoryRelease.instance).addTrimmer(trimAvatarImages);
   cache.addPublicClearListener(clearAvatarImages);

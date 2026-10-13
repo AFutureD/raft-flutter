@@ -113,6 +113,9 @@ class RaftSizedImageKey {
   final int? _width, _height;
   final bool _cover;
 
+  /// The key of the wrapped provider.
+  Object get source => _inner;
+
   /// The decode box is part of the identity: the same URL at two sizes (or two
   /// pixel ratios) is two cache entries, never a small decode shown large.
   @override
@@ -174,6 +177,8 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
   ) {
     super.resolveStreamForKey(configuration, stream, key, handleError);
     if (hot) RaftHotImages.instance.touch(key);
+    final inner = imageProvider;
+    if (inner is RaftAvatarImageProvider) inner.service.noteUse(inner.url);
   }
 
   @override
@@ -396,6 +401,42 @@ class _RaftSizedImageState extends State<RaftSizedImage> {
   // sized cache entries (whose keys hold the source bytes) do not linger.
   final Set<ImageProvider<Object>> _built = {};
 
+  // An avatar whose picture changed under its URL (a revalidation brought
+  // other bytes): the new picture is loaded off screen, then swapped in.
+  RaftImageBytes? _watching;
+  ImageProvider<Object>? _lastProvider;
+  var _revision = 0;
+
+  void _watch() {
+    final image = widget.image;
+    final service = widget.avatar && image is RaftAvatarImageProvider
+        ? image.service
+        : null;
+    if (identical(service, _watching)) return;
+    _watching?.removeChangeListener(_changed);
+    _watching = service?..addChangeListener(_changed);
+  }
+
+  void _changed(String key) {
+    final image = widget.image;
+    final provider = _lastProvider;
+    if (!mounted ||
+        image is! RaftAvatarImageProvider ||
+        image.stable != key ||
+        provider == null) {
+      return;
+    }
+    precacheImage(provider, context, onError: (_, _) {}).then((_) {
+      if (mounted) setState(() => _revision++);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _watch();
+  }
+
   void _evictBuilt(ImageProvider<Object> source) {
     for (final p in _built) {
       unawaited(p.evict());
@@ -407,11 +448,14 @@ class _RaftSizedImageState extends State<RaftSizedImage> {
   @override
   void didUpdateWidget(RaftSizedImage old) {
     super.didUpdateWidget(old);
+    _watch();
     if (old.evictOnDispose && old.image != widget.image) _evictBuilt(old.image);
   }
 
   @override
   void dispose() {
+    _watching?.removeChangeListener(_changed);
+    _watching = null;
     if (widget.evictOnDispose) _evictBuilt(widget.image);
     _built.clear();
     super.dispose();
@@ -433,8 +477,10 @@ class _RaftSizedImageState extends State<RaftSizedImage> {
       avatar: widget.avatar,
     );
     if (widget.evictOnDispose) _built.add(provider);
+    _lastProvider = provider;
     // ignore: raft_lints/avoid_raw_image_decode -- The sized-image helper itself: the only place raw providers are built and wrapped so the decode size is the display size.
     return Image(
+      key: _revision == 0 ? null : ValueKey(_revision),
       image: provider,
       width: widget.width,
       height: widget.height,

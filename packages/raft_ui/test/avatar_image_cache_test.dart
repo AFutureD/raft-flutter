@@ -59,10 +59,28 @@ class _DiskStandIn implements RaftImageByteStore {
   _DiskStandIn(this.files);
   final Map<String, Uint8List> files;
   @override
-  Future<Uint8List?> read(String key) async => files[key];
+  Future<RaftStoredImage?> readEntry(String key) async {
+    final bytes = files[key];
+    return bytes == null
+        ? null
+        : RaftStoredImage(bytes, expires: DateTime(2100));
+  }
+
   @override
-  Future<void> write(String key, Uint8List bytes, {Duration? maxAge}) async =>
-      files[key] = bytes;
+  Future<void> write(
+    String key,
+    Uint8List bytes, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async => files[key] = bytes;
+  @override
+  Future<void> touch(
+    String key, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async {}
 }
 
 const _placeholder = ColoredBox(key: Key('placeholder'), color: Colors.grey);

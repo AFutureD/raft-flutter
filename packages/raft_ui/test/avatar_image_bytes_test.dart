@@ -9,26 +9,63 @@ class _MemoryStore implements RaftImageByteStore {
   final files = <String, Uint8List>{};
   var reads = 0;
   var throwOnRead = false;
+  final etags = <String, String?>{};
+  final touched = <String>[];
   @override
-  Future<Uint8List?> read(String key) async {
+  Future<RaftStoredImage?> readEntry(String key) async {
     reads++;
     if (throwOnRead) throw StateError('disk gone');
-    return files[key];
+    final bytes = files[key];
+    return bytes == null
+        ? null
+        : RaftStoredImage(
+            bytes,
+            expires: DateTime(2100),
+            etag: etags[key],
+          );
   }
 
   @override
-  Future<void> write(String key, Uint8List bytes, {Duration? maxAge}) async =>
-      files[key] = bytes;
+  Future<void> write(
+    String key,
+    Uint8List bytes, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async {
+    files[key] = bytes;
+    etags[key] = etag;
+  }
+
+  @override
+  Future<void> touch(
+    String key, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async => touched.add(key);
 }
 
 class _RecordingStore implements RaftImageByteStore {
   _RecordingStore(this.written);
   final Map<String, Duration?> written;
   @override
-  Future<Uint8List?> read(String key) async => null;
+  Future<RaftStoredImage?> readEntry(String key) async => null;
   @override
-  Future<void> write(String key, Uint8List bytes, {Duration? maxAge}) async =>
-      written[key] = maxAge;
+  Future<void> write(
+    String key,
+    Uint8List bytes, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async => written[key] = maxAge;
+  @override
+  Future<void> touch(
+    String key, {
+    Duration? maxAge,
+    String? etag,
+    String? lastModified,
+  }) async {}
 }
 
 Uint8List _bytes(int n, [int fill = 7]) =>
