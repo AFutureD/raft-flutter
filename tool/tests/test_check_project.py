@@ -197,3 +197,11 @@ class UnitTestAssetsTests(unittest.TestCase):
             self.assertFalse(pkg.exists())
             self.assertTrue(apk.is_dir())
             self.assertEqual(check.clear_unit_test_assets(root), [])
+
+
+class WarmupTests(unittest.TestCase):
+    def test_picks_the_smallest_app_test(self):
+        sizes = {'test/b_test.dart': 900, 'test/a_test.dart': 120, '../../packages/raft_ui/test/x_test.dart': 10}
+        files = list(sizes) + ['test/missing_test.dart']
+        self.assertEqual(check.smallest_app_test(files, sizes), 'test/a_test.dart')
+        self.assertIsNone(check.smallest_app_test(['../../packages/x/test/y_test.dart'], {}))

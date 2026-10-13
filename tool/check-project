@@ -72,6 +72,12 @@ def clear_unit_test_assets(root: pathlib.Path) -> list[pathlib.Path]:
     return removed
 
 
+def smallest_app_test(files, sizes):
+    """The smallest app test file (relative to the app dir), to warm the test assets."""
+    app_files = [f for f in files if f.startswith('test/') and f in sizes]
+    return min(app_files, key=lambda f: (sizes[f], f)) if app_files else None
+
+
 def discover_tests(base, dirs=TEST_DIRS):
     """Test files `flutter test` would find, as paths relative to the app dir."""
     found = []
@@ -585,6 +591,13 @@ def run_gate(check_env, emit, started):
         raise SystemExit('check-project: `flutter pub get --enforce-lockfile` failed; see .local/workspace-pub-get.txt.')
 
     clear_unit_test_assets(root)
+    # Rebuild the test assets once before the shards start: parallel
+    # `flutter test` runs racing to recreate build/unit_test_assets fail with
+    # "Flutter failed to copy file ... native_assets.json" (PathNotFound).
+    warm = smallest_app_test(files, sizes)
+    if warm:
+        run_logged([*tool_command('flutter'), 'test', '--no-pub', warm], app_dir,
+                   local / 'test-assets-warmup.txt', check_env)
 
     # The bindings generator must be initialised before whole-project analysis.
     results['bindings-generator-pub-get.txt'] = run_logged(
