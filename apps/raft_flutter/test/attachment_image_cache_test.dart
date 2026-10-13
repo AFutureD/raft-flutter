@@ -260,7 +260,7 @@ void main() {
       Future<Directory> root() async => directory;
 
       // First launch: cold network load, persisted after a good decode.
-      final (firstClient, first) = workspace(AttachmentImageDiskCache(root));
+      final (firstClient, first) = workspace(AttachmentDiskCache(root));
       final firstFiles = _Files(original);
       await tester.pumpWidget(view(first, firstFiles));
       await waitPreview(tester);
@@ -277,7 +277,7 @@ void main() {
         stored = (await tester.runAsync(
           () => directory
               .list(recursive: true)
-              .where((e) => e is File && !e.path.endsWith('.part'))
+              .where((e) => e is File && !e.path.endsWith('.raft-part'))
               .length,
         ))!;
       }
@@ -286,7 +286,7 @@ void main() {
       await firstClient.dispose();
 
       // Second launch: new process-level store, controller and client.
-      final store = _CountingStore(AttachmentImageDiskCache(root));
+      final store = _CountingStore(AttachmentDiskCache(root));
       final (client, w) = workspace(store);
       final files = _Files(original);
       await tester.pumpWidget(view(w, files));
@@ -331,7 +331,7 @@ void main() {
   test('repository never reads persisted bytes without authority; revocation purges them', () async {
     final directory = await Directory.systemTemp.createTemp('raft-image-cache');
     addTearDown(() => directory.delete(recursive: true));
-    final disk = AttachmentImageDiskCache(() async => directory);
+    final disk = AttachmentDiskCache(() async => directory);
     final store = _CountingStore(disk);
     const scope = AttachmentImageScope(
       origin: 'https://example.invalid',
@@ -404,7 +404,7 @@ void main() {
         'raft-image-cache',
       );
       addTearDown(() => directory.delete(recursive: true));
-      final disk = AttachmentImageDiskCache(
+      final disk = AttachmentDiskCache(
         () async => directory,
         maxBytes: 3000,
       );

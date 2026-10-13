@@ -270,7 +270,7 @@ class WorkspaceController extends ChangeNotifier {
   }) : _attachmentUrls = attachmentUrls ?? AttachmentUrlCache(),
        _presentationAuthority = presentationSource?.navigationAuthority,
        attachmentImageStore =
-           attachmentImageStore ?? AttachmentImageDiskCache.installed {
+           attachmentImageStore ?? AttachmentDiskCache.installed {
     _ownsFollowedThreads = followedThreads == null;
     this.followedThreads =
         followedThreads ??
@@ -778,6 +778,40 @@ class WorkspaceController extends ChangeNotifier {
       return null;
     }
     return WorkspaceAttachmentImageLease(lease, releaseAuthority);
+  }
+
+  /// The persistent attachment cache, when this controller has one (the
+  /// installed app cache by default; tests with a fake byte store have none).
+  AttachmentDiskCache? get attachmentDiskCache {
+    final source = presentationSource;
+    if (source != null) return source.attachmentDiskCache;
+    final store = attachmentImageStore;
+    return store is AttachmentDiskCache ? store : null;
+  }
+
+  /// Persistent key of a derived entry (`file`, `preview`, `html`) of
+  /// [metadata]'s attachment for the current account and server.
+  AttachmentImageStoreKey attachmentCacheKey(
+    Map<String, dynamic> metadata,
+    String kind, {
+    required String channelId,
+  }) => AttachmentImageKey.storeKeyOf(
+    scope: attachmentImageScope,
+    channelId: channelId,
+    metadata: metadata,
+    kind: kind,
+  );
+
+  /// True when [key]'s source bytes are already stored on this device, so
+  /// nothing needs to be signed or fetched for them.
+  Future<bool> attachmentStored(AttachmentImageKey key) async {
+    final disk = attachmentDiskCache;
+    if (disk == null) return false;
+    try {
+      return await disk.contains(key.source.storeKey);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Set by the host from its actual logical width before bootstrap. Home
@@ -1335,6 +1369,17 @@ class WorkspaceController extends ChangeNotifier {
     servers.removeWhere((s) => s.id == id);
     final origin = client.origin;
     unawaited(discardSharedScope?.call(origin, principal, id, null));
+    // Everything cached for that server on this device is revoked with it.
+    final store = attachmentImageStore;
+    if (store != null && presentationSource == null) {
+      unawaited(
+        store
+            .purgeIdentity(
+              AttachmentImageKey.identityOf(origin, principal, id),
+            )
+            .catchError((Object _) {}),
+      );
+    }
     if (client.serverId == id) {
       for (final list in _uploads.values) {
         for (final draft in list) {
@@ -3468,6 +3513,9 @@ class WorkspaceController extends ChangeNotifier {
         ..invalidateChannel(scope);
       _attachmentUrls.invalidateChannel(scope);
       _inlineMedia.invalidateChannel(scope);
+      // Stored images, preview files and documents of the channel go too,
+      // also when no decoded image was ever held this session.
+      _purgeStoredChannel(scope);
       ledger.revokeChannel(scope);
       messageSync.revokeChannel(scope);
       threadRepliesSync.revokeChannel(scope);
@@ -3549,6 +3597,19 @@ class WorkspaceController extends ChangeNotifier {
         }
       });
     }
+  }
+
+  void _purgeStoredChannel(String channelId) {
+    final store = attachmentImageStore;
+    if (store == null || presentationSource != null) return;
+    unawaited(
+      store
+          .purgeChannel(
+            AttachmentImageKey.storeIdentity(attachmentImageScope),
+            channelId,
+          )
+          .catchError((Object _) {}),
+    );
   }
 
   int _sidebarRequest = 0;

@@ -11,6 +11,7 @@ import 'package:flutter/painting.dart';
 import 'attachment_image_store.dart';
 import 'attachment_transfer.dart';
 
+export 'attachment_disk_cache.dart';
 export 'attachment_image_store.dart';
 export 'attachment_transfer.dart';
 
@@ -61,15 +62,33 @@ class AttachmentImageKey {
     rendition: rendition,
     target: target,
     attachmentId: metadata['id'] as String,
-    revision: jsonEncode([
-      metadata['id'], metadata['mimeType'], metadata['sizeBytes'],
-      metadata['width'], metadata['height'],
-      // These optional fields are used only if an accepted projection adds
-      // them. They are not invented backend version or revalidation APIs.
-      metadata['contentVersion'],
-      metadata['contentHash'],
-      metadata['updatedAt'],
-    ]),
+    revision: revisionOf(metadata),
+  );
+
+  /// The attachment's content identity: its id plus every projected field
+  /// that fences same-ID replacement.
+  static String revisionOf(Map<String, dynamic> metadata) => jsonEncode([
+    metadata['id'], metadata['mimeType'], metadata['sizeBytes'],
+    metadata['width'], metadata['height'],
+    // These optional fields are used only if an accepted projection adds
+    // them. They are not invented backend version or revalidation APIs.
+    metadata['contentVersion'],
+    metadata['contentHash'],
+    metadata['updatedAt'],
+  ]);
+
+  /// Persistent key of a derived entry of one attachment that is not an image
+  /// source: a preview input [kind] such as `file`, `preview` or `html`. Same
+  /// identity, channel and revision rules as [storeKey].
+  static AttachmentImageStoreKey storeKeyOf({
+    required AttachmentImageScope scope,
+    required String channelId,
+    required Map<String, dynamic> metadata,
+    required String kind,
+  }) => AttachmentImageStoreKey(
+    identity: storeIdentity(scope),
+    channelId: channelId,
+    entry: jsonEncode([metadata['id'], revisionOf(metadata), kind]),
   );
   final AttachmentImageScope scope;
   final String channelId, attachmentId, revision, rendition;

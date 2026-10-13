@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:raft_ui/raft_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'data/attachment_image_store.dart';
+import 'data/attachment_disk_cache.dart';
 import 'data/device_preferences.dart';
 import 'data/workspace_controller.dart';
 import 'data/source_time_formatter.dart';
@@ -76,10 +76,13 @@ Future<void> main([List<String> args = const []]) async {
           ),
     ],
   );
-  // Inline image previews survive restarts; reads stay authority-gated.
-  AttachmentImageDiskCache.installed ??= AttachmentImageDiskCache(
+  // Attachment content (image sources, preview files and documents) survives
+  // restarts; reads stay authority-gated. Indexing starts now so the first
+  // lookups of a channel do not wait for it.
+  AttachmentDiskCache.installed ??= AttachmentDiskCache(
     getApplicationCacheDirectory,
   );
+  unawaited(AttachmentDiskCache.installed!.warm());
   // Release builds show the root fallback instead of a grey/red screen.
   RootErrors.instance.install();
   // The branded splash stays until startup is ready; a fatal startup error
@@ -1948,12 +1951,9 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
         unawaited(clearSharesForAccount(c.origin, principal));
         // Nothing more is written for this account once its data is cleared.
         final flushed = workspace?.retireCache() ?? Future<void>.value();
-        final servers = <String>[
-          for (final s in workspace?.servers ?? const <RaftRecord>[]) s.id,
-        ];
         flushed.then((_) => cache?.clearAccount(c.origin, principal));
         unawaited(
-          AttachmentImageDiskCache.purgeAccount(c.origin, principal, servers),
+          AttachmentDiskCache.purgeInstalledAccount(c.origin, principal),
         );
         content.bindWorkspace(null);
         workspace?.removeListener(workspaceChanged);
@@ -2017,10 +2017,8 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       final shareCleanup = clearSharesForAccount(c.origin, principal);
       await cache?.clearAccount(c.origin, principal);
       await shareCleanup;
-      // Cached image bytes of this account go with its other cached data.
-      await AttachmentImageDiskCache.purgeAccount(c.origin, principal, [
-        for (final s in oldWorkspace?.servers ?? const <RaftRecord>[]) s.id,
-      ]);
+      // Cached attachments of this account go with its other cached data.
+      await AttachmentDiskCache.purgeInstalledAccount(c.origin, principal);
     }
     await loggingOut;
     oldWorkspace?.dispose();
