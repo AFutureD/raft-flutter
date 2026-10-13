@@ -61,14 +61,14 @@ class ProofAdapter extends LabAdapter {
       var total = 0;
       log('upload #$n started');
       if (s != null) {
-        // The first upload is throttled so its progress stays on screen.
-        final slow = n == 1;
         await for (final chunk in s) {
           total += chunk.length;
           if (head.length < 2048) head.add(chunk);
-          if (slow) await Future<void>.delayed(Duration(milliseconds: holdMs ~/ 80));
         }
       }
+      // The first upload is held after its bytes so Send can be pressed while
+      // it is still in flight.
+      if (n == 1) await Future<void>.delayed(Duration(milliseconds: holdMs));
       final name =
           RegExp(r'filename="([^"]+)"').firstMatch(latin1.decode(head.toBytes(), allowInvalid: true))?[1] ?? 'file.bin';
       final meta = {
