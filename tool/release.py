@@ -405,6 +405,15 @@ def build(platform):
                 import appimage
                 artifact = OUT / f'{name}.AppImage'
                 appimage_checks = appimage.package(stage, artifact, ROOT, run, capture, digest)
+                if appimage_checks['updateInformation']:
+                    # The delta-update control file is published next to the AppImage
+                    # (and checksummed with it); the app's in-place update needs both.
+                    zsync = appimage.make_zsync(artifact)
+                    extra_artifacts.append(zsync)
+                    fields = appimage.zsync_control(zsync)
+                    appimage_checks['zsync'] = {
+                        'name': zsync.name, 'blockSize': int(fields['Blocksize']),
+                        'hashLengths': fields['Hash-Lengths'], 'sha1': fields['SHA-1']}
                 signing = 'unsigned AppImage; static runtime with bundled FUSE 3'
             else:
                 artifact = OUT / f'{name}.tar.gz'
@@ -668,6 +677,8 @@ def publish(platform):
     if (not artifacts or artifacts[0].name != expected_name
             or {path.name for path in artifacts[1:]} != extras):
         raise ValueError('Artifact name does not belong to this platform and release')
+    if platform == 'appimage' and extras - {f'{expected_name}.zsync'}:
+        raise ValueError('The AppImage release may only carry its own .zsync control file')
     with tempfile.TemporaryDirectory(prefix='raft-release-publish-') as temporary:
         auxiliary = Path(temporary)
         checksum = auxiliary / f'CHECKSUMS-{platform}-{arch}.txt'

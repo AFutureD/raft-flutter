@@ -22,6 +22,17 @@ APP_ID = BASE_APP_ID + APP_ID_SUFFIX
 # binary under a different name.
 BASE_EXECUTABLE = 'raft_flutter'
 EXECUTABLE = 'raft_isolated' if APP_ID_SUFFIX else BASE_EXECUTABLE
+# In-app updates (packages/raft_updater, docs/auto-update.md) read this string
+# back from the AppImage's `.upd_info` ELF section and fetch the delta with the
+# zsync protocol. The official build points at this repository's latest release;
+# `AppImageUpdateInformation.official` in packages/raft_updater must stay equal
+# (tool/tests/test_appimage.py compares the two).
+UPDATE_OWNER, UPDATE_REPOSITORY = 'kevinzhow', 'raft-flutter'
+UPDATE_ASSET_PATTERN = 'raft-flutter-*-appimage-x64.AppImage.zsync'
+OFFICIAL_UPDATE_INFORMATION = (
+    f'gh-releases-zsync|{UPDATE_OWNER}|{UPDATE_REPOSITORY}|latest|{UPDATE_ASSET_PATTERN}')
+# The runtime reserves 1024 bytes for the string (AppImageSpec `.upd_info`).
+UPDATE_INFORMATION_LIMIT = 1023
 HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
                          'GSETTINGS_SCHEMA_DIR', 'GIO_LAUNCH_DESKTOP', 'GTK_IM_MODULE_FILE',
                          'GDK_PIXBUF_MODULE_FILE')
@@ -34,6 +45,66 @@ HOST_LAUNCH_VARIABLES = ('PATH', 'LD_LIBRARY_PATH', 'GIO_MODULE_DIR',
 # AppRun adds to the library path when the host lacks them.
 LIBVA_LIBRARIES = ('libva.so.2', 'libva-drm.so.2', 'libva-x11.so.2', 'libva-wayland.so.2')
 HOST_LIBRARY_DIRECTORIES = ('/usr/lib64', '/usr/lib/x86_64-linux-gnu', '/usr/lib')
+
+
+def update_information(suffix=APP_ID_SUFFIX, environ=os.environ):
+    """The update information to embed, or '' for a build that must not self-update.
+
+    The real build always points at the official latest release. An isolated
+    test build (RAFT_APPLICATION_ID_SUFFIX) must never update itself into the
+    official build, so it embeds nothing; only the test harness may name another
+    feed through RAFT_APPIMAGE_UPDATE_INFO (rejected without the suffix, so
+    release CI cannot pick it up by accident).
+    """
+    override = environ.get('RAFT_APPIMAGE_UPDATE_INFO', '').strip()
+    if not suffix:
+        if override:
+            raise ValueError('RAFT_APPIMAGE_UPDATE_INFO is only for isolated test builds')
+        return OFFICIAL_UPDATE_INFORMATION
+    if not override:
+        return ''
+    if (len(override.encode()) > UPDATE_INFORMATION_LIMIT or
+            not re.fullmatch(r'(?:zsync\|https?://[^|\s]+|gh-releases-zsync(?:\|[^|\s]+){4})', override)):
+        raise ValueError('RAFT_APPIMAGE_UPDATE_INFO must be zsync|URL or gh-releases-zsync|owner|repo|tag|pattern')
+    return override
+
+
+def zsync_control(path):
+    """Header fields of a .zsync control file (the text before the blank line)."""
+    with Path(path).open('rb') as stream:
+        head = stream.read(8192)
+    end = head.find(b'\n\n')
+    if end < 0:
+        raise ValueError(f'{path} has no zsync header')
+    fields = {}
+    for line in head[:end].decode('utf-8').splitlines():
+        key, _, value = line.partition(': ')
+        fields[key] = value
+    return fields
+
+
+def make_zsync(artifact, zsyncmake='zsyncmake'):
+    """Write `<artifact>.zsync` next to the AppImage and return its path.
+
+    appimagetool only generates it when zsyncmake happens to be installed and
+    otherwise just warns, so the release calls zsyncmake itself and checks the
+    result against the artifact: the relative URL must be the asset's own file
+    name (the client resolves it against the .zsync asset URL), and the whole-file
+    SHA-1 and length must match.
+    """
+    artifact = Path(artifact)
+    if not shutil.which(zsyncmake):
+        raise ValueError('zsyncmake is required to publish delta updates (apt install zsync)')
+    target = artifact.with_name(artifact.name + '.zsync')
+    subprocess.run([zsyncmake, '-u', artifact.name, '-o', str(target), str(artifact)], check=True,
+                   cwd=artifact.parent)
+    fields = zsync_control(target)
+    with artifact.open('rb') as stream:
+        sha1 = hashlib.file_digest(stream, 'sha1').hexdigest()
+    if (fields.get('URL') != artifact.name or fields.get('Length') != str(artifact.stat().st_size)
+            or fields.get('SHA-1') != sha1 or 'Z-URL' in fields):
+        raise ValueError(f'{target.name} does not describe {artifact.name}')
+    return target
 
 
 def host_libva_check():
@@ -374,8 +445,14 @@ exec "$app_dir/raft/''' + EXECUTABLE + '''" "$@"
     cache.mkdir(parents=True, exist_ok=True)
     tool = download_tool('appimagetool.AppImage', tools['appimagetool'], cache)
     runtime = download_tool('runtime-x86_64', tools['runtime'], cache)
-    run([tool, '--appimage-extract-and-run', '--runtime-file', runtime, appdir, artifact],
-        env=dict(env, ARCH='x86_64'))
+    information = update_information()
+    command = [tool, '--appimage-extract-and-run', '--runtime-file', runtime]
+    if information:
+        command += ['--updateinformation', information]
+    # With zsyncmake installed appimagetool also writes <artifact>.zsync into its
+    # working directory; run it in the scratch folder so no stray file lands in
+    # the checkout (release.py makes the published .zsync itself).
+    run([*command, appdir, artifact], env=dict(env, ARCH='x86_64'), cwd=work)
     artifact.chmod(0o755)
     return {'runtime': tools['runtime'], 'appimagetool': tools['appimagetool'],
             'buildSystem': 'Ubuntu 24.04 x86_64',
@@ -383,5 +460,6 @@ exec "$app_dir/raft/''' + EXECUTABLE + '''" "$@"
             'elfFilesChecked': len(files), 'hostProvidedLibraries': sorted(host_libraries),
             'pdfHelpers': ['pdfinfo', 'pdftoppm'],
             'imageLoaderModules': [path.name for path in loaders],
+            'updateInformation': information or None,
             'desktopLauncher': 'raft-gio-launch-desktop (bundled helper, restored host environment)',
             'launchModes': ['direct (static FUSE 3 library)', '--appimage-extract-and-run (no FUSE)']}

@@ -390,6 +390,48 @@ class AutoUpdatePublishTests(PublishCase):
         self.assertFalse(self.github.payloads)
 
 
+class AppImageDeltaPublishTests(PublishCase):
+    """The .zsync control file travels with the AppImage as a checksummed extra artifact."""
+
+    def appimage_with_zsync(self, zsync_name=None):
+        folder, artifact, receipt = self.fixture('appimage')
+        zsync = folder / (zsync_name or artifact.name + '.zsync')
+        zsync.write_bytes(b'zsync: 0.6.2\n\n')
+        receipt['extraArtifacts'] = [{'name': zsync.name, 'sha256': release.digest(zsync),
+                                      'bytes': zsync.stat().st_size}]
+        (folder / 'receipt.json').write_text(json.dumps(receipt))
+        return folder, artifact, zsync
+
+    def test_zsync_is_published_checksummed_and_listed_in_the_manifest(self):
+        release.prepare()
+        folder, artifact, zsync = self.appimage_with_zsync()
+        with patch.object(release, 'OUT', folder):
+            release.publish('appimage')
+        self.assertEqual(set(self.github.payloads), {
+            artifact.name, zsync.name, 'CHECKSUMS-appimage-x64.txt', 'build-manifest-appimage-x64.json'})
+        self.assertIn(zsync.name, self.github.payloads['CHECKSUMS-appimage-x64.txt'].decode())
+        manifest = json.loads(self.github.payloads['build-manifest-appimage-x64.json'])
+        # The in-app updater verifies the delta result against these two fields.
+        self.assertEqual(manifest[0]['sha256'], release.digest(artifact))
+        self.assertEqual(manifest[0]['bytes'], artifact.stat().st_size)
+        self.assertEqual(manifest[0]['extraArtifacts'][0]['name'], zsync.name)
+
+    def test_a_foreign_extra_file_cannot_ride_along_with_the_appimage(self):
+        release.prepare()
+        folder, _, _ = self.appimage_with_zsync('other.AppImage.zsync')
+        with patch.object(release, 'OUT', folder), self.assertRaisesRegex(ValueError, 'own .zsync'):
+            release.publish('appimage')
+        self.assertFalse(self.github.payloads)
+
+    def test_a_tampered_zsync_is_never_uploaded(self):
+        release.prepare()
+        folder, _, zsync = self.appimage_with_zsync()
+        zsync.write_bytes(b'zsync: 0.6.2\n\nother')
+        with patch.object(release, 'OUT', folder), self.assertRaises(ValueError):
+            release.publish('appimage')
+        self.assertFalse(self.github.payloads)
+
+
 class ReleaseLookupTests(unittest.TestCase):
     def test_draft_on_later_page_is_found_by_exact_tag(self):
         draft = {'id': 42, 'tag_name': 'v0.1.0+1', 'draft': True, 'assets': []}
