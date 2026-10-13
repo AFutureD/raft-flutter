@@ -21,9 +21,13 @@ const _pixelRatio = 8.0;
 
 Future<void> _loadFonts() async {
   for (final name in const ['HankenGrotesk', 'Geist', 'GeistMono', 'Inter']) {
-    final data = File(
-      'assets/fonts/$name.ttf',
-    ).readAsBytesSync().buffer.asByteData();
+    // The gate runs package tests from the repository root; a plain run uses
+    // the package directory.
+    final local = File('assets/fonts/$name.ttf');
+    final file = local.existsSync()
+        ? local
+        : File('packages/raft_ui/assets/fonts/$name.ttf');
+    final data = file.readAsBytesSync().buffer.asByteData();
     await (FontLoader(name)..addFont(Future.value(data))).load();
   }
   if (!_cjkFont.existsSync()) return;
