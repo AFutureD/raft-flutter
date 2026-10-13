@@ -71,6 +71,11 @@ AttachmentImageStoreKey _key(String id) => AttachmentImageStoreKey(
   entry: '["$id","rev","file"]',
 );
 
+Future<List<File>> allEntryFiles(Directory root) async => [
+  await for (final e in root.list(recursive: true))
+    if (e is File) e,
+];
+
 void main() {
   late Directory root;
   late _Storage storage;
@@ -141,6 +146,35 @@ void main() {
       expect(third, isNotNull);
       await third!.dispose();
       expect((signed, storage.total), (1, 1));
+    });
+
+    test('real Poppler renders the cached PDF on a hit (Linux)', () async {
+      if (!Platform.isLinux) return;
+      final files = AttachmentPreviewFiles();
+      for (var open = 1; open <= 2; open++) {
+        final lease = await files.loadCached(
+          cache: cache,
+          key: _key('pdf'),
+          resolveUrl: () async => storage.url('/blob/r.pdf'),
+          filename: 'r.pdf',
+          expectedBytes: storage.body.length,
+          cancel: CancelToken(),
+          authorized: () => true,
+        );
+        final page = await NativePdfRenderer().render(
+          lease!.file,
+          1,
+          cancel: CancelToken(),
+          authorized: () => true,
+        );
+        expect(page.pageCount, 2);
+        expect(page.bytes.take(8), [137, 80, 78, 71, 13, 10, 26, 10]);
+        await lease.dispose();
+        expect(storage.total, 1, reason: 'open $open: one download in total');
+      }
+      // Rendering leaves no raster behind in the cache.
+      expect(await cache.entryCount(), 1);
+      expect((await allEntryFiles(root)).length, 1);
     });
 
     test('two simultaneous opens of one attachment download once', () async {

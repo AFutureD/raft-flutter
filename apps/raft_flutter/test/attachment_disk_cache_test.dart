@@ -229,23 +229,26 @@ void main() {
 
     test('when every caller cancels the download is cancelled', () async {
       final downloads = _Downloads()..gate = Completer<void>();
-      late CancelToken shared;
+      final started = Completer<CancelToken>();
       final only = CancelToken();
       final result = cache.fetchFile(
         key('a'),
         filename: 'doc.pdf',
         cancel: only,
         download: (destination, cancel, progress) {
-          shared = cancel;
+          started.complete(cancel);
           return downloads.call(destination, cancel, progress);
         },
       );
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+      final shared = await started.future;
       only.cancel();
       expect(await result, isNull);
       expect(shared.isCancelled, isTrue);
       downloads.gate!.complete();
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // The cancelled download cleans up after itself.
+      for (var i = 0; i < 100 && (await allFiles(root)).isNotEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
       expect(await cache.sizeBytes(), 0);
       expect(
         (await allFiles(root)),
