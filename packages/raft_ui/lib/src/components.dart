@@ -14,7 +14,9 @@ import 'sidebar_indicators.dart';
 
 import 'package:flutter/material.dart';
 
+import 'error_presentation.dart' show RaftToastHost;
 import 'localization.dart';
+import 'toast.dart' show RaftToastController;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -1969,6 +1971,12 @@ class _RaftComposerState extends State<RaftComposer> {
   bool presentationActive = true;
   bool initialFocusHandled = false, initialFocusQueued = false;
 
+  // A narrow-layout toast sits above this composer, never over its input and
+  // send button (see RaftToastController.avoid).
+  final toastAvoidKey = GlobalKey(debugLabel: 'composer-toast-avoid');
+  RaftToastController? toastHost;
+  bool toastAvoidActive = true;
+
   void queueInitialFocus() {
     if (initialFocusHandled || initialFocusQueued || !widget.autofocus) return;
     initialFocusQueued = true;
@@ -2295,6 +2303,8 @@ class _RaftComposerState extends State<RaftComposer> {
     controller.addListener(changed);
     widget.handle?._bind(this, insertSender);
     updateSuggestionPortal(defer: true);
+    toastHost = RaftToastHost.maybeOf(context)
+      ?..avoid(toastAvoidKey, () => mounted && toastAvoidActive);
   }
 
   @override
@@ -2426,6 +2436,7 @@ class _RaftComposerState extends State<RaftComposer> {
 
   @override
   void dispose() {
+    toastHost?.unavoid(toastAvoidKey);
     widget.handle?._release(this);
     controller.dispose();
     focus.dispose();
@@ -2668,6 +2679,8 @@ class _RaftComposerState extends State<RaftComposer> {
         !busy &&
         !composing &&
         (controller.text.trim().isNotEmpty || widget.hasAttachments);
+    // A composer under a covered route stops counting.
+    toastAvoidActive = TickerMode.valuesOf(context).enabled;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.hasBoundedWidth
@@ -2677,6 +2690,7 @@ class _RaftComposerState extends State<RaftComposer> {
           controller: suggestionPortal,
           overlayChildBuilder: (_) => suggestionPopup(recipe, width),
           child: CompositedTransformTarget(
+            key: toastAvoidKey,
             link: suggestionLink,
             // Routes touches near the 26-28dp attach / send buttons to them
             // (RaftComposerAction anchors) without moving a pixel.

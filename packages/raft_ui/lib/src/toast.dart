@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'design_primitives.dart' show RaftLayoutMetrics;
 import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
@@ -331,6 +332,39 @@ class RaftToastController extends ChangeNotifier {
   bool _dismissible = true;
   bool get dismissible => _dismissible;
 
+  // Surfaces a narrow-layout toast must clear (the composer). Registered by
+  // the surface, read by the portal each build.
+  final Map<GlobalKey, bool Function()> _avoided = {};
+
+  /// Keeps a narrow-layout toast above the box [key] is attached to while
+  /// [active] is true (a covered route's composer does not count).
+  void avoid(GlobalKey key, bool Function() active) {
+    _avoided[key] = active;
+  }
+
+  void unavoid(GlobalKey key) {
+    _avoided.remove(key);
+  }
+
+  /// Top edge, in [overlay]'s coordinates, of the highest avoided surface, or
+  /// null when none is on screen.
+  double? avoidedTop(RenderBox overlay) {
+    double? top;
+    for (final entry in _avoided.entries) {
+      final box = entry.key.currentContext?.findRenderObject();
+      if (!entry.value() ||
+          box is! RenderBox ||
+          !box.attached ||
+          !box.hasSize ||
+          !overlay.attached) {
+        continue;
+      }
+      final y = overlay.globalToLocal(box.localToGlobal(Offset.zero)).dy;
+      if (y < overlay.size.height && (top == null || y < top)) top = y;
+    }
+    return top;
+  }
+
   /// raft-ui ToastProvider's authored default is 5000ms.
   void show(
     String title, {
@@ -448,6 +482,32 @@ class _RaftToastPortalState extends State<RaftToastPortal> {
     super.dispose();
   }
 
+  /// Narrow layouts (below the Web `md` breakpoint) lift the toast above the
+  /// composer instead of over its input and send button. Web's bottom-center
+  /// viewport has no such offset; wide layouts keep it exactly. Measured from
+  /// the composer's last layout, then re-measured once the frame settles
+  /// (keyboard, a new attachment strip).
+  double composerClearance(BuildContext context) {
+    double measure() {
+      if (MediaQuery.sizeOf(context).width >=
+          RaftLayoutMetrics.desktopBreakpoint) {
+        return 0;
+      }
+      final overlay = Overlay.maybeOf(context)?.context.findRenderObject();
+      if (overlay is! RenderBox || !overlay.hasSize) return 0;
+      final top = widget.controller.avoidedTop(overlay);
+      return top == null ? 0 : overlay.size.height - top + 8;
+    }
+
+    final clearance = measure();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && context.mounted && (measure() - clearance).abs() > .5) {
+        setState(() {});
+      }
+    });
+    return clearance;
+  }
+
   @override
   Widget build(BuildContext context) => OverlayPortal(
     controller: portal,
@@ -456,7 +516,10 @@ class _RaftToastPortalState extends State<RaftToastPortal> {
       final title = widget.controller.title;
       if (title == null) return const SizedBox.shrink();
       return Positioned(
-        bottom: 16 + math.max(m.padding.bottom, m.viewInsets.bottom),
+        bottom: math.max(
+          16 + math.max(m.padding.bottom, m.viewInsets.bottom),
+          composerClearance(context),
+        ),
         left: 16 + m.padding.left,
         right: 16 + m.padding.right,
         child: Align(
