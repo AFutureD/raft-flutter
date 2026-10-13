@@ -10,6 +10,7 @@ import 'dialog_card.dart';
 import 'icons.dart';
 import 'localization.dart';
 import 'recipes/button_variants.g.dart';
+import 'shortcut_platform.dart';
 import 'system_inset.dart';
 import 'status_bar.dart';
 import 'theme.dart';
@@ -340,8 +341,11 @@ class RaftAttachmentLightbox extends StatelessWidget {
     final content = CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): onClose,
-        const SingleActivator(LogicalKeyboardKey.keyW, control: true): onClose,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true): onClose,
+        SingleActivator(
+          LogicalKeyboardKey.keyW,
+          control: !usesCommandShortcuts(),
+          meta: usesCommandShortcuts(),
+        ): onClose,
         if (onResetZoom != null) ...{
           const SingleActivator(LogicalKeyboardKey.digit0): onResetZoom!,
           const SingleActivator(LogicalKeyboardKey.numpad0): onResetZoom!,

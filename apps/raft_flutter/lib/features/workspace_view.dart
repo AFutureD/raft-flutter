@@ -78,7 +78,6 @@ import 'management_support.dart' show managementLaunch;
 import 'sender_avatar_projection.dart';
 import '../platform/app_update.dart';
 import '../platform/native_sharing.dart';
-import '../platform/shortcut_modifier.dart';
 import '../platform/native_notifications.dart';
 import '../platform/system_bars.dart';
 import '../platform/keyboard_inset_diagnostics.dart';

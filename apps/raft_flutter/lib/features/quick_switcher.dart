@@ -7,7 +7,6 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/search_memory.dart';
-import '../platform/shortcut_modifier.dart';
 import 'quick_switcher_model.dart';
 import 'resource_cards.dart';
 import 'resource_filters.dart';

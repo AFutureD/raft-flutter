@@ -7,6 +7,7 @@ import 'dialog_card.dart' show RaftShadowSet;
 import 'icons.dart';
 import 'localization.dart';
 import 'panel_layout.dart' show RaftPanelHeaderBar;
+import 'shortcut_platform.dart';
 import 'system_inset.dart';
 import 'theme.dart';
 
@@ -233,10 +234,11 @@ class _RaftAttachmentPreviewShellState
     final content = CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): widget.onClose,
-        const SingleActivator(LogicalKeyboardKey.keyW, control: true):
-            widget.onClose,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
-            widget.onClose,
+        SingleActivator(
+          LogicalKeyboardKey.keyW,
+          control: !usesCommandShortcuts(),
+          meta: usesCommandShortcuts(),
+        ): widget.onClose,
       },
       child: Focus(
         autofocus: true,

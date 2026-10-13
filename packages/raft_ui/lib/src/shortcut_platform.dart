@@ -27,3 +27,8 @@ bool primaryShortcutModifierDown([
   final command = usesCommandShortcuts(platform);
   return (control: !command, meta: command);
 }
+
+/// Source `getGlobalSearchShortcutLabel`: "⌘K" on Apple platforms, "Ctrl+K"
+/// elsewhere (`common.shortcut.ctrlK`).
+String globalSearchShortcutLabel([TargetPlatform? platform]) =>
+    usesCommandShortcuts(platform) ? '⌘K' : 'Ctrl+K';

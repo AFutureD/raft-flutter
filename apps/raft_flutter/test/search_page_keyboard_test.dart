@@ -252,4 +252,20 @@ void main() {
     expect(find.text('最新'), findsOneWidget);
     expect(find.text('最近'), findsNothing);
   });
+
+  for (final platform in [
+    (TargetPlatform.macOS, '⌘K'),
+    (TargetPlatform.linux, 'Ctrl+K'),
+    (TargetPlatform.windows, 'Ctrl+K'),
+  ]) {
+    testWidgets(
+      'the field hint shows ${platform.$2} on ${platform.$1.name}',
+      (t) async {
+        await mount(t);
+        final field = t.widget<TextField>(find.byType(TextField).first);
+        expect(field.decoration!.hintText, endsWith(platform.$2));
+      },
+      variant: TargetPlatformVariant.only(platform.$1),
+    );
+  }
 }

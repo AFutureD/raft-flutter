@@ -433,8 +433,11 @@ class _MessageImageReviewState extends State<MessageImageReview> {
     // the backdrop close it; none of them while the export runs.
     child: CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyW, control: true): close,
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true): close,
+        SingleActivator(
+          LogicalKeyboardKey.keyW,
+          control: !usesCommandShortcuts(),
+          meta: usesCommandShortcuts(),
+        ): close,
       },
       child: Focus(
         autofocus: true,

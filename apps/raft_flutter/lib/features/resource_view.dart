@@ -50,7 +50,6 @@ import 'saved_sidebar_entry.dart';
 import 'reading_anchor.dart';
 import '../platform/content_links.dart';
 import '../platform/interaction_timing.dart';
-import '../platform/shortcut_modifier.dart';
 
 class ResourceView extends StatefulWidget {
   const ResourceView({
@@ -2470,11 +2469,13 @@ class _ResourceViewState extends State<ResourceView> {
           );
     return enabledActivity
         ? CallbackShortcuts(
+            // Activity find: Cmd+F on Apple platforms, Ctrl+F elsewhere.
             bindings: {
-              const SingleActivator(LogicalKeyboardKey.keyF, control: true):
-                  showActivitySearch,
-              const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
-                  showActivitySearch,
+              SingleActivator(
+                LogicalKeyboardKey.keyF,
+                control: !usesCommandShortcuts(),
+                meta: usesCommandShortcuts(),
+              ): showActivitySearch,
             },
             child: body,
           )
@@ -3151,7 +3152,7 @@ class _ResourceViewState extends State<ResourceView> {
             hint: mobile
                 ? raftText(context, 'Search channels, DMs, messages…')
                 : '${raftText(context, 'Search channels, DMs, messages…')}   '
-                      '${usesCommandShortcuts() ? '⌘K' : 'Ctrl+K'}',
+                      '${globalSearchShortcutLabel()}',
             clearLabel: raftText(context, 'Clear search'),
             showEscape: !mobile,
             onClear: () {

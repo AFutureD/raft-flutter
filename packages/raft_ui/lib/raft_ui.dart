@@ -14,6 +14,7 @@ export 'src/resource_rows.dart';
 export 'src/activity_scope.dart';
 export 'src/search_result_surface.dart';
 export 'src/search_input.dart';
+export 'src/shortcut_platform.dart';
 export 'src/form_dialog.dart';
 
 export 'src/collapsible.dart';
