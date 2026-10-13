@@ -148,10 +148,14 @@ Ad-hoc signing (no Developer ID, not notarized). From Sparkle's source
   manager strips `com.apple.quarantine` from the extracted update
   (`SUFileManager`), so the replaced app should not trigger "Open Anyway" again.
   Only the first manual install from the browser is quarantined.
-- The replaced app must be where the user can write, normally `/Applications`
-  (Sparkle asks for an administrator password if not). An app still sitting in
-  Downloads or running from App Translocation cannot be updated: the checklist
-  tells testers to move it first and `READ-ME-FIRST.txt` says so.
+- The replaced app must be where the user can write. `/Applications` is normal,
+  but any writable folder works: CodexMac updated a copy extracted in
+  `~/Downloads` in place (2026-10-13, build 500001 → 500002). Updating fails only
+  when the app is on a read-only volume, in a folder the user cannot write
+  (Sparkle then asks for an administrator password), or running under App
+  Translocation (a quarantined app launched from where it was extracted, which
+  macOS runs from a read-only random path). Moving it to `/Applications` avoids
+  all three, which is why `READ-ME-FIRST.txt` still recommends it.
 - **Largest risk: Keychain.** Each update has a new ad-hoc `cdhash`, so macOS may
   re-prompt for keychain access to the legacy-keychain session item created by the
   previous build (see [macos-evidence.md](macos-evidence.md); Data Protection
@@ -208,8 +212,9 @@ Unit tests here mock `codesign`/`ditto`; none of this has run on macOS.
    unchanged from a fresh install; `xattr -l Raft.app` has no `com.apple.quarantine`.
 7. Keychain: log in on N, update to N+1, record whether macOS prompts for keychain
    access and whether denying it logs the user out (the risk above).
-8. Running from `~/Downloads` or from the extracted ZIP folder: the failure must
-   be understandable, and the release-page fallback must be reachable.
+8. Writable `~/Downloads` copy updates in place (verified). A translocated or
+   read-only copy: the failure must be understandable, and the release-page
+   fallback must be reachable.
 9. Confirm the zip layout is accepted (see Archive) and that the ZIP still opens
    normally for first-time users.
 
