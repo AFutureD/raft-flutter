@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../../tool/testing/system_fonts.dart';
+import '../support/glyph_clip_scan.dart';
 
 import 'dart:ui' as ui;
 
@@ -316,6 +317,17 @@ Future<Map<String, dynamic>> captureParityCase(
   if (mapping.interact != null) await mapping.interact!(t, ctx);
   await t.pump(mapping.settle);
   await t.pump(const Duration(milliseconds: 16));
+  // Opt-in audit (see support/glyph_clip_scan.dart): append every clip that
+  // sits inside a paragraph's glyph ink to this JSON-lines file.
+  final scanFile = Platform.environment['PARITY_GLYPH_CLIP_SCAN'];
+  if (scanFile != null) {
+    for (final f in scanGlyphClips(t)) {
+      File(scanFile).writeAsStringSync(
+        '${json.encode({'case': visualCase['id'], ...f.toJson()})}\n',
+        mode: FileMode.append,
+      );
+    }
+  }
   // SVG compilation uses a real isolate. Advancing the test's fake clock
   // cannot finish it; await the renderer's actual decode before capturing.
   await t.runAsync(
