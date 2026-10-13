@@ -37,14 +37,30 @@ class MemorySessionStore implements SessionStore {
 class RaftApiException implements Exception {
   const RaftApiException(this.message, {this.status, this.retryAfter})
     : details = const {},
-      structured = false;
+      structured = false,
+      staleScope = false;
+
+  /// The request was fenced because the account or workspace it was started
+  /// under changed (a server switch, a deletion, a sign-out) before it
+  /// finished. It did not fail: its result is simply no longer wanted, so no
+  /// surface should present it as an error.
+  const RaftApiException.staleScope([
+    this.message = 'The account or workspace changed.',
+  ]) : status = null,
+       retryAfter = null,
+       details = const {},
+       structured = false,
+       staleScope = true;
   RaftApiException.response(
     this.message, {
     this.status,
     Map? body,
     this.retryAfter,
   }) : details = _errorDetails(body),
-       structured = body != null && body['error'] is String;
+       structured = body != null && body['error'] is String,
+       staleScope = false;
+
+  final bool staleScope;
 
   /// The server (or this client's own pacing) answered 429: the request was
   /// not processed and may be repeated after [retryAfter].
@@ -1055,7 +1071,7 @@ class RaftClient {
               (_closed ||
                   authentication != _authenticationGeneration ||
                   workspace != (workspaceScoped ? _generation : 0))) {
-            throw const RaftApiException('The account or workspace changed.');
+            throw const RaftApiException.staleScope();
           }
         }
         return await _send(
@@ -1088,7 +1104,7 @@ class RaftClient {
         if (_closed ||
             authentication != _authenticationGeneration ||
             workspace != (workspaceScoped ? _generation : 0)) {
-          throw const RaftApiException('The account or workspace changed.');
+          throw const RaftApiException.staleScope();
         }
       }
     }
@@ -1135,7 +1151,7 @@ class RaftClient {
       if (_closed ||
           authentication != _authenticationGeneration ||
           requestGeneration != generation()) {
-        throw const RaftApiException('The account or workspace changed.');
+        throw const RaftApiException.staleScope();
       }
     }
     final sentAccessToken = authorized ? _session?.accessToken : null;
@@ -1165,7 +1181,7 @@ class RaftClient {
       if (authorized &&
           (authentication != _authenticationGeneration ||
               requestGeneration != generation() && !exit))
-        throw const RaftApiException(
+        throw const RaftApiException.staleScope(
           'The account or workspace changed. Please retry.',
         );
       return response.data;
@@ -1173,7 +1189,7 @@ class RaftClient {
       if (authorized &&
           (authentication != _authenticationGeneration ||
               requestGeneration != generation() && !exit)) {
-        throw const RaftApiException(
+        throw const RaftApiException.staleScope(
           'The account or workspace changed. Please retry.',
         );
       }
@@ -1184,7 +1200,7 @@ class RaftClient {
           _session != null) {
         if (requestGeneration != generation() ||
             authentication != _authenticationGeneration) {
-          throw const RaftApiException('The account or workspace changed.');
+          throw const RaftApiException.staleScope();
         }
         // Another caller may already have rotated the credentials while this
         // request was in flight: retry with them instead of rotating again.
@@ -1200,7 +1216,7 @@ class RaftClient {
         }
         if (requestGeneration != generation() ||
             authentication != _authenticationGeneration)
-          throw const RaftApiException('The account or workspace changed.');
+          throw const RaftApiException.staleScope();
         return _send(
           method,
           path,

@@ -529,6 +529,9 @@ class _RaftChatViewState extends State<RaftChatView>
     if (!selection.active) {
       copiedSelectionTimer?.cancel();
       copiedSelectionMarkdown = false;
+      // The failure belonged to the selection that just ended; entering
+      // selection mode again must not show it.
+      selectionError = null;
     }
     widget.selectionHandle?.update(selection.active, selection.exit);
     // A hidden retained page repaints nothing; it rebuilds when shown again.
@@ -3549,11 +3552,9 @@ class _RaftChatViewState extends State<RaftChatView>
                     ),
               onSendBlocked: w.conversationPaused
                   ? null
-                  : () => w.setComposerError(
-                      composerSendBlockNotice(
-                        context,
-                        w.uploads(thread: widget.thread),
-                      ),
+                  : () => raiseComposerSendBlockNotice(
+                      context,
+                      w,
                       thread: widget.thread,
                     ),
               hint: widget.thread

@@ -6,6 +6,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_sync/raft_sync.dart';
 
 import 'announcement_store.dart';
+import 'cause_notice.dart';
 import 'message_task_cache.dart';
 import 'message_translation_store.dart';
 import 'thread_agent_followers.dart';
@@ -1437,6 +1438,7 @@ class WorkspaceController extends ChangeNotifier {
       highlightedMessageId = null;
       channelGeneration++;
       threadGeneration++;
+      error = null;
       ledger.switchServer(null);
       readState.reset();
       resourceSnapshots.clear();
@@ -1826,6 +1828,7 @@ class WorkspaceController extends ChangeNotifier {
     _attachmentUrls.synchronize(attachmentImageScope);
     _playerSessions.synchronize(attachmentImageScope);
     if (!_disposed) {
+      _syncScopeVisits();
       _ensureSyncIdentity();
       super.notifyListeners();
     }
@@ -1930,29 +1933,77 @@ class WorkspaceController extends ChangeNotifier {
         thread: thread,
       ).every((u) => u.id != null || u.queued && u.error == null);
 
-  /// Web MessageInput composer error banner per draft scope.
-  final Map<String, String> _composerErrors = {};
-  Map<String, String> get composerErrors =>
-      presentationSource?.composerErrors ?? _composerErrors;
-  String? composerErrorFor({bool thread = false}) =>
-      composerErrors[draftScope(thread: thread)];
+  /// Web MessageInput composer error banner per draft scope. Each message is a
+  /// [CauseNotice] bound to the composer visit that raised it (Web resets the
+  /// banner when the channel changes) and, for send blocks, to the upload
+  /// state that caused it, so it cannot outlive its cause. The store lives on
+  /// the session source; the visit is this controller's.
+  final CauseNotices<String> _composerNotices = CauseNotices<String>();
+  String? composerErrorFor({bool thread = false}) {
+    final scope = draftScope(thread: thread);
+    return scope == null
+        ? null
+        : (presentationSource?._composerNotices ?? _composerNotices)
+              .messageFor(scope);
+  }
 
   /// Web MessageInput `setError` outside a file selection (for example the
-  /// folder notices of a drop). Null clears the banner.
-  void setComposerError(String? message, {bool thread = false}) {
-    final source = presentationSource;
-    if (source != null) {
-      source.setComposerError(message, thread: thread);
-      return;
-    }
+  /// folder notices of a drop). Null clears the banner. [whileTrue] is the
+  /// cause: the banner disappears the moment it turns false.
+  void setComposerError(
+    String? message, {
+    bool thread = false,
+    bool Function()? whileTrue,
+  }) {
     final scope = draftScope(thread: thread);
-    if (scope == null || composerErrors[scope] == message) return;
-    if (message == null) {
-      composerErrors.remove(scope);
-    } else {
-      composerErrors[scope] = message;
+    if (scope == null) return;
+    if (_raiseComposerNotice(scope, message, whileTrue: whileTrue)) {
+      notifyListeners();
     }
-    notifyListeners();
+  }
+
+  bool _raiseComposerNotice(
+    String scope,
+    String? message, {
+    bool Function()? whileTrue,
+  }) {
+    final visit = _visitOf(scope);
+    return (presentationSource?._composerNotices ?? _composerNotices).raise(
+      scope,
+      message,
+      whileTrue: () => visit == _visitOf(scope) && (whileTrue?.call() ?? true),
+    );
+  }
+
+  /// Composer visits: a draft scope is "visited" from the moment it becomes
+  /// the open channel / thread until another one replaces it. Notices record
+  /// the visit they were raised in and read as gone in a later one (Web
+  /// MessageInput resets its banners on channel change).
+  final Map<String, int> _scopeVisits = {};
+  String? _visitedChannelScope, _visitedThreadScope;
+
+  int _visitOf(String scope) {
+    _syncScopeVisits();
+    return _scopeVisits[scope] ?? 0;
+  }
+
+  void _syncScopeVisits() {
+    final channelScope = draftScope(), threadScope = draftScope(thread: true);
+    if (channelScope != _visitedChannelScope) {
+      _leaveScope(_visitedChannelScope);
+      _visitedChannelScope = channelScope;
+    }
+    if (threadScope != _visitedThreadScope) {
+      _leaveScope(_visitedThreadScope);
+      _visitedThreadScope = threadScope;
+    }
+  }
+
+  void _leaveScope(String? scope) {
+    if (scope == null) return;
+    _scopeVisits[scope] = (_scopeVisits[scope] ?? 0) + 1;
+    // Web resets the delivery warnings with the channel.
+    (presentationSource?.sendWarnings ?? sendWarnings).remove(scope);
   }
 
   /// Shared content hand-off (docs/sharing-evidence.md): the composer opens
@@ -2224,11 +2275,7 @@ class WorkspaceController extends ChangeNotifier {
           'largest': _bytesLabel(oversize.reduce((a, b) => a > b ? a : b)),
         }),
     ];
-    if (parts.isEmpty) {
-      composerErrors.remove(scope);
-    } else {
-      composerErrors[scope] = parts.join(' ');
-    }
+    _raiseComposerNotice(scope, parts.isEmpty ? null : parts.join(' '));
     if (list.isEmpty) _uploads.remove(scope);
     notifyListeners();
     // One transfer at a time, each fenced by the authority the selection was
@@ -2575,7 +2622,25 @@ class WorkspaceController extends ChangeNotifier {
   /// target's context failed to load and the latest window replaced it.
   /// `notFound` -> ChatPanel's "Message not found" banner; `beyondHistory` ->
   /// the plan history-limit banner. Cleared by the next channel open or jump.
-  MessageContextLoadError? contextLoadError;
+  /// Bound to the channel and server it was raised for: it reads as null in
+  /// any other one (a channel replaced without a re-open, a server switch).
+  MessageContextLoadError? get contextLoadError {
+    if (_contextLoadError != null &&
+        (_contextLoadChannelId != channel?.id ||
+            _contextLoadServerId != server?.id)) {
+      _contextLoadError = null;
+    }
+    return _contextLoadError;
+  }
+
+  set contextLoadError(MessageContextLoadError? value) {
+    _contextLoadError = value;
+    _contextLoadChannelId = channel?.id;
+    _contextLoadServerId = server?.id;
+  }
+
+  MessageContextLoadError? _contextLoadError;
+  String? _contextLoadChannelId, _contextLoadServerId;
   final navigation = WorkspaceNavigation();
   String _unboundSection = 'chat';
   String? _navigationAuthority;
@@ -2772,6 +2837,16 @@ class WorkspaceController extends ChangeNotifier {
 
   static bool _rateLimited(Object e) => e is RaftApiException && e.rateLimited;
 
+  /// A background refresh that failed is only an error worth showing when its
+  /// scope is still the open one: a rate limit, or a fence tripped because the
+  /// account or workspace changed (a deleted or left server), is not.
+  static bool _quietFailure(Object e) => _rateLimited(e) || _staleScope(e);
+
+  /// A request fenced by an account or workspace change: its owner moved on,
+  /// so it reports nothing (also for the user's own actions, which are
+  /// otherwise reported, rate limits included).
+  static bool _staleScope(Object e) => e is RaftApiException && e.staleScope;
+
   void setError(String? value) {
     final source = presentationSource;
     if (source != null) {
@@ -2961,7 +3036,7 @@ class WorkspaceController extends ChangeNotifier {
       );
       if (servers.isNotEmpty) await selectServer(servers.first);
     } catch (e) {
-      error = userErrorText(e, where: 'load servers');
+      if (!_staleScope(e)) error = userErrorText(e, where: 'load servers');
     } finally {
       loading = false;
       notifyListeners();
@@ -2991,6 +3066,9 @@ class WorkspaceController extends ChangeNotifier {
     }
     if (_revokedServers.contains(next.id)) return;
     server = next;
+    // A workspace error belongs to the server it was raised in (it is a toast
+    // not yet shown when no workspace view was mounted to consume it).
+    error = null;
     _burstAt.clear();
     if (mobileNavigation) section = 'home';
     if (!canVisitSection(section)) section = 'chat';
@@ -3852,7 +3930,7 @@ class WorkspaceController extends ChangeNotifier {
     } catch (e) {
       // A rate-limited background refresh is not an error to show: the held
       // lists stay, and the next refresh (after Retry-After) catches up.
-      if (generation == ledger.generation && !_disposed && !_rateLimited(e)) {
+      if (generation == ledger.generation && !_disposed && !_quietFailure(e)) {
         setError(userErrorText(e, where: 'refresh channels'));
       }
     }
@@ -4413,7 +4491,12 @@ class WorkspaceController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (e) {
-      if (!_disposed && !_rateLimited(e)) {
+      // A refresh superseded by a newer one, or outrun by a server switch
+      // (deleting the open server selects the next), is not a failure.
+      if (!_disposed &&
+          !_quietFailure(e) &&
+          generation == client.generation &&
+          request == _membershipRequest) {
         setError(userErrorText(e, where: 'refresh servers'));
       }
     }
@@ -5144,6 +5227,11 @@ class WorkspaceController extends ChangeNotifier {
     );
     (_pendingSends[scope] ??= []).add(pending);
     _localRandomIds.add(sentId);
+    // Web MessageInput clears its banner and the previous send's delivery
+    // warnings once a send is accepted, so a notice about the old draft (a
+    // blocked send, a skipped file) cannot outlive it.
+    (presentationSource?._composerNotices ?? _composerNotices).clear(scope);
+    (presentationSource?.sendWarnings ?? sendWarnings).remove(scope);
     if (selectedUploads.isNotEmpty) {
       _uploads[scope]?.removeWhere(selectedUploads.contains);
       if (_uploads[scope]?.isEmpty ?? false) _uploads.remove(scope);
@@ -5950,7 +6038,9 @@ class WorkspaceController extends ChangeNotifier {
       await refreshChannels();
       await selectChannel(channels.firstWhere((next) => next.id == c.id));
     } catch (e) {
-      setError(userErrorText(e, where: 'join channel'));
+      if (!_disposed && !_staleScope(e)) {
+        setError(userErrorText(e, where: 'join channel'));
+      }
     }
   }
 
@@ -5963,7 +6053,9 @@ class WorkspaceController extends ChangeNotifier {
       await command('POST', '/channels/$id/join');
       await refreshChannels();
     } catch (e) {
-      setError(userErrorText(e, where: 'join thread parent channel'));
+      if (!_disposed && !_staleScope(e)) {
+        setError(userErrorText(e, where: 'join thread parent channel'));
+      }
     }
   }
 

@@ -73,43 +73,70 @@ Widget? composerAttachmentsFor(
   );
 }
 
-/// Web `message.composer.*` title for the send action while files are not
-/// sendable, or null when none applies.
-String? composerSendBlockTitle(BuildContext context, List<UploadDraft> drafts) {
-  if (drafts.any((d) => d.checking)) {
-    return raftText(context, 'Checking attachments…');
-  }
+/// Why the files of a draft keep Send from going out, in Web's precedence.
+enum ComposerSendBlock { checking, uploading, failed }
+
+/// The block [drafts] impose on sending now, or null when they allow it. The
+/// send title, the blocked-send notice and the notice's lifetime all read this
+/// one derivation, so they cannot disagree.
+ComposerSendBlock? composerSendBlockOf(List<UploadDraft> drafts) {
+  if (drafts.any((d) => d.checking)) return ComposerSendBlock.checking;
   if (drafts.any((d) => d.error == null && d.id == null && !d.queued)) {
-    return raftText(context, 'Uploading attachments…');
+    return ComposerSendBlock.uploading;
   }
-  if (drafts.any((d) => d.error != null)) {
-    return raftText(context, 'Retry or remove failed attachments');
-  }
+  if (drafts.any((d) => d.error != null)) return ComposerSendBlock.failed;
   return null;
 }
+
+/// Web `message.composer.*` title for the send action while files are not
+/// sendable, or null when none applies.
+String? composerSendBlockTitle(BuildContext context, List<UploadDraft> drafts) =>
+    switch (composerSendBlockOf(drafts)) {
+      ComposerSendBlock.checking => raftText(context, 'Checking attachments…'),
+      ComposerSendBlock.uploading => raftText(
+        context,
+        'Uploading attachments…',
+      ),
+      ComposerSendBlock.failed => raftText(
+        context,
+        'Retry or remove failed attachments',
+      ),
+      null => null,
+    };
 
 /// Web `handleSubmit`: the notice a blocked send leaves in the banner.
 String? composerSendBlockNotice(
   BuildContext context,
   List<UploadDraft> drafts,
-) {
-  if (drafts.any((d) => d.checking)) {
-    return raftText(
-      context,
-      'Wait for attachment checks to finish before sending.',
-    );
-  }
-  if (drafts.any((d) => d.error == null && d.id == null && !d.queued)) {
-    return raftText(
-      context,
-      'Wait for attachments to finish uploading before sending.',
-    );
-  }
-  if (drafts.any((d) => d.error != null)) {
-    return raftText(
-      context,
-      'Remove or retry failed attachments before sending.',
-    );
-  }
-  return null;
+) => switch (composerSendBlockOf(drafts)) {
+  ComposerSendBlock.checking => raftText(
+    context,
+    'Wait for attachment checks to finish before sending.',
+  ),
+  ComposerSendBlock.uploading => raftText(
+    context,
+    'Wait for attachments to finish uploading before sending.',
+  ),
+  ComposerSendBlock.failed => raftText(
+    context,
+    'Remove or retry failed attachments before sending.',
+  ),
+  null => null,
+};
+
+/// Raises the blocked-send notice for the composer of [thread]. The notice is
+/// derived from the uploads that caused it: it disappears when they finish,
+/// are removed or retried into a different state, when the draft is sent, and
+/// when the channel changes - nothing needs to clear it.
+void raiseComposerSendBlockNotice(
+  BuildContext context,
+  WorkspaceController w, {
+  required bool thread,
+}) {
+  final block = composerSendBlockOf(w.uploads(thread: thread));
+  w.setComposerError(
+    composerSendBlockNotice(context, w.uploads(thread: thread)),
+    thread: thread,
+    whileTrue: () => composerSendBlockOf(w.uploads(thread: thread)) == block,
+  );
 }
