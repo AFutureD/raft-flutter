@@ -49,10 +49,16 @@ dependencies:
   html: ^0.15.6
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
-  # Umbrella of the per-platform libmpv builds (Android, iOS, macOS, Windows,
-  # Linux); the same set miraa-app ships. Linux additionally bundles its own
-  # libmpv (tool/prepare-media-linux).
-  media_kit_libs_video: ^1.0.7
+  # Windows and Linux play through media_kit/libmpv with bundled FFmpeg (system
+  # codecs there are optional or missing: Windows Media Foundation needs the
+  # HEVC extension, stock Fedora GStreamer has no H.264/HEVC). Android, iOS and
+  # macOS use the platform player through video_player (ExoPlayer, AVPlayer),
+  # so only the Windows and Linux libmpv builds are depended on - never the
+  # media_kit_libs_video umbrella, which would bundle libmpv on every platform.
+  # Linux additionally bundles its own libmpv (tool/prepare-media-linux).
+  media_kit_libs_linux: ^1.2.1
+  media_kit_libs_windows_video: ^1.0.11
+  video_player: ^2.11.1
   flutter_svg: ^2.3.0
   desktop_drop:
     path: ../../packages/desktop_drop
@@ -68,5 +74,6 @@ dev_dependencies:
   vm_service: any
   flutter_lints: ^6.0.0
   file_selector_platform_interface: ^2.7.0
+  video_player_platform_interface: ^6.9.0
 flutter:
   uses-material-design: true

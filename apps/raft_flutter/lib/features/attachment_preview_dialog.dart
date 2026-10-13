@@ -7,6 +7,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
+import '../platform/attachment_player_factory.dart';
 import '../platform/attachment_preview_files.dart';
 import '../platform/native_sharing.dart';
 import '../data/attachment_transfer.dart';
@@ -274,7 +275,7 @@ class _AttachmentPreviewDialogState extends State<AttachmentPreviewDialog>
         } else {
           player =
               (widget.playerFactory ??
-              () => NativeAttachmentPlayer(video: kind == 'video'))();
+              () => createAttachmentPlayer(video: kind == 'video'))();
           playbackEvents = player!.changes.listen((value) {
             if (!current) return;
             setState(() {

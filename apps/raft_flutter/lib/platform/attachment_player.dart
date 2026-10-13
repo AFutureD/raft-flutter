@@ -39,6 +39,8 @@ abstract interface class AttachmentPlayer {
   Future<void> dispose();
 }
 
+/// The media_kit/libmpv player, for Windows and Linux only (see
+/// `createAttachmentPlayer`); the other platforms use their system player.
 class NativeAttachmentPlayer implements AttachmentPlayer {
   /// [maxVideoSize] bounds the decoded picture on desktop (the surface is
   /// resized to the video's aspect inside it): an inline card never needs a
@@ -62,17 +64,12 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     controller = video
         ? VideoController(
             player,
-            configuration: Platform.isAndroid
-                ? const VideoControllerConfiguration(
-                    vo: 'mediacodec_embed',
-                    hwdec: 'mediacodec',
-                  )
-                // Linux keeps the CPU renderer (no dependency on the host's
-                // GL stack, proven by the release evidence). macOS, iOS and
-                // Windows use media_kit's default GPU texture, as miraa-app
-                // does; forcing software there made 30 fps swscale the
-                // desktop default.
-                : Platform.isLinux
+            // Linux keeps the CPU renderer (no dependency on the host's GL
+            // stack, proven by the release evidence). Windows uses media_kit's
+            // default GPU texture, as miraa-app does; forcing software there
+            // made 30 fps swscale the desktop default. Android, iOS and macOS
+            // never get here (see createAttachmentPlayer).
+            configuration: Platform.isLinux
                 ? VideoControllerConfiguration(
                     enableHardwareAcceleration: false,
                     // The texture path copies frames in software anyway. mpv's

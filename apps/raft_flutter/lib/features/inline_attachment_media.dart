@@ -6,6 +6,7 @@ import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import '../platform/attachment_player.dart';
+import '../platform/attachment_player_factory.dart';
 import '../platform/attachment_preview_files.dart';
 import '../platform/inline_media_files.dart';
 
@@ -154,7 +155,7 @@ mixin InlineMediaLoader<T extends StatefulWidget> on State<T> {
       player =
           (playerFactoryOverride ??
           InlineMediaTestHooks.playerFactory ??
-          () => NativeAttachmentPlayer(
+          () => createAttachmentPlayer(
             video: wantsVideo,
             maxVideoSize: maxVideoSize,
             transparentVideo: transparentVideo,
