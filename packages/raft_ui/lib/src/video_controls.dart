@@ -80,10 +80,20 @@ class RaftVideoOverlay extends StatefulWidget {
     this.onOpen,
     this.onDownload,
     this.onFullscreen,
+    this.onSurfaceTap,
+    this.controlsInset = 0,
   });
   final Widget child;
   final String filename;
   final List<Widget> extra;
+
+  /// Replaces the surface tap (play / pause, or the bar on a playing touch
+  /// video): the media browser's phone page toggles its chrome with it and
+  /// starts playback only from the Play button and the bar.
+  final VoidCallback? onSurfaceTap;
+
+  /// Space kept free under the control bar (the browser's strip).
+  final double controlsInset;
 
   /// The picture reacts to clicks (idle, loading or ready: a tap while the
   /// player is prepared is queued by the caller); false when failed.
@@ -206,6 +216,10 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
   }
 
   void surfaceTap() {
+    if (widget.onSurfaceTap != null) {
+      widget.onSurfaceTap!();
+      return;
+    }
     if (touch && widget.ready && widget.playing) {
       if (barTapped) {
         barTimer?.cancel();
@@ -268,25 +282,31 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
               ),
             if (showCenterPlay)
               Center(
+                // The browser's phone page has no tap-to-play surface: the
+                // Play button itself takes the tap.
                 child: IgnorePointer(
-                  child: Container(
-                    key: const Key('inline-video-play'),
-                    width: 52,
-                    height: 52,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: .6),
-                      shape: t.brutal ? BoxShape.rectangle : BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .9),
-                        width: t.brutal ? 2 : 1,
+                  ignoring: widget.onSurfaceTap == null,
+                  child: GestureDetector(
+                    onTap: widget.onTogglePlay,
+                    child: Container(
+                      key: const Key('inline-video-play'),
+                      width: 52,
+                      height: 52,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .6),
+                        shape: t.brutal ? BoxShape.rectangle : BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .9),
+                          width: t.brutal ? 2 : 1,
+                        ),
                       ),
-                    ),
-                    child: const RaftIcon(
-                      RaftGlyph.play,
-                      size: 22,
-                      color: Colors.white,
-                      filled: true,
+                      child: const RaftIcon(
+                        RaftGlyph.play,
+                        size: 22,
+                        color: Colors.white,
+                        filled: true,
+                      ),
                     ),
                   ),
                 ),
@@ -305,7 +325,7 @@ class _RaftVideoOverlayState extends State<RaftVideoOverlay> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 0,
+                bottom: widget.controlsInset,
                 // Translucent: the bar's box is 112 px tall and, on a phone-sized
                 // card (~170 px), reaches past the middle of the picture. An
                 // opaque region there swallowed taps (it has no recognizer) and

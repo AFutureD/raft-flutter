@@ -8,11 +8,15 @@ import 'package:raft_ui/raft_ui.dart';
 import '../data/attachment_image_repository.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_files.dart';
+import '../platform/attachment_player.dart';
 import '../platform/native_sharing.dart';
 import 'attachment_image_loader.dart';
+import 'attachment_preview_dialog.dart' show HdrDetector;
 import 'attachment_transfers.dart';
 import 'media_image_page.dart';
+import 'inline_attachment_media.dart' show InlineMediaTestHooks;
 import 'media_items.dart';
+import 'media_video_page.dart';
 
 /// The media browser of a message (Web `ImageLightbox`, extended): every
 /// previewable image of the message, arrows / ArrowLeft / ArrowRight / swipe
@@ -45,6 +49,9 @@ class MediaBrowser extends StatefulWidget {
     this.openerPreviewFailed = false,
     this.progressRoute,
     this.onShowInMessage,
+    this.onNetworkSettings,
+    this.playerFactory,
+    this.hdrDetector,
   });
   final WorkspaceController controller;
   final AttachmentFiles files;
@@ -71,6 +78,14 @@ class MediaBrowser extends StatefulWidget {
   /// The dialog that shows a picker download's progress.
   final AttachmentProgressRouteBuilder? progressRoute;
 
+  /// Settings > Network, offered by a video that failed because of the
+  /// connection or a proxy (closes the browser first).
+  final VoidCallback? onNetworkSettings;
+
+  /// Replace the platform player and the HDR probe (tests).
+  final AttachmentPlayer Function()? playerFactory;
+  final HdrDetector? hdrDetector;
+
   /// "Show in message": closes the browser and scrolls the chat to the
   /// message. Null leaves the menu entry out.
   final VoidCallback? onShowInMessage;
@@ -82,12 +97,16 @@ class MediaBrowser extends StatefulWidget {
   State<MediaBrowser> createState() => MediaBrowserState();
 }
 
-class MediaBrowserState extends State<MediaBrowser> {
+class MediaBrowserState extends State<MediaBrowser>
+    with WidgetsBindingObserver {
   late int index = widget.initialIndex.clamp(0, widget.items.length - 1);
   late final PageController pages = PageController(initialPage: index);
   final zooms = <int, TransformationController>{};
   final pageKeys = <int, GlobalKey<AttachmentLightboxImageState>>{};
   final _transfers = <int, AttachmentTransfers>{};
+
+  /// The player lifecycle of every video page that was built.
+  final stages = <int, MediaVideoStage>{};
   final _thumbLeases = <int, WorkspaceAttachmentImageLease>{};
   final _thumbs = <int, ImageProvider>{};
   final _preloads = <int, WorkspaceAttachmentImageLease>{};
@@ -115,7 +134,33 @@ class MediaBrowserState extends State<MediaBrowser> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadThumbnails());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadThumbnails();
+      if (items[index].isVideo) stageFor(index).enter();
+    });
+  }
+
+  /// A video page owns one player lifecycle; it exists as soon as the page is
+  /// built and prepares only once it is entered and has rested.
+  MediaVideoStage stageFor(int i) => stages.putIfAbsent(
+    i,
+    () => MediaVideoStage(
+      controller: w,
+      metadata: item(i),
+      authorized: widget.authorized,
+      channelId: ownerChannel(i),
+      playerFactory: widget.playerFactory ?? InlineMediaTestHooks.playerFactory,
+      hdrDetector: widget.hdrDetector,
+    ),
+  );
+
+  /// Audio stops when the app goes to the background (and does not resume).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    final p = stages[index]?.player;
+    if (p != null) unawaited(p.pause().catchError((Object _) {}));
   }
 
   /// One zoom / pan state per page; every one is disposed with the viewer.
@@ -137,7 +182,7 @@ class MediaBrowserState extends State<MediaBrowser> {
       sharing: widget.sharing,
       metadata: item(i),
       ownerChannel: ownerChannel(i),
-      isImage: true,
+      isImage: !items[i].isVideo,
       context: () => mounted ? context : null,
       scope: () => (
         alive: () => mounted && !_disposed,
@@ -213,7 +258,7 @@ class MediaBrowserState extends State<MediaBrowser> {
     if (!mounted || _disposed || !widget.authorized()) return;
     final wanted = {
       for (final n in [index - 1, index + 1])
-        if (n >= 0 && n < items.length) n,
+        if (n >= 0 && n < items.length && !items[n].isVideo) n,
     };
     for (final stale
         in _preloads.keys.where((k) => !wanted.contains(k)).toList()) {
@@ -264,10 +309,12 @@ class MediaBrowserState extends State<MediaBrowser> {
   void _onPageChanged(int next) {
     // Web: zoom and pan reset on prev / next.
     zooms[index]?.value = Matrix4.identity();
+    stages[index]?.leave();
     setState(() {
       index = next;
       zoomed = false;
     });
+    if (items[next].isVideo) stageFor(next).enter();
     final page = _currentPage;
     if (page != null && (page.full != null || page.failed)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _preloadNeighbours());
@@ -306,6 +353,32 @@ class MediaBrowserState extends State<MediaBrowser> {
 
   void toggleChrome() => chrome.value = !chrome.value;
 
+  /// Shift + arrows seek the video page by [delta] (plain arrows page).
+  void _seekBy(Duration delta) {
+    final stage = stages[index];
+    if (stage == null || stage.player == null) return;
+    final now = stage.player!.playback;
+    final to = now.position + delta;
+    final end = now.duration;
+    unawaited(
+      stage.seek(
+        to < Duration.zero
+            ? Duration.zero
+            : (end > Duration.zero && to > end ? end : to),
+      ),
+    );
+  }
+
+  double _mutedFrom = 100;
+
+  void _toggleMute() {
+    final stage = stages[index];
+    if (stage == null || stage.player == null) return;
+    final volume = stage.player!.playback.volume;
+    if (volume > 0) _mutedFrom = volume;
+    unawaited(stage.setVolume(volume > 0 ? 0 : _mutedFrom));
+  }
+
   /// Keyboard and accessibility zoom of the current page.
   void zoomStep(double factor) =>
       _currentPage?.surfaceKey.currentState?.zoomStep(factor);
@@ -315,7 +388,10 @@ class MediaBrowserState extends State<MediaBrowser> {
   Future<void> _menu(Offset at, {bool full = false}) async {
     if (!widget.authorized()) return;
     final meta = item(index);
-    final canSave = widget.files.gallerySupported && !attachmentIsSvg(meta);
+    final canSave =
+        !items[index].isVideo &&
+        widget.files.gallerySupported &&
+        !attachmentIsSvg(meta);
     final canShare = !full && widget.sharing.supported;
     final canDownload = full && phoneMenu;
     final canShow = full && widget.onShowInMessage != null;
@@ -402,6 +478,11 @@ class MediaBrowserState extends State<MediaBrowser> {
       zoom.removeListener(_zoomChanged);
       zoom.dispose();
     }
+    WidgetsBinding.instance.removeObserver(this);
+    for (final stage in stages.values) {
+      stage.dispose();
+    }
+    stages.clear();
     chrome.dispose();
     pages.dispose();
     super.dispose();
@@ -452,6 +533,15 @@ class MediaBrowserState extends State<MediaBrowser> {
       },
       RaftPlatformKeys.command(LogicalKeyboardKey.digit0): resetZoom,
       RaftPlatformKeys.command(LogicalKeyboardKey.numpad0): resetZoom,
+      if (items[index].isVideo) ...{
+        const SingleActivator(LogicalKeyboardKey.space): () =>
+            unawaited(stages[index]?.togglePlay() ?? Future<void>.value()),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () =>
+            _seekBy(const Duration(seconds: -5)),
+        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () =>
+            _seekBy(const Duration(seconds: 5)),
+        const SingleActivator(LogicalKeyboardKey.keyM): _toggleMute,
+      },
       // Web binds both Ctrl+W and Cmd+W to close, on every platform.
       const SingleActivator(LogicalKeyboardKey.keyW, control: true):
           widget.onClose,
@@ -525,6 +615,7 @@ class MediaBrowserState extends State<MediaBrowser> {
       chrome: chrome,
       caption: widget.message?.caption,
       dismissEnabled: !zoomed,
+      onDismissDrag: (dragging) => stages[index]?.setMoving(dragging),
       shortcuts: _shortcuts(),
       gallery: count > 1
           ? AttachmentLightboxGallery(
@@ -540,16 +631,28 @@ class MediaBrowserState extends State<MediaBrowser> {
         onLongPressStart: phoneMenu
             ? (d) => unawaited(_menu(d.globalPosition))
             : null,
-        child: PageView.builder(
-          key: const ValueKey('viewer-pages'),
-          controller: pages,
-          itemCount: count,
-          // Zoomed in, a horizontal drag pans the image instead.
-          physics: zoomed
-              ? const NeverScrollableScrollPhysics()
-              : const PageScrollPhysics(),
-          onPageChanged: _onPageChanged,
-          itemBuilder: _page,
+        // A native video view (HDR) leaves the page for as long as it swipes.
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth != 0) return false;
+            if (notification is ScrollStartNotification) {
+              stages[index]?.setMoving(true);
+            } else if (notification is ScrollEndNotification) {
+              stages[index]?.setMoving(false);
+            }
+            return false;
+          },
+          child: PageView.builder(
+            key: const ValueKey('viewer-pages'),
+            controller: pages,
+            itemCount: count,
+            // Zoomed in, a horizontal drag pans the image instead.
+            physics: zoomed
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
+            onPageChanged: _onPageChanged,
+            itemBuilder: _page,
+          ),
         ),
       ),
     );
@@ -557,22 +660,14 @@ class MediaBrowserState extends State<MediaBrowser> {
 
   Widget _page(BuildContext context, int i) {
     final pageItem = items[i];
+    if (pageItem.isVideo) return _videoPage(context, i);
     final pageMeta = pageItem.metadata;
     final key = pageKeys.putIfAbsent(
       i,
       () => GlobalKey<AttachmentLightboxImageState>(),
     );
     final original = _originalKey(i);
-    final info = widget.message;
-    final label = [
-      raftFormat(context, 'Image {index} of {count}', {
-        'index': i + 1,
-        'count': items.length,
-      }),
-      pageItem.filename,
-      ?info?.sender,
-      ?info?.time,
-    ].join(', ');
+    final label = _pageLabel(context, i);
     return Semantics(
       container: true,
       label: label,
@@ -612,6 +707,46 @@ class MediaBrowserState extends State<MediaBrowser> {
         closeOnTapOutside: !widget.page,
         onTap: widget.page ? toggleChrome : null,
         onZoomGesture: widget.page ? () => chrome.value = false : null,
+      ),
+    );
+  }
+
+  /// Semantics label of page [i] ("Video 2 of 9, name, sender, time").
+  String _pageLabel(BuildContext context, int i) {
+    final info = widget.message;
+    return [
+      raftFormat(
+        context,
+        items[i].isVideo
+            ? 'Video {index} of {count}'
+            : 'Image {index} of {count}',
+        {'index': i + 1, 'count': items.length},
+      ),
+      items[i].filename,
+      ?info?.sender,
+      ?info?.time,
+    ].join(', ');
+  }
+
+  Widget _videoPage(BuildContext context, int i) {
+    final stage = stageFor(i);
+    final chromeInsets = RaftMediaChromeInsets.maybeOf(context);
+    return Semantics(
+      container: true,
+      label: _pageLabel(context, i),
+      // The picture fills the stage (the strip's room is for images).
+      child: RaftLightboxStageInset(
+        vertical: 0,
+        child: MediaVideoPage(
+          stage: stage,
+          filename: items[i].filename,
+          immersive: widget.page,
+          poster: _placeholder(i),
+          onSurfaceTap: widget.page ? toggleChrome : null,
+          controlsInset: widget.page ? (chromeInsets?.bottom ?? 0) : 0,
+          onDownload: () => transfersFor(i).download(),
+          onNetworkSettings: widget.onNetworkSettings,
+        ),
       ),
     );
   }

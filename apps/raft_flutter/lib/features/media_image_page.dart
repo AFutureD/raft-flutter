@@ -52,6 +52,7 @@ class AttachmentImageLightbox extends StatelessWidget {
     this.chrome,
     this.caption,
     this.dismissEnabled = true,
+    this.onDismissDrag,
   });
   final String title;
   final String? subtitle;
@@ -76,6 +77,9 @@ class AttachmentImageLightbox extends StatelessWidget {
   final ValueListenable<bool>? chrome;
   final String? caption;
   final bool dismissEnabled;
+
+  /// A phone drag-to-dismiss began or ended.
+  final ValueChanged<bool>? onDismissDrag;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +121,7 @@ class AttachmentImageLightbox extends StatelessWidget {
         caption: caption,
         shortcuts: shortcuts,
         dismissEnabled: dismissEnabled,
+        onDismissDrag: onDismissDrag,
         child: child,
       );
     }

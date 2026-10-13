@@ -24,6 +24,7 @@ import 'attachment_preview_gate.dart';
 import 'inline_attachment_media.dart';
 import 'media_browser.dart';
 import 'media_items.dart';
+import 'media_video_page.dart' show MediaBrowserFlags;
 import 'private_route_guard.dart';
 
 bool _isSvgMime(String mime) =>
@@ -615,6 +616,10 @@ class _AttachmentViewState extends State<AttachmentView> {
         }
       }
       if (!mounted || !current()) return;
+      if (MediaBrowserFlags.video && attachmentPreviewKind(widget.metadata) == 'video') {
+        await openBrowser(page: page, current: current);
+        return;
+      }
       late final ModalRoute<void> operationRoute;
       operationRoute = createPreviewRoute(page, (dialogContext) {
         void close() {
@@ -675,12 +680,20 @@ class _AttachmentViewState extends State<AttachmentView> {
       return;
     }
     if (!mounted || !current()) return;
+    await openBrowser(page: page, current: current);
+  }
+
+  /// Opens the media browser on this attachment: Web opens the lightbox with
+  /// the message's previewable images and the clicked one selected; a lone
+  /// image (files panel, forwarded) is its own gallery. With the video flag
+  /// the videos of the message are pages too.
+  Future<void> openBrowser({
+    required bool page,
+    required bool Function() current,
+  }) async {
     // Source opens the image lightbox at intent, independently of thumbnail
     // readiness. A pending thumbnail load must not consume the user's click.
-    if (imageProvider == null && !loading) unawaited(loadImage());
-    // Web opens the lightbox with the message's previewable images and the
-    // clicked one selected; a lone image (files panel, forwarded) is its own
-    // gallery.
+    if (isImage && imageProvider == null && !loading) unawaited(loadImage());
     final siblings =
         widget.messageId != null && (widget.galleryItems?.length ?? 0) > 1
         ? widget.galleryItems!
@@ -715,7 +728,12 @@ class _AttachmentViewState extends State<AttachmentView> {
             controller: w,
             files: files,
             sharing: sharing,
-            items: [for (final m in siblings) MediaItem.image(m)],
+            items: [
+              for (final m in siblings)
+                attachmentIsInlineImage(m)
+                    ? MediaItem.image(m)
+                    : MediaItem.video(m),
+            ],
             initialIndex: start < 0 ? 0 : start,
             messageId: messageId,
             message: info,
@@ -724,6 +742,12 @@ class _AttachmentViewState extends State<AttachmentView> {
             openerPlaceholder: imageProvider,
             openerPreviewFailed: error != null,
             progressRoute: attachmentDownloadProgressRoute,
+            onNetworkSettings: kIsWeb
+                ? null
+                : () {
+                    close();
+                    openNetworkSettings();
+                  },
             onShowInMessage: messageId == null
                 ? null
                 : () {

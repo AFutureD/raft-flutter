@@ -67,6 +67,13 @@ class PlayerSessions {
     }
   }
 
+  /// Whether a usable (not failed, not closed) session exists for [key]: a
+  /// holder that acquires it takes the live player over without a new request.
+  bool isLive(String key) {
+    final session = _sessions[key];
+    return session != null && !session.failed && !session.closed;
+  }
+
   /// Players created since the start (tests).
   int created = 0;
   int get length => _sessions.length;

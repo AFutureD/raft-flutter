@@ -553,10 +553,15 @@ class RaftMediaDismissible extends StatefulWidget {
     required this.onDismiss,
     required this.progress,
     required this.child,
+    this.onDragChanged,
   });
   final bool enabled;
   final VoidCallback onDismiss;
   final ValueNotifier<double> progress;
+
+  /// A drag began (true) or ended, sprung back or was handed to [onDismiss]
+  /// (false): a native video view gets out of the way while it runs.
+  final ValueChanged<bool>? onDragChanged;
   final Widget child;
 
   @override
@@ -598,6 +603,7 @@ class _RaftMediaDismissibleState extends State<RaftMediaDismissible>
 
   void _start(DragStartDetails _) {
     _spring.stop();
+    widget.onDragChanged?.call(true);
     RaftMediaBrowserRoute.maybeOf(context)?.setTranslucent(true);
   }
 
@@ -622,6 +628,7 @@ class _RaftMediaDismissibleState extends State<RaftMediaDismissible>
       _spring.forward(from: 0).whenComplete(() {
         if (!mounted) return;
         _set(0);
+        widget.onDragChanged?.call(false);
         RaftMediaBrowserRoute.maybeOf(context)?.setTranslucent(false);
       }),
     );
@@ -692,6 +699,7 @@ class RaftMediaImmersiveShell extends StatefulWidget {
     this.caption,
     this.shortcuts = const {},
     this.dismissEnabled = true,
+    this.onDismissDrag,
     this.backLabel = 'Back',
   });
   final String title;
@@ -708,6 +716,9 @@ class RaftMediaImmersiveShell extends StatefulWidget {
 
   /// Whether the drag-down gesture may start (off while zoomed).
   final bool dismissEnabled;
+
+  /// A drag-to-dismiss began or ended (see [RaftMediaDismissible.onDragChanged]).
+  final ValueChanged<bool>? onDismissDrag;
   final String backLabel;
   final Widget child;
 
@@ -762,6 +773,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
             safe: safe,
             topBar: topBar,
             inset: inset,
+            bottomBand: bottomBand,
             hasStrip: hasStrip,
             hasCaption: hasCaption,
           ),
@@ -775,6 +787,7 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
     required EdgeInsets safe,
     required double topBar,
     required double inset,
+    required double bottomBand,
     required bool hasStrip,
     required bool hasCaption,
   }) {
@@ -928,7 +941,19 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
             enabled: widget.dismissEnabled,
             progress: progress,
             onDismiss: widget.onClose,
-            child: RaftLightboxStageInset(vertical: inset, child: widget.child),
+            onDragChanged: widget.onDismissDrag,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: widget.chrome,
+              builder: (context, shown, child) => RaftMediaChromeInsets(
+                top: shown ? topBar : safe.top,
+                bottom: shown ? bottomBand : safe.bottom,
+                child: child!,
+              ),
+              child: RaftLightboxStageInset(
+                vertical: inset,
+                child: widget.child,
+              ),
+            ),
           ),
         ),
         Positioned(left: 0, right: 0, top: 0, child: top),
@@ -936,6 +961,26 @@ class _RaftMediaImmersiveShellState extends State<RaftMediaImmersiveShell> {
       ],
     );
   }
+}
+
+/// What the phone chrome covers at the stage's top and bottom edge right now:
+/// the bars while they show, the system insets while they do not. A page that
+/// fills the whole stage (a video) keeps its own controls clear of it.
+class RaftMediaChromeInsets extends InheritedWidget {
+  const RaftMediaChromeInsets({
+    super.key,
+    required this.top,
+    required this.bottom,
+    required super.child,
+  });
+  final double top, bottom;
+
+  static RaftMediaChromeInsets? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RaftMediaChromeInsets>();
+
+  @override
+  bool updateShouldNotify(RaftMediaChromeInsets old) =>
+      top != old.top || bottom != old.bottom;
 }
 
 /// Rebuilds from two listenables.

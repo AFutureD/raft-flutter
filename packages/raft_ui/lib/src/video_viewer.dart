@@ -24,7 +24,17 @@ class RaftVideoViewer extends StatefulWidget {
     this.onSeek,
     this.onVolume,
     this.onDownload,
+    this.immersive = false,
+    this.onSurfaceTap,
+    this.controlsInset = 0,
   });
+
+  /// The media browser's phone page: the picture takes the whole stage (no
+  /// frame, no full-screen toggle); a tap on it calls [onSurfaceTap] and the
+  /// control bar keeps [controlsInset] free below it (the strip).
+  final bool immersive;
+  final VoidCallback? onSurfaceTap;
+  final double controlsInset;
 
   /// The decoded video surface.
   final Widget video;
@@ -48,7 +58,8 @@ class RaftVideoViewer extends StatefulWidget {
 
 class _RaftVideoViewerState extends State<RaftVideoViewer> {
   /// Full screen of the viewer: the picture takes the whole stage, no frame.
-  bool fullscreen = false;
+  bool _fullscreen = false;
+  bool get fullscreen => widget.immersive || _fullscreen;
 
   Widget stage(BuildContext context, BoxConstraints constraints) {
     final t = RaftTokens.of(context);
@@ -95,7 +106,11 @@ class _RaftVideoViewerState extends State<RaftVideoViewer> {
           onSeek: widget.onSeek,
           onVolume: widget.onVolume,
           onDownload: widget.onDownload,
-          onFullscreen: () => setState(() => fullscreen = !fullscreen),
+          onFullscreen: widget.immersive
+              ? null
+              : () => setState(() => _fullscreen = !_fullscreen),
+          onSurfaceTap: widget.onSurfaceTap,
+          controlsInset: widget.controlsInset,
           child: ColoredBox(color: Colors.black, child: widget.video),
         ),
       ),
