@@ -328,13 +328,13 @@ Future<Outcome> playVideo(WidgetTester tester, SmokeCase c, {bool viewer = true}
   final started = DateTime.now();
   final ms = await waitFor(
     tester,
-    () {
+    () => card().playing && card().position > const Duration(milliseconds: 700),
+    poll: () async {
       // Nothing happened (a play tap that met a source being signed again is lost): a person taps again.
       if (!retapped && !card().playing && DateTime.now().difference(started) > const Duration(seconds: 8)) {
         retapped = true;
-        unawaited(tester.tapAt(tester.getCenter(inner(const Key('inline-video-surface')).first)));
+        await tester.tapAt(tester.getCenter(inner(const Key('inline-video-surface')).first));
       }
-      return card().playing && card().position > const Duration(milliseconds: 700);
     },
     'video position to advance',
     failed: () => card().state == RaftInlineMediaState.failed,
