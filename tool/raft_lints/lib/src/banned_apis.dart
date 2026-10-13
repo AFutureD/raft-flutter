@@ -73,6 +73,7 @@ const proxyRule = 'avoid_unproxied_network_client';
 const imageRule = 'avoid_raw_image_decode';
 const underlineRule = 'avoid_builtin_underline';
 const sliderRule = 'avoid_material_slider';
+const feedbackRule = 'avoid_material_feedback';
 
 String _ignore(String rule) =>
     "add '// ignore: raft_lints/$rule -- <why this site is exempt>'";
@@ -132,6 +133,30 @@ final bannedApis = <BannedApi>[
         'Use RaftUnderlinedText / RaftUnderlineSpan + RaftUnderlines '
         '(raft_underline.dart), or ${_ignore(underlineRule)}.',
     refs: const [ApiRef('package:flutter/', 'TextDecoration', 'underline')],
+  ),
+  BannedApi(
+    rule: feedbackRule,
+    message:
+        'Material SnackBar / ScaffoldMessenger / MaterialBanner for feedback '
+        'instead of the raft_ui toast and banner.',
+    correction:
+        'Use showRaftToast / RaftErrorBanner (error_presentation.dart), or '
+        '${_ignore(feedbackRule)}.',
+    typeReferences: true,
+    refs: const [
+      ApiRef('package:flutter/', 'SnackBar'),
+      ApiRef('package:flutter/', 'MaterialBanner'),
+      ApiRef('package:flutter/', 'ScaffoldMessenger'),
+      ApiRef('package:flutter/', 'ScaffoldMessenger', 'of'),
+      ApiRef('package:flutter/', 'ScaffoldMessenger', 'maybeOf'),
+      ApiRef('package:flutter/', 'ScaffoldMessengerState'),
+      ApiRef('package:flutter/', 'ScaffoldMessengerState', 'showSnackBar'),
+      ApiRef(
+        'package:flutter/',
+        'ScaffoldMessengerState',
+        'showMaterialBanner',
+      ),
+    ],
   ),
   BannedApi(
     rule: sliderRule,

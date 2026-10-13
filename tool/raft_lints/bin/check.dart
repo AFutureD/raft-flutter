@@ -23,6 +23,7 @@ import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:path/path.dart' as p;
 import 'package:raft_lints/src/banned_apis.dart';
 import 'package:raft_lints/src/checks.dart';
+import 'package:raft_lints/src/error_leak.dart';
 import 'package:raft_lints/src/ignores.dart';
 
 Future<void> main(List<String> args) async {
@@ -59,7 +60,7 @@ Future<void> main(List<String> args) async {
       files++;
       final ignores = Ignores.of(result.unit, result.content);
       result.unit.accept(
-        AllChecksVisitor((rule, node) {
+        AllChecksVisitor(path: path, (rule, node) {
           final loc = result.lineInfo.getLocation(node.offset);
           if (ignores.isIgnored(rule, loc.lineNumber)) return;
           findings.add(
@@ -83,6 +84,7 @@ Future<void> main(List<String> args) async {
 /// `x[k]!`, `(x[k])!`, `.single`, `firstWhere(` / `lastWhere(` / `singleWhere(`.
 final _mayMatch = RegExp(
   r'\]\s*\)*\s*!|\.single\b|\b(?:first|last|single)Where\b|'
+  r'\bcatch\b|catchError|onError|SnackBar|MaterialBanner|ScaffoldMessenger|'
   r'Client|Dio\b|HttpClient|WebSocket|\bio\b|findProxy|Image|Slider|underline',
 );
 
@@ -90,5 +92,6 @@ String _message(String rule) => switch (rule) {
   indexAssertionRule => indexAssertionMessage,
   singleRule => singleMessage,
   whereRule => whereMessage,
+  errorLeakRule => errorLeakMessage,
   _ => bannedApis.firstWhere((a) => a.rule == rule).message,
 };

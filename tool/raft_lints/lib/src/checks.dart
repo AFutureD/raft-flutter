@@ -4,6 +4,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 
 import 'banned_apis.dart';
+import 'error_leak.dart';
 import 'render_scope.dart';
 
 /// Rule names (also the `// ignore: raft_lints/<name>` keys).
@@ -87,8 +88,10 @@ void checkWhere(MethodInvocation node, Report report) {
 /// Runs every check over a resolved unit (used by the command-line runner;
 /// the plugin registers the same functions per node type instead).
 class AllChecksVisitor extends RecursiveAstVisitor<void> {
-  AllChecksVisitor(this.report);
+  AllChecksVisitor(this.report, {required String path})
+    : _errorLeakScope = errorLeakScope(path);
   final Report report;
+  final bool _errorLeakScope;
 
   @override
   void visitPostfixExpression(PostfixExpression node) {
@@ -127,6 +130,18 @@ class AllChecksVisitor extends RecursiveAstVisitor<void> {
   void visitNamedType(NamedType node) {
     checkBannedTypeName(node, report);
     super.visitNamedType(node);
+  }
+
+  @override
+  void visitCatchClause(CatchClause node) {
+    if (_errorLeakScope) checkCaughtException(node, report);
+    super.visitCatchClause(node);
+  }
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {
+    if (_errorLeakScope) checkCaughtException(node, report);
+    super.visitFunctionExpression(node);
   }
 
   @override

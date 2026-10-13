@@ -7,6 +7,7 @@ import 'package:analyzer/error/error.dart';
 
 import 'banned_apis.dart';
 import 'checks.dart';
+import 'error_leak.dart';
 
 /// `expr[key]!` in render code.
 class AvoidRenderIndexAssertion extends AnalysisRule {
@@ -190,4 +191,53 @@ class _BannedVisitor extends SimpleAstVisitor<void> {
       _report(api.rule, node);
     }
   }
+}
+
+/// Text of a caught exception read outside a log call.
+class AvoidCaughtExceptionText extends AnalysisRule {
+  AvoidCaughtExceptionText()
+    : super(
+        name: errorLeakRule,
+        description:
+            r'No exception text (`$e`, `e.toString()`, `e.message`) '
+            'outside log calls.',
+      );
+
+  static const LintCode code = LintCode(
+    errorLeakRule,
+    errorLeakMessage,
+    correctionMessage: errorLeakCorrection,
+  );
+
+  @override
+  LintCode get diagnosticCode => code;
+
+  @override
+  void registerNodeProcessors(
+    RuleVisitorRegistry registry,
+    RuleContext context,
+  ) {
+    if (!context.isInLibDir ||
+        !errorLeakScope(context.definingUnit.file.path)) {
+      return;
+    }
+    final visitor = _ErrorLeakVisitor(this);
+    registry.addCatchClause(this, visitor);
+    registry.addFunctionExpression(this, visitor);
+  }
+}
+
+class _ErrorLeakVisitor extends SimpleAstVisitor<void> {
+  _ErrorLeakVisitor(this.rule);
+  final AnalysisRule rule;
+
+  void _report(String _, AstNode node) => rule.reportAtNode(node);
+
+  @override
+  void visitCatchClause(CatchClause node) =>
+      checkCaughtException(node, _report);
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) =>
+      checkCaughtException(node, _report);
 }

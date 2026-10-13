@@ -63,6 +63,7 @@ Future<NetworkProbeResult> probeThroughProxy(SystemProxy proxy, Uri url) async {
     if (code == 407) return const NetworkProbeResult.failed('proxy-auth');
     return NetworkProbeResult.ok(code);
   } on DioException catch (error) {
+    // ignore: raft_lints/avoid_caught_exception_text -- Matched against "407" / "proxy authentication" to classify the probe failure; the result shown is one of three fixed sentences.
     final text = '${error.error}'.toLowerCase();
     if (text.contains('407') || text.contains('proxy authentication')) {
       return const NetworkProbeResult.failed('proxy-auth');

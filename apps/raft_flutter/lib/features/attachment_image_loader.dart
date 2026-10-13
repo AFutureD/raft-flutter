@@ -70,6 +70,7 @@ AttachmentImageLoader attachmentImageLoader({
         // The thumbnail's signature came with the message and has lapsed:
         // sign the original once (batched with the other tiles) rather than
         // showing a broken card.
+        // ignore: raft_lints/avoid_caught_exception_text -- Reads the HTTP status to decide whether to re-sign a lapsed thumbnail or URL; no text reaches the UI.
         final status = error.response?.statusCode;
         if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
       }
@@ -89,6 +90,7 @@ AttachmentImageLoader attachmentImageLoader({
     } on DioException catch (error) {
       // A reused URL can outlive the server's view of it (clock skew,
       // early expiry): drop it and sign once more.
+      // ignore: raft_lints/avoid_caught_exception_text -- Reads the HTTP status to decide whether to re-sign a lapsed thumbnail or URL; no text reaches the UI.
       final status = error.response?.statusCode;
       if (cancel.isCancelled || (status != 401 && status != 403)) rethrow;
       controller.invalidateAttachmentUrl('$id');

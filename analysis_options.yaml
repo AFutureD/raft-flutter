@@ -16,3 +16,5 @@ plugins:
       avoid_raw_image_decode: error
       avoid_builtin_underline: error
       avoid_material_slider: error
+      avoid_caught_exception_text: error
+      avoid_material_feedback: error
