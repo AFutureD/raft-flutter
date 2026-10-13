@@ -400,20 +400,27 @@ class RaftPanelHeaderBar extends StatelessWidget {
     );
     final gap = s.header.columnGap ?? s.header.length('gap') ?? 12;
     final narrow = width < RaftLayoutMetrics.desktopBreakpoint;
-    // Larger text: the header is a minimum height and its title and meta wrap.
+    // Above the default text size the header height is a minimum and the
+    // title / subtitle wrap, so the bar grows with its text.
     final grows = RaftScaled.grows(context);
-    final headerHeight = s.header.height;
+    final lines = grows ? null : 1;
+    final barPadding = leftPadding == null
+        ? s.header.padding
+        : s.header.padding.copyWith(left: leftPadding);
     final header = Container(
-      height: grows ? null : headerHeight,
+      height: grows ? null : s.header.height,
       constraints: BoxConstraints(
         minHeight: math.max(
           s.header.minHeight ?? 0,
-          grows ? headerHeight ?? 0 : 0,
+          grows ? s.header.height ?? 0 : 0,
         ),
       ),
-      padding: leftPadding == null
-          ? s.header.padding
-          : s.header.padding.copyWith(left: leftPadding),
+      padding: grows
+          ? barPadding.copyWith(
+              top: math.max(barPadding.top, 8),
+              bottom: math.max(barPadding.bottom, 8),
+            )
+          : barPadding,
       decoration: bottomRule
           ? s.header
                 .decoration(rt)
@@ -458,8 +465,10 @@ class RaftPanelHeaderBar extends StatelessWidget {
                           header: true,
                           child: RaftCssText(
                             title,
-                            maxLines: grows ? null : 1,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines: lines,
+                            overflow: lines == null
+                                ? TextOverflow.clip
+                                : TextOverflow.ellipsis,
                             style: text(s.title),
                           ),
                         )
@@ -475,8 +484,10 @@ class RaftPanelHeaderBar extends StatelessWidget {
                                 header: true,
                                 child: RaftCssText(
                                   title,
-                                  maxLines: grows ? null : 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: lines,
+                                  overflow: lines == null
+                                      ? TextOverflow.clip
+                                      : TextOverflow.ellipsis,
                                   style: text(s.title),
                                 ),
                               ),
@@ -488,8 +499,10 @@ class RaftPanelHeaderBar extends StatelessWidget {
                       ? null
                       : RaftCssText(
                           subtitle!,
-                          maxLines: grows ? null : 1,
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: lines,
+                          overflow: lines == null
+                              ? TextOverflow.clip
+                              : TextOverflow.ellipsis,
                           style: text(s.meta),
                         ),
                 ),

@@ -307,7 +307,9 @@ class RaftAdminsCard extends StatelessWidget {
     final t = RaftTokens.of(context), text = RaftSettingsText(t);
     final selected = candidates.where((c) => c.key == selectedKey).firstOrNull;
     final canPromote = selected != null && roleOptions.isNotEmpty && !saving;
-    final wide = _sm(context);
+    // The picker, role and action stack when text is scaled up: they no longer
+    // fit one row.
+    final wide = _sm(context) && !RaftScaled.grows(context);
     final picker = RaftAdminPrincipalPicker(
       candidates: candidates,
       selectedKey: selected?.key,
@@ -515,6 +517,7 @@ class _RaftAdminPrincipalPickerState extends State<RaftAdminPrincipalPicker> {
         .where((c) => c.key == widget.selectedKey)
         .firstOrNull;
     final open = portal.isShowing;
+    final grows = RaftScaled.grows(context);
     // Agents read their plain label on the trigger; humans `Label · email`.
     final label =
         (selected != null && !selected.agent ? selected.optionLabel : null) ??
@@ -533,8 +536,11 @@ class _RaftAdminPrincipalPickerState extends State<RaftAdminPrincipalPicker> {
         final hover = state.hovered && state.enabled;
         final box = RaftSettingsCard.box(
           t,
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: grows ? null : 40,
+          minHeight: grows ? 40 : null,
+          padding: grows
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+              : const EdgeInsets.symmetric(horizontal: 12),
           color: hover
               ? (t.brutal
                     ? t.colors['color-soft-signal']!.withValues(alpha: .3)
@@ -545,9 +551,9 @@ class _RaftAdminPrincipalPickerState extends State<RaftAdminPrincipalPicker> {
               Expanded(
                 child: RaftCssText(
                   label,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: grows ? null : 1,
+                  softWrap: grows,
+                  overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
                   style: raftSettingsBody(
                     t,
                     size: 12,

@@ -21,6 +21,7 @@ import 'tooltip.dart';
 import 'recipes/button_variants.g.dart';
 import 'settings_controls.dart' show RaftSettingsRecipeButton;
 import 'status_bar.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 
 /// The drawer popup of `OverflowSheet`: `inset-y-0 right-0 h-dvh w-full
@@ -85,6 +86,9 @@ class RaftOverflowSheet extends StatelessWidget {
     final subtitleColor = (t.brutal ? Colors.black : t.strong).withValues(
       alpha: .85,
     );
+    // Above the default text size the header grows with its title and
+    // description, which wrap instead of truncating.
+    final grows = RaftScaled.grows(context);
     final identity = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,8 +101,8 @@ class RaftOverflowSheet extends StatelessWidget {
                 child: Text(
                   title,
                   key: const ValueKey('channel-overflow-title-text'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: grows ? null : 1,
+                  overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
                   style: titleStyle,
                 ),
               ),
@@ -119,8 +123,8 @@ class RaftOverflowSheet extends StatelessWidget {
           Text(
             raftCollapseWhitespace(subtitle!),
             key: const ValueKey('channel-overflow-identity-desc'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: grows ? null : 1,
+            overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
             style: raftCssTextStyle(
               family: t.monoFont,
               step: RaftTextSteps.xs,
@@ -132,8 +136,13 @@ class RaftOverflowSheet extends StatelessWidget {
     final header = RaftStatusBarSource(
       color: headerColor,
       child: Container(
-        height: headerHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        height: grows ? null : headerHeight,
+        constraints: grows
+            ? const BoxConstraints(minHeight: headerHeight)
+            : null,
+        padding: grows
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+            : const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: headerColor,
           border: Border(
@@ -399,6 +408,24 @@ class RaftChannelInfoForm extends StatelessWidget {
     final hairline = t.brutal
         ? Colors.black.withValues(alpha: .1)
         : t.colors['line-muted']!;
+    final cancelButton = RaftSettingsRecipeButton(
+      key: const ValueKey('channel-settings-discard-draft'),
+      label: 'Cancel',
+      variant: RaftButtonRecipeVariant.outline,
+      size: RaftButtonRecipeSize.sm,
+      onPressed: !canCancel || saving ? null : onCancel,
+    );
+    final saveButton = RaftSettingsRecipeButton(
+      key: const ValueKey('channel-settings-save-inline'),
+      label: saving ? 'Saving…' : (savedLabel ?? 'Save'),
+      glyph: savedLabel != null && !saving ? RaftGlyph.check : null,
+      glyphSize: 12,
+      variant: savedLabel != null
+          ? RaftButtonRecipeVariant.success
+          : RaftButtonRecipeVariant.accent,
+      size: RaftButtonRecipeSize.sm,
+      onPressed: !canSave || saving ? null : onSave,
+    );
     return Container(
       padding: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -438,30 +465,20 @@ class RaftChannelInfoForm extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              RaftSettingsRecipeButton(
-                key: const ValueKey('channel-settings-discard-draft'),
-                label: 'Cancel',
-                variant: RaftButtonRecipeVariant.outline,
-                size: RaftButtonRecipeSize.sm,
-                onPressed: !canCancel || saving ? null : onCancel,
-              ),
-              const SizedBox(width: 8),
-              RaftSettingsRecipeButton(
-                key: const ValueKey('channel-settings-save-inline'),
-                label: saving ? 'Saving…' : (savedLabel ?? 'Save'),
-                glyph: savedLabel != null && !saving ? RaftGlyph.check : null,
-                glyphSize: 12,
-                variant: savedLabel != null
-                    ? RaftButtonRecipeVariant.success
-                    : RaftButtonRecipeVariant.accent,
-                size: RaftButtonRecipeSize.sm,
-                onPressed: !canSave || saving ? null : onSave,
-              ),
-            ],
-          ),
+          // Cancel / Save sit on one line; above the default text size they
+          // wrap onto a second line when they no longer fit.
+          if (RaftScaled.grows(context))
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [cancelButton, saveButton],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [cancelButton, const SizedBox(width: 8), saveButton],
+            ),
         ],
       ),
     );
@@ -606,6 +623,16 @@ class RaftMembersStrip extends StatelessWidget {
       weight: FontWeight.w700,
       color: t.brutal ? Colors.black : muted,
     );
+    final headingText = Text(
+      raftText(context, heading),
+      key: const ValueKey('channel-overflow-members-heading'),
+      style: headingStyle,
+    );
+    final chevron = RaftIcon(
+      RaftGlyph.chevronRight,
+      size: 14,
+      color: summaryStyle.color,
+    );
     return Padding(
       key: const ValueKey('channel-overflow-members-strip'),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -618,37 +645,45 @@ class RaftMembersStrip extends StatelessWidget {
               key: const ValueKey('channel-overflow-members-entry'),
               behavior: HitTestBehavior.opaque,
               onTap: onOpen,
-              child: Row(
-                children: [
-                  Text(
-                    raftText(context, heading),
-                    key: const ValueKey('channel-overflow-members-heading'),
-                    style: headingStyle,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+              child: RaftScaled.grows(context)
+                  // Heading over summary when they no longer fit one row.
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: Text(
-                            summary,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: summaryStyle,
-                          ),
+                        headingText,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Flexible(child: Text(summary, style: summaryStyle)),
+                            const SizedBox(width: 4),
+                            chevron,
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        RaftIcon(
-                          RaftGlyph.chevronRight,
-                          size: 14,
-                          color: summaryStyle.color,
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        headingText,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  summary,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: summaryStyle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              chevron,
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -751,6 +786,8 @@ class _TextTile extends StatelessWidget {
       child: Center(
         child: Text(
           text,
+          // The tile is a fixed-size avatar: its text keeps its size.
+          textScaler: TextScaler.noScaling,
           style: TextStyle(
             fontFamily: t.bodyFont,
             // AvatarSlot human text: text-sm font-bold; the add tile text-lg.

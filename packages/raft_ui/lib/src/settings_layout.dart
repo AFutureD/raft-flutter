@@ -14,6 +14,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/recipes.g.dart';
 import 'recipes/token_binding.dart';
 import 'status_bar.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'tokens/shadows.g.dart';
 
@@ -191,20 +192,37 @@ class _RaftSettingsSidebarItemState extends State<RaftSettingsSidebarItem> {
                   Expanded(
                     // The CSS line box (19.5px), not Flutter's ceiled
                     // paragraph height, sets the row height.
-                    child: SizedBox(
-                      height: text.fontSize! * text.height!,
-                      // The control profile changes the line height inside
-                      // that fixed box; keep the label centred in it.
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          raftText(context, widget.entry.label),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: RaftControlTypography.of(context, text),
-                        ),
-                      ),
-                    ),
+                    //
+                    // Above the default text size the label wraps and the
+                    // line box is a minimum height, so nothing is clipped.
+                    child: RaftScaled.grows(context)
+                        ? ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: text.fontSize! * text.height!,
+                            ),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                raftText(context, widget.entry.label),
+                                style: RaftControlTypography.of(context, text),
+                              ),
+                            ),
+                          )
+                        : SizedBox(
+                            height: text.fontSize! * text.height!,
+                            // The control profile changes the line height
+                            // inside that fixed box; keep the label centred
+                            // in it.
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                raftText(context, widget.entry.label),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: RaftControlTypography.of(context, text),
+                              ),
+                            ),
+                          ),
                   ),
                   if (widget.entry.attention)
                     RaftAttentionDot(danger: widget.entry.attentionDanger),
@@ -557,12 +575,21 @@ class RaftSettingsCard extends StatelessWidget {
     Color? color,
     BorderRadius? radius,
     double? height,
+
+    /// A box that grows with its content (a text-bearing control above the
+    /// default text size); [height] is the fixed alternative.
+    double? minHeight,
   }) {
+    final constraints = minHeight == null
+        ? null
+        : BoxConstraints(minHeight: minHeight);
     final base = decoration(t).copyWith(color: color, borderRadius: radius);
     final inset = t.brutal ? const <RaftCssShadow>[] : t.themeShadows.sm.inset;
     if (inset.isEmpty) {
       return Container(
         height: height,
+        constraints: constraints,
+        alignment: minHeight == null ? null : AlignmentDirectional.centerStart,
         padding: padding,
         decoration: base,
         child: child,
@@ -575,6 +602,8 @@ class RaftSettingsCard extends StatelessWidget {
       ),
       child: Container(
         height: height,
+        constraints: constraints,
+        alignment: minHeight == null ? null : AlignmentDirectional.centerStart,
         padding: padding,
         decoration: RaftLayeredDecoration(
           BoxDecoration(

@@ -14,8 +14,10 @@ import 'icons.dart';
 import 'indicators.dart';
 import 'inline_badge_editor.dart' show RaftTouchTargetExpander;
 import 'localization.dart';
+import 'recipe_min_height.dart' show RaftMinHeightBox;
 import 'recipes/button_variants.g.dart';
 import 'system_inset.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'status_bar.dart';
 import 'theme.dart';
 import 'tooltip.dart';
@@ -1148,7 +1150,9 @@ class _MemberSectionState extends State<_MemberSection> {
             top: brutal ? 12 : 16,
             bottom: brutal ? 4 : 0,
           ),
-          child: SizedBox(
+          // The toggle row is a minimum height: the label wraps and the row
+          // grows once the text is larger than the default.
+          child: RaftMinHeightBox(
             height: brutal ? 24 : 32,
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: brutal ? 8 : 0),
@@ -1188,8 +1192,10 @@ class _MemberSectionState extends State<_MemberSection> {
                           Flexible(
                             child: Text(
                               widget.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: RaftScaled.grows(context) ? null : 1,
+                              overflow: RaftScaled.grows(context)
+                                  ? TextOverflow.clip
+                                  : TextOverflow.ellipsis,
                               style: title,
                             ),
                           ),
@@ -1301,6 +1307,11 @@ class _MemberPageRowState extends State<_MemberPageRow> {
         ],
       );
     }
+    // Above the default text size the name and detail wrap instead of
+    // truncating, and the role tag / actions move under them.
+    final grows = RaftScaled.grows(context);
+    final stacked = grows ? trailing : null;
+    if (grows) trailing = null;
     return MouseRegion(
       key: r.testId == null ? null : ValueKey<String>(r.testId!),
       onEnter: (_) => setState(() => hovered = true),
@@ -1330,8 +1341,10 @@ class _MemberPageRowState extends State<_MemberPageRow> {
                             width: double.infinity,
                             child: Text(
                               r.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: grows ? null : 1,
+                              overflow: grows
+                                  ? TextOverflow.clip
+                                  : TextOverflow.ellipsis,
                               style: raftCssTextStyle(
                                 family: t.headingFont,
                                 step: RaftTextSteps.sm,
@@ -1347,8 +1360,10 @@ class _MemberPageRowState extends State<_MemberPageRow> {
                               width: double.infinity,
                               child: Text(
                                 r.secondary!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                maxLines: grows ? null : 1,
+                                overflow: grows
+                                    ? TextOverflow.clip
+                                    : TextOverflow.ellipsis,
                                 style: raftCssTextStyle(
                                   family: r.secondaryMono
                                       ? t.monoFont
@@ -1356,6 +1371,14 @@ class _MemberPageRowState extends State<_MemberPageRow> {
                                   step: RaftTextSteps.xs,
                                   color: t.colors['foreground-muted'],
                                 ),
+                              ),
+                            ),
+                          if (stacked != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: stacked,
                               ),
                             ),
                         ],

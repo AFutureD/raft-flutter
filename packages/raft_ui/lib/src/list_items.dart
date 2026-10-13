@@ -16,6 +16,7 @@ import 'recipes/recipe_utilities.g.dart';
 import 'recipes/recipe_runtime.dart';
 import 'panel_layout.dart';
 import 'text_measure.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'tokens/tokens.dart';
 
@@ -334,11 +335,14 @@ class RaftAvatarListRow extends StatelessWidget {
     // `flex min-w-0 flex-wrap items-baseline gap-x-2`: one baseline-aligned
     // line when name + subtitle fit, otherwise the subtitle wraps below and
     // the name truncates to the line.
+    // Above the default text size the name wraps instead of truncating and the
+    // right content stacks under the identity.
+    final grows = RaftScaled.grows(context);
     Widget nameText() => Text(
       name,
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.ellipsis,
+      maxLines: grows ? null : 1,
+      softWrap: grows,
+      overflow: grows ? TextOverflow.clip : TextOverflow.ellipsis,
       style: nameStyle,
     );
     final text = subtitle == null
@@ -372,6 +376,33 @@ class RaftAvatarListRow extends StatelessWidget {
                     );
             },
           );
+    if (grows && (rightContent.isNotEmpty || actionContent.isNotEmpty)) {
+      return RaftSurfaceListItem(
+        selected: selected,
+        onTap: onTap,
+        background: background,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                avatar,
+                const SizedBox(width: 12),
+                Expanded(child: text),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [...rightContent, ...actionContent],
+            ),
+          ],
+        ),
+      );
+    }
     return RaftSurfaceListItem(
       selected: selected,
       onTap: onTap,

@@ -8,6 +8,7 @@ import 'icons.dart';
 import 'localization.dart';
 import 'overlays/dialog.dart' show showRaftDialog;
 import 'panel_layout.dart' show RaftCssText;
+import 'recipe_min_height.dart';
 import 'recipe_surface.dart';
 import 'recipes/recipe_runtime.dart';
 import 'recipes/recipes.g.dart';
@@ -15,6 +16,7 @@ import 'recipes/token_binding.dart';
 import 'settings_layout.dart';
 import 'sized_image.dart';
 import 'theme.dart' hide RaftFieldRecipe;
+import 'text_scaling.dart' show RaftScaled;
 import 'tooltip.dart' show RaftTooltip;
 
 /// Recipe-driven controls the Settings pages compose. Every geometry, colour
@@ -143,10 +145,11 @@ class _RaftSettingsRecipeButtonState extends State<RaftSettingsRecipeButton> {
       final opacity = !state.enabled
           ? (widget.disabledOpacity ?? s.opacity ?? 1)
           : (s.opacity ?? 1);
+      final grows = RaftScaled.grows(context);
       final button = Opacity(
         opacity: opacity,
         child: RaftRecipeBox(
-          style: s,
+          style: raftGrowingHeight(context, s),
           tokens: tokens,
           applyText: false,
           applyOpacity: false,
@@ -164,12 +167,23 @@ class _RaftSettingsRecipeButtonState extends State<RaftSettingsRecipeButton> {
                 if (widget.label.isNotEmpty) SizedBox(width: s.columnGap ?? 6),
               ],
               if (widget.label.isNotEmpty)
-                Text(
-                  raftText(context, widget.label),
-                  maxLines: 1,
-                  softWrap: false,
-                  style: text,
-                ),
+                // Above the default text size the label wraps inside the
+                // button instead of escaping it.
+                if (grows)
+                  Flexible(
+                    child: Text(
+                      raftText(context, widget.label),
+                      textAlign: TextAlign.center,
+                      style: text,
+                    ),
+                  )
+                else
+                  Text(
+                    raftText(context, widget.label),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: text,
+                  ),
               if (widget.trailingGlyph != null) ...[
                 SizedBox(width: s.columnGap ?? 6),
                 RaftIcon(
@@ -344,8 +358,12 @@ class _RaftRecipeInputState extends State<RaftRecipeInput> {
     if (widget.mono) {
       text = text.copyWith(fontFamily: t.monoFont);
     }
+    // A fixed box height is a minimum once the text is larger than the
+    // default: the field grows with the text it holds.
+    final grows = widget.height != null && RaftScaled.grows(context);
     final field = Container(
-      height: widget.height,
+      height: grows ? null : widget.height,
+      constraints: grows ? BoxConstraints(minHeight: widget.height!) : null,
       alignment: widget.height == null ? null : Alignment.centerLeft,
       decoration: s.decoration(tokens),
       padding: widget.padding ?? s.padding,

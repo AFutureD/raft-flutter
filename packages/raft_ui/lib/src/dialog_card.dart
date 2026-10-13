@@ -33,6 +33,7 @@ import 'recipes/recipe_runtime.dart';
 import 'recipes/segmented_control.g.dart';
 import 'recipes/token_binding.dart';
 import 'status_bar.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 
 /// Tailwind v4 text steps used by the dialogs (`--text-*` and its
@@ -185,8 +186,13 @@ class RaftRecipeButton extends StatelessWidget {
               Flexible(
                 child: Text(
                   raftText(context, label!),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: RaftScaled.grows(context) ? null : 1,
+                  textAlign: RaftScaled.grows(context)
+                      ? TextAlign.center
+                      : null,
+                  overflow: RaftScaled.grows(context)
+                      ? TextOverflow.clip
+                      : TextOverflow.ellipsis,
                   style: text,
                 ),
               ),
@@ -208,11 +214,22 @@ class RaftRecipeButton extends StatelessWidget {
     // symmetric vertical padding (even when it overflows, e.g. `h-7 py-2`)
     // therefore only matters horizontally.
     final resolvedPadding = padding ?? root.padding;
+    // Above the default text size the recipe height is a minimum (CSS
+    // `min-height`) and the label wraps, so the button grows with its text.
+    final grows = root.height != null && RaftScaled.grows(context);
     Widget box = Container(
-      height: root.height,
+      height: grows ? null : root.height,
+      constraints: grows ? BoxConstraints(minHeight: root.height!) : null,
       width: expand ? double.infinity : root.width,
       padding: root.height == null
           ? resolvedPadding
+          : grows
+          ? EdgeInsets.fromLTRB(
+              resolvedPadding.left,
+              math.max(resolvedPadding.top, 4),
+              resolvedPadding.right,
+              math.max(resolvedPadding.bottom, 4),
+            )
           : EdgeInsets.only(
               left: resolvedPadding.left,
               right: resolvedPadding.right,
@@ -900,6 +917,27 @@ class RaftDialogTextInput extends StatelessWidget {
     final t = RaftTokens.of(context);
     final base = Theme.of(context).inputDecorationTheme.contentPadding;
     final resolved = base?.resolve(Directionality.of(context));
+    final style =
+        (enabled || t.brutal
+                ? t.fieldStyle
+                : t.fieldStyle.copyWith(color: t.colors['foreground-disabled']))
+            .copyWith(
+              fontFamily: mono ? t.monoFont : null,
+              fontSize: mono ? 12 : null,
+              height: mono ? 16 / 12 : null,
+            );
+    // Above the default text size a multi-line field is a minimum height that
+    // grows with the text it holds (its box stays at least 96px tall), rather
+    // than a fixed 96px viewport onto it.
+    final growing = multiline && RaftScaled.grows(context);
+    var minLines = 1;
+    if (growing) {
+      final line =
+          MediaQuery.textScalerOf(context).scale(style.fontSize ?? 14) *
+          (style.height ?? 1.25);
+      final chrome = (resolved?.vertical ?? 24) + 2 * t.border;
+      minLines = math.max(1, ((96 - chrome) / line).ceil());
+    }
     Widget field = TextField(
       autofillHints: null,
       key: fieldKey,
@@ -910,20 +948,10 @@ class RaftDialogTextInput extends StatelessWidget {
       obscureText: obscure,
       // `disabled:` text: elegant foreground-disabled; brutal dims the whole
       // Textarea (`disabled:opacity-60`, below), not the Input.
-      style:
-          (enabled || t.brutal
-                  ? t.fieldStyle
-                  : t.fieldStyle.copyWith(
-                      color: t.colors['foreground-disabled'],
-                    ))
-              .copyWith(
-                fontFamily: mono ? t.monoFont : null,
-                fontSize: mono ? 12 : null,
-                height: mono ? 16 / 12 : null,
-              ),
-      minLines: multiline ? null : 1,
+      style: style,
+      minLines: growing ? minLines : (multiline ? null : 1),
       maxLines: multiline ? null : 1,
-      expands: multiline,
+      expands: multiline && !growing,
       textAlignVertical: multiline ? TextAlignVertical.top : null,
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
@@ -934,7 +962,7 @@ class RaftDialogTextInput extends StatelessWidget {
             : resolved.copyWith(left: resolved.left - 12 + 36),
       ),
     );
-    if (multiline) field = SizedBox(height: 96, child: field);
+    if (multiline && !growing) field = SizedBox(height: 96, child: field);
     if (leadingGlyph != null) {
       field = Stack(
         alignment: Alignment.centerLeft,

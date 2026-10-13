@@ -21,7 +21,9 @@ import 'error_presentation.dart';
 import 'icons.dart';
 import 'list_items.dart' show RaftSectionEyebrow, RaftSurfaceListItem;
 import 'localization.dart';
+import 'recipe_min_height.dart' show RaftMinHeightBox;
 import 'recipe_surface.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'recipes/badge.g.dart';
 import 'recipes/button_variants.g.dart'
     show RaftButtonRecipeSize, RaftButtonRecipeVariant;
@@ -297,7 +299,7 @@ class RaftConnectedAppsSection extends StatelessWidget {
         ],
       ),
     );
-    final search = SizedBox(
+    final search = RaftMinHeightBox(
       height: 40,
       child: RaftRecipeInput(
         fieldKey: const ValueKey('connected-apps-search'),
@@ -320,14 +322,28 @@ class RaftConnectedAppsSection extends StatelessWidget {
         if (value != null) onCategory(value);
       },
     );
-    final toggle = SizedBox(
+    final toggle = RaftMinHeightBox(
       height: 40,
       child: Align(
         alignment: Alignment.centerRight,
         child: _LayoutToggle(value: layout, onChanged: onLayout),
       ),
     );
-    final Widget filters = band >= 768
+    // Scaled text no longer fits the search, category and layout controls on
+    // one or two rows: they stack, as on a narrow viewport.
+    final stackFilters = RaftScaled.grows(context);
+    final Widget filters = stackFilters
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              search,
+              const SizedBox(height: 8),
+              select,
+              const SizedBox(height: 8),
+              toggle,
+            ],
+          )
+        : band >= 768
         ? Row(
             children: [
               Expanded(child: search),
@@ -773,8 +789,16 @@ class RaftAppLogo extends StatelessWidget {
     final t = RaftTokens.of(context);
     final box = size.box;
     final url = logoUrl?.trim();
+    // The initials sit in a fixed tile (the app name is beside it): they keep
+    // their size instead of outgrowing the logo.
     Widget fallback(TextStyle style) => Center(
-      child: Text(initials, maxLines: 1, softWrap: false, style: style),
+      child: Text(
+        initials,
+        maxLines: 1,
+        softWrap: false,
+        textScaler: TextScaler.noScaling,
+        style: style,
+      ),
     );
     Widget content(TextStyle style) => url == null || url.isEmpty
         ? fallback(style)
@@ -1063,13 +1087,12 @@ class RaftConnectedAppUrlLink extends StatelessWidget {
                   visible,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      RaftTypography.mono(
-                        t,
-                        size: 12,
-                        line: 16,
-                        color: color,
-                      ).copyWith(fontWeight: FontWeight.w700),
+                  style: RaftTypography.mono(
+                    t,
+                    size: 12,
+                    line: 16,
+                    color: color,
+                  ).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
             ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'status_bar.dart';
+import 'text_scaling.dart' show RaftScaled;
 import 'theme.dart';
 import 'localization.dart';
 
@@ -57,7 +58,12 @@ class RaftMobilePageHeader extends StatelessWidget
     return RaftStatusBarSource(
       color: background ?? t.panel,
       child: Container(
-        height: headerHeight ?? height,
+        // The header height is a minimum above the default text size, so a
+        // large title grows the bar instead of being clipped by it.
+        height: RaftScaled.grows(context) ? null : headerHeight ?? height,
+        constraints: RaftScaled.grows(context)
+            ? BoxConstraints(minHeight: headerHeight ?? height)
+            : null,
         padding: EdgeInsets.symmetric(horizontal: inset - 8),
         decoration: BoxDecoration(
           color: background ?? t.panel,
