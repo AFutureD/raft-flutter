@@ -36,6 +36,18 @@ void main() {
     expect(NativeAttachmentPlayer.httpProxyFor(url), 'http://kev:pw@10.0.0.2:8080');
   });
 
+  test('direct: FFmpeg is told not to fall back to http_proxy', () {
+    SystemProxy.instance = SystemProxy()
+      ..configure(const ProxySettings(mode: ProxyMode.direct));
+    expect(NativeAttachmentPlayer.lavfOptionsFor(url), 'http_proxy=');
+  });
+
+  test('a proxy decision leaves the FFmpeg option to http-proxy', () {
+    SystemProxy.instance = SystemProxy()
+      ..configure(const ProxySettings(mode: ProxyMode.manual, host: '10.0.0.2', port: 8080));
+    expect(NativeAttachmentPlayer.lavfOptionsFor(url), '');
+  });
+
   test('loopback is never proxied', () {
     SystemProxy.instance = SystemProxy()
       ..configure(const ProxySettings(mode: ProxyMode.manual, host: '10.0.0.2', port: 8080));

@@ -365,6 +365,7 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
         await native.setProperty('demuxer-max-bytes', '${maxVideoSize.width > 1000 ? 64 : 32}MiB');
         await native.setProperty('demuxer-max-back-bytes', '8MiB');
         await native.setProperty('http-proxy', httpProxyFor(source.url!));
+        await native.setProperty('stream-lavf-o', lavfOptionsFor(source.url!));
         await native.setProperty(
           'http-header-fields',
           source.headers.entries.map((e) => '${e.key}: ${e.value}').join(','),
@@ -406,6 +407,16 @@ class NativeAttachmentPlayer implements AttachmentPlayer {
     }
     return '';
   }
+
+  /// mpv's `stream-lavf-o` for [url]. mpv passes an empty `http-proxy` on as
+  /// no option at all, and FFmpeg then falls back to the process's
+  /// `http_proxy` environment variable, for https URLs too. So a DIRECT
+  /// decision (e.g. only `http_proxy` set, or a stale proxy left in the
+  /// session environment) still went through that proxy and the stream failed
+  /// to open. An explicit empty FFmpeg `http_proxy` keeps DIRECT direct; with
+  /// a proxy the option is cleared so `http-proxy` applies.
+  @visibleForTesting
+  static String lavfOptionsFor(Uri url) => httpProxyFor(url).isEmpty ? 'http_proxy=' : '';
 
   /// Where a re-signed source reopens: where playback got to, or, for a
   /// source that failed before it played (no position yet), the start it was

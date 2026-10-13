@@ -130,6 +130,8 @@ void main() {
       contains("protocolWhitelist: ['file', 'http', 'https', 'tcp', 'tls', 'crypto']"),
     );
     expect(player, contains("setProperty('http-proxy', httpProxyFor("));
+    // An empty http-proxy lets FFmpeg read the http_proxy environment variable.
+    expect(player, contains("setProperty('stream-lavf-o', lavfOptionsFor("));
     expect(player, contains('SystemProxy.instance.findProxyForClient'));
     expect(player, isNot(contains("'rtsp'")));
   });
