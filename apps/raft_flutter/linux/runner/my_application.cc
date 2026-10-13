@@ -128,6 +128,11 @@ static void my_application_activate(GApplication* application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+  // RAFT_LINUX_IMPELLER=0 renders with Skia and =1 with Impeller; unset keeps
+  // the engine's default (Impeller in Flutter 3.47). For A/B measurements.
+  const gchar* impeller = g_getenv("RAFT_LINUX_IMPELLER");
+  if (g_strcmp0(impeller, "0") == 0) fl_dart_project_set_enable_impeller(project, FALSE);
+  if (g_strcmp0(impeller, "1") == 0) fl_dart_project_set_enable_impeller(project, TRUE);
 
   FlView* view = fl_view_new(project);
   // Before the view is realized (that starts the engine); see vsync_driver.h.

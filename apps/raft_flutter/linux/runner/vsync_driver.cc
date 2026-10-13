@@ -20,7 +20,14 @@ namespace {
 constexpr gint64 kDefaultIntervalUs = 16667;
 constexpr gint64 kMinIntervalUs = 4000;
 constexpr gint64 kMaxIntervalUs = 40000;
-constexpr guint kMinWatchdogMs = 34;
+// A frame-clock tick that has not arrived this long after the next frame
+// boundary is replaced by the timer (a hidden, occluded or unpainted window
+// gets no ticks); the slack is a fraction of the interval.
+constexpr gint64 kTickSlackDivisor = 8;
+// After this many deliveries in a row that needed the timer, ticks are only
+// probed once per kProbeEvery deliveries.
+constexpr guint kTickGiveUpAfter = 30;
+constexpr guint kProbeEvery = 60;
 
 struct State {
   GtkWidget* view = nullptr;
@@ -32,6 +39,10 @@ struct State {
   bool scheduled = false;    // guarded by lock
   guint tick_id = 0;         // main thread only
   guint watchdog_id = 0;     // main thread only
+  gint64 grid_origin_us = 0;  // main thread only: a past frame boundary
+  guint timer_streak = 0;     // main thread only: consecutive timer deliveries
+  guint ticks_delivered = 0;   // main thread only, per stats period
+  guint timer_delivered = 0;
   bool stats = false;
   gint64 stats_start_us = 0;
   guint stats_frames = 0;
@@ -128,8 +139,19 @@ void clear_sources() {
 
 // Hand every waiting baton back to the engine. Main thread only (the thread
 // that ran the engine: FlutterEngineOnVsync must be called there).
-void deliver(GdkFrameClock* clock) {
+void deliver(GdkFrameClock* clock, bool from_tick, gint64 boundary_us) {
   clear_sources();
+  gint64 now_us = g_get_monotonic_time();
+  if (from_tick) {
+    // The compositor's own cadence: keep the timer grid on it.
+    state.grid_origin_us = now_us;
+    state.timer_streak = 0;
+    state.ticks_delivered++;
+  } else {
+    state.grid_origin_us = boundary_us;
+    state.timer_streak++;
+    state.timer_delivered++;
+  }
   g_mutex_lock(&state.lock);
   g_autoptr(GArray) taken = state.batons;
   state.batons = g_array_new(FALSE, FALSE, sizeof(intptr_t));
@@ -153,10 +175,12 @@ void deliver(GdkFrameClock* clock) {
     gint64 now = g_get_monotonic_time();
     if (state.stats_start_us == 0) state.stats_start_us = now;
     if (now - state.stats_start_us >= G_USEC_PER_SEC) {
-      g_printerr("raft.vsync: %u frames in %.0f ms, interval %.2f ms, wait for tick %.2f ms, engine gap %.2f ms\n",
+      g_printerr("raft.vsync: %u deliveries in %.0f ms (%u by tick, %u by timer), interval %.2f ms, wait for tick %.2f ms, engine gap %.2f ms\n",
                  state.stats_frames, (now - state.stats_start_us) / 1000.0,
+                 state.ticks_delivered, state.timer_delivered,
                  interval / 1000.0, state.wait_total_us / 1000.0 / state.stats_frames,
                  state.gap_total_us / 1000.0 / state.stats_frames);
+      state.ticks_delivered = state.timer_delivered = 0;
       state.wait_total_us = state.gap_total_us = 0;
       state.stats_start_us = now;
       state.stats_frames = 0;
@@ -166,27 +190,44 @@ void deliver(GdkFrameClock* clock) {
 
 gboolean on_tick(GtkWidget*, GdkFrameClock* clock, gpointer) {
   state.tick_id = 0;  // returning REMOVE drops it
-  deliver(clock);
+  deliver(clock, true, 0);
   return G_SOURCE_REMOVE;
 }
 
-// No frame-clock tick (window hidden, minimised or not yet mapped, as during
-// the first frame that shows it): fall back to a timer like the engine's own.
+// The frame boundary the timer targets, in monotonic microseconds.
+gint64 pending_boundary_us = 0;
+
+// No frame-clock tick by the next frame boundary (window hidden, occluded,
+// minimised or not yet mapped, as during the first frame that shows it, or a
+// session whose compositor sends no frame callbacks): deliver from a timer on
+// the same grid, never slower than the engine's own fixed timer.
 gboolean on_watchdog(gpointer) {
   state.watchdog_id = 0;
-  deliver(state.view != nullptr ? gtk_widget_get_frame_clock(state.view) : nullptr);
+  deliver(state.view != nullptr ? gtk_widget_get_frame_clock(state.view) : nullptr, false,
+          pending_boundary_us);
   return G_SOURCE_REMOVE;
 }
 
 gboolean schedule_on_main(gpointer) {
   if (state.view == nullptr) return G_SOURCE_REMOVE;
   GdkFrameClock* clock = gtk_widget_get_frame_clock(state.view);
-  guint wait_ms = kDefaultIntervalUs / 1000;
-  if (clock != nullptr && gtk_widget_get_mapped(state.view)) {
-    state.tick_id = gtk_widget_add_tick_callback(state.view, on_tick, nullptr, nullptr);
-    wait_ms = MAX(kMinWatchdogMs, static_cast<guint>(interval_us(state.view, clock) * 3 / 1000));
+  gint64 interval = interval_us(state.view, clock);
+  gint64 now = g_get_monotonic_time();
+  // Next boundary of the grid anchored on the last delivery (a tick, or the
+  // timer's own previous boundary); a first or long-idle request lands on the
+  // next boundary of that grid, at least 1 ms away.
+  gint64 boundary = now + interval;
+  if (state.grid_origin_us != 0 && now >= state.grid_origin_us) {
+    boundary = now + interval - (now - state.grid_origin_us) % interval;
+    if (boundary - now < 1000) boundary += interval;
   }
-  state.watchdog_id = g_timeout_add(wait_ms, on_watchdog, nullptr);
+  pending_boundary_us = boundary;
+  bool probe = state.timer_streak < kTickGiveUpAfter || state.timer_streak % kProbeEvery == 0;
+  if (clock != nullptr && probe && gtk_widget_get_mapped(state.view)) {
+    state.tick_id = gtk_widget_add_tick_callback(state.view, on_tick, nullptr, nullptr);
+  }
+  gint64 wait_us = boundary - now + interval / kTickSlackDivisor;
+  state.watchdog_id = g_timeout_add(static_cast<guint>((wait_us + 500) / 1000), on_watchdog, nullptr);
   return G_SOURCE_REMOVE;
 }
 
