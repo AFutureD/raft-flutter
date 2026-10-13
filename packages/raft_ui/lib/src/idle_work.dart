@@ -143,6 +143,7 @@ class RaftForegroundPeriodic {
         state == AppLifecycleState.resumed ||
         state == AppLifecycleState.inactive;
     if (visible && _timer == null) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- RaftForegroundPeriodic itself: the sanctioned periodic timer; it stops while the app is hidden, paused or detached.
       _timer = Timer.periodic(RaftIdleWork.positive(interval), (_) => onTick());
     } else if (!visible) {
       _timer?.cancel();

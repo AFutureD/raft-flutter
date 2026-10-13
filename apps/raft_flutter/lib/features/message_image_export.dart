@@ -245,6 +245,7 @@ Future<bool?> previewMessageImage(
     final boundary =
         renderKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     for (var i = 0; i < 5 && boundary.debugNeedsPaint; i++) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Single request after a state change; nothing re-requests from the callback.
       WidgetsBinding.instance.scheduleFrame();
       await WidgetsBinding.instance.endOfFrame;
       if (!current() || entry == null) return false;

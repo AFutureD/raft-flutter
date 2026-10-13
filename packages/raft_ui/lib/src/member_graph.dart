@@ -206,6 +206,7 @@ class _HeaderState extends State<_Header> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
     if (widget.loading) spin.repeat();
   }
 
@@ -213,6 +214,7 @@ class _HeaderState extends State<_Header> with SingleTickerProviderStateMixin {
   void didUpdateWidget(_Header old) {
     super.didUpdateWidget(old);
     if (widget.loading && !spin.isAnimating) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
       spin.repeat();
     } else if (!widget.loading && spin.isAnimating) {
       spin.stop();

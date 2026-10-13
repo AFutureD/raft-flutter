@@ -192,6 +192,7 @@ class AttachmentUrlCache {
       if (!_urgentScheduled) {
         _urgentScheduled = true;
         unawaited(
+          // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot microtask gathering every tile built in this frame into one flush; the callback does not schedule another.
           Future<void>.microtask(() {
             _urgentScheduled = false;
             return _flushUrgent();

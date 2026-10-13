@@ -150,6 +150,7 @@ class RootErrors extends ChangeNotifier {
     );
     final binding = WidgetsBinding.instance;
     binding.addPostFrameCallback((_) => notifyListeners());
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Single request after a state change; nothing re-requests from the callback.
     binding.scheduleFrame();
   }
 

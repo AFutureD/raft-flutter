@@ -1251,7 +1251,9 @@ class _RaftChatViewState extends State<RaftChatView>
         return;
       }
       if (target != null && !focusReceiptVisible(target) && attempts++ < 8) {
+        // ignore: raft_lints/avoid_unreviewed_idle_work -- reveal(): ensures one frame for the first check and re-requests only while the target row is not visible, capped at 8 attempts.
         WidgetsBinding.instance.addPostFrameCallback(check);
+        // ignore: raft_lints/avoid_unreviewed_idle_work -- reveal(): ensures one frame for the first check and re-requests only while the target row is not visible, capped at 8 attempts.
         WidgetsBinding.instance.ensureVisualUpdate();
         return;
       }
@@ -1293,7 +1295,9 @@ class _RaftChatViewState extends State<RaftChatView>
       }
     }
 
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- reveal(): ensures one frame for the first check and re-requests only while the target row is not visible, capped at 8 attempts.
     WidgetsBinding.instance.addPostFrameCallback(check);
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- reveal(): ensures one frame for the first check and re-requests only while the target row is not visible, capped at 8 attempts.
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 

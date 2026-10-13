@@ -13,7 +13,7 @@
 - Android profile 测试只通过 `tool/performance/lab.py`，只接受预编译且实际包名为 `app.raft.raft_flutter.linkperf` 的 APK，并强制 `--keep-app-running`。只改 `applicationId` 不足以隔离：Flutter drive 的 source 包名可能取 namespace，结束时自动卸载。测试前后检查正式 App 仍在，不得把“找不到包”当成正常状态继续安装。
 - 视觉对齐扩展套件（tool/parity-ext）的新增 / 修复流程见 docs/parity-ext-quickstart.md。
 - 状态对齐：每个页面/面板的 loading / empty / error / partial 状态登记在 docs/state-parity.json（有无 Web 对应、有无 parity case、差距大小）。`test/state_parity_guard_test.dart` 要求每个已登记状态要么有 parity case id，要么写明 intentional / NA 理由；新增页面或面板时同时登记。只盯默认（有数据）状态的 case 会漏掉加载 / 空 / 错误的差异，而且这些状态的 case 必须先确认 Web 侧真的渲染出该状态（React host 不得用预置 store 数据盖住它）。
-- 空闲 CPU：禁止 `scheduleTask`/`Priority.idle` 与零延迟自重排的 Timer（被拒绝的 idle 任务会经 `Timer.run` 热循环，见 docs/idle-cpu.md）；延后工作用 `RaftIdleTimer`，仅屏幕可见才有意义的轮询用 `RaftForegroundPeriodic`；常驻动画必须用 State vsync 并随 TickerMode/减弱动效停止。`test/idle_work_guard_test.dart` 扫描并要求白名单理由。
+- 空闲 CPU：禁止 `scheduleTask`/`Priority.idle` 与零延迟自重排的 Timer（被拒绝的 idle 任务会经 `Timer.run` 热循环，见 docs/idle-cpu.md）；延后工作用 `RaftIdleTimer`，仅屏幕可见才有意义的轮询用 `RaftForegroundPeriodic`；常驻动画必须用 State vsync 并随 TickerMode/减弱动效停止。`avoid_unreviewed_idle_work` lint（tool/raft_lints，由 tool/raft-lints 运行）扫描并要求在用法处写 `// ignore: raft_lints/avoid_unreviewed_idle_work -- 理由`。
 - 按功能矩阵报告实际覆盖；Widget Preview 不能替代Linux/Android平台无障碍、输入法、生命周期或通知测试。
 
 - 原生流程遇到等待超时、点击未生效或未命中时，先用实际可见控件和真实指针输入复现，区分产品丢事件/延迟反馈与测试尚未完成布局，再决定修改产品或测试；保留初次失败。等待条件不能掩盖已经显示的控件丢点击。

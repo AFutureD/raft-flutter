@@ -115,6 +115,7 @@ class _AnnouncementHostState extends State<AnnouncementHost>
       _scheduled = false;
       if (mounted) _sync();
     });
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Single request after a state change; nothing re-requests from the callback.
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 

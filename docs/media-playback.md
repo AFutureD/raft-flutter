@@ -42,7 +42,7 @@ sources and its Android plugin is a small Java class, and nothing initialises me
 * Volume is 0-100 like media_kit (video_player takes 0-1). Toggling a finished clip restarts from 0.
 * Leaving the app pauses (`AppLifecycleState.paused`); returning does not resume. `video_player`'s own observer, which
   resumes, is disabled with `allowBackgroundPlayback`.
-* No timers of its own (`idle_work_guard_test`); video_player polls the position every 100 ms only while playing.
+* No timers of its own (`avoid_unreviewed_idle_work` lint); video_player polls the position every 100 ms only while playing.
 * The picture is `VideoPlayer` in an `AspectRatio`, centred (contain) inside the box the card gives it.
 * Colour and HDR. Two surfaces, chosen by the caller (`createAttachmentPlayer(hdr: ...)`; see "Streaming and sessions"
   for which player the viewer uses):
@@ -245,7 +245,7 @@ Run before merging anything under `platform/*player*`, `platform/attachment_stre
 
 1. Unit and widget tests: `inline_attachment_media_test`, `attachment_preview_test`, `video_player_attachment_player_test`,
    `viewer_video_surface_test`, `player_sessions_test`, `mp4_hdr_probe_test`, `attachment_stream_test`,
-   `attachment_player_fit_test`, `media_controls_guard_test`, `idle_work_guard_test`, `proxy_hook_guard_test`, raft_ui
+   `attachment_player_fit_test`, `media_controls_guard_test`, `tool/raft-lints`, `proxy_hook_guard_test`, raft_ui
    `video_viewer_test`, `video_idle_hide_test`, `video_centre_tap_test`, and the `rate_limit_*` tests.
 2. `tool/flutter analyze` and `python3 tool/ds-audit --check`.
 3. **The interaction suite above on an Android emulator** (real taps, route transitions, server byte counts). A change

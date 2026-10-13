@@ -77,6 +77,7 @@ class MacOSDockUnread {
           },
         );
         next.client.http.interceptors.add(_reads!);
+        // ignore: raft_lints/avoid_unreviewed_idle_work -- Dock badge reconcile every 30 s. It must keep running while the app is hidden (the badge is how the user sees unread), and it builds no UI so it requests no frames.
         _periodic = Timer.periodic(
           refreshInterval,
           (_) => unawaited(refresh()),

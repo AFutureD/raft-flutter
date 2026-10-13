@@ -570,6 +570,7 @@ class WorkspaceEntityDirectory extends ChangeNotifier {
     );
     // Defer notification: a mounted panel can start loading in initState while
     // the workspace is building. Its first frame reads state synchronously.
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
     scheduleMicrotask(() {
       if (_accepts(scope, epoch)) notifyListeners();
     });

@@ -147,6 +147,7 @@ class _SystemNotificationBellState extends State<SystemNotificationBell>
     ]) {
       final state = directory.state(kind);
       if (allowed && !state.loaded && !state.loading && state.error == null) {
+        // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
         scheduleMicrotask(() {
           if (!disposed) unawaited(directory.refresh(kind));
         });

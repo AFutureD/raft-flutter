@@ -85,7 +85,7 @@ Future<void> main(List<String> args) async {
 final _mayMatch = RegExp(
   r'\]\s*\)*\s*!|\.single\b|\b(?:first|last|single)Where\b|'
   r'\bcatch\b|catchError|onError|SnackBar|MaterialBanner|ScaffoldMessenger|'
-  r'Client|Dio\b|HttpClient|WebSocket|\bio\b|findProxy|Image|Slider|underline',
+  r'Scheduler|Timer|Future|scheduleMicrotask|repeat|Ticker|addPostFrame|\bTimer\b|Client|Dio\b|HttpClient|WebSocket|\bio\b|findProxy|Image|Slider|underline',
 );
 
 String _message(String rule) => switch (rule) {

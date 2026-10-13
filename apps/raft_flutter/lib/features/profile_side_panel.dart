@@ -154,6 +154,7 @@ class _ProfileOutsideTapDismissState extends State<ProfileOutsideTapDismiss> {
     if ((e.position - start).distance > kTouchSlop) return;
     // The tapped control's own handler runs when the arena sweeps right after
     // this event; decide afterwards whether the profile was retargeted.
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
     scheduleMicrotask(() {
       if (!mounted || !widget.enabled) return;
       // Any location change (another profile, a thread or task opened /

@@ -137,6 +137,7 @@ class _RuntimeUsageChipState extends State<RuntimeUsageChip> {
     client = widget.client ?? runtimeUsageClient(widget.controller);
     result = client.cached(widget.serverId, widget.machineId, provider);
     final generation = ++subject;
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
     scheduleMicrotask(() {
       if (!mounted || generation != subject) return;
       read(generation).then((next) {
@@ -159,6 +160,7 @@ class _RuntimeUsageChipState extends State<RuntimeUsageChip> {
   void tick() {
     ticker?.cancel();
     if (cooldownLeft == Duration.zero) return;
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-second countdown that exists only while a refresh cooldown runs and cancels itself at zero; bounded by the cooldown.
     ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (cooldownLeft == Duration.zero) ticker?.cancel();
       changed();

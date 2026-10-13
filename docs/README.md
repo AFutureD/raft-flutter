@@ -31,7 +31,7 @@ Every file or directory under `docs/` is listed here (path — what it is — wh
 
 ## Platform and runtime
 
-- `idle-cpu.md` — idle scheduling rules (enforced by `idle_work_guard_test.dart`) — before adding timers or animations.
+- `idle-cpu.md` — idle scheduling rules (enforced by the `avoid_unreviewed_idle_work` lint) — before adding timers or animations.
 - `session-ownership.md` — foreground owns the session, background workers are guests — before touching credentials or workers.
 - `system-proxy.md`, `linux-desktop.md`, `linux-media-runtime.md`, `media-playback.md` — proxy, Linux integration, media runtime and player — when touching those areas.
 - `background-inbox.md`, `windows-notifications.md`, `notification-content-evidence.md`, `android-background-evidence.md` — notification and background inbox design and the evidence kept for the release report — when touching notifications.

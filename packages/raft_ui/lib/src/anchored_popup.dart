@@ -94,6 +94,7 @@ class _RaftAnchoredPopupState extends State<RaftAnchoredPopup>
       final next = readAnchor();
       if (next != anchor) setState(() => anchor = next);
     });
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Single request after a state change; nothing re-requests from the callback.
     WidgetsBinding.instance.scheduleFrame();
   }
 

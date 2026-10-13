@@ -149,6 +149,7 @@ class _RaftTransferBarState extends State<RaftTransferBar>
 
   void sync() {
     if (indeterminate && !reduced) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
       if (!sweep.isAnimating) sweep.repeat();
     } else {
       sweep.stop();

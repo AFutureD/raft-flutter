@@ -270,6 +270,7 @@ class ComposerDirectory extends ChangeNotifier {
       // Source MessageInput/ChatPanel read the roster when the channel opens;
       // a visited channel shows its cached roster and revalidates in place.
       if (channel != null) {
+        // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot roster load after the channel changes; the callback starts a request and never re-arms.
         Timer.run(() {
           if (!ended && w.channel?.id == channel.id) {
             unawaited(_shared.loadRoster(w, w.channel!));

@@ -390,6 +390,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.idle) {
       // Outside a frame the route can be pushed now, so the picker is built by
       // the very next frame instead of one frame later.
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
       scheduleMicrotask(() {
         shareDrainScheduled = false;
         unawaited(openNextShare());
@@ -400,6 +401,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
       shareDrainScheduled = false;
       unawaited(openNextShare());
     });
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Single request after a state change; nothing re-requests from the callback.
     WidgetsBinding.instance.scheduleFrame();
   }
 

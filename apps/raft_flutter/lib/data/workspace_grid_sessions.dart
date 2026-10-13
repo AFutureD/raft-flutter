@@ -120,6 +120,7 @@ class WorkspaceGridSessions extends ChangeNotifier {
     child.addListener(changed);
     // Select after the caller's layout frame, not during its build. The child
     // window fences every result; retirement rejects all late acknowledgments.
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
     scheduleMicrotask(() {
       if (!ended && controllers[id] == child && scope == authority) {
         if (threadRef == null) {

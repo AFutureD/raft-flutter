@@ -105,6 +105,7 @@ class ThreadAgentFollowers extends ChangeNotifier {
     _queued[threadChannelId] = (_queued[threadChannelId] ?? false) || force;
     if (_flushing) return;
     _flushing = true;
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Coalesces requests into one flush; guarded by _flushing.
     scheduleMicrotask(() {
       _flushing = false;
       final entries = Map.of(_queued);

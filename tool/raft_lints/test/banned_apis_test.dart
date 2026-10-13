@@ -12,6 +12,7 @@ void main() {
     defineReflectiveTests(ImageTest);
     defineReflectiveTests(UnderlineTest);
     defineReflectiveTests(SliderTest);
+    defineReflectiveTests(IdleWorkTest);
   });
 }
 
@@ -156,6 +157,88 @@ Slider? g;
     await assertNoDiagnostics(r'''
 import 'package:flutter/widgets.dart';
 Widget f() => const RawImage();
+''');
+  }
+}
+
+@reflectiveTest
+class IdleWorkTest extends AnalysisRuleTest with _Stubs {
+  @override
+  void setUp() {
+    rule = BannedApiRule(_api(idleRule));
+    newPackage('flutter').addFile('lib/scheduler.dart', r'''
+class AnimationController { void repeat() {} void forward() {} }
+class SchedulerBinding {
+  void scheduleFrame() {}
+  void addPostFrameCallback(void Function(Object) cb) {}
+}
+''');
+    super.setUp();
+    // The mock dart:async lacks a few members the rule looks for.
+    final async = getFile('${sdkRoot.path}/lib/async/async.dart');
+    async.writeAsStringSync(
+      async.readAsStringSync().replaceFirst(
+            'abstract interface class Timer {',
+            'abstract interface class Timer {\n'
+                '  static void run(void Function() cb) {}\n'
+                '  factory Timer.periodic(Duration d, void Function(Timer t) cb) => throw 0;',
+          ) +
+          '\nvoid scheduleMicrotask(void Function() cb) {}\n',
+    );
+  }
+
+  Future<void> test_the_spinning_shapes() async {
+    const code = r'''
+import 'dart:async';
+import 'package:flutter/scheduler.dart';
+void tick(Object _) {}
+void f(AnimationController c, SchedulerBinding b) {
+  Timer.run(() {});
+  Timer(Duration.zero, () {});
+  Timer(const Duration(), () {});
+  Timer.periodic(const Duration(seconds: 1), (t) {});
+  Future.delayed(Duration.zero);
+  scheduleMicrotask(() {});
+  c.repeat();
+  b.scheduleFrame();
+  b.addPostFrameCallback(tick);
+}
+''';
+    await assertDiagnostics(code, [
+      lint(code.indexOf('Timer.run') + 6, 3),
+      lint(
+        code.indexOf('Timer(Duration.zero'),
+        'Timer(Duration.zero, () {})'.length,
+      ),
+      lint(
+        code.indexOf('Timer(const Duration()'),
+        'Timer(const Duration(), () {})'.length,
+      ),
+      lint(
+        code.indexOf('Timer.periodic'),
+        'Timer.periodic(const Duration(seconds: 1), (t) {})'.length,
+      ),
+      lint(
+        code.indexOf('Future.delayed'),
+        'Future.delayed(Duration.zero)'.length,
+      ),
+      lint(code.indexOf('scheduleMicrotask'), 'scheduleMicrotask'.length),
+      lint(code.indexOf('repeat'), 6),
+      lint(code.indexOf('scheduleFrame'), 'scheduleFrame'.length),
+      lint(code.indexOf('addPostFrameCallback'), 'addPostFrameCallback'.length),
+    ]);
+  }
+
+  Future<void> test_bounded_shapes_are_fine() async {
+    await assertNoDiagnostics(r'''
+import 'dart:async';
+import 'package:flutter/scheduler.dart';
+void f(AnimationController c, SchedulerBinding b) {
+  Timer(const Duration(seconds: 5), () {});
+  Future.delayed(const Duration(seconds: 5));
+  c.forward();
+  b.addPostFrameCallback((_) {});
+}
 ''');
   }
 }

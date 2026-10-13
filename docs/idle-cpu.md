@@ -17,10 +17,11 @@ about 4,000 zero-delay timers per second on Linux desktop, about 37,000 on the A
 
 ## Guards
 
-- `apps/raft_flutter/test/idle_work_guard_test.dart` scans all workspace `lib/` code for scheduleTask,
-  Priority.idle, Timer.run, zero-delay timers, scheduleMicrotask, `.repeat(`, Timer.periodic, frame requests,
-  self-registering post-frame callbacks and raw tickers. Each use needs an allowlist entry with an exact count
-  and a reason.
+- The `avoid_unreviewed_idle_work` lint (`tool/raft_lints`, run by `tool/raft-lints`) flags, in all workspace
+  `lib/` code, scheduleTask, Priority.idle, Timer.run, zero-delay timers, `Future(...)`/`Future.microtask`,
+  scheduleMicrotask, `.repeat(`, Timer.periodic/Stream.periodic, frame requests, self-registering post-frame
+  callbacks and raw tickers. Each use needs `// ignore: raft_lints/avoid_unreviewed_idle_work -- <why it cannot
+  loop or spin>`. scheduleTask and Priority.idle have no legitimate use, so no ignore is accepted for them in review.
 - `apps/raft_flutter/test/idle_frames_test.dart`: real WorkspaceView on the desktop fixture, two minutes of
   app time per screen; no running ticker, at most the known data polls request a frame, and nothing polls
   while the app is hidden.

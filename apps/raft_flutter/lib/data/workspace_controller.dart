@@ -507,6 +507,7 @@ class WorkspaceController extends ChangeNotifier {
   void _entityAuthorityChanged() {
     if (_disposed || !_ownsEntityDirectory) return;
     if (entityDirectory.synchronize() && entityDirectory.started) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
       scheduleMicrotask(() {
         if (!_disposed) unawaited(entityDirectory.preload());
       });

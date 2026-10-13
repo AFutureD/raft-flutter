@@ -186,6 +186,7 @@ class RaftSizedImageProvider extends ImageProvider<RaftSizedImageKey> {
     }
     completer.addEphemeralErrorListener((Object exception, StackTrace? stack) {
       // Same reason as ResizeImage: the cache may not have tracked the key yet.
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot image cache eviction after a load error.
       scheduleMicrotask(() => PaintingBinding.instance.imageCache.evict(key));
     });
     return completer;

@@ -74,6 +74,7 @@ class FollowedThreadsStore extends ChangeNotifier {
     final epoch = _epoch;
     // Getters synchronize lazily; the reload for the new identity is scheduled
     // here so whichever caller observes the change first starts it.
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
     scheduleMicrotask(() {
       if (_disposed || epoch != _epoch) return;
       notifyListeners();

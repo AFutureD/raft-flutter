@@ -423,6 +423,7 @@ class _RaftQuotedMessageSkeletonState extends State<RaftQuotedMessageSkeleton>
         ..stop()
         ..value = 0;
     } else if (!pulse.isAnimating) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
       pulse.repeat();
     }
   }

@@ -264,6 +264,7 @@ mixin AndroidPerformanceHintBinding on WidgetsBinding {
   @override
   void scheduleFrame() {
     _hints?.begin(_displayRefreshRate);
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Binding override that observes scheduleFrame to open a performance-hint session; it forwards to super and requests none.
     super.scheduleFrame();
   }
 

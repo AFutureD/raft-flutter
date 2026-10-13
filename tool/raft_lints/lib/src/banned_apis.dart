@@ -24,7 +24,8 @@ class ApiRef {
         if (owner == null || element.enclosingElement.name != owner) {
           return false;
         }
-        return member == null || (element.name ?? '') == member;
+        final name = element.name == 'new' ? '' : (element.name ?? '');
+        return member == null || name == member;
       case InterfaceElement():
         return owner == element.name && member == null;
       case ExecutableElement():
@@ -55,6 +56,7 @@ class BannedApi {
     required this.refs,
     this.typeReferences = false,
     this.namedArguments = const [],
+    this.custom,
   });
   final String rule;
   final String message;
@@ -65,8 +67,16 @@ class BannedApi {
   /// Named-argument labels that are banned outright (`backgroundImage:`).
   final List<String> namedArguments;
 
+  /// A syntactic check on a hooked node, for shapes a reference cannot express
+  /// (a zero-delay argument, a callback passed by name).
+  final bool Function(AstNode node)? custom;
+
   bool matches(Element? element) =>
       element != null && refs.any((r) => r.matches(element));
+
+  /// Whether the hooked [node] (resolving to [element]) is a violation.
+  bool hit(AstNode node, Element? element) =>
+      matches(element) || (custom?.call(node) ?? false);
 }
 
 const proxyRule = 'avoid_unproxied_network_client';
@@ -74,6 +84,7 @@ const imageRule = 'avoid_raw_image_decode';
 const underlineRule = 'avoid_builtin_underline';
 const sliderRule = 'avoid_material_slider';
 const feedbackRule = 'avoid_material_feedback';
+const idleRule = 'avoid_unreviewed_idle_work';
 
 String _ignore(String rule) =>
     "add '// ignore: raft_lints/$rule -- <why this site is exempt>'";
@@ -135,6 +146,38 @@ final bannedApis = <BannedApi>[
     refs: const [ApiRef('package:flutter/', 'TextDecoration', 'underline')],
   ),
   BannedApi(
+    rule: idleRule,
+    message:
+        'Deferred work, a zero-delay timer, a perpetual loop or a frame '
+        'request that can spin the CPU while the app is idle.',
+    correction:
+        'Use RaftIdleTimer / RaftForegroundPeriodic (raft_ui idle_work.dart), '
+        'or ${_ignore(idleRule)} saying why it cannot loop or spin.',
+    custom: isZeroDelayOrSelfRegistering,
+    refs: const [
+      ApiRef('package:flutter/', 'SchedulerBinding', 'scheduleTask'),
+      ApiRef('package:flutter/', 'Priority', 'idle'),
+      ApiRef('dart:async', 'Timer', 'run'),
+      ApiRef('dart:async', 'Timer', 'periodic'),
+      ApiRef('dart:async', 'Stream', 'periodic'),
+      ApiRef('dart:async', 'Future', ''),
+      ApiRef('dart:async', 'Future', 'microtask'),
+      ApiRef('dart:async', null, 'scheduleMicrotask'),
+      ApiRef('package:flutter/', 'AnimationController', 'repeat'),
+      ApiRef('package:flutter/', 'SchedulerBinding', 'scheduleFrame'),
+      ApiRef('package:flutter/', 'SchedulerBinding', 'ensureVisualUpdate'),
+      ApiRef('package:flutter/', 'SchedulerBinding', 'scheduleForcedFrame'),
+      ApiRef('package:flutter/', 'SchedulerBinding', 'scheduleFrameCallback'),
+      ApiRef(
+        'package:flutter/',
+        'SchedulerBinding',
+        'addPersistentFrameCallback',
+      ),
+      ApiRef('package:flutter/', 'Ticker'),
+      ApiRef('package:flutter/', 'TickerProvider', 'createTicker'),
+    ],
+  ),
+  BannedApi(
     rule: feedbackRule,
     message:
         'Material SnackBar / ScaffoldMessenger / MaterialBanner for feedback '
@@ -184,7 +227,7 @@ void checkBannedApi(AstNode node, Element? element, Report report) {
   for (final api in bannedApis) {
     // A type-name ban already reports the creation's type name.
     if (api.typeReferences && node is InstanceCreationExpression) continue;
-    if (api.matches(element)) report(api.rule, node);
+    if (api.hit(node, element)) report(api.rule, node);
   }
 }
 
@@ -201,4 +244,45 @@ void checkBannedTypeName(NamedType node, Report report) {
   for (final api in bannedApis) {
     if (api.typeReferences && api.matches(element)) report(api.rule, node);
   }
+}
+
+/// `Timer(Duration.zero, ...)` / `Future.delayed(Duration.zero, ...)` and
+/// `addPostFrameCallback(namedFunction)` (a callback that can re-register
+/// itself).
+bool isZeroDelayOrSelfRegistering(AstNode node) {
+  if (node is InstanceCreationExpression) {
+    final type = node.constructorName.type.name.lexeme;
+    final ctor = node.constructorName.name?.name;
+    final isTimer = type == 'Timer' && ctor == null;
+    final isDelayed = type == 'Future' && ctor == 'delayed';
+    if (!isTimer && !isDelayed) return false;
+    final args = node.argumentList.arguments;
+    return args.isNotEmpty && _isZeroDuration(args.first);
+  }
+  final parent = node.parent;
+  if (node is SimpleIdentifier &&
+      parent is MethodInvocation &&
+      parent.methodName == node &&
+      node.name == 'addPostFrameCallback') {
+    final args = parent.argumentList.arguments;
+    return args.isNotEmpty && args.first is SimpleIdentifier;
+  }
+  return false;
+}
+
+bool _isZeroDuration(AstNode arg) {
+  var e = arg is NamedArgument ? arg.argumentExpression : arg;
+  while (e is ParenthesizedExpression) {
+    e = e.expression;
+  }
+  if (e is PrefixedIdentifier) {
+    return e.prefix.name == 'Duration' && e.identifier.name == 'zero';
+  }
+  if (e is InstanceCreationExpression) {
+    final type = e.constructorName.type.name.lexeme;
+    return type == 'Duration' &&
+        e.constructorName.name == null &&
+        e.argumentList.arguments.isEmpty;
+  }
+  return false;
 }

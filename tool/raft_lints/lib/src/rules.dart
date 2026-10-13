@@ -160,12 +160,12 @@ class _BannedVisitor extends SimpleAstVisitor<void> {
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
     if (api.typeReferences) return; // reported via the type name
-    if (api.matches(node.constructorName.element)) _report(api.rule, node);
+    if (api.hit(node, node.constructorName.element)) _report(api.rule, node);
   }
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    if (api.matches(node.methodName.element)) {
+    if (api.hit(node.methodName, node.methodName.element)) {
       _report(api.rule, node.methodName);
     }
   }

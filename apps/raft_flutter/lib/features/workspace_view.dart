@@ -822,6 +822,7 @@ class _WorkspaceViewState extends State<WorkspaceView>
       w.setError(null);
       showRaftToast(context, message);
     });
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- Single frame so the post-frame callback that shows and clears w.error (Web toast.error) runs even when nothing else rebuilds; the callback never re-requests.
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 

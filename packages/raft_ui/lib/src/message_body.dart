@@ -860,6 +860,7 @@ class _RaftMermaidBlockState extends State<RaftMermaidBlock> {
     expandedRoute = null;
     expandedNavigator = null;
     if (route != null && navigator != null) {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
       scheduleMicrotask(() {
         if (navigator.mounted && route.isActive) navigator.removeRoute(route);
       });

@@ -1556,7 +1556,9 @@ class _RaftSpinnerState extends State<RaftSpinner>
       spin.stop();
       dash.stop();
     } else {
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
       spin.repeat();
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Loop driven by an AnimationController whose vsync is this State, so TickerMode (hidden routes, offstage tabs, folded panels) mutes it, it is disposed with the widget, and reduced motion stops it.
       if (!t.brutal) dash.repeat();
     }
   }

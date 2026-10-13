@@ -103,6 +103,7 @@ class _AgentAvatarDialogState extends State<AgentAvatarDialog> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (route!.isActive) route.navigator?.removeRoute(route);
       });
+      // ignore: raft_lints/avoid_unreviewed_idle_work -- Single request after a state change; nothing re-requests from the callback.
       WidgetsBinding.instance.ensureVisualUpdate();
     }
     upload = null;

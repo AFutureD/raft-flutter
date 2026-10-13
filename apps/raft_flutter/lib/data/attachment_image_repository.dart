@@ -633,6 +633,7 @@ class AttachmentImageRepository {
     e.leases.add(lease);
     e.idleSince = null;
     _sweepIdle();
+    // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot deferral out of a build or notification; the callback does not schedule another microtask itself.
     scheduleMicrotask(_pump);
     return lease;
   }
