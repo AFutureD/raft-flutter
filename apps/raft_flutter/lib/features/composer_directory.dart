@@ -97,9 +97,11 @@ class _ComposerShared extends ChangeNotifier {
       try {
         final roster = await w.query('/channels/$id/members');
         if (!current()) return;
-        final live = w.channel?.id == id
-            ? w.channel
-            : w.channels.where((c) => c.id == id).firstOrNull;
+        final live = [
+          ?w.channel,
+          ...w.channels,
+          ...w.dms,
+        ].where((c) => c.id == id).firstOrNull;
         if (live != null &&
             channelAuthorityReduced(readUnder, _channelAuthority(live))) {
           return;
@@ -225,7 +227,7 @@ void rememberChannelRoster(
 /// use only their current membership projection; resource references require
 /// the real server flag before either computers or installed apps are shown.
 class ComposerDirectory extends ChangeNotifier {
-  ComposerDirectory(this.w, {this.agentPresentation})
+  ComposerDirectory(this.w, {this.agentPresentation, this.thread = false})
     : _shared = _sharedComposerData[w.entityDirectory] ??= _ComposerShared() {
     w.addListener(changed);
     w.entityDirectory.addListener(changed);
@@ -236,6 +238,15 @@ class ComposerDirectory extends ChangeNotifier {
   final WorkspaceController w;
   final _ComposerShared _shared;
   StreamSubscription<RaftEvent>? events;
+
+  /// Web ThreadPanel `mentionChannelId={parentChannelId}`: a thread composer
+  /// suggests from the thread's SOURCE channel (roster, private/joint
+  /// eligibility, in-channel grouping), not from the channel the main pane
+  /// has open, and ranks the thread's recent speakers first.
+  final bool thread;
+
+  /// The channel whose roster scopes these suggestions.
+  RaftChannel? get scopeChannel => thread ? w.threadSourceChannel : w.channel;
 
   /// Borrow the chat's existing authorized activity adapter; never owns it.
   final MessageAgentPresentation? agentPresentation;
@@ -263,7 +274,7 @@ class ComposerDirectory extends ChangeNotifier {
     final authority = directoryAuthority(w);
     _shared.sync(authority);
     scope = authority;
-    final channel = w.server == null ? null : w.channel;
+    final channel = w.server == null ? null : scopeChannel;
     if (channel != null) _shared.validate(channel);
     if (channel?.id != channelId) {
       channelId = channel?.id;
@@ -272,13 +283,15 @@ class ComposerDirectory extends ChangeNotifier {
       if (channel != null) {
         // ignore: raft_lints/avoid_unreviewed_idle_work -- One-shot roster load after the channel changes; the callback starts a request and never re-arms.
         Timer.run(() {
-          if (!ended && w.channel?.id == channel.id) {
-            unawaited(_shared.loadRoster(w, w.channel!));
+          final current = scopeChannel;
+          if (!ended && current?.id == channel.id) {
+            unawaited(_shared.loadRoster(w, current!));
           }
         });
       }
     }
     final resources = _shared.resources == true;
+    final recency = threadRecency(channel);
     // Agent presence patches leave every input below unchanged; skip copying
     // the computer rows for them.
     final inputs = (
@@ -291,6 +304,7 @@ class ComposerDirectory extends ChangeNotifier {
       _shared.revision,
       resources,
       w.can('viewMachines'),
+      recency,
     );
     if (inputs == checked) return;
     checked = inputs;
@@ -306,12 +320,42 @@ class ComposerDirectory extends ChangeNotifier {
       _shared.revision,
       resources,
       Object.hashAll([for (final c in computers) '${c['id']}:${c['name']}']),
+      recency,
     );
     if (next == stamp) return;
     stamp = next;
-    people = channel == null ? [] : build(authority, channel, computers);
+    people = channel == null
+        ? []
+        : build(authority, channel, computers, recent: _recent);
     notifyListeners();
   }
+
+  /// Web `buildRecentParticipantRanks`: sender ids of the thread's messages,
+  /// newest speaker first. Only a thread over a non-DM channel prioritises
+  /// them (ThreadPanel `isChannelThreadInput`). Returns a cheap change token.
+  Object? threadRecency(RaftChannel? channel) {
+    final id = w.threadChannelId;
+    if (!thread || channel == null || channel.type == 'dm' || id == null) {
+      _recent = const {};
+      return null;
+    }
+    final token = (id, w.ledger.revision);
+    if (token == _recencyToken) return token;
+    _recencyToken = token;
+    final ranks = <String, int>{};
+    final rows = w.ledger.messages(id);
+    for (var i = rows.length - 1; i >= 0; i--) {
+      final sender = rows[i]['senderId'];
+      if (sender is String && sender.isNotEmpty && !ranks.containsKey(sender)) {
+        ranks[sender] = ranks.length;
+      }
+    }
+    _recent = ranks;
+    return token;
+  }
+
+  Map<String, int> _recent = const {};
+  (String, int)? _recencyToken;
 
   void event(RaftEvent event) {
     if (ended) return;
@@ -321,10 +365,10 @@ class ComposerDirectory extends ChangeNotifier {
     final payload = event.payload;
     final id = payload is Map && payload['channelId'] is String
         ? payload['channelId'] as String
-        : w.channel?.id;
+        : scopeChannel?.id;
     if (id == null) return;
     if (event.name == 'channel:removed') return _shared.drop(id);
-    final channel = w.channel;
+    final channel = scopeChannel;
     if (channel?.id == id) unawaited(_shared.loadRoster(w, channel!));
     // Another cached channel revalidates when it is opened again.
   }
@@ -334,8 +378,9 @@ class ComposerDirectory extends ChangeNotifier {
   List<RaftComposerSuggestion> build(
     String authority,
     RaftChannel channel,
-    List<Map<String, dynamic>> computers,
-  ) {
+    List<Map<String, dynamic>> computers, {
+    Map<String, int> recent = const {},
+  }) {
     final entries = <String, RaftComposerSuggestion>{};
     final memberIds = <String>{};
     // Source MessageInput lists server humans without a description; only the
@@ -380,6 +425,7 @@ class ComposerDirectory extends ChangeNotifier {
               ? value['description'] as String? ?? previous?.detail
               : previous?.detail,
           inChannel: memberIds.contains(key),
+          threadRank: recent[id],
           avatar: _ComposerCandidateAvatar(
             directory: this,
             authority: authority,
@@ -461,10 +507,10 @@ class ComposerDirectory extends ChangeNotifier {
   }
 
   void request(String prefix) {
-    if (ended || prefix != '@' || w.channel == null || w.server == null) {
+    final channel = scopeChannel;
+    if (ended || prefix != '@' || channel == null || w.server == null) {
       return;
     }
-    final channel = w.channel!;
     if (!_shared.rosters.containsKey(channel.id)) {
       unawaited(_shared.loadRoster(w, channel));
     }

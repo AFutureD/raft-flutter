@@ -458,6 +458,7 @@ class _RaftChatViewState extends State<RaftChatView>
     composerDirectory = ComposerDirectory(
       w,
       agentPresentation: agentPresentation,
+      thread: widget.thread,
     )..addListener(referencesChanged);
     taskProjection = MessageTaskProjection(w)..addListener(referencesChanged);
     selection = MessageSelection(w, thread: widget.thread)
@@ -501,10 +502,21 @@ class _RaftChatViewState extends State<RaftChatView>
         composerDirectory = ComposerDirectory(
           w,
           agentPresentation: agentPresentation,
+          thread: widget.thread,
         )..addListener(referencesChanged);
         taskProjection = MessageTaskProjection(w)
           ..addListener(referencesChanged);
         w.addListener(sync);
+      }
+      if (!controllerChanged) {
+        // The thread/channel scope picks the roster the composer suggests
+        // from; the mobile shell reuses this State across the two.
+        composerDirectory.dispose();
+        composerDirectory = ComposerDirectory(
+          w,
+          agentPresentation: agentPresentation,
+          thread: widget.thread,
+        )..addListener(referencesChanged);
       }
       selection = MessageSelection(w, thread: widget.thread)
         ..addListener(selectionChanged);
