@@ -30,6 +30,7 @@ const dialogSurfaces = <CloseSurface>[
       'lib/features/public_server_view.dart',
       'lib/features/public_visibility_view.dart',
       'lib/features/server_views.dart',
+      'lib/features/storage_settings.dart',
       'lib/features/workspace_view_sidebar_menus.dart',
       'lib/features/account_settings.dart',
       '../../packages/raft_ui/lib/src/computer_detail.dart',

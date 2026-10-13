@@ -9,7 +9,6 @@ import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/platform/attachment_preview_files.dart';
-import 'package:raft_ui/raft_ui.dart';
 
 import 'fixtures/preview_samples.dart';
 
