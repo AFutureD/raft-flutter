@@ -12,8 +12,8 @@
 // Linux: build with `tool/flutter build linux --profile -t ...` and run the
 // bundle; the same server listens on 127.0.0.1:18791.
 //
-// Channel `ac`: a photo with a thumbnail, a photo without one, a PDF and a
-// text document. The storage server (port 18791) counts requests and bytes
+// Channel `ac`: a photo with a thumbnail, a photo without one, a PDF, a
+// text document and a message with three photos (the image viewer gallery). The storage server (port 18791) counts requests and bytes
 // per path (`/__stats`, `/__reset`); the fake API counts signed-URL and
 // document-preview requests. Every request is logged as `attach-cache: ...`
 // (`adb logcat -s flutter`). Launch `-e AC_LOC` is not available through
@@ -124,6 +124,10 @@ Future<void> main() async {
     '/img/photo.png': images.pngs[0].$3,
     '/img/plain.png': images.pngs[1].$3,
     '/doc/report.pdf': pdf,
+    // Gallery message: three originals, no thumbnails (viewer test).
+    '/img/g1.png': images.pngs[0].$3,
+    '/img/g2.png': images.pngs[1].$3,
+    '/img/g3.png': images.pngs[2].$3,
   }, apiCounts);
 
   Map<String, dynamic> row(
@@ -161,6 +165,11 @@ Future<void> main() async {
         'mimeType': 'application/pdf',
         'sizeBytes': pdf.length,
       },
+    ]),
+    row(4, 'Three photos', [
+      image('ac-g1', images.pngs[0]),
+      image('ac-g2', images.pngs[1]),
+      image('ac-g3', images.pngs[2]),
     ]),
     row(3, 'Meeting notes', [
       {
@@ -214,6 +223,9 @@ Future<void> main() async {
     'ac-photo': '/img/photo.png',
     'ac-plain': '/img/plain.png',
     'ac-pdf': '/doc/report.pdf',
+    'ac-g1': '/img/g1.png',
+    'ac-g2': '/img/g2.png',
+    'ac-g3': '/img/g3.png',
   };
   void count(String key) {
     apiCounts[key] = (apiCounts[key] ?? 0) + 1;
@@ -273,9 +285,35 @@ Future<void> main() async {
       createClient: (_, _, _) => client,
       initialLocation: Uri(path: location),
       nativeContent: LabNavigationContent(),
-      nativeSharing: NativeSharing(supported: false),
+      // AC_SHARE=true exercises the system share sheet and gallery save.
+      nativeSharing: NativeSharing(
+        supported: const bool.fromEnvironment('AC_SHARE'),
+      ),
       openWorkspaceCache: () async =>
           LabNavigationCache(File('${dir.path}/workspace.sqlite')),
     ),
   );
+  // The production route lands on the (empty) channel; load its messages the
+  // way a tap on the channel row does.
+  unawaited(() async {
+    for (var i = 0; i < 150; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      dynamic controller;
+      void visit(Element e) {
+        if (controller != null) return;
+        if (e.widget.runtimeType.toString() == 'RaftChatView') {
+          controller = (e.widget as dynamic).controller;
+          return;
+        }
+        e.visitChildren(visit);
+      }
+
+      final root = WidgetsBinding.instance.rootElement;
+      if (root != null) visit(root);
+      if (controller != null) {
+        await controller.selectChannel(controller.channel);
+        return;
+      }
+    }
+  }());
 }
