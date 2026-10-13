@@ -340,6 +340,24 @@ screenshots, `screenrecord` of the close animation, `dumpsys meminfo`, the syste
 scenario name>` builds a subset in; `--define NAME=value` passes a `--dart-define` (`VP_BACKGROUND=true` enables the background scenario, which sends the app to the background with the host command `background:<seconds>`); `--no-host` skips the host-driven steps. Start your own emulator on a free port
 (`-read-only` when the AVD is shared) and never point it at a phone with the real app.
 
+`--media` must hold every file the suite uses (`REQUIRED_MEDIA` in the runner: the clips and `photo1..12.jpg`). A full run
+stops before building when one is missing, a `--only` run warns; the first scenario of a full run reports
+`media-incomplete` and every `launch` fails naming the missing files. Before this check a media directory without `landscape.mp4` and the photos made
+`browser R3+R4` fail on a 404 from the image loader, deep in the app.
+
+Scenarios are isolated from each other. `scenario(...)` starts each one from a clean slate (`startScenario`: no guarded
+call of an earlier scenario in flight, no app tree, no live player, the host command `clean` (no recording, no system
+dialog, the app in front), server counters/failures/commands cleared) and runs the body in a zone with a
+`ScenarioToken` that is cancelled when the test ends, however it ends (`addTearDown`). A failure that surfaces as an
+uncaught async error ends the test at once but leaves its body running; `until`, `lab.host`, `lab.hostQuiet` and the
+server calls park such a leftover body at its next call instead of letting it pump frames into the next scenario ("Guarded
+function conflict" for every scenario after it). The tear-down of a scenario also waits until the leftover body has let go of the binding (the framework pumps at the
+start of the next test, before any of its code runs). A scenario that runs longer than 4 minutes fails and is cancelled.
+The runner's watchdog brings the app back to the front when it has been away for 6 s with no host command running (Back on
+the last route sends it away and its frames stop, so the scenario could not even time out); the scenario then fails on its
+own timeout. Do not add a test that never pumps a widget in front of the scenarios: on the emulator it made the Android back key
+leave the app in `viewer: Android back key returns` (the same suite passed without it).
+
 Scenarios (`PS-REPORT` lines in `suite.log` carry the measured numbers):
 
 | Scenario | What it asserts |

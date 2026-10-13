@@ -103,6 +103,16 @@ List<VideoClip> photoMessage(int count) => [
     VideoClip('vp-q$i', 'photo${i + 1}.jpg', 'q$i.jpg', size: 50000, mime: 'image/jpeg', group: 'g'),
 ];
 
+/// Every file of the media directory that any scenario asks the range server for.
+Set<String> get _requiredMedia => {
+  for (final clip in [
+    _portrait, _long, _slow4k, _corrupt, _hlg, _big4k, _stall, _choke, _longHlg, //
+    _bA, _bP1, _bC, _bP2, _bD, _bHlg, _bBad, _tone,
+    ...mixedMessage(12), ...mixedMessage(12, videoFirst: true), ...photoMessage(12),
+  ])
+    clip.file,
+};
+
 /// When each page was the nearest one: how long a passed page was on screen
 /// decides whether it may prepare a player (the 250 ms rest).
 class PageDwell {
@@ -139,9 +149,59 @@ const _tone = VideoClip('vp-tone', 'tone.wav', 'tone.wav', size: 264678, mime: '
 
 late final PlayerLab lab;
 
+bool _mediaChecked = false;
+
+/// No scenario takes longer than this; a stuck one fails (and is cancelled, see
+/// [ScenarioToken]) instead of holding the suite.
+const _scenarioTimeout = Timeout(Duration(minutes: 4));
+
 /// A scenario; `--dart-define=VP_ONLY=<part of the name>` runs a subset.
-void scenario(String name, Future<void> Function(WidgetTester) body) =>
-    testWidgets(name, body, skip: _only.isNotEmpty && !name.contains(_only));
+///
+/// Each scenario is isolated from the ones before it: it starts from a clean
+/// slate ([startScenario]) and, when it ends however it ends, its helpers stop
+/// ([runAsScenario]), so a failure cannot leak into the next scenario.
+void scenario(String name, Future<void> Function(WidgetTester) body) => testWidgets(
+  name,
+  (tester) => runAsScenario(ScenarioToken(), () async {
+    await startScenario(tester);
+    await body(tester);
+  }),
+  skip: _only.isNotEmpty && !name.contains(_only),
+  timeout: _scenarioTimeout,
+);
+
+/// The state every scenario starts from, whatever ran before: no guarded call
+/// of an earlier scenario still in flight, no app tree, no player left alive,
+/// the host runner idle (no recording, no dialog, the app in front), the range
+/// server's counters, failures and commands cleared.
+Future<void> startScenario(WidgetTester tester) async {
+  if (!_mediaChecked && _only.isEmpty) {
+    // A full run needs the complete media directory: say which files are
+    // missing in one place (the runner checks too). Not a test of its own: an
+    // extra first test that never pumps a widget changes how the Android back
+    // key reaches the app in the scenarios after it.
+    _mediaChecked = true;
+    try {
+      await lab.requireFiles(_requiredMedia);
+    } on TestFailure catch (error) {
+      report('media-incomplete', {'message': '${error.message}'});
+    }
+  }
+  await waitForBindingIdle();
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(const Duration(milliseconds: 500));
+  await lab.cleanSlate();
+  try {
+    await until(tester, () => VideoPlayerAttachmentPlayer.debugLive == 0, 'players of the earlier scenario to be released',
+        timeout: const Duration(seconds: 15));
+  } on TestFailure {
+    // A player that outlived its scenario and its tree is that scenario's
+    // leak: say so, and count from here so the failure stays with it.
+    report('scenario-start-leak', {'live': VideoPlayerAttachmentPlayer.debugLive});
+    VideoPlayerAttachmentPlayer.debugLive = 0;
+  }
+  MediaBrowserFlags.override = null;
+}
 
 Finder card(String filename) => find.byWidgetPredicate((w) => w is RaftInlineVideo && w.filename == filename);
 RaftInlineVideo cardOf(WidgetTester t, String filename) => t.widget<RaftInlineVideo>(card(filename));
@@ -150,6 +210,7 @@ RaftVideoViewer viewerOf(WidgetTester t) => t.widget<RaftVideoViewer>(viewer);
 
 Future<VideoFixture> launch(WidgetTester tester, List<VideoClip> clips,
     {String mode = 'light', String theme = 'brutal', Future<void> Function()? prepare}) async {
+  await lab.requireFiles([for (final clip in clips) clip.file]);
   await lab.reset();
   await prepare?.call();
   final fixture = await buildVideoFixture(
