@@ -142,9 +142,8 @@ class AvatarLab {
       );
     }
     if (path == '/__select') return json(await _select('a'));
-    final avatar = RegExp(
-      r'^/api/avatars/users/([0-9a-f]{32})\.webp$',
-    ).firstMatch(path);
+    final avatar = RegExp(r'^/api/avatars/users/([0-9a-f]{32})\.webp$')
+        .firstMatch(path);
     final match = avatar ?? RegExp(r'^/(?:t|o)/(\d+)\.png$').firstMatch(path);
     if (match == null) {
       response.statusCode = 404;
@@ -169,8 +168,9 @@ class AvatarLab {
           ? thumbs[n % thumbs.length]
           : originals[n % originals.length];
     }
-    if (_delayMs > 0)
+    if (_delayMs > 0) {
       await Future<void>.delayed(const Duration(milliseconds: _delayMs));
+    }
     try {
       response.headers.contentType = ContentType('image', 'png');
       response.headers.contentLength = body.length;
@@ -280,8 +280,9 @@ class AvatarLab {
     if (slots > 0) avatarFrames++;
     if (placeholders > 0) placeholderFrames++;
     maxPlaceholders = math.max(maxPlaceholders, placeholders);
-    if (now.difference(_lastFrame) > const Duration(milliseconds: 100))
+    if (now.difference(_lastFrame) > const Duration(milliseconds: 100)) {
       longFrames++;
+    }
     _lastFrame = now;
   }
 
@@ -304,8 +305,9 @@ class AvatarLab {
         final p = (e.state as ScrollableState).position;
         if (p.axis == Axis.vertical &&
             p.hasContentDimensions &&
-            (best == null || p.maxScrollExtent > best!.maxScrollExtent))
+            (best == null || p.maxScrollExtent > best!.maxScrollExtent)) {
           best = p;
+        }
       }
       e.visitChildren(visit);
     }
@@ -414,7 +416,7 @@ class AvatarLab {
       'scenario': name,
       'ms': watch.elapsedMilliseconds,
       ...stats(),
-      if (extra != null) 'extra': extra,
+      'extra': ?extra,
     };
   }
 }
