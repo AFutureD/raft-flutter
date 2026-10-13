@@ -21,6 +21,7 @@ import 'package:analyzer/src/dart/analysis/file_byte_store.dart'
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:path/path.dart' as p;
+import 'package:raft_lints/src/banned_apis.dart';
 import 'package:raft_lints/src/checks.dart';
 import 'package:raft_lints/src/ignores.dart';
 
@@ -81,11 +82,13 @@ Future<void> main(List<String> args) async {
 
 /// `x[k]!`, `(x[k])!`, `.single`, `firstWhere(` / `lastWhere(` / `singleWhere(`.
 final _mayMatch = RegExp(
-  r'\]\s*\)*\s*!|\.single\b|\b(?:first|last|single)Where\b',
+  r'\]\s*\)*\s*!|\.single\b|\b(?:first|last|single)Where\b|'
+  r'Client|Dio\b|HttpClient|WebSocket|\bio\b|findProxy|Image|Slider|underline',
 );
 
 String _message(String rule) => switch (rule) {
   indexAssertionRule => indexAssertionMessage,
   singleRule => singleMessage,
-  _ => whereMessage,
+  whereRule => whereMessage,
+  _ => bannedApis.firstWhere((a) => a.rule == rule).message,
 };

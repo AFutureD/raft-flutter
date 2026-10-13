@@ -1,6 +1,7 @@
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
 
+import 'src/banned_apis.dart';
 import 'src/rules.dart';
 
 /// Analyzer plugin entry point (loaded by the analysis server; see
@@ -16,5 +17,8 @@ class RaftLintsPlugin extends Plugin {
     registry.registerLintRule(AvoidRenderIndexAssertion());
     registry.registerLintRule(AvoidRenderSingle());
     registry.registerLintRule(AvoidRenderWhereWithoutOrElse());
+    for (final api in bannedApis) {
+      registry.registerLintRule(BannedApiRule(api));
+    }
   }
 }

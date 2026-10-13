@@ -3,6 +3,7 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 
+import 'banned_apis.dart';
 import 'render_scope.dart';
 
 /// Rule names (also the `// ignore: raft_lints/<name>` keys).
@@ -98,18 +99,39 @@ class AllChecksVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitPrefixedIdentifier(PrefixedIdentifier node) {
     checkSingle(node, node.identifier, report);
+    checkBannedApi(node, node.identifier.element, report);
     super.visitPrefixedIdentifier(node);
   }
 
   @override
   void visitPropertyAccess(PropertyAccess node) {
     checkSingle(node, node.propertyName, report);
+    checkBannedApi(node, node.propertyName.element, report);
     super.visitPropertyAccess(node);
   }
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
     checkWhere(node, report);
+    checkBannedApi(node.methodName, node.methodName.element, report);
     super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    checkBannedApi(node, node.constructorName.element, report);
+    super.visitInstanceCreationExpression(node);
+  }
+
+  @override
+  void visitNamedType(NamedType node) {
+    checkBannedTypeName(node, report);
+    super.visitNamedType(node);
+  }
+
+  @override
+  void visitNamedArgument(NamedArgument node) {
+    checkBannedNamedArgument(node, report);
+    super.visitNamedArgument(node);
   }
 }
