@@ -10,6 +10,7 @@ class RaftComposerSuggestion {
     this.title,
     this.detail,
     this.inChannel = true,
+    this.threadRank,
     this.archived = false,
     this.referenceText,
     this.avatar,
@@ -23,6 +24,11 @@ class RaftComposerSuggestion {
   /// not-in-channel treatment (`!border-black/40 opacity-60`).
   final Widget? avatar, mutedAvatar;
   final bool inChannel;
+
+  /// Thread composers only (Web `buildRecentParticipantRanks`): 0 is the most
+  /// recent speaker of the thread; null never spoke. Ranked before the match
+  /// order inside each group.
+  final int? threadRank;
 
   /// An archived channel option (Web `ch.archivedAt`): the `archived` Badge.
   final bool archived;

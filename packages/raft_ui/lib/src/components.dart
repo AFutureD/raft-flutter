@@ -2033,18 +2033,27 @@ class _RaftComposerState extends State<RaftComposer> {
                   .contains(q),
         )
         .toList();
+    // List.sort is not stable past a few dozen rows; tie-break on the
+    // supplied order so a long roster keeps Web's insertion order.
+    final order = {for (final (i, s) in result.indexed) s: i};
     result.sort((a, b) {
       final group = suggestionGroup(a).compareTo(suggestionGroup(b));
       if (group != 0) return group;
+      // Web buildMentionCandidateGroups: in a channel thread the recent
+      // speakers lead each group, then the ranked (match) order.
+      final ar = a.threadRank ?? 1 << 30, br = b.threadRank ?? 1 << 30;
+      if (ar != br) return ar.compareTo(br);
       final ap = a.name.toLowerCase().startsWith(q),
           bp = b.name.toLowerCase().startsWith(q);
       return ap != bp
           ? ap
                 ? -1
                 : 1
-          : 0;
+          : order[a]!.compareTo(order[b]!);
     });
-    return result.take(10).toList();
+    // Web rankComposerSuggestions: a blank query lists every candidate; a
+    // typed query keeps the 30 best.
+    return q.isEmpty ? result : result.take(30).toList();
   }
 
   int suggestionGroup(RaftComposerSuggestion s) => s.type == 'channel'

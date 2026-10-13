@@ -102,6 +102,97 @@ void main() {
       },
     );
   }
+  Future<String> pick(
+    WidgetTester tester,
+    List<RaftComposerSuggestion> suggestions,
+    String typed,
+    List<LogicalKeyboardKey> keys,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: raftTheme(RaftFamily.elegant),
+        home: Scaffold(
+          body: Column(
+            children: [
+              const Spacer(),
+              RaftComposer(suggestions: suggestions, onSend: (_) async => true),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), typed);
+    await tester.pump();
+    for (final key in keys) {
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+    }
+    return tester.widget<EditableText>(find.byType(EditableText)).controller.text;
+  }
+
+  List<RaftComposerSuggestion> people(int count, {int? Function(int)? rank}) => [
+    for (var i = 0; i < count; i++)
+      RaftComposerSuggestion(
+        type: 'agent',
+        id: 'a$i',
+        name: 'agent$i',
+        threadRank: rank?.call(i),
+      ),
+  ];
+
+  // Web rankComposerSuggestions: a blank query lists every candidate and a
+  // typed query keeps the 30 best; the popup is a scroll list, so a roster
+  // longer than ten is reachable (ArrowUp wraps to the last option).
+  testWidgets('blank @ lists the whole roster, not the first ten', (t) async {
+    expect(
+      await pick(t, people(25), '@', [
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.enter,
+      ]),
+      '@agent24 ',
+    );
+  });
+  testWidgets('typed @ query keeps the 30 best matches', (t) async {
+    expect(
+      await pick(t, people(40), '@agent', [
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.enter,
+      ]),
+      '@agent29 ',
+    );
+  });
+  testWidgets('thread recency leads each group, in-channel first', (t) async {
+    final list = [
+      ...people(4, rank: (i) => i == 2 ? 1 : (i == 3 ? 0 : null)),
+      const RaftComposerSuggestion(
+        type: 'agent',
+        id: 'out',
+        name: 'outsider',
+        inChannel: false,
+        threadRank: 0,
+      ),
+    ];
+    // Recent speakers first (agent3, agent2), then roster order; a
+    // not-in-channel speaker stays in its own later group.
+    expect(
+      await pick(t, list, '@', [LogicalKeyboardKey.enter]),
+      '@agent3 ',
+    );
+    expect(
+      await pick(t, list, '@', [
+        LogicalKeyboardKey.arrowDown,
+        LogicalKeyboardKey.enter,
+      ]),
+      '@agent2 ',
+    );
+    expect(
+      await pick(t, list, '@', [
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.enter,
+      ]),
+      '@outsider ',
+    );
+  });
   testWidgets(
     'channel name keeps intrinsic basis and description receives remaining width',
     (t) async {
