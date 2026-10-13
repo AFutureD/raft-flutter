@@ -103,6 +103,11 @@ class ProofAdapter extends LabAdapter {
       if (content.trim().isEmpty) {
         return json(400, {'error': 'Message content cannot be empty'});
       }
+      if (content.contains('reject')) {
+        // A failing send, to show where its error toast sits.
+        log('-> 500 (text contains "reject")');
+        return json(500, {'error': 'The server could not take this message.'});
+      }
       log('-> 200 accepted');
       return json(200, {
         'message': {
