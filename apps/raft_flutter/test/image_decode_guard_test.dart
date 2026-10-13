@@ -46,6 +46,11 @@ const _allow = <String, Map<String, String>>{
     'ImageDescriptor': _repository,
   },
   'apps/raft_flutter/lib/features/attachment_view.dart': {'Image(': _lease},
+  'apps/raft_flutter/lib/features/inline_attachment_media.dart': {
+    'RawImage':
+        'Paints the released player\'s still: a ui.Image captured from the '
+        'video RepaintBoundary at display size (toImage), not a decode.',
+  },
   'apps/raft_flutter/lib/features/attachment_image_lightbox.dart': {
     'Image(':
         'Lightbox stage images are leases decoded at screen size x zoom cap '
