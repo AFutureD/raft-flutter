@@ -42,25 +42,6 @@ const _pendingKevinZh = <String>{
   // channel settings: a stale mounted action is refused (Web has no copy)
   'Channel editing is no longer available.',
   'Channel activity preference is no longer available.',
-  // Documents the server would not preview (native-only: Web shows its own
-  // "Preview unavailable" state). The app reads the original itself, or
-  // hands it to the system app. Proposed zh, not final:
-  //   Open with system app -> 用系统应用打开
-  //   Open full file -> 打开完整文件
-  //   This file is too large to open here. Download it instead. -> 此文件过大，无法在此打开，请下载。
-  //   Cannot reach the server. Check your connection and try again. -> 无法连接服务器。请检查网络连接后重试。
-  //   This file is no longer available. -> 此文件已不可用。
-  //   This link has expired or access was denied. Try again. -> 此链接已过期或无权访问。请重试。
-  //   The file could not be downloaded. Try again. -> 无法下载此文件，请重试。
-  // "Large file: showing the first {count} lines." has Kevin's wording
-  // (文件较大，已显示前 N 行) and is in the catalog.
-  'Open with system app',
-  'Open full file',
-  'This file is too large to open here. Download it instead.',
-  'Cannot reach the server. Check your connection and try again.',
-  'This file is no longer available.',
-  'This link has expired or access was denied. Try again.',
-  'The file could not be downloaded. Try again.',
 };
 
 class _Use {

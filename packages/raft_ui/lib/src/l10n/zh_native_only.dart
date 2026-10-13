@@ -111,4 +111,9 @@ const Map<String, String> zhCatalogNativeOnly = <String, String>{
   "This audio may use a codec this app cannot play.": "此音频使用的编解码器可能无法在本应用中播放。",
   "The media could not be played.": "无法播放该媒体。",
   "Network settings": "网络设置",
+  // Documents the server would not preview: read the original or hand it to the system app (Kevin approved 2026-10-13).
+  "Open with system app": "用系统应用打开",
+  "Open full file": "打开完整文件",
+  "This file is too large to open here. Download it instead.": "文件太大，无法在此打开，请下载后查看。",
+  "The file could not be downloaded. Try again.": "文件下载失败，请重试。",
 };
