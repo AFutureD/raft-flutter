@@ -89,8 +89,8 @@ class LabAdapter implements HttpClientAdapter {
 
 /// A client whose realtime events the lab drives.
 class LabClient extends RaftClient {
-  LabClient(LabAdapter adapter, {String origin = 'https://example.invalid'})
-    : super(origin: origin, sessionStore: MemorySessionStore(), transport: Dio()..httpClientAdapter = adapter) {
+  LabClient(LabAdapter adapter, {super.origin = 'https://example.invalid'})
+    : super( sessionStore: MemorySessionStore(), transport: Dio()..httpClientAdapter = adapter) {
     _accountEvents = super.events.listen(stream.add);
   }
   final stream = StreamController<RaftEvent>.broadcast(sync: true);

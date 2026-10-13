@@ -30,11 +30,20 @@ AttachmentImageKey key(String id) => AttachmentImageKey(
   revision: 'A',
 );
 
-AttachmentImageRepository repository({Duration idleTtl = const Duration(minutes: 3)}) =>
+class _Clock {
+  Duration now = Duration.zero;
+  Duration call() => now;
+}
+
+AttachmentImageRepository repository({
+  Duration idleTtl = const Duration(minutes: 3),
+  Duration Function()? clock,
+}) =>
     AttachmentImageRepository(
       scope: scope(),
       retainedAuthority: (_) => true,
       idleTtl: idleTtl,
+      clock: clock,
       decoder: (bytes, _) async => DecodedAttachmentImage(
         provider: MemoryImage(bytes),
         encodedBytes: bytes.length,
@@ -111,48 +120,65 @@ void main() {
       expect(r.encodedByteCount, 0);
     });
 
-    testWidgets('an unleased image lives one to two idle periods, a leased one forever', (tester) async {
-      final r = repository(idleTtl: const Duration(minutes: 3));
+    test('an image idle for the TTL goes on the next repository activity; a leased one never', () async {
+      final clock = _Clock();
+      final r = repository(idleTtl: const Duration(minutes: 3), clock: clock.call);
       addTearDown(r.dispose);
-      final held = (await tester.runAsync(() => acquired(r, 'held')))!;
-      final idle = (await tester.runAsync(() => acquired(r, 'idle')))!;
+      final held = await acquired(r, 'held');
+      final idle = await acquired(r, 'idle');
       idle.release();
       expect(r.entryCount, 2);
-      await tester.pump(const Duration(minutes: 2, seconds: 59));
-      expect(r.entryCount, 2, reason: 'inside the first period');
-      await tester.pump(const Duration(minutes: 3, seconds: 2));
-      expect(r.entryCount, 1, reason: 'swept within two periods');
+      clock.now = const Duration(minutes: 2, seconds: 59);
+      (await acquired(r, 'busy')).release();
+      expect(r.entryCount, 3, reason: 'inside the TTL');
+      clock.now = const Duration(minutes: 3, seconds: 10);
+      (await acquired(r, 'busy2')).release();
+      expect(r.entryCount, 3, reason: 'idle and busy2 are idle; busy too new');
+      expect(r.acquireReady(key('idle'), authorized: () => true), isNull);
       expect(held.active, isTrue);
-      await tester.pump(const Duration(hours: 1));
-      expect(r.entryCount, 1);
+      clock.now = const Duration(hours: 1);
       held.release();
-      await tester.pump(const Duration(minutes: 7));
-      expect(r.entryCount, 0);
-      // Nothing is left to sweep: the framework fails a test that leaves a
-      // timer pending, so no timer keeps re-arming itself.
+      (await acquired(r, 'later')).release();
+      // Everything else idle for over the TTL is gone; `held` was released
+      // just now, `later` just now.
+      expect(r.entryCount, 2);
     });
 
-    testWidgets('taking the image again resets its idle clock', (tester) async {
-      final r = repository(idleTtl: const Duration(minutes: 3));
+    test('taking the image again before a sweep keeps it, and restarts its idle clock', () async {
+      final clock = _Clock();
+      final r = repository(idleTtl: const Duration(minutes: 3), clock: clock.call);
       addTearDown(r.dispose);
-      final lease = (await tester.runAsync(() => acquired(r, 'a')))!;
-      lease.release();
-      await tester.pump(const Duration(minutes: 4)); // marked stale
+      (await acquired(r, 'a')).release();
+      clock.now = const Duration(minutes: 4);
       final again = r.acquireReady(key('a'), authorized: () => true)!;
-      await tester.pump(const Duration(minutes: 20));
-      expect(r.entryCount, 1, reason: 'held again');
+      clock.now = const Duration(minutes: 30);
+      (await acquired(r, 'x')).release();
+      final probe = r.acquireReady(key('a'), authorized: () => true);
+      expect(probe, isNotNull, reason: 'held the whole time');
+      probe!.release();
       again.release();
-      await tester.pump(const Duration(minutes: 4));
-      expect(r.entryCount, 1, reason: 'one fresh period');
-      await tester.pump(const Duration(minutes: 4));
-      expect(r.entryCount, 0);
+      clock.now = const Duration(minutes: 32, seconds: 59);
+      (await acquired(r, 'y')).release();
+      expect(r.entryCount, 3, reason: 'a idle for 3 min is still inside');
+      clock.now = const Duration(minutes: 34);
+      (await acquired(r, 'z')).release();
+      expect(r.acquireReady(key('a'), authorized: () => true), isNull);
     });
 
-    testWidgets('dispose cancels the sweep timer', (tester) async {
-      final r = repository();
-      final lease = (await tester.runAsync(() => acquired(r, 'a')))!;
-      lease.release();
-      r.dispose(); // a pending sweep timer would fail the test
+    test('the sweep is rate limited and never starts a timer', () async {
+      final clock = _Clock();
+      final r = repository(idleTtl: const Duration(seconds: 1), clock: clock.call);
+      addTearDown(r.dispose);
+      (await acquired(r, 'a')).release();
+      clock.now = const Duration(seconds: 6);
+      (await acquired(r, 'b')).release(); // sweeps: a is gone
+      expect(r.entryCount, 1);
+      clock.now = const Duration(seconds: 8);
+      (await acquired(r, 'c')).release(); // under 5 s since the last sweep
+      expect(r.entryCount, 2);
+      clock.now = const Duration(seconds: 11);
+      (await acquired(r, 'd')).release();
+      expect(r.entryCount, 1, reason: 'b and c went, d is fresh');
     });
   });
 

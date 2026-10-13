@@ -431,11 +431,11 @@ class AttachmentImageLease {
     if (_released) return;
     _released = true;
     _entry.leases.remove(this);
-    _entry.staleMark = false;
     if (_entry.leases.isEmpty && _entry.value == null) {
       _owner._drop(_entry);
     } else if (_entry.leases.isEmpty) {
-      _owner._scheduleSweep();
+      _entry.idleSince = _owner.clock();
+      _owner._sweepIdle();
     }
   }
 
@@ -473,9 +473,9 @@ class _ImageEntry {
   /// Requested by an explicit open rather than background list work.
   bool foreground = false;
 
-  /// Set by an idle sweep that found this entry without leases; a second such
-  /// sweep drops it. Cleared whenever a lease is taken or returned.
-  bool staleMark = false;
+  /// When the last lease was returned ([AttachmentImageRepository.clock]);
+  /// null while a lease is held.
+  Duration? idleSince;
 }
 
 /// One network fetch of a source shared by every decode of it (list preview
@@ -514,8 +514,10 @@ class AttachmentImageRepository {
     this.maxDecodedBytes = 96 * 1024 * 1024,
     this.maxConcurrentLoads = 4,
     this.foregroundExtra = 2,
-    this.idleTtl = const Duration(minutes: 3),
-  }) : _decoder =
+    this.idleTtl = const Duration(minutes: 5),
+    Duration Function()? clock,
+  }) : clock = clock ?? _monotonicClock(),
+       _decoder =
            decoder ??
            ((bytes, target) => decodeAttachmentImage(
              bytes,
@@ -541,11 +543,20 @@ class AttachmentImageRepository {
   /// Extra concurrent loads granted to foreground (explicitly opened) images.
   final int foregroundExtra;
 
-  /// A decoded image nobody holds a lease on is dropped after this long (one
-  /// to two periods: see [_sweepIdle]). Revisiting a conversation within it
-  /// paints in the first frame; later it is read back from the byte store.
+  /// A decoded image nobody holds a lease on is dropped once it has been idle
+  /// this long. Revisiting a conversation within it paints in the first frame;
+  /// later it is read back from the byte store. The sweep runs on repository
+  /// activity (taking or returning a lease) and on [trimIdle]; there is no
+  /// timer, so an idle app does no work and tests need no teardown.
   final Duration idleTtl;
-  Timer? _sweepTimer;
+
+  /// Monotonic time source of the idle sweep (a test seam).
+  final Duration Function() clock;
+  Duration? _lastSweep;
+  static Duration Function() _monotonicClock() {
+    final watch = Stopwatch()..start();
+    return () => watch.elapsed;
+  }
   final LinkedHashMap<AttachmentImageKey, _ImageEntry> _entries =
       LinkedHashMap();
   final Map<AttachmentImageKey, _SourceFetch> _fetches = {};
@@ -619,7 +630,8 @@ class AttachmentImageRepository {
     }
     final lease = AttachmentImageLease._(this, e, authorized);
     e.leases.add(lease);
-    e.staleMark = false;
+    e.idleSince = null;
+    _sweepIdle();
     scheduleMicrotask(_pump);
     return lease;
   }
@@ -640,7 +652,8 @@ class AttachmentImageRepository {
       ..[key] = e;
     final lease = AttachmentImageLease._(this, e, authorized);
     e.leases.add(lease);
-    e.staleMark = false;
+    e.idleSince = null;
+    _sweepIdle();
     return lease;
   }
 
@@ -655,33 +668,25 @@ class AttachmentImageRepository {
         dropped++;
       }
     }
-    _sweepTimer?.cancel();
-    _sweepTimer = null;
     return dropped;
   }
 
-  /// One-shot timer, armed only while an unleased decoded image exists and
-  /// re-armed by its own sweep only while one still does.
-  void _scheduleSweep() {
-    if (_disposed || _sweepTimer != null) return;
-    _sweepTimer = Timer(idleTtl, _sweepIdle);
-  }
-
-  /// Mark and sweep: an unleased entry survives one sweep, then goes, so it
-  /// lives between one and two [idleTtl]s without per-entry clocks.
+  /// Drops unleased decoded images idle for [idleTtl]. Cheap enough to run on
+  /// every lease change (at most [maxEntries] entries), and rate-limited.
   void _sweepIdle() {
-    _sweepTimer = null;
-    var remaining = false;
+    final now = clock();
+    final last = _lastSweep;
+    if (last != null && now - last < const Duration(seconds: 5)) return;
+    _lastSweep = now;
     for (final e in _entries.values.toList()) {
-      if (e.leases.isNotEmpty || e.value == null) continue;
-      if (e.staleMark) {
+      final since = e.idleSince;
+      if (e.leases.isEmpty &&
+          e.value != null &&
+          since != null &&
+          now - since >= idleTtl) {
         _drop(e);
-      } else {
-        e.staleMark = true;
-        remaining = true;
       }
     }
-    if (remaining) _scheduleSweep();
   }
 
   void _makeRoom({int entries = 0, int encoded = 0, int decoded = 0}) {
@@ -867,8 +872,6 @@ class AttachmentImageRepository {
   }
 
   void clear() {
-    _sweepTimer?.cancel();
-    _sweepTimer = null;
     for (final e in _entries.values.toList()) {
       _drop(e);
     }

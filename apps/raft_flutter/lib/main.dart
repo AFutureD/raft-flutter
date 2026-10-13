@@ -2104,6 +2104,7 @@ class _RaftAppState extends State<RaftApp> with WidgetsBindingObserver {
     removeShareReceiver?.call();
     unawaited(sharing.dispose());
     unawaited(shareSession.dispose());
+    RaftMemoryRelease.instance.uninstall();
     WidgetsBinding.instance.removeObserver(this);
     NativeSystemFonts.instance.removeListener(systemFontsChanged);
     unawaited(content.dispose());

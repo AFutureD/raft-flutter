@@ -41,7 +41,20 @@ Future<void> main() async {
   await NativeSystemFonts.instance.initialize();
   await initializeSourceTimeFormatting();
   await DevicePreferences.load();
-  const mobile = bool.fromEnvironment('RR_MOBILE', defaultValue: true);
+  runApp(
+    await buildResourceReleaseApp(
+      mobile: const bool.fromEnvironment('RR_MOBILE', defaultValue: true),
+      location: const String.fromEnvironment('RR_LOC', defaultValue: '/s/lab'),
+    ),
+  );
+}
+
+/// The production [app.RaftApp] on the fixture workspace (also mounted by
+/// `resource_release_linux_test.dart`).
+Future<Widget> buildResourceReleaseApp({
+  required bool mobile,
+  required String location,
+}) async {
   final images = await LabImages.start();
 
   Map<String, dynamic> row(
@@ -182,17 +195,13 @@ Future<void> main() async {
     MobileTabbarStore.preferenceKey: tabs.encode(),
   });
   final dir = await Directory.systemTemp.createTemp('raft-resource-release-');
-  runApp(
-    app.RaftApp(
-      sessionStore: client.sessionStore,
-      createClient: (_, _, _) => client,
-      initialLocation: Uri(
-        path: const String.fromEnvironment('RR_LOC', defaultValue: '/s/lab'),
-      ),
-      nativeContent: LabNavigationContent(),
-      nativeSharing: NativeSharing(supported: false),
-      openWorkspaceCache: () async =>
-          LabNavigationCache(File('${dir.path}/workspace.sqlite')),
-    ),
+  return app.RaftApp(
+    sessionStore: client.sessionStore,
+    createClient: (_, _, _) => client,
+    initialLocation: Uri(path: location),
+    nativeContent: LabNavigationContent(),
+    nativeSharing: NativeSharing(supported: false),
+    openWorkspaceCache: () async =>
+        LabNavigationCache(File('${dir.path}/workspace.sqlite')),
   );
 }
