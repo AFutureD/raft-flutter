@@ -10473,7 +10473,7 @@
    "status": "covered",
    "webEntry": "AttachmentCommentsPanel inside the lightbox / document / HTML / video preview shell ('Comments' toggle)",
    "gate": "server feature flag attachment comments; viewer.canComment gates posting (archived / not a member / read-only plan)",
-   "flutterEntry": "attachment_comments_view.dart in attachment_preview_dialog.dart and attachment_image_lightbox.dart comments aside",
+   "flutterEntry": "attachment_comments_view.dart in attachment_preview_dialog.dart and media_image_page.dart comments aside",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/features/attachment_comments_view.dart",
@@ -10545,7 +10545,7 @@
    "status": "covered",
    "webEntry": "ImageLightbox > Download icon | ChannelFilesPanel > 'Download file' / file preview | MessageItem attachment card > 'Download {filename}' icon, inline video/audio players (background URL load) | openDocumentPreview/openMediaPreview (PDF, CSV, XLSX, markdown, text, HTML, video, audio preview shell > Download)",
    "gate": "any member who can read the channel; guests read-only",
-   "flutterEntry": "workspace_controller.dart attachmentUrl() used by attachment_view.dart (card download/inline media), source_channel_files_view.dart ('Download file'), attachment_preview_dialog.dart, attachment_image_lightbox.dart (Download)",
+   "flutterEntry": "workspace_controller.dart attachmentUrl() used by attachment_view.dart (card download/inline media), source_channel_files_view.dart ('Download file'), attachment_preview_dialog.dart, media_image_page.dart (Download)",
    "flutterRefs": [
     {
      "file": "apps/raft_flutter/lib/data/workspace_controller.dart",
@@ -10937,10 +10937,10 @@
    "status": "covered",
    "webEntry": "ImageLightbox Comments / Download / Close buttons",
    "gate": "comments need attachment-comments flag",
-   "flutterEntry": "attachment_image_viewer.dart download + comments aside (phone: long-press save/share)",
+   "flutterEntry": "media_browser.dart download + comments aside (phone: long-press save/share)",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/attachment_image_viewer.dart",
+     "file": "apps/raft_flutter/lib/features/media_browser.dart",
      "needle": "ValueKey('attachment-download')"
     },
     {
@@ -10961,10 +10961,10 @@
    "status": "covered",
    "webEntry": "ImageLightbox + ImageZoom",
    "gate": "none",
-   "flutterEntry": "attachment_image_lightbox.dart RaftAttachmentLightbox (onResetZoom, RaftLightboxThumbnails)",
+   "flutterEntry": "media_image_page.dart RaftAttachmentLightbox (onResetZoom, RaftMediaStrip)",
    "flutterRefs": [
     {
-     "file": "apps/raft_flutter/lib/features/attachment_image_lightbox.dart",
+     "file": "apps/raft_flutter/lib/features/media_image_page.dart",
      "needle": "RaftAttachmentLightbox("
     },
     {

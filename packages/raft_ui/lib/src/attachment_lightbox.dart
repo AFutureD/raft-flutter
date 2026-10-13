@@ -1,13 +1,8 @@
-import 'dart:async';
-import 'dart:math' as math;
-
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'attachment_tokens.dart';
-import 'design_primitives.dart'
-    show RaftInteractive, RaftLightboxRecipe, RaftSpinner;
+import 'design_primitives.dart' show RaftLightboxRecipe, RaftSpinner;
 import 'indicators.dart';
 import 'panel_layout.dart' show RaftPanelHeaderBar;
 import 'dialog_card.dart';
@@ -107,12 +102,16 @@ class RaftLightboxHeader extends StatelessWidget {
     required this.onClose,
     this.leading,
     this.meta,
+    this.subtitle,
     this.actions = const [],
     this.titleBold = false,
     this.borderWidth = 1,
     this.closeLabel = 'Close preview',
   });
   final String title, closeLabel;
+
+  /// Second line under the title (`sender · time · size`).
+  final String? subtitle;
   final Widget? leading, meta;
   final List<Widget> actions;
   final bool titleBold;
@@ -153,20 +152,41 @@ class RaftLightboxHeader extends StatelessWidget {
                           const SizedBox(width: 8),
                         ],
                         Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: t.headingFont,
-                              fontSize: 14,
-                              height: 20 / 14,
-                              fontWeight: titleBold
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                              color: t.brutal ? Colors.black : t.strong,
-                            ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: t.headingFont,
+                                  fontSize: 14,
+                                  height: 20 / 14,
+                                  fontWeight: titleBold
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                  color: t.brutal ? Colors.black : t.strong,
+                                ),
+                              ),
+                              if (subtitle != null)
+                                Text(
+                                  subtitle!,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: t.bodyFont,
+                                    fontSize: 12,
+                                    height: 16 / 12,
+                                    color: t.brutal
+                                        ? Colors.black.withValues(alpha: .7)
+                                        : t.muted,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ],
@@ -255,6 +275,8 @@ class RaftAttachmentLightbox extends StatelessWidget {
     this.closeLabel = 'Close preview',
     this.onResetZoom,
     this.meta,
+    this.subtitle,
+    this.leading,
     this.aside,
     this.asideOpen = false,
     this.overlay,
@@ -274,6 +296,10 @@ class RaftAttachmentLightbox extends StatelessWidget {
 
   /// Header chip after the title (Web gallery counter badge).
   final Widget? meta;
+
+  /// Sub-line under the title and the kind glyph before it.
+  final String? subtitle;
+  final Widget? leading;
 
   /// Comments panel; shown beside the stage from `sm` up, as a drawer over
   /// it below. Collapsed (`asideOpen` false) it takes no space.
@@ -387,6 +413,8 @@ class RaftAttachmentLightbox extends StatelessWidget {
               else
                 RaftLightboxHeader(
                   title: title,
+                  subtitle: subtitle,
+                  leading: leading,
                   titleBold: titleBold,
                   meta: meta,
                   actions: actions,
@@ -490,178 +518,6 @@ class RaftLightboxCounter extends StatelessWidget {
     label: '${index + 1} / $count',
     variant: RaftBadgeRecipeVariant.primary,
   );
-}
-
-/// Height of the thumbnail strip band: `size-12` thumbnails, `bottom-4`, and
-/// breathing room above. [RaftAttachmentLightbox.overlayInset] for the strip.
-const raftLightboxThumbnailBand = 48.0 + 16 + 8;
-
-/// Thumbnail strip (`absolute bottom-4 flex gap-1.5`, `size-12 border-2`).
-/// Few thumbnails sit centred as in Web; more than fit scroll sideways (drag,
-/// or the mouse wheel) and the active one is kept in view.
-class RaftLightboxThumbnails extends StatefulWidget {
-  const RaftLightboxThumbnails({
-    super.key,
-    required this.thumbnails,
-    required this.index,
-    required this.onSelect,
-  });
-  final List<ImageProvider?> thumbnails;
-  final int index;
-  final ValueChanged<int> onSelect;
-
-  @override
-  State<RaftLightboxThumbnails> createState() => _RaftLightboxThumbnailsState();
-}
-
-class _RaftLightboxThumbnailsState extends State<RaftLightboxThumbnails> {
-  final _scroll = ScrollController();
-  final _keys = <int, GlobalKey>{};
-  bool _first = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _reveal();
-  }
-
-  @override
-  void didUpdateWidget(RaftLightboxThumbnails oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.index != widget.index) _reveal();
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  /// Centres the active thumbnail (at once on open, a short glide after).
-  void _reveal() {
-    final animate = !_first;
-    _first = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = _keys[widget.index]?.currentContext;
-      if (!mounted || context == null || !_scroll.hasClients) return;
-      unawaited(
-        Scrollable.ensureVisible(
-          context,
-          alignment: .5,
-          duration: animate ? const Duration(milliseconds: 150) : Duration.zero,
-          curve: Curves.easeOut,
-        ),
-      );
-    });
-  }
-
-  /// Mouse wheel over the strip scrolls it sideways (a plain vertical wheel
-  /// included) instead of reaching the image underneath.
-  void _wheel(PointerSignalEvent event) {
-    if (event is! PointerScrollEvent || !_scroll.hasClients) return;
-    GestureBinding.instance.pointerSignalResolver.register(event, (e) {
-      final scroll = e as PointerScrollEvent;
-      final delta = scroll.scrollDelta.dx != 0
-          ? scroll.scrollDelta.dx
-          : scroll.scrollDelta.dy;
-      final position = _scroll.position;
-      _scroll.jumpTo(
-        (position.pixels + delta).clamp(
-          position.minScrollExtent,
-          position.maxScrollExtent,
-        ),
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = RaftTokens.of(context);
-    Widget thumb(int i) {
-      final active = i == widget.index;
-      final border = active
-          ? (t.brutal ? t.product.softSignal : t.colors['accent-strong']!)
-          : Colors.white.withValues(alpha: .3);
-      final image = widget.thumbnails[i];
-      Widget box = Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          border: Border.all(color: border, width: 2),
-          boxShadow: !active
-              ? null
-              : t.brutal
-              ? RaftShadowSet.brutalSm
-              : t.themeShadows.sm.outer,
-        ),
-        child: image != null
-            // ignore: raft_lints/avoid_raw_image_decode -- Thumbnail strip reuses the already-decoded bitmaps of the message attachments (OneFrame bitmap providers, nothing left to resize).
-            ? Image(image: image, fit: BoxFit.cover)
-            : ColoredBox(
-                color: Colors.white.withValues(alpha: .2),
-                child: Center(
-                  child: Text(
-                    '${i + 1}',
-                    style: TextStyle(
-                      fontFamily: t.headingFont,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withValues(alpha: .5),
-                    ),
-                  ),
-                ),
-              ),
-      );
-      if (!active) box = Opacity(opacity: .6, child: box);
-      return RaftInteractive(
-        key: ValueKey('lightbox-thumbnail-$i'),
-        onPressed: () => widget.onSelect(i),
-        semanticLabel: 'Image ${i + 1}',
-        builder: (_, _) =>
-            KeyedSubtree(key: _keys.putIfAbsent(i, GlobalKey.new), child: box),
-      );
-    }
-
-    // Room above and beside the thumbnails for the active one's shadow.
-    const pad = 8.0;
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16 - pad),
-        child: Listener(
-          onPointerSignal: _wheel,
-          child: SizedBox(
-            key: const ValueKey('lightbox-thumbnails'),
-            height: 48 + 2 * pad,
-            child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                key: const ValueKey('lightbox-thumbnail-scroll'),
-                controller: _scroll,
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.all(pad),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: math.max(0, constraints.maxWidth - 2 * pad),
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < widget.thumbnails.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 6),
-                          thumb(i),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// Stage placeholder while the original loads and nothing else can stand in

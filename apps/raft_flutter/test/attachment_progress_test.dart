@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
-import 'package:raft_flutter/features/attachment_image_lightbox.dart';
+import 'package:raft_flutter/features/media_image_page.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';

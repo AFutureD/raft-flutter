@@ -42,8 +42,7 @@ class _Files extends AttachmentFiles {
     String url, {
     required CancelToken cancel,
     void Function(int, int)? onProgress,
-  }) async =>
-      throw StateError('Fixture image unavailable');
+  }) async => throw StateError('Fixture image unavailable');
 }
 
 class _Routes extends NavigatorObserver {
@@ -234,7 +233,18 @@ void main() {
             );
             await t.pumpAndSettle();
             expect(previewSurface, findsOneWidget);
-            if (width < RaftAdaptiveWorkspace.desktopMinWidth) {
+            final image = mime.startsWith('image/');
+            final phone = width < RaftAdaptiveWorkspace.desktopMinWidth;
+            if (image) {
+              // Images open in the media browser: a fading route (the card's
+              // picture flies in), immersive and black on a phone.
+              expect(routes.latest, isA<RaftMediaBrowserRoute<void>>());
+              expect(routes.latest?.settings.name, '/attachment-preview');
+              expect(
+                find.byType(RaftMediaImmersiveShell).evaluate().isNotEmpty,
+                phone,
+              );
+            } else if (phone) {
               expect(routes.latest, isA<MaterialPageRoute<void>>());
               expect(routes.latest?.settings.name, '/attachment-preview');
               expect(find.byType(Dialog), findsNothing);
@@ -251,7 +261,11 @@ void main() {
               expect(routes.latest, isA<DialogRoute<void>>());
               expect(find.byType(RaftMobilePageHeader), findsNothing);
             }
-            await t.tap(find.byTooltip('Close preview'));
+            await t.tap(
+              image && phone
+                  ? find.bySemanticsLabel('Back')
+                  : find.byTooltip('Close preview'),
+            );
             await t.pumpAndSettle();
             expect(previewSurface, findsNothing);
             expect(find.byType(RaftAttachmentCard), findsOneWidget);
@@ -452,7 +466,10 @@ void _narrowDesktopTests() {
 
 /// Images open in the lightbox; documents and HTML in the preview shell.
 final previewSurface = find.byWidgetPredicate(
-  (w) => w is RaftAttachmentLightbox || w is RaftAttachmentPreviewShell,
+  (w) =>
+      w is RaftAttachmentLightbox ||
+      w is RaftMediaImmersiveShell ||
+      w is RaftAttachmentPreviewShell,
 );
 
 Future<void> backEvent(WidgetTester t, MethodCall call) async {

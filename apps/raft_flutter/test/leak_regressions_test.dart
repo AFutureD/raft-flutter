@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
-import 'package:raft_flutter/features/attachment_image_lightbox.dart';
+import 'package:raft_flutter/features/media_image_page.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import 'workspace_shell_contract_test.dart' show mountShell, retire;

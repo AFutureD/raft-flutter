@@ -28,6 +28,7 @@ import '../data/personal_presentation.dart';
 import '../platform/file_selection.dart';
 import 'attachment_preview_dialog.dart' show attachmentPreviewKind;
 import 'attachment_view.dart';
+import 'media_items.dart';
 import 'message_presentation.dart';
 import 'message_preparation.dart';
 import 'pending_mention_actions.dart';
@@ -1834,6 +1835,17 @@ class _RaftChatViewState extends State<RaftChatView>
     );
   }
 
+  /// The media browser's context of [message]: sender, send time and text,
+  /// read when the browser opens.
+  MediaMessageInfo Function() mediaMessage(RaftMessage message) =>
+      () => MediaMessageInfo(
+        sender: message.author,
+        time: message.createdAt == null
+            ? null
+            : timeFormatter.mediumDateTime(message.createdAt),
+        text: message.content,
+      );
+
   Widget? attachmentGallery(RaftMessage message) {
     final all = message.attachments;
     bool raster(Map<String, dynamic> metadata) =>
@@ -1864,6 +1876,7 @@ class _RaftChatViewState extends State<RaftChatView>
         controller: w,
         metadata: a,
         messageId: messageId,
+        mediaMessage: mediaMessage(message),
       ),
     );
     return RaftAttachmentStack(
@@ -1888,6 +1901,7 @@ class _RaftChatViewState extends State<RaftChatView>
                   controller: w,
                   metadata: images[index],
                   messageId: messageId,
+                  mediaMessage: mediaMessage(message),
                   imageExtent: extent,
                   imageFit: fit,
                   // Web lightboxImages: the message's images, no optimistic.
@@ -2728,6 +2742,7 @@ class _RaftChatViewState extends State<RaftChatView>
           controller: w,
           metadata: metadata,
           messageId: pending ? null : m.id,
+          mediaMessage: mediaMessage(m),
         ),
       ),
       reactions: (m.json['reactions'] as List? ?? [])

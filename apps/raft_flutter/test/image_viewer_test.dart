@@ -4,18 +4,22 @@
 // original; neighbours preload one image each side.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show Tristate;
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/attachment_image_repository.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
-import 'package:raft_flutter/features/attachment_image_lightbox.dart';
-import 'package:raft_flutter/features/attachment_image_viewer.dart';
+import 'package:raft_flutter/features/media_image_page.dart';
+import 'package:raft_flutter/features/media_items.dart';
+import 'package:raft_flutter/features/media_browser.dart';
 import 'package:raft_flutter/features/attachment_image_zoom.dart';
 import 'package:raft_flutter/features/attachment_view.dart';
 import 'package:raft_flutter/platform/attachment_files.dart';
@@ -211,6 +215,7 @@ Future<_Rig> _mount(
   bool share = true,
   Size imageSize = const Size(16, 16),
   Completer<void>? hold,
+  MediaMessageInfo? message,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -271,6 +276,7 @@ Future<_Rig> _mount(
                     messageId: 'm1',
                     galleryItems: items,
                     sharing: sharing,
+                    mediaMessage: message == null ? null : () => message,
                   ),
                 ),
             ],
@@ -296,8 +302,8 @@ Future<void> _open(WidgetTester tester, int index) async {
   await _settle(tester);
 }
 
-AttachmentImageViewerState _viewer(WidgetTester tester) =>
-    tester.state(find.byType(AttachmentImageViewer));
+MediaBrowserState _viewer(WidgetTester tester) =>
+    tester.state(find.byType(MediaBrowser));
 
 String _counter(WidgetTester tester) {
   final counter = find.byType(RaftLightboxCounter);
@@ -305,6 +311,23 @@ String _counter(WidgetTester tester) {
   final c = tester.widget<RaftLightboxCounter>(counter);
   return '${c.index + 1} / ${c.count}';
 }
+
+const _alice = MediaMessageInfo(
+  sender: 'Alice Chen',
+  time: 'Oct 13, 2:02 PM',
+  text: 'Hall walkthrough, second floor',
+);
+
+/// The chrome layers' opacity summed: 2 when top and bottom bars are shown.
+double _chromeOpacity(WidgetTester tester) => tester
+    .widgetList<AnimatedOpacity>(
+      find.descendant(
+        of: find.byType(RaftMediaImmersiveShell),
+        matching: find.byType(AnimatedOpacity),
+      ),
+    )
+    .map((o) => o.opacity)
+    .reduce((a, b) => a + b);
 
 const _wide = Size(1280, 800);
 const _phone = Size(390, 844);
@@ -335,7 +358,7 @@ void main() {
       expect(find.byKey(const ValueKey('viewer-menu-save')), findsNothing);
     });
 
-    testWidgets('phone: no Share or Download in the header or on the tile', (
+    testWidgets('phone: Share and More in the top bar, none on the tile', (
       tester,
     ) async {
       final rig = await _mount(tester, size: _phone, gallery: true);
@@ -345,8 +368,10 @@ void main() {
       expect(rig.files.gallerySupported, isTrue);
       await _open(tester, 0);
       expect(find.byKey(const ValueKey('attachment-download')), findsNothing);
-      expect(find.byTooltip('Download'), findsNothing);
-      expect(find.byTooltip('Share'), findsNothing);
+      expect(find.byKey(const ValueKey('viewer-share')), findsOneWidget);
+      expect(find.byKey(const ValueKey('viewer-more')), findsOneWidget);
+      expect(find.bySemanticsLabel('Share'), findsOneWidget);
+      expect(find.bySemanticsLabel('More'), findsOneWidget);
     });
 
     testWidgets('a compact window on a desktop keeps Download in the header', (
@@ -629,10 +654,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 40));
       // Mid-transition the viewer is still painted.
-      expect(find.byType(AttachmentImageViewer), findsOneWidget);
+      expect(find.byType(MediaBrowser), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(AttachmentImageViewer), findsNothing);
+      expect(find.byType(MediaBrowser), findsNothing);
     });
 
     testWidgets('desktop keeps Web\'s hard cut for arrows and thumbnails', (
@@ -685,9 +710,9 @@ void main() {
       tester,
     ) async {
       await _mount(tester, size: _phone, count: 12, gallery: true);
-      await _open(tester, 8);
+      await _open(tester, 5);
       await _settle(tester, 6);
-      final active = thumb(tester, 8);
+      final active = thumb(tester, 5);
       expect(active.left, greaterThanOrEqualTo(0));
       expect(active.right, lessThanOrEqualTo(_phone.width));
       expect(active.center.dx, closeTo(_phone.width / 2, 1));
@@ -703,8 +728,9 @@ void main() {
       final active = thumb(tester, 11);
       expect(active.right, lessThanOrEqualTo(_phone.width));
       expect(active.left, greaterThanOrEqualTo(0));
-      // The first ones scrolled away to the left.
-      expect(thumb(tester, 0).right, lessThanOrEqualTo(0));
+      // The first ones scrolled away (thumbnails are built lazily).
+      expect(offset(tester), greaterThan(100));
+      expect(find.byKey(const ValueKey('lightbox-thumbnail-0')), findsNothing);
     });
 
     testWidgets('a few thumbnails stay centred as in Web', (tester) async {
@@ -783,7 +809,7 @@ void main() {
         tester
             .widget<ImageZoomSurface>(find.byType(ImageZoomSurface))
             .verticalInset,
-        raftLightboxThumbnailBand,
+        raftMediaDesktopStripBand,
       );
     });
   });
@@ -913,6 +939,830 @@ void main() {
       await _settle(tester, 12);
       expect(rig.client.inlineSigned.toSet(), {'img0', 'img1', 'img2'});
       expect(rig.client.attachmentSigned, isEmpty);
+    });
+  });
+
+  group('phone chrome', () {
+    testWidgets('top bar: back, title, sender · time, counter, Share, More', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      expect(find.text('photo-0.png'), findsWidgets);
+      // Phone sub-line: who and when, no sizes.
+      expect(find.text('Alice Chen · Oct 13, 2:02 PM'), findsOneWidget);
+      expect(_counter(tester), '1 / 3');
+      for (final label in ['Back', 'Share', 'More']) {
+        expect(
+          tester.getSize(find.bySemanticsLabel(label).first).shortestSide,
+          greaterThanOrEqualTo(44),
+          reason: label,
+        );
+      }
+      expect(
+        tester.getRect(find.byType(ImageZoomSurface)),
+        const Rect.fromLTWH(0, 0, 390, 844),
+        reason: 'the stage runs edge to edge under the bars',
+      );
+      await tester.tap(find.bySemanticsLabel('Back'));
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsNothing);
+    });
+
+    testWidgets('a tap toggles the chrome once the double-tap window has '
+        'passed; the picture never moves', (tester) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final before = tester.getRect(
+        find.byKey(const ValueKey('attachment-image-img0')),
+      );
+      final stage = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      // Away from the 16 px picture's centre: the tap is on the stage.
+      final at = stage + const Offset(0, 250);
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(viewer.chrome.value, isTrue, reason: 'a second tap may follow');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(viewer.chrome.value, isFalse);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(_chromeOpacity(tester), 0);
+      expect(
+        tester.getRect(find.byKey(const ValueKey('attachment-image-img0'))),
+        before,
+      );
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(viewer.chrome.value, isTrue);
+      expect(_chromeOpacity(tester), 2);
+      expect(
+        tester.getRect(find.byKey(const ValueKey('attachment-image-img0'))),
+        before,
+      );
+    });
+
+    testWidgets('a double tap zooms and hides the chrome; the next tap '
+        'brings it back', (tester) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final at = tester.getCenter(find.byKey(const ValueKey('viewer-stage')));
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(at);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(viewer.zoomed, isTrue);
+      expect(viewer.chrome.value, isFalse);
+      await tester.tapAt(at + const Offset(0, 30));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(viewer.chrome.value, isTrue);
+      expect(viewer.zoomed, isTrue, reason: 'a tap does not undo the zoom');
+    });
+
+    testWidgets('a pinch hides the chrome', (tester) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      final center = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      final a = await tester.startGesture(
+        center - const Offset(20, 0),
+        pointer: 1,
+      );
+      final b = await tester.startGesture(
+        center + const Offset(20, 0),
+        pointer: 2,
+      );
+      await a.moveBy(const Offset(-60, 0));
+      await b.moveBy(const Offset(60, 0));
+      await tester.pump();
+      expect(viewer.chrome.value, isFalse);
+      await a.up();
+      await b.up();
+      await _settle(tester, 4);
+    });
+
+    testWidgets('a tap on the empty stage does not close on a phone', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, count: 1);
+      await _open(tester, 0);
+      await tester.tapAt(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))) +
+            const Offset(0, 250),
+      );
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+    });
+
+    testWidgets('desktop: a click on the empty stage still closes (Web)', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide, count: 1);
+      await _open(tester, 0);
+      await tester.tapAt(const Offset(200, 400));
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsNothing);
+    });
+
+    testWidgets('a screen reader keeps the chrome on', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      await tester.tapAt(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))) +
+            const Offset(0, 250),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(viewer.chrome.value, isFalse);
+      expect(_chromeOpacity(tester), 2, reason: 'still on screen');
+    });
+
+    testWidgets('landscape drops the strip, keeps the top bar and the swipe', (
+      tester,
+    ) async {
+      await _mount(tester, size: const Size(844, 390), gallery: true);
+      await _open(tester, 0);
+      expect(find.byKey(const ValueKey('lightbox-thumbnails')), findsNothing);
+      expect(find.text('photo-0.png'), findsWidgets);
+      expect(_counter(tester), '1 / 3');
+      await tester.dragFrom(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+        const Offset(-600, 0),
+      );
+      await _settle(tester, 8);
+      expect(_counter(tester), '2 / 3');
+    });
+
+    testWidgets('caption: the message text, two lines, only when there is '
+        'text', (tester) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final caption = find.byKey(const ValueKey('media-caption'));
+      expect(caption, findsOneWidget);
+      expect(
+        find.descendant(of: caption, matching: find.text(_alice.text!)),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(of: caption, matching: find.byType(Text)),
+            )
+            .maxLines,
+        2,
+      );
+    });
+
+    testWidgets('no caption when the message has no text', (tester) async {
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: true,
+        message: const MediaMessageInfo(sender: 'Alice Chen', text: '  '),
+      );
+      await _open(tester, 0);
+      expect(find.byKey(const ValueKey('media-caption')), findsNothing);
+    });
+
+    testWidgets('the system bars: light icons over the black stage', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find
+            .descendant(
+              of: find.byType(RaftMediaImmersiveShell),
+              matching: find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+            )
+            .first,
+      );
+      expect(region.value.statusBarIconBrightness, Brightness.light);
+      expect(region.value.statusBarColor, Colors.transparent);
+    });
+
+    testWidgets('opened, the page below stops painting; dragging brings it '
+        'back', (tester) async {
+      await _mount(tester, size: _phone, gallery: true);
+      expect(find.byType(AttachmentView), findsWidgets);
+      await _open(tester, 0);
+      expect(find.byType(AttachmentView), findsNothing);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+      );
+      await gesture.moveBy(const Offset(0, 40));
+      await gesture.moveBy(const Offset(0, 50));
+      await tester.pump();
+      expect(find.byType(AttachmentView), findsWidgets);
+      await gesture.up(timeStamp: const Duration(seconds: 3));
+      await _settle(tester, 8);
+      expect(find.byType(AttachmentView), findsNothing);
+    });
+  });
+
+  group('desktop header', () {
+    testWidgets('kind glyph, filename, sender · time · size, counter', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide, message: _alice);
+      await _open(tester, 1);
+      final header = find.byType(RaftLightboxHeader);
+      expect(
+        find.descendant(
+          of: header,
+          matching: find.byWidgetPredicate(
+            (w) => w is RaftIcon && w.glyph == RaftGlyph.image,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: header, matching: find.text('photo-1.png')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: header,
+          matching: find.text('Alice Chen · Oct 13, 2:02 PM · 16x16 · 100 B'),
+        ),
+        findsOneWidget,
+      );
+      expect(_counter(tester), '2 / 3');
+      expect(find.byKey(const ValueKey('attachment-download')), findsOneWidget);
+    });
+
+    testWidgets('without message info the header is Web\'s: no sub-line, '
+        'no glyph on a lone sender-less message', (tester) async {
+      await _mount(tester, size: _wide, count: 1);
+      await _open(tester, 0);
+      final header = find.byType(RaftLightboxHeader);
+      expect(
+        find.descendant(of: header, matching: find.textContaining(' · ')),
+        findsOneWidget,
+        reason: 'size and dimensions only',
+      );
+    });
+
+    testWidgets('the strip is a band under the stage, not drawn over it', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide, message: _alice);
+      await _open(tester, 0);
+      final strip = tester.getRect(
+        find.byKey(const ValueKey('lightbox-thumbnails')),
+      );
+      final page = tester.getRect(find.byType(ImageZoomSurface));
+      expect(strip.bottom, lessThanOrEqualTo(_wide.height));
+      expect(
+        tester
+            .widget<ImageZoomSurface>(find.byType(ImageZoomSurface))
+            .verticalInset,
+        raftMediaDesktopStripBand,
+      );
+      expect(page.height, greaterThan(strip.height));
+    });
+
+    testWidgets('dragging down does not dismiss a desktop viewer', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide, message: _alice);
+      await _open(tester, 0);
+      await tester.flingFrom(
+        const Offset(640, 300),
+        const Offset(0, 400),
+        3000,
+      );
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+    });
+  });
+
+  group('Share and More', () {
+    testWidgets('Share hands the original to the system sheet', (tester) async {
+      final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
+      await _open(tester, 0);
+      await tester.tap(find.byKey(const ValueKey('viewer-share')));
+      await _settle(tester);
+      expect(rig.sharing.shared, ['bytes:photo-0.png:|img0']);
+      await _finish(tester, rig);
+    });
+
+    testWidgets('More offers Save, Download file and Show in message', (
+      tester,
+    ) async {
+      final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
+      await _open(tester, 0);
+      await tester.tap(find.byKey(const ValueKey('viewer-more')));
+      await _settle(tester, 4);
+      expect(find.byKey(const ValueKey('viewer-menu-save')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('viewer-menu-download')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('viewer-menu-show')), findsOneWidget);
+      expect(find.byKey(const ValueKey('viewer-menu-share')), findsNothing);
+      // It opens under the More button, not at the top-left.
+      final menu = tester.getRect(
+        find.byKey(const ValueKey('viewer-menu-save')),
+      );
+      final more = tester.getRect(find.byKey(const ValueKey('viewer-more')));
+      expect(menu.top, greaterThanOrEqualTo(more.bottom - 1));
+      await tester.tap(find.byKey(const ValueKey('viewer-menu-save')));
+      await _settle(tester);
+      expect(rig.files.gallerySaves, hasLength(1));
+      await _finish(tester, rig);
+    });
+
+    testWidgets('Download file saves the original under its name', (
+      tester,
+    ) async {
+      final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
+      await _open(tester, 0);
+      await tester.tap(find.byKey(const ValueKey('viewer-more')));
+      await _settle(tester, 4);
+      await tester.tap(find.byKey(const ValueKey('viewer-menu-download')));
+      await _settle(tester);
+      expect(File('${rig.out.path}/photo-0.png').existsSync(), isTrue);
+      expect(rig.files.gallerySaves, isEmpty);
+      await _finish(tester, rig);
+    });
+
+    testWidgets('Show in message closes the browser and asks for the message', (
+      tester,
+    ) async {
+      final rig = await _mount(tester, size: _phone, gallery: true, count: 1);
+      final shown = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: raftTheme(RaftFamily.elegant),
+          home: MediaBrowser(
+            controller: rig.w,
+            files: rig.files,
+            sharing: rig.sharing,
+            items: [MediaItem.image(_images(1).single)],
+            initialIndex: 0,
+            messageId: 'm1',
+            authorized: () => true,
+            page: true,
+            onClose: () {},
+            onShowInMessage: () => shown.add('m1'),
+          ),
+        ),
+      );
+      await _settle(tester, 4);
+      await tester.tap(find.byKey(const ValueKey('viewer-more')));
+      await _settle(tester, 4);
+      await tester.tap(find.byKey(const ValueKey('viewer-menu-show')));
+      await _settle(tester, 4);
+      expect(shown, ['m1']);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a window without a share sheet or photo library keeps '
+        'Download in the top bar', (tester) async {
+      await _mount(
+        tester,
+        size: _phone,
+        gallery: false,
+        share: false,
+        count: 1,
+      );
+      await _open(tester, 0);
+      expect(find.byKey(const ValueKey('viewer-share')), findsNothing);
+      expect(find.byKey(const ValueKey('attachment-download')), findsOneWidget);
+    });
+
+    testWidgets('the long press keeps its Save / Share shortcut', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, count: 1);
+      await _open(tester, 0);
+      await tester.longPressAt(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+      );
+      await _settle(tester, 4);
+      expect(find.byKey(const ValueKey('viewer-menu-save')), findsOneWidget);
+      expect(find.byKey(const ValueKey('viewer-menu-share')), findsOneWidget);
+      expect(find.byKey(const ValueKey('viewer-menu-download')), findsNothing);
+    });
+  });
+
+  group('drag down to dismiss', () {
+    Future<TestGesture> dragStart(WidgetTester tester) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+      );
+      await gesture.moveBy(const Offset(0, 30));
+      return gesture;
+    }
+
+    testWidgets('the stage follows the finger, the scrim and chrome fade', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final before = tester.getTopLeft(find.byType(ImageZoomSurface));
+      final gesture = await dragStart(tester);
+      await gesture.moveBy(const Offset(0, 110));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        tester.getTopLeft(find.byType(ImageZoomSurface)).dy,
+        greaterThan(before.dy + 100),
+      );
+      expect(_chromeOpacity(tester), 0);
+      expect(
+        tester
+            .widgetList<ColoredBox>(
+              find.descendant(
+                of: find.byType(RaftMediaImmersiveShell),
+                matching: find.byType(ColoredBox),
+              ),
+            )
+            .any((c) => c.color.a < 1 && c.color.a > 0),
+        isTrue,
+      );
+      await gesture.up(timeStamp: const Duration(seconds: 3));
+      await _settle(tester, 8);
+      expect(_chromeOpacity(tester), 2, reason: 'sprang back, chrome returns');
+    });
+
+    testWidgets('released past 120 dp it closes', (tester) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final gesture = await dragStart(tester);
+      await gesture.moveBy(const Offset(0, 130));
+      await gesture.up(timeStamp: const Duration(seconds: 3));
+      await _settle(tester, 10);
+      expect(find.byType(MediaBrowser), findsNothing);
+    });
+
+    testWidgets('a short fast fling closes; a slow short drag does not', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final center = tester.getCenter(
+        find.byKey(const ValueKey('viewer-stage')),
+      );
+      await tester.flingFrom(center, const Offset(0, 70), 200);
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+      await tester.flingFrom(center, const Offset(0, 70), 1800);
+      await _settle(tester, 10);
+      expect(find.byType(MediaBrowser), findsNothing);
+    });
+
+    testWidgets('zoomed in, a vertical drag pans instead of closing', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      viewer.zoomFor(0).value = Matrix4.identity()..scaleByDouble(3, 3, 1, 1);
+      await tester.pump();
+      expect(viewer.zoomed, isTrue);
+      await tester.flingFrom(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+        const Offset(0, 300),
+        2500,
+      );
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+    });
+
+    testWidgets('touch only: a mouse drag does not close', (tester) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final mouse = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await mouse.moveBy(const Offset(0, 40));
+      await mouse.moveBy(const Offset(0, 300));
+      await mouse.up();
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+    });
+
+    testWidgets('horizontal intent belongs to the pages', (tester) async {
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      await tester.dragFrom(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+        const Offset(-300, 40),
+      );
+      await _settle(tester, 8);
+      expect(find.byType(MediaBrowser), findsOneWidget);
+      expect(_counter(tester), '2 / 3');
+    });
+  });
+
+  group('Hero', () {
+    final shuttle = find.byKey(const ValueKey('media-hero-shuttle'));
+
+    for (final (name, size) in [('phone', _phone), ('desktop', _wide)]) {
+      testWidgets('$name: the card flies to the stage and back', (
+        tester,
+      ) async {
+        await _mount(tester, size: size, gallery: true, count: 3);
+        await tester.tap(find.byTooltip('Preview photo-0.png'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(shuttle, findsOneWidget, reason: 'in flight');
+        await _settle(tester, 8);
+        expect(shuttle, findsNothing);
+        // The tapped card wears the Hero for as long as the browser is up.
+        expect(
+          find.byType(RaftMediaHero, skipOffstage: false),
+          findsNWidgets(2),
+        );
+        _viewer(tester).widget.onClose();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(shuttle, findsOneWidget, reason: 'back to the card');
+        await _settle(tester, 12);
+        expect(find.byType(MediaBrowser), findsNothing);
+        expect(
+          find.byType(RaftMediaHero),
+          findsNothing,
+          reason: 'card is plain',
+        );
+      });
+    }
+
+    testWidgets('closing on another page than the opener fades, no flight', (
+      tester,
+    ) async {
+      await _mount(tester, size: _phone, gallery: true, count: 3);
+      await _open(tester, 0);
+      _viewer(tester).goTo(2);
+      await _settle(tester, 8);
+      _viewer(tester).widget.onClose();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(shuttle, findsNothing);
+      await _settle(tester, 12);
+      expect(find.byType(MediaBrowser), findsNothing);
+    });
+
+    testWidgets('reduced motion: no Hero, an 80 ms cross-fade', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _mount(tester, size: _phone, gallery: true, count: 3);
+      await tester.tap(find.byTooltip('Preview photo-0.png'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(shuttle, findsNothing);
+      expect(find.byType(RaftMediaHero, skipOffstage: false), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump();
+      expect(find.byType(AttachmentView), findsNothing, reason: 'settled');
+    });
+  });
+
+  group('reduced motion', () {
+    testWidgets('page changes snap on a phone', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _mount(tester, size: _phone, count: 5, gallery: true);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      viewer.goTo(1);
+      await tester.pump();
+      expect(viewer.pages.page, 1.0);
+    });
+
+    testWidgets('the chrome toggles without a fade; dragging does not scale', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _mount(tester, size: _phone, gallery: true);
+      await _open(tester, 0);
+      final width = tester.getSize(find.byType(ImageZoomSurface)).width;
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('viewer-stage'))),
+      );
+      await gesture.moveBy(const Offset(0, 40));
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pump();
+      expect(tester.getSize(find.byType(ImageZoomSurface)).width, width);
+      expect(
+        tester.getTopLeft(find.byType(ImageZoomSurface)).dy,
+        greaterThan(90),
+        reason: 'still follows the finger',
+      );
+      await gesture.up(timeStamp: const Duration(seconds: 3));
+      await _settle(tester, 8);
+    });
+  });
+
+  group('keyboard map', () {
+    Future<void> chord(
+      WidgetTester tester,
+      LogicalKeyboardKey modifier,
+      LogicalKeyboardKey key,
+    ) async {
+      final platform = switch (defaultTargetPlatform) {
+        TargetPlatform.macOS => 'macos',
+        TargetPlatform.windows => 'windows',
+        _ => 'linux',
+      };
+      await tester.sendKeyDownEvent(modifier, platform: platform);
+      await tester.sendKeyEvent(key, platform: platform);
+      await tester.sendKeyUpEvent(modifier, platform: platform);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    final variant = TargetPlatformVariant.only(TargetPlatform.macOS);
+    final others = TargetPlatformVariant({
+      TargetPlatform.linux,
+      TargetPlatform.windows,
+    });
+
+    testWidgets('macOS: Cmd+= / Cmd+- / Cmd+0 zoom and fit; Ctrl does not', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      await chord(
+        tester,
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.equal,
+      );
+      expect(viewer.zoomed, isFalse, reason: 'Ctrl is not the command key');
+      await chord(
+        tester,
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.equal,
+      );
+      expect(viewer.zoomed, isTrue);
+      await chord(
+        tester,
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.digit0,
+      );
+      expect(viewer.zoomed, isFalse);
+      await chord(
+        tester,
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.equal,
+      );
+      await chord(
+        tester,
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.minus,
+      );
+      expect(viewer.zoomed, isFalse, reason: '1.5x then back to fit');
+    }, variant: variant);
+
+    testWidgets('Windows / Linux: Ctrl+= / Ctrl+- / Ctrl+0; Cmd does not', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide);
+      await _open(tester, 0);
+      final viewer = _viewer(tester);
+      await chord(
+        tester,
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.equal,
+      );
+      expect(viewer.zoomed, isFalse, reason: 'Meta is not the command key');
+      await chord(
+        tester,
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.equal,
+      );
+      expect(viewer.zoomed, isTrue);
+      await chord(
+        tester,
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.digit0,
+      );
+      expect(viewer.zoomed, isFalse);
+    }, variant: others);
+
+    testWidgets('+ and - zoom, Home and End jump, plain arrows still page', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide, count: 5);
+      await _open(tester, 2);
+      final viewer = _viewer(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.numpadAdd);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(viewer.zoomed, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.numpadSubtract);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(viewer.zoomed, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await _settle(tester, 4);
+      expect(_counter(tester), '1 / 5');
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await _settle(tester, 4);
+      expect(_counter(tester), '5 / 5');
+    });
+
+    testWidgets('Esc, Ctrl+W and Cmd+W close on every platform', (
+      tester,
+    ) async {
+      await _mount(tester, size: _wide, count: 2);
+      for (final modifier in [
+        null,
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.metaLeft,
+      ]) {
+        await _open(tester, 0);
+        if (modifier == null) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        } else {
+          await tester.sendKeyDownEvent(modifier);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+          await tester.sendKeyUpEvent(modifier);
+        }
+        await _settle(tester, 12);
+        expect(find.byType(MediaBrowser), findsNothing, reason: '$modifier');
+      }
+    });
+  });
+
+  group('accessibility', () {
+    testWidgets('page label, selected strip item, zoom actions', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _mount(tester, size: _phone, gallery: true, message: _alice);
+      await _open(tester, 0);
+      final page = tester.getSemantics(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Semantics &&
+              (w.properties.label?.startsWith('Image 1 of 3, ') ?? false),
+        ),
+      );
+      expect(
+        page.label,
+        'Image 1 of 3, photo-0.png, Alice Chen, Oct 13, 2:02 PM',
+      );
+      final actions = page
+          .getSemanticsData()
+          .customSemanticsActionIds!
+          .map((id) => CustomSemanticsAction.getAction(id)!.label)
+          .toSet();
+      expect(actions, {'Zoom in', 'Zoom out', 'Fit to screen'});
+      final selected = tester.getSemantics(
+        find.byKey(const ValueKey('lightbox-thumbnail-0')),
+      );
+      expect(selected.label, 'Image 1 of 3');
+      expect(selected.flagsCollection.isSelected, Tristate.isTrue);
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('lightbox-thumbnail-1')))
+            .flagsCollection
+            .isSelected,
+        isNot(Tristate.isTrue),
+      );
+      // Zoom in without a pinch or a double tap.
+      final zoomIn = page
+          .getSemanticsData()
+          .customSemanticsActionIds!
+          .firstWhere(
+            (id) => CustomSemanticsAction.getAction(id)!.label == 'Zoom in',
+          );
+      tester.semantics.performAction(
+        find.semantics.byLabel(RegExp(r'^Image 1 of 3, ')),
+        SemanticsAction.customAction,
+        args: zoomIn,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(_viewer(tester).zoomed, isTrue);
+      handle.dispose();
     });
   });
 }

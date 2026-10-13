@@ -20,14 +20,16 @@ const viewerSurfaces = <CloseSurface>[
     'image-lightbox-timeline',
     kind: SurfaceKind.viewer,
     web: 'ImageLightbox.tsx:267 empty-stage click, ui/Lightbox.tsx:78-95 Esc / Ctrl+W, LightboxClose X',
-    phone: {_back, _esc, _scrim, _sys},
+    // A phone's tap on the empty stage toggles the chrome (Photos idiom); it
+    // closes by Back, Esc, the system back or a drag down.
+    phone: {_back, _esc, _sys},
     fold: {_x, _esc, _scrim, _sys},
     desktop: {_x, _esc, _scrim, _sys},
     files: [
       'lib/features/attachment_view.dart',
-      'lib/features/attachment_image_viewer.dart',
+      'lib/features/media_browser.dart',
       'lib/features/attachment_transfers.dart',
-      'lib/features/attachment_image_lightbox.dart',
+      'lib/features/media_image_page.dart',
       '../../packages/raft_ui/lib/src/attachment_lightbox.dart',
       '../../packages/raft_ui/lib/src/status_bar.dart',
     ],

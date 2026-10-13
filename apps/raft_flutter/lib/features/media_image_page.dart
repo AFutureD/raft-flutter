@@ -1,31 +1,40 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/workspace_controller.dart';
 import 'attachment_image_zoom.dart';
 import 'attachment_transfer_view.dart';
+import 'media_items.dart';
 
-/// Gallery state of the lightbox: the message's raster images (Web
-/// `images` / `currentIndex`).
+/// Gallery state of the lightbox: the message's media (Web `images` /
+/// `currentIndex`, plus videos behind the media-browser flag).
 class AttachmentLightboxGallery {
   const AttachmentLightboxGallery({
     required this.index,
     required this.thumbnails,
     required this.onSelect,
+    this.items,
   });
   final int index;
   final List<ImageProvider?> thumbnails;
   final ValueChanged<int> onSelect;
+
+  /// Kinds and durations of the pages (video thumbnails carry a badge);
+  /// without them every page is an image.
+  final List<MediaItem>? items;
   int get count => thumbnails.length;
 }
 
-/// The image lightbox route content: Web `ImageLightbox` frame (title bar
-/// with the gallery counter and the header [actions], stage and thumbnails;
-/// no previous / next arrows, owner decision 2026-10-13). Wide layouts carry Download in the header; phone layouts
-/// carry none (the stage's long-press menu saves and shares).
+/// The media browser frame around the stage. Wide layouts keep Web's
+/// `ImageLightbox` frame: title bar (kind glyph, bold filename, sub-line,
+/// gallery counter, [actions]), stage and the strip in a reserved band; no
+/// previous / next arrows (owner decision 2026-10-13). Phone layouts are the
+/// black immersive stage: [mediaActions] (Share, More) in the top bar, tap
+/// toggles the chrome, a drag down dismisses.
 class AttachmentImageLightbox extends StatelessWidget {
   const AttachmentImageLightbox({
     super.key,
@@ -33,45 +42,114 @@ class AttachmentImageLightbox extends StatelessWidget {
     required this.zoom,
     required this.onClose,
     required this.child,
+    this.subtitle,
+    this.kind,
     this.actions = const [],
+    this.mediaActions = const [],
     this.shortcuts = const {},
     this.gallery,
     this.page = false,
+    this.chrome,
+    this.caption,
+    this.dismissEnabled = true,
   });
   final String title;
+  final String? subtitle;
+
+  /// Kind of the current page: the wide header's glyph (Web's image lightbox
+  /// header has none, so a null kind draws none).
+  final MediaKind? kind;
   final TransformationController zoom;
   final VoidCallback onClose;
   final Widget child;
+
+  /// Wide header actions (Download).
   final List<Widget> actions;
+
+  /// Phone top-bar actions (Share, More, Download without a share sheet).
+  final List<RaftMediaAction> mediaActions;
   final Map<ShortcutActivator, VoidCallback> shortcuts;
   final AttachmentLightboxGallery? gallery;
   final bool page;
 
+  /// Phone chrome visibility (tap toggles it); wide layouts ignore it.
+  final ValueListenable<bool>? chrome;
+  final String? caption;
+  final bool dismissEnabled;
+
   @override
   Widget build(BuildContext context) {
     final g = gallery != null && gallery!.count > 1 ? gallery : null;
+    final strip = g == null
+        ? null
+        : RaftMediaStrip(
+            compact: page,
+            index: g.index,
+            onSelect: g.onSelect,
+            items: [
+              for (var i = 0; i < g.count; i++)
+                RaftMediaStripItem(
+                  thumbnail: g.thumbnails[i],
+                  video: g.items?[i].isVideo ?? false,
+                  duration: g.items?[i].duration,
+                  label: raftFormat(
+                    context,
+                    (g.items?[i].isVideo ?? false)
+                        ? 'Video {index} of {count}'
+                        : 'Image {index} of {count}',
+                    {'index': i + 1, 'count': g.count},
+                  ),
+                ),
+            ],
+          );
+    final counter = g == null
+        ? null
+        : RaftLightboxCounter(index: g.index, count: g.count);
+    if (page) {
+      return RaftMediaImmersiveShell(
+        title: title,
+        subtitle: subtitle,
+        chrome: chrome ?? const _Always(),
+        onClose: onClose,
+        counter: counter,
+        actions: mediaActions,
+        strip: strip,
+        caption: caption,
+        shortcuts: shortcuts,
+        dismissEnabled: dismissEnabled,
+        child: child,
+      );
+    }
     return RaftAttachmentLightbox(
-      page: page,
       title: title,
+      subtitle: subtitle,
+      leading: kind == null
+          ? null
+          : RaftIcon(
+              kind == MediaKind.video ? RaftGlyph.video : RaftGlyph.image,
+              size: 16,
+            ),
       titleBold: true,
       shortcuts: shortcuts,
       onResetZoom: () => zoom.value = Matrix4.identity(),
       onClose: onClose,
-      meta: g == null
-          ? null
-          : RaftLightboxCounter(index: g.index, count: g.count),
+      meta: counter,
       actions: actions,
-      overlayInset: g == null ? 0 : raftLightboxThumbnailBand,
-      overlay: g == null
-          ? null
-          : RaftLightboxThumbnails(
-              thumbnails: g.thumbnails,
-              index: g.index,
-              onSelect: g.onSelect,
-            ),
+      overlayInset: strip == null ? 0 : raftMediaDesktopStripBand,
+      overlay: strip,
       child: child,
     );
   }
+}
+
+class _Always extends ValueListenable<bool> {
+  const _Always();
+  @override
+  bool get value => true;
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
 }
 
 /// Lightbox body: the full-resolution original, decoded only while open.
@@ -93,7 +171,24 @@ class AttachmentLightboxImage extends StatefulWidget {
     this.imageSize,
     this.onReady,
     this.settledBefore = false,
+    this.heroTag,
+    this.onTap,
+    this.onZoomGesture,
+    this.closeOnTapOutside = true,
   });
+
+  /// Tag of the picture's Hero (card to stage); null leaves it out.
+  final Object? heroTag;
+
+  /// A single tap on the stage (phone: toggles the chrome).
+  final VoidCallback? onTap;
+
+  /// A zoom gesture began (phone: hides the chrome).
+  final VoidCallback? onZoomGesture;
+
+  /// Web: a tap outside the painted image closes (desktop). A phone's tap
+  /// toggles the chrome instead.
+  final bool closeOnTapOutside;
 
   /// The viewer showed this page's original already: paging back to it does
   /// not bring the progress chip back.
@@ -228,6 +323,13 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     super.dispose();
   }
 
+  final surfaceKey = GlobalKey<ImageZoomSurfaceState>();
+
+  /// Wraps the picture in the card-to-stage Hero.
+  Widget hero(Widget picture, ImageProvider? shuttle) => widget.heroTag == null
+      ? picture
+      : RaftMediaHero(tag: widget.heroTag!, image: shuttle, child: picture);
+
   /// The stand-in stage: the thumbnail (or a neutral box) in the original's
   /// aspect ratio, never larger than the original, with the bottom-edge bar.
   Widget stage(BuildContext context, ImageProvider? thumbnail) {
@@ -261,12 +363,15 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
               children: [
                 thumbnail == null
                     ? const RaftTransferPlaceholder(onDark: true)
-                    // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
-                    : Image(
-                        image: thumbnail,
-                        key: widget.imageKey,
-                        fit: BoxFit.contain,
-                        gaplessPlayback: true,
+                    : hero(
+                        // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
+                        Image(
+                          image: thumbnail,
+                          key: widget.imageKey,
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                        ),
+                        thumbnail,
                       ),
                 if (failed) ...[
                   RaftImageTransferOverlay.failed(inset: 10, onRetry: retry),
@@ -333,22 +438,30 @@ class AttachmentLightboxImageState extends State<AttachmentLightboxImage> {
     // transformed image." A tap (not a pan / pinch) outside the painted image
     // closes the route; the tap recognizer loses the arena to a drag.
     return ImageZoomSurface(
+      key: surfaceKey,
       controller: widget.zoom,
       natural: decoded ?? widget.imageSize,
       verticalInset: RaftLightboxStageInset.of(context),
-      onTapOutside: () => unawaited(Navigator.maybePop(context)),
-      // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
-      child: Image(
-        image: provider,
-        key: widget.imageKey,
-        fit: (decoded ?? widget.imageSize) == null
-            ? BoxFit.scaleDown
-            : BoxFit.contain,
-        gaplessPlayback: true,
-        errorBuilder: (context, _, _) => RaftLightboxFailure(
-          title: widget.title,
-          message: 'Failed to load image',
+      onTapOutside: widget.closeOnTapOutside
+          ? () => unawaited(Navigator.maybePop(context))
+          : null,
+      onTap: widget.onTap,
+      onZoomGesture: widget.onZoomGesture,
+      child: hero(
+        // ignore: raft_lints/avoid_raw_image_decode -- Lightbox stage images are leases decoded at screen size x zoom cap by the repository; the viewer keeps that bounded path.
+        Image(
+          image: provider,
+          key: widget.imageKey,
+          fit: (decoded ?? widget.imageSize) == null
+              ? BoxFit.scaleDown
+              : BoxFit.contain,
+          gaplessPlayback: true,
+          errorBuilder: (context, _, _) => RaftLightboxFailure(
+            title: widget.title,
+            message: 'Failed to load image',
+          ),
         ),
+        widget.placeholder ?? provider,
       ),
     );
   }

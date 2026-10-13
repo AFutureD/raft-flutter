@@ -142,11 +142,12 @@ void main() {
         expect(action.hitTestable(), findsOneWidget);
         await tester.tap(action);
         await tester.pump();
+        // The route's first frame is built off stage while the Hero measures.
+        await tester.pump();
         expect(
           find.byTooltip('Close preview'),
           findsOneWidget,
-          reason:
-              'Source opens the lightbox at intent while image bytes are pending.',
+          reason: 'Source opens the lightbox at intent while image bytes are pending.',
         );
         expect(tester.takeException(), isNull);
       },
@@ -158,6 +159,7 @@ void main() {
           final (_, w, files) = await mountImage(tester, family, dark);
           await tester.pump();
           await tester.tap(find.byTooltip('Preview image.png'));
+          await tester.pump();
           await tester.pump();
           expect(find.byTooltip('Close preview'), findsOneWidget);
           await tester.pump(const Duration(milliseconds: 300));
@@ -202,7 +204,11 @@ void main() {
         await decodeWithoutPainting(tester);
         await tester.tapAt(paintedCenter);
         await tester.pump();
+        await tester.pump();
         expect(find.byTooltip('Close preview'), findsOneWidget);
+        // The card's picture flies to the stage; the stage's own picture
+        // takes over when the flight lands.
+        await tester.pump(const Duration(milliseconds: 400));
         expect(
           find.byKey(const ValueKey('attachment-image-image')),
           findsOneWidget,
@@ -227,6 +233,7 @@ void main() {
         final (_, _, files) = await mountImage(tester, family, dark);
         await tester.pump();
         await tester.tap(find.byTooltip('Preview image.png'));
+        await tester.pump();
         await tester.pump();
         expect(find.byTooltip('Close preview'), findsOneWidget);
         files.bytes.completeError(StateError('owned image failure'));
@@ -255,6 +262,7 @@ void main() {
     files.bytes.complete(png);
     await decodeWithoutPainting(tester);
     await tester.tapAt(center);
+    await tester.pump();
     await tester.pump();
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 50)),

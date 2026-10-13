@@ -224,6 +224,9 @@ void main() {
 
       await tester.tap(find.byTooltip('Preview photo.png'));
       await tester.pump();
+      // The card's picture flies to the stage first (the stage's own picture
+      // is built once the flight lands).
+      await tester.pump(const Duration(milliseconds: 400));
       final lightbox = find.byKey(const ValueKey('attachment-image-photo'));
       expect(lightbox, findsOneWidget);
       for (

@@ -5,7 +5,9 @@ import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import 'layout_hold.dart';
+
 import 'package:raft_ui/raft_ui.dart';
 
 import '../data/raft_location.dart';
@@ -16,11 +18,12 @@ import '../platform/native_sharing.dart';
 import '../platform/system_bars.dart';
 import 'attachment_preview_dialog.dart';
 import 'attachment_html_preview.dart';
-import 'attachment_image_viewer.dart';
 import 'attachment_image_loader.dart';
 import 'attachment_transfers.dart';
 import 'attachment_preview_gate.dart';
 import 'inline_attachment_media.dart';
+import 'media_browser.dart';
+import 'media_items.dart';
 import 'private_route_guard.dart';
 
 bool _isSvgMime(String mime) =>
@@ -72,6 +75,7 @@ class AttachmentView extends StatefulWidget {
     this.imageFit = BoxFit.contain,
     this.galleryItems,
     this.sharing,
+    this.mediaMessage,
   });
   final WorkspaceController controller;
   final Map<String, dynamic> metadata;
@@ -88,6 +92,10 @@ class AttachmentView extends StatefulWidget {
 
   /// The platform share / photo-library bridge (tests inject one).
   final NativeSharing? sharing;
+
+  /// Who sent the message, when and what it says, read when the viewer opens
+  /// (the browser's `sender · time` sub-line and phone caption).
+  final MediaMessageInfo Function()? mediaMessage;
   @override
   State<AttachmentView> createState() => _AttachmentViewState();
 }
@@ -116,6 +124,11 @@ class _AttachmentViewState extends State<AttachmentView> {
   /// A cold network load fades in once; cached images appear directly.
   bool fadeIn = false;
   bool begun = false;
+
+  /// The picture wears the card-to-stage Hero while the media browser it
+  /// opened is on screen (a Hero only for the tapped card: the same message
+  /// can appear twice in a route, e.g. in a thread's parent).
+  bool heroActive = false;
   double devicePixelRatio = 1;
   bool exportReadyReported = false, opening = false;
   ModalRoute<void>? previewRoute;
@@ -541,6 +554,16 @@ class _AttachmentViewState extends State<AttachmentView> {
   ModalRoute<void> createPreviewRoute(bool page, WidgetBuilder builder) =>
       _heldRoute(_previewRoute(page, builder));
 
+  /// The media browser's route: transparent and fading, the picture flies in
+  /// from the card; reduced motion cross-fades in 80 ms.
+  ModalRoute<void> createMediaRoute(WidgetBuilder builder) => _heldRoute(
+    RaftMediaBrowserRoute<void>(
+      settings: const RouteSettings(name: '/attachment-preview'),
+      reducedMotion: MediaQuery.disableAnimationsOf(context),
+      builder: builder,
+    ),
+  );
+
   ModalRoute<void> _heldRoute(ModalRoute<void> route) {
     LayoutHold.hold(route);
     return route;
@@ -663,33 +686,51 @@ class _AttachmentViewState extends State<AttachmentView> {
         ? widget.galleryItems!
         : [widget.metadata];
     final start = siblings.indexWhere((m) => m['id'] == widget.metadata['id']);
+    final info = widget.mediaMessage?.call();
+    final messageId = widget.messageId;
+    final channelId = ownerChannel;
+    // A phone held sideways is wider than a window the page layouts switch
+    // at, but still a phone: it gets the immersive stage (without the strip).
+    final phone =
+        page ||
+        (RaftDensityScope.of(context) == RaftDensity.touch &&
+            MediaQuery.sizeOf(context).shortestSide < 600);
+    final hero = !MediaQuery.disableAnimationsOf(context);
+    if (hero && imageProvider != null) setState(() => heroActive = true);
     late final ModalRoute<void> operationRoute;
-    operationRoute = createPreviewRoute(
-      page,
+    void close() {
+      if (identical(previewRoute, operationRoute) && operationRoute.isCurrent) {
+        // The browser fades out like the preview dialog does; the image
+        // stays interactive meanwhile.
+        operationRoute.navigator?.pop();
+      }
+    }
+
+    operationRoute = createMediaRoute(
       (dialogContext) => ValueListenableBuilder<int>(
         valueListenable: imagePresentation,
         builder: (_, _, _) {
           if (!current()) return const SizedBox.shrink();
-          return AttachmentImageViewer(
+          return MediaBrowser(
             controller: w,
             files: files,
             sharing: sharing,
-            items: siblings,
+            items: [for (final m in siblings) MediaItem.image(m)],
             initialIndex: start < 0 ? 0 : start,
-            messageId: widget.messageId,
+            messageId: messageId,
+            message: info,
             authorized: current,
-            page: page,
+            page: phone,
             openerPlaceholder: imageProvider,
             openerPreviewFailed: error != null,
             progressRoute: attachmentDownloadProgressRoute,
-            onClose: () {
-              if (identical(previewRoute, operationRoute) &&
-                  operationRoute.isCurrent) {
-                // The dialog fades out like the preview dialog does; the
-                // image stays interactive meanwhile.
-                operationRoute.navigator?.pop();
-              }
-            },
+            onShowInMessage: messageId == null
+                ? null
+                : () {
+                    close();
+                    unawaited(w.jumpToMessage(channelId, messageId));
+                  },
+            onClose: close,
           );
         },
       ),
@@ -698,6 +739,7 @@ class _AttachmentViewState extends State<AttachmentView> {
     await Navigator.of(context, rootNavigator: true).push(operationRoute);
     // The image remains interactive while its page animates out.
     await operationRoute.completed;
+    if (mounted && heroActive) setState(() => heroActive = false);
     if (identical(previewRoute, operationRoute)) previewRoute = null;
     retentionChanged();
   }
@@ -883,6 +925,14 @@ class _AttachmentViewState extends State<AttachmentView> {
         expand: false,
       ),
     );
+    if (heroActive) {
+      return RaftMediaHero(
+        tag: MediaBrowser.heroTagFor('${widget.metadata['id']}'),
+        image: provider,
+        radius: RaftShapes.attachment(RaftTokens.of(context)),
+        child: image(),
+      );
+    }
     if (!fadeIn) return image();
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),

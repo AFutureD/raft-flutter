@@ -197,6 +197,46 @@ reopen. Now:
   OS proxy only, so Settings > Network *Manual*/*No proxy* do not apply to streamed media on Android/iOS/macOS (see
   [system proxy](system-proxy.md)).
 
+## Media browser
+
+One route pages through the images (and, behind a flag, the videos) of the message a card belongs to
+(`features/media_browser.dart`, `MediaItem` in `media_items.dart`; visuals in `raft_ui/src/media_browser.dart`). Audio, PDF,
+documents and everything else still open in `AttachmentPreviewDialog`. A message with one image opens the browser
+without counter and strip.
+
+* **Route.** `RaftMediaBrowserRoute` (a `PageRoute`, transparent while it fades; opaque once the open transition ends so
+  the chat below stops painting; see-through again while a drag-to-dismiss runs). It replaces the dialog route and the
+  Material page of the old image viewer on every layout; reduced motion (`MediaQuery.disableAnimations`) shortens the
+  fade to 80 ms and leaves the Hero out. The route's first frame is built off stage while the Hero measures its end
+  (framework behaviour), so content shows one frame after the push.
+* **Hero.** The tapped card's picture flies to the stage and back (`RaftMediaHero`, tag `media-<attachmentId>`, the
+  shuttle paints the card's bitmap `cover`-cropped and rounds the card's corners off). Only the opening card wears the
+  Hero, for as long as the browser it opened is up (the same message can be on screen twice, e.g. a thread's parent, and
+  duplicate tags assert). Closing on another page than the opener fades instead of flying.
+* **Phone (compact width, or a touch device with a short side under 600 dp: a phone held sideways).** A black stage under
+  the status bar and the gesture bar; two chrome layers fade together in 160 ms. Top bar: Back, filename and the
+  `sender · time` sub-line, the `n / N` counter, Share (when the platform has a share sheet) and More (Save to Photos /
+  Gallery, Download file, Show in message). Bottom band: the message text as a two-line caption (tap expands; only when
+  the message has text) and the 44 dp strip. Landscape drops the bottom band. The stage keeps symmetrical room for the
+  bands (`RaftLightboxStageInset`), so toggling the chrome never moves the picture. A tap toggles the chrome once the
+  350 ms double-tap window has passed without a second tap (a double tap zooms); the first zoom gesture hides it, a screen
+  reader keeps it on. A tap on the empty stage does not close (Web's empty-stage click is desktop only). Long press keeps
+  the Save / Share menu. System bar icons are light over the black stage, bars transparent (edge to edge).
+* **Drag down to dismiss** (touch, zoom at fit, one finger): `RaftMediaDismissible` follows the finger, scales to 0.82 and
+  fades the scrim and the chrome (gone within 40 dp). Release past 120 dp or faster than 700 dp/s pops (Hero or fade from
+  where it is), otherwise it springs back in 200 ms. Zoomed, a mouse, a second finger or a horizontal intent leave it
+  alone; reduced motion drops the scaling.
+* **Desktop (wide).** Web's frame: header with the kind glyph, bold filename, the `sender · time · WxH · size` line, the
+  counter and Download; side arrows are not drawn (owner decision 2026-10-13); a click on the empty stage closes; page
+  changes cut. The strip (`RaftMediaStrip`) is a lazily built, scrollable band the stage keeps clear of; video thumbnails
+  carry a play badge with the duration.
+* **Keyboard** (`RaftPlatformKeys.command`: Cmd on macOS / iOS, Ctrl elsewhere). Esc, Ctrl+W and Cmd+W close on every
+  platform (Web); Left / Right page (not while zoomed), Home / End jump; `+`, `=`, `-`, Cmd/Ctrl + `=` / `-` zoom,
+  `0` and Cmd/Ctrl + `0` fit.
+* **Accessibility.** Pages read "Image 3 of 9, name, sender, time" and offer Zoom in / Zoom out / Fit to screen actions;
+  strip items are selected-state buttons; chrome targets are 44 dp.
+* **Not here yet:** the desktop comments aside, Cmd/Ctrl+S, seek by double tap.
+
 ## Verification record
 
 * Viewer surface tests (`viewer_video_surface_test`, `video_player_attachment_player_test`, `player_sessions_test`,

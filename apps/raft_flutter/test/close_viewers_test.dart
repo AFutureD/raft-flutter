@@ -132,10 +132,7 @@ Future<WorkspaceController> openTask(
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
-  final (w, api) = await pageFixture(
-    t,
-    section: tasksRoute ? 'tasks' : 'chat',
-  );
+  final (w, api) = await pageFixture(t, section: tasksRoute ? 'tasks' : 'chat');
   taskRoutes(api, task);
   api.routes['GET /tasks/channel/c1'] = (r) => {
     'tasks':
@@ -302,10 +299,12 @@ Future<SourceFeedbackStore> mountFeedback(WidgetTester t, Size size) async {
 }
 
 bool lightboxOpen() =>
-    find.byType(RaftAttachmentLightbox).evaluate().isNotEmpty;
+    find.byType(RaftAttachmentLightbox).evaluate().isNotEmpty ||
+    find.byType(RaftMediaImmersiveShell).evaluate().isNotEmpty;
 
 /// A point on the stage well away from the (16px) image in the middle.
-Offset emptyStage(Size size) => Offset(size.width / 2 + 100, size.height / 2 + 100);
+Offset emptyStage(Size size) =>
+    Offset(size.width / 2 + 100, size.height / 2 + 100);
 
 void main() {
   final harness = <String, OpenSurface>{
@@ -400,7 +399,9 @@ void main() {
           MaterialPageRoute<bool>(
             builder: (_) => IncomingSharePicker(
               client: PickerClient(),
-              servers: [RaftRecord({'id': 'a', 'name': 'Server A'})],
+              servers: [
+                RaftRecord({'id': 'a', 'name': 'Server A'}),
+              ],
               valid: () => true,
               onContinue: (server, target) async {},
             ),
@@ -505,10 +506,13 @@ void main() {
       });
       await t.tap(find.byTooltip('Preview image.png'));
       await settleImage(t);
+      final phone = size.width < 640;
       return SurfaceProbe(
         isOpen: lightboxOpen,
         x: find.byTooltip('Close preview'),
-        back: find.byTooltip('Close preview'),
+        back: phone
+            ? find.bySemanticsLabel('Back')
+            : find.byTooltip('Close preview'),
         scrim: emptyStage(size),
       );
     },
@@ -635,7 +639,8 @@ void main() {
       await t.tap(toggle);
       await frames(t, 20);
       return SurfaceProbe(
-        isOpen: () => find.byType(RaftComposer).hitTestable().evaluate().isNotEmpty,
+        isOpen: () =>
+            find.byType(RaftComposer).hitTestable().evaluate().isNotEmpty,
         x: toggle,
       );
     },
@@ -649,7 +654,8 @@ void main() {
           home: const Scaffold(
             body: SingleChildScrollView(
               child: RaftMessageBody(
-                content: '```mermaid\nflowchart LR\n A[Draft] --> B[Review]\n```',
+                content:
+                    '```mermaid\nflowchart LR\n A[Draft] --> B[Review]\n```',
               ),
             ),
           ),
@@ -752,7 +758,8 @@ void main() {
     w.openProfile(RaftProfileKind.human, 'bob');
     await frames(t, 25);
     expect(
-      FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<RaftControl>(),
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<RaftControl>(),
       isNotNull,
       reason: 'a shell control must hold focus for this check',
     );

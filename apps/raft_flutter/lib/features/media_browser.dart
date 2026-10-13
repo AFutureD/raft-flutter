@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:raft_ui/raft_ui.dart';
 
@@ -8,25 +9,27 @@ import '../data/attachment_image_repository.dart';
 import '../data/workspace_controller.dart';
 import '../platform/attachment_files.dart';
 import '../platform/native_sharing.dart';
-import 'attachment_image_lightbox.dart';
 import 'attachment_image_loader.dart';
 import 'attachment_transfers.dart';
+import 'media_image_page.dart';
+import 'media_items.dart';
 
-/// The image viewer of a message's images (Web `ImageLightbox`): every
+/// The media browser of a message (Web `ImageLightbox`, extended): every
 /// previewable image of the message, arrows / ArrowLeft / ArrowRight / swipe
 /// between them (no wrap), the counter chip and thumbnail strip, zoom that
-/// resets when the image changes.
+/// resets when the page changes.
 ///
-/// Header actions follow the layout. Wide layouts carry Download (Web).
-/// Phones carry none: a long press on the image opens the menu with
-/// "Save to Photos / Gallery" and "Share" instead.
+/// Wide layouts keep Web's frame (Download in the header). Phones show a black
+/// immersive stage: a tap toggles the chrome (top bar with Share and More, the
+/// strip and the caption below), a drag down dismisses, a long press opens the
+/// Save / Share menu. The picture flies in from the tapped card ([heroTag]).
 ///
 /// Each page loads its original on demand through the shared repository
 /// (signed when it is not stored). Once the current page is ready, its two
 /// neighbours are fetched once at display size (one image each side); nothing
 /// further is signed ahead.
-class AttachmentImageViewer extends StatefulWidget {
-  const AttachmentImageViewer({
+class MediaBrowser extends StatefulWidget {
+  const MediaBrowser({
     super.key,
     required this.controller,
     required this.files,
@@ -36,19 +39,24 @@ class AttachmentImageViewer extends StatefulWidget {
     required this.messageId,
     required this.authorized,
     required this.onClose,
+    this.message,
     this.page = false,
     this.openerPlaceholder,
     this.openerPreviewFailed = false,
     this.progressRoute,
+    this.onShowInMessage,
   });
   final WorkspaceController controller;
   final AttachmentFiles files;
   final NativeSharing sharing;
 
-  /// Metadata of every previewable image of the message, in order.
-  final List<Map<String, dynamic>> items;
+  /// Every page of the browser, in message order.
+  final List<MediaItem> items;
   final int initialIndex;
   final String? messageId;
+
+  /// Who sent the message, when, and what it says (sub-line and caption).
+  final MediaMessageInfo? message;
   final bool Function() authorized;
   final VoidCallback onClose;
 
@@ -63,11 +71,18 @@ class AttachmentImageViewer extends StatefulWidget {
   /// The dialog that shows a picker download's progress.
   final AttachmentProgressRouteBuilder? progressRoute;
 
+  /// "Show in message": closes the browser and scrolls the chat to the
+  /// message. Null leaves the menu entry out.
+  final VoidCallback? onShowInMessage;
+
+  /// Hero tag of the picture of attachment [id].
+  static Object heroTagFor(String id) => 'media-$id';
+
   @override
-  State<AttachmentImageViewer> createState() => AttachmentImageViewerState();
+  State<MediaBrowser> createState() => MediaBrowserState();
 }
 
-class AttachmentImageViewerState extends State<AttachmentImageViewer> {
+class MediaBrowserState extends State<MediaBrowser> {
   late int index = widget.initialIndex.clamp(0, widget.items.length - 1);
   late final PageController pages = PageController(initialPage: index);
   final zooms = <int, TransformationController>{};
@@ -79,16 +94,20 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
   bool zoomed = false;
   bool _disposed = false;
 
+  /// Phone chrome (top bar, caption, strip) visibility; a tap toggles it.
+  final chrome = ValueNotifier<bool>(true);
+
   /// Pages whose original has been on screen: paging back to one does not
   /// show the progress chip again.
   final _settledPages = <int>{};
 
   WorkspaceController get w => widget.controller;
-  Map<String, dynamic> item(int i) => widget.items[i];
+  List<MediaItem> get items => widget.items;
+  Map<String, dynamic> item(int i) => items[i].metadata;
   String ownerChannel(int i) =>
       attachmentOwnerChannel(w, item(i), widget.messageId);
 
-  /// Phones: the long-press menu replaces the header actions.
+  /// Phones: Share and Save to the photo library are on offer.
   bool get phoneMenu =>
       widget.page &&
       (widget.files.gallerySupported || widget.sharing.supported);
@@ -144,7 +163,7 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
   /// number; nothing is signed for the strip.
   void _loadThumbnails() {
     if (_disposed) return;
-    for (var i = 0; i < widget.items.length; i++) {
+    for (var i = 0; i < items.length; i++) {
       final meta = item(i);
       if (attachmentThumbnailUrl(meta) == null || _thumbLeases.containsKey(i)) {
         continue;
@@ -194,7 +213,7 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
     if (!mounted || _disposed || !widget.authorized()) return;
     final wanted = {
       for (final n in [index - 1, index + 1])
-        if (n >= 0 && n < widget.items.length) n,
+        if (n >= 0 && n < items.length) n,
     };
     for (final stale
         in _preloads.keys.where((k) => !wanted.contains(k)).toList()) {
@@ -257,13 +276,16 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
 
   /// Arrows, thumbnails and keys: no wrap.
   void goTo(int target) {
-    if (target < 0 || target >= widget.items.length || target == index) return;
+    if (target < 0 || target >= items.length || target == index) return;
     if (!pages.hasClients) return;
     // Web swaps the image at once (no transition) and the desktop keeps that;
     // a phone has no Web counterpart and swipes animate natively, so a step
     // to the next / previous image glides too (a longer jump would build,
-    // and start loading, every page in between: it cuts).
-    if (widget.page && (target - index).abs() == 1) {
+    // and start loading, every page in between: it cuts). Reduced motion
+    // snaps.
+    if (widget.page &&
+        (target - index).abs() == 1 &&
+        !MediaQuery.disableAnimationsOf(context)) {
       unawaited(
         pages.animateToPage(
           target,
@@ -282,12 +304,22 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
     goTo(index + delta);
   }
 
-  Future<void> _menu(Offset at) async {
-    if (!phoneMenu || !widget.authorized()) return;
+  void toggleChrome() => chrome.value = !chrome.value;
+
+  /// Keyboard and accessibility zoom of the current page.
+  void zoomStep(double factor) =>
+      _currentPage?.surfaceKey.currentState?.zoomStep(factor);
+
+  void resetZoom() => _currentPage?.surfaceKey.currentState?.resetZoom();
+
+  Future<void> _menu(Offset at, {bool full = false}) async {
+    if (!widget.authorized()) return;
     final meta = item(index);
     final canSave = widget.files.gallerySupported && !attachmentIsSvg(meta);
-    final canShare = widget.sharing.supported;
-    if (!canSave && !canShare) return;
+    final canShare = !full && widget.sharing.supported;
+    final canDownload = full && phoneMenu;
+    final canShow = full && widget.onShowInMessage != null;
+    if (!canSave && !canShare && !canDownload && !canShow) return;
     final transfers = transfersFor(index);
     String? choice;
     await showRaftMessageContextMenu<void>(
@@ -320,6 +352,20 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
                   icon: raftMessageMenuIcon(RaftGlyph.share2),
                   onPressed: () => pick('share'),
                 ),
+              if (canDownload)
+                RaftMessageContextMenuItem(
+                  key: const ValueKey('viewer-menu-download'),
+                  label: raftText(menuContext, 'Download file'),
+                  icon: raftMessageMenuIcon(RaftGlyph.arrowDown),
+                  onPressed: () => pick('download'),
+                ),
+              if (canShow)
+                RaftMessageContextMenuItem(
+                  key: const ValueKey('viewer-menu-show'),
+                  label: raftText(menuContext, 'Show in message'),
+                  icon: raftMessageMenuIcon(RaftGlyph.messageSquare),
+                  onPressed: () => pick('show'),
+                ),
             ],
           ],
         );
@@ -331,6 +377,10 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
         await transfers.saveToGallery();
       case 'share':
         await transfers.share();
+      case 'download':
+        await transfers.download();
+      case 'show':
+        widget.onShowInMessage?.call();
     }
   }
 
@@ -352,16 +402,106 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
       zoom.removeListener(_zoomChanged);
       zoom.dispose();
     }
+    chrome.dispose();
     pages.dispose();
     super.dispose();
   }
 
+  /// `sender · time` (phone); wide adds the pixel size and the file size.
+  String? _subtitle(BuildContext context, MediaItem current) {
+    final info = widget.message;
+    final size = current.pixelSize;
+    final bytes = current.sizeBytes;
+    final parts = [
+      if (info?.sender case final sender? when sender.isNotEmpty) sender,
+      ?info?.time,
+      if (!widget.page && size != null)
+        '${size.width.round()}x${size.height.round()}',
+      if (!widget.page && bytes != null) RaftAttachmentCard.formatSize(bytes),
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  Map<ShortcutActivator, VoidCallback> _shortcuts() {
+    final count = items.length;
+    void zoomIn() => zoomStep(1.5);
+    void zoomOut() => zoomStep(1 / 1.5);
+    return {
+      if (count > 1) ...{
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _key(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => _key(1),
+        const SingleActivator(LogicalKeyboardKey.home): () => goTo(0),
+        const SingleActivator(LogicalKeyboardKey.end): () => goTo(count - 1),
+      },
+      // `+` is Shift+= on a US layout and a key of its own on others.
+      for (final key in [
+        LogicalKeyboardKey.equal,
+        LogicalKeyboardKey.add,
+        LogicalKeyboardKey.numpadAdd,
+      ]) ...{
+        SingleActivator(key): zoomIn,
+        SingleActivator(key, shift: true): zoomIn,
+        RaftPlatformKeys.command(key): zoomIn,
+      },
+      for (final key in [
+        LogicalKeyboardKey.minus,
+        LogicalKeyboardKey.numpadSubtract,
+      ]) ...{
+        SingleActivator(key): zoomOut,
+        RaftPlatformKeys.command(key): zoomOut,
+      },
+      RaftPlatformKeys.command(LogicalKeyboardKey.digit0): resetZoom,
+      RaftPlatformKeys.command(LogicalKeyboardKey.numpad0): resetZoom,
+      // Web binds both Ctrl+W and Cmd+W to close, on every platform.
+      const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+          widget.onClose,
+      const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+          widget.onClose,
+    };
+  }
+
+  List<RaftMediaAction> _mediaActions(BuildContext context) {
+    if (!widget.page) return const [];
+    final transfers = transfersFor(index);
+    final canMore = phoneMenu || widget.onShowInMessage != null;
+    return [
+      if (widget.sharing.supported)
+        RaftMediaAction(
+          id: const ValueKey('viewer-share'),
+          glyph: RaftGlyph.share2,
+          label: 'Share',
+          onPressed: (_) {
+            if (widget.authorized()) unawaited(transfers.share());
+          },
+        ),
+      // A phone-sized window without a share sheet or a photo library (a
+      // desktop): the header's Download stays one tap away.
+      if (!phoneMenu)
+        RaftMediaAction(
+          id: const ValueKey('attachment-download'),
+          glyph: RaftGlyph.download,
+          label: 'Download',
+          onPressed: (_) {
+            if (widget.authorized()) unawaited(transfers.download());
+          },
+        ),
+      if (canMore)
+        RaftMediaAction(
+          id: const ValueKey('viewer-more'),
+          glyph: RaftGlyph.ellipsis,
+          label: 'More',
+          onPressed: (anchor) =>
+              unawaited(_menu(anchor.bottomRight, full: true)),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final count = widget.items.length;
-    final meta = item(index);
+    final count = items.length;
+    final current = items[index];
     final transfers = transfersFor(index);
-    final actions = phoneMenu
+    final actions = widget.page
         ? const <Widget>[]
         : [
             RaftLightboxIconAction(
@@ -375,22 +515,22 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
           ];
     return AttachmentImageLightbox(
       page: widget.page,
-      title: '${meta['filename'] ?? 'Attachment'}',
+      title: current.filename,
+      subtitle: _subtitle(context, current),
+      kind: current.kind,
       zoom: zoomFor(index),
       onClose: widget.onClose,
       actions: actions,
-      shortcuts: count > 1
-          ? {
-              const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-                  _key(-1),
-              const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-                  _key(1),
-            }
-          : const {},
+      mediaActions: _mediaActions(context),
+      chrome: chrome,
+      caption: widget.message?.caption,
+      dismissEnabled: !zoomed,
+      shortcuts: _shortcuts(),
       gallery: count > 1
           ? AttachmentLightboxGallery(
               index: index,
               thumbnails: [for (var i = 0; i < count; i++) _placeholder(i)],
+              items: items,
               onSelect: goTo,
             )
           : null,
@@ -409,53 +549,70 @@ class AttachmentImageViewerState extends State<AttachmentImageViewer> {
               ? const NeverScrollableScrollPhysics()
               : const PageScrollPhysics(),
           onPageChanged: _onPageChanged,
-          itemBuilder: (context, i) {
-            final pageMeta = item(i);
-            final key = pageKeys.putIfAbsent(
-              i,
-              () => GlobalKey<AttachmentLightboxImageState>(),
-            );
-            final original = _originalKey(i);
-            return AttachmentLightboxImage(
-              key: key,
-              imageKey: ValueKey('attachment-image-${pageMeta['id']}'),
-              zoom: zoomFor(i),
-              acquire: () => w.acquireAttachmentImage(
-                original,
-                authorized: widget.authorized,
-                load: attachmentImageLoader(
-                  controller: w,
-                  files: widget.files,
-                  metadata: pageMeta,
-                  key: original,
-                ),
-                foreground: true,
-              ),
-              placeholder: _placeholder(i),
-              previewFailed:
-                  i == widget.initialIndex && widget.openerPreviewFailed,
-              title: '${pageMeta['filename'] ?? 'Attachment'}',
-              transferTotalHint: (pageMeta['sizeBytes'] as num?)?.toInt(),
-              imageSize: _size(pageMeta),
-              settledBefore: _settledPages.contains(i),
-              onReady: () => _pageReady(i),
-            );
-          },
+          itemBuilder: _page,
         ),
       ),
     );
   }
 
-  static Size? _size(Map<String, dynamic> metadata) {
-    final width = (metadata['width'] as num?)?.toDouble();
-    final height = (metadata['height'] as num?)?.toDouble();
-    return width != null &&
-            height != null &&
-            width > 0 &&
-            height > 0 &&
-            width.isFinite &&
-            height.isFinite
-        ? Size(width, height)
-        : null;
+  Widget _page(BuildContext context, int i) {
+    final pageItem = items[i];
+    final pageMeta = pageItem.metadata;
+    final key = pageKeys.putIfAbsent(
+      i,
+      () => GlobalKey<AttachmentLightboxImageState>(),
+    );
+    final original = _originalKey(i);
+    final info = widget.message;
+    final label = [
+      raftFormat(context, 'Image {index} of {count}', {
+        'index': i + 1,
+        'count': items.length,
+      }),
+      pageItem.filename,
+      ?info?.sender,
+      ?info?.time,
+    ].join(', ');
+    return Semantics(
+      container: true,
+      label: label,
+      customSemanticsActions: {
+        CustomSemanticsAction(label: raftText(context, 'Zoom in')): () =>
+            pageKeys[i]?.currentState?.surfaceKey.currentState?.zoomStep(1.5),
+        CustomSemanticsAction(label: raftText(context, 'Zoom out')): () =>
+            pageKeys[i]?.currentState?.surfaceKey.currentState?.zoomStep(
+              1 / 1.5,
+            ),
+        CustomSemanticsAction(label: raftText(context, 'Fit to screen')): () =>
+            pageKeys[i]?.currentState?.surfaceKey.currentState?.resetZoom(),
+      },
+      child: AttachmentLightboxImage(
+        key: key,
+        imageKey: ValueKey('attachment-image-${pageMeta['id']}'),
+        zoom: zoomFor(i),
+        acquire: () => w.acquireAttachmentImage(
+          original,
+          authorized: widget.authorized,
+          load: attachmentImageLoader(
+            controller: w,
+            files: widget.files,
+            metadata: pageMeta,
+            key: original,
+          ),
+          foreground: true,
+        ),
+        placeholder: _placeholder(i),
+        previewFailed: i == widget.initialIndex && widget.openerPreviewFailed,
+        title: pageItem.filename,
+        transferTotalHint: pageItem.sizeBytes,
+        imageSize: pageItem.pixelSize,
+        settledBefore: _settledPages.contains(i),
+        onReady: () => _pageReady(i),
+        heroTag: MediaBrowser.heroTagFor(pageItem.id),
+        closeOnTapOutside: !widget.page,
+        onTap: widget.page ? toggleChrome : null,
+        onZoomGesture: widget.page ? () => chrome.value = false : null,
+      ),
+    );
   }
 }

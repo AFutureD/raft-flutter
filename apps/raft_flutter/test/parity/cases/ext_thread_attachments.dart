@@ -23,7 +23,7 @@ import 'package:raft_client/raft_client.dart';
 import 'package:raft_flutter/data/workspace_controller.dart';
 import 'package:raft_flutter/features/attachment_comments_view.dart';
 import 'package:raft_flutter/features/attachment_html_preview.dart';
-import 'package:raft_flutter/features/attachment_image_lightbox.dart';
+import 'package:raft_flutter/features/media_image_page.dart';
 import 'package:raft_flutter/features/attachment_preview_dialog.dart';
 import 'package:raft_flutter/platform/attachment_html.dart';
 import 'package:raft_ui/raft_ui.dart'

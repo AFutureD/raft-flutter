@@ -188,6 +188,8 @@ class ImageZoomSurface extends StatefulWidget {
     required this.child,
     this.verticalInset = 0,
     this.onTapOutside,
+    this.onTap,
+    this.onZoomGesture,
   });
   final TransformationController controller;
 
@@ -198,6 +200,13 @@ class ImageZoomSurface extends StatefulWidget {
   /// (the thumbnail strip's band).
   final double verticalInset;
   final VoidCallback? onTapOutside;
+
+  /// A single tap, reported once the double-tap window has passed without a
+  /// second tap (phone: toggles the chrome).
+  final VoidCallback? onTap;
+
+  /// A pinch or double-tap zoom begins (phone: the chrome gets out of the way).
+  final VoidCallback? onZoomGesture;
   final Widget child;
 
   @override
@@ -277,6 +286,18 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
     _animation.forward(from: 0);
   }
 
+  /// Keyboard / accessibility zoom: [factor] times the current scale around
+  /// the stage centre, animated like a double-tap.
+  void zoomStep(double factor) {
+    final current = imageZoomStateOf(widget.controller.value);
+    final next = (current.scale * factor).clamp(imageMinScale, _maxScale);
+    if (next > current.scale) widget.onZoomGesture?.call();
+    _animateTo(zoomImageAround(current, next, _stage.center(Offset.zero)));
+  }
+
+  /// Back to fit (keyboard `0`, accessibility action).
+  void resetZoom() => _animateTo((scale: 1, tx: 0, ty: 0));
+
   /// Web `onDoubleClick`: any zoom or pan returns to fit; otherwise zoom to
   /// 2x around the pointer.
   void toggleZoomAt(Offset focal) {
@@ -287,6 +308,7 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
       _animateTo((scale: 1, tx: 0, ty: 0));
     } else {
       final scale = math.min(imageDoubleTapScale, _maxScale);
+      widget.onZoomGesture?.call();
       _animateTo(zoomImageAround(current, scale, focal));
     }
   }
@@ -307,7 +329,11 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
       details.kind == PointerDeviceKind.mouse
           ? imageDoubleClickWindow
           : imageDoubleTapWindow,
-      () => _lastTap = null,
+      () {
+        _lastTap = null;
+        _lastTapExpiry = null;
+        if (mounted) widget.onTap?.call();
+      },
     );
     if (!imageContains(details.localPosition)) widget.onTapOutside?.call();
   }
@@ -320,6 +346,7 @@ class ImageZoomSurfaceState extends State<ImageZoomSurface>
 
   void _scaleStart(ScaleStartDetails details) {
     _stopAnimation();
+    if (details.pointerCount > 1) widget.onZoomGesture?.call();
     _gestureStart = imageZoomStateOf(widget.controller.value);
     _gestureFocal = details.localFocalPoint;
   }
